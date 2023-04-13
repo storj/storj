@@ -50,9 +50,10 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -62,7 +63,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -131,7 +132,7 @@ function navigateToNewProject(): void {
         analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
 
         const user: User = usersStore.state.user;
-        const ownProjectsCount: number = store.getters.projectsCount(user.id);
+        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);

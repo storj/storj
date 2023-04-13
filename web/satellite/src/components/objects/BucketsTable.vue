@@ -78,6 +78,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -102,7 +103,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -167,7 +168,7 @@ function onCreateBucketClick(): void {
  */
 async function fetchBuckets(page = 1): Promise<void> {
     try {
-        await bucketsStore.getBuckets(page, store.getters.selectedProject.id);
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
@@ -183,7 +184,7 @@ async function searchBuckets(searchQuery: string): Promise<void> {
     searchLoading.value = true;
 
     try {
-        await bucketsStore.getBuckets(1, store.getters.selectedProject.id);
+        await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
@@ -214,7 +215,7 @@ async function openBucket(bucketName: string): Promise<void> {
             overallLoading.value = true;
 
             try {
-                await bucketsStore.setS3Client(store.getters.selectedProject.id);
+                await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 overallLoading.value = false;
             } catch (error) {
                 await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);

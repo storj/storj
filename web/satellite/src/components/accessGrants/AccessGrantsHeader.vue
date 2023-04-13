@@ -46,17 +46,18 @@
 import { Fragment } from 'vue-fragment';
 import { computed, ref } from 'vue';
 
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsOrderBy } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import AscIcon from '@/../static/images/objects/asc.svg';
 import DescIcon from '@/../static/images/objects/desc.svg';
 
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const hover = ref<AccessGrantsOrderBy>();
 
@@ -108,7 +109,7 @@ async function sortBy(sortBy: AccessGrantsOrderBy): Promise<void> {
     }
 
     try {
-        await agStore.getAccessGrants(agStore.state.page.currentPage, store.getters.selectedProject.id);
+        await agStore.getAccessGrants(agStore.state.page.currentPage, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch accesses. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }

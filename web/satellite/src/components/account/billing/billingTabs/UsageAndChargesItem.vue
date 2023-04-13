@@ -64,8 +64,8 @@ import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_GB_SHIFT } from '@/utils/strings';
-import { useStore } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -84,7 +84,7 @@ const props = withDefaults(defineProps<{
 });
 
 const billingStore = useBillingStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 
 /**
  * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
@@ -105,7 +105,7 @@ const partnerCharges = computed((): [partner: string, charge: ProjectCharge][] =
  * projectName returns project name.
  */
 const projectName = computed((): string => {
-    const projects: Project[] = store.state.projectsModule.projects;
+    const projects: Project[] = projectsStore.state.projects;
     const project: Project | undefined = projects.find(project => project.id === props.projectId);
 
     return project?.name || '';
@@ -115,7 +115,7 @@ const projectName = computed((): string => {
  * Returns project usage price model from store.
  */
 const projectCharges = computed((): ProjectCharges => {
-    return billingStore.state.projectCharges;
+    return billingStore.state.projectCharges as ProjectCharges;
 });
 
 /**

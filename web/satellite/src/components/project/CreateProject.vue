@@ -63,20 +63,20 @@
 import { ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -137,8 +137,7 @@ async function onCreateProjectClick(): Promise<void> {
     }
 
     try {
-        const createdProject = await store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-        createdProjectId.value = createdProject.id;
+        createdProjectId.value = await projectsStore.createProject(project);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
         isLoading.value = false;
@@ -160,7 +159,7 @@ async function onCreateProjectClick(): Promise<void> {
  * Selects just created project.
  */
 function selectCreatedProject(): void {
-    store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId.value);
+    projectsStore.selectProject(createdProjectId.value);
     LocalData.setSelectedProjectId(createdProjectId.value);
 }
 </script>

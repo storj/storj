@@ -15,7 +15,6 @@ import { computed, onBeforeMount, ref, watch } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -24,6 +23,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
@@ -31,6 +31,7 @@ import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -114,7 +115,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
     path = `${bucket.value}/${path}`;
     const now = new Date();
     const LINK_SHARING_AG_NAME = `${path}_shared-object_${now.toISOString()}`;
-    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, store.getters.selectedProject.id);
+    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, projectsStore.state.selectedProject.id);
 
     try {
         const credentials: EdgeCredentials = await generateCredentials(cleanAPIKey.secret, path, true);
@@ -152,7 +153,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
     }
 
     const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
-    const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+    const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
     worker.value.postMessage({
         'type': 'GenerateAccess',
@@ -231,7 +232,7 @@ watch(passphrase, async () => {
         return;
     }
 
-    const projectID = store.getters.selectedProject.id;
+    const projectID = projectsStore.state.selectedProject.id;
 
     try {
         await bucketsStore.setS3Client(projectID);

@@ -14,7 +14,7 @@
         >
             <div class="project-selection__selected__left">
                 <ProjectIcon class="project-selection__selected__left__image" />
-                <p class="project-selection__selected__left__name" :title="projectName">{{ projectName }}</p>
+                <p class="project-selection__selected__left__name" :title="selectedProject.name">{{ selectedProject.name }}</p>
                 <p class="project-selection__selected__left__placeholder">Projects</p>
             </div>
             <ArrowImage class="project-selection__selected__arrow" />
@@ -63,19 +63,19 @@ import { computed, reactive, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -92,7 +92,7 @@ const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -120,13 +120,6 @@ const isOnboardingTour = computed((): boolean => {
 });
 
 /**
- * Returns selected project's name.
- */
-const projectName = computed((): string => {
-    return store.getters.selectedProject.name;
-});
-
-/**
  * Indicates if dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
@@ -137,14 +130,14 @@ const isDropdownShown = computed((): boolean => {
  * Returns projects list from store.
  */
 const projects = computed((): Project[] => {
-    return store.getters.projectsWithoutSelected;
+    return projectsStore.projectsWithoutSelected;
 });
 
 /**
  * Returns selected project from store.
  */
 const selectedProject = computed((): Project => {
-    return store.getters.selectedProject;
+    return projectsStore.state.selectedProject;
 });
 
 /**
@@ -175,8 +168,8 @@ async function toggleSelection(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await projectsStore.getProjects();
+        await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
     } finally {
@@ -196,8 +189,8 @@ function toggleDropdown(): void {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
     closeDropdown();
@@ -206,10 +199,6 @@ async function onProjectSelected(projectID: string): Promise<void> {
     appStore.updateActiveModal(MODALS.enterPassphrase);
 
     if (isBucketsView.value) {
-        if (router.currentRoute.name === RouteConfig.BucketsManagement.name) {
-            await bucketsStore.getBuckets(FIRST_PAGE, projectID);
-        }
-
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
 
         return;
@@ -222,9 +211,9 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
         try {
             await Promise.all([
-                store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
+                projectsStore.getDailyProjectData({ since: past, before: now }),
                 billingStore.getProjectUsageAndChargesCurrentRollup(),
-                store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID),
+                projectsStore.getProjectLimits(projectID),
                 bucketsStore.getBuckets(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
@@ -246,7 +235,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     if (router.currentRoute.name === RouteConfig.Users.name) {
         try {
-            await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
+            await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
@@ -290,7 +279,7 @@ function onCreateLinkClick(): void {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = userStore.state.user;
-        const ownProjectsCount: number = store.getters.projectsCount(user.id);
+        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);

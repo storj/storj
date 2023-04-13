@@ -155,7 +155,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { RouteConfig } from '@/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
@@ -164,11 +163,12 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -189,7 +189,7 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -213,7 +213,7 @@ const isChartsDatePicker = computed((): boolean => {
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
-    return store.state.projectsModule.currentLimits;
+    return projectsStore.state.currentLimits;
 });
 
 /**
@@ -234,9 +234,8 @@ const isProAccount = computed((): boolean => {
  * estimatedCharges returns estimated charges summary for selected project.
  */
 const estimatedCharges = computed((): number => {
-    const projID: string = store.getters.selectedProject.id;
     const charges = billingStore.state.projectCharges;
-    return charges.getProjectPrice(projID);
+    return charges.getProjectPrice(selectedProject.value.id);
 });
 
 /**
@@ -244,7 +243,7 @@ const estimatedCharges = computed((): number => {
  */
 const storageUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
-        store.state.projectsModule.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
+        projectsStore.state.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -253,7 +252,7 @@ const storageUsage = computed((): DataStamp[] => {
  */
 const settledBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
-        store.state.projectsModule.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -262,7 +261,7 @@ const settledBandwidthUsage = computed((): DataStamp[] => {
  */
 const allocatedBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
-        store.state.projectsModule.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+        projectsStore.state.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -270,14 +269,14 @@ const allocatedBandwidthUsage = computed((): DataStamp[] => {
  * Returns charts since date from store.
  */
 const chartsSinceDate = computed((): Date => {
-    return store.state.projectsModule.chartDataSince;
+    return projectsStore.state.chartDataSince;
 });
 
 /**
  * Returns charts before date from store.
  */
 const chartsBeforeDate = computed((): Date => {
-    return store.state.projectsModule.chartDataBefore;
+    return projectsStore.state.chartDataBefore;
 });
 
 /**
@@ -303,7 +302,7 @@ const bucketWasCreated = computed((): boolean => {
  * get selected project from store
  */
 const selectedProject = computed((): Project => {
-    return store.getters.selectedProject;
+    return projectsStore.state.selectedProject;
 });
 
 /**
@@ -361,7 +360,7 @@ async function onChartsDateRangePick(dateRange: Date[]): Promise<void> {
     before.setHours(23, 59, 59, 999);
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
+        await projectsStore.getDailyProjectData({ since, before });
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
@@ -386,7 +385,7 @@ function formattedValue(value: Size): string {
 onMounted(async (): Promise<void> => {
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
 
-    const projectID = store.getters.selectedProject.id;
+    const projectID = selectedProject.value.id;
     if (!projectID) {
         if (appStore.state.config.allProjectsDashboard) {
             await router.push(RouteConfig.AllProjectsDashboard.path);
@@ -395,7 +394,7 @@ onMounted(async (): Promise<void> => {
         const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
-        await router.push(onboardingPath);
+        router.push(onboardingPath);
 
         return;
     }
@@ -408,7 +407,7 @@ onMounted(async (): Promise<void> => {
         const past = new Date();
         past.setDate(past.getDate() - 30);
 
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID);
+        await projectsStore.getProjectLimits(projectID);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
                 appStore.updateActiveModal(MODALS.enterPassphrase);
@@ -422,7 +421,7 @@ onMounted(async (): Promise<void> => {
             appStore.toggleHasJustLoggedIn();
         }
 
-        await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
+        await projectsStore.getDailyProjectData({ since: past, before: now });
         await billingStore.getProjectUsageAndChargesCurrentRollup();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);

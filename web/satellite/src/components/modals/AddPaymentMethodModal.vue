@@ -130,9 +130,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeMount, ref, reactive } from 'vue';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -141,6 +140,7 @@ import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -158,7 +158,7 @@ interface StripeForm {
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -216,7 +216,7 @@ async function addCardToDB(token: string): Promise<void> {
         await usersStore.getUser();
 
         if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
-            await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+            await projectsStore.getProjectLimits(projectsStore.state.selectedProject.id);
         }
 
         await analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);

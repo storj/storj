@@ -24,16 +24,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 
 const props = defineProps<{
     dashboardRef: HTMLElement;
@@ -68,7 +68,7 @@ const isPaidTier = computed((): boolean => {
  * Returns user's projects count.
  */
 const projectsCount = computed((): number => {
-    return store.getters.projectsCount(usersStore.state.user.id);
+    return projectsStore.projectsCount(usersStore.state.user.id);
 });
 
 /**

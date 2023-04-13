@@ -94,11 +94,11 @@ import { computed, onMounted, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -110,7 +110,7 @@ import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const billingStore = useBillingStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -122,7 +122,7 @@ const currentDate = ref<string>('');
  * Returns account balance from store.
  */
 const balance = computed((): AccountBalance => {
-    return billingStore.state.balance;
+    return billingStore.state.balance as AccountBalance;
 });
 
 /**
@@ -136,7 +136,7 @@ const hasZeroCoins = computed((): boolean => {
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.
  */
 const projectIDs = computed((): string[] => {
-    return store.state.projectsModule.projects
+    return projectsStore.state.projects
         .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
         .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
         .map(proj => proj.id);
@@ -172,7 +172,7 @@ function balanceClicked(): void {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
         isDataFetching.value = false;

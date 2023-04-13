@@ -49,29 +49,25 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
-
-const {
-    FETCH_OWNED,
-} = PROJECTS_ACTIONS;
 
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -82,7 +78,7 @@ const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -94,7 +90,7 @@ const areProjectsFetching = ref<boolean>(true);
  * Returns projects page from store.
  */
 const projectsPage = computed((): ProjectsPage => {
-    return store.state.projectsModule.page;
+    return projectsStore.state.page;
 });
 
 /**
@@ -104,7 +100,7 @@ const projectsPage = computed((): ProjectsPage => {
 async function onPageClick(page: number): Promise<void> {
     currentPageNumber.value = page;
     try {
-        await store.dispatch(FETCH_OWNED, currentPageNumber.value);
+        await projectsStore.getOwnedProjects(currentPageNumber.value);
     } catch (error) {
         await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
@@ -117,7 +113,7 @@ function onCreateClick(): void {
     analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
 
     const user: User = usersStore.state.user;
-    const ownProjectsCount: number = store.getters.projectsCount(user.id);
+    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
         appStore.updateActiveModal(MODALS.createProjectPrompt);
@@ -137,19 +133,17 @@ async function onProjectSelected(project: Project): Promise<void> {
     isLoading.value = true;
 
     const projectID = project.id;
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
 
     try {
-        const projectID = store.getters.selectedProject.id;
-
         await Promise.all([
             billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
             bucketsStore.getBuckets(FIRST_PAGE, projectID),
-            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID),
+            projectsStore.getProjectLimits(projectID),
         ]);
 
         analytics.pageVisit(RouteConfig.EditProjectDetails.path);
@@ -166,7 +160,7 @@ async function onProjectSelected(project: Project): Promise<void> {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(FETCH_OWNED, currentPageNumber.value);
+        await projectsStore.getOwnedProjects(currentPageNumber.value);
 
         areProjectsFetching.value = false;
     } catch (error) {

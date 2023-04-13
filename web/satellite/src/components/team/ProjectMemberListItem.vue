@@ -18,12 +18,12 @@ import { computed } from 'vue';
 
 import { ProjectMember } from '@/types/projectMembers';
 import { useResize } from '@/composables/resize';
-import { useStore } from '@/utils/hooks';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
 const { isMobile, isTablet } = useResize();
-const store = useStore();
+const projectsStore = useProjectsStore();
 
 const props = withDefaults(defineProps<{
     itemData: ProjectMember;
@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<{
 });
 
 const isProjectOwner = computed((): boolean => {
-    return props.itemData.user.id === store.getters.selectedProject.ownerId;
+    return props.itemData.user.id === projectsStore.state.selectedProject.ownerId;
 });
 
 const itemToRender = computed((): { [key: string]: string | string[] } => {

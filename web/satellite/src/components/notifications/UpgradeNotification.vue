@@ -22,8 +22,8 @@ import { computed, ref } from 'vue';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useStore } from '@/utils/hooks';
 import { ProjectLimits } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -32,7 +32,7 @@ const props = defineProps<{
     openAddPMModal: () => void,
 }>();
 
-const store = useStore();
+const projectsStore = useProjectsStore();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isBannerShowing = ref<boolean>(true);
@@ -48,7 +48,7 @@ function onCloseClick(): void {
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
-    return store.state.projectsModule.currentLimits;
+    return projectsStore.state.currentLimits;
 });
 
 /**

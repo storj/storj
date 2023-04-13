@@ -55,15 +55,15 @@ import { computed, onMounted, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { Validator } from '@/utils/validation';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -75,7 +75,7 @@ import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -158,7 +158,7 @@ async function onCreate(): Promise<void> {
     isLoading.value = true;
 
     try {
-        const projectID = store.getters.selectedProject.id;
+        const projectID = projectsStore.state.selectedProject.id;
 
         if (!promptForPassphrase.value) {
             if (!edgeCredentials.value.accessKeyId) {
@@ -223,7 +223,7 @@ async function onCreate(): Promise<void> {
             return;
         }
 
-        const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+        const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
         const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
         worker.value.postMessage({
@@ -310,7 +310,7 @@ onMounted(async (): Promise<void> => {
     setWorker();
 
     try {
-        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
+        await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);

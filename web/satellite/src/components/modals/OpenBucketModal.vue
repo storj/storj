@@ -58,9 +58,10 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -71,7 +72,7 @@ import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
 
@@ -128,7 +129,7 @@ async function onContinue(): Promise<void> {
 
     try {
         bucketsStore.setPassphrase(passphrase.value);
-        await bucketsStore.setS3Client(store.getters.selectedProject.id);
+        await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
         const count: number = await bucketsStore.getObjectsCount(bucketName.value);
         if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
             isWarningState.value = true;

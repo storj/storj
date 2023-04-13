@@ -169,8 +169,9 @@ import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
@@ -188,7 +189,7 @@ const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -247,7 +248,7 @@ const emptyStateLabel = computed((): string => {
  */
 async function onPageClick(index: number): Promise<void> {
     try {
-        agStore.getAccessGrants(index, store.getters.selectedProject.id);
+        agStore.getAccessGrants(index, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
@@ -289,7 +290,7 @@ async function fetch(searchQuery: string): Promise<void> {
     agStore.setSearchQuery(searchQuery);
 
     try {
-        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
+        await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
@@ -340,7 +341,7 @@ function trackPageVisit(link: string): void {
 
 onMounted(async () => {
     try {
-        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
+        await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         areGrantsFetching.value = false;
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);

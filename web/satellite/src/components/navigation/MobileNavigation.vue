@@ -164,7 +164,6 @@ import { computed, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
@@ -180,6 +179,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -224,6 +224,7 @@ const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const projectsStore = useProjectsStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -249,7 +250,7 @@ const isAllProjectsDashboard = computed((): boolean => {
  * Returns projects list from store.
  */
 const projects = computed((): Project[] => {
-    return store.getters.projectsWithoutSelected;
+    return projectsStore.projectsWithoutSelected;
 });
 
 /**
@@ -263,7 +264,7 @@ const isBucketsView = computed((): boolean => {
  * Returns selected project from store.
  */
 const selectedProject = computed((): Project => {
-    return store.getters.selectedProject;
+    return projectsStore.state.selectedProject;
 });
 
 /**
@@ -359,8 +360,8 @@ async function onProjectClick(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await projectsStore.getProjects();
+        await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     } finally {
@@ -373,8 +374,8 @@ async function onProjectClick(): Promise<void> {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
 
@@ -392,7 +393,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
             bucketsStore.getBuckets(FIRST_PAGE, projectID),
-            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID),
+            projectsStore.getProjectLimits(projectID),
         ]);
     } catch (error) {
         await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
@@ -420,7 +421,7 @@ function onCreateLinkClick(): void {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = usersStore.state.user;
-        const ownProjectsCount: number = store.getters.projectsCount(user.id);
+        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
@@ -466,7 +467,7 @@ async function onLogout(): Promise<void> {
 
     await Promise.all([
         pmStore.clear(),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        projectsStore.clear(),
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),

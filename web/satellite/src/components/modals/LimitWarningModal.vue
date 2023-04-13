@@ -34,18 +34,17 @@
 </template>
 
 <script setup lang="ts">
-
 import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { ProjectLimits } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import Icon from '@/../static/images/project/chart.svg';
 
-const store = useStore();
+const projectsStore = useProjectsStore();
 
 const props = defineProps<{
     severity: 'warning' | 'critical';
@@ -59,7 +58,7 @@ const props = defineProps<{
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
-    return store.state.projectsModule.currentLimits;
+    return projectsStore.state.currentLimits;
 });
 </script>
 

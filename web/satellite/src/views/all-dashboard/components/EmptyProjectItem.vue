@@ -29,7 +29,6 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -37,6 +36,7 @@ import { RouteConfig } from '@/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -44,7 +44,7 @@ import BoxIcon from '@/../static/images/allDashboard/box.svg';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const analytics = new AnalyticsHttpApi();
 
 /**
@@ -54,7 +54,7 @@ function onCreateProjectClicked(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
     const user: User = usersStore.state.user;
-    const ownProjectsCount: number = store.getters.projectsCount(user.id);
+    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
         appStore.updateActiveModal(MODALS.createProjectPrompt);

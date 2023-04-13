@@ -26,9 +26,10 @@ import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -37,7 +38,7 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -63,7 +64,7 @@ const promptForPassphrase = computed((): boolean => {
  * Returns selected project id from store.
  */
 const selectedProjectID = computed((): string => {
-    return store.getters.selectedProject.id;
+    return projectsStore.state.selectedProject.id;
 });
 
 /**

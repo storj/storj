@@ -34,12 +34,12 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -50,7 +50,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const worker = ref<Worker| null>(null);
@@ -77,7 +77,7 @@ async function onDelete(): Promise<void> {
 
     isLoading.value = true;
 
-    const projectID = store.getters.selectedProject.id;
+    const projectID = projectsStore.state.selectedProject.id;
 
     try {
         if (!apiKey.value) {
@@ -110,7 +110,7 @@ async function onDelete(): Promise<void> {
             return;
         }
 
-        const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+        const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
         const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
         worker.value.postMessage({
@@ -153,7 +153,7 @@ async function onDelete(): Promise<void> {
  */
 async function fetchBuckets(page = 1): Promise<void> {
     try {
-        await bucketsStore.getBuckets(page, store.getters.selectedProject.id);
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
     }

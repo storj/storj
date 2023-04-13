@@ -53,8 +53,9 @@ import {
     ProjectMemberHeaderState,
 } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -64,7 +65,7 @@ import VTable from '@/components/common/VTable.vue';
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
 const pmStore = useProjectMembersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const FIRST_PAGE = 1;
@@ -77,8 +78,8 @@ const areMembersFetching = ref<boolean>(true);
  */
 const projectMembers = computed((): ProjectMember[] => {
     const projectMembers = pmStore.state.page.projectMembers;
-    const projectOwner = projectMembers.find((member) => member.user.id === store.getters.selectedProject.ownerId);
-    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== store.getters.selectedProject.ownerId);
+    const projectOwner = projectMembers.find((member) => member.user.id === projectsStore.state.selectedProject.ownerId);
+    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== projectsStore.state.selectedProject.ownerId);
 
     // if the project owner exists, place at the front of the members list
     projectOwner && projectMembersToReturn.unshift(projectOwner);
@@ -128,7 +129,7 @@ const isEmptySearchResultShown = computed((): boolean => {
  * @param member
  */
 function onMemberCheckChange(member: ProjectMember): void {
-    if (store.getters.selectedProject.ownerId !== member.user.id) {
+    if (projectsStore.state.selectedProject.ownerId !== member.user.id) {
         pmStore.toggleProjectMemberSelection(member);
     }
 }
@@ -139,7 +140,7 @@ function onMemberCheckChange(member: ProjectMember): void {
  */
 async function onPageClick(index: number): Promise<void> {
     try {
-        await pmStore.getProjectMembers(index, store.getters.selectedProject.id);
+        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
@@ -151,7 +152,7 @@ async function onPageClick(index: number): Promise<void> {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
+        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
 
         areMembersFetching.value = false;
     } catch (error) {

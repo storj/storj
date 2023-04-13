@@ -44,10 +44,11 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
@@ -61,7 +62,7 @@ import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -236,7 +237,7 @@ onMounted(async (): Promise<void> => {
     setWorker();
 
     try {
-        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
+        await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
 
         areBucketNamesFetching.value = false;
     } catch (error) {

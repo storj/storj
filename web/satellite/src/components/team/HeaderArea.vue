@@ -81,15 +81,15 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -103,7 +103,7 @@ declare interface ClearSearch {
 
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -167,7 +167,7 @@ function onClearSelection(): void {
  */
 async function onDelete(): Promise<void> {
     try {
-        await pmStore.deleteProjectMembers(store.getters.selectedProject.id);
+        await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
         await setProjectState();
     } catch (error) {
         await notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
@@ -187,28 +187,28 @@ async function onDelete(): Promise<void> {
 async function processSearchQuery(search: string): Promise<void> {
     pmStore.setSearchQuery(search);
     try {
-        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
+        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
     }
 }
 
 async function setProjectState(): Promise<void> {
-    const projects: Project[] = await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    const projects: Project[] = await projectsStore.getProjects();
     if (!projects.length) {
         const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
-        await router.push(onboardingPath);
+        router.push(onboardingPath);
 
         return;
     }
 
-    if (!projects.includes(store.getters.selectedProject)) {
-        await store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+    if (!projects.includes(projectsStore.state.selectedProject)) {
+        projectsStore.selectProject(projects[0].id);
     }
 
-    await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
+    await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     headerComponent.value?.clearSearch();
 }
 

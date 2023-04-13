@@ -5,7 +5,6 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
-import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project, ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { makeNotificationsModule } from '@/store/modules/notifications';
@@ -18,12 +17,10 @@ localVue.use(Vuex);
 const projectLimits = new ProjectLimits(1000, 100, 1000, 100);
 const projectsApi = new ProjectsApiMock();
 projectsApi.setMockLimits(projectLimits);
-const projectsModule = makeProjectsModule(projectsApi);
 const notificationsModule = makeNotificationsModule();
 
 const store = new Vuex.Store({
     modules: {
-        projectsModule,
         notificationsModule,
         usersModule: {
             state: {
@@ -38,10 +35,6 @@ const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
 describe('EditProjectDetails.vue', () => {
     it('renders correctly', (): void => {
-        store.commit(PROJECTS_MUTATIONS.ADD, project);
-        store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
-        store.commit(PROJECTS_MUTATIONS.SET_LIMITS, projectLimits);
-
         const wrapper = shallowMount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,

@@ -112,7 +112,6 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -126,6 +125,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -150,6 +150,7 @@ const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -228,7 +229,7 @@ const limitState = computed((): LimitedState => {
         return result;
     }
 
-    const { currentLimits } = store.state.projectsModule;
+    const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
         { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
@@ -313,7 +314,7 @@ const isProjectLimitBannerShown = computed((): boolean => {
  */
 const hasReachedProjectLimit = computed((): boolean => {
     const projectLimit: number = usersStore.state.user.projectLimit;
-    const projectsCount: number = store.getters.projectsCount(usersStore.state.user.id);
+    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
 
     return projectsCount === projectLimit;
 });
@@ -357,7 +358,7 @@ async function handleInactive(): Promise<void> {
 
     await Promise.all([
         pmStore.clear(),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        projectsStore.clear(),
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
@@ -586,7 +587,7 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
     } catch (error) {
         return;
     }

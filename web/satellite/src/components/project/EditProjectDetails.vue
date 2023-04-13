@@ -202,7 +202,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { Dimensions, Memory, Size } from '@/utils/bytesSize';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import {
     MAX_DESCRIPTION_LENGTH,
     MAX_NAME_LENGTH,
@@ -211,15 +210,16 @@ import {
 } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const usersStore = useUsersStore();
-const store = useStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -243,14 +243,14 @@ const bandwidthLimitValue = ref<number>(0);
  * Returns selected project from store.
  */
 const storedProject = computed((): Project => {
-    return store.getters.selectedProject;
+    return projectsStore.state.selectedProject;
 });
 
 /**
  * Returns current limits from store.
  */
 const currentLimits = computed((): ProjectLimits => {
-    return store.state.projectsModule.currentLimits;
+    return projectsStore.state.currentLimits;
 });
 
 /**
@@ -485,7 +485,7 @@ async function onSaveNameButtonClick(): Promise<void> {
         const updatedProject = new ProjectFields(nameValue.value, '');
         updatedProject.checkName();
 
-        await store.dispatch(PROJECTS_ACTIONS.UPDATE_NAME, updatedProject);
+        await projectsStore.updateProjectName(updatedProject);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
         return;
@@ -502,7 +502,7 @@ async function onSaveNameButtonClick(): Promise<void> {
 async function onSaveDescriptionButtonClick(): Promise<void> {
     try {
         const updatedProject = new ProjectFields('', descriptionValue.value);
-        await store.dispatch(PROJECTS_ACTIONS.UPDATE_DESCRIPTION, updatedProject);
+        await projectsStore.updateProjectDescription(updatedProject);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
         return;
@@ -527,7 +527,7 @@ async function onSaveStorageLimitButtonClick(): Promise<void> {
         }
 
         const updatedProject = new ProjectLimits(0, 0, storageLimit);
-        await store.dispatch(PROJECTS_ACTIONS.UPDATE_STORAGE_LIMIT, updatedProject);
+        await projectsStore.updateProjectStorageLimit(updatedProject);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
         return;
@@ -552,7 +552,7 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
         }
 
         const updatedProject = new ProjectLimits(bandwidthLimit);
-        await store.dispatch(PROJECTS_ACTIONS.UPDATE_BANDWIDTH_LIMIT, updatedProject);
+        await projectsStore.updateProjectBandwidthLimit(updatedProject);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
         return;
@@ -632,14 +632,15 @@ function onBackClick(): void {
  * Fetches project limits and paid tier status.
  */
 onMounted(async (): Promise<void> => {
-    if (!store.getters.selectedProject.id) return;
+    const projectID = projectsStore.state.selectedProject.id;
+    if (!projectID) return;
 
     if (usersStore.state.user.paidTier) {
         isPaidTier.value = true;
     }
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await projectsStore.getProjectLimits(projectID);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
     }

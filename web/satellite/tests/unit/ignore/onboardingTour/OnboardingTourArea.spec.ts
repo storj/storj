@@ -4,19 +4,14 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
 import { router } from '@/router';
-import { makeProjectsModule } from '@/store/modules/projects';
 
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const projectsApi = new ProjectsApiMock();
-const projectsModule = makeProjectsModule(projectsApi);
-
-const store = new Vuex.Store({ modules: { projectsModule } });
+const store = new Vuex.Store({});
 
 describe('OnboardingTourArea.vue', () => {
     it('renders correctly', (): void => {

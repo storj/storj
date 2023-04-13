@@ -88,7 +88,7 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.activeModal = null;
     }
 
-    function toggleHasJustLoggenIn(hasJustLoggedIn: boolean | null = null): void {
+    function toggleHasJustLoggedIn(hasJustLoggedIn: boolean | null = null): void {
         if (hasJustLoggedIn === null) {
             state.viewsState.hasJustLoggedIn = !state.viewsState.hasJustLoggedIn;
             return;
@@ -169,7 +169,7 @@ export const useAppStore = defineStore('app', () => {
         toggleSuccessfulPasswordReset,
         updateActiveModal,
         removeActiveModal,
-        toggleHasJustLoggedIn: toggleHasJustLoggenIn,
+        toggleHasJustLoggedIn,
         changeState,
         setOnboardingBackRoute,
         setOnboardingAPIKeyStepBackRoute,

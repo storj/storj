@@ -30,9 +30,10 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
@@ -41,7 +42,7 @@ import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -100,7 +101,7 @@ async function openBucket(): Promise<void> {
             isLoading.value = true;
 
             try {
-                await bucketsStore.setS3Client(store.getters.selectedProject.id);
+                await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 isLoading.value = false;
             } catch (error) {
                 await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);

@@ -110,7 +110,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import {
     AccessType,
@@ -121,12 +121,12 @@ import {
 } from '@/types/createAccessGrant';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
@@ -143,7 +143,7 @@ import ConfirmDetailsStep from '@/components/accessGrants/createFlow/steps/Confi
 const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 const notify = useNotify();
@@ -457,7 +457,7 @@ async function createCLIAccess(): Promise<void> {
         throw new Error('Web worker is not initialized.');
     }
 
-    const projectID = store.getters.selectedProject.id;
+    const projectID = projectsStore.state.selectedProject.id;
 
     // creates fresh new API key.
     const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(accessName.value, projectID);
@@ -510,7 +510,7 @@ async function createAccessGrant(): Promise<void> {
     // creates access credentials.
     const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
 
-    const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+    const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
     let usedPassphrase = '';
     switch (passphraseOption.value) {
@@ -624,7 +624,7 @@ onMounted(async () => {
     generatedPassphrase.value = generateMnemonic();
 
     try {
-        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
+        await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
     } catch (error) {
         notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }

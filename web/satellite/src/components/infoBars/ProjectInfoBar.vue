@@ -28,17 +28,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const isDataFetching = ref<boolean>(true);
@@ -47,7 +47,7 @@ const isDataFetching = ref<boolean>(true);
  * Returns user's projects count.
  */
 const projectsCount = computed((): number => {
-    return store.getters.projectsCount(usersStore.state.user.id);
+    return projectsStore.projectsCount(usersStore.state.user.id);
 });
 
 /**
@@ -73,7 +73,7 @@ const projectLimitsIncreaseRequestURL = computed((): string => {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
 
         isDataFetching.value = false;
     } catch (error) {

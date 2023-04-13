@@ -5,25 +5,18 @@ import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
 
 import { BucketsApiGql } from '@/api/buckets';
-import { ProjectsApiGql } from '@/api/projects';
-import { makeProjectsModule } from '@/store/modules/projects';
 import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';
 
 const Vue = createLocalVue();
 const bucketsApi = new BucketsApiGql();
 
-const projectsApi = new ProjectsApiGql();
-const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project();
 selectedProject.id = '1';
-projectsModule.state.selectedProject = selectedProject;
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store<{
-    projectsModule: typeof projectsModule.state,
-}>({ modules: { projectsModule } });
+const store = new Vuex.Store({});
 // const state = store.state.bucketsModule;
 const bucket = new Bucket('test', 10, 10, 1, 1, new Date(), new Date());
 const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };

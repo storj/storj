@@ -188,10 +188,11 @@ import {
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -226,7 +227,7 @@ interface CardEdited {
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -265,21 +266,21 @@ const nativeTokenPaymentsEnabled = computed((): boolean => {
  * Returns deposit history items.
  */
 const nativePaymentHistoryItems = computed((): NativePaymentHistoryItem[] => {
-    return billingStore.state.nativePaymentsHistory;
+    return billingStore.state.nativePaymentsHistory as NativePaymentHistoryItem[];
 });
 
 /**
  * Returns wallet entity from store.
  */
 const wallet = computed((): Wallet => {
-    return billingStore.state.wallet;
+    return billingStore.state.wallet as Wallet;
 });
 
 /**
  * Indicates if user has own project.
  */
 const userHasOwnProject = computed((): boolean => {
-    return store.getters.projectsCount(usersStore.state.user.id) > 0;
+    return projectsStore.projectsCount(usersStore.state.user.id) > 0;
 });
 
 const creditCards = computed((): CreditCard[] => {

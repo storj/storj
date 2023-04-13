@@ -102,7 +102,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -121,6 +120,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -141,6 +141,7 @@ const billingStore = useBillingStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const projectsStore = useProjectsStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -223,7 +224,7 @@ const limitState = computed((): LimitedState => {
         return result;
     }
 
-    const { currentLimits } = store.state.projectsModule;
+    const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
         { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
@@ -292,7 +293,7 @@ const isProjectLimitBannerShown = computed((): boolean => {
  */
 const hasReachedProjectLimit = computed((): boolean => {
     const projectLimit: number = usersStore.state.user.projectLimit;
-    const projectsCount: number = store.getters.projectsCount(usersStore.state.user.id);
+    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
 
     return projectsCount === projectLimit;
 });
@@ -368,7 +369,7 @@ const isDashboardPage = computed((): boolean => {
  * @param projectID - project id string
  */
 function storeProject(projectID: string): void {
-    store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
 }
 
@@ -496,7 +497,7 @@ async function handleInactive(): Promise<void> {
 
     await Promise.all([
         pmStore.clear(),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        projectsStore.clear(),
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
@@ -645,7 +646,7 @@ onMounted(async () => {
     let projects: Project[] = [];
 
     try {
-        projects = await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        projects = await projectsStore.getProjects();
     } catch (error) {
         return;
     }
@@ -653,7 +654,7 @@ onMounted(async () => {
     if (!appStore.state.config.allProjectsDashboard) {
         try {
             if (!projects.length) {
-                await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT, usersStore.state.user.id);
+                await projectsStore.createDefaultProject(usersStore.state.user.id);
             } else {
                 selectProject(projects);
             }

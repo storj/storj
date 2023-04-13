@@ -40,7 +40,7 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsApiGql();
 
-    async function fetchProjects(): Promise<Project[]> {
+    async function getProjects(): Promise<Project[]> {
         const projects = await api.get();
 
         setProjects(projects);
@@ -72,14 +72,14 @@ export const useProjectsStore = defineStore('projects', () => {
         state.selectedProject = defaultSelectedProject;
     }
 
-    async function fetchOwnedProjects(pageNumber: number): Promise<void> {
+    async function getOwnedProjects(pageNumber: number): Promise<void> {
         state.cursor.page = pageNumber;
         state.cursor.limit = PROJECT_PAGE_LIMIT;
 
         state.page = await api.getOwnedProjects(state.cursor);
     }
 
-    async function fetchDailyProjectData(payload: ProjectUsageDateRange): Promise<void> {
+    async function getDailyProjectData(payload: ProjectUsageDateRange): Promise<void> {
         const usage: ProjectsStorageBandwidthDaily = await api.getDailyUsage(state.selectedProject.id, payload.since, payload.before);
 
         state.allocatedBandwidthChartData = usage.allocatedBandwidth;
@@ -191,21 +191,11 @@ export const useProjectsStore = defineStore('projects', () => {
         state.currentLimits.bandwidthLimit = limitsToUpdate.bandwidthLimit;
     }
 
-    async function deleteProject(projectID: string): Promise<void> {
-        await api.delete(projectID);
-
-        state.projects = state.projects.filter(project => project.id !== projectID);
-
-        if (state.selectedProject.id === projectID) {
-            state.selectedProject = new Project();
-        }
-    }
-
-    async function fetchProjectLimits(projectID: string): Promise<void> {
+    async function getProjectLimits(projectID: string): Promise<void> {
         state.currentLimits = await api.getLimits(projectID);
     }
 
-    async function fetchTotalLimits(): Promise<void> {
+    async function getTotalLimits(): Promise<void> {
         state.totalLimits = await api.getTotalLimits();
     }
 
@@ -213,7 +203,7 @@ export const useProjectsStore = defineStore('projects', () => {
         return await api.getSalt(projectID);
     }
 
-    function clearProjectState(): void {
+    function clear(): void {
         state.projects = [];
         state.selectedProject = defaultSelectedProject;
         state.currentLimits = new ProjectLimits();
@@ -223,6 +213,18 @@ export const useProjectsStore = defineStore('projects', () => {
         state.settledBandwidthChartData = [];
         state.chartDataSince = new Date();
         state.chartDataBefore = new Date();
+    }
+
+    function projectsCount(userID: string): number {
+        let projectsCount = 0;
+
+        state.projects.forEach((project: Project) => {
+            if (project.ownerId === userID) {
+                projectsCount++;
+            }
+        });
+
+        return projectsCount;
     }
 
     const projects = computed(() => {
@@ -241,23 +243,11 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     });
 
-    const projectsCount = computed((userID: string) => {
-        let projectsCount = 0;
-
-        state.projects.forEach((project: Project) => {
-            if (project.ownerId === userID) {
-                projectsCount++;
-            }
-        });
-
-        return projectsCount;
-    });
-
     return {
-        projectsState: state,
-        fetchProjects,
-        fetchOwnedProjects,
-        fetchDailyProjectData,
+        state,
+        getProjects,
+        getOwnedProjects,
+        getDailyProjectData,
         createProject,
         createDefaultProject,
         selectProject,
@@ -265,13 +255,12 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProjectDescription,
         updateProjectStorageLimit,
         updateProjectBandwidthLimit,
-        deleteProject,
-        fetchProjectLimits,
-        fetchTotalLimits,
+        getProjectLimits,
+        getTotalLimits,
         getProjectSalt,
-        clearProjectState,
+        projectsCount,
+        clear,
         projects,
         projectsWithoutSelected,
-        projectsCount,
     };
 });

@@ -63,26 +63,26 @@
 import { ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
+const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -135,8 +135,7 @@ async function onCreateProjectClick(): Promise<void> {
     }
 
     try {
-        const createdProject = await store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-        createdProjectId.value = createdProject.id;
+        createdProjectId.value = await projectsStore.createProject(project);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
         isLoading.value = false;
@@ -162,7 +161,7 @@ async function onCreateProjectClick(): Promise<void> {
  * Selects just created project.
  */
 function selectCreatedProject(): void {
-    store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId.value);
+    projectsStore.selectProject(createdProjectId.value);
     LocalData.setSelectedProjectId(createdProjectId.value);
 }
 

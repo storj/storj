@@ -88,10 +88,11 @@ import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -104,7 +105,7 @@ import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const FIRST_PAGE = 1;
@@ -210,7 +211,7 @@ async function onAddUsersClick(): Promise<void> {
     }
 
     try {
-        await pmStore.addProjectMembers(emailArray, store.getters.selectedProject.id);
+        await pmStore.addProjectMembers(emailArray, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
@@ -223,7 +224,7 @@ async function onAddUsersClick(): Promise<void> {
     pmStore.setSearchQuery('');
 
     try {
-        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
+        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
     }

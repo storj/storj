@@ -42,14 +42,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -66,7 +66,7 @@ enum ButtonStates {
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const worker = ref<Worker | null>(null);
@@ -114,10 +114,10 @@ async function setShareLink(): Promise<void> {
         let path = `${bucketName.value}`;
         const now = new Date();
         const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
-        const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, store.getters.selectedProject.id);
+        const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, projectsStore.state.selectedProject.id);
 
         const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
-        const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+        const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
         worker.value.postMessage({
             'type': 'GenerateAccess',

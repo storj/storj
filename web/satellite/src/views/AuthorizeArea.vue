@@ -92,17 +92,17 @@ import { onMounted, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -121,7 +121,7 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const usersStore = useUsersStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -267,10 +267,10 @@ async function verifyClientConfiguration(): Promise<void> {
 }
 
 async function loadProjects(): Promise<void> {
-    await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    await projectsStore.getProjects();
 
     const newProjects: Record<string, Project> = {};
-    for (const project of store.getters.projects) {
+    for (const project of projectsStore.projects) {
         newProjects[project.name] = project;
     }
 
@@ -283,9 +283,9 @@ async function setProject(value: string): Promise<void> {
         return;
     }
 
-    const projectID = store.getters.selectedProject.id;
+    const projectID = projectsStore.state.selectedProject.id;
 
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, projects.value[value].id);
+    projectsStore.selectProject(projects.value[value].id);
     await bucketsStore.getAllBucketsNames(projectID);
 
     selectedProjectID.value = projectID;

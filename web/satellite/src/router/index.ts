@@ -2,9 +2,11 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import Router from 'vue-router';
+import Router, { RouteRecord } from 'vue-router';
 
 import { NavigationLink } from '@/types/navigation';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
@@ -430,3 +432,110 @@ export const router = new Router({
         },
     ],
 });
+
+router.beforeEach(async (to, from, next) => {
+    const appStore = useAppStore();
+
+    if (!to.matched.length) {
+        appStore.setErrorPage(404);
+        return;
+    } else if (appStore.state.viewsState.error.visible) {
+        appStore.removeErrorPage();
+    }
+
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.Login.name) {
+        appStore.toggleHasJustLoggedIn(true);
+    }
+
+    if (to.name === RouteConfig.AllProjectsDashboard.name && from.name === RouteConfig.Login.name) {
+        appStore.toggleHasJustLoggedIn(true);
+    }
+
+    // On very first login we try to redirect user to project dashboard
+    // but since there is no project we then redirect user to onboarding flow.
+    // That's why we toggle this flag here back to false not show create project passphrase modal again
+    // if user clicks 'Continue in web'.
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
+        appStore.toggleHasJustLoggedIn(false);
+    }
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.AllProjectsDashboard.name) {
+        appStore.toggleHasJustLoggedIn(false);
+    }
+
+    // TODO: Disabled this navigation guard because we try to get active pinia before it is initialised.
+    // In any case this feature is redundant since we have project level passphrase.
+
+    // if (!to.path.includes(RouteConfig.UploadFile.path)) {
+    //     const appStore = useAppStore();
+    //     if (appStore.state.viewsState.activeModal !== MODALS.uploadCancelPopup) {
+    //         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+    //         if (areUploadsInProgress) return;
+    //     }
+    // }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
+        next(RouteConfig.Account.with(RouteConfig.Billing).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
+        next(RouteConfig.OnboardingTour.path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled
+            ? RouteConfig.PricingPlanStep
+            : RouteConfig.OverviewStep;
+        next(RouteConfig.OnboardingTour.with(firstOnboardingStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
+        next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+
+        return;
+    }
+
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectDashboard.path);
+
+        return;
+    }
+
+    next();
+});
+
+router.afterEach(() => {
+    updateTitle();
+});
+
+/**
+ * if our route is a tab and has no sub tab route - we will navigate to default subtab.
+ * F.E. /account/ -> /account/billing/;
+ * @param routes - array of RouteRecord from vue-router
+ * @param tabRoute - tabNavigator route
+ */
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
+    return (routes.length === 2 && (routes[1].name as string) === tabRoute.name) ||
+        (routes.length === 3 && (routes[2].name as string) === tabRoute.name);
+}
+
+/**
+ * Updates the title of the webpage.
+ */
+function updateTitle(): void {
+    const appStore = useAppStore();
+    const projectsStore = useProjectsStore();
+    const routeName = router.currentRoute.name;
+    const parts = [routeName, appStore.state.config.satelliteName];
+
+    if (routeName && !notProjectRelatedRoutes.includes(routeName)) {
+        parts.unshift(projectsStore.state.selectedProject.name);
+    }
+
+    document.title = parts.filter(s => !!s).join(' | ');
+}

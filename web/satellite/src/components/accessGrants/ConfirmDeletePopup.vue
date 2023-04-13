@@ -60,8 +60,9 @@ import { computed, ref } from 'vue';
 
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -71,7 +72,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 const FIRST_PAGE = 1;
 
 const agStore = useAccessGrantsStore();
-const store = useStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(false);
@@ -108,7 +109,7 @@ async function onDeleteClick(): Promise<void> {
     }
 
     try {
-        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
+        await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         agStore.clearSelection();
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
