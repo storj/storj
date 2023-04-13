@@ -4,6 +4,7 @@
 <template>
     <div id="app">
         <BrandedLoader v-if="isLoading" />
+        <ErrorPage v-else-if="isErrorPageShown" />
         <router-view v-else />
         <!-- Area for displaying notification -->
         <NotificationArea />
@@ -11,12 +12,13 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PartneredSatellite } from '@/types/common';
 import { MetaUtils } from '@/utils/meta';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import ErrorPage from '@/views/ErrorPage.vue';
 
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
@@ -25,6 +27,13 @@ const appStore = useAppStore();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(true);
+
+/**
+ * Indicates whether an error page should be shown in place of the router view.
+ */
+const isErrorPageShown = computed((): boolean => {
+    return appStore.state.viewsState.error.visible;
+});
 
 /**
  * Fixes the issue where view port height is taller than the visible viewport on

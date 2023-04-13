@@ -31,6 +31,15 @@ class ViewsState {
     // this field is mainly used on the all projects dashboard as an exit condition
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
+    public error: ErrorPageState = new ErrorPageState();
+}
+
+class ErrorPageState {
+    constructor(
+        public statusCode = 0,
+        public fatal = false,
+        public visible = false,
+    ) {}
 }
 
 export class State {
@@ -155,6 +164,14 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.activeDropdown = '';
     }
 
+    function setErrorPage(statusCode: number, fatal = false): void {
+        state.viewsState.error = new ErrorPageState(statusCode, fatal, true);
+    }
+
+    function removeErrorPage(): void {
+        state.viewsState.error.visible = false;
+    }
+
     function clear(): void {
         state.viewsState.activeModal = null;
         state.viewsState.isSuccessfulPasswordResetShown = false;
@@ -170,6 +187,7 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.selectedPricingPlan = null;
         state.viewsState.hasShownPricingPlan = false;
         state.viewsState.activeDropdown = '';
+        state.viewsState.error.visible = false;
     }
 
     return {
@@ -177,8 +195,9 @@ export const useAppStore = defineStore('app', () => {
         getConfig,
         toggleActiveDropdown,
         toggleSuccessfulPasswordReset,
+        updateActiveModal,
         removeActiveModal,
-        toggleHasJustLoggenIn,
+        toggleHasJustLoggedIn: toggleHasJustLoggenIn,
         changeState,
         setSatelliteName,
         setPartneredSatellites,
@@ -194,7 +213,8 @@ export const useAppStore = defineStore('app', () => {
         setManagePassphraseStep,
         setHasShownPricingPlan,
         closeDropdowns,
-        updateActiveModal,
+        setErrorPage,
+        removeErrorPage,
         clear,
     };
 });

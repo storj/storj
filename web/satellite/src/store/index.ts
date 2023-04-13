@@ -40,20 +40,11 @@ export const store = new Vuex.Store<ModulesState>({
     },
 });
 
-store.subscribe((mutation, state) => {
-    const currentRouteName = router.currentRoute.name;
-    const appStore = useAppStore();
-    const satelliteName = appStore.state.satelliteName;
-
+store.subscribe((mutation) => {
     switch (mutation.type) {
     case PROJECTS_MUTATIONS.REMOVE:
-        document.title = `${router.currentRoute.name} | ${satelliteName}`;
-
-        break;
     case PROJECTS_MUTATIONS.SELECT_PROJECT:
-        if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
-            document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
-        }
+        updateTitle();
     }
 });
 
@@ -65,14 +56,21 @@ export default store;
   relies on store state for the routing behavior.
 */
 router.beforeEach(async (to, from, next) => {
+    const appStore = useAppStore();
+
+    if (!to.matched.length) {
+        appStore.setErrorPage(404);
+        return;
+    } else if (appStore.state.viewsState.error.visible) {
+        appStore.removeErrorPage();
+    }
+
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.Login.name) {
-        const appStore = useAppStore();
-        appStore.toggleHasJustLoggenIn(true);
+        appStore.toggleHasJustLoggedIn(true);
     }
 
     if (to.name === RouteConfig.AllProjectsDashboard.name && from.name === RouteConfig.Login.name) {
-        const appStore = useAppStore();
-        appStore.toggleHasJustLoggenIn(true);
+        appStore.toggleHasJustLoggedIn(true);
     }
 
     // On very first login we try to redirect user to project dashboard
@@ -80,12 +78,10 @@ router.beforeEach(async (to, from, next) => {
     // That's why we toggle this flag here back to false not show create project passphrase modal again
     // if user clicks 'Continue in web'.
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
-        const appStore = useAppStore();
-        appStore.toggleHasJustLoggenIn(false);
+        appStore.toggleHasJustLoggedIn(false);
     }
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.AllProjectsDashboard.name) {
-        const appStore = useAppStore();
-        appStore.toggleHasJustLoggenIn(false);
+        appStore.toggleHasJustLoggedIn(false);
     }
 
     // TODO: I disabled this navigation guard because we try to get active pinia before it is initialised.
@@ -132,23 +128,8 @@ router.beforeEach(async (to, from, next) => {
     next();
 });
 
-router.afterEach(({ name }, _from) => {
-    if (!name) {
-        return;
-    }
-
-    const appStore = useAppStore();
-
-    if (notProjectRelatedRoutes.includes(name)) {
-        document.title = `${router.currentRoute.name} | ${appStore.state.satelliteName}`;
-
-        return;
-    }
-
-    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
-        `${store.state.projectsModule.selectedProject.name} | ` : '';
-
-    document.title = `${selectedProjectName + router.currentRoute.name} | ${appStore.state.satelliteName}`;
+router.afterEach(() => {
+    updateTitle();
 });
 
 /**
@@ -160,4 +141,19 @@ router.afterEach(({ name }, _from) => {
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return (routes.length === 2 && (routes[1].name as string) === tabRoute.name) ||
         (routes.length === 3 && (routes[2].name as string) === tabRoute.name);
+}
+
+/**
+ * Updates the title of the webpage.
+ */
+function updateTitle(): void {
+    const appStore = useAppStore();
+    const routeName = router.currentRoute.name;
+    const parts = [routeName, appStore.state.satelliteName];
+
+    if (routeName && !notProjectRelatedRoutes.includes(routeName)) {
+        parts.unshift(store.state.projectsModule.selectedProject.name);
+    }
+
+    document.title = parts.filter(s => !!s).join(' | ');
 }

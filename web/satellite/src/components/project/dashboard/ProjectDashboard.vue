@@ -417,7 +417,7 @@ onMounted(async (): Promise<void> => {
                 appStore.updateActiveModal(MODALS.createProjectPassphrase);
             }
 
-            appStore.toggleHasJustLoggenIn();
+            appStore.toggleHasJustLoggedIn();
         }
 
         await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });

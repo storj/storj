@@ -3,7 +3,7 @@
 
 import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
-import { createPinia, PiniaVuePlugin } from 'pinia';
+import { createPinia, setActivePinia, PiniaVuePlugin } from 'pinia';
 
 import App from './App.vue';
 import { router } from './router';
@@ -24,6 +24,7 @@ Vue.use(new NotificatorPlugin(store));
 Vue.use(VueClipboard);
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
+setActivePinia(pinia);
 
 /**
  * Click outside handlers.
