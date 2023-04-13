@@ -111,7 +111,6 @@ import {
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -126,6 +125,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -151,6 +151,7 @@ const billingStore = useBillingStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -362,7 +363,7 @@ async function handleInactive(): Promise<void> {
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        notificationsStore.clear(),
         bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),

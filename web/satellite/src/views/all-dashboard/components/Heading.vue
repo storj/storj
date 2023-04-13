@@ -102,7 +102,6 @@ import {
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -112,6 +111,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -141,6 +141,7 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
@@ -236,7 +237,7 @@ async function onLogout(): Promise<void> {
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        notificationsStore.clear(),
         bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),

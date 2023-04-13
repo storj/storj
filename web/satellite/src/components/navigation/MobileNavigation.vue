@@ -167,7 +167,6 @@ import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -180,6 +179,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -224,6 +224,7 @@ const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const notificationsStore = useNotificationsStore();
 const projectsStore = useProjectsStore();
 const store = useStore();
 const router = useRouter();
@@ -471,7 +472,7 @@ async function onLogout(): Promise<void> {
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        notificationsStore.clear(),
         bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),

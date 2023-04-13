@@ -4,8 +4,7 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { DelayedNotification } from '@/types/DelayedNotification';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { DelayedNotification, NOTIFICATION_TYPES } from '@/types/DelayedNotification';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
@@ -101,9 +100,14 @@ export const useNotificationsStore = defineStore('notifications', () => {
     }
 
     return {
+        state,
         notifyInfo,
         notifyWarning,
         notifySuccess,
         notifyError,
+        pauseNotification,
+        resumeNotification,
+        deleteNotification,
+        clear,
     };
 });

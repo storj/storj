@@ -53,7 +53,6 @@ import { computed, ref } from 'vue';
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
 import { AuthHttpApi } from '@/api/auth';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
@@ -66,6 +65,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -89,6 +89,7 @@ const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const pmStore = useProjectMembersStore();
+const notificationsStore = useNotificationsStore();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -159,7 +160,7 @@ async function onLogout(): Promise<void> {
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        notificationsStore.clear(),
         bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),

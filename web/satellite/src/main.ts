@@ -20,7 +20,7 @@ Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-Vue.use(new NotificatorPlugin(store));
+Vue.use(new NotificatorPlugin());
 Vue.use(VueClipboard);
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();

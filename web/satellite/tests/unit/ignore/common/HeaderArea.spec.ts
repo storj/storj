@@ -4,18 +4,14 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
-
-const notificationsModule = makeNotificationsModule();
-
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { notificationsModule } });
+const store = new Vuex.Store({});
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {

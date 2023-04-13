@@ -122,7 +122,6 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -139,6 +138,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -165,6 +165,7 @@ const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -560,7 +561,7 @@ async function handleInactive(): Promise<void> {
         usersStore.clear(),
         agStore.stopWorker(),
         agStore.clear(),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        notificationsStore.clear(),
         bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),

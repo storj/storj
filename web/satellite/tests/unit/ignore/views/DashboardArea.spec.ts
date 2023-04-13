@@ -5,7 +5,6 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { RouteConfig, router } from '@/router';
-import { makeNotificationsModule } from '@/store/modules/notifications';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import DashboardArea from '@/views/DashboardArea.vue';
@@ -13,15 +12,9 @@ import DashboardArea from '@/views/DashboardArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const notificationsModule = makeNotificationsModule();
+const store = new Vuex.Store({});
 
-const store = new Vuex.Store({
-    modules: {
-        notificationsModule,
-    },
-});
-
-localVue.use(new NotificatorPlugin(store));
+localVue.use(new NotificatorPlugin());
 
 describe('Dashboard', () => {
     beforeEach(() => {

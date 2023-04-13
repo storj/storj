@@ -15,17 +15,17 @@
 import { computed } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
-import { useStore } from '@/utils/hooks';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 /**
  * Returns all notification queue from store.
  */
 const notifications = computed((): DelayedNotification[] => {
-    return store.state.notificationsModule.notificationQueue;
+    return notificationsStore.state.notificationQueue as DelayedNotification[];
 });
 
 /**

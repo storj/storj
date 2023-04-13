@@ -14,7 +14,7 @@ localVue.use(Vuex);
 
 const store = new Vuex.Store({});
 
-localVue.use(new NotificatorPlugin(store));
+localVue.use(new NotificatorPlugin());
 
 describe('CreateProject.vue', (): void => {
     it('renders correctly', (): void => {

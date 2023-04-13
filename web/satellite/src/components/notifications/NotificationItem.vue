@@ -31,14 +31,13 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { useStore } from '@/utils/hooks';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useAppStore } from '@/store/modules/appStore';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
-const store = useStore();
 const appStore = useAppStore();
+const notificationsStore = useNotificationsStore();
 
 const props = withDefaults(defineProps<{
     notification: DelayedNotification;
@@ -67,21 +66,21 @@ const isSupportLinkMentioned = computed((): boolean => {
  * Forces notification deletion.
  */
 function onCloseClick(): void {
-    store.dispatch(NOTIFICATION_ACTIONS.DELETE, props.notification.id);
+    notificationsStore.deleteNotification(props.notification.id);
 }
 
 /**
  * Forces notification to stay on page on mouse over it.
  */
 function onMouseOver(): void {
-    store.dispatch(NOTIFICATION_ACTIONS.PAUSE, props.notification.id);
+    notificationsStore.pauseNotification(props.notification.id);
 }
 
 /**
  * Resume notification flow when mouse leaves notification.
  */
 function onMouseLeave(): void {
-    store.dispatch(NOTIFICATION_ACTIONS.RESUME, props.notification.id);
+    notificationsStore.resumeNotification(props.notification.id);
 }
 
 /**

@@ -5,9 +5,8 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
-import { Project, ProjectLimits } from '@/types/projects';
+import { ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { makeNotificationsModule } from '@/store/modules/notifications';
 
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 
@@ -17,11 +16,9 @@ localVue.use(Vuex);
 const projectLimits = new ProjectLimits(1000, 100, 1000, 100);
 const projectsApi = new ProjectsApiMock();
 projectsApi.setMockLimits(projectLimits);
-const notificationsModule = makeNotificationsModule();
 
 const store = new Vuex.Store({
     modules: {
-        notificationsModule,
         usersModule: {
             state: {
                 user: { paidTier: false },
@@ -29,9 +26,7 @@ const store = new Vuex.Store({
         },
     } });
 
-localVue.use(new NotificatorPlugin(store));
-
-const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
+localVue.use(new NotificatorPlugin());
 
 describe('EditProjectDetails.vue', () => {
     it('renders correctly', (): void => {
