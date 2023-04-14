@@ -27,9 +27,8 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	defer mon.Task()(&ctx)(&err)
 
 	optionalFields := dbx.BucketMetainfo_Create_Fields{}
-	if !bucket.PartnerID.IsZero() || bucket.UserAgent != nil {
+	if bucket.UserAgent != nil {
 		optionalFields = dbx.BucketMetainfo_Create_Fields{
-			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
 			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
 		}
 	}
@@ -155,9 +154,6 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	defer mon.Task()(&ctx)(&err)
 
 	var updateFields dbx.BucketMetainfo_Update_Fields
-	if !bucket.PartnerID.IsZero() {
-		updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
-	}
 
 	if bucket.UserAgent != nil {
 		updateFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
@@ -307,14 +303,6 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 
 	if dbxBucket.Placement != nil {
 		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
-	}
-
-	if dbxBucket.PartnerId != nil {
-		partnerID, err := uuid.FromBytes(dbxBucket.PartnerId)
-		if err != nil {
-			return bucket, buckets.ErrBucket.Wrap(err)
-		}
-		bucket.PartnerID = partnerID
 	}
 
 	if dbxBucket.UserAgent != nil {

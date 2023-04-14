@@ -27,7 +27,7 @@ func TestUsers(t *testing.T) {
 		// create user
 		userPassHash := testrand.Bytes(8)
 
-		// create an user with no partnerID
+		// create an user with no UserAgent
 		_, err := consoleDB.Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
 			FullName:     "John Doe",
@@ -37,16 +37,18 @@ func TestUsers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// create a project with partnerID
+		// create a project with UserAgent
+		testUserAgent := []byte("test user agent")
 		_, err = consoleDB.Projects().Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
 			Description: "some description",
 			CreatedAt:   time.Now(),
+			UserAgent:   testUserAgent,
 		})
 		require.NoError(t, err)
 
-		// create a project with no partnerID
+		// create a project with no UserAgent
 		proj, err := consoleDB.Projects().Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
@@ -55,7 +57,7 @@ func TestUsers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// create a APIKey with no partnerID
+		// create a APIKey with no UserAgent
 		_, err = consoleDB.APIKeys().Create(ctx, testrand.Bytes(8), console.APIKeyInfo{
 			ID:        testrand.UUID(),
 			ProjectID: proj.ID,
@@ -65,7 +67,7 @@ func TestUsers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// create a bucket with no partnerID
+		// create a bucket with no UserAgent
 		_, err = bucketService.CreateBucket(ctx, buckets.Bucket{
 			ID:                  testrand.UUID(),
 			Name:                "testbucket",
@@ -76,21 +78,21 @@ func TestUsers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// update a bucket with partnerID
+		// update a bucket with UserAgent
 		bucket, err := bucketService.UpdateBucket(ctx, buckets.Bucket{
 			ID:                  testrand.UUID(),
 			Name:                "testbucket",
 			ProjectID:           proj.ID,
-			PartnerID:           proj.ID,
 			Created:             time.Now(),
 			PathCipher:          storj.EncAESGCM,
 			DefaultSegmentsSize: int64(100),
+			UserAgent:           testUserAgent,
 		})
 		require.NoError(t, err)
-		require.Equal(t, proj.ID, bucket.PartnerID)
+		require.Equal(t, testUserAgent, bucket.UserAgent)
 
 		bucket, err = bucketService.GetBucket(ctx, []byte("testbucket"), proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, proj.ID, bucket.PartnerID)
+		require.Equal(t, testUserAgent, bucket.UserAgent)
 	})
 }

@@ -23,8 +23,7 @@ import (
 // MaxUserAgentLength is the maximum allowable length of the User Agent.
 const MaxUserAgentLength = 500
 
-// ensureAttribution ensures that the bucketName has the partner information specified by project-level user agent, header user agent, or keyInfo partner ID.
-// PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
+// ensureAttribution ensures that the bucketName has the partner information specified by project-level user agent, or header user agent.
 //
 // Assumes that the user has permissions sufficient for authenticating.
 func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte) (err error) {

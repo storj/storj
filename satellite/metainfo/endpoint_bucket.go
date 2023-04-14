@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
@@ -370,21 +369,10 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 		return buckets.Bucket{}, err
 	}
 
-	// TODO: resolve partner id
-	var partnerID uuid.UUID
-	err = partnerID.UnmarshalJSON(req.GetPartnerId())
-
-	// bucket's partnerID should never be set
-	// it is always read back from buckets DB
-	if err != nil && !partnerID.IsZero() {
-		return bucket, errs.New("Invalid uuid")
-	}
-
 	return buckets.Bucket{
 		ID:        bucketID,
 		Name:      string(req.GetName()),
 		ProjectID: projectID,
-		PartnerID: partnerID,
 	}, nil
 }
 
