@@ -112,7 +112,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 
 	// prod owners only
 	fullAccessAPI := api.NewRoute().Subrouter()
-	fullAccessAPI.Use(withAuth(log, config, nil))
+	fullAccessAPI.Use(server.withAuth(nil))
 	fullAccessAPI.HandleFunc("/users", server.addUser).Methods("POST")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
@@ -137,7 +137,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
-	limitUpdateAPI.Use(withAuth(log, config, []string{config.Groups.LimitUpdate}))
+	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}))
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
@@ -190,23 +190,28 @@ func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
 
+// SetAllowedOauthHost allows tests to set which address to recognize as belonging to the OAuth proxy.
+func (server *Server) SetAllowedOauthHost(host string) {
+	server.config.AllowedOauthHost = host
+}
+
 // withAuth checks if the requester is authorized to perform an operation. If the request did not come from the oauth proxy, verify the auth token.
 // Otherwise, check that the user has the required permissions to conduct the operation. `allowedGroups` is a list of groups that are authorized.
 // If it is nil, then the api method is not accessible from the oauth proxy.
-func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next http.Handler) http.Handler {
+func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			if r.Host != config.AllowedOauthHost {
+			if r.Host != server.config.AllowedOauthHost {
 				// not behind the proxy; use old authentication method.
-				if config.AuthorizationToken == "" {
+				if server.config.AuthorizationToken == "" {
 					sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
 					return
 				}
 
 				equality := subtle.ConstantTimeCompare(
 					[]byte(r.Header.Get("Authorization")),
-					[]byte(config.AuthorizationToken),
+					[]byte(server.config.AuthorizationToken),
 				)
 				if equality != 1 {
 					sendJSONError(w, "Forbidden",
@@ -245,7 +250,7 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 				}
 			}
 
-			log.Info(
+			server.log.Info(
 				"admin action",
 				zap.String("host", r.Host),
 				zap.String("user", r.Header.Get("X-Forwarded-Email")),

@@ -114,9 +114,7 @@ func TestWithOAuth(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Admin.Address = "127.0.0.1:52392"
-				// Make this admin server the AllowedOauthHost so withAuth thinks it's Oauth.
-				config.Admin.AllowedOauthHost = "127.0.0.1:52392"
+				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.StaticDir = "ui/build"
 				config.Admin.Groups = admin.Groups{LimitUpdate: "LimitUpdate"}
 			},
@@ -124,8 +122,11 @@ func TestWithOAuth(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		projectID := planet.Uplinks[0].Projects[0].ID
-		address := sat.Admin.Admin.Listener.Addr()
-		baseURL := "http://" + address.String()
+		address := sat.Admin.Admin.Listener.Addr().String()
+		baseURL := "http://" + address
+
+		// Make this admin server the AllowedOauthHost so withAuth thinks it's Oauth.
+		sat.Admin.Admin.Server.SetAllowedOauthHost(address)
 
 		// Requests that require full access should not be accessible through Oauth.
 		t.Run("UnauthorizedThroughOauth", func(t *testing.T) {
