@@ -562,12 +562,10 @@ export const makeFilesModule = (): FilesModule => ({
                         (file) => file.type === 'file',
                     );
 
-                    if (uploadedFiles.length === 1) {
-                        if (state.openModalOnFirstUpload === true) {
-                            commit('setObjectPathForModal', params.Key);
-                            const appStore = useAppStore();
-                            appStore.updateActiveModal(MODALS.objectDetails);
-                        }
+                    if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
+                        commit('setObjectPathForModal', params.Key);
+                        const appStore = useAppStore();
+                        appStore.updateActiveModal(MODALS.objectDetails);
                     }
 
                     commit('finishUpload', params.Key);

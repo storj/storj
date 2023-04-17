@@ -423,13 +423,10 @@ export const useFilesStore = defineStore('files', () => {
                     (file) => file.type === 'file',
                 );
 
-                if (uploadedFiles.length === 1) {
-                    if (state.openModalOnFirstUpload) {
-                        state.objectPathForModal = params.Key;
-
-                        const appStore = useAppStore();
-                        appStore.updateActiveModal(MODALS.objectDetails);
-                    }
+                if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
+                    state.objectPathForModal = params.Key;
+                    const appStore = useAppStore();
+                    appStore.updateActiveModal(MODALS.objectDetails);
                 }
 
                 state.uploading = state.uploading.filter((file) => file.Key !== params.Key);
