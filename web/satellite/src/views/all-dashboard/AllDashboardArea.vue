@@ -44,6 +44,18 @@
                 </v-banner>
 
                 <v-banner
+                    v-if="isAccountWarned && !isLoading && dashboardContent"
+                    class="all-dashboard__banners__warning"
+                    severity="warning"
+                    :dashboard-ref="dashboardContent"
+                >
+                    <template #text>
+                        <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
+                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                    </template>
+                </v-banner>
+
+                <v-banner
                     v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
                     class="all-dashboard__banners__hundred-limit"
                     severity="critical"
@@ -197,7 +209,14 @@ const debugTimerShown = computed((): boolean => {
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
-    return usersStore.state.user.isFrozen;
+    return usersStore.state.user.freezeStatus.frozen;
+});
+
+/**
+ * Indicates if account was warned due to billing issues.
+ */
+const isAccountWarned = computed((): boolean => {
+    return usersStore.state.user.freezeStatus.warned;
 });
 
 /**
@@ -681,6 +700,7 @@ onBeforeUnmount(() => {
         &__upgrade,
         &__project-limit,
         &__freeze,
+        &__warning,
         &__hundred-limit,
         &__eighty-limit {
             margin: 20px 0 0;

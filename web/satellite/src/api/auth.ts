@@ -5,6 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
+    FreezeStatus,
     SetUserSettingsData,
     TokenInfo,
     UpdatedUser,
@@ -233,13 +234,16 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async getFrozenStatus(): Promise<boolean> {
+    public async getFrozenStatus(): Promise<FreezeStatus> {
         const path = `${this.ROOT_PATH}/account/freezestatus`;
         const response = await this.http.get(path);
         if (response.ok) {
             const responseData = await response.json();
 
-            return responseData.frozen;
+            return new FreezeStatus(
+                responseData.frozen,
+                responseData.warned,
+            );
         }
 
         throw new Error('can not get user frozen status');

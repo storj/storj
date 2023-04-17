@@ -52,7 +52,7 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function getFrozenStatus(): Promise<void> {
-        state.user.isFrozen = await api.getFrozenStatus();
+        state.user.freezeStatus = await api.getFrozenStatus();
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {

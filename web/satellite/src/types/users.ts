@@ -27,7 +27,7 @@ export interface UsersApi {
      * @returns boolean
      * @throws Error
      */
-    getFrozenStatus(): Promise<boolean>;
+    getFrozenStatus(): Promise<FreezeStatus>;
 
     /**
      * Fetches user frozen status.
@@ -94,7 +94,7 @@ export class User {
         public mfaRecoveryCodeCount: number = 0,
         public _createdAt: string | null = null,
         public signupPromoCode: string = '',
-        public isFrozen: boolean = false,
+        public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) {}
 
     public get createdAt(): Date | null {
@@ -179,4 +179,14 @@ export interface SetUserSettingsData {
     onboardingEnd?: boolean;
     onboardingStep?: string | null;
     sessionDuration?: number;
+}
+
+/**
+ * FreezeStatus represents a freeze-status endpoint response.
+ */
+export class FreezeStatus {
+    public constructor(
+        public frozen = false,
+        public warned = false,
+    ) {}
 }
