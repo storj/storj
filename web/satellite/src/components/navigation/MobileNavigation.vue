@@ -139,6 +139,10 @@
                                 </a>
                             </div>
                         </div>
+                        <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                            <UpgradeIcon />
+                            <p class="account-area__dropdown__item__label">Upgrade</p>
+                        </div>
                         <div class="account-area__dropdown__item" @click="navigateToBilling">
                             <BillingIcon />
                             <p class="account-area__dropdown__item__label">Billing</p>
@@ -194,6 +198,7 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import UpgradeIcon from '@/../static/images/navigation/upgrade.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -437,6 +442,14 @@ function onCreateLinkClick(): void {
     }
 
     isProjectDropdownShown.value = false;
+}
+
+/**
+ * Starts upgrade account flow.
+ */
+function onUpgrade(): void {
+    isOpened.value = false;
+    appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
 /**

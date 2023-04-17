@@ -128,7 +128,7 @@ onMounted(async (): Promise<void> => {
     try {
         await QRCode.toCanvas(canvas.value, wallet.value.address);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
     }
 });
 </script>

@@ -31,6 +31,10 @@
                     </a>
                 </div>
             </div>
+            <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                <UpgradeIcon />
+                <p class="account-area__dropdown__item__label">Upgrade</p>
+            </div>
             <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
@@ -55,7 +59,7 @@ import { RouteConfig } from '@/router';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -75,6 +79,7 @@ import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
+import UpgradeIcon from '@/../static/images/navigation/upgrade.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
@@ -128,6 +133,15 @@ const satellite = computed((): string => {
 const user = computed((): User => {
     return usersStore.state.user;
 });
+
+/**
+ * Starts upgrade account flow.
+ */
+function onUpgrade(): void {
+    closeDropdown();
+
+    appStore.updateActiveModal(MODALS.upgradeAccount);
+}
 
 /**
  * Navigates user to billing page.
@@ -190,9 +204,10 @@ function toggleDropdown(): void {
     const DROPDOWN_HEIGHT = 224; // pixels
     const SIXTEEN_PIXELS = 16;
     const TWENTY_PIXELS = 20;
+    const SEVENTY_PIXELS = 70;
     const accountContainer = accountArea.value.getBoundingClientRect();
 
-    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
+    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (usersStore.state.user.paidTier ? SIXTEEN_PIXELS : SEVENTY_PIXELS);
     dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
     appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);

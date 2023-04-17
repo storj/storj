@@ -47,10 +47,10 @@ import WebIcon from '@/../static/images/onboardingTour/web.svg';
 import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
 
 const props = withDefaults(defineProps<{
-    isWeb: boolean;
+    isWeb?: boolean;
     title: string;
     info: string;
-    isDisabled: boolean;
+    isDisabled?: boolean;
     buttonLabel: string;
     onClick: () => void;
 }>(), {
