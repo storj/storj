@@ -442,7 +442,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			server.log.Error("error loading index.html", zap.String("path", path), zap.Error(err))
 		}
-		server.serveError(w, http.StatusInternalServerError)
+		// Loading index is optional.
 		return
 	}
 
@@ -454,8 +454,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	info, err := file.Stat()
 	if err != nil {
-		server.log.Error("failed to retrieve file info", zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
+		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
 		return
 	}
 
