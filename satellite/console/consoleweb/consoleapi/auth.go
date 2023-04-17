@@ -372,10 +372,11 @@ func loadSession(req *http.Request) string {
 	return sessionCookie.Value
 }
 
-// IsAccountFrozen checks to see if an account is frozen.
-func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
+// GetFreezeStatus checks to see if an account is frozen or warned.
+func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
 		Frozen bool `json:"frozen"`
+		Warned bool `json:"warned"`
 	}
 
 	ctx := r.Context()
@@ -388,7 +389,7 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	frozenBool, err := a.accountFreezeService.IsUserFrozen(ctx, userID)
+	freeze, warning, err := a.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -396,7 +397,8 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(FrozenResult{
-		Frozen: frozenBool,
+		Frozen: freeze != nil,
+		Warned: warning != nil,
 	})
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
