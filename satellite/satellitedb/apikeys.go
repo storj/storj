@@ -139,7 +139,7 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbKeyI, err := keys.lru.Get(string(head), func() (interface{}, error) {
+	dbKeyI, err := keys.lru.Get(ctx, string(head), func() (interface{}, error) {
 		return keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
 	})
 	if err != nil {

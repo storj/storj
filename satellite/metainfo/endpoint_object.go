@@ -80,7 +80,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	if err := endpoint.checkObjectUploadRate(keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+	if err := endpoint.checkObjectUploadRate(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
 		return nil, err
 	}
 

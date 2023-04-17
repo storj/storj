@@ -61,7 +61,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
 	nodeIDBytesAsString := string(nodeID.Bytes())
-	if !endpoint.service.idLimiter.IsAllowed(nodeIDBytesAsString) {
+	if !endpoint.service.idLimiter.IsAllowed(ctx, nodeIDBytesAsString) {
 		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
 	}

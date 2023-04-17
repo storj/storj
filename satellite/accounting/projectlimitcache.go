@@ -68,7 +68,7 @@ func (c *ProjectLimitCache) GetLimits(ctx context.Context, projectID uuid.UUID) 
 	fn := func() (interface{}, error) {
 		return c.getProjectLimits(ctx, projectID)
 	}
-	projectLimits, err := c.state.Get(projectID.String(), fn)
+	projectLimits, err := c.state.Get(ctx, projectID.String(), fn)
 	if err != nil {
 		return ProjectLimits{}, ErrGetProjectLimitCache.Wrap(err)
 	}

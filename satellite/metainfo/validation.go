@@ -210,7 +210,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
-	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
+	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (interface{}, error) {
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
@@ -495,7 +495,7 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encrypte
 	return nil
 }
 
-func (endpoint *Endpoint) checkObjectUploadRate(projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
+func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
 	if !endpoint.config.UploadLimiter.Enabled {
 		return nil
 	}
@@ -504,7 +504,7 @@ func (endpoint *Endpoint) checkObjectUploadRate(projectID uuid.UUID, bucketName 
 	// if object location is in cache it means that we won't allow to upload yet here,
 	// if it's not or internally key expired we are good to go
 	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
-	_, _ = endpoint.singleObjectLimitCache.Get(key, func() (interface{}, error) {
+	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (interface{}, error) {
 		limited = false
 		return struct{}{}, nil
 	})

@@ -4,6 +4,7 @@
 package contact
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -33,8 +34,8 @@ func NewRateLimiter(interval time.Duration, burst, numLimits int) *RateLimiter {
 }
 
 // IsAllowed indicates if event is allowed to happen.
-func (rateLimiter *RateLimiter) IsAllowed(key string) bool {
-	limiter, err := rateLimiter.limiters.Get(key, func() (interface{}, error) {
+func (rateLimiter *RateLimiter) IsAllowed(ctx context.Context, key string) bool {
+	limiter, err := rateLimiter.limiters.Get(ctx, key, func() (interface{}, error) {
 		return rate.NewLimiter(
 			rate.Limit(time.Second)/rate.Limit(rateLimiter.interval),
 			rateLimiter.burst,
