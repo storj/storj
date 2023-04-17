@@ -451,9 +451,10 @@ func (db *ProjectAccounting) GetProjectObjectsSegments(ctx context.Context, proj
 
 	var latestDate time.Time
 	latestDateRow := db.db.QueryRowContext(ctx, db.db.Rebind(`
-		SELECT interval_start FROM bucket_storage_tallies
+		SELECT interval_start FROM bucket_storage_tallies bst
 		WHERE
-			EXISTS (SELECT 1 FROM bucket_metainfos WHERE project_id = ?)
+			project_id = ?
+			AND EXISTS (SELECT 1 FROM bucket_metainfos bm WHERE bm.project_id = bst.project_id)
 		ORDER BY interval_start DESC
 		LIMIT 1
 	`), projectID[:])

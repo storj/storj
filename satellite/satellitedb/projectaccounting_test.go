@@ -426,6 +426,12 @@ func Test_GetProjectObjectsSegments(t *testing.T) {
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", []byte("testdata"))
 			require.NoError(t, err)
 
+			// bucket exists but no entry in bucket tallies yet
+			projectStats, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
+			require.NoError(t, err)
+			require.Zero(t, projectStats.ObjectCount)
+			require.Zero(t, projectStats.SegmentCount)
+
 			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 
 			projectStats, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
