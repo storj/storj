@@ -15,7 +15,7 @@
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLengthAcceptable }">
                 <VectorIcon />
             </div>
-            <p class="password-strength-container__rule-area__rule">Between 6 and 128 Latin characters</p>
+            <p class="password-strength-container__rule-area__rule">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
