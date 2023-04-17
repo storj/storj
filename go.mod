@@ -39,7 +39,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.8.2
 	github.com/stripe/stripe-go/v72 v72.90.0
-	github.com/vbauerster/mpb/v8 v8.3.0
+	github.com/vbauerster/mpb/v8 v8.4.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
@@ -53,7 +53,7 @@ require (
 	golang.org/x/net v0.6.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.6.0
+	golang.org/x/sys v0.7.0
 	golang.org/x/term v0.5.0
 	golang.org/x/text v0.7.0
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e

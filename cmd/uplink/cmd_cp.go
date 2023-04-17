@@ -463,7 +463,7 @@ func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.
 
 	appends := []decor.Decorator{
 		decor.NewPercentage(percentageFmt),
-		decor.MovingAverageSpeed(decor.UnitKiB, speedFmt, movingAverage),
+		decor.MovingAverageSpeed(decor.SizeB1024(1024), speedFmt, movingAverage),
 	}
 
 	return progress.AddBar(0,
