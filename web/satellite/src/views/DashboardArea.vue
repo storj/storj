@@ -722,15 +722,12 @@ onMounted(async () => {
             } else {
                 selectProject(projects);
             }
-            if (usersStore.shouldOnboard) {
-                const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
-                const onboardingPath = RouteConfig.OnboardingTour.with(firstOnboardingStep).path;
 
+            const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
+            const onboardingPath = RouteConfig.OnboardingTour.with(firstOnboardingStep).path;
+            if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
-
-                appStore.changeState(FetchState.LOADED);
-                return;
             }
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
