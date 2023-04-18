@@ -28,6 +28,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/time2"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -674,41 +675,46 @@ func TestEndpoint_Object_UploadLimit(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 		bucketName := "testbucket"
-		deleteBucket := func() error {
-			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			return err
-		}
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
 
 		t.Run("limit single object upload", func(t *testing.T) {
-			defer ctx.Check(deleteBucket)
 
+			now := time.Now()
+			request := &pb.BeginObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("single-object"),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			}
 			// upload to the same location one by one should fail
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			_, err := endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
 
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			_, err = endpoint.BeginObject(ctx, request)
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 
-			time.Sleep(500 * time.Millisecond)
+			ctx, _ := time2.WithNewMachine(ctx, time2.WithTimeAt(now.Add(250*time.Millisecond)))
 
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
 
 			// upload to different locations one by one should NOT fail
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-objectA", []byte("test"))
+			request.EncryptedObjectKey = []byte("single-objectA")
+			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
 
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-objectB", []byte("test"))
+			request.EncryptedObjectKey = []byte("single-objectB")
+			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
 		})
 	})
