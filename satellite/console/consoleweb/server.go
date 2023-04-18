@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"context"
 	"crypto/subtle"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -379,7 +380,6 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 	_, err = server.loadErrorTemplate()
 	if err != nil {
-		// TODO: should it return error if the template cannot be initialized or just log about it?
 		return Error.Wrap(err)
 	}
 
@@ -843,12 +843,19 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
+//go:embed error_fallback.html
+var errorTemplateFallback string
+
 // loadTemplates is used to initialize the error page template.
 func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	if server.errorTemplate == nil || server.config.Watch {
 		server.errorTemplate, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
 		if err != nil {
-			return nil, Error.Wrap(err)
+			server.log.Error("failed to load error.html template, falling back to error_fallback.html", zap.Error(err))
+			server.errorTemplate, err = template.New("").Parse(errorTemplateFallback)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
 		}
 	}
 
