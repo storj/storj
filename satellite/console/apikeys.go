@@ -51,13 +51,14 @@ type CreateAPIKeyResponse struct {
 
 // APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
-	ID        uuid.UUID `json:"id"`
-	ProjectID uuid.UUID `json:"projectId"`
-	UserAgent []byte    `json:"userAgent"`
-	Name      string    `json:"name"`
-	Head      []byte    `json:"-"`
-	Secret    []byte    `json:"-"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID              uuid.UUID `json:"id"`
+	ProjectID       uuid.UUID `json:"projectId"`
+	ProjectPublicID uuid.UUID `json:"projectPublicId"`
+	UserAgent       []byte    `json:"userAgent"`
+	Name            string    `json:"name"`
+	Head            []byte    `json:"-"`
+	Secret          []byte    `json:"-"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 // APIKeyCursor holds info for api keys cursor pagination.

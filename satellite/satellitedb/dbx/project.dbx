@@ -177,15 +177,18 @@ update api_key (
 delete api_key ( where api_key.id = ? )
 
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.id = ?
 )
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.head = ?
 )
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.name = ?
     where api_key.project_id = ?
 )

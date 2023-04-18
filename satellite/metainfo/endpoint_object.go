@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
@@ -60,6 +61,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !req.ExpiresAt.IsZero() && !req.ExpiresAt.After(time.Now()) {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
@@ -206,6 +208,20 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if err != nil {
 		return nil, err
 	}
+	var committedObject *metabase.Object
+	defer func() {
+		var tags []eventkit.Tag
+		if committedObject != nil {
+			tags = []eventkit.Tag{
+				eventkit.Bool("expires", committedObject.ExpiresAt != nil),
+				eventkit.Int64("segment_count", int64(committedObject.SegmentCount)),
+				eventkit.Int64("total_plain_size", committedObject.TotalPlainSize),
+				eventkit.Int64("total_encrypted_size", committedObject.TotalEncryptedSize),
+				eventkit.Int64("fixed_segment_size", int64(committedObject.FixedSegmentSize)),
+			}
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+	}()
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
@@ -217,7 +233,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	streamMeta := &pb.StreamMeta{}
 	encryption := storj.EncryptionParameters{}
 	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
-	if err == nil {
+	if err != nil {
+		// TODO: what if this is an error we don't expect?
+	} else {
 		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
@@ -259,10 +277,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	_, err = endpoint.metabase.CommitObject(ctx, request)
+	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+	committedObject = &object
 
 	mon.Meter("req_commit_object").Mark(1)
 
@@ -293,6 +312,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -308,6 +328,17 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	{
+		tags := []eventkit.Tag{
+			eventkit.Bool("expires", mbObject.ExpiresAt != nil),
+			eventkit.Int64("segment_count", int64(mbObject.SegmentCount)),
+			eventkit.Int64("total_plain_size", mbObject.TotalPlainSize),
+			eventkit.Int64("total_encrypted_size", mbObject.TotalEncryptedSize),
+			eventkit.Int64("fixed_segment_size", int64(mbObject.FixedSegmentSize)),
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
 	var segmentRS *pb.RedundancyScheme
@@ -421,6 +452,22 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	streamRange, err := calculateStreamRange(object, req.Range)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	{
+		tags := []eventkit.Tag{
+			eventkit.Bool("expires", object.ExpiresAt != nil),
+			eventkit.Int64("segment_count", int64(object.SegmentCount)),
+			eventkit.Int64("total_plain_size", object.TotalPlainSize),
+			eventkit.Int64("total_encrypted_size", object.TotalEncryptedSize),
+			eventkit.Int64("fixed_segment_size", int64(object.FixedSegmentSize)),
+		}
+		if streamRange != nil {
+			tags = append(tags,
+				eventkit.Int64("range_start", streamRange.PlainStart),
+				eventkit.Int64("range_end", streamRange.PlainLimit))
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
@@ -759,6 +806,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -898,6 +946,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1010,6 +1059,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1098,6 +1148,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1174,6 +1225,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1399,6 +1451,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeleteCommittedObject(
 	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
 ) (deletedObjects []*pb.Object, err error) {
@@ -1441,6 +1494,12 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO regarding the above note: exporting for testing is fine, but we should name
+// it something that will definitely never ever be added to the rpc set in DRPC
+// definitions. If we ever decide to add an RPC method called "DeleteObjectAnyStatus",
+// DRPC interface definitions is all that is standing in the way from someone
+// remotely calling this. We should name this InternalDeleteObjectAnyStatus or
+// something.
 func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location metabase.ObjectLocation,
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
@@ -1479,6 +1538,7 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,
@@ -1586,6 +1646,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
 		err = endpoint.validateBucket(ctx, bucket)
@@ -1732,6 +1793,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.NewBucket)
 	if err != nil {
@@ -1809,6 +1871,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
 		err = endpoint.validateBucket(ctx, bucket)
@@ -1921,6 +1984,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.NewBucket)
 	if err != nil {

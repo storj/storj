@@ -11817,6 +11817,11 @@ func (h *__sqlbundle_Hole) Render() string {
 // end runtime support for building sql statements
 //
 
+type ApiKey_Project_PublicId_Row struct {
+	ApiKey           ApiKey
+	Project_PublicId []byte
+}
+
 type Balance_Row struct {
 	Balance int64
 }
@@ -15829,12 +15834,12 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Id(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -15842,21 +15847,21 @@ func (obj *pgxImpl) Get_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Head(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -15864,22 +15869,22 @@ func (obj *pgxImpl) Get_ApiKey_By_Head(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -15887,12 +15892,12 @@ func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
@@ -23523,12 +23528,12 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -23536,21 +23541,21 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -23558,22 +23563,22 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -23581,12 +23586,12 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
@@ -28314,35 +28319,35 @@ func (rx *Rx) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
 	return tx.Get_AccountFreezeEvent_By_UserId_And_Event(ctx, account_freeze_event_user_id, account_freeze_event_event)
 }
 
-func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Head(ctx, api_key_head)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx, api_key_head)
 }
 
-func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx, api_key_id)
 }
 
-func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx, api_key_name, api_key_project_id)
 }
 
 func (rx *Rx) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
@@ -29788,18 +29793,18 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field) (
 		account_freeze_event *AccountFreezeEvent, err error)
 
-	Get_ApiKey_By_Head(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
-	Get_ApiKey_By_Id(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
-	Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 		api_key_name ApiKey_Name_Field,
 		api_key_project_id ApiKey_ProjectId_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
 	Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field) (
