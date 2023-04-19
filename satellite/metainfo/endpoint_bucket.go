@@ -319,7 +319,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	listOpts := buckets.ListOptions{
 		Cursor:    string(req.Cursor),
 		Limit:     int(req.Limit),
-		Direction: buckets.ListDirection(req.Direction),
+		Direction: req.Direction,
 	}
 	bucketList, err := endpoint.buckets.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {

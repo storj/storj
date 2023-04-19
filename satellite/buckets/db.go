@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
@@ -41,13 +42,13 @@ type Bucket struct {
 }
 
 // ListDirection specifies listing direction.
-type ListDirection int32
+type ListDirection = pb.ListDirection
 
 const (
 	// DirectionForward lists forwards from cursor, including cursor.
-	DirectionForward = 1
+	DirectionForward = pb.ListDirection_FORWARD
 	// DirectionAfter lists forwards from cursor, without cursor.
-	DirectionAfter = 2
+	DirectionAfter = pb.ListDirection_AFTER
 )
 
 // MinimalBucket contains minimal bucket fields for metainfo protocol.

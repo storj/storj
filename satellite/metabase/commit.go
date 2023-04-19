@@ -27,7 +27,7 @@ const defaultZombieDeletionPeriod = 24 * time.Hour
 
 var (
 	// ErrObjectNotFound is used to indicate that the object does not exist.
-	ErrObjectNotFound = storj.ErrObjectNotFound
+	ErrObjectNotFound = errs.Class("metabase: object not found")
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
 	// ErrConflict is used to indicate conflict with the request.
