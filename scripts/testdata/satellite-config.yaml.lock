@@ -706,9 +706,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
 
-# whether to use ranged loop instead of segment loop
-# metrics.use-ranged-loop: false
-
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 

@@ -156,14 +156,11 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	{ // setup ranged loop
 		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
+			peer.Metrics.Observer,
 		}
 
 		if config.Audit.UseRangedLoop {
 			observers = append(observers, peer.Audit.Observer)
-		}
-
-		if config.Metrics.UseRangedLoop {
-			observers = append(observers, peer.Metrics.Observer)
 		}
 
 		if config.Tally.UseRangedLoop {

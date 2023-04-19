@@ -50,7 +50,6 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
@@ -208,8 +207,6 @@ type Config struct {
 	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
-
-	Metrics metrics.Config
 
 	Compensation compensation.Config
 

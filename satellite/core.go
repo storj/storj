@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
@@ -148,10 +147,6 @@ type Core struct {
 
 	GracefulExit struct {
 		Chore *gracefulexit.Chore
-	}
-
-	Metrics struct {
-		Chore *metrics.Chore
 	}
 }
 
@@ -628,26 +623,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
-		}
-	}
-
-	{ // setup metrics service
-		log := peer.Log.Named("metrics")
-		if config.Metrics.UseRangedLoop {
-			log.Info("using ranged loop")
-		} else {
-			peer.Metrics.Chore = metrics.NewChore(
-				log,
-				config.Metrics,
-				peer.Metainfo.SegmentLoop,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "metrics",
-				Run:   peer.Metrics.Chore.Run,
-				Close: peer.Metrics.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 		}
 	}
 

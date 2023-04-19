@@ -51,7 +51,6 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
@@ -203,10 +202,6 @@ type Satellite struct {
 	GracefulExit struct {
 		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
-	}
-
-	Metrics struct {
-		Chore *metrics.Chore
 	}
 }
 
@@ -670,8 +665,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
-
-	system.Metrics.Chore = peer.Metrics.Chore
 
 	return system
 }
