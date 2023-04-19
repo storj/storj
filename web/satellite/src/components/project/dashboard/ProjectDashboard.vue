@@ -391,7 +391,7 @@ onMounted(async (): Promise<void> => {
             await router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }
-        const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+        const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
         router.push(onboardingPath);

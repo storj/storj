@@ -486,10 +486,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled
-            ? RouteConfig.PricingPlanStep
-            : RouteConfig.OverviewStep;
-        next(RouteConfig.OnboardingTour.with(firstOnboardingStep).path);
+        next(RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path);
 
         return;
     }

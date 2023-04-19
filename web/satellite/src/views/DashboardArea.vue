@@ -743,8 +743,7 @@ onMounted(async () => {
                 selectProject(projects);
             }
 
-            const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
-            const onboardingPath = RouteConfig.OnboardingTour.with(firstOnboardingStep).path;
+            const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
             if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
