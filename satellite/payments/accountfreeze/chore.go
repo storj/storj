@@ -188,6 +188,11 @@ func (chore *Chore) TestSetNow(f func() time.Time) {
 	chore.nowFn = f
 }
 
+// TestSetFreezeService changes the freeze service for tests.
+func (chore *Chore) TestSetFreezeService(service *console.AccountFreezeService) {
+	chore.freezeService = service
+}
+
 // Close closes the chore.
 func (chore *Chore) Close() error {
 	chore.Loop.Close()
