@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
@@ -965,5 +966,138 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 				require.Equal(t, stripe.InvoiceStatusOpen, i.Status)
 			}
 		}
+	})
+}
+
+func TestRemoveExpiredPackageCredit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		p := satellite.API.Payments
+		u0 := planet.Uplinks[0].Projects[0].Owner.ID
+		u1 := planet.Uplinks[1].Projects[0].Owner.ID
+		u2 := planet.Uplinks[2].Projects[0].Owner.ID
+		u3 := planet.Uplinks[3].Projects[0].Owner.ID
+
+		credit := int64(1000)
+		pkgDesc := "test package plan"
+		now := time.Now()
+		expiredPurchase := now.AddDate(-1, -1, 0)
+
+		removeExpiredCredit := func(u uuid.UUID, expectAlert bool, purchaseTime *time.Time) {
+			require.NoError(t, p.Accounts.UpdatePackage(ctx, u, &pkgDesc, purchaseTime))
+			cPage, err := satellite.API.DB.StripeCoinPayments().Customers().List(ctx, uuid.UUID{}, 10, time.Now().Add(1*time.Hour))
+			require.NoError(t, err)
+			var c stripe1.Customer
+			for _, cus := range cPage.Customers {
+				if cus.UserID == u {
+					c = cus
+				}
+			}
+
+			alertSent, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 c.ID,
+				UserID:             c.UserID,
+				PackagePlan:        c.PackagePlan,
+				PackagePurchasedAt: c.PackagePurchasedAt,
+			})
+			require.NoError(t, err)
+			if expectAlert {
+				require.True(t, alertSent)
+			} else {
+				require.False(t, alertSent)
+			}
+		}
+
+		checkCreditAndPackage := func(u uuid.UUID, expectedBalance int64, expectNilPackage bool) {
+			b, err := p.Accounts.Balances().Get(ctx, u)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(expectedBalance), b.Credits)
+
+			dbPkgInfo, dbPurchaseTime, err := p.StripeService.Accounts().GetPackageInfo(ctx, u)
+			require.NoError(t, err)
+			if expectNilPackage {
+				require.Nil(t, dbPkgInfo)
+				require.Nil(t, dbPurchaseTime)
+			} else {
+				require.NotNil(t, dbPkgInfo)
+				require.NotNil(t, dbPurchaseTime)
+			}
+		}
+
+		t.Run("nil package plan returns safely", func(t *testing.T) {
+			_, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 "test-customer-ID",
+				UserID:             testrand.UUID(),
+				PackagePlan:        nil,
+				PackagePurchasedAt: &now,
+			})
+			require.NoError(t, err)
+		})
+
+		t.Run("nil package purchase time returns safely", func(t *testing.T) {
+			_, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 "test-customer-ID",
+				UserID:             testrand.UUID(),
+				PackagePlan:        new(string),
+				PackagePurchasedAt: nil,
+			})
+			require.NoError(t, err)
+		})
+
+		t.Run("package not expired retains credit", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u3, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			removeExpiredCredit(u3, false, &now)
+			checkCreditAndPackage(u3, credit, false)
+		})
+
+		t.Run("used all credit", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u0, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// remove credit as if they used it all
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u0, -credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(0), b.Credits)
+
+			removeExpiredCredit(u0, false, &expiredPurchase)
+			checkCreditAndPackage(u0, 0, true)
+		})
+
+		t.Run("has remaining credit but no credit source other than package", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u1, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// remove some credit, but not all, as if it were used
+			toRemove := credit / 2
+			remaining := credit - toRemove
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u1, -toRemove, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(remaining), b.Credits)
+
+			removeExpiredCredit(u1, false, &expiredPurchase)
+			checkCreditAndPackage(u1, 0, true)
+		})
+
+		t.Run("has additional credit source", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u2, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// give additional credit
+			additional := int64(2000)
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u2, additional, "additional credit")
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit+additional), b.Credits)
+
+			removeExpiredCredit(u2, true, &expiredPurchase)
+			checkCreditAndPackage(u2, credit+additional, false)
+		})
 	})
 }

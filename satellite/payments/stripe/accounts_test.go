@@ -73,7 +73,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			nil,
+		)
 		require.NoError(t, err)
 
 		service, err := console.NewService(

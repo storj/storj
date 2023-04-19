@@ -84,6 +84,8 @@ const (
 	eventAccountUnwarned              = "Account Unwarned"
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
+	eventExpiredCreditNeedsRemoval    = "Expired Credit Needs Removal"
+	eventExpiredCreditRemoved         = "Expired Credit Removed"
 )
 
 var (
@@ -635,4 +637,38 @@ func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email strin
 		Properties: props,
 	})
 
+}
+
+// TrackExpiredCreditNeedsRemoval sends an "Expired Credit Needs Removal" event to Segment.
+func (service *Service) TrackExpiredCreditNeedsRemoval(userID uuid.UUID, customerID, packagePlan string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("customer ID", customerID)
+	props.Set("package plan", packagePlan)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventExpiredCreditNeedsRemoval,
+		Properties: props,
+	})
+}
+
+// TrackExpiredCreditRemoved sends an "Expired Credit Removed" event to Segment.
+func (service *Service) TrackExpiredCreditRemoved(userID uuid.UUID, customerID, packagePlan string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("customer ID", customerID)
+	props.Set("package plan", packagePlan)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventExpiredCreditRemoved,
+		Properties: props,
+	})
 }

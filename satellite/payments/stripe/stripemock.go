@@ -780,7 +780,8 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 		ret := make([]interface{}, len(txs))
 
 		for i, v := range txs {
-			ret[i] = v
+			// stripe returns list of transactions ordered by most recent, so reverse the array.
+			ret[len(txs)-1-i] = v
 		}
 
 		listMeta := &stripe.ListMeta{

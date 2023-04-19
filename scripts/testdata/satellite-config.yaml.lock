@@ -865,6 +865,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10
 
+# whether to remove expired package credit or not
+# payments.stripe-coin-payments.remove-expired-credit: true
+
 # the duration of the first retry interval
 # payments.stripe-coin-payments.retries.initial-backoff: 20ms
 

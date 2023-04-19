@@ -69,6 +69,10 @@ type Core struct {
 		Service *version_checker.Service
 	}
 
+	Analytics struct {
+		Service *analytics.Service
+	}
+
 	Mail struct {
 		Service        *mailservice.Service
 		EmailReminders *emailreminders.Chore
@@ -418,6 +422,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	// TODO: remove in future, should be in API
 	{ // setup payments
 		pc := config.Payments
@@ -460,7 +474,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -513,14 +529,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			analyticService := analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
 			peer.Payments.AccountFreeze = accountfreeze.NewChore(
 				peer.Log.Named("payments.accountfreeze:chore"),
 				peer.DB.StripeCoinPayments(),
 				peer.Payments.Accounts,
 				peer.DB.Console().Users(),
-				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), analyticService),
-				analyticService,
+				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), peer.Analytics.Service),
+				peer.Analytics.Service,
 				config.AccountFreeze,
 			)
 
