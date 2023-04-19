@@ -227,12 +227,12 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))
 			} else if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.New("object not found")
+				return ErrObjectNotFound.New("object not found")
 			}
 			return Error.New("unable to update object: %w", err)
 		}
 		if streamID != opts.StreamID {
-			return storj.ErrObjectNotFound.New("object was changed during move")
+			return ErrObjectNotFound.New("object was changed during move")
 		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
 			return ErrInvalidRequest.New("wrong number of segments keys received")

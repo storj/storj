@@ -294,7 +294,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 	}
 
 	switch {
-	case storj.ErrObjectNotFound.Has(err):
+	case metabase.ErrObjectNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrSegmentNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())

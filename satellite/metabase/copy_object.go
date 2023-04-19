@@ -407,7 +407,7 @@ func getObjectAtCopySourceAndDestination(
 	}()
 
 	if !rows.Next() {
-		return Object{}, uuid.UUID{}, nil, 0, storj.ErrObjectNotFound.New("source object not found")
+		return Object{}, uuid.UUID{}, nil, 0, ErrObjectNotFound.New("source object not found")
 	}
 
 	err = rows.Scan(
@@ -425,7 +425,7 @@ func getObjectAtCopySourceAndDestination(
 		return Object{}, uuid.UUID{}, nil, 0, Error.New("unable to query object status: %w", err)
 	}
 	if sourceObject.StreamID != opts.StreamID {
-		return Object{}, uuid.UUID{}, nil, 0, storj.ErrObjectNotFound.New("object was changed during copy")
+		return Object{}, uuid.UUID{}, nil, 0, ErrObjectNotFound.New("object was changed during copy")
 	}
 
 	if len(ancestorStreamIDBytes) != 0 {

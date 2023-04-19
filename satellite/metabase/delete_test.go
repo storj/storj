@@ -54,7 +54,7 @@ func TestDeletePendingObject(t *testing.T) {
 				Opts: metabase.DeletePendingObject{
 					ObjectStream: obj,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -81,7 +81,7 @@ func TestDeletePendingObject(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{
@@ -107,7 +107,7 @@ func TestDeletePendingObject(t *testing.T) {
 				Opts: metabase.DeletePendingObject{
 					ObjectStream: object.ObjectStream,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
@@ -146,7 +146,7 @@ func TestDeletePendingObject(t *testing.T) {
 					},
 				},
 				Result:   metabase.DeleteObjectResult{},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
@@ -492,7 +492,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 
 			metabasetest.DeleteObjectAnyStatusAllVersions{
 				Opts:     metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -503,7 +503,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 
 			metabasetest.DeleteObjectAnyStatusAllVersions{
 				Opts:     metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
