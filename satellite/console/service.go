@@ -25,7 +25,6 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
@@ -2486,7 +2485,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	}
 
 	listOptions := buckets.ListOptions{
-		Direction: storj.Forward,
+		Direction: buckets.DirectionForward,
 	}
 
 	allowedBuckets := macaroon.AllowedBuckets{

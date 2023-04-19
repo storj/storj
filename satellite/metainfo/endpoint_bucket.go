@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
@@ -321,7 +320,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	listOpts := buckets.ListOptions{
 		Cursor:    string(req.Cursor),
 		Limit:     int(req.Limit),
-		Direction: storj.ListDirection(req.Direction),
+		Direction: buckets.ListDirection(req.Direction),
 	}
 	bucketList, err := endpoint.buckets.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {

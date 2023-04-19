@@ -196,7 +196,7 @@ func TestDeleteBucket(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Direction: int32(storj.Forward),
+			Direction: buckets.DirectionForward,
 		})
 		require.NoError(t, err)
 		require.Len(t, buckets.GetItems(), 0)
@@ -251,7 +251,7 @@ func TestListBucketsWithAttribution(t *testing.T) {
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
-				Direction: int32(storj.Forward),
+				Direction: buckets.DirectionForward,
 			})
 			require.NoError(t, err)
 			require.True(t, bucketExists(tc, buckets))

@@ -41,6 +41,16 @@ type Bucket struct {
 	Placement                   storj.PlacementConstraint
 }
 
+// ListDirection specifies listing direction.
+type ListDirection int32
+
+const (
+	// DirectionForward lists forwards from cursor, including cursor.
+	DirectionForward = 1
+	// DirectionAfter lists forwards from cursor, without cursor.
+	DirectionAfter = 2
+)
+
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte
@@ -50,7 +60,7 @@ type MinimalBucket struct {
 // ListOptions lists objects.
 type ListOptions struct {
 	Cursor    string
-	Direction storj.ListDirection
+	Direction ListDirection
 	Limit     int
 }
 
@@ -62,7 +72,7 @@ func (opts ListOptions) NextPage(list List) ListOptions {
 
 	return ListOptions{
 		Cursor:    list.Items[len(list.Items)-1].Name,
-		Direction: storj.After,
+		Direction: DirectionAfter,
 		Limit:     opts.Limit,
 	}
 }

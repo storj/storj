@@ -158,7 +158,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 
 				listOpts := buckets.ListOptions{
 					Cursor:    tt.cursor,
-					Direction: storj.Forward,
+					Direction: buckets.DirectionForward,
 					Limit:     tt.limit,
 				}
 				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID, listOpts, allowedBuckets)
@@ -215,7 +215,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 			tt := tt // avoid scopelint error
 			listOpts := buckets.ListOptions{
 				Cursor:    tt.cursor,
-				Direction: storj.Forward,
+				Direction: buckets.DirectionForward,
 				Limit:     tt.limit,
 			}
 			t.Run(tt.name, func(t *testing.T) {

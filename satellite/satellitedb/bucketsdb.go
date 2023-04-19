@@ -202,7 +202,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		var dbxBuckets []*dbx.BucketMetainfo
 		switch listOpts.Direction {
 		// For simplictiy we are only supporting the forward direction for listing buckets
-		case storj.Forward:
+		case buckets.DirectionForward:
 			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
 				dbx.BucketMetainfo_ProjectId(projectID[:]),
 				dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
@@ -211,7 +211,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			)
 
 		// After is only called by BucketListOptions.NextPage and is the paginated Forward direction
-		case storj.After:
+		case buckets.DirectionAfter:
 			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
 				dbx.BucketMetainfo_ProjectId(projectID[:]),
 				dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
@@ -255,7 +255,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			listOpts = buckets.ListOptions{
 				Cursor:    string(dbxBuckets[len(dbxBuckets)-1].Name),
 				Limit:     listOpts.Limit,
-				Direction: storj.After,
+				Direction: buckets.DirectionAfter,
 			}
 			continue
 		}

@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -465,7 +464,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options := buckets.ListOptions{Limit: 1, Direction: storj.Forward}
+	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
 	buckets, err := server.buckets.ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",

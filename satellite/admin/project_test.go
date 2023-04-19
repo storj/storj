@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
@@ -308,7 +307,7 @@ func TestProjectDelete(t *testing.T) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
 		// Ensure there are no buckets left
-		buckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(ctx, projectID, buckets.ListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+		buckets, err := planet.Satellites[0].API.Buckets.Service.ListBuckets(ctx, projectID, buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}, macaroon.AllowedBuckets{All: true})
 		require.NoError(t, err)
 		require.Len(t, buckets.Items, 0)
 
