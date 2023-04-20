@@ -42,8 +42,8 @@ func TestReverifier_ReverifyPiece(t *testing.T) {
 		StreamID: uuid.New(),
 		Position: metabase.SegmentPosition{},
 		NodeID:   [32]byte{},
-	}
-		PieceNum: 0,
+ 		PieceNum: 0,
+ 	}
 	outcome, reputation, err := reverifier.ReverifyPiece(ctx, log, locator)
 	if err != nil {
 		t.Fatal("expected err to be nil but got", err)
