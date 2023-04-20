@@ -60,7 +60,7 @@ describe('Dashboard', () => {
     it('loads routes correctly when authorithed without project with unavailable routes', async () => {
         const unavailableWithoutProject = [
             RouteConfig.AccessGrants.path,
-            RouteConfig.Users.path,
+            RouteConfig.Team.path,
             RouteConfig.ProjectDashboard.path,
         ];
 

@@ -4,7 +4,7 @@
 <template>
     <div class="team-header-container">
         <div class="team-header-container__title-area">
-            <h1 class="team-header-container__title-area__title" aria-roledescription="title">Project Members</h1>
+            <h1 class="team-header-container__title-area__title" aria-roledescription="title">Team</h1>
             <VInfo class="team-header-container__title-area__info-button">
                 <template #icon>
                     <InfoIcon />
@@ -97,7 +97,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
-declare interface ClearSearch {
+interface ClearSearch {
     clearSearch(): void;
 }
 
@@ -123,7 +123,7 @@ const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isDeleteClicked = ref<boolean>(false);
-const headerComponent = ref<VHeader & ClearSearch>();
+const headerComponent = ref<typeof VHeader & ClearSearch>();
 
 const isDefaultState = computed((): boolean => {
     return props.headerState === 0;

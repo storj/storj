@@ -141,8 +141,8 @@ async function selectProject() {
  */
 async function goToProjectMembers(): Promise<void> {
     await selectProject();
-    analytics.pageVisit(RouteConfig.Users.path);
-    router.push(RouteConfig.Users.path);
+    analytics.pageVisit(RouteConfig.Team.path);
+    router.push(RouteConfig.Team.path);
     closeDropDown();
 }
 

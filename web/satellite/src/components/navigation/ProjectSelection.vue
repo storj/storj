@@ -233,7 +233,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.Users.name) {
+    if (router.currentRoute.name === RouteConfig.Team.name) {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {

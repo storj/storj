@@ -115,7 +115,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
     RouteConfig.Buckets.withIcon(BucketsIcon),
     RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-    RouteConfig.Users.withIcon(UsersIcon),
+    RouteConfig.Team.withIcon(UsersIcon),
 ];
 
 const resourcesDropdownYPos = ref<number>(0);
