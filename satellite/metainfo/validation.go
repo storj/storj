@@ -210,13 +210,13 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
-	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (interface{}, error) {
+	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (*rate.Limiter, error) {
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
 		limits, err := endpoint.projectLimits.GetLimits(ctx, projectID)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		if limits.RateLimit != nil {
 			rateLimit = rate.Limit(*limits.RateLimit)
@@ -233,11 +233,11 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 	}
 
-	if !limiter.(*rate.Limiter).Allow() {
+	if !limiter.Allow() {
 		endpoint.log.Warn("too many requests for project",
 			zap.Stringer("projectID", projectID),
-			zap.Float64("rate limit", float64(limiter.(*rate.Limiter).Limit())),
-			zap.Float64("burst limit", float64(limiter.(*rate.Limiter).Burst())))
+			zap.Float64("rate limit", float64(limiter.Limit())),
+			zap.Float64("burst limit", float64(limiter.Burst())))
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
@@ -504,7 +504,7 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID u
 	// if object location is in cache it means that we won't allow to upload yet here,
 	// if it's not or internally key expired we are good to go
 	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
-	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (interface{}, error) {
+	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (struct{}, error) {
 		limited = false
 		return struct{}{}, nil
 	})
