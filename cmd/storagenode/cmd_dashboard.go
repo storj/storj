@@ -33,8 +33,8 @@ type dashboardClient struct {
 }
 
 type dashboardCfg struct {
-	Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
-
+	Address  string `default:"127.0.0.1:7778" help:"address for dashboard service"`
+	Identity identity.Config
 	UseColor bool `internal:"true"`
 }
 
@@ -74,10 +74,7 @@ func (dash *dashboardClient) close() error {
 func cmdDashboard(cmd *cobra.Command, cfg *dashboardCfg) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	// TDDO: move to dashboardCfg to allow setting CertPath and KeyPath
-	var identityCfg identity.Config
-
-	ident, err := identityCfg.Load()
+	ident, err := cfg.Identity.Load()
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
