@@ -57,20 +57,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -93,20 +88,17 @@ enum CreatePassphraseOption {
     Enter = 'Enter',
 }
 
-const FILE_BROWSER_AG_NAME = 'Web file browser API key';
-
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
 const notify = useNotify();
-const route = useRoute();
-const router = useRouter();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const selectedOption = ref<CreatePassphraseOption>(CreatePassphraseOption.Generate);
 const activeStep = ref<CreateProjectPassphraseStep>(CreateProjectPassphraseStep.SelectMode);
 const passphrase = ref<string>('');
 const enterError = ref<string>('');
-const isLoading = ref<boolean>(false);
 const passphraseSaved = ref<boolean>(false);
-const worker = ref<Worker | null>(null);
 
 /**
  * Indicates if save passphrase checkbox container is shown.
@@ -120,22 +112,7 @@ const isCheckVisible = computed((): boolean => {
  * Indicates if continue button is disabled.
  */
 const continueButtonDisabled = computed((): boolean => {
-    return (isCheckVisible.value && !passphraseSaved.value) || isLoading.value;
-});
-
-/**
- * Returns web file browser api key from vuex state.
- */
-const apiKey = computed((): string => {
-    return store.state.objectsModule.apiKey;
-});
-
-/**
- * Lifecycle hook after initial render.
- * Sets local worker.
- */
-onMounted(() => {
-    setWorker();
+    return isCheckVisible.value && !passphraseSaved.value;
 });
 
 /**
@@ -170,84 +147,7 @@ function toggleSaved(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-}
-
-/**
- * Sets local worker with worker instantiated in store.
- */
-function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
-    if (worker.value) {
-        worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_LEVEL_PASSPHRASE_MODAL);
-        };
-    }
-}
-
-/**
- * Generates s3 credentials from provided passphrase and stores it in vuex state to be reused.
- */
-async function setAccess(): Promise<void> {
-    if (!worker.value) {
-        throw new Error('Worker is not defined');
-    }
-
-    if (!apiKey.value) {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME);
-        const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME);
-        await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
-    }
-
-    const now = new Date();
-    const inThreeDays = new Date(now.setDate(now.getDate() + 3));
-
-    await worker.value.postMessage({
-        'type': 'SetPermission',
-        'isDownload': true,
-        'isUpload': true,
-        'isList': true,
-        'isDelete': true,
-        'notAfter': inThreeDays.toISOString(),
-        'buckets': [],
-        'apiKey': apiKey.value,
-    });
-
-    const grantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (grantEvent.data.error) {
-        throw new Error(grantEvent.data.error);
-    }
-
-    const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
-    const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-
-    worker.value.postMessage({
-        'type': 'GenerateAccess',
-        'apiKey': grantEvent.data.value,
-        'passphrase': passphrase.value,
-        'salt': salt,
-        'satelliteNodeURL': satelliteNodeURL,
-    });
-
-    const accessGrantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (accessGrantEvent.data.error) {
-        throw new Error(accessGrantEvent.data.error);
-    }
-
-    const accessGrant = accessGrantEvent.data.value;
-
-    const gatewayCredentials: EdgeCredentials = await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
-    await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-    await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-    await store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 /**
@@ -279,32 +179,23 @@ async function onContinue(): Promise<void> {
         activeStep.value === CreateProjectPassphraseStep.PassphraseGenerated ||
         activeStep.value === CreateProjectPassphraseStep.EnterPassphrase
     ) {
-        if (isLoading.value) return;
-
         if (!passphrase.value) {
             enterError.value = 'Passphrase can\'t be empty';
 
             return;
         }
 
-        isLoading.value = true;
+        bucketsStore.setEdgeCredentials(new EdgeCredentials());
+        bucketsStore.setPassphrase(passphrase.value);
+        bucketsStore.setPromptForPassphrase(false);
 
-        try {
-            await setAccess();
-            store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, passphrase.value);
-
-            activeStep.value = CreateProjectPassphraseStep.Success;
-        } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_LEVEL_PASSPHRASE_MODAL);
-        } finally {
-            isLoading.value = false;
-        }
+        activeStep.value = CreateProjectPassphraseStep.Success;
 
         return;
     }
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
-        if (route?.name === RouteConfig.OverviewStep.name) {
+        if (router.currentRoute.name === RouteConfig.OverviewStep.name) {
             router.push(RouteConfig.ProjectDashboard.path);
         }
 

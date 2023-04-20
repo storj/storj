@@ -214,7 +214,7 @@ export default class EstimationArea extends Vue {
     public get isLastPeriodWithoutPaystub(): boolean {
         const joinedAt: Date = this.$store.state.node.selectedSatellite.joinDate;
         const isNodeStartedBeforeCurrentPeriod =
-            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1).getTime();
+            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1).getTime();
 
         if (!isNodeStartedBeforeCurrentPeriod) {
             return false;

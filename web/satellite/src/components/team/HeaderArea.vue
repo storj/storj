@@ -77,18 +77,19 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -100,131 +101,125 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VHeader,
-        VInfo,
-        InfoIcon,
-    },
-})
-export default class HeaderArea extends Vue {
-    @Prop({ default: ProjectMemberHeaderState.DEFAULT })
-    private readonly headerState: ProjectMemberHeaderState;
-    @Prop({ default: 0 })
-    public readonly selectedProjectMembersCount: number;
-    @Prop({ default: false })
-    public readonly isAddButtonDisabled: boolean;
+const appStore = useAppStore();
+const pmStore = useProjectMembersStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const router = useRouter();
 
-    private FIRST_PAGE = 1;
+const props = withDefaults(defineProps<{
+    headerState: ProjectMemberHeaderState;
+    selectedProjectMembersCount: number;
+    isAddButtonDisabled: boolean;
+}>(), {
+    headerState: ProjectMemberHeaderState.DEFAULT,
+    selectedProjectMembersCount: 0,
+    isAddButtonDisabled: false,
+});
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const emit = defineEmits(['onSuccessAction']);
 
-    /**
-     * Indicates if state after first delete click is active.
-     */
-    public isDeleteClicked = false;
+const FIRST_PAGE = 1;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs!: {
-        headerComponent: VHeader & ClearSearch;
-    };
+const isDeleteClicked = ref<boolean>(false);
+const headerComponent = ref<VHeader & ClearSearch>();
 
-    /**
-     * Lifecycle hook before component destruction.
-     * Clears selection and search query for team members page.
-     */
-    public beforeDestroy(): void {
-        this.onClearSelection();
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+const isDefaultState = computed((): boolean => {
+    return props.headerState === 0;
+});
+
+const areProjectMembersSelected = computed((): boolean => {
+    return props.headerState === 1 && !isDeleteClicked.value;
+});
+
+const areSelectedProjectMembersBeingDeleted = computed((): boolean => {
+    return props.headerState === 1 && isDeleteClicked.value;
+});
+
+const userCountTitle = computed((): string => {
+    return props.selectedProjectMembersCount === 1 ? 'user' : 'users';
+});
+
+/**
+ * Opens add team members modal.
+ */
+function toggleTeamMembersModal(): void {
+    appStore.updateActiveModal(MODALS.addTeamMember);
+}
+
+function onFirstDeleteClick(): void {
+    isDeleteClicked.value = true;
+}
+
+/**
+ * Clears selection and returns area state to default.
+ */
+function onClearSelection(): void {
+    pmStore.clearProjectMemberSelection();
+    isDeleteClicked.value = false;
+
+    emit('onSuccessAction');
+}
+
+/**
+ * Removes user from selected project.
+ */
+async function onDelete(): Promise<void> {
+    try {
+        await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
+        await setProjectState();
+    } catch (error) {
+        await notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        isDeleteClicked.value = false;
+        return;
     }
 
-    public get userCountTitle(): string {
-        return this.selectedProjectMembersCount === 1 ? 'user' : 'users';
-    }
+    emit('onSuccessAction');
+    await notify.success('Members were successfully removed from project');
+    isDeleteClicked.value = false;
+}
 
-    /**
-     * Opens add team members modal.
-     */
-    public toggleTeamMembersModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
-    }
-
-    public onFirstDeleteClick(): void {
-        this.isDeleteClicked = true;
-    }
-
-    /**
-     * Clears selection and returns area state to default.
-     */
-    public onClearSelection(): void {
-        this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
-        this.isDeleteClicked = false;
-
-        this.$emit('onSuccessAction');
-    }
-
-    /**
-     * Removes user from selected project.
-     */
-    public async onDelete(): Promise<void> {
-        try {
-            await this.$store.dispatch(PM_ACTIONS.DELETE);
-            await this.setProjectState();
-        } catch (error) {
-            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
-            this.isDeleteClicked = false;
-
-            return;
-        }
-
-        this.$emit('onSuccessAction');
-        await this.$notify.success('Members were successfully removed from project');
-        this.isDeleteClicked = false;
-    }
-
-    /**
-     * Fetches team members of current project depends on search query.
-     * @param search
-     */
-    public async processSearchQuery(search: string): Promise<void> {
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
-        try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
-        }
-    }
-
-    public get isDefaultState(): boolean {
-        return this.headerState === 0;
-    }
-
-    public get areProjectMembersSelected(): boolean {
-        return this.headerState === 1 && !this.isDeleteClicked;
-    }
-
-    public get areSelectedProjectMembersBeingDeleted(): boolean {
-        return this.headerState === 1 && this.isDeleteClicked;
-    }
-
-    private async setProjectState(): Promise<void> {
-        const projects: Project[] = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-        if (!projects.length) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-
-            return;
-        }
-
-        if (!projects.includes(this.$store.getters.selectedProject)) {
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-        }
-
-        await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        this.$refs.headerComponent.clearSearch();
+/**
+ * Fetches team members of current project depends on search query.
+ * @param search
+ */
+async function processSearchQuery(search: string): Promise<void> {
+    pmStore.setSearchQuery(search);
+    try {
+        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+    } catch (error) {
+        await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
     }
 }
+
+async function setProjectState(): Promise<void> {
+    const projects: Project[] = await projectsStore.getProjects();
+    if (!projects.length) {
+        const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+        analytics.pageVisit(onboardingPath);
+        router.push(onboardingPath);
+
+        return;
+    }
+
+    if (!projects.includes(projectsStore.state.selectedProject)) {
+        projectsStore.selectProject(projects[0].id);
+    }
+
+    await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+    headerComponent.value?.clearSearch();
+}
+
+/**
+ * Lifecycle hook before component destruction.
+ * Clears selection and search query for team members page.
+ */
+onBeforeUnmount((): void => {
+    onClearSelection();
+    pmStore.setSearchQuery('');
+});
 </script>
 
 <style scoped lang="scss">

@@ -287,7 +287,7 @@ export default class PayoutPeriodCalendar extends Vue {
             const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
             const isLastMonthActive: boolean =
                 isLastMonth && this.$store.state.node.selectedSatellite.joinDate.getTime() < new Date(
-                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1,
+                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1,
                 ).getTime();
 
             const isMonthActive: boolean = availablePeriods.includes(period);

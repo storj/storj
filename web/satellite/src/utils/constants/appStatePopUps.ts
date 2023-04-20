@@ -27,9 +27,13 @@ import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptMod
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
 import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
+import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
+import NewCreateProjectModal from '@/components/modals/NewCreateProjectModal.vue';
+import EditSessionTimeoutModal from '@/components/modals/EditSessionTimeoutModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
+    ALL_DASH_ACCOUNT: 'allProjectsDashboardAccount',
     SELECT_PROJECT: 'isSelectProjectDropdownShown',
     RESOURCES: 'isResourcesDropdownShown',
     QUICK_START: 'isQuickStartDropdownShown',
@@ -41,6 +45,7 @@ export const APP_STATE_DROPDOWNS = {
     CHART_DATE_PICKER: 'isChartsDatePickerShown',
     PERMISSIONS: 'isPermissionsDropdownShown',
     PAYMENT_SELECTION: 'isPaymentSelectionShown',
+    TIMEOUT_SELECTOR: 'timeoutSelector',
 };
 
 enum Modals {
@@ -67,6 +72,9 @@ enum Modals {
     UPLOAD_CANCEL_POPUP = 'uploadCancelPopup',
     OBJECT_DETAILS = 'objectDetails',
     ENTER_PASSPHRASE = 'enterPassphrase',
+    PRICING_PLAN = 'pricingPlan',
+    NEW_CREATE_PROJECT = 'newCreateProject',
+    EDIT_SESSION_TIMEOUT = 'editSessionTimeout',
 }
 
 // modals could be of VueConstructor type or Object (for composition api components).
@@ -94,4 +102,7 @@ export const MODALS: Record<Modals, unknown> = {
     [Modals.UPLOAD_CANCEL_POPUP]: UploadCancelPopup,
     [Modals.OBJECT_DETAILS]: ObjectDetailsModal,
     [Modals.ENTER_PASSPHRASE]: EnterPassphraseModal,
+    [Modals.PRICING_PLAN]: PricingPlanModal,
+    [Modals.NEW_CREATE_PROJECT]: NewCreateProjectModal,
+    [Modals.EDIT_SESSION_TIMEOUT]: EditSessionTimeoutModal,
 };

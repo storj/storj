@@ -10,21 +10,21 @@ type Type int
 
 const (
 	// Online indicates that the node has come back online.
-	Online Type = iota
+	Online Type = 0
 	// Offline indicates that the node is offline.
-	Offline
+	Offline Type = 1
 	// Disqualified indicates that the node is disqualified.
-	Disqualified
+	Disqualified Type = 2
 	// UnknownAuditSuspended indicates that the node is suspended for unknown audit errors.
-	UnknownAuditSuspended
+	UnknownAuditSuspended Type = 3
 	// UnknownAuditUnsuspended indicates that the node is no longer suspended for unknown audit errors.
-	UnknownAuditUnsuspended
+	UnknownAuditUnsuspended Type = 4
 	// OfflineSuspended indicates that the node is suspended for being offline.
-	OfflineSuspended
+	OfflineSuspended Type = 5
 	// OfflineUnsuspended indicates that the node is no longer suspended for being offline.
-	OfflineUnsuspended
+	OfflineUnsuspended Type = 6
 	// BelowMinVersion indicates that the node's software is below the minimum version.
-	BelowMinVersion
+	BelowMinVersion Type = 7
 
 	onlineName                  = "online"
 	offlineName                 = "offline"

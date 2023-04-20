@@ -118,7 +118,7 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 
 // Source defines the billing transaction source for storjscan payments.
 func (service *Service) Source() string {
-	return "storjscan"
+	return billing.StorjScanSource
 }
 
 // Type defines the billing transaction type for storjscan payments.

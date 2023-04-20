@@ -26,14 +26,15 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/uplink/private/piecestore"
 )
 
 const numObjects = 6
@@ -77,18 +78,20 @@ func TestSuccess(t *testing.T) {
 
 					orderLimit := header.OrderLimit
 					originalPieceHash := &pb.PieceHash{
-						PieceId:   orderLimit.PieceId,
-						Hash:      header.GetHash(),
-						PieceSize: pieceReader.Size(),
-						Timestamp: header.GetCreationTime(),
-						Signature: header.GetSignature(),
+						PieceId:       orderLimit.PieceId,
+						Hash:          header.GetHash(),
+						PieceSize:     pieceReader.Size(),
+						Timestamp:     header.GetCreationTime(),
+						Signature:     header.GetSignature(),
+						HashAlgorithm: header.GetHashAlgorithm(),
 					}
 
 					newPieceHash := &pb.PieceHash{
-						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-						Hash:      originalPieceHash.Hash,
-						PieceSize: originalPieceHash.PieceSize,
-						Timestamp: time.Now(),
+						PieceId:       m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+						Hash:          originalPieceHash.Hash,
+						PieceSize:     originalPieceHash.PieceSize,
+						HashAlgorithm: originalPieceHash.HashAlgorithm,
+						Timestamp:     time.Now(),
 					}
 
 					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
@@ -466,18 +469,20 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 
 				orderLimit := header.OrderLimit
 				originalPieceHash := &pb.PieceHash{
-					PieceId:   orderLimit.PieceId,
-					Hash:      header.GetHash(),
-					PieceSize: pieceReader.Size(),
-					Timestamp: header.GetCreationTime(),
-					Signature: header.GetSignature(),
+					PieceId:       orderLimit.PieceId,
+					Hash:          header.GetHash(),
+					HashAlgorithm: header.HashAlgorithm,
+					PieceSize:     pieceReader.Size(),
+					Timestamp:     header.GetCreationTime(),
+					Signature:     header.GetSignature(),
 				}
 
 				newPieceHash := &pb.PieceHash{
-					PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-					Hash:      originalPieceHash.Hash,
-					PieceSize: originalPieceHash.PieceSize,
-					Timestamp: time.Now(),
+					PieceId:       m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+					Hash:          originalPieceHash.Hash,
+					HashAlgorithm: header.HashAlgorithm,
+					PieceSize:     originalPieceHash.PieceSize,
+					Timestamp:     time.Now(),
 				}
 
 				receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
@@ -753,18 +758,20 @@ func testSuccessSegmentUpdate(t *testing.T, ctx *testcontext.Context, nodeFullID
 
 		orderLimit := header.OrderLimit
 		originalPieceHash := &pb.PieceHash{
-			PieceId:   orderLimit.PieceId,
-			Hash:      header.GetHash(),
-			PieceSize: pieceReader.Size(),
-			Timestamp: header.GetCreationTime(),
-			Signature: header.GetSignature(),
+			PieceId:       orderLimit.PieceId,
+			Hash:          header.GetHash(),
+			HashAlgorithm: header.HashAlgorithm,
+			PieceSize:     pieceReader.Size(),
+			Timestamp:     header.GetCreationTime(),
+			Signature:     header.GetSignature(),
 		}
 
 		newPieceHash := &pb.PieceHash{
-			PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-			Hash:      originalPieceHash.Hash,
-			PieceSize: originalPieceHash.PieceSize,
-			Timestamp: time.Now(),
+			PieceId:       m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+			Hash:          originalPieceHash.Hash,
+			HashAlgorithm: header.HashAlgorithm,
+			PieceSize:     originalPieceHash.PieceSize,
+			Timestamp:     time.Now(),
 		}
 
 		receivingIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
@@ -852,18 +859,20 @@ func testUpdateSegmentFailureDuplicatedNodeID(t *testing.T, ctx *testcontext.Con
 
 		orderLimit := header.OrderLimit
 		originalPieceHash := &pb.PieceHash{
-			PieceId:   orderLimit.PieceId,
-			Hash:      header.GetHash(),
-			PieceSize: pieceReader.Size(),
-			Timestamp: header.GetCreationTime(),
-			Signature: header.GetSignature(),
+			PieceId:       orderLimit.PieceId,
+			Hash:          header.GetHash(),
+			HashAlgorithm: header.HashAlgorithm,
+			PieceSize:     pieceReader.Size(),
+			Timestamp:     header.GetCreationTime(),
+			Signature:     header.GetSignature(),
 		}
 
 		newPieceHash := &pb.PieceHash{
-			PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-			Hash:      originalPieceHash.Hash,
-			PieceSize: originalPieceHash.PieceSize,
-			Timestamp: time.Now(),
+			PieceId:       m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+			Hash:          originalPieceHash.Hash,
+			HashAlgorithm: header.HashAlgorithm,
+			PieceSize:     originalPieceHash.PieceSize,
+			Timestamp:     time.Now(),
 		}
 
 		receivingNodeIdentity := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
@@ -1465,8 +1474,9 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
+		hashes := []pb.PieceHashAlgorithm{pb.PieceHashAlgorithm_BLAKE3, pb.PieceHashAlgorithm_SHA256}
 		for i := 0; i < objects; i++ {
-			err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
+			err := uplinkPeer.Upload(piecestore.WithPieceHashAlgo(ctx, hashes[i%len(hashes)]), satellite, "testbucket", "test/path-"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 		}
 

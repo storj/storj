@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,6 +26,8 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/metabase/segmentloop"
@@ -398,10 +402,11 @@ func TestAllInOne(t *testing.T) {
 		bfConfig.AccessGrant = accessGrant
 
 		service := rangedloop.NewService(log, config, metabaseProvider, []rangedloop.Observer{
-			rangedloop.NewLiveCountObserver(),
+			rangedloop.NewLiveCountObserver(satellite.Metabase.DB, config.SuspiciousProcessedRatio, config.AsOfSystemInterval),
 			metrics.NewObserver(),
 			nodetally.NewRangedLoopObserver(log.Named("accounting:nodetally"),
 				satellite.DB.StoragenodeAccounting(),
+				satellite.Metabase.DB,
 			),
 			audit.NewObserver(log.Named("audit"),
 				satellite.DB.VerifyQueue(),
@@ -427,6 +432,80 @@ func TestAllInOne(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err, "iteration %d", i+1)
+		}
+	})
+}
+
+func TestLoopBoundaries(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		type Segment struct {
+			StreamID uuid.UUID
+			Position metabase.SegmentPosition
+		}
+
+		var expectedSegments []Segment
+
+		parallelism := 4
+
+		ranges, err := rangedloop.CreateUUIDRanges(uint32(parallelism))
+		require.NoError(t, err)
+
+		for _, r := range ranges {
+			if r.Start != nil {
+				obj := metabasetest.RandObjectStream()
+				obj.StreamID = *r.Start
+
+				metabasetest.CreateObject(ctx, t, db, obj, 1)
+				expectedSegments = append(expectedSegments, Segment{
+					StreamID: obj.StreamID,
+				})
+
+				// additional object/segment close to boundary
+				obj = metabasetest.RandObjectStream()
+				obj.StreamID = *r.Start
+				obj.StreamID[len(obj.StreamID)-1]++
+
+				metabasetest.CreateObject(ctx, t, db, obj, 1)
+				expectedSegments = append(expectedSegments, Segment{
+					StreamID: obj.StreamID,
+				})
+			}
+		}
+
+		for _, batchSize := range []int{0, 1, 2, 3, 10} {
+			var visitedSegments []Segment
+			var mu sync.Mutex
+
+			provider := rangedloop.NewMetabaseRangeSplitter(db, 0, batchSize)
+			config := rangedloop.Config{
+				Parallelism: parallelism,
+				BatchSize:   batchSize,
+			}
+
+			callbackObserver := rangedlooptest.CallbackObserver{
+				OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+					// OnProcess is called many times by different goroutines
+					mu.Lock()
+					defer mu.Unlock()
+
+					for _, segment := range segments {
+						visitedSegments = append(visitedSegments, Segment{
+							StreamID: segment.StreamID,
+							Position: segment.Position,
+						})
+					}
+					return nil
+				},
+			}
+
+			service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{&callbackObserver})
+			_, err = service.RunOnce(ctx)
+			require.NoError(t, err)
+
+			sort.Slice(visitedSegments, func(i, j int) bool {
+				return visitedSegments[i].StreamID.Less(visitedSegments[j].StreamID)
+			})
+			require.Equal(t, expectedSegments, visitedSegments, "batch size %d", batchSize)
 		}
 	})
 }

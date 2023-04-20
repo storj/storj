@@ -1,5 +1,3 @@
-//--- repairqueue ---//
-
 // repair_queue contains items that should be repaired.
 model repair_queue (
 	table repair_queue

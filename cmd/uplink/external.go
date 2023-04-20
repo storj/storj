@@ -35,7 +35,6 @@ import (
 type external struct {
 	interactive bool  // controls if interactive input is allowed
 	analytics   *bool // enables sending analytics
-	quic        bool  // if set, use the quic transport
 
 	dirs struct {
 		loaded  bool   // true if Setup has been called
@@ -60,10 +59,11 @@ type external struct {
 	}
 
 	tracing struct {
-		traceID      int64   // if non-zero, sets outgoing traces to the given id
-		traceAddress string  // if non-zero, sampled spans are sent to this trace collector address.
-		sample       float64 // the chance (number between 0 and 1.0) to send samples to the server.
-		verbose      bool    // flag to print out tracing information (like the used trace id)
+		traceID      int64             // if non-zero, sets outgoing traces to the given id
+		traceAddress string            // if non-zero, sampled spans are sent to this trace collector address.
+		tags         map[string]string // coma separated k=v pairs to be added to the trace
+		sample       float64           // the chance (number between 0 and 1.0) to send samples to the server.
+		verbose      bool              // flag to print out tracing information (like the used trace id)
 	}
 
 	debug struct {
@@ -83,12 +83,6 @@ func newExternal() *external {
 func (ex *external) Setup(f clingy.Flags) {
 	ex.interactive = f.Flag(
 		"interactive", "Controls if interactive input is allowed", true,
-		clingy.Transform(strconv.ParseBool), clingy.Boolean,
-		clingy.Advanced,
-	).(bool)
-
-	ex.quic = f.Flag(
-		"quic", "If set, uses the quic transport", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		clingy.Advanced,
 	).(bool)
@@ -127,6 +121,19 @@ func (ex *external) Setup(f clingy.Flags) {
 		"trace-addr", "Specify where to send traces", "agent.tracing.datasci.storj.io:5775",
 		clingy.Advanced,
 	).(string)
+
+	ex.tracing.tags = f.Flag(
+		"trace-tags", "coma separated k=v pairs to be added to distributed traces", map[string]string{},
+		clingy.Advanced,
+		clingy.Transform(func(val string) (map[string]string, error) {
+			res := map[string]string{}
+			for _, kv := range strings.Split(val, ",") {
+				parts := strings.SplitN(kv, "=", 2)
+				res[parts[0]] = parts[1]
+			}
+			return res, nil
+		}),
+	).(map[string]string)
 
 	ex.events.address = f.Flag(
 		"events-addr", "Specify where to send events", "eventkitd.datasci.storj.io:9002",
@@ -322,6 +329,15 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 
 			defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
 		}
+
+		monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
+			if hn, err := os.Hostname(); err == nil {
+				trace.Set("hostname", hn)
+			}
+			for k, v := range ex.tracing.tags {
+				trace.Set(k, v)
+			}
+		})
 	}
 
 	if ex.analyticsEnabled() && ex.events.address != "" {

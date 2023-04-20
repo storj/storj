@@ -291,7 +291,7 @@ export class SatellitePayoutForPeriod {
 
     public get transactionLink(): string {
         const prefixed = function (hash: string): string {
-            if (hash.indexOf('0x') != 0) {
+            if (hash.indexOf('0x') !== 0) {
                 return '0x' + hash;
             }
             return hash;

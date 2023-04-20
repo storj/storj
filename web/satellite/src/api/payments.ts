@@ -10,7 +10,7 @@ import {
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
-    ProjectUsageAndCharges,
+    ProjectCharges,
     ProjectUsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
@@ -43,7 +43,7 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const balance = await response.json();
         if (balance) {
-            return new AccountBalance(balance.freeCredits, balance.coins);
+            return new AccountBalance(balance.freeCredits, balance.coins, balance.credits);
         }
 
         return new AccountBalance();
@@ -69,7 +69,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectUsageAndCharges[]> {
+    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectCharges> {
         const since = Time.toUnixTimestamp(start).toString();
         const before = Time.toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
@@ -79,28 +79,11 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not get projects charges');
         }
 
-        const charges = await response.json();
-        if (charges) {
-            return charges.map(charge =>
-                new ProjectUsageAndCharges(
-                    new Date(charge.since),
-                    new Date(charge.before),
-                    charge.egress,
-                    charge.storage,
-                    charge.segmentCount,
-                    charge.projectId,
-                    charge.storagePrice,
-                    charge.egressPrice,
-                    charge.segmentPrice,
-                ),
-            );
-        }
-
-        return [];
+        return ProjectCharges.fromJSON(await response.json());
     }
 
     /**
-     * projectUsagePriceModel returns usage and how much money current user will be charged for each project which he owns.
+     * projectUsagePriceModel returns the user's default price model for project usage.
      */
     public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
         const path = `${this.ROOT_PATH}/pricing`;
@@ -298,6 +281,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
             coupon.duration,
+            coupon.partnered,
         );
     }
 
@@ -328,6 +312,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
             coupon.duration,
+            coupon.partnered,
         );
     }
 
@@ -378,5 +363,38 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return new Wallet();
+    }
+
+    /**
+     * Purchases the pricing package associated with the user's partner.
+     *
+     * @param token - the Stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
+    public async purchasePricingPackage(token: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package`;
+        const response = await this.client.post(path, token);
+
+        if (response.ok) {
+            return;
+        }
+
+        throw new Error('Could not purchase pricing package');
+    }
+
+    /**
+     * Returns whether there is a pricing package configured for the user's partner.
+     *
+     * @throws Error
+     */
+    public async pricingPackageAvailable(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/package-available`;
+        const response = await this.client.get(path);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        throw new Error('Could not check pricing package availability');
     }
 }

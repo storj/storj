@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 )
 
@@ -16,6 +17,12 @@ var (
 )
 
 func sendObserverDurations(observerDurations []ObserverDuration) {
+	for _, od := range observerDurations {
+		ev.Event("rangedloop",
+			eventkit.String("observer", fmt.Sprintf("%T", od.Observer)),
+			eventkit.Duration("duration", od.Duration))
+	}
+
 	completedObserverStatsInstance.setObserverDurations(observerDurations)
 	completedObserverStatsInstanceInitOnce.Do(func() {
 		mon.Chain(&completedObserverStatsInstance)

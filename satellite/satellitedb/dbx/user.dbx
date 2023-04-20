@@ -4,6 +4,11 @@
 model user (
     key id
 
+    index (
+        name users_email_status_index
+        fields normalized_email status
+    )
+
     // id is an uuid for the user.
     field id                 blob
     // email is the user specified email.
@@ -208,12 +213,22 @@ read one (
     where account_freeze_event.event = ?
 )
 
+read all (
+    select account_freeze_event
+    where account_freeze_event.user_id = ?
+)
+
 update account_freeze_event (
     where account_freeze_event.user_id = ?
     where account_freeze_event.event = ?
 )
 
 delete account_freeze_event ( where account_freeze_event.user_id = ? )
+
+delete account_freeze_event (
+    where account_freeze_event.user_id = ?
+    where account_freeze_event.event = ?
+)
 
 // user_settings table is used to persist user preferences.
 model user_settings (
@@ -223,6 +238,14 @@ model user_settings (
     field user_id blob
     // session_minutes indicates the time when the user should be logged out.
     field session_minutes uint ( nullable, updatable )
+    // passphrase_prompt indicates whether the user would like to be prompted for a passphrase when entering or switching projects.
+    field passphrase_prompt bool ( nullable, updatable )
+    // onboarding_start indicates whether the user has started the onboarding flow.
+    field onboarding_start bool ( updatable, default true )
+    // onboarding_end indicates whether the user has finished/skipped the onboarding flow.
+    field onboarding_end bool ( updatable, default true )
+    // onboarding_step indicates the step where a user exited onboarding without finishing.
+    field onboarding_step text ( nullable, updatable )
 )
 
 create user_settings ( noreturn )

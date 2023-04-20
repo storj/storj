@@ -93,7 +93,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param paystub for all time
      */
-    public setNodeTotals(state: PayoutsState, paystub: Paystub) : void{
+    public setNodeTotals(state: PayoutsState, paystub: Paystub): void {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, totalPaid: paystub.distributed, totalEarned: paystub.paid, totalHeld: paystub.held };
     }
 

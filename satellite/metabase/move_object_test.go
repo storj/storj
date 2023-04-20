@@ -227,7 +227,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedObjectKey: []byte{0},
 				},
 				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object not found",
 			}.Check(ctx, t, db)
 
@@ -275,7 +275,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object not found",
 			}.Check(ctx, t, db)
 
@@ -413,7 +413,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 					NewEncryptedMetadataKey:      testrand.Bytes(32),
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object was changed during move",
 			}.Check(ctx, t, db)
 		})
@@ -526,13 +526,6 @@ func TestFinishMoveObject(t *testing.T) {
 				Segments: expectedSegments,
 			}.Check(ctx, t, db)
 		})
-
-	})
-}
-
-func TestFinishMoveObject_MultipleVersions(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		db.TestingEnableMultipleVersions(true)
 
 		t.Run("finish move object - different versions reject", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)

@@ -2,60 +2,58 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register-success-container">
-        <div class="register-success-container__logo-wrapper">
+    <div class="register-success-area">
+        <div class="register-success-area__logo-wrapper">
             <LogoIcon class="logo" @click="onLogoClick" />
         </div>
-        <div class="register-success-area">
-            <div class="register-success-area__form-container">
-                <MailIcon />
-                <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
-                <div v-if="showManualActivationMsg" class="register-success-area__form-container__sub-title">
-                    If an account with the email address
-                    <p class="register-success-area__form-container__sub-title__email">{{ userEmail }}</p>
-                    exists, a verification email has been sent.
-                </div>
-                <p class="register-success-area__form-container__sub-title">
-                    Check your inbox to activate your account and get started.
-                </p>
-                <p class="register-success-area__form-container__text">
-                    Didn't receive a verification email?
-                    <b class="register-success-area__form-container__verification-cooldown__bold-text">
-                        {{ timeToEnableResendEmailButton }}
-                    </b>
-                </p>
-                <div class="register-success-area__form-container__button-container">
-                    <VButton
-                        label="Resend Email"
-                        width="450px"
-                        height="50px"
-                        :on-press="onResendEmailButtonClick"
-                        :is-disabled="secondsToWait !== 0"
-                    />
-                </div>
-                <p class="register-success-area__form-container__contact">
-                    or
-                    <a
-                        class="register-success-area__form-container__contact__link"
-                        href="https://supportdcs.storj.io/hc/en-us/requests/new"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Contact our support team
-                    </a>
-                </p>
+        <div class="register-success-area__container">
+            <MailIcon />
+            <h2 class="register-success-area__container__title" aria-roledescription="title">You're almost there!</h2>
+            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title">
+                If an account with the email address
+                <p class="register-success-area__container__sub-title__email">{{ userEmail }}</p>
+                exists, a verification email has been sent.
             </div>
+            <p class="register-success-area__container__sub-title">
+                Check your inbox to activate your account and get started.
+            </p>
+            <p class="register-success-area__container__text">
+                Didn't receive a verification email?
+                <b class="register-success-area__container__verification-cooldown__bold-text">
+                    {{ timeToEnableResendEmailButton }}
+                </b>
+            </p>
+            <div class="register-success-area__container__button-container">
+                <VButton
+                    label="Resend Email"
+                    width="450px"
+                    height="50px"
+                    :on-press="onResendEmailButtonClick"
+                    :is-disabled="secondsToWait !== 0"
+                />
+            </div>
+            <p class="register-success-area__container__contact">
+                or
+                <a
+                    class="register-success-area__container__contact__link"
+                    href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Contact our support team
+                </a>
+            </p>
         </div>
         <router-link :to="loginPath" class="register-success-area__login-link">Go to Login page</router-link>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { useNotify, useRoute } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -63,14 +61,15 @@ import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 const props = withDefaults(defineProps<{
-    email: string;
-    showManualActivationMsg: boolean;
+    email?: string;
+    showManualActivationMsg?: boolean;
 }>(), {
     email: '',
     showManualActivationMsg: true,
 });
 
-const route = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 const notify = useNotify();
 
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -80,14 +79,7 @@ const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
-    return props.email || route.query.email.toString();
-});
-
-/**
- * Checks if page is inside iframe.
- */
-const isInsideIframe = computed((): boolean => {
-    return window.self !== window.top;
+    return props.email || router.currentRoute.query.email.toString();
 });
 
 /**
@@ -122,7 +114,7 @@ function startResendEmailCountdown(): void {
  */
 async function onResendEmailButtonClick(): Promise<void> {
     const email = userEmail.value;
-    if (secondsToWait.value != 0 || !email) {
+    if (secondsToWait.value !== 0 || !email) {
         return;
     }
 
@@ -153,12 +145,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-    .register-success-container {
+    .register-success-area {
         display: flex;
         flex-direction: column;
         align-items: center;
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
+        padding: 0 20px;
+        box-sizing: border-box;
         position: fixed;
         top: 0;
         left: 0;
@@ -175,26 +169,18 @@ onBeforeUnmount(() => {
                 height: 37px;
             }
         }
-    }
 
-    .register-success-area {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: 'font_regular', sans-serif;
-        background-color: #fff;
-        border-radius: 20px;
-        width: 75%;
-        height: 50vh;
-        margin-top: 50px;
-        padding: 70px 90px 30px;
-        max-width: 1200px;
-
-        &__form-container {
-            text-align: center;
+        &__container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            box-sizing: border-box;
+            text-align: center;
+            background-color: var(--c-white);
+            border-radius: 20px;
+            width: 75%;
+            margin-top: 50px;
+            padding: 70px 90px 30px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
@@ -249,10 +235,10 @@ onBeforeUnmount(() => {
                 margin-top: 20px;
 
                 &__link {
-                    color: #376fff;
+                    color: var(--c-light-blue-5);
 
                     &:visited {
-                        color: #376fff;
+                        color: var(--c-light-blue-5);
                     }
                 }
             }
@@ -262,35 +248,17 @@ onBeforeUnmount(() => {
             font-family: 'font_bold', sans-serif;
             text-decoration: none;
             font-size: 14px;
-            color: #376fff;
+            color: var(--c-light-blue-5);
             margin-top: 50px;
             padding-bottom: 50px;
         }
     }
 
-    @media screen and (max-width: 650px) {
+    @media screen and (max-width: 750px) {
 
-        .register-success-area {
-            height: auto;
-
-            &__form-container {
-                padding: 50px;
-            }
-        }
-
-        :deep(.container) {
-            width: 100% !important;
-        }
-    }
-
-    @media screen and (max-width: 500px) {
-
-        .register-success-area {
-            height: auto;
-
-            &__form-container {
-                padding: 50px 20px;
-            }
+        .register-success-area__container {
+            width: 100%;
+            padding: 60px;
         }
     }
 </style>

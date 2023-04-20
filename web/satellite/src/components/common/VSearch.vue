@@ -51,7 +51,7 @@ const style = computed((): SearchStyle => {
  */
 function onMouseEnter(): void {
     inputWidth.value = '540px';
-    input.value.focus();
+    input.value?.focus();
 }
 
 /**
@@ -60,7 +60,7 @@ function onMouseEnter(): void {
 function onMouseLeave(): void {
     if (!searchQuery.value) {
         inputWidth.value = '56px';
-        input.value.blur();
+        input.value?.blur();
     }
 }
 

@@ -64,11 +64,53 @@ func (events *accountFreezeEvents) Get(ctx context.Context, userID uuid.UUID, ev
 	return fromDBXAccountFreezeEvent(dbxEvent)
 }
 
+// GetAll is a method for querying all account freeze events from the database by user ID.
+func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freeze *console.AccountFreezeEvent, warning *console.AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// dbxEvents will have a max length of 2.
+	// because there's at most 1 instance each of 2 types of events for a user.
+	dbxEvents, err := events.db.All_AccountFreezeEvent_By_UserId(ctx,
+		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, event := range dbxEvents {
+		if console.AccountFreezeEventType(event.Event) == console.Freeze {
+			freeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+		warning, err = fromDBXAccountFreezeEvent(event)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return freeze, warning, nil
+}
+
 // DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
 func (events *accountFreezeEvents) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = events.db.Delete_AccountFreezeEvent_By_UserId(ctx, dbx.AccountFreezeEvent_UserId(userID.Bytes()))
+
+	return err
+}
+
+// DeleteByUserIDAndEvent is a method for deleting all account `eventType` events from the database by user ID.
+func (events *accountFreezeEvents) DeleteByUserIDAndEvent(ctx context.Context, userID uuid.UUID, eventType console.AccountFreezeEventType) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = events.db.Delete_AccountFreezeEvent_By_UserId_And_Event(ctx,
+		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
+		dbx.AccountFreezeEvent_Event(int(eventType)),
+	)
 
 	return err
 }

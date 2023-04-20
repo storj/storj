@@ -15,22 +15,25 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-// @vue/component
-@Component
-export default class MFARecoveryCodeBar extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly openGenerateModal: () => void;
+import { useUsersStore } from '@/store/modules/usersStore';
 
-    /**
-     * Returns the quantity of MFA recovery codes.
-     */
-    public get numCodes(): number {
-        return this.$store.getters.user.mfaRecoveryCodeCount;
-    }
-}
+const usersStore = useUsersStore();
+
+const props = withDefaults(defineProps<{
+    openGenerateModal: () => void,
+}>(), {
+    openGenerateModal: () => {},
+});
+
+/**
+ * Returns the quantity of MFA recovery codes.
+ */
+const numCodes = computed((): number => {
+    return usersStore.state.user.mfaRecoveryCodeCount;
+});
 </script>
 
 <style scoped lang="scss">

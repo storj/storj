@@ -64,25 +64,23 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Prop, Component } from 'vue-property-decorator';
+<script setup lang="ts">
 import { Fragment } from 'vue-fragment';
 
 import { NativePaymentHistoryItem } from '@/types/payments';
+import { useResize } from '@/composables/resize';
 
-import Resizable from '@/components/common/Resizable.vue';
+const props = withDefaults(defineProps<{
+    item: NativePaymentHistoryItem,
+}>(), {
+    item: () => new NativePaymentHistoryItem(),
+});
 
-// @vue/component
-@Component({
-    components: { Fragment },
-})
-export default class TokenTransactionItem extends Resizable {
-    @Prop({ default: () => new NativePaymentHistoryItem() })
-    private readonly item: NativePaymentHistoryItem;
+const { isMobile, isTablet } = useResize();
 
-    public goToTxn() {
-        if (this.isMobile || this.isTablet)
-            window.open(this.item.link, '_blank', 'noreferrer');
+function goToTxn() {
+    if (isMobile.value || isTablet.value) {
+        window.open(props.item.link, '_blank', 'noreferrer');
     }
 }
 </script>

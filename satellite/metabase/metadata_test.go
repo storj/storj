@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -63,7 +62,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 					ObjectKey:  obj.ObjectKey,
 					StreamID:   obj.StreamID,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)

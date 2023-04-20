@@ -10,7 +10,6 @@ import {
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { HttpClient } from '@/utils/httpClient';
-import { MetaUtils } from '@/utils/meta';
 
 /**
  * AccessGrantsApiGql is a graphql implementation of Access Grants API.
@@ -151,14 +150,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * Used to get gateway credentials using access grant.
      *
      * @param accessGrant - generated access grant
-     * @param optionalURL - optional requestURL
+     * @param requestURL - URL to which gateway credential requests are sent
      * @param isPublic - optional status
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
-        const requestURL: string = optionalURL || MetaUtils.getMetaContent('gateway-credentials-request-url');
-        if (!requestURL) throw new Error('Cannot get gateway credentials: request URL is not provided');
-
+    public async getGatewayCredentials(accessGrant: string, requestURL: string, isPublic?: boolean): Promise<EdgeCredentials> {
         const path = `${requestURL}/v1/access`;
         const body = {
             access_grant: accessGrant,

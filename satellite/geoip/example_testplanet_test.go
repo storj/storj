@@ -5,6 +5,7 @@ package geoip_test
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,10 +16,14 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/storagenode"
 )
 
 func TestGeoIPMock(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
 	testplanet.Run(t,
 		testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
@@ -43,6 +48,24 @@ func TestGeoIPMock(t *testing.T) {
 				1: location.UnitedStates,
 				2: location.UnitedKingdom,
 			}
+
+			// check the country code for each storage nodes
+			for i, node := range planet.StorageNodes {
+				dossier, err := planet.Satellites[0].API.Overlay.DB.Get(ctx, node.ID())
+				require.NoError(t, err)
+				assert.Equal(t, countryCodes[i], dossier.CountryCode)
+			}
+
+			// change country in the mock GeoIP service from US to CA
+			planet.Satellites[0].Overlay.Service.GeoIP = geoip.NewMockIPToCountry([]string{"CA", "GB"})
+
+			// wait for storage nodes checked in again with satellite
+			for _, node := range planet.StorageNodes {
+				node.Contact.Chore.TriggerWait(ctx)
+			}
+
+			// adjust expected country codes for node 1
+			countryCodes[1] = location.Canada
 
 			// check the country code for each storage nodes
 			for i, node := range planet.StorageNodes {

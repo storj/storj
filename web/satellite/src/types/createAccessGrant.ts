@@ -8,8 +8,10 @@ import ChoosePermissionIcon from '@/../static/images/accessGrants/newCreateFlow/
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import PassphraseGeneratedIcon from '@/../static/images/accessGrants/newCreateFlow/passphraseGenerated.svg';
 import AccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/accessCreated.svg';
+import CLIAccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/cliAccessCreated.svg';
 import CredentialsCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/credentialsCreated.svg';
 import EncryptionInfoIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionInfo.svg';
+import ConfirmDetailsIcon from '@/../static/images/accessGrants/newCreateFlow/confirmDetails.svg';
 import TypeIcon from '@/../static/images/accessGrants/newCreateFlow/typeIcon.svg';
 import NameIcon from '@/../static/images/accessGrants/newCreateFlow/nameIcon.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/newCreateFlow/permissionsIcon.svg';
@@ -23,9 +25,9 @@ export interface IconAndTitle {
 }
 
 export enum AccessType {
-    APIKey = 'apikey',
-    S3 = 's3',
-    AccessGrant = 'accessGrant',
+    APIKey = 'API Key',
+    S3 = 'S3 Credentials',
+    AccessGrant = 'Access Grant',
 }
 
 export enum PassphraseOption {
@@ -43,16 +45,18 @@ export enum CreateAccessStep {
     PassphraseGenerated = 'passphraseGenerated',
     EnterMyPassphrase = 'enterMyPassphrase',
     EnterNewPassphrase = 'enterNewPassphrase',
+    ConfirmDetails = 'confirmDetails',
     AccessCreated = 'accessCreated',
+    CLIAccessCreated = 'cliAccessCreated',
     CredentialsCreated = 'credentialsCreated',
 }
 
 export enum Permission {
     All = 'all',
-    Read = 'read',
-    Write = 'write',
-    List = 'list',
-    Delete = 'delete',
+    Read = 'Read',
+    Write = 'Write',
+    List = 'List',
+    Delete = 'Delete',
 }
 
 export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
@@ -84,6 +88,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
         icon: AccessEncryptionIcon,
         title: 'Enter a new passphrase',
     },
+    [CreateAccessStep.ConfirmDetails]: {
+        icon: ConfirmDetailsIcon,
+        title: 'Confirm details',
+    },
     [CreateAccessStep.AccessCreated]: {
         icon: AccessCreatedIcon,
         title: 'Access created',
@@ -91,6 +99,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CredentialsCreated]: {
         icon: CredentialsCreatedIcon,
         title: 'Credentials created',
+    },
+    [CreateAccessStep.CLIAccessCreated]: {
+        icon: CLIAccessCreatedIcon,
+        title: 'CLI access created',
     },
 };
 

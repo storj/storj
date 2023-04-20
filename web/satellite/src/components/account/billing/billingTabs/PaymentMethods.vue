@@ -155,15 +155,13 @@
                 <v-table
                     class="payments-area__transactions-area__table"
                     items-label="transactions"
-                    :limit="pageSize"
+                    :limit="PAGE_SIZE"
                     :total-page-count="pageCount"
                     :total-items-count="transactionCount"
                     :on-page-click-callback="paginationController"
                 >
                     <template #head>
-                        <SortingHeader2
-                            @sortFunction="sortFunction"
-                        />
+                        <SortingHeader @sortFunction="sortFunction" />
                     </template>
                     <template #body>
                         <token-transaction-item
@@ -178,8 +176,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import QRCode from 'qrcode';
 
 import {
@@ -187,18 +185,20 @@ import {
     Wallet,
     NativePaymentHistoryItem,
 } from '@/types/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
+import SortingHeader from '@/components/account/billing/billingTabs/SortingHeader.vue';
 import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
 import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
@@ -218,281 +218,268 @@ import CreditCardImage from '@/../static/images/billing/credit-card.svg';
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
+
 interface CardEdited {
     id?: string,
     isDefault?: boolean
 }
-const {
-    ADD_CREDIT_CARD,
-    GET_CREDIT_CARDS,
-    REMOVE_CARD,
-    MAKE_CARD_DEFAULT,
-    GET_NATIVE_PAYMENTS_HISTORY,
-} = PAYMENTS_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        VTable,
-        AmericanExpressIcon,
-        DiscoverIcon,
-        JCBIcon,
-        MastercardIcon,
-        UnionPayIcon,
-        VisaIcon,
-        VButton,
-        TokenTransactionItem,
-        SortingHeader2,
-        CloseCrossIcon,
-        CreditCardImage,
-        StripeCardInput,
-        DinersIcon,
-        Trash,
-        CreditCardContainer,
-        AddTokenCard,
-        AddTokenCardNative,
-        VLoader,
-    },
-})
-export default class PaymentMethods extends Vue {
-    public nativeTokenPaymentsEnabled = MetaUtils.getMetaContent('native-token-payments-enabled') === 'true';
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const appStore = useAppStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    /**
-     * controls token inputs and transaction table
-     */
-    public showTransactions = false;
-    public displayedHistory: NativePaymentHistoryItem[] = [];
-    public transactionCount = 0;
-    public nativePayIsLoading = false;
-    public pageSize = 10;
+const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
-    /**
-     * controls card inputs
-     */
-    public deleteHover = false;
-    public isLoading = false;
-    public cardBeingEdited: CardEdited = {};
-    public isAddingPayment = false;
-    public isChangeDefaultPaymentModalOpen = false;
-    public defaultCreditCardSelection = '';
-    public isRemovePaymentMethodsModalOpen = false;
-    public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
-        canvas: HTMLCanvasElement;
-    };
+const PAGE_SIZE = 10;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const showTransactions = ref<boolean>(false);
+const nativePayIsLoading = ref<boolean>(false);
+const deleteHover = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+const isAddingPayment = ref<boolean>(false);
+const isChangeDefaultPaymentModalOpen = ref<boolean>(false);
+const isRemovePaymentMethodsModalOpen = ref<boolean>(false);
+const displayedHistory = ref<NativePaymentHistoryItem[]>([]);
+const transactionCount = ref<number>(0);
+const defaultCreditCardSelection = ref<string>('');
+const cardBeingEdited = ref<CardEdited>({});
+const stripeCardInput = ref<typeof StripeCardInput & StripeForm>();
+const canvas = ref<HTMLCanvasElement>();
 
-    public mounted(): void {
-        if (this.$route.params.action === 'token history') {
-            this.showTransactionsTable();
-        }
+const pageCount = computed((): number => {
+    return Math.ceil(transactionCount.value / PAGE_SIZE);
+});
+
+/**
+ * Indicates whether native token payments are enabled.
+ */
+const nativeTokenPaymentsEnabled = computed((): boolean => {
+    return appStore.state.config.nativeTokenPaymentsEnabled;
+});
+
+/**
+ * Returns deposit history items.
+ */
+const nativePaymentHistoryItems = computed((): NativePaymentHistoryItem[] => {
+    return billingStore.state.nativePaymentsHistory as NativePaymentHistoryItem[];
+});
+
+/**
+ * Returns wallet entity from store.
+ */
+const wallet = computed((): Wallet => {
+    return billingStore.state.wallet as Wallet;
+});
+
+/**
+ * Indicates if user has own project.
+ */
+const userHasOwnProject = computed((): boolean => {
+    return projectsStore.projectsCount(usersStore.state.user.id) > 0;
+});
+
+const creditCards = computed((): CreditCard[] => {
+    return billingStore.state.creditCards;
+});
+
+function onCopyAddressClick(): void {
+    navigator.clipboard.writeText(wallet.value.address);
+    notify.success('Address copied to your clipboard');
+}
+
+async function fetchHistory(): Promise<void> {
+    nativePayIsLoading.value = true;
+
+    try {
+        await billingStore.getNativePaymentsHistory();
+        transactionCount.value = nativePaymentHistoryItems.value.length;
+        displayedHistory.value = nativePaymentHistoryItems.value.slice(0, PAGE_SIZE);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    } finally {
+        nativePayIsLoading.value = false;
     }
+}
 
-    private get wallet(): Wallet {
-        return this.$store.state.paymentsModule.wallet;
+async function hideTransactionsTable(): Promise<void> {
+    showTransactions.value = false;
+}
+
+async function showTransactionsTable(): Promise<void> {
+    await fetchHistory();
+    showTransactions.value = true;
+    nextTick(async () => {
+        await prepQRCode();
+    });
+}
+
+async function prepQRCode(): Promise<void> {
+    try {
+        await QRCode.toCanvas(canvas.value, wallet.value.address);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
+}
 
-    public onCopyAddressClick(): void {
-        this.$copyText(this.wallet.address);
-        this.$notify.success('Address copied to your clipboard');
+async function updatePaymentMethod(): Promise<void> {
+    try {
+        await billingStore.makeCardDefault(defaultCreditCardSelection.value);
+        await notify.success('Default payment card updated');
+        isChangeDefaultPaymentModalOpen.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
+}
 
-    public async fetchHistory(): Promise<void> {
-        this.nativePayIsLoading = true;
-        try {
-            await this.$store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
-            this.transactionCount = this.nativePaymentHistoryItems.length;
-            this.displayedHistory = this.nativePaymentHistoryItems.slice(0,this.pageSize);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        } finally {
-            this.nativePayIsLoading = false;
-        }
-    }
-
-    public async hideTransactionsTable(): Promise<void> {
-        this.showTransactions = false;
-    }
-
-    public async showTransactionsTable(): Promise<void> {
-        await this.fetchHistory();
-        this.showTransactions = true;
-        await Vue.nextTick();
-        await this.prepQRCode();
-    }
-
-    public async prepQRCode() {
-        try {
-            await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
-
-    public async updatePaymentMethod(): Promise<void> {
-        try {
-            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.defaultCreditCardSelection);
-            await this.$notify.success('Default payment card updated');
-            this.isChangeDefaultPaymentModalOpen = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
-
-    public async removePaymentMethod(): Promise<void> {
-        if (!this.cardBeingEdited.isDefault) {
-            try {
-                await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
-                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
-                await this.$notify.success('Credit card removed');
-            } catch (error) {
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-            }
-            this.isRemovePaymentMethodsModalOpen = false;
-
-        } else {
-            this.$notify.error('You cannot delete the default payment method.', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
-
-    public changeDefault() {
-        this.isChangeDefaultPaymentModalOpen = true;
-        this.isRemovePaymentMethodsModalOpen = false;
-    }
-
-    public closeAddPayment() {
-        this.isAddingPayment = false;
-    }
-
-    public get creditCards(): CreditCard[] {
-        return this.$store.state.paymentsModule.creditCards;
-    }
-
-    public async addCard(token: string): Promise<void> {
-        this.$emit('toggleIsLoading');
-        try {
-            await this.$store.dispatch(ADD_CREDIT_CARD, token);
-
-            // We fetch User one more time to update their Paid Tier status.
-            await this.$store.dispatch(USER_ACTIONS.GET);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-
-            this.$emit('toggleIsLoading');
-
+async function removePaymentMethod(): Promise<void> {
+    if (!cardBeingEdited.value.isDefault) {
+        if (!cardBeingEdited.value.id) {
             return;
         }
 
-        await this.$notify.success('Card successfully added');
         try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
+            await billingStore.removeCreditCard(cardBeingEdited.value.id);
+            analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
+            await notify.success('Credit card removed');
         } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-            this.$emit('toggleIsLoading');
+            await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
 
-        this.$emit('toggleIsLoading');
-        this.$emit('toggleIsLoaded');
-
-        setTimeout(() => {
-            this.$emit('cancel');
-            this.$emit('toggleIsLoaded');
-
-            setTimeout(() => {
-                if (!this.userHasOwnProject) {
-                    this.$router.push(RouteConfig.CreateProject.path);
-                }
-            }, 500);
-        }, 2000);
-    }
-
-    public async onConfirmAddStripe(): Promise<void> {
-        if (this.isLoading) return;
-        this.isLoading = true;
-        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
-        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
-    }
-
-    public addPaymentMethodHandler() {
-        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
-        this.isAddingPayment = true;
-    }
-
-    public removePaymentMethodHandler(creditCard: CreditCard) {
-        this.cardBeingEdited = {
-            id: creditCard.id,
-            isDefault: creditCard.isDefault,
-        };
-        this.isRemovePaymentMethodsModalOpen = true;
-    }
-
-    public onCloseClick() {
-        this.isRemovePaymentMethodsModalOpen = false;
-    }
-
-    public onCloseClickDefault() {
-        this.isChangeDefaultPaymentModalOpen = false;
-    }
-
-    /**
-     * Indicates if user has own project.
-     */
-    private get userHasOwnProject(): boolean {
-        return this.$store.getters.projectsCount > 0;
-    }
-
-    /**
-     * controls sorting the transaction table
-     */
-    public sortFunction(key) {
-        switch (key) {
-        case 'date-ascending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
-            break;
-        case 'date-descending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
-            break;
-        case 'amount-ascending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return a.amount.value - b.amount.value;});
-            break;
-        case 'amount-descending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return b.amount.value - a.amount.value;});
-            break;
-        case 'status-ascending':
-            this.nativePaymentHistoryItems.sort((a, b) => {
-                if (a.status < b.status) {return -1;}
-                if (a.status > b.status) {return 1;}
-                return 0;});
-            break;
-        case 'status-descending':
-            this.nativePaymentHistoryItems.sort((a, b) => {
-                if (b.status < a.status) {return -1;}
-                if (b.status > a.status) {return 1;}
-                return 0;});
-            break;
-        }
-        this.displayedHistory = this.nativePaymentHistoryItems.slice(0,10);
-    }
-
-    /**
-     * controls transaction table pagination
-     */
-    public paginationController(i): void {
-        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize,((i - 1) * this.pageSize) + this.pageSize);
-    }
-
-    public get pageCount(): number {
-        return Math.ceil(this.transactionCount / this.pageSize);
-    }
-
-    /**
-     * Returns deposit history items.
-     */
-    public get nativePaymentHistoryItems(): NativePaymentHistoryItem[] {
-        return this.$store.state.paymentsModule.nativePaymentsHistory;
+        isRemovePaymentMethodsModalOpen.value = false;
+    } else {
+        notify.error('You cannot delete the default payment method.', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
 }
+
+function changeDefault(): void {
+    isChangeDefaultPaymentModalOpen.value = true;
+    isRemovePaymentMethodsModalOpen.value = false;
+}
+
+function closeAddPayment(): void {
+    isAddingPayment.value = false;
+}
+
+async function addCard(token: string): Promise<void> {
+    emit('toggleIsLoading');
+    try {
+        await billingStore.addCreditCard(token);
+        // We fetch User one more time to update their Paid Tier status.
+        await usersStore.getUser();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+
+        emit('toggleIsLoading');
+
+        return;
+    }
+
+    await notify.success('Card successfully added');
+    try {
+        await billingStore.getCreditCards();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        emit('toggleIsLoading');
+    }
+
+    emit('toggleIsLoading');
+    emit('toggleIsLoaded');
+
+    setTimeout(() => {
+        emit('cancel');
+        emit('toggleIsLoaded');
+
+        setTimeout(() => {
+            if (!userHasOwnProject.value) {
+                router.push(RouteConfig.CreateProject.path);
+            }
+        }, 500);
+    }, 2000);
+}
+
+async function onConfirmAddStripe(): Promise<void> {
+    if (isLoading.value || !stripeCardInput.value) return;
+
+    isLoading.value = true;
+    await stripeCardInput.value.onSubmit().then(() => {isLoading.value = false;});
+    analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
+}
+
+function addPaymentMethodHandler(): void {
+    analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
+    isAddingPayment.value = true;
+}
+
+function removePaymentMethodHandler(creditCard: CreditCard): void {
+    cardBeingEdited.value = {
+        id: creditCard.id,
+        isDefault: creditCard.isDefault,
+    };
+    isRemovePaymentMethodsModalOpen.value = true;
+}
+
+function onCloseClick(): void {
+    isRemovePaymentMethodsModalOpen.value = false;
+}
+
+function onCloseClickDefault(): void {
+    isChangeDefaultPaymentModalOpen.value = false;
+}
+
+/**
+ * controls sorting the transaction table
+ */
+function sortFunction(key): void {
+    switch (key) {
+    case 'date-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
+        break;
+    case 'date-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
+        break;
+    case 'amount-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return a.amount.value - b.amount.value;});
+        break;
+    case 'amount-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return b.amount.value - a.amount.value;});
+        break;
+    case 'status-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {
+            if (a.status < b.status) return -1;
+            if (a.status > b.status) return 1;
+
+            return 0;
+        });
+        break;
+    case 'status-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {
+            if (b.status < a.status) return -1;
+            if (b.status > a.status) return 1;
+
+            return 0;
+        });
+    }
+
+    displayedHistory.value = nativePaymentHistoryItems.value.slice(0, 10);
+}
+
+/**
+ * controls transaction table pagination
+ */
+function paginationController(i: number): void {
+    displayedHistory.value = nativePaymentHistoryItems.value.slice((i - 1) * PAGE_SIZE, ((i - 1) * PAGE_SIZE) + PAGE_SIZE);
+}
+
+onMounted((): void => {
+    if (router.currentRoute.params.action === 'token history') {
+        showTransactionsTable();
+    }
+});
 </script>
 
 <style scoped lang="scss">
@@ -534,7 +521,7 @@ $align: center;
 
 .edit-card-text {
     color: var(--c-blue-3);
-    font-family: sans-serif;
+    font-family: 'font_regular', sans-serif;
 }
 
 .red-trash {
@@ -580,9 +567,7 @@ $align: center;
     background: var(--c-blue-3);
     box-shadow: 0 0 1px rgb(9 28 69 / 80%);
     border-radius: 8px;
-    font-family: sans-serif;
-    font-style: normal;
-    font-weight: 700;
+    font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 24px;
     align-items: $align;
@@ -609,9 +594,7 @@ $align: center;
     border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 8px;
-    font-family: sans-serif;
-    font-style: normal;
-    font-weight: 700;
+    font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 24px;
     display: $flex;
@@ -673,9 +656,7 @@ $align: center;
     &__header {
         grid-column: 1;
         grid-row: 2;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 800;
+        font-family: 'font_bold', sans-serif;
         font-size: 24px;
         line-height: 31px;
         text-align: $align;
@@ -687,9 +668,7 @@ $align: center;
     &__header-subtext {
         grid-column: 1;
         grid-row: 3;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         text-align: $align;
@@ -698,9 +677,7 @@ $align: center;
 
     &__header-subtext-default {
         margin-left: 94px;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         color: var(--c-grey-6);
@@ -784,9 +761,7 @@ $align: center;
     &__create-header {
         grid-row: 1;
         grid-column: 1;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 700;
+        font-family: 'font_bold', sans-serif;
         font-size: 18px;
         line-height: 27px;
     }
@@ -794,16 +769,14 @@ $align: center;
     &__create-subheader {
         grid-row: 2;
         grid-column: 1;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         color: var(--c-grey-6);
     }
 
     &__title {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         font-size: 24px;
         margin: 20px 0;
 
@@ -880,7 +853,7 @@ $align: center;
     .pagination {
         display: flex;
         justify-content: space-between;
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         padding: 15px 0;
         color: #6b7280;
 
@@ -982,7 +955,7 @@ $align: center;
         margin-top: 1.5rem;
         display: flex;
         flex-direction: column;
-        align-items: start;
+        align-items: flex-start;
         gap: 1.5rem;
 
         &__title {
@@ -1018,5 +991,4 @@ $align: center;
 nav ul {
     @include horizontal-list;
 }
-
 </style>

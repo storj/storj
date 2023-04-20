@@ -68,15 +68,15 @@ func TestSortRollupKeys(t *testing.T) {
 			Action:        pb.PieceAction_GET,
 		},
 		{
-			ProjectID:     uuid.UUID{2},
-			BucketName:    "a",
-			IntervalStart: 2,
-			Action:        pb.PieceAction_GET,
-		},
-		{
 			ProjectID:     uuid.UUID{1},
 			BucketName:    "b",
 			IntervalStart: 3,
+			Action:        pb.PieceAction_GET,
+		},
+		{
+			ProjectID:     uuid.UUID{2},
+			BucketName:    "a",
+			IntervalStart: 2,
 			Action:        pb.PieceAction_GET,
 		},
 	}

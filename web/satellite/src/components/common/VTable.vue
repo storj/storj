@@ -6,7 +6,9 @@
         <table class="base-table" border="0" cellpadding="0" cellspacing="0">
             <thead>
                 <tr>
-                    <th v-if="selectable" class="icon select" />
+                    <th v-if="selectable" class="icon select" @click.stop="() => emit('selectAllClicked')">
+                        <v-table-checkbox v-if="showSelect" :value="selected" @selectClicked="() => emit('selectAllClicked')" />
+                    </th>
                     <slot name="head" />
                 </tr>
             </thead>
@@ -31,6 +33,7 @@
 import { OnPageClickCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
+import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 
 const props = withDefaults(defineProps<{
     itemsLabel?: string,
@@ -39,14 +42,20 @@ const props = withDefaults(defineProps<{
     onPageClickCallback?: OnPageClickCallback,
     totalPageCount?: number,
     selectable?: boolean,
+    selected?: boolean,
+    showSelect?: boolean,
 }>(), {
     selectable: false,
+    selected: false,
+    showSelect: false,
     totalPageCount: 0,
     itemsLabel: '',
     limit: 0,
     totalItemsCount: 0,
     onPageClickCallback: () => () => Promise.resolve(),
 });
+
+const emit = defineEmits(['selectAllClicked']);
 </script>
 
 <style lang="scss">
@@ -82,6 +91,10 @@ const props = withDefaults(defineProps<{
             height: 52px;
             font-size: 0.875rem;
             color: #6b7280;
+
+            th.icon {
+                border-top-left-radius: 12px;
+            }
         }
     }
 
@@ -118,8 +131,9 @@ const props = withDefaults(defineProps<{
 }
 
 .icon {
-    width: 5%;
+    width: 50px;
     overflow: visible !important;
+    background: var(--c-grey-1);
 }
 
 .table-footer {
@@ -155,7 +169,7 @@ const props = withDefaults(defineProps<{
     }
 }
 
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 550px) {
 
     .select {
         display: none;

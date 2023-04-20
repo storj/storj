@@ -79,6 +79,11 @@ const (
 	eventProjectDescriptionUpdated    = "Project Description Updated"
 	eventProjectStorageLimitUpdated   = "Project Storage Limit Updated"
 	eventProjectBandwidthLimitUpdated = "Project Bandwidth Limit Updated"
+	eventAccountFrozen                = "Account Frozen"
+	eventAccountUnfrozen              = "Account Unfrozen"
+	eventAccountUnwarned              = "Account Unwarned"
+	eventAccountFreezeWarning         = "Account Freeze Warning"
+	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 )
 
 var (
@@ -171,6 +176,7 @@ type TrackCreateUserFields struct {
 	Type             UserType
 	EmployeeCount    string
 	CompanyName      string
+	StorageNeeds     string
 	JobTitle         string
 	HaveSalesContact bool
 	OriginHeader     string
@@ -239,6 +245,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
 	}
 
 	service.enqueueMessage(segment.Track{
@@ -300,6 +307,87 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 		"userid":        userID.String(),
 		"project_count": currentProjectCount,
 		"project_id":    projectID.String(),
+	})
+}
+
+// TrackAccountFrozen sends an account frozen event to Segment.
+func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountFrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnfrozen sends an account unfrozen event to Segment.
+func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnfrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnwarned sends an account unwarned event to Segment.
+func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnwarned,
+		Properties: props,
+	})
+}
+
+// TrackAccountFreezeWarning sends an account freeze warning event to Segment.
+func (service *Service) TrackAccountFreezeWarning(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountFreezeWarning,
+		Properties: props,
+	})
+}
+
+// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("invoice", invID)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventUnpaidLargeInvoice,
+		Properties: props,
 	})
 }
 

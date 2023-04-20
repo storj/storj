@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="closeModal">
+    <VModal :on-close="() => closeModal(true)">
         <template #content>
             <div class="modal">
                 <EnterPassphraseIcon />
@@ -16,7 +16,6 @@
                     :error="enterError"
                     role-description="passphrase"
                     is-password
-                    :disabled="isLoading"
                     @setData="setPassphrase"
                 />
                 <div class="modal__buttons">
@@ -25,15 +24,13 @@
                         height="48px"
                         font-size="14px"
                         :is-transparent="true"
-                        :on-press="closeModal"
-                        :is-disabled="isLoading"
+                        :on-press="() => closeModal()"
                     />
                     <VButton
                         label="Continue ->"
                         height="48px"
                         font-size="14px"
                         :on-press="onContinue"
-                        :is-disabled="isLoading"
                     />
                 </div>
             </div>
@@ -41,17 +38,15 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { reactive, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { MetaUtils } from '@/utils/meta';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { RouteConfig } from '@/router';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -59,146 +54,52 @@ import VButton from '@/components/common/VButton.vue';
 
 import EnterPassphraseIcon from '@/../static/images/buckets/openBucket.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VModal,
-        VButton,
-        EnterPassphraseIcon,
-    },
-})
-export default class EnterPassphraseModal extends Vue {
-    private worker: Worker;
-    private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public enterError = '';
-    public passphrase = '';
-    public isLoading = false;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets local worker.
-     */
-    public mounted(): void {
-        this.setWorker();
+const enterError = ref<string>('');
+const passphrase = ref<string>('');
+
+/**
+ * Sets passphrase.
+ */
+function onContinue(): void {
+    if (!passphrase.value) {
+        enterError.value = 'Passphrase can\'t be empty';
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+
+        return;
     }
 
-    /**
-     * Sets access and navigates to object browser.
-     */
-    public async onContinue(): Promise<void> {
-        if (this.isLoading) return;
+    bucketsStore.setPassphrase(passphrase.value);
+    bucketsStore.setPromptForPassphrase(false);
 
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+    closeModal();
+}
 
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            await this.setAccess();
-            this.isLoading = false;
-
-            this.closeModal();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-            this.isLoading = false;
-        }
+/**
+ * Closes enter passphrase modal and navigates to single project dashboard from
+ * all projects dashboard.
+ */
+function closeModal(isCloseButton = false): void {
+    if (!isCloseButton && router.currentRoute.name === RouteConfig.AllProjectsDashboard.name) {
+        router.push(RouteConfig.ProjectDashboard.path);
     }
 
-    /**
-     * Sets access to S3 client.
-     */
-    public async setAccess(): Promise<void> {
-        if (!this.apiKey) {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
-            const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
-        }
+    appStore.removeActiveModal();
+}
 
-        const now = new Date();
-        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
+/**
+ * Sets passphrase from child component.
+ */
+function setPassphrase(value: string): void {
+    if (enterError.value) enterError.value = '';
 
-        await this.worker.postMessage({
-            'type': 'SetPermission',
-            'isDownload': true,
-            'isUpload': true,
-            'isList': true,
-            'isDelete': true,
-            'notAfter': inThreeDays.toISOString(),
-            'buckets': [],
-            'apiKey': this.apiKey,
-        });
-
-        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error);
-        }
-
-        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
-        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-
-        this.worker.postMessage({
-            'type': 'GenerateAccess',
-            'apiKey': grantEvent.data.value,
-            'passphrase': this.passphrase,
-            'salt': salt,
-            'satelliteNodeURL': satelliteNodeURL,
-        });
-
-        const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        if (accessGrantEvent.data.error) {
-            throw new Error(accessGrantEvent.data.error);
-        }
-
-        const accessGrant = accessGrantEvent.data.value;
-
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-        await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-    }
-
-    /**
-     * Sets local worker with worker instantiated in store.
-     */
-    public setWorker(): void {
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-        };
-    }
-
-    /**
-     * Closes open bucket modal.
-     */
-    public closeModal(): void {
-        if (this.isLoading) return;
-
-        this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
-    }
-
-    /**
-     * Sets passphrase from child component.
-     */
-    public setPassphrase(passphrase: string): void {
-        if (this.enterError) this.enterError = '';
-
-        this.passphrase = passphrase;
-        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
-    }
-
-    /**
-     * Returns apiKey from store.
-     */
-    private get apiKey(): string {
-        return this.$store.state.objectsModule.apiKey;
-    }
+    passphrase.value = value;
 }
 </script>
 

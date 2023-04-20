@@ -5,7 +5,7 @@ package overlay
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -18,7 +18,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/version"
 	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
 )
@@ -100,8 +99,10 @@ type DB interface {
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 
-	// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
+	// GetNodesNetwork returns the last_net subnet for each storage node, order is not guaranteed.
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
+	// GetNodesNetworkInOrder returns the last_net subnet for each storage node in order of the requested nodeIDs.
+	GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
@@ -130,6 +131,9 @@ type DB interface {
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 	// TestUpdateCheckInDirectUpdate tries to update a node info directly. Returns true if it succeeded, false if there were no node with the provided (used for testing).
 	TestUpdateCheckInDirectUpdate(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error)
+	// OneTimeFixLastNets updates the last_net values for all node records to be equal to their
+	// last_ip_port values.
+	OneTimeFixLastNets(ctx context.Context) error
 
 	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -192,7 +196,6 @@ type NodeCriteria struct {
 	ExcludedNetworks   []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion     string   // semver or empty
 	OnlineWindow       time.Duration
-	DistinctIP         bool
 	AsOfSystemInterval time.Duration // only used for CRDB queries
 	ExcludedCountries  []string
 }
@@ -311,7 +314,6 @@ type Service struct {
 	log              *zap.Logger
 	db               DB
 	nodeEvents       nodeevents.DB
-	mail             *mailservice.Service
 	satelliteName    string
 	satelliteAddress string
 	config           Config
@@ -319,10 +321,14 @@ type Service struct {
 	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
+	LastNetFunc            LastNetFunc
 }
 
+// LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
+type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
+
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -355,7 +361,6 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *m
 		log:              log,
 		db:               db,
 		nodeEvents:       nodeEvents,
-		mail:             mailService,
 		satelliteAddress: satelliteAddr,
 		satelliteName:    satelliteName,
 		config:           config,
@@ -364,6 +369,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *m
 
 		UploadSelectionCache:   uploadSelectionCache,
 		DownloadSelectionCache: downloadSelectionCache,
+		LastNetFunc:            MaskOffLastNet,
 	}, nil
 }
 
@@ -420,6 +426,13 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
+// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
+// requested node is not in the database, an empty string will be returned corresponding
+// to that node's last_net.
+func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
+	return service.db.GetNodesNetworkInOrder(ctx, nodeIDs)
+}
+
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -473,10 +486,9 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	totalNeededNodes := req.RequestedCount
 
 	excludedIDs := req.ExcludedIDs
-	// if distinctIP is enabled, keep track of the network
-	// to make sure we only select nodes from different networks
+	// keep track of the network to make sure we only select nodes from different networks
 	var excludedNetworks []string
-	if preferences.DistinctIP && len(excludedIDs) > 0 {
+	if len(excludedIDs) > 0 {
 		excludedNetworks, err = service.db.GetNodesNetwork(ctx, excludedIDs)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -494,7 +506,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		ExcludedNetworks:   excludedNetworks,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
-		DistinctIP:         preferences.DistinctIP,
 		AsOfSystemInterval: req.AsOfSystemInterval,
 	}
 	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
@@ -690,17 +701,13 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	spaceChanged := (node.Capacity == nil && oldInfo.Capacity.FreeDisk != 0) ||
 		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
 
-	if oldInfo.CountryCode == location.CountryCode(0) || oldInfo.LastIPPort != node.LastIPPort {
-		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
-		if err != nil {
-			failureMeter.Mark(1)
-			service.log.Debug("failed to resolve country code for node",
-				zap.String("node address", node.Address.Address),
-				zap.Stringer("Node ID", node.NodeID),
-				zap.Error(err))
-		}
-	} else {
-		node.CountryCode = oldInfo.CountryCode
+	node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+	if err != nil {
+		failureMeter.Mark(1)
+		service.log.Debug("failed to resolve country code for node",
+			zap.String("node address", node.Address.Address),
+			zap.Stringer("Node ID", node.NodeID),
+			zap.Error(err))
 	}
 
 	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
@@ -835,8 +842,14 @@ func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlin
 	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 }
 
-// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
-func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
+// ResolveIPAndNetwork resolves the target address and determines its IP and appropriate subnet IPv4 or subnet IPv6.
+func (service *Service) ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
+	// LastNetFunc is MaskOffLastNet, unless changed for a test.
+	return ResolveIPAndNetwork(ctx, target, service.config.Node, service.LastNetFunc)
+}
+
+// ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.
+func ResolveIPAndNetwork(ctx context.Context, target string, config NodeSelectionConfig, lastNetFunc LastNetFunc) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
@@ -848,19 +861,39 @@ func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, n
 		return nil, "", "", err
 	}
 
-	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
-	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
-		// Filter all IPv4 Addresses into /24 Subnet's
-		mask := net.CIDRMask(24, 32)
-		return ipAddr.IP, port, ipv4.Mask(mask).String(), nil
-	}
-	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
-		// Filter all IPv6 Addresses into /64 Subnet's
-		mask := net.CIDRMask(64, 128)
-		return ipAddr.IP, port, ipv6.Mask(mask).String(), nil
+	network, err = lastNetFunc(config, ipAddr.IP, port)
+	if err != nil {
+		return nil, "", "", err
 	}
 
-	return nil, "", "", errors.New("unable to get network for address " + ipAddr.String())
+	return ipAddr.IP, port, network, nil
+}
+
+// MaskOffLastNet truncates the target address to the configured CIDR ipv6Cidr or ipv6Cidr prefix,
+// if DistinctIP is enabled in the config. Otherwise, it returns the joined IP and port.
+func MaskOffLastNet(config NodeSelectionConfig, addr net.IP, port string) (string, error) {
+	if config.DistinctIP {
+		// Filter all IPv4 Addresses into /24 subnets, and filter all IPv6 Addresses into /64 subnets
+		return truncateIPToNet(addr, config.NetworkPrefixIPv4, config.NetworkPrefixIPv6)
+	}
+	// The "network" here will be the full IP and port; that is, every node will be considered to
+	// be on a separate network, even if they all come from one IP (such as localhost).
+	return net.JoinHostPort(addr.String(), port), nil
+}
+
+// truncateIPToNet truncates the target address to the given CIDR ipv4Cidr or ipv6Cidr prefix,
+// according to which type of IP it is.
+func truncateIPToNet(ipAddr net.IP, ipv4Cidr, ipv6Cidr int) (network string, err error) {
+	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
+	if ipv4 := ipAddr.To4(); ipv4 != nil {
+		mask := net.CIDRMask(ipv4Cidr, 32)
+		return ipv4.Mask(mask).String(), nil
+	}
+	if ipv6 := ipAddr.To16(); ipv6 != nil {
+		mask := net.CIDRMask(ipv6Cidr, 128)
+		return ipv6.Mask(mask).String(), nil
+	}
+	return "", fmt.Errorf("unable to get network for address %s", ipAddr.String())
 }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

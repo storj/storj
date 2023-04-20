@@ -11,6 +11,7 @@ import (
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
@@ -57,10 +58,11 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
@@ -119,7 +121,7 @@ type DB interface {
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
-	StripeCoinPayments() stripecoinpayments.DB
+	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
 	// Wallets returns storjscan wallets database.
@@ -201,6 +203,8 @@ type Config struct {
 	ConsoleAuth    consoleauth.Config
 	EmailReminders emailreminders.Config
 
+	AccountFreeze accountfreeze.Config
+
 	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
@@ -221,13 +225,13 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 	// validate from mail address
 	from, err := mail.ParseAddress(mailConfig.From)
 	if err != nil {
-		return nil, err
+		return nil, errs.New("SMTP from address '%s' couldn't be parsed: %v", mailConfig.From, err)
 	}
 
 	// validate smtp server address
 	host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
-	if err != nil {
-		return nil, err
+	if err != nil && mailConfig.AuthType != "simulate" && mailConfig.AuthType != "nologin" {
+		return nil, errs.New("SMTP server address '%s' couldn't be parsed: %v", mailConfig.SMTPServerAddress, err)
 	}
 
 	var sender mailservice.Sender
