@@ -96,7 +96,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{
 				ListOpts: metaclient.BucketListOptions{
 					Cursor:    "",
-					Direction: storj.Forward,
+					Direction: metaclient.Forward,
 					Limit:     10,
 				},
 			})

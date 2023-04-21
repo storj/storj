@@ -18,23 +18,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import SunIcon from '@/../static/images/objects/sun.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 
-// @vue/component
-@Component({
-    components: {
-        SunIcon,
-        CloseIcon,
-    },
-})
-export default class EncryptionBanner extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly hide: () => void;
-}
+const props = withDefaults(defineProps<{
+    hide: () => void;
+}>(), {
+    hide: () => {},
+});
 </script>
 
 <style scoped lang="scss">

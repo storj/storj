@@ -49,9 +49,11 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 // APIKeys is a getter for APIKeys repository.
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	db.apikeysOnce.Do(func() {
+		options := db.apikeysLRUOptions
+		options.Name = "satellitedb-apikeys"
 		db.apikeys = &apikeys{
 			methods: db.methods,
-			lru:     lrucache.New(db.apikeysLRUOptions),
+			lru:     lrucache.New(options),
 			db:      db.db,
 		}
 	})

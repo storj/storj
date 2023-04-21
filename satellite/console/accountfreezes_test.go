@@ -41,7 +41,7 @@ func TestAccountFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -83,7 +83,7 @@ func TestAccountUnfreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -115,6 +115,40 @@ func TestAccountUnfreeze(t *testing.T) {
 	})
 }
 
+func TestRemoveAccountWarning(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		projectsDB := sat.DB.Console().Projects()
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "user@mail.test",
+		}, 2)
+		require.NoError(t, err)
+
+		require.NoError(t, service.WarnUser(ctx, user.ID))
+		require.NoError(t, service.UnWarnUser(ctx, user.ID))
+
+		freeze, warning, err := service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.Nil(t, warning)
+		require.Nil(t, freeze)
+
+		require.NoError(t, service.WarnUser(ctx, user.ID))
+		require.NoError(t, service.FreezeUser(ctx, user.ID))
+
+		freeze, warning, err = service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freeze)
+		// freezing should remove prior warning events.
+		require.Nil(t, warning)
+	})
+}
+
 func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -122,7 +156,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{

@@ -89,7 +89,7 @@ read one (
     where project.id = ?
 )
 read one (
-    select project.bandwidth_limit project.usage_limit project.segment_limit
+    select project.bandwidth_limit project.usage_limit project.segment_limit project.rate_limit project.burst_limit
     where  project.id = ?
 )
 

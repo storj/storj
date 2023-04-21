@@ -9,8 +9,8 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/private/dbutil"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
+	"storj.io/storj/private/kvstore/boltdb"
+	"storj.io/storj/private/kvstore/redis"
 )
 
 // OpenDBFromCfg is a convenience method to create a revocation DB

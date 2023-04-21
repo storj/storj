@@ -3,10 +3,7 @@
 
 <template>
     <div class="dashboard">
-        <div v-if="isLoading" class="loading-overlay active">
-            <div class="load" />
-            <LoaderImage class="loading-icon" />
-        </div>
+        <BrandedLoader v-if="isLoading" />
         <div v-else class="dashboard__wrap">
             <div class="dashboard__wrap__main-area">
                 <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
@@ -16,14 +13,18 @@
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
-                        <div class="bars">
-                            <BetaSatBar v-if="isBetaSatellite" />
-                            <ProjectInfoBar v-if="isProjectListPage" />
-                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-
+                        <BetaSatBar v-if="isBetaSatellite" />
+                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                        <div class="banner-container dashboard__wrap__main-area__content-wrap__container__content">
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
+                            />
+
+                            <ProjectLimitBanner
+                                v-if="isProjectLimitBannerShown"
+                                :dashboard-ref="dashboardContent"
+                                :on-upgrade-clicked="togglePMModal"
                             />
 
                             <v-banner
@@ -33,6 +34,17 @@
                             >
                                 <template #text>
                                     <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                                    <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                                </template>
+                            </v-banner>
+
+                            <v-banner
+                                v-if="isAccountWarned && !isLoading && dashboardContent"
+                                severity="warning"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
                                     <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
                                 </template>
                             </v-banner>
@@ -61,8 +73,25 @@
                             </v-banner>
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
+                        <div class="banner-container__bottom dashboard__wrap__main-area__content-wrap__container__content">
+                            <UploadNotification
+                                v-if="isLargeUploadNotificationShown && !isLargeUploadWarningNotificationShown && isBucketsView"
+                                wording-bold="The web browser is best for uploads up to 1GB."
+                                wording="To upload larger files, check our recommendations"
+                                :notification-icon="CloudIcon"
+                                :warning-notification="false"
+                                :on-close-click="onNotificationCloseClick"
+                            />
+                            <UploadNotification
+                                v-if="isLargeUploadWarningNotificationShown"
+                                wording-bold="Trying to upload a large file?"
+                                wording="Check the recommendations for your use case"
+                                :notification-icon="WarningIcon"
+                                :warning-notification="true"
+                                :on-close-click="onWarningNotificationCloseClick"
+                            />
+                        </div>
                     </div>
-                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
             </div>
         </div>
@@ -98,35 +127,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
-import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import eventBus from '@/utils/eventBus';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
-import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
-import BillingNotification from '@/components/notifications/BillingNotification.vue';
+import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -136,29 +162,32 @@ import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
+import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
-import LoaderImage from '@/../static/images/common/loadIcon.svg';
+import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
+import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
-const {
-    SETUP_ACCOUNT,
-    GET_CREDIT_CARDS,
-} = PAYMENTS_ACTIONS;
+const bucketsStore = useBucketsStore();
 
-const store = useStore();
-// TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
-const nativeRouter = useRouter();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const billingStore = useBillingStore();
+const pmStore = useProjectMembersStore();
+const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
+const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
+
 const notify = useNotify();
-
+const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 const inactivityModalTime = 60000;
-const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
-const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
-const sessionRefreshInterval: number = sessionDuration / 2;
-const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
@@ -175,32 +204,71 @@ const debugTimerText = ref<string>('');
 const dashboardContent = ref<HTMLElement | null>(null);
 
 /**
+ * Returns the session duration from the store.
+ */
+const sessionDuration = computed((): number => {
+    return appStore.state.config.inactivityTimerDuration * 1000;
+});
+
+/**
+ * Returns the session refresh interval from the store.
+ */
+const sessionRefreshInterval = computed((): number => {
+    return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether to display the session timer for debugging.
+ */
+const debugTimerShown = computed((): boolean => {
+    return appStore.state.config.inactivityTimerViewerEnabled;
+});
+
+/**
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
-    return store.state.usersModule.user.isFrozen;
+    return usersStore.state.user.freezeStatus.frozen;
+});
+
+/**
+ * Indicates if account was warned due to billing issues.
+ */
+const isAccountWarned = computed((): boolean => {
+    return usersStore.state.user.freezeStatus.warned;
 });
 
 /**
  * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
  */
-const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
+type LimitedState = {
+    eightyIsShown: boolean;
+    hundredIsShown: boolean;
+    eightyLabel: string;
+    eightyModalLimitType: string;
+    eightyModalTitle: string;
+    hundredLabel: string;
+    hundredModalTitle: string;
+    hundredModalLimitType: string;
+}
 
-    const result:
-    {
-        eightyIsShown: boolean,
-        hundredIsShown: boolean,
-        eightyLabel?: string,
-        eightyModalTitle?: string,
-        eightyModalLimitType?: string,
-        hundredLabel?: string,
-        hundredModalTitle?: string,
-        hundredModalLimitType?: string
+const limitState = computed((): LimitedState => {
+    const result: LimitedState = {
+        eightyIsShown: false,
+        hundredIsShown: false,
+        eightyLabel: '',
+        eightyModalLimitType: '',
+        eightyModalTitle: '',
+        hundredLabel: '',
+        hundredModalTitle: '',
+        hundredModalLimitType: '',
+    };
 
-    } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
+    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
+        return result;
+    }
 
-    const { currentLimits } = store.state.projectsModule;
+    const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
         { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
@@ -248,12 +316,35 @@ const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolea
  * Indicates if navigation sidebar is hidden.
  */
 const isNavigationHidden = computed((): boolean => {
-    return isOnboardingTour.value || isCreateProjectPage.value;
+    return (!isAllProjectsDashboard.value && isOnboardingTour.value)
+        || isCreateProjectPage.value;
+});
+
+/* whether all projects dashboard should be used */
+const isAllProjectsDashboard = computed((): boolean => {
+    return appStore.state.config.allProjectsDashboard;
+});
+
+/* whether the project limit banner should be shown. */
+const isProjectLimitBannerShown = computed((): boolean => {
+    return !LocalData.getProjectLimitBannerHidden()
+        && isProjectListPage.value
+        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
+});
+
+/**
+ * Returns whether the user has reached project limits.
+ */
+const hasReachedProjectLimit = computed((): boolean => {
+    const projectLimit: number = usersStore.state.user.projectLimit;
+    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
+
+    return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !store.state.usersModule.user.paidTier
+    return !usersStore.state.user.paidTier
         && !isOnboardingTour.value
         && joinedWhileAgo.value
         && isDashboardPage.value;
@@ -261,7 +352,7 @@ const isPaidTierBannerShown = computed((): boolean => {
 
 /* whether the user joined more than 7 days ago */
 const joinedWhileAgo = computed((): boolean => {
-    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    const createdAt = usersStore.state.user.createdAt as Date | null;
     if (!createdAt) return true; // true so we can show the banner regardless
     const millisPerDay = 24 * 60 * 60 * 1000;
     return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
@@ -271,72 +362,94 @@ const joinedWhileAgo = computed((): boolean => {
  * Indicates if current route is projects list page.
  */
 const isProjectListPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.ProjectsList.name;
-});
-
-/**
- * Returns credit cards from store.
- */
-const creditCards = computed((): CreditCard[] => {
-    return store.state.paymentsModule.creditCards;
+    return router.currentRoute.name === RouteConfig.ProjectsList.name;
 });
 
 /**
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.history.current?.path.includes(RouteConfig.OnboardingTour.path);
+    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
 });
 
 /**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return store.state.appStateModule.isBetaSatellite;
+    return appStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    return appStore.state.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
  * Indicates whether the MFA recovery code warning bar should be shown.
  */
 const showMFARecoveryCodeBar = computed((): boolean => {
-    const user: User = store.getters.user;
+    const user: User = usersStore.state.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
 /**
- * Indicates whether the billing relocation notification should be shown.
+ * Indicates whether the large upload notification should be shown.
  */
-const isBillingNotificationShown = computed((): boolean => {
-    return store.state.appStateModule.appState.isBillingNotificationShown;
+const isLargeUploadNotificationShown = computed((): boolean => {
+    return appStore.state.viewsState.isLargeUploadNotificationShown;
+});
+
+/**
+ * Indicates whether the large upload warning notification should be shown (file uploading exceeds 1GB).
+ */
+const isLargeUploadWarningNotificationShown = computed((): boolean => {
+    return appStore.state.viewsState.isLargeUploadWarningNotificationShown;
 });
 
 /**
  * Indicates if current route is create project page.
  */
 const isCreateProjectPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.CreateProject.name;
+    return router.currentRoute.name === RouteConfig.CreateProject.name;
 });
 
 /**
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.NewProjectDashboard.name;
+    return router.currentRoute.name === RouteConfig.ProjectDashboard.name;
 });
+
+/**
+ * Indicates if current route is the bucketsView page.
+ */
+const isBucketsView = computed((): boolean => {
+    return router.currentRoute.name === RouteConfig.BucketsManagement.name;
+});
+
+/**
+ * Closes upload notification and persists state in local storage.
+ */
+function onNotificationCloseClick(): void {
+    appStore.setLargeUploadNotification(false);
+    LocalData.setLargeUploadNotificationDismissed();
+}
+
+/**
+ * Closes upload large files warning notification.
+ */
+function onWarningNotificationCloseClick(): void {
+    appStore.setLargeUploadWarningNotification(false);
+}
 
 /**
  * Stores project to vuex store and browser's local storage.
  * @param projectID - project id string
  */
 function storeProject(projectID: string): void {
-    store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
 }
 
@@ -353,9 +466,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (isInactivityTimerEnabled === 'false') return;
+    if (!appStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -364,7 +475,7 @@ function setupSessionTimers(): void {
             document.addEventListener(eventName, onSessionActivity, false);
         });
 
-        if (expiresAt.getTime() - sessionDuration + sessionRefreshInterval < Date.now()) {
+        if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
             refreshSession();
         }
 
@@ -381,16 +492,21 @@ function restartSessionTimers(): void {
         if (isSessionActive.value) {
             await refreshSession();
         }
-    }, sessionRefreshInterval);
+    }, sessionRefreshInterval.value);
 
-    inactivityTimerId.value = setTimeout(() => {
+    inactivityTimerId.value = setTimeout(async () => {
+        if (obStore.uploadingLength) {
+            await refreshSession();
+            return;
+        }
+
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
             await handleInactive();
             await notify.notify('Your session was timed out.');
         }, inactivityModalTime);
-    }, sessionDuration - inactivityModalTime);
+    }, sessionDuration.value - inactivityModalTime);
 
     if (!debugTimerShown) return;
 
@@ -431,28 +547,6 @@ function selectProject(fetchedProjects: Project[]): void {
 }
 
 /**
- * Used to trigger session timer update while doing not UI-related work for a long time.
- */
-async function resetSessionOnLogicRelatedActivity(): Promise<void> {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (!isInactivityTimerEnabled) {
-        return;
-    }
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        const ms = Math.max(0, expiresAt.getTime() - Date.now());
-
-        // Isn't triggered when decent amount of session time is left.
-        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
-            await refreshSession();
-        }
-    }
-}
-
-/**
  * Refreshes session and resets session timers.
  */
 async function refreshSession(): Promise<void> {
@@ -482,18 +576,17 @@ async function handleInactive(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
-        store.dispatch('files/clear'),
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        abTestingStore.reset(),
+        obStore.clear(),
     ]);
 
     resetActivityEvents.forEach((eventName: string) => {
@@ -523,7 +616,7 @@ function setIsHundredLimitModalShown(value: boolean): void {
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
@@ -531,7 +624,7 @@ function toggleMFARecoveryModal(): void {
  */
 async function generateNewMFARecoveryCodes(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
@@ -544,7 +637,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
@@ -575,46 +668,31 @@ async function onSessionActivity(): Promise<void> {
 }
 
 /**
- * Subscribes to activity events to refresh session timers.
- */
-onBeforeMount(() => {
-    eventBus.$on('upload_progress', () => {
-        resetSessionOnLogicRelatedActivity();
-    });
-});
-
-/**
  * Lifecycle hook after initial render.
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    store.subscribeAction((action) => {
-        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    usersStore.$onAction((action) => {
+        if (action.name === 'clear') clearSessionTimers();
     });
 
-    if (LocalData.getBillingNotificationAcknowledged()) {
-        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    } else {
-        const unsub = store.subscribe((action) => {
-            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
-                LocalData.setBillingNotificationAcknowledged();
-                unsub();
-            }
-        });
+    if (LocalData.getLargeUploadNotificationDismissed()) {
+        appStore.setLargeUploadNotification(false);
     }
 
     try {
-        await store.dispatch(USER_ACTIONS.GET);
-        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
-        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        await usersStore.getUser();
+        await usersStore.getFrozenStatus();
+        await abTestingStore.fetchValues();
+        await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        store.subscribeAction((action) => {
-            if (action.type === USER_ACTIONS.LOGIN)setupSessionTimers();
+        usersStore.$onAction((action) => {
+            if (action.name === 'login') setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
@@ -624,14 +702,14 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        agStore.stopWorker();
+        await agStore.startWorker();
     } catch (error) {
         await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
-        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
             await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
@@ -644,7 +722,7 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
@@ -652,96 +730,60 @@ onMounted(async () => {
     let projects: Project[] = [];
 
     try {
-        projects = await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        projects = await projectsStore.getProjects();
     } catch (error) {
         return;
     }
 
-    if (!projects.length) {
+    if (!appStore.state.config.allProjectsDashboard) {
         try {
-            await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+            if (!projects.length) {
+                await projectsStore.createDefaultProject(usersStore.state.user.id);
+            } else {
+                selectProject(projects);
+            }
 
-            await analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+            const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
+            const onboardingPath = RouteConfig.OnboardingTour.with(firstOnboardingStep).path;
+            if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
+                await analytics.pageVisit(onboardingPath);
+                await router.push(onboardingPath);
+            }
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             return;
         }
-
-        return;
     }
 
-    selectProject(projects);
-
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    appStore.changeState(FetchState.LOADED);
 });
 
 onBeforeUnmount(() => {
-    eventBus.$off('upload_progress');
+    clearSessionTimers();
+    resetActivityEvents.forEach((eventName: string) => {
+        document.removeEventListener(eventName, onSessionActivity);
+    });
 });
 </script>
 
 <style scoped lang="scss">
-    @keyframes rotate {
-
-        from {
-            transform: rotate(0deg);
-        }
-
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
     :deep(.notification-wrap) {
         margin-top: 1rem;
     }
 
-    .load {
-        width: 90px;
-        height: 90px;
-        margin: auto 0;
-        border: solid 3px var(--c-blue-3);
-        border-radius: 50%;
-        border-right-color: transparent;
-        border-bottom-color: transparent;
-        border-left-color: transparent;
-        transition: all 0.5s ease-in;
-        animation-name: rotate;
-        animation-duration: 1.2s;
-        animation-iteration-count: infinite;
-        animation-timing-function: linear;
-    }
+    .banner-container {
+        padding-top: 0 !important;
 
-    .loading-overlay {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #fff;
-        visibility: hidden;
-        opacity: 0;
-        transition: all 0.5s linear;
-    }
+        &:empty {
+            display: none;
+        }
 
-    .loading-overlay.active {
-        visibility: visible;
-        opacity: 1;
-    }
-
-    .loading-icon {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        margin: auto;
+        &__bottom {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
     }
 
     .dashboard {
@@ -773,11 +815,15 @@ onBeforeUnmount(() => {
                     &__container {
                         height: 100%;
                         overflow-y: auto;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
 
                         &__content {
                             max-width: 1200px;
-                            margin: 0 auto;
-                            padding: 48px 48px 60px;
+                            padding: 48px 48px 0;
+                            box-sizing: border-box;
+                            width: 100%;
                         }
                     }
                 }
@@ -807,14 +853,6 @@ onBeforeUnmount(() => {
 
     .no-nav {
         width: 100%;
-    }
-
-    .bars {
-        display: contents;
-        position: fixed;
-        width: 100%;
-        top: 0;
-        z-index: 1000;
     }
 
     @media screen and (max-width: 1280px) {

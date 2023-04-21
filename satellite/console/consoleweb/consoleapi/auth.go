@@ -203,6 +203,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		IsProfessional   bool   `json:"isProfessional"`
 		Position         string `json:"position"`
 		CompanyName      string `json:"companyName"`
+		StorageNeeds     string `json:"storageNeeds"`
 		EmployeeCount    string `json:"employeeCount"`
 		HaveSalesContact bool   `json:"haveSalesContact"`
 		CaptchaResponse  string `json:"captchaResponse"`
@@ -336,6 +337,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.Type = analytics.Professional
 			trackCreateUserFields.EmployeeCount = user.EmployeeCount
 			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}
@@ -370,10 +372,11 @@ func loadSession(req *http.Request) string {
 	return sessionCookie.Value
 }
 
-// IsAccountFrozen checks to see if an account is frozen.
-func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
+// GetFreezeStatus checks to see if an account is frozen or warned.
+func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
 		Frozen bool `json:"frozen"`
+		Warned bool `json:"warned"`
 	}
 
 	ctx := r.Context()
@@ -386,7 +389,7 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	frozenBool, err := a.accountFreezeService.IsUserFrozen(ctx, userID)
+	freeze, warning, err := a.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -394,7 +397,8 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(FrozenResult{
-		Frozen: frozenBool,
+		Frozen: freeze != nil,
+		Warned: warning != nil,
 	})
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
@@ -437,7 +441,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		FullName             string    `json:"fullName"`
 		ShortName            string    `json:"shortName"`
 		Email                string    `json:"email"`
-		UserAgent            []byte    `json:"userAgent"`
+		Partner              string    `json:"partner"`
 		ProjectLimit         int       `json:"projectLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
 		Position             string    `json:"position"`
@@ -460,7 +464,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
-	user.UserAgent = consoleUser.UserAgent
+	if consoleUser.UserAgent != nil {
+		user.Partner = string(consoleUser.UserAgent)
+	}
 	user.ProjectLimit = consoleUser.ProjectLimit
 	user.IsProfessional = consoleUser.IsProfessional
 	user.CompanyName = consoleUser.CompanyName
@@ -906,6 +912,100 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GetUserSettings gets a user's settings.
+func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	settings, err := a.service.GetUserSettings(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// SetOnboardingStatus updates a user's onboarding status.
+func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart *bool   `json:"onboardingStart"`
+		OnboardingEnd   *bool   `json:"onboardingEnd"`
+		OnboardingStep  *string `json:"onboardingStep"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	_, err = a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart: updateInfo.OnboardingStart,
+		OnboardingEnd:   updateInfo.OnboardingEnd,
+		OnboardingStep:  updateInfo.OnboardingStep,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// SetUserSettings updates a user's settings.
+func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart *bool   `json:"onboardingStart"`
+		OnboardingEnd   *bool   `json:"onboardingEnd"`
+		OnboardingStep  *string `json:"onboardingStep"`
+		SessionDuration *int64  `json:"sessionDuration"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	var newDuration **time.Duration
+	if updateInfo.SessionDuration != nil {
+		newDuration = new(*time.Duration)
+		if *updateInfo.SessionDuration != 0 {
+			duration := time.Duration(*updateInfo.SessionDuration)
+			*newDuration = &duration
+		}
+	}
+
+	settings, err := a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart: updateInfo.OnboardingStart,
+		OnboardingEnd:   updateInfo.OnboardingEnd,
+		OnboardingStep:  updateInfo.OnboardingStep,
+		SessionDuration: newDuration,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }

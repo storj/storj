@@ -8,16 +8,6 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import ProgressBar from '@/components/onboardingTour/steps/cliFlow/ProgressBar.vue';
-
-// @vue/component
-@Component({
-    components: {
-        ProgressBar,
-    },
-})
-export default class OnbCLIStep extends Vue {}
 </script>

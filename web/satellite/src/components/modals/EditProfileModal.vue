@@ -38,83 +38,75 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VButton,
-        VModal,
-    },
-})
-export default class EditProfileModal extends Vue {
-    private fullNameError = '';
+const appStore = useAppStore();
+const userStore = useUsersStore();
+const notify = useNotify();
 
-    private readonly userInfo: UpdatedUser =
-        new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const userInfo = reactive<UpdatedUser>(new UpdatedUser(userStore.state.user.fullName, userStore.state.user.shortName));
+const fullNameError = ref<string>('');
 
-    /**
-     * Set full name value from input.
-     */
-    public setFullName(value: string): void {
-        this.userInfo.setFullName(value);
-        this.fullNameError = '';
+/**
+ * Returns first letter of user name.
+ */
+const avatarLetter = computed((): string => {
+    return userStore.userName.slice(0, 1).toUpperCase();
+});
+
+/**
+ * Set full name value from input.
+ */
+function setFullName(value: string): void {
+    userInfo.setFullName(value);
+    fullNameError.value = '';
+}
+
+/**
+ * Validates name and tries to update user info and close popup.
+ */
+async function onUpdateClick(): Promise<void> {
+    if (!userInfo.isValid()) {
+        fullNameError.value = 'Full name expected';
+
+        return;
     }
 
-    /**
-     * Validates name and tries to update user info and close popup.
-     */
-    public async onUpdateClick(): Promise<void> {
-        if (!this.userInfo.isValid()) {
-            this.fullNameError = 'Full name expected';
+    try {
+        await userStore.updateUser(userInfo);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
 
-            return;
-        }
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
-
-            return;
-        }
-
-        this.analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
-
-        await this.$notify.success('Account info successfully updated!');
-
-        this.closeModal();
+        return;
     }
 
-    /**
-     * Closes modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editProfile);
-    }
+    analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
 
-    /**
-     * Returns first letter of user name.
-     */
-    public get avatarLetter(): string {
-        return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
+    await notify.success('Account info successfully updated!');
+
+    closeModal();
+}
+
+/**
+ * Closes modal.
+ */
+function closeModal(): void {
+    appStore.updateActiveModal(MODALS.editProfile);
 }
 </script>
 

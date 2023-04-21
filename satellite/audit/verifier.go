@@ -6,11 +6,13 @@ package audit
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
@@ -172,8 +174,15 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			sharesToAudit[pieceNum] = share
 			continue
 		}
+
+		// TODO: just because an error came from the common/rpc package
+		// does not decisively mean that the problem is something to do
+		// with dialing. instead of trying to guess what different
+		// error classes mean, we should make GetShare inside
+		// DownloadShares return more direct information about when
+		// the failure happened.
 		if rpc.Error.Has(share.Error) {
-			if errs.Is(share.Error, context.DeadlineExceeded) {
+			if errors.Is(share.Error, context.DeadlineExceeded) || errs.Is(share.Error, context.DeadlineExceeded) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial timeout (offline)",
@@ -184,6 +193,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			}
 			if errs2.IsRPC(share.Error, rpcstatus.Unknown) {
 				// dial failed -- offline node
+				// TODO: we should never assume what an unknown
+				// error means. This should be looking for an explicit
+				// indication that dialing failed, not assuming dialing
+				// failed because the rpc status is unknown
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial failed (offline)",
 					zap.Stringer("Node ID", share.NodeID),
@@ -196,7 +209,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			verifier.log.Info("Verify: unknown transport error (skipped)",
 				zap.Stringer("Node ID", share.NodeID),
 				zap.String("Segment", segmentInfoString(segment)),
-				zap.Error(share.Error))
+				zap.Error(share.Error),
+				zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
 			continue
 		}
 
@@ -225,7 +239,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		verifier.log.Info("Verify: unknown error (skipped)",
 			zap.Stringer("Node ID", share.NodeID),
 			zap.String("Segment", segmentInfoString(segment)),
-			zap.Error(share.Error))
+			zap.Error(share.Error),
+			zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
 	}
 	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //mon:locked
 

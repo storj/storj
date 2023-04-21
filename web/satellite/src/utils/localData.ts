@@ -11,8 +11,9 @@ export class LocalData {
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
-    private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
+    private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
+    private static projectLimitBannerHidden = 'projectLimitBannerHidden';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -84,12 +85,12 @@ export class LocalData {
         return value === 'true';
     }
 
-    public static getBillingNotificationAcknowledged(): boolean {
-        return Boolean(localStorage.getItem(LocalData.billingNotificationAcknowledged));
+    public static getLargeUploadNotificationDismissed(): boolean {
+        return Boolean(localStorage.getItem(LocalData.largeUploadNotificationDismissed));
     }
 
-    public static setBillingNotificationAcknowledged(): void {
-        localStorage.setItem(LocalData.billingNotificationAcknowledged, 'true');
+    public static setLargeUploadNotificationDismissed(): void {
+        localStorage.setItem(LocalData.largeUploadNotificationDismissed, 'true');
     }
 
     public static getSessionExpirationDate(): Date | null {
@@ -103,5 +104,17 @@ export class LocalData {
 
     public static setSessionExpirationDate(date: Date): void {
         localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
+    }
+
+    /**
+     * "Disable" showing the project limit banner.
+     */
+    public static setProjectLimitBannerHidden(): void {
+        localStorage.setItem(LocalData.projectLimitBannerHidden, 'true');
+    }
+
+    public static getProjectLimitBannerHidden(): boolean {
+        const value = localStorage.getItem(LocalData.projectLimitBannerHidden);
+        return value === 'true';
     }
 }

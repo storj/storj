@@ -11,12 +11,12 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -278,7 +278,7 @@ func Test_GetProjectTotalByPartner(t *testing.T) {
 			for _, name := range partnerNames {
 				total := expectedTotal{}
 
-				bucket := storj.Bucket{
+				bucket := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      testrand.BucketName(),
 					ProjectID: project.ID,
@@ -411,4 +411,44 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 		Inline:        int64(testrand.Intn(1000)),
 		Settled:       int64(testrand.Intn(1000)),
 	}
+}
+
+func Test_GetProjectObjectsSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			projectID := planet.Uplinks[0].Projects[0].ID
+
+			projectStats, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
+			require.NoError(t, err)
+			require.Zero(t, projectStats.ObjectCount)
+			require.Zero(t, projectStats.SegmentCount)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", []byte("testdata"))
+			require.NoError(t, err)
+
+			// bucket exists but no entry in bucket tallies yet
+			projectStats, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
+			require.NoError(t, err)
+			require.Zero(t, projectStats.ObjectCount)
+			require.Zero(t, projectStats.SegmentCount)
+
+			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+
+			projectStats, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, projectStats.ObjectCount)
+			require.EqualValues(t, 1, projectStats.SegmentCount)
+
+			// delete object and bucket to see if projects stats will show zero
+			err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "object")
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "testbucket")
+			require.NoError(t, err)
+
+			projectStats, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectObjectsSegments(ctx, projectID)
+			require.NoError(t, err)
+			require.Zero(t, projectStats.ObjectCount)
+			require.Zero(t, projectStats.SegmentCount)
+		})
 }

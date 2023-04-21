@@ -1,6 +1,6 @@
 // bucket_bandwidth_roolup contains per bucket infromation about bandwidth used.
 model bucket_bandwidth_rollup (
-	key    bucket_name project_id interval_start action
+	key    project_id bucket_name interval_start action
 	index (
 		name bucket_bandwidth_rollups_project_id_action_interval_index
 		fields project_id action interval_start

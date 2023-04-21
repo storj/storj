@@ -18,10 +18,10 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) {
@@ -464,7 +464,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options := storj.BucketListOptions{Limit: 1, Direction: storj.Forward}
+	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
 	buckets, err := server.buckets.ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",
@@ -508,7 +508,7 @@ func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter,
 
 	// Check if an invoice project record exists already
 	err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-	if errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
+	if errors.Is(err, stripe.ErrProjectRecordExists) {
 		record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if err != nil {
 			sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
@@ -569,7 +569,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 		}
 		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 			err = server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-			if !errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
+			if !errors.Is(err, stripe.ErrProjectRecordExists) {
 				sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
 				return true
 			}
@@ -580,7 +580,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	return server.checkInvoicing(ctx, w, projectID)
 }
 
-func bucketNames(buckets []storj.Bucket) []string {
+func bucketNames(buckets []buckets.Bucket) []string {
 	var xs []string
 	for _, b := range buckets {
 		xs = append(xs, b.Name)

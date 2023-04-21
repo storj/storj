@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/tagsql"
 )
@@ -111,7 +110,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
@@ -194,7 +193,7 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 
 		return Object{}, Error.New("unable to query object status: %w", err)
@@ -330,7 +329,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}

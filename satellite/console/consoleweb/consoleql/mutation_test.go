@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
@@ -30,7 +29,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // discardSender discard sending of an actual email.
@@ -80,10 +79,9 @@ func TestGraphqlMutation(t *testing.T) {
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
 		require.NoError(t, err)
 
-		paymentsService, err := stripecoinpayments.NewService(
+		paymentsService, err := stripe.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
+			stripe.NewStripeMock(
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),

@@ -18,12 +18,12 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/storj/storagenode/pieces"
 )
 

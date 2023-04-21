@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/private/tagsql"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 

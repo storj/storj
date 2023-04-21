@@ -94,7 +94,7 @@ func Edge(t *testing.T, test EdgeTest) {
 		authClient := authclient.New(gwConfig.Auth)
 
 		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"),
-			trustedip.NewListTrustAll(), []string{}, authClient, []string{}, 16)
+			trustedip.NewListTrustAll(), []string{}, authClient, 16)
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
@@ -103,7 +103,7 @@ func Edge(t *testing.T, test EdgeTest) {
 
 		authConfig := auth.Config{
 			Endpoint:          "http://" + gateway.Address(),
-			AuthToken:         "super-secret",
+			AuthToken:         []string{"super-secret"},
 			KVBackend:         "memory://",
 			ListenAddr:        authSvcAddr,
 			ListenAddrTLS:     authSvcAddrTLS,

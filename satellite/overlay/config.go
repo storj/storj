@@ -40,11 +40,13 @@ type AsOfSystemTimeConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select.
 type NodeSelectionConfig struct {
-	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
-	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`
-	OnlineWindow     time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"1m"`
-	DistinctIP       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
+	NewNodeFraction   float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
+	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
+	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"1m"`
+	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
+	NetworkPrefixIPv4 int           `help:"the prefix to use in determining 'network' for IPv4 addresses" default:"24" hidden:"true"`
+	NetworkPrefixIPv6 int           `help:"the prefix to use in determining 'network' for IPv6 addresses" default:"64" hidden:"true"`
+	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
 

@@ -61,7 +61,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
 	nodeIDBytesAsString := string(nodeID.Bytes())
-	if !endpoint.service.idLimiter.IsAllowed(nodeIDBytesAsString) {
+	if !endpoint.service.idLimiter.IsAllowed(ctx, nodeIDBytesAsString) {
 		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
 	}
@@ -72,7 +72,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
-	resolvedIP, port, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	resolvedIP, port, resolvedNetwork, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
 		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
@@ -118,8 +118,9 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Address:   req.Address,
-			NoiseInfo: noiseInfo,
+			Address:       req.Address,
+			NoiseInfo:     noiseInfo,
+			DebounceLimit: req.DebounceLimit,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
@@ -205,7 +206,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 		Address: req.Address,
 	}
 
-	resolvedIP, _, _, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	resolvedIP, _, _, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
 		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())

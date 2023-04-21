@@ -99,7 +99,6 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 	}
 	if err != nil {
 		service.log.Debug("fallback to download method", zap.Error(err))
-		err = nil
 	}
 
 	service.log.Debug("verify segments by downloading pieces")

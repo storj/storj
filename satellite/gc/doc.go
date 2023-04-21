@@ -4,18 +4,25 @@
 /*
 Package gc contains the functions needed to run garbage collection.
 
-The gc.PieceTracker implements the segments loop Observer interface
-allowing us to subscribe to the loop to get information for every segment
-in the metabase db.
+Package gc/bloomfilter creates retain instructions. These are compressed
+lists of piece id's that storage nodes must keep. It uploads those to a bucket.
 
-The gc.PieceTracker handling functions are used by the gc.Service to periodically
-account for all existing pieces on storage nodes and create "retain requests"
-which contain a bloom filter of all pieces that possibly exist on a storage node.
+gc/bloomfilter is designed to run on a satellite pointed to a backup snapshot
+of the metainfo database. It should not be run on a live satellite: due to the
+features move and copy object, pieces can move to different segments in the
+segments table during the iteration of that table. Because of that it is not
+guaranteed that all piece ids are in the bloom filter if the segments table
+is live.
 
-The gc.Service will send that request to the storagenode after a full segments loop
-iteration, and the storage node will use that request to delete the "garbage" pieces
-that are not in the bloom filter.
+Package gc/sender reads the retain instructions from the bucket and sends
+them to the storage nodes. It is intended to run on a satellite connected
+to the live database.
 
-See storj/docs/design/garbage-collection.md for more info.
+Should we ever delete all segments from the satellite's metainfo, then no
+bloom filters will be generated, because GC only considers NodeID's inside
+the segments table. There is also an explicit check that stops sending out
+an empty bloom filter to a storage node.
+
+See storj/docs/blueprints/garbage-collection.md for more info.
 */
 package gc

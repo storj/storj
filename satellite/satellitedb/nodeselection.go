@@ -57,9 +57,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 			needNewNodes--
 			receivedNewNodes++
 
-			if criteria.DistinctIP {
-				receivedNodeNetworks[node.LastNet] = struct{}{}
-			}
+			receivedNodeNetworks[node.LastNet] = struct{}{}
 		}
 		for _, node := range reputableNodes {
 			if _, ok := receivedNodeNetworks[node.LastNet]; ok {
@@ -72,9 +70,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 			nodes = append(nodes, node)
 			needReputableNodes--
 
-			if criteria.DistinctIP {
-				receivedNodeNetworks[node.LastNet] = struct{}{}
-			}
+			receivedNodeNetworks[node.LastNet] = struct{}{}
 		}
 
 		// when we did not find new nodes, then return all as reputable
@@ -106,32 +102,19 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 
 	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
-	if !criteria.DistinctIP {
-		reputableNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, false FROM nodes`,
-			condition: reputableNodesCondition,
-			limit:     reputableNodeCount,
-		}
-		newNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, true FROM nodes`,
-			condition: newNodesCondition,
-			limit:     newNodeCount,
-		}
-	} else {
-		reputableNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, false FROM nodes`,
-			condition: reputableNodesCondition,
-			distinct:  true,
-			limit:     reputableNodeCount,
-			orderBy:   "last_net",
-		}
-		newNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, true FROM nodes`,
-			condition: newNodesCondition,
-			distinct:  true,
-			limit:     newNodeCount,
-			orderBy:   "last_net",
-		}
+	reputableNodeQuery = partialQuery{
+		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, false FROM nodes`,
+		condition: reputableNodesCondition,
+		distinct:  true,
+		limit:     reputableNodeCount,
+		orderBy:   "last_net",
+	}
+	newNodeQuery = partialQuery{
+		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, true FROM nodes`,
+		condition: newNodesCondition,
+		distinct:  true,
+		limit:     newNodeCount,
+		orderBy:   "last_net",
 	}
 
 	query := unionAll(newNodeQuery, reputableNodeQuery)
@@ -150,7 +133,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		var isNew bool
 		var noise noiseScanner
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &noise.Proto, &noise.PublicKey, &isNew)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &isNew)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -212,15 +195,13 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 			pgutil.NodeIDArray(excludedIDs),
 		)
 	}
-	if criteria.DistinctIP {
-		if len(excludedNetworks) > 0 {
-			conds.add(
-				`NOT (last_net = ANY(?::text[]))`,
-				pgutil.TextArray(excludedNetworks),
-			)
-		}
-		conds.add(`last_net <> ''`)
+	if len(excludedNetworks) > 0 {
+		conds.add(
+			`NOT (last_net = ANY(?::text[]))`,
+			pgutil.TextArray(excludedNetworks),
+		)
 	}
+	conds.add(`last_net <> ''`)
 	return conds.combine(), nil
 }
 

@@ -557,7 +557,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	}
 
 	if len(result.Objects) == 0 {
-		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Objects))
@@ -617,7 +617,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 	}
 
 	if len(result.Objects) == 0 {
-		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Objects))

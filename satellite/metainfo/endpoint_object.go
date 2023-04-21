@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
@@ -19,6 +20,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -78,38 +80,18 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
+	if err := endpoint.checkObjectUploadRate(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+		return nil, err
+	}
+
 	// TODO this needs to be optimized to avoid DB call on each request
 	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	if !endpoint.config.MultipleVersions {
-		if canDelete {
-			_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-			})
-			if err != nil && !storj.ErrObjectNotFound.Has(err) {
-				return nil, err
-			}
-		} else {
-			_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-				ObjectLocation: metabase.ObjectLocation{
-					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
-					ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				},
-			})
-			if err == nil {
-				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
-			}
-		}
 	}
 
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil); err != nil {
@@ -141,40 +123,21 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
-	var object metabase.Object
-	if endpoint.config.MultipleVersions {
-		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-			ObjectStream: metabase.ObjectStream{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				StreamID:   streamID,
-				Version:    metabase.NextVersion,
-			},
-			ExpiresAt:  expiresAt,
-			Encryption: encryptionParameters,
+	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			StreamID:   streamID,
+			Version:    metabase.NextVersion,
+		},
+		ExpiresAt:  expiresAt,
+		Encryption: encryptionParameters,
 
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonce,
-		})
-	} else {
-		object, err = endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-			ObjectStream: metabase.ObjectStream{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				StreamID:   streamID,
-				Version:    metabase.DefaultVersion,
-			},
-			ExpiresAt:  expiresAt,
-			Encryption: encryptionParameters,
-
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonce,
-		})
-	}
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        nonce,
+	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -300,6 +263,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+
+	mon.Meter("req_commit_object").Mark(1)
 
 	return &pb.ObjectCommitResponse{}, nil
 }
@@ -458,10 +423,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	segments, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
+	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
 		StreamID: object.StreamID,
 		Range:    streamRange,
 		Limit:    int(req.Limit),
+
+		UpdateFirstWithAncestor: true,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -476,14 +443,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, nil
 		}
 
-		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-			StreamID: object.StreamID,
-			Position: segments.Segments[0].Position,
-		})
-		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
-		}
-
+		segment := segments.Segments[0]
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
 
 		// Update the current bandwidth cache value incrementing the SegmentSize.
@@ -603,7 +563,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	segmentList, err := convertStreamListResults(segments)
+	segmentList, err := convertSegmentListResults(segments)
 	if err != nil {
 		endpoint.log.Error("unable to convert stream list", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -624,6 +584,32 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		// every segment. In the case where the segment list is not needed,
 		// segmentListItems will be nil.
 		SegmentList: segmentList,
+	}, nil
+}
+
+func convertSegmentListResults(segments metabase.ListSegmentsResult) (*pb.SegmentListResponse, error) {
+	items := make([]*pb.SegmentListItem, len(segments.Segments))
+	for i, item := range segments.Segments {
+		items[i] = &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(item.Position.Part),
+				Index:      int32(item.Position.Index),
+			},
+			PlainSize:     int64(item.PlainSize),
+			PlainOffset:   item.PlainOffset,
+			CreatedAt:     item.CreatedAt,
+			EncryptedETag: item.EncryptedETag,
+			EncryptedKey:  item.EncryptedKey,
+		}
+		var err error
+		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &pb.SegmentListResponse{
+		Items: items,
+		More:  segments.More,
 	}, nil
 }
 
@@ -706,6 +692,7 @@ func alignToBlock(start, limit int64, blockSize int64) (alignedStart, alignedLim
 
 func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.StreamRange, error) {
 	if req == nil || req.Range == nil {
+		mon.Event("download_range", monkit.NewSeriesTag("type", "empty"))
 		return nil, nil
 	}
 
@@ -721,6 +708,8 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 			return nil, Error.New("Start missing for Range_Start")
 		}
 
+		mon.Event("download_range", monkit.NewSeriesTag("type", "start"))
+
 		return &metabase.StreamRange{
 			PlainStart: r.Start.PlainStart,
 			PlainLimit: object.TotalPlainSize,
@@ -729,6 +718,9 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 		if r.StartLimit == nil {
 			return nil, Error.New("StartEnd missing for Range_StartEnd")
 		}
+
+		mon.Event("download_range", monkit.NewSeriesTag("type", "startlimit"))
+
 		return &metabase.StreamRange{
 			PlainStart: r.StartLimit.PlainStart,
 			PlainLimit: r.StartLimit.PlainLimit,
@@ -737,11 +729,16 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 		if r.Suffix == nil {
 			return nil, Error.New("Suffix missing for Range_Suffix")
 		}
+
+		mon.Event("download_range", monkit.NewSeriesTag("type", "suffix"))
+
 		return &metabase.StreamRange{
 			PlainStart: object.TotalPlainSize - r.Suffix.PlainSuffix,
 			PlainLimit: object.TotalPlainSize,
 		}, nil
 	}
+
+	mon.Event("download_range", monkit.NewSeriesTag("type", "unsupported"))
 
 	// if it's a new unsupported range type, let's return all data
 	return nil, nil
@@ -771,7 +768,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	// TODO this needs to be optimized to avoid DB call on each request
 	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
@@ -909,7 +906,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
@@ -1152,6 +1149,8 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		reliablePieceCount += count
 	}
 
+	mon.Meter("req_get_object_ips").Mark(1)
+
 	return &pb.ObjectGetIPsResponse{
 		Ips:                nodeIPs,
 		SegmentCount:       int64(object.SegmentCount),
@@ -1213,6 +1212,8 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+
+	mon.Meter("req_update_object_metadata").Mark(1)
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
@@ -1598,7 +1599,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		// TODO we may try to combine those two DB calls into single one
 		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 		if err != nil {
-			if storj.ErrBucketNotFound.Has(err) {
+			if buckets.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
@@ -1606,7 +1607,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		}
 		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 		if err != nil {
-			if storj.ErrBucketNotFound.Has(err) {
+			if buckets.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
@@ -1821,7 +1822,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		// TODO we may try to combine those two DB calls into single one
 		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 		if err != nil {
-			if storj.ErrBucketNotFound.Has(err) {
+			if buckets.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
@@ -1829,7 +1830,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 		if err != nil {
-			if storj.ErrBucketNotFound.Has(err) {
+			if buckets.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))

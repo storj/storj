@@ -49,11 +49,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { useNotify, useRoute } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -61,14 +61,15 @@ import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 const props = withDefaults(defineProps<{
-    email: string;
-    showManualActivationMsg: boolean;
+    email?: string;
+    showManualActivationMsg?: boolean;
 }>(), {
     email: '',
     showManualActivationMsg: true,
 });
 
-const route = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 const notify = useNotify();
 
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -78,14 +79,7 @@ const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
-    return props.email || route.query.email.toString();
-});
-
-/**
- * Checks if page is inside iframe.
- */
-const isInsideIframe = computed((): boolean => {
-    return window.self !== window.top;
+    return props.email || router.currentRoute.query.email.toString();
 });
 
 /**

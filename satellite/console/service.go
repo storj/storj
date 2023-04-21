@@ -25,7 +25,6 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
@@ -125,6 +124,9 @@ var (
 
 	// ErrPurchaseDesc is error that occurs when something is wrong with Purchase description.
 	ErrPurchaseDesc = errs.Class("purchase description")
+
+	// ErrAlreadyHasPackage is error that occurs when a user tries to update package, but already has one.
+	ErrAlreadyHasPackage = errs.Class("user already has package")
 )
 
 // Service is handling accounts related logic.
@@ -327,7 +329,7 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	return payment.service.accounts.Balance(ctx, user.ID)
+	return payment.service.accounts.Balances().Get(ctx, user.ID)
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
@@ -397,7 +399,7 @@ func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
+func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "project charges")
@@ -863,7 +865,15 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 
 	duration := s.config.Session.Duration
 	if s.config.Session.InactivityTimerEnabled {
-		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+		settings, err := s.store.Users().GetSettings(ctx, userID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		if settings != nil && settings.SessionDuration != nil {
+			duration = *settings.SessionDuration
+		} else {
+			duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+		}
 	}
 	expiresAt := time.Now().Add(duration)
 
@@ -1382,6 +1392,14 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	})
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
@@ -2466,8 +2484,8 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	listOptions := storj.BucketListOptions{
-		Direction: storj.Forward,
+	listOptions := buckets.ListOptions{
+		Direction: buckets.DirectionForward,
 	}
 
 	allowedBuckets := macaroon.AllowedBuckets{
@@ -2485,29 +2503,6 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	}
 
 	return list, nil
-}
-
-// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
-// projectID here may be Project.ID or Project.PublicID.
-func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, isMember.project.ID, since, before)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return result, nil
 }
 
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
@@ -3090,6 +3085,8 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 }
 
 // Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
+// If a paid invoice with the same description exists, then we assume this is a retried request and don't create and pay
+// another invoice.
 func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -3108,8 +3105,12 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 
 	// check for any previously created unpaid invoice with the same description.
 	// If draft, delete it and create new and pay. If open, pay it and don't create new.
+	// If paid, skip.
 	for _, inv := range invoices {
 		if inv.Description == desc {
+			if inv.Status == payments.InvoiceStatusPaid {
+				return nil
+			}
 			if inv.Status == payments.InvoiceStatusDraft {
 				_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
 				if err != nil {
@@ -3135,17 +3136,67 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 	return nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for the user.
-func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payments.ProjectUsagePriceModel, err error) {
+// UpdatePackage updates a user's package information unless they already have a package.
+func (payment Payments) UpdatePackage(ctx context.Context, packagePlan string, purchaseTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
-	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
-	return &model, nil
+	dbPackagePlan, dbPurchaseTime, err := payment.service.accounts.GetPackageInfo(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if dbPackagePlan != nil || dbPurchaseTime != nil {
+		return ErrAlreadyHasPackage.New("user already has package")
+	}
+
+	err = payment.service.accounts.UpdatePackage(ctx, user.ID, &packagePlan, &purchaseTime)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// ApplyCredit applies a credit of `amount` with description of `desc` to the user's balance. `amount` is in cents USD.
+// If a credit with `desc` already exists, another one will not be created.
+func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if desc == "" {
+		return ErrPurchaseDesc.New("description cannot be empty")
+	}
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	btxs, err := payment.service.accounts.Balances().ListTransactions(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// check for any previously created transaction with the same description.
+	for _, btx := range btxs {
+		if btx.Description == desc {
+			return nil
+		}
+	}
+
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// GetProjectUsagePriceModel returns the project usage price model for the partner.
+func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.ProjectUsagePriceModel) {
+	model := payment.service.accounts.GetProjectUsagePriceModel(partner)
+	return &model
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
@@ -3189,12 +3240,20 @@ func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uu
 func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getUserAndAuditLog(ctx, "refresh session")
+	user, err := s.getUserAndAuditLog(ctx, "refresh session")
 	if err != nil {
 		return time.Time{}, Error.Wrap(err)
 	}
 
-	expiresAt = time.Now().Add(time.Duration(s.config.Session.InactivityTimerDuration) * time.Second)
+	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil && !errs.Is(err, sql.ErrNoRows) {
+		return time.Time{}, Error.Wrap(err)
+	}
+	if settings != nil && settings.SessionDuration != nil {
+		duration = *settings.SessionDuration
+	}
+	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
@@ -3214,4 +3273,69 @@ func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken
 		return valid, ErrCaptcha.Wrap(err)
 	}
 	return true, nil
+}
+
+// GetUserSettings fetches a user's settings. It creates default settings if none exists.
+func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	settings, err = s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+
+		settingsReq := UpsertUserSettingsRequest{}
+		// a user may have existed before a corresponding row was created in the user settings table
+		// to avoid showing an old user the onboarding flow again, we check to see if the user owns any projects already
+		// if so, set the "onboarding start" and "onboarding end" fields to "true"
+		projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+		if err != nil {
+			// we can still proceed with the settings upsert if there is an error retrieving projects, so log and don't return
+			s.log.Warn("received error trying to get user's projects", zap.Error(err))
+		}
+		if len(projects) > 0 {
+			t := true
+			settingsReq.OnboardingStart = &(t)
+			settingsReq.OnboardingEnd = &(t)
+		}
+
+		err = s.store.Users().UpsertSettings(ctx, user.ID, settingsReq)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		settings, err = s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	return settings, nil
+}
+
+// SetUserSettings updates a user's settings.
+func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = s.store.Users().UpsertSettings(ctx, user.ID, request)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	settings, err = s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return settings, nil
 }

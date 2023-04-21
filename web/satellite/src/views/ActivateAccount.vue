@@ -55,13 +55,14 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
-import { MetaUtils } from '@/utils/meta';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -71,73 +72,63 @@ import LogoIcon from '@/../static/images/logo.svg';
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
-// @vue/component
-@Component({
-    components: {
-        LogoIcon,
-        InfoIcon,
-        CloseIcon,
-        VButton,
-        VInput,
-        RegistrationSuccess,
-    },
-})
-export default class ActivateAccount extends Vue {
-    private email = '';
-    private emailError = '';
-    private isResendSuccessShown = false;
-    private isActivationExpired = false;
-    private isMessageShowing = true;
-    private isLoading = false;
+const notify = useNotify();
+const appStore = useAppStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public readonly loginPath: string = RouteConfig.Login.path;
+const auth: AuthHttpApi = new AuthHttpApi();
+const loginPath: string = RouteConfig.Login.path;
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const email = ref<string>('');
+const emailError = ref<string>('');
+const isResendSuccessShown = ref<boolean>(false);
+const isActivationExpired = ref<boolean>(false);
+const isMessageShowing = ref<boolean>(true);
+const isLoading = ref<boolean>(false);
 
-    public mounted(): void {
-        this.isActivationExpired = this.$route.query.expired === 'true';
+/**
+ * Close the expiry message banner.
+ */
+function closeMessage(): void {
+    isMessageShowing.value = false;
+}
+
+/**
+ * onActivateClick validates input fields and requests resending of activation email.
+ */
+async function onActivateClick(): Promise<void> {
+    if (!Validator.email(email.value)) {
+        emailError.value = 'Invalid email';
+        return;
     }
 
-    /**
-     * Close the expiry message banner.
-     */
-    public closeMessage() {
-        this.isMessageShowing = false;
-    }
-
-    /**
-     * onActivateClick validates input fields and requests resending of activation email.
-     */
-    public async onActivateClick(): Promise<void> {
-        if (!Validator.email(this.email)) {
-            this.emailError = 'Invalid email';
-            return;
-        }
-
-        try {
-            await this.auth.resendEmail(this.email);
-            this.isResendSuccessShown = true;
-        } catch (error) {
-            this.$notify.error(error.message, null);
-        }
-    }
-
-    /**
-     * setEmail sets the email property to the given value.
-     */
-    public setEmail(value: string): void {
-        this.email = value.trim();
-        this.emailError = '';
-    }
-
-    /**
-     * Redirects to storj.io homepage.
-     */
-    public onLogoClick(): void {
-        const homepageURL = MetaUtils.getMetaContent('homepage-url');
-        window.location.href = homepageURL;
+    try {
+        await auth.resendEmail(email.value);
+        isResendSuccessShown.value = true;
+    } catch (error) {
+        notify.error(error.message, null);
     }
 }
+
+/**
+ * setEmail sets the email property to the given value.
+ */
+function setEmail(value: string): void {
+    email.value = value.trim();
+    emailError.value = '';
+}
+
+/**
+ * Redirects to storj.io homepage.
+ */
+function onLogoClick(): void {
+    window.location.href = appStore.state.config.homepageURL;
+}
+
+onMounted((): void => {
+    isActivationExpired.value = router.currentRoute.query.expired === 'true';
+});
 </script>
 
 <style lang="scss" scoped>
@@ -232,7 +223,7 @@ export default class ActivateAccount extends Vue {
                     &__left {
                         display: flex;
                         align-items: center;
-                        justify-content: start;
+                        justify-content: flex-start;
                         gap: 1.5rem;
 
                         &__message {

@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <label class="container" @click.stop> <!--don't propagate click event to parent <tr>-->
+    <label class="container" @click.stop.prevent="selectClicked"> <!--don't propagate click event to parent <tr>-->
         <input
             id="checkbox" :disabled="disabled" :checked="value"
             class="checkmark-input"
-            type="checkbox" @change="onChange"
+            type="checkbox"
         >
         <span class="checkmark" />
     </label>
@@ -18,23 +18,23 @@ const props = withDefaults(defineProps<{
     disabled?: boolean,
 }>(), { value: false, disabled: false });
 
-const emit = defineEmits(['checkChange']);
+const emit = defineEmits(['selectClicked']);
 
 /**
- * Emits value to parent component.
+ * Emits click event to parent component.
+ * The parent is responsible for toggling the value prop.
  */
-function onChange(event: { target: { checked: boolean } }): void {
-    emit('checkChange', event.target.checked);
+function selectClicked(event: Event): void {
+    emit('selectClicked', event);
 }
 </script>
 
 <style scoped lang="scss">
     .container {
-        display: block;
         position: relative;
-        padding-left: 15px;
-        height: 20px;
-        width: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         user-select: none;
         outline: none;
@@ -50,8 +50,6 @@ function onChange(event: { target: { checked: boolean } }): void {
 
     .checkmark {
         position: absolute;
-        top: 0;
-        left: 0;
         height: 20px;
         width: 20px;
         border: 2px solid rgb(56 75 101 / 40%);

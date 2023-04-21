@@ -11,11 +11,11 @@
                 <p class="notification-wrap__content-area__message">{{ notification.message }}</p>
                 <a
                     v-if="isSupportLinkMentioned"
-                    :href="requestUrl"
+                    :href="requestURL"
                     class="notification-wrap__content-area__link"
                     target="_blank"
                 >
-                    {{ requestUrl }}
+                    {{ requestURL }}
                 </a>
             </div>
         </div>
@@ -27,66 +27,70 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from '@/utils/meta';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CloseIcon,
-    },
-})
-export default class NotificationItem extends Vue {
-    @Prop({ default: () => new DelayedNotification(() => { return; }, '', '') })
-    private notification: DelayedNotification;
+const appStore = useAppStore();
+const notificationsStore = useNotificationsStore();
 
-    public readonly requestUrl = MetaUtils.getMetaContent('general-request-url');
-    public isClassActive = false;
+const props = withDefaults(defineProps<{
+    notification: DelayedNotification;
+}>(), {
+    notification: () => new DelayedNotification(() => { return; }, '', ''),
+});
 
-    /**
-     * Indicates if support word is mentioned in message.
-     * Temporal solution, can be changed later.
-     */
-    public get isSupportLinkMentioned(): boolean {
-        return this.notification.message.toLowerCase().includes('support');
-    }
+const isClassActive = ref<boolean>(false);
 
-    /**
-     * Forces notification deletion.
-     */
-    public onCloseClick(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE, this.notification.id);
-    }
+/**
+ * Returns the URL for the general request page from the store.
+ */
+const requestURL = computed((): string => {
+    return appStore.state.config.generalRequestURL;
+});
 
-    /**
-     * Forces notification to stay on page on mouse over it.
-     */
-    public onMouseOver(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE, this.notification.id);
-    }
+/**
+ * Indicates if support word is mentioned in message.
+ * Temporal solution, can be changed later.
+ */
+const isSupportLinkMentioned = computed((): boolean => {
+    return props.notification.message.toLowerCase().includes('support');
+});
 
-    /**
-     * Resume notification flow when mouse leaves notification.
-     */
-    public onMouseLeave(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME, this.notification.id);
-    }
-
-    /**
-     * Uses for class change for animation.
-     */
-    public mounted(): void {
-        setTimeout(() => {
-            this.isClassActive = true;
-        }, 100);
-    }
+/**
+ * Forces notification deletion.
+ */
+function onCloseClick(): void {
+    notificationsStore.deleteNotification(props.notification.id);
 }
+
+/**
+ * Forces notification to stay on page on mouse over it.
+ */
+function onMouseOver(): void {
+    notificationsStore.pauseNotification(props.notification.id);
+}
+
+/**
+ * Resume notification flow when mouse leaves notification.
+ */
+function onMouseLeave(): void {
+    notificationsStore.resumeNotification(props.notification.id);
+}
+
+/**
+ * Uses for class change for animation.
+ */
+onMounted((): void => {
+    setTimeout(() => {
+        isClassActive.value = true;
+    }, 100);
+});
 </script>
 
 <style scoped lang="scss">

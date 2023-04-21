@@ -13,12 +13,12 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
-var _ stripecoinpayments.TransactionsDB = (*coinPaymentsTransactions)(nil)
+var _ stripe.TransactionsDB = (*coinPaymentsTransactions)(nil)
 
 // coinPaymentsTransactions is CoinPayments transactions DB.
 //
@@ -43,7 +43,7 @@ func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpa
 }
 
 // ListAccount returns all transaction for specific user.
-func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) (_ []stripecoinpayments.Transaction, err error) {
+func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid.UUID) (_ []stripe.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxTXs, err := db.db.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx,
@@ -53,7 +53,7 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 		return nil, err
 	}
 
-	var txs []stripecoinpayments.Transaction
+	var txs []stripe.Transaction
 	for _, dbxTX := range dbxTXs {
 		tx, err := fromDBXCoinpaymentsTransaction(dbxTX)
 		if err != nil {
@@ -67,7 +67,7 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 }
 
 // TestInsert inserts new coinpayments transaction into DB.
-func (db *coinPaymentsTransactions) TestInsert(ctx context.Context, tx stripecoinpayments.Transaction) (createTime time.Time, err error) {
+func (db *coinPaymentsTransactions) TestInsert(ctx context.Context, tx stripe.Transaction) (createTime time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxCPTX, err := db.db.Create_CoinpaymentsTransaction(ctx,
@@ -127,7 +127,7 @@ func (db *coinPaymentsTransactions) TestLockRate(ctx context.Context, id coinpay
 }
 
 // fromDBXCoinpaymentsTransaction converts *dbx.CoinpaymentsTransaction to *stripecoinpayments.Transaction.
-func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripecoinpayments.Transaction, error) {
+func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripe.Transaction, error) {
 	userID, err := uuid.FromBytes(dbxCPTX.UserId)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -136,7 +136,7 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 	// TODO: the currency here should be passed in to this function or stored
 	//  in the database.
 
-	return &stripecoinpayments.Transaction{
+	return &stripe.Transaction{
 		ID:        coinpayments.TransactionID(dbxCPTX.Id),
 		AccountID: userID,
 		Address:   dbxCPTX.Address,
