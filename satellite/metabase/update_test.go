@@ -15,7 +15,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/storage"
 )
 
 func TestUpdateSegmentPieces(t *testing.T) {
@@ -257,7 +256,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						},
 					},
 				},
-				ErrClass: &storage.ErrValueChanged,
+				ErrClass: &metabase.ErrValueChanged,
 				ErrText:  "segment remote_alias_pieces field was changed",
 			}.Check(ctx, t, db)
 

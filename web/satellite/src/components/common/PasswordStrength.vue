@@ -15,7 +15,7 @@
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLengthAcceptable }">
                 <VectorIcon />
             </div>
-            <p class="password-strength-container__rule-area__rule">Between 6 and 128 Latin characters</p>
+            <p class="password-strength-container__rule-area__rule">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
@@ -37,9 +37,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { Validator } from '@/utils/validation';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VectorIcon from '@/../static/images/register/StrengthVector.svg';
+
+const appStore = useAppStore();
 
 /**
  * BarFillStyle class holds info for BarFillStyle entity.
@@ -84,20 +86,35 @@ const props = withDefaults(defineProps<{
     isShown: false,
 });
 
+/**
+ * Returns the maximum password length from the store.
+ */
+const passMaxLength = computed((): number => {
+    return appStore.state.config.passwordMaximumLength;
+});
+
+/**
+ * Returns the minimum password length from the store.
+ */
+const passMinLength = computed((): number => {
+    return appStore.state.config.passwordMinimumLength;
+});
+
 const isPasswordLengthAcceptable = computed((): boolean => {
-    return Validator.password(props.passwordString);
+    return props.passwordString.length <= passMaxLength.value
+        && props.passwordString.length >= passMinLength.value;
 });
 
 /**
  * Returns password strength label depends on score.
  */
 const passwordStrength = computed((): string => {
-    if (props.passwordString.length < Validator.PASS_MIN_LENGTH) {
-        return `Use ${Validator.PASS_MIN_LENGTH} or more characters`;
+    if (props.passwordString.length < passMinLength.value) {
+        return `Use ${passMinLength.value} or more characters`;
     }
 
-    if (props.passwordString.length > Validator.PASS_MAX_LENGTH) {
-        return `Use ${Validator.PASS_MAX_LENGTH} or fewer characters`;
+    if (props.passwordString.length > passMaxLength.value) {
+        return `Use ${passMaxLength.value} or fewer characters`;
     }
 
     const score = scorePassword();

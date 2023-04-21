@@ -68,10 +68,3 @@ const (
 	// SignupCoupon represents a valid promo code coupon.
 	SignupCoupon = "signupCoupon"
 )
-
-// PackagePlan is an amount to charge a user one time in exchange for a coupon of greater value.
-// Price is in cents USD.
-type PackagePlan struct {
-	CouponID string
-	Price    int64
-}

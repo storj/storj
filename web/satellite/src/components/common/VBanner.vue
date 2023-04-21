@@ -12,12 +12,12 @@
         <div class="notification-wrap__text">
             <slot name="text" />
         </div>
-        <CloseIcon class="notification-wrap__close" @click="isShown = false" />
+        <CloseIcon class="notification-wrap__close" @click="closeClicked" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -25,26 +25,35 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 const props = withDefaults(defineProps<{
     severity?: 'info' | 'warning' | 'critical';
     onClick?: () => void;
+    onClose?: () => void;
     dashboardRef: HTMLElement;
 }>(), {
     severity: 'info',
     onClick: () => () => {},
+    onClose: () => () => {},
 });
 
 const isShown = ref<boolean>(true);
 const bannerWidth = ref<number>(0);
-let resizeObserver = reactive<ResizeObserver>();
+const resizeObserver = ref<ResizeObserver>();
+
+function closeClicked(): void {
+    isShown.value = false;
+    if (props.onClose) {
+        props.onClose();
+    }
+}
 
 function onBannerResize(): void {
     bannerWidth.value = props.dashboardRef.offsetWidth;
 }
 
 function setResizable(): void {
-    resizeObserver?.observe(props.dashboardRef);
+    resizeObserver.value?.observe(props.dashboardRef);
 }
 
 onMounted((): void => {
-    resizeObserver = new ResizeObserver(onBannerResize);
+    resizeObserver.value = new ResizeObserver(onBannerResize);
 
     if (props.dashboardRef) {
         setResizable();
@@ -53,7 +62,7 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
-    resizeObserver?.unobserve(props.dashboardRef);
+    resizeObserver.value?.unobserve(props.dashboardRef);
 });
 
 watch(() => props.dashboardRef, () => {
@@ -68,7 +77,6 @@ watch(() => props.dashboardRef, () => {
     justify-content: space-between;
     align-items: center;
     padding: 1.375rem;
-    margin: 0 3rem;
     font-family: 'font_regular', sans-serif;
     background-color: var(--c-light-blue-1);
     border: 1px solid var(--c-light-blue-2);

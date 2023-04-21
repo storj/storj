@@ -26,10 +26,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -85,11 +85,27 @@ func TestUploadAndPartialDownload(t *testing.T) {
 
 		// check rough limits for the upload and download
 		totalUpload := int64(len(expectedData))
-		t.Log(totalUpload, totalBandwidthUsage.Put, int64(len(planet.StorageNodes))*totalUpload)
-		assert.True(t, totalUpload < totalBandwidthUsage.Put && totalBandwidthUsage.Put < int64(len(planet.StorageNodes))*totalUpload)
+		totalUploadOrderMax := calcUploadOrderMax(totalUpload)
+		t.Log(totalUpload, totalBandwidthUsage.Put, totalUploadOrderMax, int64(len(planet.StorageNodes))*totalUploadOrderMax)
+		assert.True(t, totalUpload < totalBandwidthUsage.Put && totalBandwidthUsage.Put < int64(len(planet.StorageNodes))*totalUploadOrderMax)
 		t.Log(totalDownload, totalBandwidthUsage.Get, int64(len(planet.StorageNodes))*totalDownload)
 		assert.True(t, totalBandwidthUsage.Get < int64(len(planet.StorageNodes))*totalDownload)
 	})
+}
+
+func calcUploadOrderMax(size int64) (ordered int64) {
+	initialStep := piecestore.DefaultConfig.InitialStep * memory.KiB.Int64()
+	maxStep := piecestore.DefaultConfig.MaximumStep * memory.KiB.Int64()
+	currentStep := initialStep
+	ordered = 0
+	for ordered < size {
+		ordered += currentStep
+		currentStep = currentStep * 3 / 2
+		if currentStep > maxStep {
+			currentStep = maxStep
+		}
+	}
+	return ordered
 }
 
 func TestUpload(t *testing.T) {

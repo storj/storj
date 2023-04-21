@@ -6,9 +6,6 @@ package main
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"storj.io/common/memory"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
@@ -94,51 +91,6 @@ func TestCpDownload(t *testing.T) {
 		// invalid range
 		state.Fail(t, "cp", "sj://user/file-for-byte-range", "/home/user/dest/file-for-byte-range", "--range", "bytes=0,-1").RequireFailure(t).RequireLocalFiles(t)
 	})
-}
-
-func TestCpPartSize(t *testing.T) {
-	c := newCmdCp(nil)
-
-	// 1GiB file, should return 64MiB
-	partSize, err := c.calculatePartSize(memory.GiB.Int64(), c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*64, partSize)
-
-	// 640 GB file, should return 64MiB.
-	partSize, err = c.calculatePartSize(memory.GB.Int64()*640, c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*64, partSize)
-
-	// 640GiB file, should return 128MiB.
-	partSize, err = c.calculatePartSize(memory.GiB.Int64()*640, c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*128, partSize)
-
-	// 1TiB file, should return 128MiB.
-	partSize, err = c.calculatePartSize(memory.TiB.Int64(), c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*128, partSize)
-
-	// 1.3TiB file, should return 192MiB.
-	partSize, err = c.calculatePartSize(memory.GiB.Int64()*1300, c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*192, partSize)
-
-	// should return 1GiB as requested.
-	partSize, err = c.calculatePartSize(memory.GiB.Int64()*1300, memory.GiB.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.GiB, partSize)
-
-	// should return 192 MiB and error, since preferred is too low.
-	partSize, err = c.calculatePartSize(memory.GiB.Int64()*1300, memory.MiB.Int64())
-	require.Error(t, err)
-	require.Equal(t, "the specified chunk size 1.0 MiB is too small, requires 192.0 MiB or larger", err.Error())
-	require.Zero(t, partSize)
-
-	// negative length should return 64MiB part size
-	partSize, err = c.calculatePartSize(-1, c.parallelismChunkSize.Int64())
-	require.NoError(t, err)
-	require.EqualValues(t, memory.MiB*64, partSize)
 }
 
 func TestCpUpload(t *testing.T) {

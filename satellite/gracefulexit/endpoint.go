@@ -981,7 +981,7 @@ func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segme
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
-			err = storj.ErrObjectNotFound.Wrap(err)
+			err = metabase.ErrObjectNotFound.Wrap(err)
 		}
 		return Error.Wrap(err)
 	}

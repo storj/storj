@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 )
 
 func TestAdminBucketGeofenceAPI(t *testing.T) {
@@ -39,7 +40,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		err = uplink.CreateBucket(ctx, sat, "filled")
 		require.NoError(t, err)
 
-		_, err = sat.DB.Buckets().UpdateBucket(ctx, storj.Bucket{
+		_, err = sat.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 			Name:      "filled",
 			ProjectID: project.ID,
 			Placement: storj.EEA,
@@ -96,7 +97,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 					b, err := sat.DB.Buckets().GetBucket(ctx, testCase.bucket, testCase.project)
 					require.NoError(t, err)
 
-					expected, err := json.Marshal(storj.Bucket{
+					expected, err := json.Marshal(buckets.Bucket{
 						ID:        b.ID,
 						Name:      b.Name,
 						ProjectID: testCase.project,

@@ -31,17 +31,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-const store = useStore();
+const billingStore = useBillingStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -64,7 +64,7 @@ function setCouponCode(value: string): void {
 async function applyCouponCode(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, couponCode.value);
+            await billingStore.applyCouponCode(couponCode.value);
             await notify.success('Coupon Added!');
             emit('close');
         } catch (error) {

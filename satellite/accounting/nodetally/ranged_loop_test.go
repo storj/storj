@@ -84,8 +84,12 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 		require.LessOrEqual(t, len(tallies), int(rs.TotalShares))
 		require.GreaterOrEqual(t, len(tallies), int(rs.OptimalShares))
 
+		aliasMap, err := planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
+		require.NoError(t, err)
 		for _, tally := range tallies {
-			require.Equal(t, obs.Node[tally.NodeID]*float64(timespanHours), tally.DataTotal)
+			nodeAlias, ok := aliasMap.Alias(tally.NodeID)
+			require.Truef(t, ok, "could not get node alias for node %s", tally.NodeID)
+			require.Equal(t, obs.Node[nodeAlias]*float64(timespanHours), tally.DataTotal)
 		}
 
 		thirdNow := secondNow.Add(2 * time.Hour)
@@ -101,8 +105,12 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 		require.LessOrEqual(t, len(tallies), int(rs.TotalShares))
 		require.GreaterOrEqual(t, len(tallies), int(rs.OptimalShares))
 
+		aliasMap, err = planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
+		require.NoError(t, err)
 		for _, tally := range tallies {
-			require.Equal(t, obs.Node[tally.NodeID]*float64(timespanHours), tally.DataTotal)
+			nodeAlias, ok := aliasMap.Alias(tally.NodeID)
+			require.Truef(t, ok, "could not get node alias for node %s", tally.NodeID)
+			require.Equal(t, obs.Node[nodeAlias]*float64(timespanHours), tally.DataTotal)
 		}
 	})
 }
@@ -126,12 +134,10 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		// Set previous accounting run timestamp
 		err := planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, now.Add(1*time.Second), 5000)
 		require.NoError(t, err)
-		err = planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally, map[storj.NodeID]float64{
-			planet.StorageNodes[0].ID(): 0,
-			planet.StorageNodes[1].ID(): 0,
-			planet.StorageNodes[2].ID(): 0,
-			planet.StorageNodes[3].ID(): 0,
-		})
+		err = planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
+			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]float64{0, 0, 0, 0},
+		)
 		require.NoError(t, err)
 
 		// Setup: create 50KiB of data for the uplink to upload
@@ -208,12 +214,10 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 		})
 
 		lastTally := now.Add(time.Duration(-1 * timespanHours * int(time.Hour)))
-		err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally, map[storj.NodeID]float64{
-			planet.StorageNodes[0].ID(): 0,
-			planet.StorageNodes[1].ID(): 0,
-			planet.StorageNodes[2].ID(): 0,
-			planet.StorageNodes[3].ID(): 0,
-		})
+		err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, lastTally,
+			[]storj.NodeID{planet.StorageNodes[0].ID(), planet.StorageNodes[1].ID(), planet.StorageNodes[2].ID(), planet.StorageNodes[3].ID()},
+			[]float64{0, 0, 0, 0},
+		)
 		require.NoError(t, err)
 
 		// Setup: create 50KiB of data for the uplink to upload

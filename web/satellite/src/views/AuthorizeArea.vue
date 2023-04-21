@@ -87,278 +87,72 @@
     </div>
 </template>
 
-<script lang="ts">
-import { URLSearchParams } from 'url';
-
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const oauthClientsAPI = new OAuthClientsAPI();
-
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        LogoIcon,
-    },
-})
-export default class Authorize extends Vue {
-    private requestErr = '';
-
-    private oauthData: {
-      client_id?: string;
-      redirect_uri?: string;
-      state?: string;
-      response_type?: string;
-      scope?: string;
-    } = {};
-    private clientKey = '';
-
-    private client: OAuthClient = {
-        id: '',
-        redirectURL: '',
-        appName: '',
-        appLogoURL: '',
-    };
-
-    private projects: Record<string, Project> = {};
-    private buckets: Array<string> = [];
-
-    private selectedProjectID = '';
-    private selectedBucketName = '';
-    private providedPassphrase = '';
-    private scope = '';
-
-    private valid = false;
-    private projectErr = '';
-    private bucketErr = '';
-    private passphraseErr = '';
-
-    private actions = '';
-    private bucketExists = false;
-
-    private worker: Worker;
-
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-    private async ensureLogin(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
-        } catch (error) {
-            if (!(error instanceof ErrorUnauthorized)) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message, null);
-            }
-
-            const query = new URLSearchParams(this.oauthData).toString();
-            const path = `${RouteConfig.Authorize.path}?${query}#${this.clientKey}`;
-
-            this.analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
-            await this.$router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
-            return;
-        }
-    }
-
-    private async ensureWorker(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
-        } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`, null);
-            return;
-        }
-
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => this.$notify.error(error.message, null);
-    }
-
-    private async verifyClientConfiguration(): Promise<void> {
-        const clientID: string = this.oauthData.client_id ?? '';
-        const redirectURL: string = this.oauthData.redirect_uri ?? '';
-        const state: string = this.oauthData.state ?? '';
-        const responseType: string = this.oauthData.response_type ?? '';
-        const scope: string = this.oauthData.scope ?? '';
-
-        if (!clientID || !redirectURL) {
-            this.requestErr = 'Both client_id and redirect_uri must be provided.';
-            return;
-        }
-
-        let client: OAuthClient;
-        try {
-            client = await oauthClientsAPI.get(clientID);
-        } catch (e) {
-            this.requestErr = e.message;
-            return;
-        }
-
-        let err: { [key: string]: string } | null = null;
-
-        if (!state || !responseType || !scope) {
-            err = {
-                error_description: 'The request is missing a required parameter (state, response_type, or scope).',
-            };
-        } else if (!this.clientKey) {
-            err = {
-                error_description: 'An encryption key must be provided in the fragment of the request.',
-            };
-        } else if (!redirectURL.startsWith(client.redirectURL)) {
-            err = {
-                error_description: 'The provided redirect url does not match the one in our system.',
-            };
-        }
-
-        if (err) {
-            location.href = `${redirectURL}?${(new URLSearchParams(err)).toString()}`;
-            return;
-        }
-
-        this.client = client;
-
-        // initialize the form
-
-        this.setBucket(slugify(this.client.appName));
-        this.actions = formatObjectPermissions(scope);
-    }
-
-    private async loadProjects(): Promise<void> {
-        await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-
-        const projects = {};
-        for (const project of this.$store.getters.projects) {
-            projects[project.name] = project;
-        }
-
-        this.projects = projects;
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Makes activated banner visible on successful account activation.
-     */
-    public async mounted(): Promise<void> {
-        this.oauthData = this.$route.query;
-        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : '';
-
-        await this.ensureLogin();
-        await this.ensureWorker();
-
-        await this.verifyClientConfiguration();
-        if (this.requestErr) {
-            return;
-        }
-
-        await this.loadProjects();
-    }
-
-    public async setProject(value: string): Promise<void> {
-        if (!this.projects[value]) {
-            this.projectErr = 'project does not exist';
-            return;
-        }
-
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.projects[value].id);
-        await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
-
-        this.selectedProjectID = this.$store.getters.selectedProject.id;
-        this.buckets = this.$store.state.bucketUsageModule.allBucketNames.sort();
-
-        this.setBucket(this.selectedBucketName);
-    }
-
-    public setBucket(value: string): void {
-        this.selectedBucketName = value;
-        this.bucketExists = this.selectedProjectID.length === 0 || value.length === 0 || this.buckets.includes(value);
-
-        this.setScope();
-    }
-
-    public setPassphrase(value: string): void {
-        this.providedPassphrase = value;
-
-        this.setScope();
-    }
-
-    public async setScope(): Promise<void> {
-        if (!this.validate()) {
-            return;
-        }
-
-        this.worker.postMessage({
-            'type': 'DeriveAndEncryptRootKey',
-            'passphrase': this.providedPassphrase,
-            'projectID': this.selectedProjectID,
-            'aesKey': this.clientKey,
-        });
-
-        const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-
-        if (event.data.error) {
-            await this.$notify.error(event.data.error, null);
-            return;
-        }
-
-        const scope = this.oauthData.scope,
-            project = this.selectedProjectID,
-            bucket = this.selectedBucketName,
-            cubbyhole = event.data.value;
-
-        this.scope = `${scope} project:${project} bucket:${bucket} cubbyhole:${cubbyhole}`;
-    }
-
-    public async onDeny(): Promise<void> {
-        location.href = `${this.oauthData.redirect_uri}?${new URLSearchParams({
-            error_description: 'The resource owner or authorization server denied the request',
-        }).toString()}`;
-    }
-
-    private validate(): boolean {
-        this.projectErr = '';
-        this.bucketErr = '';
-        this.passphraseErr = '';
-
-        if (this.selectedProjectID === '') {
-            this.projectErr = 'Missing project.';
-        }
-
-        if (!Validator.bucketName(this.selectedBucketName)) {
-            this.bucketErr = 'Name must contain only lowercase latin characters, numbers, a hyphen or a period';
-        }
-
-        if (this.providedPassphrase === '') {
-            this.passphraseErr = 'A passphrase must be provided.';
-        }
-
-        this.valid = this.projectErr === '' &&
-            this.bucketErr === '' &&
-            this.passphraseErr === '';
-
-        return this.valid;
-    }
-}
-
 const validPerms = {
     'list': true,
     'read': true,
     'write': true,
     'delete': true,
 };
+
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const router = useRouter();
+
+const worker = ref<Worker | null>(null);
+const valid = ref<boolean>(false);
+const bucketExists = ref<boolean>(false);
+const actions = ref<string>('');
+const clientKey = ref<string>('');
+const selectedProjectID = ref<string>('');
+const selectedBucketName = ref<string>('');
+const providedPassphrase = ref<string>('');
+const scope = ref<string>('');
+const buckets = ref<string[]>([]);
+const requestErr = ref<string>('');
+const projectErr = ref<string>('');
+const bucketErr = ref<string>('');
+const passphraseErr = ref<string>('');
+const projects = ref<Record<string, Project>>({});
+const client = ref<OAuthClient>({
+    id: '',
+    redirectURL: '',
+    appName: '',
+    appLogoURL: '',
+});
+const oauthData = ref<{
+    client_id?: string;
+    redirect_uri?: string;
+    state?: string;
+    response_type?: string;
+    scope?: string;
+}>({});
 
 function slugify(name: string): string {
     name = name.toLowerCase();
@@ -391,6 +185,207 @@ function formatObjectPermissions(scope: string): string {
 
     return `${perms.slice(0, perms.length - 1).join(', ')}, and ${perms[perms.length - 1]}`;
 }
+
+async function ensureLogin(): Promise<void> {
+    try {
+        await usersStore.getUser();
+    } catch (error) {
+        if (!(error instanceof ErrorUnauthorized)) {
+            appStore.changeState(FetchState.ERROR);
+            await notify.error(error.message, null);
+        }
+
+        const query = new URLSearchParams(oauthData.value).toString();
+        const path = `${RouteConfig.Authorize.path}?${query}#${clientKey.value}`;
+
+        analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
+        await router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
+    }
+}
+
+async function ensureWorker(): Promise<void> {
+    try {
+        agStore.stopWorker();
+        await agStore.startWorker();
+    } catch (error) {
+        await notify.error(`Unable to set access grants wizard. ${error.message}`, null);
+        return;
+    }
+
+    worker.value = agStore.state.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => notify.error(error.message, null);
+    }
+}
+
+async function verifyClientConfiguration(): Promise<void> {
+    const clientID: string = oauthData.value.client_id ?? '';
+    const redirectURL: string = oauthData.value.redirect_uri ?? '';
+    const state: string = oauthData.value.state ?? '';
+    const responseType: string = oauthData.value.response_type ?? '';
+    const scope: string = oauthData.value.scope ?? '';
+
+    if (!clientID || !redirectURL) {
+        requestErr.value = 'Both client_id and redirect_uri must be provided.';
+        return;
+    }
+
+    let oAuthClient: OAuthClient;
+    try {
+        oAuthClient = await oauthClientsAPI.get(clientID);
+    } catch (error) {
+        requestErr.value = error.message;
+        return;
+    }
+
+    let err: { [key: string]: string } | null = null;
+
+    if (!state || !responseType || !scope) {
+        err = {
+            error_description: 'The request is missing a required parameter (state, response_type, or scope).',
+        };
+    } else if (!clientKey.value) {
+        err = {
+            error_description: 'An encryption key must be provided in the fragment of the request.',
+        };
+    } else if (!redirectURL.startsWith(oAuthClient.redirectURL)) {
+        err = {
+            error_description: 'The provided redirect url does not match the one in our system.',
+        };
+    }
+
+    if (err) {
+        location.href = `${redirectURL}?${(new URLSearchParams(err)).toString()}`;
+        return;
+    }
+
+    client.value = { ...oAuthClient };
+
+    // initialize the form
+    setBucket(slugify(client.value.appName));
+    actions.value = formatObjectPermissions(scope);
+}
+
+async function loadProjects(): Promise<void> {
+    await projectsStore.getProjects();
+
+    const newProjects: Record<string, Project> = {};
+    for (const project of projectsStore.projects) {
+        newProjects[project.name] = project;
+    }
+
+    projects.value = { ...newProjects };
+}
+
+async function setProject(value: string): Promise<void> {
+    if (!projects.value[value]) {
+        projectErr.value = 'project does not exist';
+        return;
+    }
+
+    const projectID = projectsStore.state.selectedProject.id;
+
+    projectsStore.selectProject(projects.value[value].id);
+    await bucketsStore.getAllBucketsNames(projectID);
+
+    selectedProjectID.value = projectID;
+    buckets.value = bucketsStore.state.allBucketNames.sort();
+
+    setBucket(selectedBucketName.value);
+}
+
+function setBucket(value: string): void {
+    selectedBucketName.value = value;
+    bucketExists.value = selectedProjectID.value.length === 0 || value.length === 0 || buckets.value.includes(value);
+
+    setScope();
+}
+
+function setPassphrase(value: string): void {
+    providedPassphrase.value = value;
+
+    setScope();
+}
+
+async function setScope(): Promise<void> {
+    if (!validate() || !worker.value) {
+        return;
+    }
+
+    worker.value.postMessage({
+        'type': 'DeriveAndEncryptRootKey',
+        'passphrase': providedPassphrase.value,
+        'projectID': selectedProjectID.value,
+        'aesKey': clientKey.value,
+    });
+
+    const event: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
+        }
+    });
+
+    if (event.data.error) {
+        await notify.error(event.data.error, null);
+        return;
+    }
+
+    const oAuthScope = oauthData.value.scope,
+        project = selectedProjectID.value,
+        bucket = selectedBucketName.value,
+        cubbyhole = event.data.value;
+
+    scope.value = `${oAuthScope} project:${project} bucket:${bucket} cubbyhole:${cubbyhole}`;
+}
+
+async function onDeny(): Promise<void> {
+    location.href = `${oauthData.value.redirect_uri}?${new URLSearchParams({
+        error_description: 'The resource owner or authorization server denied the request',
+    }).toString()}`;
+}
+
+function validate(): boolean {
+    projectErr.value = '';
+    bucketErr.value = '';
+    passphraseErr.value = '';
+
+    if (selectedProjectID.value === '') {
+        projectErr.value = 'Missing project.';
+    }
+
+    if (!Validator.bucketName(selectedBucketName.value)) {
+        bucketErr.value = 'Name must contain only lowercase latin characters, numbers, a hyphen or a period';
+    }
+
+    if (providedPassphrase.value === '') {
+        passphraseErr.value = 'A passphrase must be provided.';
+    }
+
+    valid.value = projectErr.value === '' &&
+        bucketErr.value === '' &&
+        passphraseErr.value === '';
+
+    return valid.value;
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Makes activated banner visible on successful account activation.
+ */
+onMounted(async () => {
+    oauthData.value = { ...router.currentRoute.query };
+    clientKey.value = router.currentRoute.hash ? router.currentRoute.hash.substring(1) : '';
+
+    await ensureLogin();
+    await ensureWorker();
+
+    await verifyClientConfiguration();
+    if (requestErr.value) {
+        return;
+    }
+
+    await loadProjects();
+});
 </script>
 
 <style scoped lang="scss">

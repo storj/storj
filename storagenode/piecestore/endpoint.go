@@ -345,20 +345,20 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		if err != nil && !errs2.IsCanceled(err) {
-			mon.Counter("upload_failure_count").Inc(1)
-			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
-			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
-			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
-			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
-		} else if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
+		if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize), remoteAddrLogField)
+		} else if err != nil {
+			mon.Counter("upload_failure_count").Inc(1)
+			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
 		} else {
 			mon.Counter("upload_success_count").Inc(1)
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
@@ -604,19 +604,18 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	}
 
 	var pieceReader *pieces.Reader
+	downloadedBytes := make(chan int64, 1)
+	largestOrder := pb.Order{}
 	defer func() {
 		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
-		downloadSize := int64(0)
-		if pieceReader != nil {
-			downloadSize = pieceReader.Size()
-		}
 		downloadRate := float64(0)
+		downloadSize := <-downloadedBytes
 		if dt.Seconds() > 0 {
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
-		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
@@ -638,6 +637,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			mon.FloatVal("download_success_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr))
 		}
+		mon.IntVal("download_orders_amount", actionSeriesTag).Observe(largestOrder.Amount)
+	}()
+	defer func() {
+		close(downloadedBytes)
 	}()
 
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
@@ -693,6 +696,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
+
+		defer func() {
+			downloadedBytes <- chunk.ChunkSize - unsentAmount
+		}()
+
 		for unsentAmount > 0 {
 			tryToSend := min(unsentAmount, maximumChunkSize)
 
@@ -700,38 +708,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
 				// this can happen only because uplink decided to close the connection
-				return nil //nolint: nilerr // We don't need to return an error when client cancels.
+				return nil // We don't need to return an error when client cancels.
 			}
 
-			chunkData := make([]byte, chunkSize)
-			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
-			if err != nil {
-				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			// ReadFull is required to ensure we are sending the right amount of data.
-			_, err = io.ReadFull(pieceReader, chunkData)
-			if err != nil {
-				endpoint.log.Error("error reading from piecereader", zap.Error(err))
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				return stream.Send(&pb.PieceDownloadResponse{
-					Chunk: &pb.PieceDownloadResponse_Chunk{
-						Offset: currentOffset,
-						Data:   chunkData,
-					},
-				})
-			})
-			if errs.Is(err, io.EOF) {
-				// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
-				// no need to propagate it
-				return nil
-			}
-			if err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
+			done, err := endpoint.sendData(ctx, stream, pieceReader, currentOffset, chunkSize)
+			if err != nil || done {
+				return err
 			}
 
 			currentOffset += chunkSize
@@ -745,7 +727,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		if err != nil {
 			return err
 		}
-		largestOrder := pb.Order{}
 		defer commitOrderToStore(ctx, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
@@ -801,6 +782,41 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// ensure we wait for sender to complete
 	sendErr := group.Wait()
 	return rpcstatus.Wrap(rpcstatus.Internal, errs.Combine(sendErr, recvErr))
+}
+
+func (endpoint *Endpoint) sendData(ctx context.Context, stream pb.DRPCPiecestore_DownloadStream, pieceReader *pieces.Reader, currentOffset int64, chunkSize int64) (result bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	chunkData := make([]byte, chunkSize)
+	_, err = pieceReader.Seek(currentOffset, io.SeekStart)
+	if err != nil {
+		endpoint.log.Error("error seeking on piecereader", zap.Error(err))
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	// ReadFull is required to ensure we are sending the right amount of data.
+	_, err = io.ReadFull(pieceReader, chunkData)
+	if err != nil {
+		endpoint.log.Error("error reading from piecereader", zap.Error(err))
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+		return stream.Send(&pb.PieceDownloadResponse{
+			Chunk: &pb.PieceDownloadResponse_Chunk{
+				Offset: currentOffset,
+				Data:   chunkData,
+			},
+		})
+	})
+	if errs.Is(err, io.EOF) {
+		// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
+		// no need to propagate it
+		return true, nil
+	}
+	if err != nil {
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+	return false, nil
 }
 
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.

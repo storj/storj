@@ -7,40 +7,36 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-// @vue/component
-@Component
-export default class GuidesDropdown extends Vue {
-    @Prop({ default: 0 })
-    private readonly yPosition: number;
-    @Prop({ default: 0 })
-    private readonly xPosition: number;
-    @Prop({ default: () => () => {} })
-    private readonly close: () => void;
+const props = withDefaults(defineProps<{
+    yPosition: number;
+    xPosition: number;
+    close: () => void;
+}>(), {
+    yPosition: 0,
+    xPosition: 0,
+    close: () => {},
+});
 
-    private dropdownMiddle = 0;
+const dropdown = ref<HTMLDivElement>();
+const dropdownMiddle = ref<number>(0);
 
-    /**
-     * Mounted hook after initial render.
-     * Calculates dropdowns Y middle point.
-     */
-    public mounted(): void {
-        this.dropdownMiddle = this.$refs.dropdown.getBoundingClientRect().height / 2;
-    }
+/**
+ * Returns top and left position of dropdown.
+ */
+const style = computed((): Record<string, string> => {
+    return { top: `${props.yPosition - dropdownMiddle.value}px`, left: `${props.xPosition}px` };
+});
 
-    public $refs!: {
-        dropdown: HTMLDivElement;
-    };
-
-    /**
-     * Returns top and left position of dropdown.
-     */
-    public get style(): Record<string, string> {
-        return { top: `${this.yPosition - this.dropdownMiddle}px`, left: `${this.xPosition}px` };
-    }
-}
+/**
+ * Mounted hook after initial render.
+ * Calculates dropdowns Y middle point.
+ */
+onMounted((): void => {
+    dropdownMiddle.value = (dropdown.value?.getBoundingClientRect().height || 0) / 2;
+});
 </script>
 
 <style scoped lang="scss">

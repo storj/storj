@@ -8,23 +8,20 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-// @vue/component
-@Component
-export default class MiddleTruncate extends Vue {
-    @Prop()
-    private readonly text: string;
+const props = defineProps<{
+    text: string,
+}>();
 
-    public get textFirstPart(): string {
-        return this.text.substring(0, this.text.length - 5);
-    }
+const textFirstPart = computed((): string => {
+    return props.text.substring(0, props.text.length - 5);
+});
 
-    public get textLastPart(): string {
-        return this.text.substring(this.text.length - 5);
-    }
-}
+const textLastPart = computed((): string => {
+    return props.text.substring(props.text.length - 5);
+});
 </script>
 
 <style scoped lang="scss">

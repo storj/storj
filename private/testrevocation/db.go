@@ -10,13 +10,13 @@ import (
 
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/kvstore"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/testredis"
-	"storj.io/storj/storage"
 )
 
 // RunDBs runs the passed test function with each type of revocation database.
-func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage.KeyValueStore)) {
+func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, kvstore.Store)) {
 	t.Run("Redis", func(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()

@@ -20,7 +20,7 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
 	"storj.io/storj/certificate/certificatepb"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 func TestNewDB(t *testing.T) {
@@ -86,7 +86,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 	for _, c := range cases {
 		testCase := c
 		t.Run(c.testID, func(t *testing.T) {
-			emailKey := storage.Key(testCase.email)
+			emailKey := kvstore.Key(testCase.email)
 
 			if testCase.startCount == 0 {
 				_, err := authDB.db.Get(ctx, emailKey)
@@ -174,7 +174,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.db.Put(ctx, storage.Key("user@mail.test"), authsBytes)
+	err = authDB.db.Put(ctx, kvstore.Key("user@mail.test"), authsBytes)
 	require.NoError(t, err)
 
 	{

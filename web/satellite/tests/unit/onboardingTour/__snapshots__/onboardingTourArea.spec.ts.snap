@@ -1,7 +1,0 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`OnboardingTourArea.vue renders correctly 1`] = `
-<div class="tour-area">
-  <router-view-stub name="default"></router-view-stub>
-</div>
-`;

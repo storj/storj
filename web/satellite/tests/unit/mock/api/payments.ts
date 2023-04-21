@@ -7,11 +7,11 @@ import {
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
-    ProjectUsageAndCharges,
     ProjectUsagePriceModel,
     TokenDeposit,
     NativePaymentHistoryItem,
     Wallet,
+    ProjectCharges,
 } from '@/types/payments';
 
 /**
@@ -32,8 +32,8 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(new AccountBalance());
     }
 
-    projectsUsageAndCharges(): Promise<ProjectUsageAndCharges[]> {
-        return Promise.resolve([]);
+    projectsUsageAndCharges(): Promise<ProjectCharges> {
+        return Promise.resolve(new ProjectCharges());
     }
 
     projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
@@ -82,5 +82,13 @@ export class PaymentsMock implements PaymentsApi {
 
     claimWallet(): Promise<Wallet> {
         return Promise.resolve(new Wallet());
+    }
+
+    purchasePricingPackage(_: string): Promise<void> {
+        throw new Error('Method not implemented');
+    }
+
+    pricingPackageAvailable(): Promise<boolean> {
+        throw new Error('Method not implemented');
     }
 }

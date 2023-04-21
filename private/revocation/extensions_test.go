@@ -18,15 +18,15 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/kvstore"
 	"storj.io/storj/private/testrevocation"
-	"storj.io/storj/storage"
 )
 
 func TestRevocationCheckHandler(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
@@ -68,7 +68,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 		}
 	})
 
-	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
 		t.Log("new revocation DB")
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
@@ -123,7 +123,7 @@ func TestRevocationUpdateHandler(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ kvstore.Store) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 

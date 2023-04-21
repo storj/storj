@@ -32,11 +32,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { useNotify, useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import ManageOptionsStep from '@/components/modals/manageProjectPassphrase/ManageOptionsStep.vue';
@@ -46,14 +45,14 @@ import ClearStep from '@/components/modals/manageProjectPassphrase/ClearStep.vue
 
 import LockIcon from '@/../static/images/projectPassphrase/lock.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 
 /**
  * Returns step from store.
  */
 const storedStep = computed((): ManageProjectPassphraseStep | undefined => {
-    return store.state.appStateModule.appState.managePassphraseStep;
+    return appStore.state.viewsState.managePassphraseStep;
 });
 
 const activeStep = ref<ManageProjectPassphraseStep>(storedStep.value || ManageProjectPassphraseStep.ManageOptions);
@@ -90,11 +89,11 @@ function setManageOptions(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 }
 
 onMounted(() => {
-    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, undefined);
+    appStore.setManagePassphraseStep(undefined);
 });
 </script>
 

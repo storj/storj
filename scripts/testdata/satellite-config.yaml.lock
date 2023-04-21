@@ -1,3 +1,15 @@
+# whether to run this chore.
+# account-freeze.enabled: false
+
+# How long to wait between a warning event and freezing an account.
+# account-freeze.grace-period: 720h0m0s
+
+# How often to run this chore, which is how often unpaid invoices are checked.
+# account-freeze.interval: 24h0m0s
+
+# The failed invoice amount (in cents) beyond which an account will not be frozen
+# account-freeze.price-threshold: 10000
+
 # admin peer http listening address
 # admin.address: ""
 
@@ -250,15 +262,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
-# indicates if new access grant flow should be used
-# console.new-access-grant-flow: false
-
-# indicates if new billing screens should be used
-# console.new-billing-screen: true
-
-# indicates if new project dashboard should be used
-# console.new-project-dashboard: true
-
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
 
@@ -326,7 +329,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
 # the default free-tier bandwidth usage limit
-# console.usage-limits.bandwidth.free: 150.00 GB
+# console.usage-limits.bandwidth.free: 25.00 GB
 
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
@@ -338,13 +341,13 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.project.paid: 3
 
 # the default free-tier segment usage limit
-# console.usage-limits.segment.free: 150000
+# console.usage-limits.segment.free: 10000
 
 # the default paid-tier segment usage limit
 # console.usage-limits.segment.paid: 100000000
 
 # the default free-tier storage usage limit
-# console.usage-limits.storage.free: 150.00 GB
+# console.usage-limits.storage.free: 25.00 GB
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
@@ -374,7 +377,7 @@ contact.external-address: ""
 # database: postgres://
 
 # satellite database api key lru capacity
-# database-options.api-keys-cache.capacity: 1000
+# database-options.api-keys-cache.capacity: 10000
 
 # satellite database api key expiration
 # database-options.api-keys-cache.expiration: 1m0s
@@ -436,7 +439,7 @@ contact.external-address: ""
 # set if garbage collection bloom filters is enabled or not
 # garbage-collection-bf.enabled: true
 
-# how quickly uploaded bloom filters will be automatically deleted
+# how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
@@ -469,7 +472,7 @@ contact.external-address: ""
 # set if loop to send garbage collection retain filters is enabled
 # garbage-collection.enabled: false
 
-# Expiration of newly created objects. These objects store error messages.
+# Expiration of newly created objects in the bucket. These objects are under the prefix error-[timestamp] and store error messages.
 # garbage-collection.expire-in: 336h0m0s
 
 # the time between each attempt to download and send garbage collection retain filters to storage nodes
@@ -607,9 +610,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
-# feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: true
-
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -679,6 +679,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 
+# number of object locations to cache.
+# metainfo.upload-limiter.cache-capacity: 10000
+
+# whether rate limiting is enabled.
+# metainfo.upload-limiter.enabled: true
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 1s
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -696,9 +705,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
-
-# whether to use ranged loop instead of segment loop
-# metrics.use-ranged-loop: false
 
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
@@ -826,7 +832,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
-# semicolon-separated partner package plans in the format partner:couponID,price. Price is in cents USD.
+# semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
 # payments provider to use
@@ -853,6 +859,21 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
+# the maximum number of concurrent Stripe API calls in invoicing methods
+# payments.stripe-coin-payments.max-parallel-calls: 10
+
+# the duration of the first retry interval
+# payments.stripe-coin-payments.retries.initial-backoff: 20ms
+
+# the maximum duration of any retry interval
+# payments.stripe-coin-payments.retries.max-backoff: 5s
+
+# the maximum number of times to retry a request
+# payments.stripe-coin-payments.retries.max-retries: 10
+
+# the factor by which the retry interval will be multiplied on each iteration
+# payments.stripe-coin-payments.retries.multiplier: 2
+
 # if set, skips the creation of empty invoices for customers with zero usage for the billing period
 # payments.stripe-coin-payments.skip-empty-invoices: true
 
@@ -865,7 +886,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
-# semicolon-separated usage price overrides in the format partner:storage,egress,segment
+# semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
 # payments.usage-price-overrides: ""
 
 # price user should pay for egress in dollars/TB
@@ -884,7 +905,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # project-bw-cleanup.retain-months: 2
 
 # number of projects to cache.
-# project-limit.cache-capacity: 10000
+# project-limit.cache-capacity: 20000
 
 # how long to cache the project limits.
 # project-limit.cache-expiration: 10m0s
@@ -900,6 +921,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
+
+# ratio where to consider processed count as supicious
+# ranged-loop.suspicious-processed-ratio: 0.03
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
@@ -1018,6 +1042,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # public address to listen on
 server.address: :7777
 
+# whether to debounce incoming messages
+# server.debouncing-enabled: true
+
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true
 
@@ -1036,7 +1063,7 @@ server.private-address: 127.0.0.1:7778
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
 # server.revocation-dburl: bolt://testdata/revocations.db
 
-# enable support for tcp fast open experiment
+# enable support for tcp fast open
 # server.tcp-fast-open: true
 
 # the size of the tcp fast open queue

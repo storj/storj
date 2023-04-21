@@ -26,86 +26,85 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
-import { PartneredSatellite } from '@/types/common';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { PartneredSatellite } from '@/types/config';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
-// @vue/component
-@Component({
-    components: {
-        OverviewContainer,
-    },
-})
-export default class OverviewStep extends Vue {
-    public projectDashboardPath = RouteConfig.ProjectDashboard.path;
-    public titleLabel = '';
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const notify = useNotify();
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const projectDashboardPath = RouteConfig.ProjectDashboard.path;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Mounted hook after initial render.
-     * Sets correct title label.
-     */
-    public mounted(): void {
-        const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
-        if (!partneredSatellites) {
-            this.titleLabel = 'OSP';
-            return;
-        }
+const titleLabel = ref<string>('');
 
-        const partneredSatellitesJSON = JSON.parse(partneredSatellites);
-        const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
-            return el.name === this.satelliteName;
-        });
-        if (isPartnered) {
-            this.titleLabel = 'DCS';
-            return;
-        }
+/**
+ * Skips onboarding flow.
+ */
+async function onSkip(): Promise<void> {
+    endOnboarding();
+    await router.push(projectDashboardPath);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+}
 
-        this.titleLabel = 'OSP';
-    }
+/**
+ * Holds button click logic.
+ * Redirects to next step (creating access grant).
+ */
+function onUplinkCLIClick(): void {
+    router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
+    analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
+}
 
-    /**
-     * Skips onboarding flow.
-     */
-    public onSkip(): void {
-        this.$router.push(this.projectDashboardPath);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-    }
+/**
+ * Redirects to buckets page.
+ */
+async function onUploadInBrowserClick(): Promise<void> {
+    endOnboarding();
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+}
 
-    /**
-     * Holds button click logic.
-     * Redirects to next step (creating access grant).
-     */
-    public onUplinkCLIClick(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-    }
-
-    /**
-     * Redirects to buckets page.
-     */
-    public onUploadInBrowserClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-    }
-
-    /**
-     * Returns satellite name.
-     */
-    private get satelliteName(): string {
-        return this.$store.state.appStateModule.satelliteName;
+async function endOnboarding(): Promise<void> {
+    try {
+        await usersStore.updateSettings({ onboardingEnd: true });
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 }
+
+/**
+ * Mounted hook after initial render.
+ * Sets correct title label.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        if (!usersStore.state.settings.onboardingStart) {
+            await usersStore.updateSettings({ onboardingStart: true });
+        }
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+    }
+
+    const config = appStore.state.config;
+    const isPartnered = config.partneredSatellites.find((el: PartneredSatellite) => {
+        return el.name === config.satelliteName;
+    });
+
+    titleLabel.value = isPartnered ? 'DCS' : 'OSP';
+});
 </script>
 
 <style scoped lang="scss">

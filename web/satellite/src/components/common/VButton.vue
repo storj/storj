@@ -5,6 +5,7 @@
     <!-- if isDisabled check onPress in parent element -->
     <a
         v-if="link"
+        class="container"
         :href="link"
         :class="containerClassName"
         :style="style"
@@ -13,48 +14,44 @@
         rel="noopener noreferrer"
         @click="onPress"
     >
-        <slot name="icon" />
-        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
-        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
         <span class="label" :class="{uppercase: isUppercase}">
-            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
-            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
-            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
-            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
-            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
-            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
-            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
-            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
-            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
+            <component :is="iconComponent" v-if="iconComponent" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
     </a>
     <div
         v-else
+        class="container"
         :class="containerClassName"
         :style="style"
         tabindex="0"
-        @click="onPress"
-        @keyup.enter="onPress"
+        @click="handleClick"
+        @keyup.enter="handleClick"
     >
-        <slot name="icon" />
-        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
-        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
         <span class="label" :class="{uppercase: isUppercase}">
-            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
-            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
-            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
-            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
-            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
-            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
-            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
-            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
-            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
-            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
+            <component :is="iconComponent" v-if="iconComponent" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
 
-import { computed } from 'vue';
+import { computed, VueConstructor } from 'vue';
 
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
@@ -82,7 +79,7 @@ const props = withDefaults(defineProps<{
     isGreyBlue?: boolean;
     isBlueWhite?: boolean;
     isWhiteGreen?: boolean;
-    isGreenWhite?: boolean;
+    isGreen?: boolean;
     isDisabled?: boolean;
     isUppercase?: boolean;
     onPress?: () => void;
@@ -102,39 +99,62 @@ const props = withDefaults(defineProps<{
     isGreyBlue: false,
     isBlueWhite: false,
     isWhiteGreen: false,
-    isGreenWhite: false,
+    isGreen: false,
     isDisabled: false,
     isUppercase: false,
     onPress: () => {},
 });
 
+const icons = new Map<string, VueConstructor>([
+    ['copy', CopyIcon],
+    ['download', DownloadIcon],
+    ['lock', LockIcon],
+    ['credit-card', CreditCardIcon],
+    ['document', DocumentIcon],
+    ['trash', TrashIcon],
+    ['folder', FolderIcon],
+    ['resources', ResourcesIcon],
+    ['addcircle', AddCircleIcon],
+]);
+
+const iconComponent = computed((): VueConstructor | undefined => icons.get(props.icon.toLowerCase()));
+
 const containerClassName = computed((): string => {
-    if (props.isDisabled) return 'container disabled';
+    if (props.isDisabled) return 'disabled';
 
-    if (props.isWhite) return 'container white';
+    if (props.isWhite) return 'white';
 
-    if (props.isOrange) return 'container orange';
+    if (props.isOrange) return 'orange';
 
-    if (props.isSolidDelete) return 'container solid-red';
+    if (props.isSolidDelete) return 'solid-red';
 
-    if (props.isTransparent) return 'container transparent';
+    if (props.isTransparent) return 'transparent';
 
-    if (props.isDeletion) return 'container red';
+    if (props.isDeletion) return 'red';
 
-    if (props.isGreyBlue) return 'container grey-blue';
+    if (props.isGreyBlue) return 'grey-blue';
 
-    if (props.isBlueWhite) return 'container blue-white';
+    if (props.isBlueWhite) return 'blue-white';
 
-    if (props.isWhiteGreen) return 'container white-green';
+    if (props.isWhiteGreen) return 'white-green';
 
-    if (props.isGreenWhite) return 'container green-white';
+    if (props.isGreen) return 'green';
 
-    return 'container';
+    return '';
 });
 
 const style = computed(() => {
     return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
 });
+
+/**
+ * This wrapper handles button's disabled state for accessibility purposes.
+ */
+function handleClick(): void {
+    if (!props.isDisabled) {
+        props.onPress();
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -198,9 +218,8 @@ const style = computed(() => {
         }
     }
 
-    .green-white {
+    .green {
         background-color: var(--c-green-5) !important;
-        border: 1px solid var(--c-green-5) !important;
     }
 
     .grey-blue {
@@ -248,14 +267,20 @@ const style = computed(() => {
             margin-right: 5px;
         }
 
-        .greenCheck {
-            color: var(--c-green-5) !important;
-            margin-right: 5px;
+        .icon-wrapper {
+            display: flex;
+
+            &:not(:empty) {
+                margin-right: 8px;
+            }
         }
 
-        .whiteCheck {
-            color: #fff !important;
-            margin-right: 5px;
+        .icon-wrapper-right {
+            display: flex;
+
+            &:not(:empty) {
+                margin-left: 8px;
+            }
         }
 
         .label {
@@ -312,6 +337,14 @@ const style = computed(() => {
             &.orange {
                 background-color: #c16900 !important;
                 border-color: #c16900 !important;
+            }
+
+            &.white-green {
+                background-color: var(--c-green-4) !important;
+            }
+
+            &.green {
+                background-color: #008a1e !important;
             }
 
             &.disabled {

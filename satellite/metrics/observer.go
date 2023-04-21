@@ -7,9 +7,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
+)
+
+var (
+	// Error defines the metrics chore errors class.
+	Error = errs.Class("metrics")
+	mon   = monkit.Package()
 )
 
 // Observer implements the ranged segment loop observer interface for data

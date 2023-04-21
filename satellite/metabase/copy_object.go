@@ -111,9 +111,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return err
 		}
 
-		if !db.config.MultipleVersions {
-			nextAvailableVersion = opts.Version
-		}
 		if objectAtDestination != nil && objectAtDestination.StreamID == sourceObject.StreamID {
 			newObject = sourceObject
 			return nil
@@ -212,10 +209,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}
 
 		if objectAtDestination != nil {
-			version := opts.Version
-			if db.config.MultipleVersions {
-				version = objectAtDestination.Version
-			}
+			version := objectAtDestination.Version
 			deletedObjects, err := db.deleteObjectExactVersionServerSideCopy(
 				ctx, DeleteObjectExactVersion{
 					Version: version,
@@ -413,7 +407,7 @@ func getObjectAtCopySourceAndDestination(
 	}()
 
 	if !rows.Next() {
-		return Object{}, uuid.UUID{}, nil, 0, storj.ErrObjectNotFound.New("source object not found")
+		return Object{}, uuid.UUID{}, nil, 0, ErrObjectNotFound.New("source object not found")
 	}
 
 	err = rows.Scan(
@@ -431,7 +425,7 @@ func getObjectAtCopySourceAndDestination(
 		return Object{}, uuid.UUID{}, nil, 0, Error.New("unable to query object status: %w", err)
 	}
 	if sourceObject.StreamID != opts.StreamID {
-		return Object{}, uuid.UUID{}, nil, 0, storj.ErrObjectNotFound.New("object was changed during copy")
+		return Object{}, uuid.UUID{}, nil, 0, ErrObjectNotFound.New("object was changed during copy")
 	}
 
 	if len(ancestorStreamIDBytes) != 0 {

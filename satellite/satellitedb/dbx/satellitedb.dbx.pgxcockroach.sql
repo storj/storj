@@ -53,7 +53,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -155,6 +155,7 @@ CREATE TABLE nodes (
 	last_software_update_email timestamp with time zone,
 	noise_proto integer,
 	noise_public_key bytea,
+	debounce_limit integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -402,6 +403,8 @@ CREATE TABLE storjscan_wallets (
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
+	package_plan text,
+	purchased_package_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
@@ -462,6 +465,10 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
+	onboarding_start boolean NOT NULL DEFAULT true,
+	onboarding_end boolean NOT NULL DEFAULT true,
+	onboarding_step text,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -565,4 +572,5 @@ CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_i
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
 CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
+CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;

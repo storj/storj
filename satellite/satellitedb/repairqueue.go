@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 // RepairQueueSelectLimit defines how many items can be selected at the same time.
@@ -222,7 +221,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, er
 	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, storage.ErrEmptyQueue.New("")
+			return nil, queue.ErrEmpty.New("")
 		}
 		return nil, err
 	}

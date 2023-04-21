@@ -18,9 +18,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -113,7 +113,7 @@ func TestCacheInit(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -152,7 +152,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -163,7 +163,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -195,13 +195,13 @@ func TestCachServiceRun(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 
-		blobstore, err := filestore.NewAt(log, ctx.Dir(), filestore.DefaultConfig)
+		store, err := filestore.NewAt(log, ctx.Dir(), filestore.DefaultConfig)
 		require.NoError(t, err)
 
 		// Prior to initializing the cache service (which should walk the files),
 		// write a single file so something exists to be counted
 		expBlobSize := memory.KB
-		w, err := blobstore.Create(ctx, storage.BlobRef{
+		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}, -1)
@@ -212,22 +212,22 @@ func TestCachServiceRun(t *testing.T) {
 
 		// Now write a piece that we are going to trash
 		expTrashSize := 2 * memory.KB
-		trashRef := storage.BlobRef{
+		trashRef := blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = blobstore.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef, -1)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
 		require.NoError(t, w.Commit(ctx))
-		require.NoError(t, blobstore.Trash(ctx, trashRef)) // trash it
+		require.NoError(t, store.Trash(ctx, trashRef)) // trash it
 
 		// Now instantiate the cache
-		cache := pieces.NewBlobsUsageCache(log, blobstore)
+		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -314,7 +314,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -591,7 +591,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(zaptest.NewLogger(t), db.Pieces())
 		pieceContent := []byte("stuff")
 		satelliteID := testrand.NodeID()
-		refs := []storage.BlobRef{
+		refs := []blobstore.BlobRef{
 			{
 				Namespace: satelliteID.Bytes(),
 				Key:       testrand.Bytes(32),

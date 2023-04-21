@@ -39,7 +39,7 @@ func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 type Filesystem interface {
 	Close() error
 	Open(ctx context.Context, loc ulloc.Location) (MultiReadHandle, error)
-	Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error)
+	Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (WriteHandle, error)
 	Move(ctx context.Context, source, dest ulloc.Location) error
 	Copy(ctx context.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
@@ -52,7 +52,7 @@ type Filesystem interface {
 type FilesystemLocal interface {
 	IsLocalDir(ctx context.Context, path string) bool
 	Open(ctx context.Context, path string) (MultiReadHandle, error)
-	Create(ctx context.Context, path string) (MultiWriteHandle, error)
+	Create(ctx context.Context, path string) (WriteHandle, error)
 	Move(ctx context.Context, oldpath string, newpath string) error
 	Copy(ctx context.Context, oldpath string, newpath string) error
 	Remove(ctx context.Context, path string, opts *RemoveOptions) error
@@ -64,7 +64,7 @@ type FilesystemLocal interface {
 type FilesystemRemote interface {
 	Close() error
 	Open(ctx context.Context, bucket, key string) (MultiReadHandle, error)
-	Create(ctx context.Context, bucket, key string, opts *CreateOptions) (MultiWriteHandle, error)
+	Create(ctx context.Context, bucket, key string, opts *CreateOptions) (WriteHandle, error)
 	Move(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error
 	Copy(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error
 	Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) error
@@ -141,18 +141,6 @@ type ReadHandle interface {
 //
 // write handles
 //
-
-// MultiWriteHandle lets one create multiple sequential WriteHandles for
-// different sections of something.
-//
-// The returned WriteHandle will error if data is attempted to be written
-// past the provided length. A negative length implies an unknown amount
-// of data, and future calls to NextPart will error.
-type MultiWriteHandle interface {
-	NextPart(ctx context.Context, length int64) (WriteHandle, error)
-	Commit(ctx context.Context) error
-	Abort(ctx context.Context) error
-}
 
 // WriteHandle is anything that can be written to with commit/abort semantics.
 type WriteHandle interface {

@@ -2244,6 +2244,84 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users DROP COLUMN last_verification_reminder;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_prompt column to user_settings table",
+				Version:     226,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN passphrase_prompt boolean;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "fix bucket_bandwidth_rollups primary key",
+				Version:     227,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					alterPrimaryKey := true
+					// for crdb lets check if key was already altered, for pg we will do migration always
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						var primaryKey string
+						err := db.QueryRow(ctx,
+							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
+						).Scan(&primaryKey)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						// alter primary key only if it was not adjusted manually
+						alterPrimaryKey = primaryKey != "PRIMARY KEY (project_id ASC, bucket_name ASC, interval_start ASC, action ASC)"
+					}
+
+					if alterPrimaryKey {
+						_, err := tx.ExecContext(ctx, `
+							ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pk;
+							ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY ( project_id, bucket_name, interval_start, action );
+						`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on users table to improve get users queries.",
+				Version:     228,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add debounce_limit column to nodes table",
+				Version:     229,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN debounce_limit integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add onboarding columns to user_settings table",
+				SeparateTx:  true,
+				Version:     230,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN onboarding_start boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_end boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_step text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns package_plan and purchased_package_at to stripe_customers",
+				Version:     231,
+				Action: migrate.SQL{
+					`ALTER TABLE stripe_customers ADD COLUMN package_plan TEXT;`,
+					`ALTER TABLE stripe_customers ADD COLUMN purchased_package_at timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

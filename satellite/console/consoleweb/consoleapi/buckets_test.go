@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 )
 
@@ -45,13 +45,13 @@ func Test_AllBucketNames(t *testing.T) {
 		project, err := sat.AddProject(ctx, user.ID, "buckettest")
 		require.NoError(t, err)
 
-		bucket1 := storj.Bucket{
+		bucket1 := buckets.Bucket{
 			ID:        testrand.UUID(),
 			Name:      "testBucket1",
 			ProjectID: project.ID,
 		}
 
-		bucket2 := storj.Bucket{
+		bucket2 := buckets.Bucket{
 			ID:        testrand.UUID(),
 			Name:      "testBucket2",
 			ProjectID: project.ID,
