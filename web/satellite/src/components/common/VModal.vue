@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div ref="modal" class="mask" tabindex="0" @keydown.esc="onClose">
-        <div class="mask__wrapper" @click.self="onClose">
+    <div ref="modal" class="mask" tabindex="0" @keydown.esc="closeHandler">
+        <div class="mask__wrapper" @click.self="closeHandler">
             <div class="mask__wrapper__container">
                 <slot name="content" />
-                <div class="mask__wrapper__container__close" @click="onClose">
+                <div v-if="isClosable" class="mask__wrapper__container__close" @click="closeHandler">
                     <CloseCrossIcon />
                 </div>
             </div>
@@ -21,9 +21,22 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 const props = withDefaults(defineProps<{
     onClose?: () => void;
-}>(), { onClose: () => () => {} });
+    isClosable?: boolean;
+}>(), {
+    onClose: () => () => {},
+    isClosable: true,
+});
 
 const modal = ref<HTMLElement>();
+
+/**
+ * Holds on close modal logic.
+ */
+function closeHandler(): void {
+    if (props.isClosable) {
+        props.onClose();
+    }
+}
 
 onMounted((): void => {
     modal.value?.focus();
