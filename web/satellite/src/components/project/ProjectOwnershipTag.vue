@@ -13,12 +13,12 @@
 import { computed } from 'vue';
 
 import { Project } from '@/types/projects';
-import { useStore } from '@/utils/hooks';
 import { User } from '@/types/users';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import BoxIcon from '@/../static/images/allDashboard/box.svg';
 
-const store = useStore();
+const usersStore = useUsersStore();
 
 const props = defineProps<{
   project?: Project,
@@ -28,7 +28,7 @@ const props = defineProps<{
  * Returns user entity from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**

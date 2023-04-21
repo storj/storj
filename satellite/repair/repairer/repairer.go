@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/storage"
 )
 
 // Error is a standard error class for this package.
@@ -83,6 +82,12 @@ func (service *Service) WaitForPendingRepairs() {
 	service.JobLimiter.Release(int64(service.config.MaxRepair))
 }
 
+// TestingSetMinFailures sets the minFailures attribute, which tells the Repair machinery that we _expect_
+// there to be failures and that we should wait for them if necessary. This is only used in tests.
+func (service *Service) TestingSetMinFailures(minFailures int) {
+	service.repairer.ec.TestingSetMinFailures(minFailures)
+}
+
 // Run runs the repairer service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -99,7 +104,7 @@ func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
 	for {
 		err := service.process(ctx)
 		if err != nil {
-			if storage.ErrEmptyQueue.Has(err) {
+			if queue.ErrEmpty.Has(err) {
 				return nil
 			}
 			service.log.Error("process", zap.Error(Error.Wrap(err)))

@@ -46,9 +46,9 @@
                     </p>
                 </div>
 
-                <div v-if="balance.credits" class="total-cost__card">
+                <div v-if="balance.hasCredits()" class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">${{ balance.credits }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.formattedCredits }}</p>
                     <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
                 </div>
             </div>
@@ -77,14 +77,12 @@
                     :on-press="routeToBillingHistory"
                 />
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                <UsageAndChargesItem2
-                    v-for="usageAndCharges in projectUsageAndCharges"
-                    :key="usageAndCharges.projectId"
-                    :item="usageAndCharges"
-                    class="cost-by-project__item"
-                />
-            </div>
+            <UsageAndChargesItem
+                v-for="id in projectIDs"
+                :key="id"
+                :project-id="id"
+                class="cost-by-project__item"
+            />
             <router-view />
         </div>
     </div>
@@ -95,14 +93,14 @@ import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance, ProjectUsageAndCharges } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AccountBalance } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
-import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
+import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
@@ -111,7 +109,8 @@ import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const store = useStore();
+const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -123,7 +122,7 @@ const currentDate = ref<string>('');
  * Returns account balance from store.
  */
 const balance = computed((): AccountBalance => {
-    return store.state.paymentsModule.balance;
+    return billingStore.state.balance as AccountBalance;
 });
 
 /**
@@ -134,22 +133,25 @@ const hasZeroCoins = computed((): boolean => {
 });
 
 /**
- * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+ * projectIDs is an array of all of the project IDs for which there exist project usage charges.
  */
-const projectUsageAndCharges = computed((): ProjectUsageAndCharges[] => {
-    return store.state.paymentsModule.usageAndCharges;
+const projectIDs = computed((): string[] => {
+    return projectsStore.state.projects
+        .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
+        .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
+        .map(proj => proj.id);
 });
 
 /**
  * priceSummary returns price summary of usages for all the projects.
  */
 const priceSummary = computed((): number => {
-    return store.state.paymentsModule.priceSummary;
+    return billingStore.state.projectCharges.getPrice();
 });
 
 function routeToBillingHistory(): void {
     analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
-    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path);
 }
 
 function routeToPaymentMethods(): void {
@@ -170,7 +172,7 @@ function balanceClicked(): void {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
         isDataFetching.value = false;
@@ -178,8 +180,8 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        await billingStore.getProjectUsagePriceModel();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
     }
@@ -194,7 +196,7 @@ onMounted(async () => {
 
 <style scoped lang="scss">
     .total-cost {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         margin: 20px 0;
 
         &__header-container {
@@ -205,10 +207,9 @@ onMounted(async () => {
             &__date {
                 display: flex;
                 justify-content: space-between;
-                align-items: bottom;
+                align-items: flex-end;
                 color: var(--c-grey-6);
-                font-weight: 700;
-                font-family: sans-serif;
+                font-family: 'font_bold', sans-serif;
                 border-radius: 5px;
                 height: 15px;
                 width: auto;
@@ -255,7 +256,7 @@ onMounted(async () => {
             }
 
             &__link-text {
-                font-weight: medium;
+                font-weight: 500;
                 text-decoration: underline;
                 margin-top: 10px;
                 cursor: pointer;
@@ -318,7 +319,7 @@ onMounted(async () => {
     }
 
     .cost-by-project {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
 
         &__title {
             padding-bottom: 10px;

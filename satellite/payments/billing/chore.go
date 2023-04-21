@@ -26,16 +26,18 @@ type Chore struct {
 	TransactionCycle *sync2.Cycle
 
 	disableLoop bool
+	bonusRate   int64
 }
 
 // NewChore creates new chore.
-func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool) *Chore {
+func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool, bonusRate int64) *Chore {
 	return &Chore{
 		log:              log,
 		paymentTypes:     paymentTypes,
 		transactionsDB:   transactionsDB,
 		TransactionCycle: sync2.NewCycle(interval),
 		disableLoop:      disableLoop,
+		bonusRate:        bonusRate,
 	}
 }
 
@@ -61,7 +63,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				continue
 			}
 			for _, transaction := range transactions {
-				_, err = chore.transactionsDB.Insert(ctx, transaction)
+				if bonus, ok := prepareBonusTransaction(chore.bonusRate, paymentType.Source(), transaction); ok {
+					_, err = chore.transactionsDB.Insert(ctx, transaction, bonus)
+				} else {
+					_, err = chore.transactionsDB.Insert(ctx, transaction)
+				}
 				if err != nil {
 					chore.log.Error("error storing transaction to db", zap.Error(ChoreErr.Wrap(err)))
 					// we need to halt storing transactions if one fails, so that it can be tried again on the next loop.

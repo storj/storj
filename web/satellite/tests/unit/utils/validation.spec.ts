@@ -4,29 +4,6 @@
 import { Validator } from '@/utils/validation';
 
 describe('validation', (): void => {
-    Object.defineProperties(Validator, {
-        PASS_MIN_LENGTH: { value: 6 },
-        PASS_MAX_LENGTH: { value: 128 },
-    });
-
-    it('password regex works correctly', (): void => {
-        const testString1 = 'test';
-        const testString2 = '        '.trim();
-        const testString3 = 'test %%%';
-        const testString4 = 'testtest';
-        const testString5 = 'test1233';
-        const testString6 = 'test1';
-        const testString7 = 'teSTt1123';
-
-        expect(Validator.password(testString1)).toBe(false);
-        expect(Validator.password(testString2)).toBe(false);
-        expect(Validator.password(testString3)).toBe(true);
-        expect(Validator.password(testString4)).toBe(true);
-        expect(Validator.password(testString5)).toBe(true);
-        expect(Validator.password(testString6)).toBe(false);
-        expect(Validator.password(testString7)).toBe(true);
-    });
-
     it('email regex works correctly', () => {
         const testString1 = 'test';
         const testString2 = '        ';

@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.19.6
+GO_VERSION ?= 1.20.3
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -511,7 +511,10 @@ bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
 	cd testsuite/ui;\
-		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
+		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
+		go mod tidy;
+	cd testsuite/storjscan;\
+		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
 		go mod tidy;
 
 update-proto-lock:

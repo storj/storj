@@ -42,7 +42,7 @@
                 </div>
                 <div class="add-modal__bullets">
                     <div class="add-modal__bullets__left">
-                        <h2 class="add-modal__bullets__left__title">Pro Account includes:</h2>
+                        <h2 class="add-modal__bullets__left__title">Pro Account Limits:</h2>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
                             <p class="add-modal__bullets__left__item__label">3 projects</p>
@@ -53,28 +53,31 @@
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
-                            <p class="add-modal__bullets__left__item__label">25 TB storage per project</p>
+                            <p class="add-modal__bullets__left__item__label">Up to 25 TB storage per project</p>
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
-                            <p class="add-modal__bullets__left__item__label">100 TB egress bandwidth per project</p>
+                            <p class="add-modal__bullets__left__item__label">Up to 100 TB egress bandwidth per project per month</p>
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
                             <p class="add-modal__bullets__left__item__label">100 request per second rate limit</p>
                         </div>
                     </div>
-                    <div class="add-modal__bullets__right">
+                    <VLoader v-if="isPriceFetching" class="add-modal__bullets__right-loader" width="90px" height="90px" />
+                    <div v-else class="add-modal__bullets__right">
                         <h2 class="add-modal__bullets__right__title">Storage price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$4</p>
+                            <p class="add-modal__bullets__right__item__price">{{ storagePrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB / month</p>
                         </div>
                         <h2 class="add-modal__bullets__right__title">Bandwidth price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$7</p>
+                            <p class="add-modal__bullets__right__item__price">{{ bandwidthPrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB</p>
                         </div>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <p v-if="extraBandwidthPriceInfo" class="add-modal__bullets__right__item__label__special" v-html="extraBandwidthPriceInfo" />
                     </div>
                 </div>
                 <div class="add-modal__security">
@@ -124,18 +127,20 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, onBeforeMount, ref, reactive } from 'vue';
 
+import { useNotify, useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { ProjectUsagePriceModel } from '@/types/payments';
+import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -150,103 +155,146 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-// @vue/component
-@Component({
-    components: {
-        StripeCardInput,
-        VButton,
-        CheckMarkIcon,
-        LockImage,
-        VLoader,
-        VModal,
-        BigCheckMarkIcon,
-    },
-})
-export default class AddPaymentMethodModal extends Vue {
-    public isAddModal = true;
-    public isAddCard = true;
-    public isLoading = false;
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
-    };
+const isAddModal = ref<boolean>(true);
+const isAddCard = ref<boolean>(true);
+const isLoading = ref<boolean>(false);
+const isPriceFetching = ref<boolean>(true);
 
-    /**
-     * Provides card information to Stripe.
-     */
-    public async onAddCardClick(): Promise<void> {
-        if (this.isLoading) return;
+const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
 
-        this.isLoading = true;
+const extraBandwidthPriceInfo = ref<string>('');
 
-        try {
-            await this.$refs.stripeCardInput.onSubmit();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-        this.isLoading = false;
+/**
+ * Lifecycle hook after initial render.
+ * Fetches project usage price model.
+ */
+onMounted(async () => {
+    try {
+        await billingStore.getProjectUsagePriceModel();
+        isPriceFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
+});
 
-    /**
-     * Adds card after Stripe confirmation.
-     *
-     * @param token from Stripe
-     */
-    public async addCardToDB(token: string): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
+/**
+ * Provides card information to Stripe.
+ */
+async function onAddCardClick(): Promise<void> {
+    if (isLoading.value || !stripeCardInput.value) return;
 
-            await this.$notify.success('Card successfully added');
+    isLoading.value = true;
 
-            // We fetch User one more time to update their Paid Tier status.
-            await this.$store.dispatch(USER_ACTIONS.GET);
-            // We fetch Cards one more time to hide Paid Tier banner.
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
-
-            if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-                await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            }
-
-            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
-
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-
-        this.isLoading = false;
-        this.isAddModal = false;
+    try {
+        await stripeCardInput.value.onSubmit();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
-
-    /**
-     * Closes add payment method modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
-    }
-
-    /**
-     * Sets modal state to add STORJ tokens.
-     */
-    public setIsAddToken(): void {
-        this.isAddCard = false;
-    }
-
-    /**
-     * Sets modal state to add credit card.
-     */
-    public setIsAddCard(): void {
-        this.isAddCard = true;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get limitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
+    isLoading.value = false;
 }
+
+/**
+ * Adds card after Stripe confirmation.
+ *
+ * @param token from Stripe
+ */
+async function addCardToDB(token: string): Promise<void> {
+    try {
+        await billingStore.addCreditCard(token);
+        await notify.success('Card successfully added');
+        // We fetch User one more time to update their Paid Tier status.
+        await usersStore.getUser();
+
+        if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+            await projectsStore.getProjectLimits(projectsStore.state.selectedProject.id);
+        }
+
+        await analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+    }
+
+    isLoading.value = false;
+    isAddModal.value = false;
+}
+
+/**
+ * Closes add payment method modal.
+ */
+function closeModal(): void {
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
+}
+
+/**
+ * Sets modal state to add STORJ tokens.
+ */
+function setIsAddToken(): void {
+    isAddCard.value = false;
+}
+
+/**
+ * Sets modal state to add credit card.
+ */
+function setIsAddCard(): void {
+    isAddCard.value = true;
+}
+
+/**
+ * Returns project limits increase request url from config.
+ */
+const limitsIncreaseRequestURL = computed((): string => {
+    return appStore.state.config.projectLimitsIncreaseRequestURL;
+});
+
+/**
+ * Returns project usage price model from store.
+ */
+const priceModel = computed((): ProjectUsagePriceModel => {
+    return billingStore.state.usagePriceModel;
+});
+
+/**
+ * Returns the storage price formatted as dollars per terabyte.
+ */
+const storagePrice = computed((): string => {
+    const storage = priceModel.value.storageMBMonthCents.toString();
+    return formatPrice(decimalShift(storage, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
+
+/**
+ * Returns the bandwidth (egress) price formatted as dollars per terabyte.
+ */
+const bandwidthPrice = computed((): string => {
+    const egress = priceModel.value.egressMBCents.toString();
+    return formatPrice(decimalShift(egress, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
+
+/**
+ * Lifecycle hook before initial render.
+ * If applicable, loads additional clarifying text based on user partner.
+ */
+onBeforeMount(() => {
+    try {
+        const partner = usersStore.state.user.partner;
+        const config = require('@/components/account/billing/billingConfig.json');
+        if (partner !== '' && config[partner] && config[partner].extraBandwidthPriceInfo) {
+            extraBandwidthPriceInfo.value = config[partner].extraBandwidthPriceInfo;
+        }
+    } catch (e) {
+        notify.error('No configuration file for page.', null);
+    }
+});
 </script>
 
 <style scoped lang="scss">
@@ -491,6 +539,16 @@ export default class AddPaymentMethodModal extends Vue {
                 }
             }
 
+            &__right-loader {
+                width: 50%;
+                align-items: center;
+
+                @media screen and (max-width: 570px) {
+                    width: 100%;
+                    margin-top: 16px;
+                }
+            }
+
             &__right {
                 padding-left: 50px;
 
@@ -529,6 +587,12 @@ export default class AddPaymentMethodModal extends Vue {
                         line-height: 20px;
                         color: #a9a9a9;
                         margin: 5px 0 0 5px;
+
+                        &__special {
+                            font-size: 13px;
+                            text-align: left;
+                            color: #000;
+                        }
                     }
                 }
             }

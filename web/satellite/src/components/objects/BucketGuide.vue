@@ -13,15 +13,12 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
-// @vue/component
-@Component
-export default class BucketGuide extends Vue {
-    @Prop({ default: null })
-    public readonly hideGuide: () => void;
-}
+<script setup lang="ts">
+const props = withDefaults(defineProps<{
+    hideGuide: () => void;
+}>(), {
+    hideGuide: () => {},
+});
 </script>
 
 <style scoped lang="scss">

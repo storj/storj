@@ -27,10 +27,8 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -40,14 +38,14 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Starts create new passphrase flow.
  */
 function onNext(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 </script>
 

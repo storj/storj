@@ -449,7 +449,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64, numPiecesInExcludedCountries int) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[int32]struct{}, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64, numPiecesInExcludedCountries int) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces
@@ -462,14 +462,14 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 		totalPiecesAfterRepair = totalPieces
 	}
 
-	var numCurrentPieces int
+	var numRetrievablePieces int
 	for _, o := range getOrderLimits {
 		if o != nil {
-			numCurrentPieces++
+			numRetrievablePieces++
 		}
 	}
 
-	totalPiecesToRepair := totalPiecesAfterRepair - numCurrentPieces
+	totalPiecesToRepair := totalPiecesAfterRepair - len(healthySet)
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 
@@ -485,7 +485,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 
 	var pieceNum int32
 	for _, node := range newNodes {
-		for int(pieceNum) < totalPieces && getOrderLimits[pieceNum] != nil {
+		for int(pieceNum) < totalPieces {
+			_, isHealthy := healthySet[pieceNum]
+			if !isHealthy {
+				break
+			}
 			pieceNum++
 		}
 

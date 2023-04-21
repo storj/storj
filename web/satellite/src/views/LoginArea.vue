@@ -100,14 +100,14 @@
                         Or use recovery code
                     </span>
                 </template>
-                <div v-if="recaptchaEnabled" class="login-area__content-area__container__captcha-wrapper">
+                <div v-if="captchaConfig.recaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
                     <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
                         <ErrorIcon />
                         <p class="login-area__content-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
                     </div>
                     <VueRecaptcha
                         ref="recaptcha"
-                        :sitekey="recaptchaSiteKey"
+                        :sitekey="captchaConfig.recaptcha.siteKey"
                         :load-recaptcha-script="true"
                         size="invisible"
                         @verify="onCaptchaVerified"
@@ -115,14 +115,14 @@
                         @error="onCaptchaError"
                     />
                 </div>
-                <div v-else-if="hcaptchaEnabled" class="login-area__content-area__container__captcha-wrapper">
+                <div v-else-if="captchaConfig.hcaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
                     <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
                         <ErrorIcon />
                         <p class="login-area__content-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
                     </div>
                     <VueHcaptcha
                         ref="hcaptcha"
-                        :sitekey="hcaptchaSiteKey"
+                        :sitekey="captchaConfig.hcaptcha.siteKey"
                         :re-captcha-compat="false"
                         size="invisible"
                         @verify="onCaptchaVerified"
@@ -161,23 +161,22 @@
 <script setup lang="ts">
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
-import { PartneredSatellite } from '@/types/common';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -217,32 +216,37 @@ const recaptcha = ref<VueRecaptcha | null>(null);
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const mfaInput = ref<ConfirmMFAInput & ClearInput | null>(null);
 
-const recaptchaEnabled = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
-const recaptchaSiteKey = MetaUtils.getMetaContent('login-recaptcha-site-key');
-const hcaptchaEnabled = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
-const hcaptchaSiteKey = MetaUtils.getMetaContent('login-hcaptcha-site-key');
 const forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
 const registerPath: string = RouteConfig.Register.path;
 
 const auth = new AuthHttpApi();
-const notify = useNotify();
 const analytics = new AnalyticsHttpApi();
-const router = useRouter();
-const store = useStore();
-const route = useRoute();
+
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 /**
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return store.state.appStateModule.partneredSatellites;
+    return appStore.state.config.partneredSatellites;
+});
+
+/**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig => {
+    return appStore.state.config.captcha.login;
 });
 
 /**
@@ -250,14 +254,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
-    isActivatedBannerShown.value = !!route.query.activated;
-    isActivatedError.value = route.query.activated === 'false';
+    isActivatedBannerShown.value = !!router.currentRoute.query.activated;
+    isActivatedError.value = router.currentRoute.query.activated === 'false';
 
-    if (store.state.appStateModule.isAllProjectsDashboard) {
+    if (appStore.state.config.allProjectsDashboard) {
         returnURL.value = RouteConfig.AllProjectsDashboard.path;
     }
 
-    returnURL.value = route.query.return_url as string || returnURL.value;
+    returnURL.value = router.currentRoute.query.return_url as string || returnURL.value;
 });
 
 /**
@@ -271,7 +275,7 @@ function clearConfirmMFAInput(): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    const homepageURL = MetaUtils.getMetaContent('homepage-url');
+    const homepageURL = appStore.state.config.homepageURL;
     if (homepageURL) window.location.href = homepageURL;
 }
 
@@ -442,11 +446,9 @@ async function login(): Promise<void> {
         return;
     }
 
-    await store.dispatch(USER_ACTIONS.LOGIN);
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+    usersStore.login();
+    appStore.changeState(FetchState.LOADING);
     isLoading.value = false;
-
-    LocalData.setServerSideEncryptionBannerHidden(false);
 
     analytics.pageVisit(returnURL.value);
     await router.push(returnURL.value);
@@ -463,7 +465,7 @@ function validateFields(): boolean {
         isNoErrors = false;
     }
 
-    if (password.value.length < Validator.PASS_MIN_LENGTH) {
+    if (password.value.length < appStore.state.config.passwordMinimumLength) {
         passwordError.value = 'Invalid Password';
         isNoErrors = false;
     }

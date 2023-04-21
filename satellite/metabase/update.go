@@ -13,8 +13,10 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/storage"
 )
+
+// ErrValueChanged is returned when the current value of the key does not match the oldValue in UpdateSegmentPieces.
+var ErrValueChanged = errs.Class("value changed")
 
 // UpdateSegmentPieces contains arguments necessary for updating segment pieces.
 type UpdateSegmentPieces struct {
@@ -103,7 +105,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 	}
 
 	if !EqualAliasPieces(newPieces, resultPieces) {
-		return storage.ErrValueChanged.New("segment remote_alias_pieces field was changed")
+		return ErrValueChanged.New("segment remote_alias_pieces field was changed")
 	}
 
 	mon.Meter("segment_update").Mark(1)

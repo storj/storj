@@ -27,7 +27,7 @@ func saveInitialConfig(ctx context.Context, ex ulext.External, interactiveFlag b
 				return errs.Wrap(err)
 			}
 			answer = strings.ToLower(answer)
-			analyticsEnabled = answer != "y" && answer != "yes"
+			analyticsEnabled = answer == "y" || answer == "yes"
 		} else {
 			analyticsEnabled = false
 		}

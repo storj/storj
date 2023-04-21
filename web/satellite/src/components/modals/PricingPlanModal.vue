@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal class="modal" :on-close="onClose">
+    <VModal v-if="plan" class="modal" :on-close="onClose">
         <template #content>
             <div v-if="!isSuccess" class="content">
                 <div class="content__top">
@@ -38,7 +38,7 @@
                         width="100%"
                         font-size="13px"
                         icon="lock"
-                        :is-green="plan.type == 'partner'"
+                        :is-green="plan.type === 'partner'"
                         :is-disabled="isLoading"
                         :on-press="onActivateClick"
                     />
@@ -78,14 +78,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,35 +99,48 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-const store = useStore();
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
 
 /**
  * Returns the pricing plan selected from the onboarding tour.
  */
-const plan = computed((): PricingPlanInfo => {
-    return store.state.appStateModule.appState.selectedPricingPlan;
+const plan = computed((): PricingPlanInfo | null => {
+    return appStore.state.viewsState.selectedPricingPlan;
+});
+
+watch(plan, () => {
+    if (!plan.value) {
+        appStore.removeActiveModal();
+        notify.error('No pricing plan has been selected.', null);
+    }
 });
 
 /**
  * Returns whether this modal corresponds to a free pricing plan.
  */
 const isFree = computed((): boolean => {
-    return plan.value.type === PricingPlanType.FREE;
+    return plan.value?.type === PricingPlanType.FREE;
 });
 
 /**
  * Closes the modal and advances to the next step in the onboarding tour.
  */
 function onClose(): void {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
     if (isSuccess.value) {
+        if (appStore.state.config.allProjectsDashboard) {
+            router.push(RouteConfig.AllProjectsDashboard.path);
+            return;
+        }
         router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
     }
 }
@@ -136,7 +149,7 @@ function onClose(): void {
  * Applies the selected pricing plan to the user.
  */
 function onActivateClick(): void {
-    if (isLoading.value) return;
+    if (isLoading.value || !plan.value) return;
     isLoading.value = true;
 
     if (isFree.value) {
@@ -151,19 +164,21 @@ function onActivateClick(): void {
  * Adds card after Stripe confirmation.
  */
 async function onCardAdded(token: string): Promise<void> {
-    let action = PAYMENTS_ACTIONS.ADD_CREDIT_CARD;
+    if (!plan.value) return;
+
+    let action = billingStore.addCreditCard;
     if (plan.value.type === PricingPlanType.PARTNER) {
-        action = PAYMENTS_ACTIONS.PURCHASE_PACKAGE;
+        action = billingStore.purchasePricingPackage;
     }
 
     try {
-        await store.dispatch(action, token);
+        await action(token);
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
         // Fetch cards to hide paid tier banner
-        await store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(error.message, null);
     }

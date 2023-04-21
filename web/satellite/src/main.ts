@@ -2,12 +2,10 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import VueClipboard from 'vue-clipboard2';
-import { createPinia, PiniaVuePlugin } from 'pinia';
+import { createPinia, setActivePinia, PiniaVuePlugin } from 'pinia';
 
 import App from './App.vue';
 import { router } from './router';
-import { store } from './store';
 
 import { Size } from '@/utils/bytesSize';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -20,10 +18,10 @@ Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-Vue.use(new NotificatorPlugin(store));
-Vue.use(VueClipboard);
+Vue.use(new NotificatorPlugin());
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
+setActivePinia(pinia);
 
 /**
  * Click outside handlers.
@@ -94,7 +92,6 @@ Vue.filter('leadingZero', (value: number): string => {
 
 new Vue({
     router,
-    store,
     pinia,
     render: (h) => h(App),
 }).$mount('#app');

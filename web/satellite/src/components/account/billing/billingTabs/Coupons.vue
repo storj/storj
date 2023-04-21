@@ -17,6 +17,7 @@
                 <p class="coupon-area__wrapper__coupon__expiration">{{ expiration }}</p>
             </div>
             <div
+                v-if="couponCodeBillingUIEnabled"
                 class="coupon-area__wrapper__add-coupon"
                 @click="toggleCreateModal"
             >
@@ -30,14 +31,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { useNotify, useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -46,7 +47,8 @@ import CloudIcon from '@/../static/images/onboardingTour/cloudIcon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const store = useStore();
+const appStore = useAppStore();
+const billingStore = useBillingStore();
 const notify = useNotify();
 
 const isCouponFetching = ref<boolean>(true);
@@ -55,7 +57,7 @@ const isCouponFetching = ref<boolean>(true);
  * Returns the coupon applied to the user's account.
  */
 const coupon = computed((): Coupon | null => {
-    return store.state.paymentsModule.coupon;
+    return billingStore.state.coupon;
 });
 
 /**
@@ -95,11 +97,21 @@ const isActive = computed((): boolean => {
 });
 
 /**
+ * Returns the whether applying a new coupon is enabled.
+ */
+const couponCodeBillingUIEnabled = computed((): boolean => {
+    return appStore.state.config.couponCodeBillingUIEnabled;
+});
+
+/**
  * Opens Add Coupon modal.
  */
 function toggleCreateModal(): void {
+    if (!couponCodeBillingUIEnabled) {
+        return;
+    }
     analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
+    appStore.updateActiveModal(MODALS.newBillingAddCoupon);
 }
 
 /**
@@ -108,7 +120,7 @@ function toggleCreateModal(): void {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
+        await billingStore.getCoupon();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
     }

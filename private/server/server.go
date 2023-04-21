@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/jtolio/noiseconn"
 	"github.com/zeebo/errs"
@@ -33,6 +34,20 @@ import (
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
+	"storj.io/storj/private/server/debounce"
+)
+
+const (
+	// tcpMaxPacketAge is the maximum amount of time we expect to worry about
+	// an undelivered TCP packet lingering in the network. TCP TTL isn't
+	// supposed to exceed about 4 minutes, so this is double that with
+	// padding.
+	tcpMaxPacketAge = 10 * time.Minute
+	// debounceLimit is the amount of times the server should worry about
+	// debouncing incoming noise  or TLS messages, per message. debouncing
+	// won't happen if the number of identical packets received is larger than
+	// this.
+	debounceLimit = 2
 )
 
 // Config holds server specific configuration parameters.
@@ -45,8 +60,9 @@ type Config struct {
 	DisableTCP      bool `help:"disable TCP listener on a server" internal:"true"`
 	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
 
-	TCPFastOpen      bool `help:"enable support for tcp fast open experiment" default:"true"`
-	TCPFastOpenQueue int  `help:"the size of the tcp fast open queue" default:"256"`
+	TCPFastOpen       bool `help:"enable support for tcp fast open" default:"true"`
+	TCPFastOpenQueue  int  `help:"the size of the tcp fast open queue" default:"256"`
+	DebouncingEnabled bool `help:"whether to debounce incoming messages" default:"true"`
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -207,6 +223,15 @@ func (p *Server) NoiseKeyAttestation(ctx context.Context) (_ *pb.NoiseKeyAttesta
 	return noise.GenerateKeyAttestation(ctx, p.tlsOptions.Ident, info)
 }
 
+// DebounceLimit is the amount of times the server is able to
+// debounce incoming noise or TLS messages, per message.
+func (p *Server) DebounceLimit() int {
+	if !p.config.DebouncingEnabled {
+		return 0
+	}
+	return debounceLimit
+}
+
 // Close shuts down the server.
 func (p *Server) Close() error {
 	p.mu.Lock()
@@ -297,8 +322,20 @@ func (p *Server) Run(ctx context.Context) (err error) {
 
 	if p.publicTCPListener != nil {
 		publicLMux := drpcmigrate.NewListenMux(p.publicTCPListener, len(drpcmigrate.DRPCHeader))
-		publicTLSDRPCListener = tls.NewListener(publicLMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
-		publicNoiseDRPCListener = noiseconn.NewListener(publicLMux.Route(noise.Header), p.noiseConf)
+		tlsMux := publicLMux.Route(drpcmigrate.DRPCHeader)
+		var noiseOpts noiseconn.Options
+
+		if p.config.DebouncingEnabled {
+			debouncer := debounce.NewDebouncer(tcpMaxPacketAge, debounceLimit)
+			tlsMux = tlsDebounce(tlsMux, debouncer.ResponderFirstMessageValidator)
+			noiseOpts.ResponderFirstMessageValidator = debouncer.ResponderFirstMessageValidator
+		}
+
+		publicTLSDRPCListener = tls.NewListener(tlsMux, p.tlsOptions.ServerTLSConfig())
+		publicNoiseDRPCListener = noiseconn.NewListenerWithOptions(
+			publicLMux.Route(noise.Header),
+			p.noiseConf,
+			noiseOpts)
 		if p.publicHTTP != nil {
 			publicHTTPListener = NewPrefixedListener([]byte("GET / HT"), publicLMux.Route("GET / HT"))
 		}

@@ -69,7 +69,6 @@ const props = withDefaults(defineProps<{
 });
 
 const notify = useNotify();
-const copy = useCopy();
 
 const currentDate = new Date().toISOString();
 
@@ -81,7 +80,7 @@ const analytics = new AnalyticsHttpApi();
  * Copies passphrase to clipboard.
  */
 function onCopyPassphraseClick(): void {
-    copy(props.passphrase);
+    navigator.clipboard.writeText(props.passphrase);
     isPassphraseCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`Passphrase was copied successfully`);

@@ -39,12 +39,13 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -58,64 +59,55 @@ enum ButtonStates {
     Copied,
 }
 
-// @vue/component
-@Component({
-    components: {
-        CheckIcon,
-        ShareContainer,
-        VLoader,
-        VButton,
-        VModal,
-    },
-})
-export default class ShareObjectModal extends Vue {
-    private readonly ButtonStates = ButtonStates;
+const appStore = useAppStore();
+const obStore = useObjectBrowserStore();
+const notify = useNotify();
 
-    public isLoading = true;
-    public link = '';
-    public copyButtonState = ButtonStates.Copy;
+const isLoading = ref<boolean>(true);
+const link = ref<string>('');
+const copyButtonState = ref<ButtonStates>(ButtonStates.Copy);
 
-    /**
-     * Retrieve the path to the current file that has the fileShareModal opened from the store.
-     */
-    private get filePath(): void {
-        return this.$store.state.files.objectPathForModal;
-    }
+/**
+ * Retrieve the path to the current file that has the fileShareModal opened from the store.
+ */
+const filePath = computed((): string => {
+    return obStore.state.objectPathForModal;
+});
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets share link.
-     */
-    public async mounted(): Promise<void> {
-        this.link = await this.$store.state.files.fetchSharedLink(
-            this.filePath,
-        );
-        this.isLoading = false;
-    }
+/**
+ * Copies link to users clipboard.
+ */
+async function onCopy(): Promise<void> {
+    await navigator.clipboard.writeText(link.value);
+    copyButtonState.value = ButtonStates.Copied;
 
-    /**
-     * Copies link to users clipboard.
-     */
-    public async onCopy(): Promise<void> {
-        await this.$copyText(this.link);
-        this.copyButtonState = ButtonStates.Copied;
+    setTimeout(() => {
+        copyButtonState.value = ButtonStates.Copy;
+    }, 2000);
 
-        setTimeout(() => {
-            this.copyButtonState = ButtonStates.Copy;
-        }, 2000);
-
-        await this.$notify.success('Link copied successfully.');
-    }
-
-    /**
-     * Closes open bucket modal.
-     */
-    public closeModal(): void {
-        if (this.isLoading) return;
-
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
-    }
+    await notify.success('Link copied successfully.');
 }
+
+/**
+ * Closes open bucket modal.
+ */
+function closeModal(): void {
+    if (isLoading.value) return;
+
+    appStore.updateActiveModal(MODALS.shareObject);
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Sets share link.
+ */
+onMounted(async (): Promise<void> => {
+    link.value = await obStore.state.fetchSharedLink(
+        filePath.value,
+    );
+
+    isLoading.value = false;
+});
 </script>
 
 <style scoped lang="scss">

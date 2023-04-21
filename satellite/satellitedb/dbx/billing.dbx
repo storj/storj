@@ -7,11 +7,20 @@ model stripe_customer (
 	field user_id     blob
 	// customer_id is the Stripe customer identifier.
 	field customer_id text
+	// package_plan is the package plan currently applicable to the customer.
+	field package_plan text ( nullable, updatable )
+	// purchased_package_at is the time the package plan was purchased.
+	field purchased_package_at timestamp ( nullable, updatable )
 	// created_at is the time the customer was first added.
 	field created_at  timestamp ( autoinsert )
 )
 
 create stripe_customer ( )
+
+read one (
+	select stripe_customer.package_plan stripe_customer.purchased_package_at
+	where stripe_customer.user_id = ?
+)
 
 read one (
 	select stripe_customer.customer_id
@@ -21,10 +30,9 @@ read one (
 	select stripe_customer.user_id
 	where stripe_customer.customer_id = ?
 )
-read limitoffset (
-	select stripe_customer
-	where stripe_customer.created_at <= ?
-	orderby desc stripe_customer.created_at
+
+update stripe_customer (
+	where stripe_customer.user_id = ?
 )
 
 // billing_balance is the current balance for the user.

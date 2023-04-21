@@ -39,6 +39,7 @@ type Checker struct {
 	metabase             *metabase.DB
 	segmentLoop          *segmentloop.Service
 	nodestate            *ReliabilityCache
+	overlayService       *overlay.Service
 	statsCollector       *statsCollector
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
@@ -55,6 +56,7 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, metabase *met
 		metabase:             metabase,
 		segmentLoop:          segmentLoop,
 		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		overlayService:       overlay,
 		statsCollector:       newStatsCollector(),
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
@@ -117,6 +119,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	observer := &checkerObserver{
 		repairQueue:      checker.createInsertBuffer(),
 		nodestate:        checker.nodestate,
+		overlayService:   checker.overlayService,
 		statsCollector:   checker.statsCollector,
 		monStats:         aggregateStats{},
 		repairOverrides:  checker.repairOverrides,
@@ -175,6 +178,7 @@ var _ segmentloop.Observer = (*checkerObserver)(nil)
 type checkerObserver struct {
 	repairQueue      *queue.InsertBuffer
 	nodestate        *ReliabilityCache
+	overlayService   *overlay.Service
 	statsCollector   *statsCollector
 	monStats         aggregateStats // TODO(cam): once we verify statsCollector reports data correctly, remove this
 	repairOverrides  RepairOverridesMap
@@ -190,6 +194,7 @@ func NewCheckerObserver(checker *Checker) segmentloop.Observer {
 	return &checkerObserver{
 		repairQueue:      checker.createInsertBuffer(),
 		nodestate:        checker.nodestate,
+		overlayService:   checker.overlayService,
 		statsCollector:   checker.statsCollector,
 		monStats:         aggregateStats{},
 		repairOverrides:  checker.repairOverrides,
@@ -229,7 +234,7 @@ func (obs *checkerObserver) LoopStarted(context.Context, segmentloop.LoopInfo) (
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	// we are expliticy not adding monitoring here as we are tracking loop observers separately
+	// we are explicitly not adding monitoring here as we are tracking loop observers separately
 
 	// ignore segment if expired
 	if segment.Expired(time.Now()) {
@@ -270,11 +275,27 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 
-	numHealthy := len(pieces) - len(missingPieces)
+	// if multiple pieces are on the same last_net, keep only the first one. The rest are
+	// to be considered retrievable but unhealthy.
+	nodeIDs := make([]storj.NodeID, len(pieces))
+	for i, p := range pieces {
+		nodeIDs[i] = p.StorageNode
+	}
+	lastNets, err := obs.overlayService.GetNodesNetworkInOrder(ctx, nodeIDs)
+	if err != nil {
+		obs.monStats.remoteSegmentsFailedToCheck++
+		stats.iterationAggregates.remoteSegmentsFailedToCheck++
+		return errs.Combine(Error.New("error determining node last_nets"), err)
+	}
+	clumpedPieces := repair.FindClumpedPieces(segment.Pieces, lastNets)
+
+	numHealthy := len(pieces) - len(missingPieces) - len(clumpedPieces)
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces))) //mon:locked
 	stats.segmentTotalCount.Observe(int64(len(pieces)))
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //mon:locked
 	stats.segmentHealthyCount.Observe(int64(numHealthy))
+	mon.IntVal("checker_segment_clumped_count").Observe(int64(len(clumpedPieces))) //mon:locked
+	stats.segmentClumpedCount.Observe(int64(len(clumpedPieces)))
 
 	segmentAge := time.Since(segment.CreatedAt)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked

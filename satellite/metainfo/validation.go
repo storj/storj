@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -25,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
@@ -208,7 +210,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
-	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
+	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (interface{}, error) {
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
@@ -249,7 +251,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(bucket) == 0 {
-		return Error.Wrap(storj.ErrNoBucket.New(""))
+		return Error.Wrap(buckets.ErrNoBucket.New(""))
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
@@ -490,5 +492,25 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encrypte
 	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
 	}
+	return nil
+}
+
+func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
+	if !endpoint.config.UploadLimiter.Enabled {
+		return nil
+	}
+
+	limited := true
+	// if object location is in cache it means that we won't allow to upload yet here,
+	// if it's not or internally key expired we are good to go
+	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
+	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (interface{}, error) {
+		limited = false
+		return struct{}{}, nil
+	})
+	if limited {
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+	}
+
 	return nil
 }

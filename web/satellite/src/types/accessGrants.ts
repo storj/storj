@@ -55,7 +55,7 @@ export interface AccessGrantsApi {
      * @returns EdgeCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials>;
+    getGatewayCredentials(accessGrant: string, requestURL: string, isPublic?: boolean): Promise<EdgeCredentials>;
 }
 
 /**

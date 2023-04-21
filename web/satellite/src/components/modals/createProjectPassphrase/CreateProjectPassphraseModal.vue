@@ -57,15 +57,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -88,10 +88,11 @@ enum CreatePassphraseOption {
     Enter = 'Enter',
 }
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
 const notify = useNotify();
-const route = useRoute();
-const router = useRouter();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const selectedOption = ref<CreatePassphraseOption>(CreatePassphraseOption.Generate);
 const activeStep = ref<CreateProjectPassphraseStep>(CreateProjectPassphraseStep.SelectMode);
@@ -146,7 +147,7 @@ function toggleSaved(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 /**
@@ -184,20 +185,17 @@ async function onContinue(): Promise<void> {
             return;
         }
 
-        try {
-            store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
-            store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        bucketsStore.setEdgeCredentials(new EdgeCredentials());
+        bucketsStore.setPassphrase(passphrase.value);
+        bucketsStore.setPromptForPassphrase(false);
 
-            activeStep.value = CreateProjectPassphraseStep.Success;
-        } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_LEVEL_PASSPHRASE_MODAL);
-        }
+        activeStep.value = CreateProjectPassphraseStep.Success;
 
         return;
     }
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
-        if (route?.name === RouteConfig.OverviewStep.name) {
+        if (router.currentRoute.name === RouteConfig.OverviewStep.name) {
             router.push(RouteConfig.ProjectDashboard.path);
         }
 

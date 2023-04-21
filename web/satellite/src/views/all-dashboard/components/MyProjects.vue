@@ -29,32 +29,34 @@
 import { computed } from 'vue';
 
 import { Project } from '@/types/projects';
-import { useRoute, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import {
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import RocketIcon from '@/../static/images/common/rocket.svg';
 
-const router = useRouter();
-const route = useRoute();
-const store = useStore();
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+
 const analytics = new AnalyticsHttpApi();
 
 /**
  * Returns projects list from store.
  */
 const projects = computed((): Project[] => {
-    return store.getters.projects;
+    return projectsStore.projects;
 });
 
 /**
@@ -63,14 +65,14 @@ const projects = computed((): Project[] => {
 function onCreateProjectClicked(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
-    const user: User = store.getters.user;
-    const ownProjectsCount: number = store.getters.projectsCount;
+    const user: User = usersStore.state.user;
+    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+        appStore.updateActiveModal(MODALS.createProjectPrompt);
     } else {
         analytics.pageVisit(RouteConfig.CreateProject.path);
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newCreateProject);
+        appStore.updateActiveModal(MODALS.newCreateProject);
     }
 }
 </script>

@@ -38,11 +38,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { useNotify, useStore } from '@/utils/hooks';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -53,8 +53,9 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
 const notify = useNotify();
-const store = useStore();
 
 const passphrase = ref<string>('');
 const enterError = ref<string>('');
@@ -82,15 +83,12 @@ async function onSwitch(): Promise<void> {
         return;
     }
 
-    try {
-        store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
-        store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+    bucketsStore.setEdgeCredentials(new EdgeCredentials());
+    bucketsStore.setPassphrase(passphrase.value);
+    bucketsStore.setPromptForPassphrase(false);
 
-        notify.success('Passphrase was switched successfully');
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
-    } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.SWITCH_PROJECT_LEVEL_PASSPHRASE_MODAL);
-    }
+    notify.success('Passphrase was switched successfully');
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 }
 </script>
 

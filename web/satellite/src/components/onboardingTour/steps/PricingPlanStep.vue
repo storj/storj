@@ -24,14 +24,17 @@ import { onBeforeMount, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import { MetaUtils } from '@/utils/meta';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-const store = useStore();
+const appStore = useAppStore();
+const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
@@ -42,26 +45,26 @@ const plans = ref<PricingPlanInfo[]>([
     new PricingPlanInfo(
         PricingPlanType.PRO,
         'Pro Account',
-        '150 GB Free',
-        'Only pay for what you need. $4/TB stored per month* $7/TB for bandwidth.',
+        '25 GB Free',
+        'Only pay for what you need. $4/TB stored per month* $7/TB for egress bandwidth.',
         '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        'Add a credit card to activate your Pro Account.<br><br>Get 150GB free storage and bandwidth. Only pay for what you use beyond that.',
+        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and bandwidth. Only pay for what you use beyond that.',
         'No charge today',
-        '150GB Free',
+        '25GB Free',
     ),
     new PricingPlanInfo(
         PricingPlanType.FREE,
         'Free Account',
         'Limited',
-        'Free usage up to 150GB storage and 150GB bandwidth per month.',
+        'Free usage up to 25GB storage and 25GB egress bandwidth per month.',
         null,
         null,
         null,
         'Start for free to try Storj and upgrade later.',
         null,
-        'Limited 150',
+        'Limited 25',
     ),
 ]);
 
@@ -69,10 +72,13 @@ const plans = ref<PricingPlanInfo[]>([
  * Loads pricing plan config.
  */
 onBeforeMount(async () => {
-    const user: User = store.getters.user;
-    const nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    const user: User = usersStore.state.user;
+    let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    if (appStore.state.config.allProjectsDashboard) {
+        nextPath = RouteConfig.AllProjectsDashboard.path;
+    }
 
-    const pricingPkgsEnabled = Boolean(MetaUtils.getMetaContent('pricing-packages-enabled'));
+    const pricingPkgsEnabled = appStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
         return;
@@ -106,6 +112,14 @@ onBeforeMount(async () => {
     }
     plan.type = PricingPlanType.PARTNER;
     plans.value.unshift(plan);
+
+    if (!usersStore.state.settings.onboardingStart) {
+        try {
+            await usersStore.updateSettings({ onboardingStart: true });
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
+        }
+    }
 
     isLoading.value = false;
 });

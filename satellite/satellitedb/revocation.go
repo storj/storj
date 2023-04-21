@@ -37,7 +37,7 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 	// again.
 	finalTail := tails[numTails-1]
 
-	val, err := db.lru.Get(string(finalTail), func() (interface{}, error) {
+	val, err := db.lru.Get(ctx, string(finalTail), func() (interface{}, error) {
 		const query = "SELECT EXISTS(SELECT 1 FROM revocations WHERE revoked IN (%s))"
 
 		var (

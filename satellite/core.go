@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
@@ -49,7 +48,7 @@ import (
 	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
 )
@@ -148,10 +147,6 @@ type Core struct {
 
 	GracefulExit struct {
 		Chore *gracefulexit.Chore
-	}
-
-	Metrics struct {
-		Chore *metrics.Chore
 	}
 }
 
@@ -456,7 +451,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if config.Tally.UseRangedLoop {
 			nodeTallyLog.Info("using ranged loop")
 		} else {
-			peer.Accounting.NodeTally = nodetally.New(nodeTallyLog, peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+			peer.Accounting.NodeTally = nodetally.New(nodeTallyLog, peer.DB.StoragenodeAccounting(), peer.Metainfo.Metabase, peer.Metainfo.SegmentLoop, config.Tally.Interval)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accounting:nodetally",
 				Run:   peer.Accounting.NodeTally.Run,
@@ -502,17 +497,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup payments
 		pc := config.Payments
 
-		var stripeClient stripecoinpayments.StripeClient
+		var stripeClient stripe.Client
 		switch pc.Provider {
 		case "": // just new mock, only used in testing binaries
-			stripeClient = stripecoinpayments.NewStripeMock(
+			stripeClient = stripe.NewStripeMock(
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
 		case "mock":
 			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+			stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
 		default:
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
@@ -527,7 +522,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		service, err := stripecoinpayments.NewService(
+		service, err := stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
@@ -582,6 +577,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Billing(),
 			config.Payments.BillingConfig.Interval,
 			config.Payments.BillingConfig.DisableLoop,
+			config.Payments.BonusRate,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "billing:chore",
@@ -627,26 +623,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
-		}
-	}
-
-	{ // setup metrics service
-		log := peer.Log.Named("metrics")
-		if config.Metrics.UseRangedLoop {
-			log.Info("using ranged loop")
-		} else {
-			peer.Metrics.Chore = metrics.NewChore(
-				log,
-				config.Metrics,
-				peer.Metainfo.SegmentLoop,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "metrics",
-				Run:   peer.Metrics.Chore.Run,
-				Close: peer.Metrics.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 		}
 	}
 

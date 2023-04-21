@@ -58,17 +58,19 @@ func TestRollupNoDeletes(t *testing.T) {
 		initialTime := time.Now().UTC().AddDate(0, 0, -days)
 		currentTime := initialTime
 
-		nodeData := map[storj.NodeID]float64{}
+		nodeData := make([]storj.NodeID, len(storageNodes))
+		bwAmount := make([]float64, len(storageNodes))
 		bwTotals := make(map[storj.NodeID][]int64)
-		for _, storageNodeID := range storageNodes {
-			nodeData[storageNodeID] = float64(atRestAmount)
+		for i, storageNodeID := range storageNodes {
+			nodeData[i] = storageNodeID
+			bwAmount[i] = float64(atRestAmount)
 			bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
 		}
 
 		// Create 5 days worth of tally and rollup data.
 		// Add one additional day of data since the rollup service will truncate data from the most recent day.
 		for i := 0; i < days+1; i++ {
-			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData, bwAmount))
 			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
 
 			require.NoError(t, rollupService.Rollup(ctx))
@@ -168,17 +170,19 @@ func TestRollupDeletes(t *testing.T) {
 
 		currentTime := initialTime
 
-		nodeData := map[storj.NodeID]float64{}
+		nodeData := make([]storj.NodeID, len(storageNodes))
+		bwAmount := make([]float64, len(storageNodes))
 		bwTotals := make(map[storj.NodeID][]int64)
-		for _, storageNodeID := range storageNodes {
-			nodeData[storageNodeID] = float64(atRestAmount)
+		for i, storageNodeID := range storageNodes {
+			nodeData[i] = storageNodeID
+			bwAmount[i] = float64(atRestAmount)
 			bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
 		}
 
 		// Create 5 days worth of tally and rollup data.
 		// Add one additional day of data since the rollup service will truncate data from the most recent day.
 		for i := 0; i < days+1; i++ {
-			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData, bwAmount))
 			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
 
 			// Since the config.Rollup.DeleteTallies is set to true, at the end of the Rollup(),
@@ -267,11 +271,11 @@ func TestRollupOldOrders(t *testing.T) {
 			)
 
 			// Phase 1
-			storageTotalsPhase1 := make(map[storj.NodeID]float64)
-			storageTotalsPhase1[nodeA.ID()] = float64(AtRestAmount1)
-			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(2*time.Hour), storageTotalsPhase1))
+			storageNodesPhase1 := []storj.NodeID{nodeA.ID()}
+			storageTotalsPhase1 := []float64{AtRestAmount1}
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(2*time.Hour), storageNodesPhase1, storageTotalsPhase1))
 			// save tallies for the next day too, so that the period we are testing is not truncated by the rollup service.
-			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(26*time.Hour), storageTotalsPhase1))
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(26*time.Hour), storageNodesPhase1, storageTotalsPhase1))
 
 			bwTotalsPhase1 := make(map[storj.NodeID][]int64)
 			bwTotalsPhase1[nodeA.ID()] = []int64{PutActionAmount1, GetActionAmount1, GetAuditActionAmount1, GetRepairActionAmount1, PutRepairActionAmount1}
@@ -298,10 +302,9 @@ func TestRollupOldOrders(t *testing.T) {
 			require.EqualValues(t, AtRestAmount1, accountingCSVRow.AtRestTotal)
 
 			// Phase 2
-			storageTotalsPhase2 := make(map[storj.NodeID]float64)
-			storageTotalsPhase2[nodeA.ID()] = float64(AtRestAmount2)
-			storageTotalsPhase2[nodeB.ID()] = float64(AtRestAmount2)
-			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(-2*time.Hour), storageTotalsPhase2))
+			storageNodesPhase2 := []storj.NodeID{nodeA.ID(), nodeB.ID()}
+			storageTotalsPhase2 := []float64{AtRestAmount2, AtRestAmount2}
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, initialTime.Add(-2*time.Hour), storageNodesPhase2, storageTotalsPhase2))
 
 			bwTotalsPhase2 := make(map[storj.NodeID][]int64)
 			bwTotalsPhase2[nodeA.ID()] = []int64{PutActionAmount2, GetActionAmount2, GetAuditActionAmount2, GetRepairActionAmount2, PutRepairActionAmount2}

@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/testuplink"
 )
@@ -102,7 +102,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
-		pieceAccess, err := targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err := targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       deletedPieceID.Bytes(),
 		})
@@ -128,7 +128,7 @@ func TestGarbageCollection(t *testing.T) {
 		targetNode.Storage2.RetainService.TestWaitUntilEmpty()
 
 		// Check that piece of the deleted object is not on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       deletedPieceID.Bytes(),
 		})
@@ -136,7 +136,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.Nil(t, pieceAccess)
 
 		// Check that piece of the kept object is on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       keptPieceID.Bytes(),
 		})

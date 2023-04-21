@@ -58,6 +58,7 @@ func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidt
 		state: lrucache.New(lrucache.Options{
 			Capacity:   config.CacheCapacity,
 			Expiration: config.CacheExpiration,
+			Name:       "accounting-projectlimit",
 		}),
 	}
 }
@@ -67,7 +68,7 @@ func (c *ProjectLimitCache) GetLimits(ctx context.Context, projectID uuid.UUID) 
 	fn := func() (interface{}, error) {
 		return c.getProjectLimits(ctx, projectID)
 	}
-	projectLimits, err := c.state.Get(projectID.String(), fn)
+	projectLimits, err := c.state.Get(ctx, projectID.String(), fn)
 	if err != nil {
 		return ProjectLimits{}, ErrGetProjectLimitCache.Wrap(err)
 	}
@@ -89,6 +90,19 @@ func (c *ProjectLimitCache) GetBandwidthLimit(ctx context.Context, projectID uui
 		return c.defaultMaxBandwidth, nil
 	}
 	return memory.Size(*projectLimits.Bandwidth), nil
+}
+
+// GetSegmentLimit return the segment limit for a project ID.
+func (c *ProjectLimitCache) GetSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+	projectLimits, err := c.GetLimits(ctx, projectID)
+	if err != nil {
+		return 0, err
+	}
+	if projectLimits.Segments == nil {
+		return memory.Size(c.defaultMaxSegments), nil
+	}
+	return memory.Size(*projectLimits.Segments), nil
 }
 
 // getProjectLimits returns project limits from DB.

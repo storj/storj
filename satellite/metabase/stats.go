@@ -31,7 +31,7 @@ func (db *DB) GetTableStats(ctx context.Context, opts GetTableStats) (result Tab
 	// if it's cockroach and statistics are up to date we will use them to get segments count
 	if db.impl == dbutil.Cockroach {
 		var created time.Time
-		err := db.db.QueryRowContext(ctx, `WITH stats AS (SHOW STATISTICS FOR TABLE segments) SELECT row_count, created FROM stats ORDER BY row_count DESC LIMIT 1`).
+		err := db.db.QueryRowContext(ctx, `WITH stats AS (SHOW STATISTICS FOR TABLE segments) SELECT row_count, created FROM stats ORDER BY created DESC LIMIT 1`).
 			Scan(&result.SegmentCount, &created)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return TableStats{}, err

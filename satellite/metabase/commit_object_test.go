@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
@@ -92,7 +91,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -146,7 +145,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
 

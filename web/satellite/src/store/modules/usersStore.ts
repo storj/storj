@@ -4,54 +4,55 @@
 import { defineStore } from 'pinia';
 import { computed, reactive } from 'vue';
 
-import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
-import { MetaUtils } from '@/utils/meta';
+import {
+    DisableMFARequest,
+    SetUserSettingsData,
+    UpdatedUser,
+    User,
+    UsersApi,
+    UserSettings,
+} from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
+import { useAppStore } from '@/store/modules/appStore';
 
 export class UsersState {
     public user: User = new User();
+    public settings: UserSettings = new UserSettings();
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }
 
 export const useUsersStore = defineStore('users', () => {
-    const usersState = reactive<UsersState>({
-        user: new User(),
-        userMFASecret: '',
-        userMFARecoveryCodes: [],
-    });
+    const state = reactive<UsersState>(new UsersState());
+
+    const appStore = useAppStore();
 
     const userName = computed(() => {
-        return usersState.user.getFullName();
+        return state.user.getFullName();
+    });
+
+    const shouldOnboard = computed(() => {
+        return !state.settings.onboardingStart || (state.settings.onboardingStart && !state.settings.onboardingEnd);
     });
 
     const api: UsersApi = new AuthHttpApi();
 
-    async function updateUserInfo(userInfo: UpdatedUser): Promise<void> {
+    async function updateUser(userInfo: UpdatedUser): Promise<void> {
         await api.update(userInfo);
 
-        usersState.user.fullName = userInfo.fullName;
-        usersState.user.shortName = userInfo.shortName;
+        state.user.fullName = userInfo.fullName;
+        state.user.shortName = userInfo.shortName;
     }
 
-    async function fetchUserInfo(): Promise<void> {
+    async function getUser(): Promise<void> {
         const user = await api.get();
+        user.projectLimit ||= appStore.state.config.defaultProjectLimit;
 
-        usersState.user = user;
-
-        if (user.projectLimit === 0) {
-            const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
-
-            usersState.user.projectLimit = parseInt(limitFromConfig);
-
-            return;
-        }
-
-        usersState.user.projectLimit = user.projectLimit;
+        setUser(user);
     }
 
-    async function fetchFrozenStatus(): Promise<void> {
-        usersState.user.isFrozen = await api.getFrozenStatus();
+    async function getFrozenStatus(): Promise<void> {
+        state.user.freezeStatus = await api.getFrozenStatus();
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
@@ -63,31 +64,57 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function generateUserMFASecret(): Promise<void> {
-        usersState.userMFASecret = await api.generateUserMFASecret();
+        state.userMFASecret = await api.generateUserMFASecret();
     }
 
     async function generateUserMFARecoveryCodes(): Promise<void> {
         const codes = await api.generateUserMFARecoveryCodes();
 
-        usersState.userMFARecoveryCodes = codes;
-        usersState.user.mfaRecoveryCodeCount = codes.length;
+        state.userMFARecoveryCodes = codes;
+        state.user.mfaRecoveryCodeCount = codes.length;
     }
 
-    function clearUserInfo() {
-        usersState.user = new User();
-        usersState.user.projectLimit = 1;
+    async function getSettings(): Promise<UserSettings> {
+        const settings = await api.getUserSettings();
+
+        state.settings = settings;
+
+        return settings;
+    }
+
+    async function updateSettings(update: SetUserSettingsData): Promise<void> {
+        state.settings = await api.updateSettings(update);
+    }
+
+    function setUser(user: User): void {
+        state.user = user;
+    }
+
+    // Does nothing. It is called on login screen, and we just subscribe to this action in dashboard wrappers.
+    function login(): void {}
+
+    function clear() {
+        state.user = new User();
+        state.settings = new UserSettings();
+        state.userMFASecret = '';
+        state.userMFARecoveryCodes = [];
     }
 
     return {
-        usersState,
+        state,
         userName,
-        updateUserInfo,
-        fetchUserInfo,
+        shouldOnboard,
+        updateUser,
+        getUser,
         disableUserMFA,
         enableUserMFA,
         generateUserMFASecret,
         generateUserMFARecoveryCodes,
-        clearUserInfo,
-        fetchFrozenStatus,
+        clear,
+        login,
+        getFrozenStatus,
+        setUser,
+        updateSettings,
+        getSettings,
     };
 });

@@ -27,7 +27,16 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
+)
+
+const (
+	// UnauthorizedThroughOauth - message for full accesses through Oauth.
+	UnauthorizedThroughOauth = "This operation is not authorized through oauth."
+	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
+	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
+	// AuthorizationNotEnabled - message for when authorization is disabled.
+	AuthorizationNotEnabled = "Authorization not enabled."
 )
 
 // Config defines configuration for debug server.
@@ -54,7 +63,7 @@ type DB interface {
 	// OIDC returns the database for OIDC and OAuth information.
 	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
-	StripeCoinPayments() stripecoinpayments.DB
+	StripeCoinPayments() stripe.DB
 }
 
 // Server provides endpoints for administrative tasks.
@@ -103,7 +112,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 
 	// prod owners only
 	fullAccessAPI := api.NewRoute().Subrouter()
-	fullAccessAPI.Use(withAuth(log, config, nil))
+	fullAccessAPI.Use(server.withAuth(nil))
 	fullAccessAPI.HandleFunc("/users", server.addUser).Methods("POST")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
@@ -128,7 +137,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
-	limitUpdateAPI.Use(withAuth(log, config, []string{config.Groups.LimitUpdate}))
+	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}))
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
@@ -181,24 +190,28 @@ func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
 
+// SetAllowedOauthHost allows tests to set which address to recognize as belonging to the OAuth proxy.
+func (server *Server) SetAllowedOauthHost(host string) {
+	server.config.AllowedOauthHost = host
+}
+
 // withAuth checks if the requester is authorized to perform an operation. If the request did not come from the oauth proxy, verify the auth token.
 // Otherwise, check that the user has the required permissions to conduct the operation. `allowedGroups` is a list of groups that are authorized.
 // If it is nil, then the api method is not accessible from the oauth proxy.
-func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next http.Handler) http.Handler {
+func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			if r.Host != config.AllowedOauthHost {
+			if r.Host != server.config.AllowedOauthHost {
 				// not behind the proxy; use old authentication method.
-				if config.AuthorizationToken == "" {
-					sendJSONError(w, "Authorization not enabled.",
-						"", http.StatusForbidden)
+				if server.config.AuthorizationToken == "" {
+					sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
 					return
 				}
 
 				equality := subtle.ConstantTimeCompare(
 					[]byte(r.Header.Get("Authorization")),
-					[]byte(config.AuthorizationToken),
+					[]byte(server.config.AuthorizationToken),
 				)
 				if equality != 1 {
 					sendJSONError(w, "Forbidden",
@@ -208,8 +221,8 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 			} else {
 				// request made from oauth proxy. Check user groups against allowedGroups.
 				if allowedGroups == nil {
-					sendJSONError(w, "Forbidden",
-						"This operation is not authorized through oauth. Please contact a production owner to proceed.", http.StatusForbidden)
+					// Endpoint is a full access endpoint, and requires token auth.
+					sendJSONError(w, "Forbidden", UnauthorizedThroughOauth, http.StatusForbidden)
 					return
 				}
 
@@ -232,13 +245,12 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 				}
 
 				if !allowed {
-					sendJSONError(w, "Forbidden",
-						fmt.Sprintf("User must be a member of one of these groups to conduct this operation: %s", allowedGroups), http.StatusForbidden)
+					sendJSONError(w, "Forbidden", fmt.Sprintf(UnauthorizedNotInGroup, allowedGroups), http.StatusForbidden)
 					return
 				}
 			}
 
-			log.Info(
+			server.log.Info(
 				"admin action",
 				zap.String("host", r.Host),
 				zap.String("user", r.Header.Get("X-Forwarded-Email")),

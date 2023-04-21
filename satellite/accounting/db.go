@@ -175,7 +175,7 @@ type Usage struct {
 // architecture: Database
 type StoragenodeAccounting interface {
 	// SaveTallies records tallies of data at rest
-	SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error
+	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storj.NodeID, tallies []float64) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
 	// GetTalliesSince retrieves all tallies since latestRollup
@@ -242,8 +242,8 @@ type ProjectAccounting interface {
 	// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
 	// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
 	GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]ProjectUsage, err error)
-	// GetProjectObjectsSegments returns project objects and segments for specified period of time.
-	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
+	// GetProjectObjectsSegments returns project objects and segments number.
+	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.

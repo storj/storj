@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 // CacheService updates the space used cache.
@@ -157,7 +157,7 @@ func (service *CacheService) Close() (err error) {
 //
 // architecture: Database
 type BlobsUsageCache struct {
-	storage.Blobs
+	blobstore.Blobs
 	log *zap.Logger
 
 	mu                   sync.Mutex
@@ -168,7 +168,7 @@ type BlobsUsageCache struct {
 }
 
 // NewBlobsUsageCache creates a new disk blob store with a space used cache.
-func NewBlobsUsageCache(log *zap.Logger, blob storage.Blobs) *BlobsUsageCache {
+func NewBlobsUsageCache(log *zap.Logger, blob blobstore.Blobs) *BlobsUsageCache {
 	return &BlobsUsageCache{
 		log:                  log,
 		Blobs:                blob,
@@ -177,7 +177,7 @@ func NewBlobsUsageCache(log *zap.Logger, blob storage.Blobs) *BlobsUsageCache {
 }
 
 // NewBlobsUsageCacheTest creates a new disk blob store with a space used cache.
-func NewBlobsUsageCacheTest(log *zap.Logger, blob storage.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) *BlobsUsageCache {
+func NewBlobsUsageCacheTest(log *zap.Logger, blob blobstore.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) *BlobsUsageCache {
 	return &BlobsUsageCache{
 		log:                  log,
 		Blobs:                blob,
@@ -222,7 +222,7 @@ func (blobs *BlobsUsageCache) SpaceUsedForTrash(ctx context.Context) (int64, err
 
 // Delete gets the size of the piece that is going to be deleted then deletes it and
 // updates the space used cache accordingly.
-func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRef) error {
+func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.BlobRef) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
 		return Error.Wrap(err)
@@ -241,7 +241,7 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRe
 	return nil
 }
 
-func (blobs *BlobsUsageCache) pieceSizes(ctx context.Context, blobRef storage.BlobRef) (pieceTotal int64, pieceContentSize int64, err error) {
+func (blobs *BlobsUsageCache) pieceSizes(ctx context.Context, blobRef blobstore.BlobRef) (pieceTotal int64, pieceContentSize int64, err error) {
 	blobInfo, err := blobs.Stat(ctx, blobRef)
 	if err != nil {
 		return 0, 0, err
@@ -286,7 +286,7 @@ func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string
 }
 
 // Trash moves the ref to the trash and updates the cache.
-func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef storage.BlobRef) error {
+func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobRef) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
 		return Error.Wrap(err)
@@ -336,7 +336,7 @@ func (blobs *BlobsUsageCache) RestoreTrash(ctx context.Context, namespace []byte
 	}
 
 	for _, key := range keysRestored {
-		pieceTotal, pieceContentSize, sizeErr := blobs.pieceSizes(ctx, storage.BlobRef{
+		pieceTotal, pieceContentSize, sizeErr := blobs.pieceSizes(ctx, blobstore.BlobRef{
 			Key:       key,
 			Namespace: namespace,
 		})
@@ -492,9 +492,9 @@ func (blobs *BlobsUsageCache) Close() error {
 }
 
 // TestCreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
-func (blobs *BlobsUsageCache) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
+func (blobs *BlobsUsageCache) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	fStore := blobs.Blobs.(interface {
-		TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+		TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error)
 	})
 	return fStore.TestCreateV0(ctx, ref)
 }

@@ -69,16 +69,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -101,7 +101,9 @@ const overallLoading = ref<boolean>(false);
 const searchLoading = ref<boolean>(false);
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -109,14 +111,14 @@ const router = useRouter();
  * Returns fetched buckets page from store.
  */
 const bucketsPage = computed((): BucketPage => {
-    return store.state.bucketUsageModule.page;
+    return bucketsStore.state.page;
 });
 
 /**
  * Returns buckets search query.
  */
 const searchQuery = computed((): string => {
-    return store.getters.cursor.search;
+    return bucketsStore.state.cursor.search;
 });
 
 /**
@@ -144,21 +146,21 @@ const isTableShown = computed((): boolean => {
  * Returns condition if user has to be prompt for passphrase from store.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => {
-    return store.state.objectsModule.gatewayCredentials;
+    return bucketsStore.state.edgeCredentials;
 });
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**
@@ -166,7 +168,7 @@ function onCreateBucketClick(): void {
  */
 async function fetchBuckets(page = 1): Promise<void> {
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
@@ -176,13 +178,13 @@ async function fetchBuckets(page = 1): Promise<void> {
  * Handles bucket search functionality.
  */
 async function searchBuckets(searchQuery: string): Promise<void> {
-    await store.dispatch(BUCKET_ACTIONS.SET_SEARCH, searchQuery);
+    bucketsStore.setBucketsSearch(searchQuery);
     await analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
     searchLoading.value = true;
 
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
@@ -207,13 +209,13 @@ function openDropdown(key: number): void {
  * Holds on bucket click. Proceeds to file browser.
  */
 async function openBucket(bucketName: string): Promise<void> {
-    store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
+    bucketsStore.setFileComponentBucketName(bucketName);
     if (!promptForPassphrase.value) {
         if (!edgeCredentials.value.accessKeyId) {
             overallLoading.value = true;
 
             try {
-                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 overallLoading.value = false;
             } catch (error) {
                 await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
@@ -228,11 +230,11 @@ async function openBucket(bucketName: string): Promise<void> {
         return;
     }
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.openBucket);
 }
 
 onBeforeUnmount(() => {
-    store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+    bucketsStore.setBucketsSearch('');
 });
 </script>
 

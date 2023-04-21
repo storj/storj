@@ -25,66 +25,62 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+
+const isDataFetching = ref<boolean>(true);
+
 /**
- * VBanner is common banner for needed pages
+ * Returns user's projects count.
  */
-// @vue/component
-@Component({
-    components: {
-        VLoader,
-    },
-})
-export default class ProjectInfoBar extends Vue {
-    public isDataFetching = true;
+const projectsCount = computed((): number => {
+    return projectsStore.projectsCount(usersStore.state.user.id);
+});
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches projects.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+/**
+ * Returns project limit from store.
+ */
+const projectLimit = computed((): number => {
+    const projectLimit: number = usersStore.state.user.projectLimit;
+    if (projectLimit < projectsCount.value) return projectsCount.value;
 
-            this.isDataFetching = false;
-        } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_INFO_BAR);
-            return;
-        }
+    return projectLimit;
+});
+
+/**
+ * Returns project limits increase request url from config.
+ */
+const projectLimitsIncreaseRequestURL = computed((): string => {
+    return appStore.state.config.projectLimitsIncreaseRequestURL;
+});
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetch projects.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        await projectsStore.getProjects();
+
+        isDataFetching.value = false;
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_INFO_BAR);
+        return;
     }
-
-    /**
-     * Returns user's projects count.
-     */
-    public get projectsCount(): number {
-        return this.$store.getters.projectsCount;
-    }
-
-    /**
-     * Returns project limit from store.
-     */
-    public get projectLimit(): number {
-        const projectLimit: number = this.$store.getters.user.projectLimit;
-        if (projectLimit < this.projectsCount) return this.projectsCount;
-
-        return projectLimit;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get projectLimitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
-}
+});
 </script>
 
 <style scoped lang="scss">

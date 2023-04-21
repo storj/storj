@@ -2285,6 +2285,43 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on users table to improve get users queries.",
+				Version:     228,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add debounce_limit column to nodes table",
+				Version:     229,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN debounce_limit integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add onboarding columns to user_settings table",
+				SeparateTx:  true,
+				Version:     230,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN onboarding_start boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_end boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_step text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns package_plan and purchased_package_at to stripe_customers",
+				Version:     231,
+				Action: migrate.SQL{
+					`ALTER TABLE stripe_customers ADD COLUMN package_plan TEXT;`,
+					`ALTER TABLE stripe_customers ADD COLUMN purchased_package_at timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

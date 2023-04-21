@@ -18,8 +18,6 @@
             <div class="all-dashboard__content__divider" />
 
             <div class="all-dashboard__banners">
-                <BillingNotification v-if="isBillingNotificationShown" class="all-dashboard__banners__billing" />
-
                 <UpgradeNotification
                     v-if="isPaidTierBannerShown"
                     class="all-dashboard__banners__upgrade"
@@ -41,6 +39,18 @@
                 >
                     <template #text>
                         <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                    </template>
+                </v-banner>
+
+                <v-banner
+                    v-if="isAccountWarned && !isLoading && dashboardContent"
+                    class="all-dashboard__banners__warning"
+                    severity="warning"
+                    :dashboard-ref="dashboardContent"
+                >
+                    <template #text>
+                        <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
                         <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
                     </template>
                 </v-banner>
@@ -103,40 +113,33 @@
 </template>
 
 <script setup lang="ts">
-
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { USER_ACTIONS } from '@/store/modules/users';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { MetaUtils } from '@/utils/meta';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
-import eventBus from '@/utils/eventBus';
 import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
-import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
@@ -148,22 +151,25 @@ import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vu
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const {
-    SETUP_ACCOUNT,
-    GET_CREDIT_CARDS,
-} = PAYMENTS_ACTIONS;
-
-const router = useRouter();
-const store = useStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 const notify = useNotify();
+
+const bucketsStore = useBucketsStore();
+const pmStore = useProjectMembersStore();
+const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
+const billingStore = useBillingStore();
+const agStore = useAccessGrantsStore();
+const appStore = useAppStore();
+const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
+
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const inactivityModalTime = 60000;
-const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
-const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
-const sessionRefreshInterval: number = sessionDuration / 2;
-const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
@@ -180,32 +186,71 @@ const isEightyLimitModalShown = ref<boolean>(false);
 const dashboardContent = ref<HTMLElement | null>(null);
 
 /**
+ * Returns the session duration from the store.
+ */
+const sessionDuration = computed((): number => {
+    return appStore.state.config.inactivityTimerDuration * 1000;
+});
+
+/**
+ * Returns the session refresh interval from the store.
+ */
+const sessionRefreshInterval = computed((): number => {
+    return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether to display the session timer for debugging.
+ */
+const debugTimerShown = computed((): boolean => {
+    return appStore.state.config.inactivityTimerViewerEnabled;
+});
+
+/**
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
-    return store.state.usersModule.user.isFrozen;
+    return usersStore.state.user.freezeStatus.frozen;
+});
+
+/**
+ * Indicates if account was warned due to billing issues.
+ */
+const isAccountWarned = computed((): boolean => {
+    return usersStore.state.user.freezeStatus.warned;
 });
 
 /**
  * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
  */
-const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
+ type LimitedState = {
+    eightyIsShown: boolean;
+    hundredIsShown: boolean;
+    eightyLabel: string;
+    eightyModalLimitType: string;
+    eightyModalTitle: string;
+    hundredLabel: string;
+    hundredModalTitle: string;
+    hundredModalLimitType: string;
+}
 
-    const result:
-        {
-            eightyIsShown: boolean,
-            hundredIsShown: boolean,
-            eightyLabel?: string,
-            eightyModalTitle?: string,
-            eightyModalLimitType?: string,
-            hundredLabel?: string,
-            hundredModalTitle?: string,
-            hundredModalLimitType?: string
+const limitState = computed((): LimitedState => {
+    const result: LimitedState = {
+        eightyIsShown: false,
+        hundredIsShown: false,
+        eightyLabel: '',
+        eightyModalLimitType: '',
+        eightyModalTitle: '',
+        hundredLabel: '',
+        hundredModalTitle: '',
+        hundredModalLimitType: '',
+    };
 
-        } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
+    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
+        return result;
+    }
 
-    const { currentLimits } = store.state.projectsModule;
+    const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
         { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
@@ -253,36 +298,28 @@ const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolea
  * Whether the current route is the billing page.
  */
 const isBillingPage = computed(() => {
-    return useRoute().path.includes(RouteConfig.Billing2.path);
-});
-
-/**
- * Indicates whether the billing relocation notification should be shown.
- */
-const isBillingNotificationShown = computed((): boolean => {
-    return !isBillingPage.value
-    && store.state.appStateModule.appState.isBillingNotificationShown;
+    return router.currentRoute.path.includes(RouteConfig.Billing2.path);
 });
 
 /**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return store.state.appStateModule.isBetaSatellite;
+    return appStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    return appStore.state.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
  * Indicates whether the MFA recovery code warning bar should be shown.
  */
 const showMFARecoveryCodeBar = computed((): boolean => {
-    const user: User = store.getters.user;
+    const user: User = usersStore.state.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
@@ -290,29 +327,29 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 const isProjectLimitBannerShown = computed((): boolean => {
     return !LocalData.getProjectLimitBannerHidden()
         && !isBillingPage.value
-        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
 });
 
 /**
  * Returns whether the user has reached project limits.
  */
 const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = store.getters.user.projectLimit;
-    const projectsCount: number = store.getters.projectsCount;
+    const projectLimit: number = usersStore.state.user.projectLimit;
+    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
 
     return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !store.state.usersModule.user.paidTier
+    return !usersStore.state.user.paidTier
         && !isBillingPage.value
         && joinedWhileAgo.value;
 });
 
 /* whether the user joined more than 7 days ago */
 const joinedWhileAgo = computed((): boolean => {
-    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    const createdAt = usersStore.state.user.createdAt as Date | null;
     if (!createdAt) return true; // true so we can show the banner regardless
     const millisPerDay = 24 * 60 * 60 * 1000;
     return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
@@ -341,18 +378,17 @@ async function handleInactive(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
-        store.dispatch('files/clear'),
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        abTestingStore.reset(),
+        obStore.clear(),
     ]);
 
     resetActivityEvents.forEach((eventName: string) => {
@@ -375,7 +411,7 @@ async function handleInactive(): Promise<void> {
  */
 async function generateNewMFARecoveryCodes(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
@@ -386,7 +422,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
@@ -402,7 +438,7 @@ function closeInactivityModal(): void {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
@@ -418,9 +454,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (isInactivityTimerEnabled === 'false') return;
+    if (!appStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -429,7 +463,7 @@ function setupSessionTimers(): void {
             document.addEventListener(eventName, onSessionActivity, false);
         });
 
-        if (expiresAt.getTime() - sessionDuration + sessionRefreshInterval < Date.now()) {
+        if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
             refreshSession();
         }
 
@@ -446,18 +480,23 @@ function restartSessionTimers(): void {
         if (isSessionActive.value) {
             await refreshSession();
         }
-    }, sessionRefreshInterval);
+    }, sessionRefreshInterval.value);
 
-    inactivityTimerId.value = setTimeout(() => {
+    inactivityTimerId.value = setTimeout(async () => {
+        if (obStore.uploadingLength) {
+            await refreshSession();
+            return;
+        }
+
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
             await handleInactive();
             await notify.notify('Your session was timed out.');
         }, inactivityModalTime);
-    }, sessionDuration - inactivityModalTime);
+    }, sessionDuration.value - inactivityModalTime);
 
-    if (!debugTimerShown) return;
+    if (!debugTimerShown.value) return;
 
     const debugTimer = () => {
         const expiresAt = LocalData.getSessionExpirationDate();
@@ -475,28 +514,6 @@ function restartSessionTimers(): void {
     };
 
     debugTimer();
-}
-
-/**
- * Used to trigger session timer update while doing not UI-related work for a long time.
- */
-async function resetSessionOnLogicRelatedActivity(): Promise<void> {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (!isInactivityTimerEnabled) {
-        return;
-    }
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        const ms = Math.max(0, expiresAt.getTime() - Date.now());
-
-        // Isn't triggered when decent amount of session time is left.
-        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
-            await refreshSession();
-        }
-    }
 }
 
 /**
@@ -539,33 +556,23 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    store.subscribeAction((action) => {
-        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    usersStore.$onAction((action) => {
+        if (action.name === 'clear') clearSessionTimers();
     });
 
-    if (LocalData.getBillingNotificationAcknowledged()) {
-        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    } else {
-        const unsub = store.subscribe((action) => {
-            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
-                LocalData.setBillingNotificationAcknowledged();
-                unsub();
-            }
-        });
-    }
-
     try {
-        await store.dispatch(USER_ACTIONS.GET);
-        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
-        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        await usersStore.getUser();
+        await usersStore.getFrozenStatus();
+        await abTestingStore.fetchValues();
+        await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        store.subscribeAction((action) => {
-            if (action.type === USER_ACTIONS.LOGIN) setupSessionTimers();
+        usersStore.$onAction((action) => {
+            if (action.name === 'login') setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
@@ -575,14 +582,14 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        agStore.stopWorker();
+        await agStore.startWorker();
     } catch (error) {
         await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
-        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
             await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
@@ -595,31 +602,29 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
     } catch (error) {
         return;
     }
 
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-});
+    appStore.changeState(FetchState.LOADED);
 
-/**
- * Subscribes to activity events to refresh session timers.
- */
-onBeforeMount(() => {
-    eventBus.$on('upload_progress', () => {
-        resetSessionOnLogicRelatedActivity();
-    });
+    if (usersStore.shouldOnboard && !appStore.state.viewsState.hasShownPricingPlan) {
+        appStore.setHasShownPricingPlan(true);
+        // if the user is not legible for a pricing plan, they'll automatically be
+        // navigated back to all projects dashboard.
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
+        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
+    }
 });
 
 onBeforeUnmount(() => {
-    eventBus.$off('upload_progress');
     clearSessionTimers();
     resetActivityEvents.forEach((eventName: string) => {
         document.removeEventListener(eventName, onSessionActivity);
@@ -696,6 +701,7 @@ onBeforeUnmount(() => {
         &__upgrade,
         &__project-limit,
         &__freeze,
+        &__warning,
         &__hundred-limit,
         &__eighty-limit {
             margin: 20px 0 0;

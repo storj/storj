@@ -58,25 +58,26 @@ type APIKeys interface {
 type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
-	log                  *zap.Logger
-	buckets              *buckets.Service
-	metabase             *metabase.DB
-	deletePieces         *piecedeletion.Service
-	orders               *orders.Service
-	overlay              *overlay.Service
-	attributions         attribution.DB
-	pointerVerification  *pointerverification.Service
-	projectUsage         *accounting.Service
-	projectLimits        *accounting.ProjectLimitCache
-	projects             console.Projects
-	apiKeys              APIKeys
-	satellite            signing.Signer
-	limiterCache         *lrucache.ExpiringLRU
-	encInlineSegmentSize int64 // max inline segment size + encryption overhead
-	revocations          revocation.DB
-	defaultRS            *pb.RedundancyScheme
-	config               Config
-	versionCollector     *versionCollector
+	log                    *zap.Logger
+	buckets                *buckets.Service
+	metabase               *metabase.DB
+	deletePieces           *piecedeletion.Service
+	orders                 *orders.Service
+	overlay                *overlay.Service
+	attributions           attribution.DB
+	pointerVerification    *pointerverification.Service
+	projectUsage           *accounting.Service
+	projectLimits          *accounting.ProjectLimitCache
+	projects               console.Projects
+	apiKeys                APIKeys
+	satellite              signing.Signer
+	limiterCache           *lrucache.ExpiringLRU
+	singleObjectLimitCache *lrucache.ExpiringLRU
+	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
+	revocations            revocation.DB
+	defaultRS              *pb.RedundancyScheme
+	config                 Config
+	versionCollector       *versionCollector
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -121,6 +122,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		limiterCache: lrucache.New(lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
+			Name:       "metainfo-ratelimit",
+		}),
+		singleObjectLimitCache: lrucache.New(lrucache.Options{
+			Expiration: config.UploadLimiter.SingleObjectLimit,
+			Capacity:   config.UploadLimiter.CacheCapacity,
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
@@ -288,7 +294,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 	}
 
 	switch {
-	case storj.ErrObjectNotFound.Has(err):
+	case metabase.ErrObjectNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrSegmentNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())

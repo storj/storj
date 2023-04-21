@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -20,19 +21,19 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestService(t *testing.T) {
@@ -40,7 +41,7 @@ func TestService(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
 			},
 		},
 	},
@@ -108,7 +109,7 @@ func TestService(t *testing.T) {
 
 				// stripecoinpayments.TestPaymentMethodsAttachFailure triggers the underlying mock stripe client to return an error
 				// when attaching a payment method to a customer.
-				_, err = service.Payments().AddCreditCard(userCtx1, stripecoinpayments.TestPaymentMethodsAttachFailure)
+				_, err = service.Payments().AddCreditCard(userCtx1, stripe.TestPaymentMethodsAttachFailure)
 				require.Error(t, err)
 
 				// user still in free tier
@@ -379,13 +380,13 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("GetAllBucketNames", func(t *testing.T) {
-				bucket1 := storj.Bucket{
+				bucket1 := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      "testBucket1",
 					ProjectID: up2Pro1.ID,
 				}
 
-				bucket2 := storj.Bucket{
+				bucket2 := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      "testBucket2",
 					ProjectID: up2Pro1.ID,
@@ -464,7 +465,7 @@ func TestService(t *testing.T) {
 				// testplanet applies the free tier coupon first, so we need to change it in order
 				// to verify that ApplyFreeTierCoupon really works.
 				freeTier := sat.Config.Payments.StripeCoinPayments.StripeFreeTierCouponID
-				coupon3, err := service.Payments().ApplyCoupon(userCtx1, stripecoinpayments.MockCouponID3)
+				coupon3, err := service.Payments().ApplyCoupon(userCtx1, stripe.MockCouponID3)
 				require.NoError(t, err)
 				require.NotNil(t, coupon3)
 				require.NotEqual(t, freeTier, coupon3.ID)
@@ -485,7 +486,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, coupon)
 			})
 			t.Run("ApplyCoupon", func(t *testing.T) {
-				id := stripecoinpayments.MockCouponID2
+				id := stripe.MockCouponID2
 				coupon, err := service.Payments().ApplyCoupon(userCtx2, id)
 				require.NoError(t, err)
 				require.NotNil(t, coupon)
@@ -496,7 +497,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, id, coupon.ID)
 			})
 			t.Run("ApplyCoupon fails with unknown user", func(t *testing.T) {
-				id := stripecoinpayments.MockCouponID2
+				id := stripe.MockCouponID2
 				coupon, err := service.Payments().ApplyCoupon(ctx, id)
 				require.Error(t, err)
 				require.Nil(t, coupon)
@@ -505,6 +506,60 @@ func TestService(t *testing.T) {
 				coupon, err := service.Payments().ApplyCoupon(userCtx2, "unknown_coupon_id")
 				require.Error(t, err)
 				require.Nil(t, coupon)
+			})
+			t.Run("UpdatePackage", func(t *testing.T) {
+				packagePlan := "package-plan-1"
+				purchaseTime := time.Now()
+
+				check := func() {
+					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().Customers().GetPackageInfo(ctx, up1Pro1.OwnerID)
+					require.NoError(t, err)
+					require.NotNil(t, dbPackagePlan)
+					require.NotNil(t, dbPurchaseTime)
+					require.Equal(t, packagePlan, *dbPackagePlan)
+					require.Equal(t, dbPurchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+				}
+
+				require.NoError(t, service.Payments().UpdatePackage(userCtx1, packagePlan, purchaseTime))
+				check()
+
+				// Check values can't be overwritten
+				err = service.Payments().UpdatePackage(userCtx1, "different-package-plan", time.Now())
+				require.Error(t, err)
+				require.True(t, console.ErrAlreadyHasPackage.Has(err))
+
+				check()
+			})
+			t.Run("ApplyCredit fails when payments.Balances.ApplyCredit returns an error", func(t *testing.T) {
+				require.Error(t, service.Payments().ApplyCredit(userCtx1, 1000, stripe.MockCBTXsNewFailure))
+				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Zero(t, len(btxs))
+			})
+			t.Run("ApplyCredit", func(t *testing.T) {
+				amount := int64(1000)
+				desc := "test"
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
+				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 1)
+				require.Equal(t, amount, btxs[0].Amount)
+				require.Equal(t, desc, btxs[0].Description)
+
+				// test same description results in no new credit
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
+				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 1)
+
+				// test different description results in new credit
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, "new desc"))
+				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 2)
+			})
+			t.Run("ApplyCredit fails with unknown user", func(t *testing.T) {
+				require.Error(t, service.Payments().ApplyCredit(ctx, 1000, "test"))
 			})
 		})
 }
@@ -1069,6 +1124,96 @@ func TestRefreshSessionToken(t *testing.T) {
 	})
 }
 
+func TestUserSettings(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, existingUser.ID)
+		require.NoError(t, err)
+
+		_, err = userDB.GetSettings(userCtx, existingUser.ID)
+		require.Error(t, err)
+
+		// a user that already has a project prior to getting user settings should not go through onboarding again
+		// in other words, onboarding start and end should both be true for users who have a project
+		settings, err := srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, true, settings.OnboardingStart)
+		require.Equal(t, true, settings.OnboardingEnd)
+		require.Nil(t, settings.OnboardingStep)
+		require.Nil(t, settings.SessionDuration)
+
+		newUser, err := userDB.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "newuser@example.com",
+			PasswordHash: []byte("i am a hash of a password, hello"),
+		})
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, newUser.ID)
+		require.NoError(t, err)
+
+		// a brand new user with no project should go through onboarding
+		// in other words, onboarding start and end should both be false for users withouut a project
+		settings, err = srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, false, settings.OnboardingStart)
+		require.Equal(t, false, settings.OnboardingEnd)
+		require.Nil(t, settings.OnboardingStep)
+		require.Nil(t, settings.SessionDuration)
+
+		onboardingBool := true
+		onboardingStep := "Overview"
+		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
+		sessionDurPtr := &sessionDur
+		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+			SessionDuration: &sessionDurPtr,
+			OnboardingStart: &onboardingBool,
+			OnboardingEnd:   &onboardingBool,
+			OnboardingStep:  &onboardingStep,
+		})
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+
+		settings, err = userDB.GetSettings(userCtx, newUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+
+		// passing nil should not override existing values
+		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+			SessionDuration: nil,
+			OnboardingStart: nil,
+			OnboardingEnd:   nil,
+			OnboardingStep:  nil,
+		})
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+
+		settings, err = userDB.GetSettings(userCtx, newUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+	})
+}
+
 func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -1355,9 +1500,9 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		err = sat.DB.Wallets().Add(ctx, user.ID, wallet)
 		require.NoError(t, err)
 
-		var transactions []stripecoinpayments.Transaction
+		var transactions []stripe.Transaction
 		for i := 0; i < 5; i++ {
-			tx := stripecoinpayments.Transaction{
+			tx := stripe.Transaction{
 				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
 				AccountID: user.ID,
 				Address:   blockchaintest.NewAddress().Hex(),
@@ -1469,7 +1614,7 @@ func TestPaymentsPurchase(t *testing.T) {
 			},
 			{
 				"Purchase returns error when underlying payments.Invoices.New returns error",
-				stripecoinpayments.MockInvoicesNewFailure,
+				stripe.MockInvoicesNewFailure,
 				testPaymentMethod,
 				true,
 				userCtx,
@@ -1477,7 +1622,7 @@ func TestPaymentsPurchase(t *testing.T) {
 			{
 				"Purchase returns error when underlying payments.Invoices.Pay returns error",
 				testDesc,
-				stripecoinpayments.MockInvoicesPayFailure,
+				stripe.MockInvoicesPayFailure,
 				true,
 				userCtx,
 			},
@@ -1519,7 +1664,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		testDesc := "testDescription"
+		draftInvDesc := "testDraftDescription"
 		testPaymentMethod := "testPaymentMethod"
 
 		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
@@ -1527,7 +1672,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 0)
 
 		// test purchase with draft invoice
-		inv, err := sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, testDesc)
+		inv, err := sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, draftInvDesc)
 		require.NoError(t, err)
 		require.Equal(t, payments.InvoiceStatusDraft, inv.Status)
 
@@ -1538,7 +1683,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, draftInv, invs[0].ID)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, testDesc, testPaymentMethod))
+		require.NoError(t, p.Purchase(userCtx, 1000, draftInvDesc, testPaymentMethod))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -1547,13 +1692,14 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
 
 		// test purchase with open invoice
-		inv, err = sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, testDesc)
+		openInvDesc := "testOpenDescription"
+		inv, err = sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, openInvDesc)
 		require.NoError(t, err)
 
 		openInv := inv.ID
 
 		// attempting to pay a draft invoice changes it to open if payment fails
-		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripecoinpayments.MockInvoicesPayFailure)
+		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripe.MockInvoicesPayFailure)
 		require.Error(t, err)
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
@@ -1568,7 +1714,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		}
 		require.True(t, foundInv)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, testDesc, testPaymentMethod))
+		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, testPaymentMethod))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -1581,6 +1727,13 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 			}
 		}
 		require.True(t, foundInv)
+
+		// purchase with paid invoice skips creating and or paying invoice
+		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, testPaymentMethod))
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 2)
 	})
 }
 

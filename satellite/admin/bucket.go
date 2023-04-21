@@ -64,7 +64,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 
 	b, err := server.buckets.GetBucket(ctx, bucket, project.UUID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
 		} else {
 			sendJSONError(w, "unable to create geofence for bucket", err.Error(), http.StatusInternalServerError)
@@ -77,7 +77,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 	_, err = server.buckets.UpdateBucket(ctx, b)
 	if err != nil {
 		switch {
-		case storj.ErrBucketNotFound.Has(err):
+		case buckets.ErrBucketNotFound.Has(err):
 			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
 		case buckets.ErrBucketNotEmpty.Has(err):
 			sendJSONError(w, "bucket must be empty", "", http.StatusBadRequest)
@@ -115,8 +115,8 @@ func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {
 
 	b, err := server.buckets.GetBucket(ctx, bucket, project.UUID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
+		if buckets.ErrBucketNotFound.Has(err) {
+			sendJSONError(w, "bucket does not exist", "", http.StatusNotFound)
 		} else {
 			sendJSONError(w, "unable to check bucket", err.Error(), http.StatusInternalServerError)
 		}

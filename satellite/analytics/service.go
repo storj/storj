@@ -81,6 +81,7 @@ const (
 	eventProjectBandwidthLimitUpdated = "Project Bandwidth Limit Updated"
 	eventAccountFrozen                = "Account Frozen"
 	eventAccountUnfrozen              = "Account Unfrozen"
+	eventAccountUnwarned              = "Account Unwarned"
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 )
@@ -175,6 +176,7 @@ type TrackCreateUserFields struct {
 	Type             UserType
 	EmployeeCount    string
 	CompanyName      string
+	StorageNeeds     string
 	JobTitle         string
 	HaveSalesContact bool
 	OriginHeader     string
@@ -243,6 +245,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
 	}
 
 	service.enqueueMessage(segment.Track{
@@ -335,6 +338,22 @@ func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventAccountUnfrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnwarned sends an account unwarned event to Segment.
+func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnwarned,
 		Properties: props,
 	})
 }

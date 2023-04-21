@@ -1,30 +1,23 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 
 import { AuthHttpApi } from '@/api/auth';
-import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
+import { useUsersStore } from '@/store/modules/usersStore';
 
-const Vue = createLocalVue();
-const authApi = new AuthHttpApi();
-const usersModule = makeUsersModule(authApi);
-const { UPDATE, GET, CLEAR } = USER_ACTIONS;
-
-Vue.use(Vuex);
-
-const store = new Vuex.Store<typeof usersModule.state>(usersModule);
-
-describe('mutations', () => {
+describe('actions', () => {
     beforeEach(() => {
-        createLocalVue().use(Vuex);
+        setActivePinia(createPinia());
+        jest.resetAllMocks();
     });
-    it('Set user', () => {
+
+    it('set user', () => {
+        const store = useUsersStore();
         const user = new User('1', 'fullName', 'shortName', 'user@example.com');
 
-        store.commit(USER_MUTATIONS.SET_USER, user);
+        store.setUser(user);
 
         expect(store.state.user.id).toBe(user.id);
         expect(store.state.user.email).toBe(user.email);
@@ -33,48 +26,41 @@ describe('mutations', () => {
     });
 
     it('clear user', () => {
-        store.commit(USER_MUTATIONS.CLEAR);
+        const store = useUsersStore();
 
+        const user = new User('1', 'fullName', 'shortName', 'user@example.com');
+
+        store.setUser(user);
+        expect(store.state.user.id).toBe(user.id);
+
+        store.clear();
         expect(store.state.user.id).toBe('');
         expect(store.state.user.email).toBe('');
         expect(store.state.user.fullName).toBe('');
         expect(store.state.user.shortName).toBe('');
     });
 
-    it('Update user', () => {
+    it('update user', async () => {
+        const store = useUsersStore();
         const user = new UpdatedUser('fullName', 'shortName');
 
-        store.commit(USER_MUTATIONS.UPDATE_USER, user);
+        jest.spyOn(AuthHttpApi.prototype, 'update').mockImplementation(() => Promise.resolve());
+
+        await store.updateUser(user);
 
         expect(store.state.user.fullName).toBe(user.fullName);
         expect(store.state.user.shortName).toBe(user.shortName);
     });
-});
-
-describe('actions', () => {
-    beforeEach(() => {
-        jest.resetAllMocks();
-    });
-    it('success update account', async () => {
-        jest.spyOn(authApi, 'update').mockReturnValue(
-            Promise.resolve(),
-        );
-
-        const user = new UpdatedUser('fullName1', 'shortName2');
-
-        await store.dispatch(UPDATE, user);
-
-        expect(store.state.user.fullName).toBe('fullName1');
-        expect(store.state.user.shortName).toBe('shortName2');
-    });
 
     it('update throws an error when api call fails', async () => {
-        jest.spyOn(authApi, 'update').mockImplementation(() => { throw new Error(); });
+        const store = useUsersStore();
         const newUser = new UpdatedUser('', '');
-        const oldUser = store.getters.user;
+        const oldUser = store.state.user;
+
+        jest.spyOn(AuthHttpApi.prototype, 'update').mockImplementation(() => { throw new Error(); });
 
         try {
-            await store.dispatch(UPDATE, newUser);
+            await store.updateUser(newUser);
             expect(true).toBe(false);
         } catch (error) {
             expect(store.state.user.fullName).toBe(oldUser.fullName);
@@ -82,23 +68,15 @@ describe('actions', () => {
         }
     });
 
-    it('clears state', async () => {
-        await store.dispatch(CLEAR);
-
-        expect(store.state.user.fullName).toBe('');
-        expect(store.state.user.shortName).toBe('');
-        expect(store.state.user.email).toBe('');
-        expect(store.state.user.id).toBe('');
-    });
-
     it('success get user', async () => {
+        const store = useUsersStore();
         const user = new User('2', 'newFullName', 'newShortName', 'user2@example.com');
 
-        jest.spyOn(authApi, 'get').mockReturnValue(
+        jest.spyOn(AuthHttpApi.prototype, 'get').mockReturnValue(
             Promise.resolve(user),
         );
 
-        await store.dispatch(GET);
+        await store.getUser();
 
         expect(store.state.user.id).toBe(user.id);
         expect(store.state.user.shortName).toBe(user.shortName);
@@ -107,11 +85,13 @@ describe('actions', () => {
     });
 
     it('get throws an error when api call fails', async () => {
-        const user = store.getters.user;
-        jest.spyOn(authApi, 'get').mockImplementation(() => { throw new Error(); });
+        const store = useUsersStore();
+        const user = store.state.user;
+
+        jest.spyOn(AuthHttpApi.prototype, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
-            await store.dispatch(GET);
+            await store.getUser();
             expect(true).toBe(false);
         } catch (error) {
             expect(store.state.user.fullName).toBe(user.fullName);
@@ -121,17 +101,13 @@ describe('actions', () => {
 });
 
 describe('getters', () => {
-    it('user model', function () {
-        const retrievedUser = store.getters.user;
-
-        expect(retrievedUser.id).toBe(store.state.user.id);
-        expect(retrievedUser.fullName).toBe(store.state.user.fullName);
-        expect(retrievedUser.shortName).toBe(store.state.user.shortName);
-        expect(retrievedUser.email).toBe(store.state.user.email);
+    beforeEach(() => {
+        setActivePinia(createPinia());
     });
 
     it('user name', function () {
-        const retrievedUserName = store.getters.userName;
+        const store = useUsersStore();
+        const retrievedUserName = store.userName;
 
         expect(retrievedUserName).toBe(store.state.user.getFullName());
     });

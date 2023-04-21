@@ -70,6 +70,7 @@ type stats struct {
 	segmentsBelowMinReq         *monkit.Counter
 	segmentTotalCount           *monkit.IntVal
 	segmentHealthyCount         *monkit.IntVal
+	segmentClumpedCount         *monkit.IntVal
 	segmentAge                  *monkit.IntVal
 	segmentHealth               *monkit.FloatVal
 	injuredSegmentHealth        *monkit.FloatVal
@@ -125,6 +126,7 @@ func newStats(rs string) *stats {
 		segmentsBelowMinReq:             monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs)),
 		segmentTotalCount:               monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs)),
 		segmentHealthyCount:             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs)),
+		segmentClumpedCount:             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs)),
 		segmentAge:                      monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs)),
 		segmentHealth:                   monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs)),
 		injuredSegmentHealth:            monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs)),

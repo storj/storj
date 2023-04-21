@@ -14,6 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
@@ -32,17 +33,19 @@ type Service struct {
 
 	segmentLoop             *segmentloop.Service
 	storagenodeAccountingDB accounting.StoragenodeAccounting
+	metabaseDB              *metabase.DB
 	nowFn                   func() time.Time
 }
 
 // New creates a new node tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, loop *segmentloop.Service, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, mdb *metabase.DB, loop *segmentloop.Service, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: sync2.NewCycle(interval),
 
 		segmentLoop:             loop,
 		storagenodeAccountingDB: sdb,
+		metabaseDB:              mdb,
 		nowFn:                   time.Now,
 	}
 }
@@ -106,7 +109,22 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	monTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	if len(observer.Node) > 0 {
-		err = service.storagenodeAccountingDB.SaveTallies(ctx, finishTime, observer.Node)
+		nodeIDs := make([]storj.NodeID, 0, len(observer.Node))
+		nodeTotals := make([]float64, 0, len(observer.Node))
+		nodeAliasMap, err := service.metabaseDB.LatestNodesAliasMap(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for nodeAlias, total := range observer.Node {
+			nodeID, ok := nodeAliasMap.Node(nodeAlias)
+			if !ok {
+				observer.log.Error("unrecognized node alias in tally", zap.Int32("node-alias", int32(nodeAlias)))
+				continue
+			}
+			nodeIDs = append(nodeIDs, nodeID)
+			nodeTotals = append(nodeTotals, total)
+		}
+		err = service.storagenodeAccountingDB.SaveTallies(ctx, finishTime, nodeIDs, nodeTotals)
 		if err != nil {
 			return Error.New("StorageNodeAccounting.SaveTallies failed: %v", err)
 		}
@@ -122,7 +140,7 @@ type Observer struct {
 	log *zap.Logger
 	now time.Time
 
-	Node map[storj.NodeID]float64
+	Node map[metabase.NodeAlias]float64
 }
 
 // NewObserver returns an segment loop observer that adds up totals for nodes.
@@ -131,7 +149,7 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 		log: log,
 		now: now,
 
-		Node: make(map[storj.NodeID]float64),
+		Node: make(map[metabase.NodeAlias]float64),
 	}
 }
 
@@ -158,8 +176,8 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *segmentloo
 
 	pieceSize := float64(segment.EncryptedSize / int32(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
 
-	for _, piece := range segment.Pieces {
-		observer.Node[piece.StorageNode] += pieceSize
+	for _, piece := range segment.AliasPieces {
+		observer.Node[piece.Alias] += pieceSize
 	}
 
 	return nil

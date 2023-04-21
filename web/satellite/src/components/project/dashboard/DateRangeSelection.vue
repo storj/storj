@@ -21,8 +21,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
@@ -42,7 +41,7 @@ const props = withDefaults(defineProps<{
     toggle: () => {},
 });
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Returns formatted date range string.
@@ -68,7 +67,7 @@ const pickerDateRange = computed((): Date[] => {
  * Closes duration picker.
  */
 function closePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 </script>
 

@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="isNewBillingScreen" class="account-billing-area__header__div">
+        <div class="account-billing-area__header__div">
             <div class="account-billing-area__title">
                 <h1 class="account-billing-area__title__text">Billing</h1>
             </div>
@@ -35,268 +35,117 @@
             </div>
             <div class="account-billing-area__divider" />
         </div>
-        <div v-if="!isNewBillingScreen">
-            <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
-                <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
-                    <NegativeBalanceIcon />
-                    <p class="account-billing-area__notification-container__negative-balance__text">
-                        Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
-                        prevent data loss.
-                    </p>
-                </div>
-                <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
-                    <LowBalanceIcon />
-                    <p class="account-billing-area__notification-container__low-balance__text">
-                        Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
-                    </p>
-                </div>
-            </div>
-            <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
-                <div class="account-billing-area__title-area__balance-area">
-                    <div class="account-billing-area__title-area__balance-area__free-credits">
-                        <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
-                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                        <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
-                    </div>
-                    <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
-                        <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
-                            Available Balance:
-                        </p>
-                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                        <p v-else>
-                            {{ balance.coins | centsToDollars }}
-                        </p>
-                        <HideIcon v-if="isBalanceDropdownShown" class="icon" />
-                        <ExpandIcon v-else class="icon" />
-                        <HistoryDropdown
-                            v-show="isBalanceDropdownShown"
-                            label="Balance History"
-                            :route="balanceHistoryRoute"
-                            @close="closeDropdown"
-                        />
-                    </div>
-                </div>
-                <PeriodSelection v-if="userHasOwnProject" />
-            </div>
-            <EstimatedCostsAndCredits v-if="isSummaryVisible" />
-            <PaymentMethods />
-            <SmallDepositHistory />
-            <CouponArea />
-        </div>
         <router-view />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, reactive } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
 import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AccountBalance } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
-import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
-import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
-import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
-import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
-import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
-import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
-import VLoader from '@/components/common/VLoader.vue';
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-import ExpandIcon from '@/../static/images/account/billing/expand.svg';
-import HideIcon from '@/../static/images/account/billing/hide.svg';
-import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
-import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-// @vue/component
-@Component({
-    components: {
-        PeriodSelection,
-        SmallDepositHistory,
-        EstimatedCostsAndCredits,
-        PaymentMethods,
-        LowBalanceIcon,
-        NegativeBalanceIcon,
-        HistoryDropdown,
-        ExpandIcon,
-        HideIcon,
-        CouponArea,
-        VLoader,
-    },
-})
-export default class BillingArea extends Vue {
-    public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
-    public isBalanceFetching = true;
+/**
+ * Indicates if free credits dropdown shown.
+ */
+const isCreditsDropdownShown = computed((): boolean => {
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
+});
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Indicates if available balance dropdown shown.
+ */
+const isBalanceDropdownShown = computed((): boolean => {
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
+});
 
-    /**
-     * Mounted lifecycle hook after initial render.
-     * Fetches account balance.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-
-            this.isBalanceFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
-        }
+/**
+ * Returns the base account route based on if we're on all projects dashboard.
+ */
+const baseAccountRoute = computed((): NavigationLink => {
+    if (router.currentRoute.path.includes(RouteConfig.AccountSettings.path)) {
+        return RouteConfig.AccountSettings;
     }
 
-    /**
-     * Holds minimum safe balance in cents.
-     * If balance is lower - yellow notification should appear.
-     */
-    private readonly CRITICAL_AMOUNT: number = 1000;
+    return RouteConfig.Account;
+});
 
-    /**
-     * Indicates if free credits dropdown shown.
-     */
-    public get isCreditsDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
-    }
-
-    /**
-     * Indicates if available balance dropdown shown.
-     */
-    public get isBalanceDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
-    }
-
-    /**
-     * Returns account balance from store.
-     */
-    public get balance(): AccountBalance {
-        return this.$store.state.paymentsModule.balance;
-    }
-
-    /**
-     * Indicates if isEstimatedCostsAndCredits component is visible.
-     */
-    public get isSummaryVisible(): boolean {
-        const isBalancePositive: boolean = this.balance.sum > 0;
-
-        return isBalancePositive || this.userHasOwnProject;
-    }
-
-    /**
-     * Indicates if no credit cards attached to account.
-     */
-    public get hasNoCreditCard(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
-    }
-
-    /**
-     * Indicates if balance is below zero.
-     */
-    public get isBalanceNegative(): boolean {
-        return this.balance.sum < 0;
-    }
-
-    /**
-     * Indicates if balance is not below zero but lower then CRITICAL_AMOUNT.
-     */
-    public get isBalanceLow(): boolean {
-        return this.balance.coins > 0 && this.balance.sum < this.CRITICAL_AMOUNT;
-    }
-
-    /**
-     * Returns if balance color red if balance below zero and grey if not.
-     */
-    public get balanceColor(): string {
-        return this.balance.sum < 0 ? '#ff0000' : '#768394';
-    }
-
-    /**
-     * Indicates if user has own project.
-     */
-    public get userHasOwnProject(): boolean {
-        return this.$store.getters.projectsCount > 0;
-    }
-
-    /**
-     * Returns the base account route based on if we're on all projects dashboard.
-     */
-    public get baseAccountRoute(): NavigationLink {
-        if (this.$route.path.includes(RouteConfig.AccountSettings.path)) {
-            return RouteConfig.AccountSettings;
-        }
-        return RouteConfig.Account;
-    }
-
-    /**
-     * Whether current route name contains term.
-     */
-    public routeHas(term: string): boolean {
-        return !!this.$route.name?.toLowerCase().includes(term);
-    }
-
-    /**
-     * Toggles available balance dropdown visibility.
-     */
-    public toggleBalanceDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AVAILABLE_BALANCE);
-    }
-
-    /**
-     * Closes free credits and balance dropdowns.
-     */
-    public closeDropdown(): void {
-        if (!this.isCreditsDropdownShown && !this.isBalanceDropdownShown) return;
-
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
-    }
-
-    /**
-     * Routes for new billing screens.
-     */
-    public routeToOverview(): void {
-        const overviewPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
-        if (this.$route.path !== overviewPath) {
-            this.analytics.pageVisit(overviewPath);
-            this.$router.push(overviewPath);
-        }
-    }
-
-    public routeToPaymentMethods(): void {
-        const payMethodsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
-        if (this.$route.path !== payMethodsPath) {
-            this.analytics.pageVisit(payMethodsPath);
-            this.$router.push(payMethodsPath);
-        }
-    }
-
-    public routeToBillingHistory(): void {
-        const billingPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
-        if (this.$route.path !== billingPath) {
-            this.analytics.pageVisit(billingPath);
-            this.$router.push(billingPath);
-        }
-    }
-
-    public routeToCoupons(): void {
-        const couponsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
-        if (this.$route.path !== couponsPath) {
-            this.analytics.pageVisit(couponsPath);
-            this.$router.push(couponsPath);
-        }
-    }
-
-    /**
-     * Indicates if tabs options are hidden.
-     */
-    public get isNewBillingScreen(): boolean {
-        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === 'true';
-    }
-
+/**
+ * Whether current route name contains term.
+ */
+function routeHas(term: string): boolean {
+    return !!router.currentRoute.name?.toLowerCase().includes(term);
 }
+
+/**
+ * Closes free credits and balance dropdowns.
+ */
+function closeDropdown(): void {
+    if (!isCreditsDropdownShown.value && !isBalanceDropdownShown.value) return;
+
+    appStore.toggleActiveDropdown('none');
+}
+
+/**
+ * Routes for new billing screens.
+ */
+function routeToOverview(): void {
+    const overviewPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+    if (router.currentRoute.path !== overviewPath) {
+        analytics.pageVisit(overviewPath);
+        router.push(overviewPath);
+    }
+}
+
+function routeToPaymentMethods(): void {
+    const payMethodsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+    if (router.currentRoute.path !== payMethodsPath) {
+        analytics.pageVisit(payMethodsPath);
+        router.push(payMethodsPath);
+    }
+}
+
+function routeToBillingHistory(): void {
+    const billingPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path;
+    if (router.currentRoute.path !== billingPath) {
+        analytics.pageVisit(billingPath);
+        router.push(billingPath);
+    }
+}
+
+function routeToCoupons(): void {
+    const couponsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+    if (router.currentRoute.path !== couponsPath) {
+        analytics.pageVisit(couponsPath);
+        router.push(couponsPath);
+    }
+}
+
+/**
+ * Mounted lifecycle hook after initial render.
+ * Fetches account balance.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        await billingStore.getBalance();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
+    }
+});
 </script>
 
 <style scoped lang="scss">
@@ -389,7 +238,7 @@ export default class BillingArea extends Vue {
             padding-top: 20px;
 
             &__text {
-                font-family: sans-serif;
+                font-family: 'font_regular', sans-serif;
             }
         }
 
@@ -419,7 +268,7 @@ export default class BillingArea extends Vue {
             }
 
             &__tab {
-                font-family: sans-serif;
+                font-family: 'font_regular', sans-serif;
                 color: var(--c-grey-6);
                 font-size: 16px;
                 height: auto;

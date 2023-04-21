@@ -27,9 +27,11 @@ type AccountFreezeEvents interface {
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
-	GetAll(ctx context.Context, userID uuid.UUID) (*AccountFreezeEvent, *AccountFreezeEvent, error)
+	GetAll(ctx context.Context, userID uuid.UUID) (freeze *AccountFreezeEvent, warning *AccountFreezeEvent, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
 	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error
+	// DeleteByUserIDAndEvent is a method for deleting all account `eventType` events from the database by user ID.
+	DeleteByUserIDAndEvent(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) error
 }
 
 // AccountFreezeEvent represents an event related to account freezing.
@@ -98,9 +100,18 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 		return ErrAccountFreeze.Wrap(err)
 	}
 
-	event, err := s.freezeEventsDB.Get(ctx, userID, Freeze)
-	if errors.Is(err, sql.ErrNoRows) {
-		event = &AccountFreezeEvent{
+	freeze, warning, err := s.freezeEventsDB.GetAll(ctx, userID)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+	if warning != nil {
+		err = s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, Warning)
+		if err != nil {
+			return ErrAccountFreeze.Wrap(err)
+		}
+	}
+	if freeze == nil {
+		freeze = &AccountFreezeEvent{
 			UserID: userID,
 			Type:   Freeze,
 			Limits: &AccountFreezeEventLimits{
@@ -112,8 +123,6 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 				Projects: make(map[uuid.UUID]UsageLimits),
 			},
 		}
-	} else if err != nil {
-		return ErrAccountFreeze.Wrap(err)
 	}
 
 	userLimits := UsageLimits{
@@ -123,7 +132,7 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 	}
 	// If user limits have been zeroed already, we should not override what is in the freeze table.
 	if userLimits != (UsageLimits{}) {
-		event.Limits.User = userLimits
+		freeze.Limits.User = userLimits
 	}
 
 	projects, err := s.projectsDB.GetOwn(ctx, userID)
@@ -143,11 +152,11 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 		}
 		// If project limits have been zeroed already, we should not override what is in the freeze table.
 		if projLimits != (UsageLimits{}) {
-			event.Limits.Projects[p.ID] = projLimits
+			freeze.Limits.Projects[p.ID] = projLimits
 		}
 	}
 
-	_, err = s.freezeEventsDB.Upsert(ctx, event)
+	_, err = s.freezeEventsDB.Upsert(ctx, freeze)
 	if err != nil {
 		return ErrAccountFreeze.Wrap(err)
 	}
@@ -225,6 +234,29 @@ func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (
 	}
 
 	s.analytics.TrackAccountFreezeWarning(userID, user.Email)
+	return nil
+}
+
+// UnWarnUser reverses the warning placed on the user specified by the given ID.
+func (s *AccountFreezeService) UnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.usersDB.Get(ctx, userID)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+
+	_, err = s.freezeEventsDB.Get(ctx, userID, Warning)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrAccountFreeze.New("user is not warned")
+	}
+
+	err = ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, Warning))
+	if err != nil {
+		return err
+	}
+
+	s.analytics.TrackAccountUnwarned(userID, user.Email)
 	return nil
 }
 
