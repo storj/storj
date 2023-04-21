@@ -31,7 +31,7 @@ import TableItem from '@/components/common/TableItem.vue';
 
 const props = withDefaults(defineProps<{
     itemData: AccessGrant,
-    onClick: () => void,
+    onClick?: () => void,
     isDropdownOpen: boolean,
     dropdownKey: number,
 }>(), {

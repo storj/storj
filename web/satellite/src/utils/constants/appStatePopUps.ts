@@ -46,6 +46,7 @@ export const APP_STATE_DROPDOWNS = {
     PERMISSIONS: 'isPermissionsDropdownShown',
     PAYMENT_SELECTION: 'isPaymentSelectionShown',
     TIMEOUT_SELECTOR: 'timeoutSelector',
+    PAGE_SIZE_SELECTOR: 'pageSizeSelector',
 };
 
 enum Modals {

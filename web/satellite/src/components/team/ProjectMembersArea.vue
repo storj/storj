@@ -25,7 +25,7 @@
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
             :total-items-count="projectMembersTotalCount"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
         >
             <template #head>
                 <th class="align-left">Name</th>
@@ -137,10 +137,11 @@ function onMemberCheckChange(member: ProjectMember): void {
 /**
  * Fetches team member of selected page.
  * @param index
+ * @param limit
  */
-async function onPageClick(index: number): Promise<void> {
+async function onPageChange(index: number, limit: number): Promise<void> {
     try {
-        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id);
+        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }

@@ -11,15 +11,15 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
-const BUCKETS_PAGE_LIMIT = 7;
 const FIRST_PAGE = 1;
 export const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 export class BucketsState {
     public allBucketNames: string[] = [];
-    public cursor: BucketCursor = { limit: BUCKETS_PAGE_LIMIT, search: '', page: FIRST_PAGE };
-    public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: BUCKETS_PAGE_LIMIT, search: '', totalCount: 0 };
+    public cursor: BucketCursor = { limit: DEFAULT_PAGE_LIMIT, search: '', page: FIRST_PAGE };
+    public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: DEFAULT_PAGE_LIMIT, search: '', totalCount: 0 };
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForDelete: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForCreate: EdgeCredentials = new EdgeCredentials();
@@ -54,9 +54,10 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.cursor.search = search;
     }
 
-    async function getBuckets(page: number, projectID: string): Promise<void> {
+    async function getBuckets(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
         const before = new Date();
         state.cursor.page = page;
+        state.cursor.limit = limit;
 
         state.page = await api.get(projectID, before, state.cursor);
     }
@@ -244,8 +245,8 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     function clear(): void {
         state.allBucketNames = [];
-        state.cursor = new BucketCursor('', BUCKETS_PAGE_LIMIT, FIRST_PAGE);
-        state.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
+        state.cursor = new BucketCursor('', DEFAULT_PAGE_LIMIT, FIRST_PAGE);
+        state.page = new BucketPage([], '', DEFAULT_PAGE_LIMIT, 0, 1, 1, 0);
         clearS3Data();
     }
 
