@@ -19,10 +19,10 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                sh "chmod -R 777 ." // Del orphaned files
-                sh "chown -R 1001:1002 /npm/cache"
-                sh "npm install @playwright/test"
-                sh "npx playwright install"
+                // sh "chmod -R 777 ." // Del orphaned files
+                // sh "chown -R 1001:1002 /npm/cache"
+                // sh "npm install @playwright/test"
+                // sh "npx playwright install"
                 checkout scm
                 sh 'mkdir -p .build'
 
