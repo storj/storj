@@ -21,7 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
-	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
@@ -907,16 +906,6 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
-		} else {
-			amount := order.Amount
-			if amountFunc != nil {
-				amount = amountFunc()
-			}
-			// We always want to save order to the database to be able to settle.
-			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
-			if err != nil {
-				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
-			}
 		}
 	}, nil
 }
