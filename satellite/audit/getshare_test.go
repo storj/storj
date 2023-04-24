@@ -72,7 +72,7 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 }
 
 func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]
@@ -128,7 +128,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 }
 
 func TestGetSharePrefers(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]

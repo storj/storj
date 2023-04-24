@@ -1323,7 +1323,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Stop()
-		satellite.Audit.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
@@ -1360,9 +1360,6 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Checker.Loop.Pause()
-
-		// get encrypted path of segment with audit service
-		satellite.Audit.Chore.Loop.TriggerWait()
 
 		// Verify that the segment is on the repair queue
 		count, err := satellite.DB.RepairQueue().Count(ctx)
@@ -2873,7 +2870,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		audits := testSatellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		testSatellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -2881,7 +2878,10 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		// trigger audit
+		_, err = testSatellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -2945,7 +2945,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		audits := testSatellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		testSatellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -2953,7 +2953,10 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		// trigger audit
+		_, err = testSatellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)

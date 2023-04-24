@@ -79,8 +79,8 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# whether or not to use the ranged loop observer instead of the chore.
-# audit.use-ranged-loop: false
+# whether use Audit observer with ranged loop.
+# audit.use-ranged-loop: true
 
 # number of audit jobs to push at once to the verification queue
 # audit.verification-push-batch-size: 4096

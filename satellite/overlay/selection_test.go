@@ -171,7 +171,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		// pause chores that might update node data
-		satellite.Audit.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 		for _, node := range planet.StorageNodes {

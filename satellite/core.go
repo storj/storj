@@ -110,7 +110,6 @@ type Core struct {
 	Audit struct {
 		VerifyQueue          audit.VerifyQueue
 		ReverifyQueue        audit.ReverifyQueue
-		Chore                *audit.Chore
 		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
 
@@ -368,34 +367,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Audit.VerifyQueue = db.VerifyQueue()
 		peer.Audit.ReverifyQueue = db.ReverifyQueue()
 
-		if config.UseRangedLoop {
-			peer.Log.Named("audit:chore").Info("using ranged loop")
-		} else {
-			peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-				peer.Audit.VerifyQueue,
-				peer.Metainfo.SegmentLoop,
-				config,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "audit:chore",
-				Run:   peer.Audit.Chore.Run,
-				Close: peer.Audit.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
-
-			peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
-				peer.Audit.ReverifyQueue,
-				peer.Overlay.DB,
-				config.ContainmentSyncChoreInterval,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "audit:containment-sync-chore",
-				Run:  peer.Audit.ContainmentSyncChore.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Audit Containment Sync Chore", peer.Audit.ContainmentSyncChore.Loop))
-		}
+		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
+			peer.Audit.ReverifyQueue,
+			peer.Overlay.DB,
+			config.ContainmentSyncChoreInterval,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "audit:containment-sync-chore",
+			Run:  peer.Audit.ContainmentSyncChore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Audit Containment Sync Chore", peer.Audit.ContainmentSyncChore.Loop))
 	}
 
 	{ // setup expired segment cleanup

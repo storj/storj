@@ -143,7 +143,6 @@ type Satellite struct {
 		ReverifyQueue        audit.ReverifyQueue
 		Worker               *audit.Worker
 		ReverifyWorker       *audit.ReverifyWorker
-		Chore                *audit.Chore
 		Verifier             *audit.Verifier
 		Reverifier           *audit.Reverifier
 		Reporter             audit.Reporter
@@ -637,7 +636,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.ReverifyQueue = auditorPeer.Audit.ReverifyQueue
 	system.Audit.Worker = auditorPeer.Audit.Worker
 	system.Audit.ReverifyWorker = auditorPeer.Audit.ReverifyWorker
-	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = auditorPeer.Audit.Verifier
 	system.Audit.Reverifier = auditorPeer.Audit.Reverifier
 	system.Audit.Reporter = auditorPeer.Audit.Reporter

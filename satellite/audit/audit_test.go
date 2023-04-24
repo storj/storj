@@ -25,7 +25,7 @@ import (
 // specified bucket are counted correctly for storage node audit bandwidth
 // usage and the storage nodes will be paid for that.
 func TestAuditOrderLimit(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -79,7 +79,7 @@ func TestAuditOrderLimit(t *testing.T) {
 
 // Minimal test to verify that copies aren't audited.
 func TestAuditSkipsRemoteCopies(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -152,7 +152,7 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 
 // Minimal test to verify that inline objects are not audited even if they are copies.
 func TestAuditSkipsInlineCopies(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
