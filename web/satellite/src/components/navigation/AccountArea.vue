@@ -67,6 +67,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -81,6 +82,7 @@ import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 const router = useRouter();
 const notify = useNotify();
 
+const configStore = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -110,14 +112,14 @@ const style = computed((): Record<string, string> => {
  * Indicates if account dropdown is visible.
  */
 const isDropdown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
 });
 
 /**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**

@@ -7,6 +7,7 @@ import Router, { RouteRecord } from 'vue-router';
 import { NavigationLink } from '@/types/navigation';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
@@ -435,11 +436,12 @@ export const router = new Router({
 
 router.beforeEach(async (to, from, next) => {
     const appStore = useAppStore();
+    const configStore = useConfigStore();
 
     if (!to.matched.length) {
         appStore.setErrorPage(404);
         return;
-    } else if (appStore.state.viewsState.error.visible) {
+    } else if (appStore.state.error.visible) {
         appStore.removeErrorPage();
     }
 
@@ -486,7 +488,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path);
+        next(RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path);
 
         return;
     }
@@ -525,10 +527,10 @@ function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink
  * Updates the title of the webpage.
  */
 function updateTitle(): void {
-    const appStore = useAppStore();
+    const configStore = useConfigStore();
     const projectsStore = useProjectsStore();
     const routeName = router.currentRoute.name;
-    const parts = [routeName, appStore.state.config.satelliteName];
+    const parts = [routeName, configStore.state.config.satelliteName];
 
     if (routeName && !notProjectRelatedRoutes.includes(routeName)) {
         parts.unshift(projectsStore.state.selectedProject.name);

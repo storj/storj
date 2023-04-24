@@ -57,7 +57,7 @@ const isLoading = ref<boolean>(false);
  * Returns back route from store.
  */
 const backRoute = computed((): string => {
-    return appStore.state.viewsState.onbAGStepBackRoute;
+    return appStore.state.onbAGStepBackRoute;
 });
 
 /**

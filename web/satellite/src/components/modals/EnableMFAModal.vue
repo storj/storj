@@ -86,11 +86,13 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -109,7 +111,7 @@ const canvas = ref<HTMLCanvasElement>();
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**

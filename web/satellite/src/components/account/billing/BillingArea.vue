@@ -63,14 +63,14 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Indicates if free credits dropdown shown.
  */
 const isCreditsDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
 });
 
 /**
  * Indicates if available balance dropdown shown.
  */
 const isBalanceDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
 });
 
 /**

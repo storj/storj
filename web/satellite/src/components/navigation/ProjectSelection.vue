@@ -123,7 +123,7 @@ const isOnboardingTour = computed((): boolean => {
  * Indicates if dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
 });
 
 /**

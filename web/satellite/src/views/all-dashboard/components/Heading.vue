@@ -95,10 +95,7 @@ import { computed, ref } from 'vue';
 
 import { useNotify, useRouter } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
-import {
-    AnalyticsErrorEventSource,
-    AnalyticsEvent,
-} from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
@@ -113,6 +110,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -133,6 +131,7 @@ import MenuIcon from '@/../static/images/navigation/menu.svg';
 const router = useRouter();
 const notify = useNotify();
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -156,7 +155,7 @@ const isNavOpened = ref(false);
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**

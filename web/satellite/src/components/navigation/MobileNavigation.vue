@@ -181,6 +181,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -218,6 +219,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Team.withIcon(UsersIcon),
 ];
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -246,7 +248,7 @@ const isLoading = ref<boolean>(false);
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.config.allProjectsDashboard;
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -274,7 +276,7 @@ const selectedProject = computed((): Project => {
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
@@ -445,7 +447,7 @@ function navigateToBilling(): void {
     if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
 
     let link = RouteConfig.Account.with(RouteConfig.Billing);
-    if (appStore.state.config.newBillingScreen) {
+    if (configStore.state.config.newBillingScreen) {
         link = link.with(RouteConfig.BillingOverview);
     }
     router.push(link.path);

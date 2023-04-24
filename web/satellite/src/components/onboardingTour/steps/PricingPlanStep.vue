@@ -28,12 +28,12 @@ import { useNotify, useRouter } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
@@ -74,11 +74,11 @@ const plans = ref<PricingPlanInfo[]>([
 onBeforeMount(async () => {
     const user: User = usersStore.state.user;
     let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
-    if (appStore.state.config.allProjectsDashboard) {
+    if (configStore.state.config.allProjectsDashboard) {
         nextPath = RouteConfig.AllProjectsDashboard.path;
     }
 
-    const pricingPkgsEnabled = appStore.state.config.pricingPackagesEnabled;
+    const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
         return;

@@ -90,6 +90,7 @@ import { useNotify, useRouter } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -101,6 +102,7 @@ interface ClearSearch {
     clearSearch(): void;
 }
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
@@ -196,7 +198,7 @@ async function processSearchQuery(search: string): Promise<void> {
 async function setProjectState(): Promise<void> {
     const projects: Project[] = await projectsStore.getProjects();
     if (!projects.length) {
-        const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
+        const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
         router.push(onboardingPath);

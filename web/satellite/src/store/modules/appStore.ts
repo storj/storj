@@ -1,18 +1,14 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive } from 'vue';
+import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { OnboardingOS, PricingPlanInfo } from '@/types/common';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
-import { FrontendConfig, FrontendConfigApi } from '@/types/config';
-import { FrontendConfigHttpApi } from '@/api/config';
-import { RouteConfig } from '@/router';
-import { NavigationLink } from '@/types/navigation';
 
-class ViewsState {
+class AppState {
     public fetchState = FetchState.LOADING;
     public isSuccessfulPasswordResetShown = false;
     public hasJustLoggedIn = false;
@@ -44,144 +40,123 @@ class ErrorPageState {
     ) {}
 }
 
-export class State {
-    public viewsState: ViewsState = new ViewsState();
-    public config: FrontendConfig = new FrontendConfig();
-}
-
 export const useAppStore = defineStore('app', () => {
-    const state = reactive<State>(new State());
-
-    const configApi: FrontendConfigApi = new FrontendConfigHttpApi();
-
-    const firstOnboardingStep = computed((): NavigationLink => {
-        return state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
-    });
-
-    async function getConfig(): Promise<FrontendConfig> {
-        const result = await configApi.get();
-
-        state.config = result;
-
-        return result;
-    }
+    const state = reactive<AppState>(new AppState());
 
     function toggleActiveDropdown(dropdown: string): void {
-        if (state.viewsState.activeDropdown === dropdown) {
-            state.viewsState.activeDropdown = 'none';
+        if (state.activeDropdown === dropdown) {
+            state.activeDropdown = 'none';
             return;
         }
 
-        state.viewsState.activeDropdown = dropdown;
+        state.activeDropdown = dropdown;
     }
 
     function toggleSuccessfulPasswordReset(): void {
-        if (!state.viewsState.isSuccessfulPasswordResetShown) {
-            state.viewsState.activeDropdown = 'none';
+        if (!state.isSuccessfulPasswordResetShown) {
+            state.activeDropdown = 'none';
         }
 
-        state.viewsState.isSuccessfulPasswordResetShown = !state.viewsState.isSuccessfulPasswordResetShown;
+        state.isSuccessfulPasswordResetShown = !state.isSuccessfulPasswordResetShown;
     }
 
     function updateActiveModal(modal: unknown): void {
         // modal could be of VueConstructor type or Object (for composition api components).
-        if (state.viewsState.activeModal === modal) {
-            state.viewsState.activeModal = null;
+        if (state.activeModal === modal) {
+            state.activeModal = null;
             return;
         }
-        state.viewsState.activeModal = modal;
+        state.activeModal = modal;
     }
 
     function removeActiveModal(): void {
-        state.viewsState.activeModal = null;
+        state.activeModal = null;
     }
 
     function toggleHasJustLoggedIn(hasJustLoggedIn: boolean | null = null): void {
         if (hasJustLoggedIn === null) {
-            state.viewsState.hasJustLoggedIn = !state.viewsState.hasJustLoggedIn;
+            state.hasJustLoggedIn = !state.hasJustLoggedIn;
             return;
         }
-        state.viewsState.hasJustLoggedIn = hasJustLoggedIn;
+        state.hasJustLoggedIn = hasJustLoggedIn;
     }
 
     function changeState(newFetchState: FetchState): void {
-        state.viewsState.fetchState = newFetchState;
+        state.fetchState = newFetchState;
     }
 
     function setOnboardingBackRoute(backRoute: string): void {
-        state.viewsState.onbAGStepBackRoute = backRoute;
+        state.onbAGStepBackRoute = backRoute;
     }
 
     function setOnboardingAPIKeyStepBackRoute(backRoute: string): void {
-        state.viewsState.onbAPIKeyStepBackRoute = backRoute;
+        state.onbAPIKeyStepBackRoute = backRoute;
     }
 
     function setOnboardingAPIKey(apiKey: string): void {
-        state.viewsState.onbApiKey = apiKey;
+        state.onbApiKey = apiKey;
     }
 
     function setOnboardingCleanAPIKey(apiKey: string): void {
-        state.viewsState.onbCleanApiKey = apiKey;
+        state.onbCleanApiKey = apiKey;
     }
 
     function setOnboardingOS(os: OnboardingOS): void {
-        state.viewsState.onbSelectedOs = os;
+        state.onbSelectedOs = os;
     }
 
     function setPricingPlan(plan: PricingPlanInfo): void {
-        state.viewsState.selectedPricingPlan = plan;
+        state.selectedPricingPlan = plan;
     }
 
     function setManagePassphraseStep(step: ManageProjectPassphraseStep | undefined): void {
-        state.viewsState.managePassphraseStep = step;
+        state.managePassphraseStep = step;
     }
 
     function setHasShownPricingPlan(value: boolean): void {
-        state.viewsState.hasShownPricingPlan = value;
+        state.hasShownPricingPlan = value;
     }
 
     function setLargeUploadWarningNotification(value: boolean): void {
-        state.viewsState.isLargeUploadWarningNotificationShown = value;
+        state.isLargeUploadWarningNotificationShown = value;
     }
 
     function setLargeUploadNotification(value: boolean): void {
-        state.viewsState.isLargeUploadNotificationShown = value;
+        state.isLargeUploadNotificationShown = value;
     }
 
     function closeDropdowns(): void {
-        state.viewsState.activeDropdown = '';
+        state.activeDropdown = '';
     }
 
     function setErrorPage(statusCode: number, fatal = false): void {
-        state.viewsState.error = new ErrorPageState(statusCode, fatal, true);
+        state.error = new ErrorPageState(statusCode, fatal, true);
     }
 
     function removeErrorPage(): void {
-        state.viewsState.error.visible = false;
+        state.error.visible = false;
     }
 
     function clear(): void {
-        state.viewsState.activeModal = null;
-        state.viewsState.isSuccessfulPasswordResetShown = false;
-        state.viewsState.hasJustLoggedIn = false;
-        state.viewsState.onbAGStepBackRoute = '';
-        state.viewsState.onbAPIKeyStepBackRoute = '';
-        state.viewsState.onbCleanApiKey = '';
-        state.viewsState.onbApiKey = '';
-        state.viewsState.setDefaultPaymentMethodID = '';
-        state.viewsState.deletePaymentMethodID = '';
-        state.viewsState.onbSelectedOs = null;
-        state.viewsState.managePassphraseStep = undefined;
-        state.viewsState.selectedPricingPlan = null;
-        state.viewsState.hasShownPricingPlan = false;
-        state.viewsState.activeDropdown = '';
-        state.viewsState.error.visible = false;
+        state.activeModal = null;
+        state.isSuccessfulPasswordResetShown = false;
+        state.hasJustLoggedIn = false;
+        state.onbAGStepBackRoute = '';
+        state.onbAPIKeyStepBackRoute = '';
+        state.onbCleanApiKey = '';
+        state.onbApiKey = '';
+        state.setDefaultPaymentMethodID = '';
+        state.deletePaymentMethodID = '';
+        state.onbSelectedOs = null;
+        state.managePassphraseStep = undefined;
+        state.selectedPricingPlan = null;
+        state.hasShownPricingPlan = false;
+        state.activeDropdown = '';
+        state.error.visible = false;
     }
 
     return {
         state,
-        firstOnboardingStep,
-        getConfig,
         toggleActiveDropdown,
         toggleSuccessfulPasswordReset,
         updateActiveModal,

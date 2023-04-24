@@ -89,6 +89,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -97,6 +98,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
@@ -167,14 +169,14 @@ async function onCreateProjectClick(): Promise<void> {
 
     await selectCreatedProject();
 
-    await notify.success('Project created successfully!');
+    notify.success('Project created successfully!');
 
     isLoading.value = false;
     closeModal();
 
     bucketsStore.clearS3Data();
 
-    if (usersStore.shouldOnboard && appStore.state.config.allProjectsDashboard) {
+    if (usersStore.shouldOnboard && configStore.state.config.allProjectsDashboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;

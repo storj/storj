@@ -176,6 +176,7 @@ import { LocalData } from '@/utils/localData';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 
 import VButton from '@/components/common/VButton.vue';
@@ -222,6 +223,7 @@ const registerPath: string = RouteConfig.Register.path;
 const auth = new AuthHttpApi();
 const analytics = new AnalyticsHttpApi();
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -232,21 +234,21 @@ const router = reactive(nativeRouter);
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return appStore.state.config.partneredSatellites;
+    return configStore.state.config.partneredSatellites;
 });
 
 /**
  * This component's captcha configuration.
  */
 const captchaConfig = computed((): MultiCaptchaConfig => {
-    return appStore.state.config.captcha.login;
+    return configStore.state.config.captcha.login;
 });
 
 /**
@@ -257,7 +259,7 @@ onMounted(() => {
     isActivatedBannerShown.value = !!router.currentRoute.query.activated;
     isActivatedError.value = router.currentRoute.query.activated === 'false';
 
-    if (appStore.state.config.allProjectsDashboard) {
+    if (configStore.state.config.allProjectsDashboard) {
         returnURL.value = RouteConfig.AllProjectsDashboard.path;
     }
 
@@ -275,7 +277,7 @@ function clearConfirmMFAInput(): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    const homepageURL = appStore.state.config.homepageURL;
+    const homepageURL = configStore.state.config.homepageURL;
     if (homepageURL) window.location.href = homepageURL;
 }
 
@@ -465,7 +467,7 @@ function validateFields(): boolean {
         isNoErrors = false;
     }
 
-    if (password.value.length < appStore.state.config.passwordMinimumLength) {
+    if (password.value.length < configStore.state.config.passwordMinimumLength) {
         passwordError.value = 'Invalid Password';
         isNoErrors = false;
     }

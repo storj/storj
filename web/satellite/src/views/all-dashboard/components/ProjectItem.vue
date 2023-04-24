@@ -89,7 +89,7 @@ const props = withDefaults(defineProps<{
  * isDropdownOpen if dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === props.project.id;
+    return appStore.state.activeDropdown === props.project.id;
 });
 
 /**

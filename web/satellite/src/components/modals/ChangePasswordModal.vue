@@ -70,6 +70,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -79,6 +80,7 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
@@ -143,7 +145,7 @@ async function onUpdateClick(): Promise<void> {
         hasError = true;
     }
 
-    const config = appStore.state.config;
+    const config = configStore.state.config;
 
     if (newPassword.value.length < config.passwordMinimumLength) {
         newPasswordError.value = `Invalid password. Use ${config.passwordMinimumLength} or more characters`;

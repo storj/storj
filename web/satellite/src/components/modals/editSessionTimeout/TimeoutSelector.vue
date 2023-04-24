@@ -56,7 +56,7 @@ const options = [
  * whether the selector drop down is open
  * */
 const isOpen = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR;
 });
 
 /**

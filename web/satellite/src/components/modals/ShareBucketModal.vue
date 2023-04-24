@@ -50,6 +50,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -63,6 +64,7 @@ enum ButtonStates {
     Copied,
 }
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -116,7 +118,7 @@ async function setShareLink(): Promise<void> {
         const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
         const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, projectsStore.state.selectedProject.id);
 
-        const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
+        const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
         const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
         worker.value.postMessage({
@@ -163,7 +165,7 @@ async function setShareLink(): Promise<void> {
 
         path = encodeURIComponent(path.trim());
 
-        const linksharingURL = appStore.state.config.linksharingURL;
+        const linksharingURL = configStore.state.config.linksharingURL;
 
         link.value = `${linksharingURL}/${credentials.accessKeyId}/${path}`;
     } catch (error) {

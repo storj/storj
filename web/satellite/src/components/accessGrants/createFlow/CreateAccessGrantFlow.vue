@@ -127,6 +127,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
@@ -140,6 +141,7 @@ import CLIAccessCreatedStep from '@/components/accessGrants/createFlow/steps/CLI
 import S3CredentialsCreatedStep from '@/components/accessGrants/createFlow/steps/S3CredentialsCreatedStep.vue';
 import ConfirmDetailsStep from '@/components/accessGrants/createFlow/steps/ConfirmDetailsStep.vue';
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
@@ -508,7 +510,7 @@ async function createAccessGrant(): Promise<void> {
     }
 
     // creates access credentials.
-    const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
+    const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
 
     const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 

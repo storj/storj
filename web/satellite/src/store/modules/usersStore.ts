@@ -13,7 +13,7 @@ import {
     UserSettings,
 } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export class UsersState {
     public user: User = new User();
@@ -24,8 +24,6 @@ export class UsersState {
 
 export const useUsersStore = defineStore('users', () => {
     const state = reactive<UsersState>(new UsersState());
-
-    const appStore = useAppStore();
 
     const userName = computed(() => {
         return state.user.getFullName();
@@ -45,8 +43,10 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function getUser(): Promise<void> {
+        const configStore = useConfigStore();
+
         const user = await api.get();
-        user.projectLimit ||= appStore.state.config.defaultProjectLimit;
+        user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         setUser(user);
     }

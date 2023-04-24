@@ -10,7 +10,7 @@ import { BucketsApiGql } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const BUCKETS_PAGE_LIMIT = 7;
 const FIRST_PAGE = 1;
@@ -145,10 +145,10 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
 
         const projectsStore = useProjectsStore();
-        const appStore = useAppStore();
+        const configStore = useConfigStore();
 
         const salt = await projectsStore.getProjectSalt(projectID);
-        const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
+        const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
 
         if (!state.passphrase) {
             throw new Error('Passphrase can\'t be empty');

@@ -6,7 +6,7 @@ import { defineStore } from 'pinia';
 
 import { ABHitAction, ABTestApi, ABTestValues } from '@/types/abtesting';
 import { ABHttpApi } from '@/api/abtesting';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export class ABTestingState {
     public abTestValues = new ABTestValues();
@@ -18,10 +18,10 @@ export const useABTestingStore = defineStore('abTesting', () => {
 
     const api: ABTestApi = new ABHttpApi();
 
-    const appStore = useAppStore();
+    const configStore = useConfigStore();
 
     async function fetchValues(): Promise<ABTestValues> {
-        if (!appStore.state.config.abTestingEnabled) return state.abTestValues;
+        if (!configStore.state.config.abTestingEnabled) return state.abTestValues;
 
         const values = await api.fetchABTestValues();
 
@@ -32,7 +32,7 @@ export const useABTestingStore = defineStore('abTesting', () => {
     }
 
     async function hit(action: ABHitAction): Promise<void> {
-        if (!appStore.state.config.abTestingEnabled) return;
+        if (!configStore.state.config.abTestingEnabled) return;
         if (!state.abTestingInitialized) {
             await fetchValues();
         }

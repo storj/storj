@@ -169,6 +169,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -185,6 +186,7 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
@@ -206,7 +208,7 @@ const chartContainer = ref<HTMLDivElement>();
  * Indicates if charts date picker is shown.
  */
 const isChartsDatePicker = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
 });
 
 /**
@@ -283,7 +285,7 @@ const chartsBeforeDate = computed((): Date => {
  * Indicates if user has just logged in.
  */
 const hasJustLoggedIn = computed((): boolean => {
-    return appStore.state.viewsState.hasJustLoggedIn;
+    return appStore.state.hasJustLoggedIn;
 });
 
 /**
@@ -387,11 +389,11 @@ onMounted(async (): Promise<void> => {
 
     const projectID = selectedProject.value.id;
     if (!projectID) {
-        if (appStore.state.config.allProjectsDashboard) {
+        if (configStore.state.config.allProjectsDashboard) {
             await router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }
-        const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
+        const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
         router.push(onboardingPath);
