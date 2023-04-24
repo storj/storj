@@ -198,7 +198,6 @@ type Satellite struct {
 	}
 
 	GracefulExit struct {
-		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
 	}
 }
@@ -660,7 +659,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.ProjectLimits.Cache = api.ProjectLimits.Cache
 
-	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	return system

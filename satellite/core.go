@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/emailreminders"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
@@ -141,10 +140,6 @@ type Core struct {
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
-	}
-
-	GracefulExit struct {
-		Chore *gracefulexit.Chore
 	}
 }
 
@@ -588,25 +583,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Run:   peer.Payments.AccountFreeze.Run,
 				Close: peer.Payments.AccountFreeze.Close,
 			})
-		}
-	}
-
-	{ // setup graceful exit
-		log := peer.Log.Named("gracefulexit")
-		switch {
-		case !config.GracefulExit.Enabled:
-			log.Info("disabled")
-		case config.GracefulExit.UseRangedLoop:
-			log.Info("using ranged loop")
-		default:
-			peer.GracefulExit.Chore = gracefulexit.NewChore(log, peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.SegmentLoop, config.GracefulExit)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "gracefulexit",
-				Run:   peer.GracefulExit.Chore.Run,
-				Close: peer.GracefulExit.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 		}
 	}
 

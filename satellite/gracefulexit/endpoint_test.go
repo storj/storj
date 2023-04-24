@@ -161,8 +161,6 @@ func TestConcurrentConnections(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -228,8 +226,9 @@ func TestConcurrentConnections(t *testing.T) {
 			require.NoError(t, c.Close())
 		}
 
-		// wait for initial loop to start so we have pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		{ // this connection should not close immediately, since there are pieces to transfer
 			c, err := client.Process(ctx)
@@ -281,8 +280,6 @@ func TestRecvTimeout(t *testing.T) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -297,9 +294,9 @@ func TestRecvTimeout(t *testing.T) {
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
 		require.NoError(t, err)
 
-		// run the satellite chore to build the transfer queue.
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
-		satellite.GracefulExit.Chore.Loop.Pause()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// check that the satellite knows the storage node is exiting.
 		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
@@ -971,7 +968,6 @@ func TestExitDisabled(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
 
-		require.Nil(t, satellite.GracefulExit.Chore)
 		require.Nil(t, satellite.GracefulExit.Endpoint)
 
 		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
@@ -1004,8 +1000,6 @@ func TestSegmentChangedOrDeleted(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
@@ -1034,8 +1028,9 @@ func TestSegmentChangedOrDeleted(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		// trigger the metainfo loop chore so we can get some pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// make sure all the pieces are in the transfer queue
 		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
@@ -1101,8 +1096,6 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, project.Close()) }()
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		_, err = project.EnsureBucket(ctx, "testbucket")
 		require.NoError(t, err)
 
@@ -1145,8 +1138,9 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		// trigger the metainfo loop chore so we can get some pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// make sure all the pieces are in the transfer queue
 		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
@@ -1278,8 +1272,6 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			nodeFullIDs[node.ID()] = node.Identity
@@ -1324,8 +1316,9 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		// close the old client
 		require.NoError(t, c.CloseSend())
 
-		// trigger the metainfo loop chore so we can get some pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// make sure all the pieces are in the transfer queue
 		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
@@ -1404,8 +1397,6 @@ func TestIneligibleNodeAge(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			nodeFullIDs[node.ID()] = node.Identity
@@ -1467,8 +1458,6 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		_, err = project.EnsureBucket(ctx, "testbucket")
 		require.NoError(t, err)
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		nodeFullIDs := make(map[storj.NodeID]*identity.FullIdentity)
 		for _, node := range planet.StorageNodes {
 			nodeFullIDs[node.ID()] = node.Identity
@@ -1529,8 +1518,9 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		// close the old client
 		require.NoError(t, c.CloseSend())
 
-		// trigger the metainfo loop chore so we can get some pieces to transfer
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// make sure all the pieces are in the transfer queue
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects+multipartObjects, 0)

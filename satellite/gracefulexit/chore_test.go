@@ -43,8 +43,6 @@ func TestChore(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, project.Close()) }()
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -79,7 +77,9 @@ func TestChore(t *testing.T) {
 		}
 		require.Len(t, nodeIDs, 1)
 
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
@@ -109,7 +109,6 @@ func TestChore(t *testing.T) {
 		}
 		require.Len(t, nodeIDs, 0)
 
-		satellite.GracefulExit.Chore.Loop.Pause()
 		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
 		require.NoError(t, err)
 
@@ -119,7 +118,9 @@ func TestChore(t *testing.T) {
 
 		// node should fail graceful exit if it has been inactive for maximum inactive time frame since last activity
 		time.Sleep(maximumInactiveTimeFrame + time.Second*1)
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
 		require.NoError(t, err)
@@ -159,7 +160,6 @@ func TestChoreDurabilityRatio(t *testing.T) {
 		project, err := uplinkPeer.GetProject(ctx, satellite)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, project.Close()) }()
-		satellite.GracefulExit.Chore.Loop.Pause()
 
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
@@ -218,7 +218,9 @@ func TestChoreDurabilityRatio(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
