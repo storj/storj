@@ -687,10 +687,6 @@ onMounted(async () => {
         await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        usersStore.$onAction((action) => {
-            if (action.name === 'login') setupSessionTimers();
-        });
-
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
