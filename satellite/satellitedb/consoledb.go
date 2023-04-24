@@ -53,7 +53,7 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 		options.Name = "satellitedb-apikeys"
 		db.apikeys = &apikeys{
 			methods: db.methods,
-			lru:     lrucache.New(options),
+			lru:     lrucache.NewOf[*dbx.ApiKey](options),
 			db:      db.db,
 		}
 	})

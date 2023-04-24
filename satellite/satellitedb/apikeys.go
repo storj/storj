@@ -21,7 +21,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
-	lru     *lrucache.ExpiringLRU
+	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey]
 	db      *satelliteDB
 }
 
@@ -139,15 +139,11 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbKeyI, err := keys.lru.Get(ctx, string(head), func() (interface{}, error) {
+	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey, error) {
 		return keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
 	})
 	if err != nil {
 		return nil, err
-	}
-	dbKey, ok := dbKeyI.(*dbx.ApiKey)
-	if !ok {
-		return nil, Error.New("invalid key type: %T", dbKeyI)
 	}
 	return fromDBXAPIKey(ctx, dbKey)
 }

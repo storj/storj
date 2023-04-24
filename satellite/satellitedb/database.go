@@ -222,7 +222,7 @@ func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 		options.Name = "satellitedb-revocations"
 		db.revocationDB = &revocationDB{
 			db:      db,
-			lru:     lrucache.New(options),
+			lru:     lrucache.NewOf[bool](options),
 			methods: db,
 		}
 	})
