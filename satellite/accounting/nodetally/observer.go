@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
@@ -18,13 +19,19 @@ import (
 )
 
 var (
-	// check if Observer and Partial interfaces are satisfied.
-	_ rangedloop.Observer = (*RangedLoopObserver)(nil)
-	_ rangedloop.Partial  = (*RangedLoopPartial)(nil)
+	// Error is a standard error class for this package.
+	Error = errs.Class("node tally")
+	mon   = monkit.Package()
 )
 
-// RangedLoopObserver implements node tally ranged loop observer.
-type RangedLoopObserver struct {
+var (
+	// check if Observer and Partial interfaces are satisfied.
+	_ rangedloop.Observer = (*Observer)(nil)
+	_ rangedloop.Partial  = (*observerFork)(nil)
+)
+
+// Observer implements node tally ranged loop observer.
+type Observer struct {
 	log        *zap.Logger
 	accounting accounting.StoragenodeAccounting
 
@@ -35,9 +42,9 @@ type RangedLoopObserver struct {
 	Node          map[metabase.NodeAlias]float64
 }
 
-// NewRangedLoopObserver creates new RangedLoopObserver.
-func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB) *RangedLoopObserver {
-	return &RangedLoopObserver{
+// NewObserver creates new tally range loop observer.
+func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB) *Observer {
+	return &Observer{
 		log:        log,
 		accounting: accounting,
 		metabaseDB: metabaseDB,
@@ -47,7 +54,7 @@ func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAcc
 }
 
 // Start implements ranged loop observer start method.
-func (observer *RangedLoopObserver) Start(ctx context.Context, time time.Time) (err error) {
+func (observer *Observer) Start(ctx context.Context, time time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	observer.Node = map[metabase.NodeAlias]float64{}
@@ -62,17 +69,17 @@ func (observer *RangedLoopObserver) Start(ctx context.Context, time time.Time) (
 }
 
 // Fork forks new node tally ranged loop partial.
-func (observer *RangedLoopObserver) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+func (observer *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return NewRangedLoopPartial(observer.log, observer.nowFn), nil
+	return newObserverFork(observer.log, observer.nowFn), nil
 }
 
 // Join joins node tally ranged loop partial to main observer updating main per node usage map.
-func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+func (observer *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tallyPartial, ok := partial.(*RangedLoopPartial)
+	tallyPartial, ok := partial.(*observerFork)
 	if !ok {
 		return Error.New("expected partial type %T but got %T", tallyPartial, partial)
 	}
@@ -88,7 +95,7 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 var monRangedTally = monkit.ScopeNamed("storj.io/storj/satellite/accounting/tally")
 
 // Finish calculates byte*hours from per node storage usage and save tallies to DB.
-func (observer *RangedLoopObserver) Finish(ctx context.Context) (err error) {
+func (observer *Observer) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	finishTime := observer.nowFn()
@@ -125,21 +132,21 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) (err error) {
 }
 
 // SetNow overrides the timestamp used to store the result.
-func (observer *RangedLoopObserver) SetNow(nowFn func() time.Time) {
+func (observer *Observer) SetNow(nowFn func() time.Time) {
 	observer.nowFn = nowFn
 }
 
-// RangedLoopPartial implements node tally ranged loop partial.
-type RangedLoopPartial struct {
+// observerFork implements node tally ranged loop partial.
+type observerFork struct {
 	log   *zap.Logger
 	nowFn func() time.Time
 
 	Node map[metabase.NodeAlias]float64
 }
 
-// NewRangedLoopPartial creates new node tally ranged loop partial.
-func NewRangedLoopPartial(log *zap.Logger, nowFn func() time.Time) *RangedLoopPartial {
-	return &RangedLoopPartial{
+// newObserverFork creates new node tally ranged loop fork.
+func newObserverFork(log *zap.Logger, nowFn func() time.Time) *observerFork {
+	return &observerFork{
 		log:   log,
 		nowFn: nowFn,
 		Node:  map[metabase.NodeAlias]float64{},
@@ -147,7 +154,7 @@ func NewRangedLoopPartial(log *zap.Logger, nowFn func() time.Time) *RangedLoopPa
 }
 
 // Process iterates over segment range updating partial node usage map.
-func (partial *RangedLoopPartial) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (partial *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) error {
 	now := partial.nowFn()
 
 	for _, segment := range segments {
@@ -157,7 +164,7 @@ func (partial *RangedLoopPartial) Process(ctx context.Context, segments []segmen
 	return nil
 }
 
-func (partial *RangedLoopPartial) processSegment(now time.Time, segment segmentloop.Segment) {
+func (partial *observerFork) processSegment(now time.Time, segment segmentloop.Segment) {
 	if segment.Inline() {
 		return
 	}

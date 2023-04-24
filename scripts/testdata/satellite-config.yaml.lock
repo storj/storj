@@ -1102,8 +1102,8 @@ server.private-address: 127.0.0.1:7778
 # flag to switch between calculating bucket tallies using objects loop or custom query
 # tally.use-objects-loop: false
 
-# flag whether to use ranged loop instead of segment loop
-# tally.use-ranged-loop: false
+# whether to enable node tally with ranged loop
+# tally.use-ranged-loop: true
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

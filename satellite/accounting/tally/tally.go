@@ -30,7 +30,7 @@ type Config struct {
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 	UseObjectsLoop      bool          `help:"flag to switch between calculating bucket tallies using objects loop or custom query" default:"false"`
-	UseRangedLoop       bool          `help:"flag whether to use ranged loop instead of segment loop" default:"false"`
+	UseRangedLoop       bool          `help:"whether to enable node tally with ranged loop" default:"true"`
 
 	ListLimit          int           `help:"how many objects to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
