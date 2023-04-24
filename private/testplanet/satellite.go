@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -170,7 +169,6 @@ type Satellite struct {
 
 	Accounting struct {
 		Tally            *tally.Service
-		NodeTally        *nodetally.Service
 		Rollup           *rollup.Service
 		ProjectUsage     *accounting.Service
 		ProjectBWCleanup *projectbwcleanup.Chore
@@ -653,7 +651,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.ZombieDeletion.Chore = peer.ZombieDeletion.Chore
 
 	system.Accounting.Tally = peer.Accounting.Tally
-	system.Accounting.NodeTally = peer.Accounting.NodeTally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore

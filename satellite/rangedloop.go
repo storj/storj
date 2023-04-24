@@ -67,7 +67,7 @@ type RangedLoop struct {
 	}
 
 	Accounting struct {
-		NodeTallyObserver *nodetally.RangedLoopObserver
+		NodeTallyObserver *nodetally.Observer
 	}
 
 	RangedLoop struct {
@@ -122,7 +122,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup node tally observer
-		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
+		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
 			db.StoragenodeAccounting(),
 			metabaseDB)
