@@ -10,6 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
 	"storj.io/common/lrucache"
@@ -71,8 +72,8 @@ type Endpoint struct {
 	projects               console.Projects
 	apiKeys                APIKeys
 	satellite              signing.Signer
-	limiterCache           *lrucache.ExpiringLRU
-	singleObjectLimitCache *lrucache.ExpiringLRU
+	limiterCache           *lrucache.ExpiringLRUOf[*rate.Limiter]
+	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
 	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
 	revocations            revocation.DB
 	defaultRS              *pb.RedundancyScheme
@@ -119,12 +120,12 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		projectLimits:       projectLimits,
 		projects:            projects,
 		satellite:           satellite,
-		limiterCache: lrucache.New(lrucache.Options{
+		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
 			Name:       "metainfo-ratelimit",
 		}),
-		singleObjectLimitCache: lrucache.New(lrucache.Options{
+		singleObjectLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
 		}),
