@@ -63,6 +63,10 @@ export class Duration {
         return this.parsed.seconds;
     }
 
+    get fullSeconds(): number {
+        return Math.floor((this.nanoseconds / 1000000) / 1000);
+    }
+
     /**
      * shortString represents this duration in the appropriate unit.
      * */
@@ -75,7 +79,7 @@ export class Duration {
         } else if (this.hours > 0) {
             numberPart = this.hours;
             unitPart = 'hour';
-        } if (this.minutes > 0) {
+        } else if (this.minutes > 0) {
             numberPart = this.minutes;
             unitPart = 'minute';
         }
