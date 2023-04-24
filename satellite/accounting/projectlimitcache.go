@@ -45,7 +45,7 @@ type ProjectLimitCache struct {
 	defaultMaxBandwidth memory.Size
 	defaultMaxSegments  int64
 
-	state *lrucache.ExpiringLRU
+	state *lrucache.ExpiringLRUOf[ProjectLimits]
 }
 
 // NewProjectLimitCache creates a new project limit cache to store the project limits for each project ID.
@@ -55,7 +55,7 @@ func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidt
 		defaultMaxUsage:     defaultMaxUsage,
 		defaultMaxBandwidth: defaultMaxBandwidth,
 		defaultMaxSegments:  defaultMaxSegments,
-		state: lrucache.New(lrucache.Options{
+		state: lrucache.NewOf[ProjectLimits](lrucache.Options{
 			Capacity:   config.CacheCapacity,
 			Expiration: config.CacheExpiration,
 			Name:       "accounting-projectlimit",
@@ -65,16 +65,12 @@ func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidt
 
 // GetLimits returns the project limits from cache.
 func (c *ProjectLimitCache) GetLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error) {
-	fn := func() (interface{}, error) {
-		return c.getProjectLimits(ctx, projectID)
-	}
-	projectLimits, err := c.state.Get(ctx, projectID.String(), fn)
+	limits, err := c.state.Get(ctx, projectID.String(),
+		func() (ProjectLimits, error) {
+			return c.getProjectLimits(ctx, projectID)
+		})
 	if err != nil {
 		return ProjectLimits{}, ErrGetProjectLimitCache.Wrap(err)
-	}
-	limits, ok := projectLimits.(ProjectLimits)
-	if !ok {
-		return ProjectLimits{}, ErrProjectLimitType.New("cache Get error")
 	}
 	return limits, nil
 }

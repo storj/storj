@@ -36,7 +36,7 @@ type UploadSelectionCache struct {
 	db              UploadSelectionDB
 	selectionConfig NodeSelectionConfig
 
-	cache sync2.ReadCache
+	cache sync2.ReadCacheOf[*uploadselection.State]
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
@@ -65,7 +65,7 @@ func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *UploadSelectionCache) read(ctx context.Context) (_ interface{}, err error) {
+func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	reputableNodes, newNodes, err := cache.db.SelectAllStorageNodesUpload(ctx, cache.selectionConfig)
@@ -87,11 +87,10 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ interface{}, err
 func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stateAny, err := cache.cache.Get(ctx, time.Now())
+	state, err := cache.cache.Get(ctx, time.Now())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	state := stateAny.(*uploadselection.State)
 
 	selected, err := state.Select(ctx, uploadselection.Request{
 		Count:                req.RequestedCount,
@@ -109,11 +108,10 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 
 // Size returns how many reputable nodes and new nodes are in the cache.
 func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount int, newNodeCount int, _ error) {
-	stateAny, err := cache.cache.Get(ctx, time.Now())
+	state, err := cache.cache.Get(ctx, time.Now())
 	if err != nil {
 		return 0, 0, Error.Wrap(err)
 	}
-	state := stateAny.(*uploadselection.State)
 	stats := state.Stats()
 	return stats.Reputable, stats.New, nil
 }

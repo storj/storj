@@ -196,7 +196,7 @@ async function processSearchQuery(search: string): Promise<void> {
 async function setProjectState(): Promise<void> {
     const projects: Project[] = await projectsStore.getProjects();
     if (!projects.length) {
-        const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+        const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
         router.push(onboardingPath);

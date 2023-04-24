@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { OnboardingOS, PricingPlanInfo } from '@/types/common';
@@ -9,6 +9,8 @@ import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
+import { RouteConfig } from '@/router';
+import { NavigationLink } from '@/types/navigation';
 
 class ViewsState {
     public fetchState = FetchState.LOADING;
@@ -51,6 +53,10 @@ export const useAppStore = defineStore('app', () => {
     const state = reactive<State>(new State());
 
     const configApi: FrontendConfigApi = new FrontendConfigHttpApi();
+
+    const firstOnboardingStep = computed((): NavigationLink => {
+        return state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
+    });
 
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
@@ -174,6 +180,7 @@ export const useAppStore = defineStore('app', () => {
 
     return {
         state,
+        firstOnboardingStep,
         getConfig,
         toggleActiveDropdown,
         toggleSuccessfulPasswordReset,
