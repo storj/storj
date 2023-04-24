@@ -42,7 +42,6 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -114,10 +113,6 @@ type Satellite struct {
 
 	Metabase struct {
 		DB *metabase.DB
-	}
-
-	Inspector struct {
-		Endpoint *inspector.Endpoint
 	}
 
 	Orders struct {
@@ -614,8 +609,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Userinfo.Endpoint = api.Userinfo.Endpoint
 
 	system.Metabase.DB = api.Metainfo.Metabase
-
-	system.Inspector.Endpoint = api.Inspector.Endpoint
 
 	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
