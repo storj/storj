@@ -32,7 +32,7 @@ require (
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230419135619-fb89f20752cb
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
