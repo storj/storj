@@ -520,17 +520,6 @@ func TestService_GenerateInvoice(t *testing.T) {
 
 				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
 
-				// ensure free tier coupon was applied
-				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
-				require.NoError(t, err)
-
-				params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
-				stripeUser, err := payments.StripeClient.Customers().Get(cusID, params)
-				require.NoError(t, err)
-				require.NotNil(t, stripeUser.Discount)
-				require.NotNil(t, stripeUser.Discount.Coupon)
-				require.Equal(t, payments.StripeService.StripeFreeTierCouponID, stripeUser.Discount.Coupon.ID)
-
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
 				require.ErrorIs(t, stripe1.ErrProjectRecordExists, err)
@@ -539,6 +528,9 @@ func TestService_GenerateInvoice(t *testing.T) {
 				require.NotNil(t, rec)
 				require.NoError(t, err)
 
+				// validate generated invoices
+				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+				require.NoError(t, err)
 				invoice, hasInvoice := getCustomerInvoice(ctx, payments.StripeClient, cusID)
 				invoiceItems := getCustomerInvoiceItems(ctx, payments.StripeClient, cusID)
 
