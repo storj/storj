@@ -12,9 +12,10 @@ pipeline {
         skipDefaultCheckout(false)
     }
     environment {
-        // NPM_CONFIG_CACHE = '/npm/cache'
+        NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
+        PLAYWRIGHT_BROWSERS_PATH='/root/.cache/ms-playwright/'
     }
     stages {
         stage('Checkout') {
