@@ -208,8 +208,8 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		)
 
 		satelliteSys := planet.Satellites[0]
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Audit.Worker.Loop.Pause()
-		satelliteSys.Repair.Checker.Loop.Pause()
 		satelliteSys.Repair.Repairer.Loop.Pause()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races

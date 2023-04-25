@@ -421,7 +421,7 @@ func TestAllInOne(t *testing.T) {
 				bfConfig,
 				satellite.DB.OverlayCache(),
 			),
-			checker.NewRangedLoopObserver(
+			checker.NewObserver(
 				log.Named("repair:checker"),
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,

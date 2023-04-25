@@ -48,7 +48,6 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -102,10 +101,6 @@ type Core struct {
 
 	Reputation struct {
 		Service *reputation.Service
-	}
-
-	Repair struct {
-		Checker *checker.Checker
 	}
 
 	Audit struct {
@@ -320,29 +315,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metainfo.SegmentLoop.Run,
 			Close: peer.Metainfo.SegmentLoop.Close,
 		})
-	}
-
-	{ // setup data repair
-		log := peer.Log.Named("repair:checker")
-		if config.Repairer.UseRangedLoop {
-			log.Info("using ranged loop")
-		} else {
-			peer.Repair.Checker = checker.NewChecker(
-				log,
-				peer.DB.RepairQueue(),
-				peer.Metainfo.Metabase,
-				peer.Metainfo.SegmentLoop,
-				peer.Overlay.Service,
-				config.Checker)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "repair:checker",
-				Run:   peer.Repair.Checker.Run,
-				Close: peer.Repair.Checker.Close,
-			})
-
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		}
 	}
 
 	{ // setup reputation

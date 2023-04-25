@@ -970,8 +970,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
-# whether to use ranged loop instead of segment loop
-# repairer.use-ranged-loop: false
+# whether to enable repair checker observer with ranged loop
+# repairer.use-ranged-loop: true
 
 # the number of times a node has been audited to not be considered a New Node
 # reputation.audit-count: 100

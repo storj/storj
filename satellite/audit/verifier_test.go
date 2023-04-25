@@ -987,7 +987,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
 
-		satellite.Repair.Checker.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satellite.Repair.Repairer.Loop.Pause()
 
 		var testData = testrand.Bytes(8 * memory.KiB)
@@ -1014,10 +1014,9 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// trigger checker to add segment to repair queue
-		satellite.Repair.Checker.Loop.Restart()
-		satellite.Repair.Checker.Loop.TriggerWait()
-		satellite.Repair.Checker.Loop.Pause()
+		// trigger repair checker with ranged loop to add segment to repair queue
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		count, err := satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
