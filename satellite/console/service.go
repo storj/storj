@@ -57,6 +57,9 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	generateSessionTokenErrMsg           = "Failed to generate session token"
+	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
+	apiKeyCredentialsErrMsg              = "Your API Key is incorrect"
 	changePasswordErrMsg                 = "Your old password is incorrect, please try again"
 	passwordTooShortErrMsg               = "Your password needs to be at least %d characters long"
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
@@ -1202,6 +1205,28 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 
 	mon.Counter("login_success").Inc(1) //mon:locked
+
+	return response, nil
+}
+
+// TokenByAPIKey authenticates User by API Key and returns session token.
+func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	userID, _, err := s.restKeys.GetUserAndExpirationFromKey(ctx, apiKey)
+	if err != nil {
+		return nil, ErrUnauthorized.New(apiKeyCredentialsErrMsg)
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		return nil, Error.New(failedToRetrieveUserErrMsg)
+	}
+
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent)
+	if err != nil {
+		return nil, Error.New(generateSessionTokenErrMsg)
+	}
 
 	return response, nil
 }

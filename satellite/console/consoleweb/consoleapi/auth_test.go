@@ -329,6 +329,42 @@ returned response:
 	}
 }
 
+func TestTokenByAPIKeyEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		restKeys := satellite.API.REST.Keys
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		expires := 5 * time.Hour
+		apiKey, _, err := restKeys.Create(ctx, user.ID, expires)
+		require.NoError(t, err)
+		require.NotEmpty(t, apiKey)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token-by-api-key"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.NoError(t, response.Body.Close())
+
+		cookies := response.Cookies()
+		require.NoError(t, err)
+		require.Len(t, cookies, 1)
+		require.Equal(t, "_tokenKey", cookies[0].Name)
+		require.NotEmpty(t, cookies[0].Value)
+	})
+}
+
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
