@@ -25,7 +25,7 @@
                                 This is a Storj deposit address generated just for you.
                                 <a
                                     class="modal__label__info__msg__link"
-                                    href=""
+                                    href="https://docs.storj.io/dcs/billing"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
