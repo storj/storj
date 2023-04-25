@@ -7,7 +7,7 @@
         <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
-                is-web="true"
+                :is-web="true"
                 title="Start with web browser"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
                 button-label="Continue in web ->"

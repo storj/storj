@@ -45,7 +45,7 @@ const appStore = useAppStore();
  */
 function onClick(): void {
     appStore.updateActiveModal(MODALS.createProjectPrompt);
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
 /**

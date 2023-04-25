@@ -458,7 +458,10 @@ function closeInactivityModal(): void {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    }
 }
 
 /**

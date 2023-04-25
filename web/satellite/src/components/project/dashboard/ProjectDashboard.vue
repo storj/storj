@@ -326,7 +326,7 @@ function recalculateChartWidth(): void {
  * Holds on upgrade button click logic.
  */
 function onUpgradeClick(): void {
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
 /**

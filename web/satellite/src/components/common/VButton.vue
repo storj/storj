@@ -50,7 +50,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { computed, VueConstructor } from 'vue';
 
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
@@ -170,6 +169,11 @@ function handleClick(): void {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049 !important;
+        }
     }
 
     .solid-red {
@@ -196,7 +200,7 @@ function handleClick(): void {
 
         :deep(path),
         :deep(rect) {
-            fill: #354049;
+            fill: #354049 !important;
         }
     }
 
@@ -232,12 +236,12 @@ function handleClick(): void {
     }
 
     .disabled {
-        background-color: #dadde5 !important;
-        border-color: #dadde5 !important;
+        background-color: var(--c-grey-5) !important;
+        border-color: var(--c-grey-5) !important;
         pointer-events: none !important;
 
         .label {
-            color: #acb0bc !important;
+            color: var(--c-white) !important;
         }
     }
 
@@ -262,6 +266,11 @@ function handleClick(): void {
         background-color: var(--c-blue-3);
         cursor: pointer;
         box-sizing: border-box;
+
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-white);
+        }
 
         .trash-icon {
             margin-right: 5px;

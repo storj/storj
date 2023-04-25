@@ -108,7 +108,7 @@ require (
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230419135619-fb89f20752cb // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd // indirect
 	github.com/spf13/cobra v1.1.3 // indirect

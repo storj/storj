@@ -194,6 +194,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -414,6 +415,12 @@ async function onConfirmAddStripe(): Promise<void> {
 
 function addPaymentMethodHandler(): void {
     analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+        return;
+    }
+
     isAddingPayment.value = true;
 }
 

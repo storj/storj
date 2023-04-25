@@ -15,6 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
@@ -224,7 +225,7 @@ func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 	var limits struct {
 		Storage   int64 `json:"storage"`
 		Bandwidth int64 `json:"bandwidth"`
-		Segment   int64 `json:"maxSegments"`
+		Segment   int64 `json:"segment"`
 	}
 
 	limits.Storage = user.ProjectStorageLimit
@@ -362,11 +363,11 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type User struct {
-		console.User
+	var input struct {
+		Storage   memory.Size `json:"storage"`
+		Bandwidth memory.Size `json:"bandwidth"`
+		Segment   int64       `json:"segment"`
 	}
-
-	var input User
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
@@ -375,38 +376,46 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updateRequest := console.UpdateUserRequest{}
-
-	if input.ProjectStorageLimit > 0 {
-		updateRequest.ProjectStorageLimit = &input.ProjectStorageLimit
-	}
-	if input.ProjectBandwidthLimit > 0 {
-		updateRequest.ProjectBandwidthLimit = &input.ProjectBandwidthLimit
-	}
-	if input.ProjectSegmentLimit > 0 {
-		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
+	newLimits := console.UsageLimits{
+		Storage:   user.ProjectStorageLimit,
+		Bandwidth: user.ProjectBandwidthLimit,
+		Segment:   user.ProjectSegmentLimit,
 	}
 
-	userLimits := console.UsageLimits{
-		Storage:   *updateRequest.ProjectStorageLimit,
-		Bandwidth: *updateRequest.ProjectBandwidthLimit,
-		Segment:   *updateRequest.ProjectSegmentLimit,
+	if input.Storage > 0 {
+		newLimits.Storage = input.Storage.Int64()
+	}
+	if input.Bandwidth > 0 {
+		newLimits.Bandwidth = input.Bandwidth.Int64()
+	}
+	if input.Segment > 0 {
+		newLimits.Segment = input.Segment
 	}
 
-	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, userLimits)
+	if newLimits.Storage == user.ProjectStorageLimit &&
+		newLimits.Bandwidth == user.ProjectBandwidthLimit &&
+		newLimits.Segment == user.ProjectSegmentLimit {
+		sendJSONError(w, "no limits to update",
+			"new values are equal to old ones", http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, newLimits)
 	if err != nil {
 		sendJSONError(w, "failed to update user limits",
 			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "failed to get user's projects",
 			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	for _, p := range userProjects {
-		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, userLimits)
+		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, newLimits)
 		if err != nil {
 			sendJSONError(w, "failed to update project limits",
 				err.Error(), http.StatusInternalServerError)

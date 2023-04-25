@@ -98,6 +98,24 @@ type Config struct {
 	HubSpot         HubSpotConfig
 }
 
+// FreezeTracker is an interface for account freeze event tracking methods.
+type FreezeTracker interface {
+	// TrackAccountFrozen sends an account frozen event to Segment.
+	TrackAccountFrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnfrozen sends an account unfrozen event to Segment.
+	TrackAccountUnfrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnwarned sends an account unwarned event to Segment.
+	TrackAccountUnwarned(userID uuid.UUID, email string)
+
+	// TrackAccountFreezeWarning sends an account freeze warning event to Segment.
+	TrackAccountFreezeWarning(userID uuid.UUID, email string)
+
+	// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string)
+}
+
 // Service for sending analytics.
 //
 // architecture: Service
