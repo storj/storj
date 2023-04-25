@@ -10,6 +10,7 @@
     "posttest": "npm run allure:generate",
     "test": "npx playwright test ./tests/",
     "test-debug": "npx playwright test ./tests/ --trace on",
+    "browser-debug": "DEBUG=pw:browser* npx playwright test",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
   "keywords": [],

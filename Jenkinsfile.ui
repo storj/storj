@@ -100,9 +100,7 @@ pipeline {
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui/") {
-                    sh 'npm run test'
-
-                    sh 'npm run test-debug'
+                    sh 'npm run browser-test'
                 }
             }
         }
