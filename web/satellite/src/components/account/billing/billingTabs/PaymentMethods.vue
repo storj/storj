@@ -193,6 +193,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -224,6 +225,7 @@ interface CardEdited {
     isDefault?: boolean
 }
 
+const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -259,7 +261,7 @@ const pageCount = computed((): number => {
  * Indicates whether native token payments are enabled.
  */
 const nativeTokenPaymentsEnabled = computed((): boolean => {
-    return appStore.state.config.nativeTokenPaymentsEnabled;
+    return configStore.state.config.nativeTokenPaymentsEnabled;
 });
 
 /**

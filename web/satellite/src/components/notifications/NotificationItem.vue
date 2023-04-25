@@ -32,11 +32,11 @@ import { computed, onMounted, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const notificationsStore = useNotificationsStore();
 
 const props = withDefaults(defineProps<{
@@ -51,7 +51,7 @@ const isClassActive = ref<boolean>(false);
  * Returns the URL for the general request page from the store.
  */
 const requestURL = computed((): string => {
-    return appStore.state.config.generalRequestURL;
+    return configStore.state.config.generalRequestURL;
 });
 
 /**

@@ -64,6 +64,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -72,6 +73,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -224,7 +226,7 @@ async function onCreate(): Promise<void> {
         }
 
         const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
-        const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
+        const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
 
         worker.value.postMessage({
             'type': 'GenerateAccess',

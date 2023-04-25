@@ -103,8 +103,8 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
 import { useNotify, useRouter } from '@/utils/hooks';
-import { useAppStore } from '@/store/modules/appStore';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -115,7 +115,7 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -136,21 +136,21 @@ const captcha = ref<VueRecaptcha | VueHcaptcha>();
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return appStore.state.config.partneredSatellites;
+    return configStore.state.config.partneredSatellites;
 });
 
 /**
  * This component's captcha configuration.
  */
 const captchaConfig = computed((): MultiCaptchaConfig => {
-    return appStore.state.config.captcha.login;
+    return configStore.state.config.captcha.login;
 });
 
 /**
@@ -237,7 +237,7 @@ async function onSendConfigurations(): Promise<void> {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = appStore.state.config.homepageURL;
+    window.location.href = configStore.state.config.homepageURL;
 }
 
 /**

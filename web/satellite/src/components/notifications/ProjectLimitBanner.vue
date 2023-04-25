@@ -26,12 +26,12 @@ import { computed } from 'vue';
 
 import { LocalData } from '@/utils/localData';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 
@@ -54,7 +54,7 @@ const bannerTextData = computed((): { title: string, body: string } => {
 });
 
 const projectLimitsIncreaseRequestURL = computed((): string => {
-    return appStore.state.config.projectLimitsIncreaseRequestURL;
+    return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**

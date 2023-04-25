@@ -75,7 +75,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -87,7 +87,7 @@ const props = defineProps<{
     apiKey: string;
 }>();
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -100,7 +100,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Returns the web address of this satellite from the store.
  */
 const satelliteAddress = computed((): string => {
-    return appStore.state.config.satelliteNodeURL;
+    return configStore.state.config.satelliteNodeURL;
 });
 
 /**

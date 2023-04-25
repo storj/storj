@@ -39,6 +39,7 @@ import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -47,6 +48,7 @@ import CloudIcon from '@/../static/images/onboardingTour/cloudIcon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
@@ -100,7 +102,7 @@ const isActive = computed((): boolean => {
  * Returns the whether applying a new coupon is enabled.
  */
 const couponCodeBillingUIEnabled = computed((): boolean => {
-    return appStore.state.config.couponCodeBillingUIEnabled;
+    return configStore.state.config.couponCodeBillingUIEnabled;
 });
 
 /**

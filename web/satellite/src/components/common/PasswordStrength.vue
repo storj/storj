@@ -37,11 +37,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VectorIcon from '@/../static/images/register/StrengthVector.svg';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 
 /**
  * BarFillStyle class holds info for BarFillStyle entity.
@@ -90,14 +90,14 @@ const props = withDefaults(defineProps<{
  * Returns the maximum password length from the store.
  */
 const passMaxLength = computed((): number => {
-    return appStore.state.config.passwordMaximumLength;
+    return configStore.state.config.passwordMaximumLength;
 });
 
 /**
  * Returns the minimum password length from the store.
  */
 const passMinLength = computed((): number => {
-    return appStore.state.config.passwordMinimumLength;
+    return configStore.state.config.passwordMinimumLength;
 });
 
 const isPasswordLengthAcceptable = computed((): boolean => {

@@ -52,7 +52,7 @@ const notify = useNotify();
  * Returns step from store.
  */
 const storedStep = computed((): ManageProjectPassphraseStep | undefined => {
-    return appStore.state.viewsState.managePassphraseStep;
+    return appStore.state.managePassphraseStep;
 });
 
 const activeStep = ref<ManageProjectPassphraseStep>(storedStep.value || ManageProjectPassphraseStep.ManageOptions);

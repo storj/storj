@@ -62,7 +62,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
 import { useNotify, useRouter } from '@/utils/hooks';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -72,8 +72,8 @@ import LogoIcon from '@/../static/images/logo.svg';
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
+const configStore = useConfigStore();
 const notify = useNotify();
-const appStore = useAppStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -123,7 +123,7 @@ function setEmail(value: string): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = appStore.state.config.homepageURL;
+    window.location.href = configStore.state.config.homepageURL;
 }
 
 onMounted((): void => {

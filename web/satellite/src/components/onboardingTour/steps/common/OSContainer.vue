@@ -55,7 +55,7 @@ const osSelected = ref<OnboardingOS>(OnboardingOS.WINDOWS);
  * Returns selected os from store.
  */
 const storedOsSelected = computed((): OnboardingOS | null => {
-    return appStore.state.viewsState.onbSelectedOs;
+    return appStore.state.onbSelectedOs;
 });
 
 /**

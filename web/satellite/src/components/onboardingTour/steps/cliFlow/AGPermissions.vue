@@ -84,7 +84,7 @@ const selectedBucketNames = computed((): string[] => {
  * Returns clean API key from store.
  */
 const cleanAPIKey = computed((): string => {
-    return appStore.state.viewsState.onbCleanApiKey;
+    return appStore.state.onbCleanApiKey;
 });
 
 /**

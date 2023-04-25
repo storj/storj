@@ -59,7 +59,7 @@ const isLoading = ref<boolean>(true);
  * Indicates if dropdown is visible.
  */
 const isDropdownVisible = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
 });
 
 /**

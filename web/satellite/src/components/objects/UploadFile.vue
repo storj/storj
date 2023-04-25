@@ -25,6 +25,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
@@ -32,6 +33,7 @@ import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
@@ -45,7 +47,7 @@ const worker = ref<Worker | null>(null);
  * Indicates if upload cancel popup is visible.
  */
 const isCancelUploadPopupVisible = computed((): boolean => {
-    return appStore.state.viewsState.activeModal === MODALS.uploadCancelPopup;
+    return appStore.state.activeModal === MODALS.uploadCancelPopup;
 });
 
 /**
@@ -87,7 +89,7 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Returns linksharing URL from store.
  */
 const linksharingURL = computed((): string => {
-    return appStore.state.config.linksharingURL;
+    return configStore.state.config.linksharingURL;
 });
 
 /**
@@ -153,7 +155,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
         throw new Error('Worker is not defined');
     }
 
-    const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
+    const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
     const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
     worker.value.postMessage({

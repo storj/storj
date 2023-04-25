@@ -152,6 +152,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -172,6 +173,7 @@ import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
 const bucketsStore = useBucketsStore();
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
@@ -210,7 +212,7 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return appStore.state.config.inactivityTimerDuration * 1000;
+    return configStore.state.config.inactivityTimerDuration * 1000;
 });
 
 /**
@@ -224,7 +226,7 @@ const sessionRefreshInterval = computed((): number => {
  * Indicates whether to display the session timer for debugging.
  */
 const debugTimerShown = computed((): boolean => {
-    return appStore.state.config.inactivityTimerViewerEnabled;
+    return configStore.state.config.inactivityTimerViewerEnabled;
 });
 
 /**
@@ -325,7 +327,7 @@ const isNavigationHidden = computed((): boolean => {
 
 /* whether all projects dashboard should be used */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.config.allProjectsDashboard;
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /* whether the project limit banner should be shown. */
@@ -379,14 +381,14 @@ const isOnboardingTour = computed((): boolean => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return appStore.state.config.isBetaSatellite;
+    return configStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return appStore.state.viewsState.fetchState === FetchState.LOADING;
+    return appStore.state.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -401,14 +403,14 @@ const showMFARecoveryCodeBar = computed((): boolean => {
  * Indicates whether the large upload notification should be shown.
  */
 const isLargeUploadNotificationShown = computed((): boolean => {
-    return appStore.state.viewsState.isLargeUploadNotificationShown;
+    return appStore.state.isLargeUploadNotificationShown;
 });
 
 /**
  * Indicates whether the large upload warning notification should be shown (file uploading exceeds 1GB).
  */
 const isLargeUploadWarningNotificationShown = computed((): boolean => {
-    return appStore.state.viewsState.isLargeUploadWarningNotificationShown;
+    return appStore.state.isLargeUploadWarningNotificationShown;
 });
 
 /**
@@ -469,7 +471,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    if (!appStore.state.config.inactivityTimerEnabled) return;
+    if (!configStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -749,7 +751,7 @@ onMounted(async () => {
         return;
     }
 
-    if (!appStore.state.config.allProjectsDashboard) {
+    if (!configStore.state.config.allProjectsDashboard) {
         try {
             if (!projects.length) {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
@@ -757,7 +759,7 @@ onMounted(async () => {
                 selectProject(projects);
             }
 
-            const onboardingPath = RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path;
+            const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
             if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);

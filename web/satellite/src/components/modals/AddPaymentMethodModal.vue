@@ -141,6 +141,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -155,6 +156,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -183,7 +185,7 @@ onMounted(async () => {
         await billingStore.getProjectUsagePriceModel();
         isPriceFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
 });
 
@@ -198,7 +200,7 @@ async function onAddCardClick(): Promise<void> {
     try {
         await stripeCardInput.value.onSubmit();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
     isLoading.value = false;
 }
@@ -211,7 +213,7 @@ async function onAddCardClick(): Promise<void> {
 async function addCardToDB(token: string): Promise<void> {
     try {
         await billingStore.addCreditCard(token);
-        await notify.success('Card successfully added');
+        notify.success('Card successfully added');
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
 
@@ -222,7 +224,7 @@ async function addCardToDB(token: string): Promise<void> {
         await analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
 
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
 
     isLoading.value = false;
@@ -254,7 +256,7 @@ function setIsAddCard(): void {
  * Returns project limits increase request url from config.
  */
 const limitsIncreaseRequestURL = computed((): string => {
-    return appStore.state.config.projectLimitsIncreaseRequestURL;
+    return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**

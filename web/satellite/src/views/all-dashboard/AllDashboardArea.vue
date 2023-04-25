@@ -140,6 +140,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
@@ -157,6 +158,7 @@ const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 const notify = useNotify();
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -192,7 +194,7 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return appStore.state.config.inactivityTimerDuration * 1000;
+    return configStore.state.config.inactivityTimerDuration * 1000;
 });
 
 /**
@@ -206,7 +208,7 @@ const sessionRefreshInterval = computed((): number => {
  * Indicates whether to display the session timer for debugging.
  */
 const debugTimerShown = computed((): boolean => {
-    return appStore.state.config.inactivityTimerViewerEnabled;
+    return configStore.state.config.inactivityTimerViewerEnabled;
 });
 
 /**
@@ -308,14 +310,14 @@ const isBillingPage = computed(() => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return appStore.state.config.isBetaSatellite;
+    return configStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return appStore.state.viewsState.fetchState === FetchState.LOADING;
+    return appStore.state.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -472,7 +474,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    if (!appStore.state.config.inactivityTimerEnabled) return;
+    if (!configStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -629,7 +631,7 @@ onMounted(async () => {
 
     appStore.changeState(FetchState.LOADED);
 
-    if (usersStore.shouldOnboard && !appStore.state.viewsState.hasShownPricingPlan) {
+    if (usersStore.shouldOnboard && !appStore.state.hasShownPricingPlan) {
         appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.

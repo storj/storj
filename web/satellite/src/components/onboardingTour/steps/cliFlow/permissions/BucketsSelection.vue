@@ -35,7 +35,7 @@ const agStore = useAccessGrantsStore();
  * Indicates if dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
 });
 
 /**

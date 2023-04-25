@@ -88,6 +88,7 @@ import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -105,6 +106,7 @@ import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -131,21 +133,21 @@ const windowWidth = ref<number>(window.innerWidth);
  * Indicates if resources dropdown shown.
  */
 const isResourcesDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
 });
 
 /**
  * Indicates if quick start dropdown shown.
  */
 const isQuickStartDropdownShown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
 });
 
 /**
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.config.allProjectsDashboard;
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /**

@@ -31,12 +31,12 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
@@ -64,7 +64,7 @@ const projectLimit = computed((): number => {
  * Returns project limits increase request url from config.
  */
 const projectLimitsIncreaseRequestURL = computed((): string => {
-    return appStore.state.config.projectLimitsIncreaseRequestURL;
+    return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**

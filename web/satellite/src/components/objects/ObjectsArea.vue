@@ -13,10 +13,10 @@ import { onMounted } from 'vue';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useRouter } from '@/utils/hooks';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const router = useRouter();
-const appStore = useAppStore();
+const configStore = useConfigStore();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -25,7 +25,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Redirects if flow is disabled.
  */
 onMounted(async (): Promise<void> => {
-    if (appStore.state.config.fileBrowserFlowDisabled) {
+    if (configStore.state.config.fileBrowserFlowDisabled) {
         analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await router.push(RouteConfig.ProjectDashboard.path);
     }

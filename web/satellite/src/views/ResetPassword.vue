@@ -84,6 +84,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -93,6 +94,7 @@ import KeyIcon from '@/../static/images/resetPassword/success.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -120,7 +122,7 @@ const mfaInput = ref<ConfirmMFAInput>();
  * Returns whether the successful password reset area is shown.
  */
 const isSuccessfulPasswordResetShown = computed(() : boolean => {
-    return appStore.state.viewsState.isSuccessfulPasswordResetShown;
+    return appStore.state.isSuccessfulPasswordResetShown;
 });
 
 /**
@@ -169,7 +171,7 @@ async function onResetClick(): Promise<void> {
  */
 function validateFields(): boolean {
     let isNoErrors = true;
-    let config = appStore.state.config;
+    let config = configStore.state.config;
 
     if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid password';
@@ -202,7 +204,7 @@ function hidePasswordStrength(): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = appStore.state.config.homepageURL;
+    window.location.href = configStore.state.config.homepageURL;
 }
 
 /**

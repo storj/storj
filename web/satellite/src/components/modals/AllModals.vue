@@ -19,6 +19,6 @@ const appStore = useAppStore();
  */
 const activeModal = computed((): unknown | null => {
     // modal could be of VueConstructor type or Object (for composition api components).
-    return appStore.state.viewsState.activeModal;
+    return appStore.state.activeModal;
 });
 </script>
