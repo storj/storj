@@ -392,7 +392,7 @@ func TestGetOnlineNodesForGetDelete(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// pause chores that might update node data
-		planet.Satellites[0].Audit.Chore.Loop.Pause()
+		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Stop()
 		planet.Satellites[0].Repair.Checker.Loop.Pause()
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 		for _, node := range planet.StorageNodes {

@@ -79,8 +79,8 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# whether or not to use the ranged loop observer instead of the chore.
-# audit.use-ranged-loop: false
+# whether use Audit observer with ranged loop.
+# audit.use-ranged-loop: true
 
 # number of audit jobs to push at once to the verification queue
 # audit.verification-push-batch-size: 4096
@@ -517,8 +517,8 @@ contact.external-address: ""
 # batch size (crdb specific) for deleting and adding items to the transfer queue
 # graceful-exit.transfer-queue-batch-size: 1000
 
-# whether or not to use the ranged loop observer instead of the chore.
-# graceful-exit.use-ranged-loop: false
+# whether use GE observer with ranged loop.
+# graceful-exit.use-ranged-loop: true
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert

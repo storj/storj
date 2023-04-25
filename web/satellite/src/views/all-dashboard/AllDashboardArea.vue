@@ -109,6 +109,7 @@
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
         />
+        <SessionExpiredModal v-if="sessionExpiredModalShown" :on-redirect="redirectToLogin" />
     </div>
 </template>
 
@@ -141,6 +142,7 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
+import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
@@ -179,6 +181,7 @@ const debugTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
 const debugTimerText = ref<string>('');
 const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 const inactivityModalShown = ref<boolean>(false);
+const sessionExpiredModalShown = ref<boolean>(false);
 const isSessionActive = ref<boolean>(false);
 const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
@@ -371,12 +374,19 @@ async function redirectToBillingPage(): Promise<void> {
 }
 
 /**
- * Performs logout and cleans event listeners and session timers.
+ * Redirects to log in screen.
  */
-async function handleInactive(): Promise<void> {
-    await analytics.pageVisit(RouteConfig.Login.path);
-    await router.push(RouteConfig.Login.path);
+function redirectToLogin(): void {
+    analytics.pageVisit(RouteConfig.Login.path);
+    router.push(RouteConfig.Login.path);
 
+    sessionExpiredModalShown.value = false;
+}
+
+/**
+ * Clears pinia stores and timers.
+ */
+async function clearStoreAndTimers(): Promise<void> {
     await Promise.all([
         pmStore.clear(),
         projectsStore.clear(),
@@ -396,6 +406,14 @@ async function handleInactive(): Promise<void> {
     });
     clearSessionTimers();
     inactivityModalShown.value = false;
+    sessionExpiredModalShown.value = true;
+}
+
+/**
+ * Performs logout and cleans event listeners and session timers.
+ */
+async function handleInactive(): Promise<void> {
+    await clearStoreAndTimers();
 
     try {
         await auth.logout();
@@ -491,7 +509,7 @@ function restartSessionTimers(): void {
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
-            await handleInactive();
+            await clearStoreAndTimers();
             await notify.notify('Your session was timed out.');
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
@@ -567,10 +585,6 @@ onMounted(async () => {
         await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        usersStore.$onAction((action) => {
-            if (action.name === 'login') setupSessionTimers();
-        });
-
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);

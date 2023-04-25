@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/emailreminders"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
@@ -111,7 +110,6 @@ type Core struct {
 	Audit struct {
 		VerifyQueue          audit.VerifyQueue
 		ReverifyQueue        audit.ReverifyQueue
-		Chore                *audit.Chore
 		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
 
@@ -141,10 +139,6 @@ type Core struct {
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
-	}
-
-	GracefulExit struct {
-		Chore *gracefulexit.Chore
 	}
 }
 
@@ -373,34 +367,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Audit.VerifyQueue = db.VerifyQueue()
 		peer.Audit.ReverifyQueue = db.ReverifyQueue()
 
-		if config.UseRangedLoop {
-			peer.Log.Named("audit:chore").Info("using ranged loop")
-		} else {
-			peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-				peer.Audit.VerifyQueue,
-				peer.Metainfo.SegmentLoop,
-				config,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "audit:chore",
-				Run:   peer.Audit.Chore.Run,
-				Close: peer.Audit.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
-
-			peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
-				peer.Audit.ReverifyQueue,
-				peer.Overlay.DB,
-				config.ContainmentSyncChoreInterval,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "audit:containment-sync-chore",
-				Run:  peer.Audit.ContainmentSyncChore.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Audit Containment Sync Chore", peer.Audit.ContainmentSyncChore.Loop))
-		}
+		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
+			peer.Audit.ReverifyQueue,
+			peer.Overlay.DB,
+			config.ContainmentSyncChoreInterval,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "audit:containment-sync-chore",
+			Run:  peer.Audit.ContainmentSyncChore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Audit Containment Sync Chore", peer.Audit.ContainmentSyncChore.Loop))
 	}
 
 	{ // setup expired segment cleanup
@@ -588,25 +565,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Run:   peer.Payments.AccountFreeze.Run,
 				Close: peer.Payments.AccountFreeze.Close,
 			})
-		}
-	}
-
-	{ // setup graceful exit
-		log := peer.Log.Named("gracefulexit")
-		switch {
-		case !config.GracefulExit.Enabled:
-			log.Info("disabled")
-		case config.GracefulExit.UseRangedLoop:
-			log.Info("using ranged loop")
-		default:
-			peer.GracefulExit.Chore = gracefulexit.NewChore(log, peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.SegmentLoop, config.GracefulExit)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "gracefulexit",
-				Run:   peer.GracefulExit.Chore.Run,
-				Close: peer.GracefulExit.Chore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 		}
 	}
 

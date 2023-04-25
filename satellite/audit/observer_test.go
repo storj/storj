@@ -4,19 +4,20 @@
 package audit_test
 
 import (
-	"math/rand"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
@@ -38,7 +39,7 @@ func TestAuditCollector(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		satellite.Audit.Worker.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 
@@ -50,9 +51,11 @@ func TestAuditCollector(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		r := rand.New(rand.NewSource(time.Now().Unix()))
-		observer := audit.NewCollector(4, r)
-		err := satellite.Metabase.SegmentLoop.Join(ctx, observer)
+		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Audit.VerifyQueue, satellite.Config.Audit)
+
+		ranges := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 100)
+		loop := rangedloop.NewService(zaptest.NewLogger(t), satellite.Config.RangedLoop, ranges, []rangedloop.Observer{observer})
+		_, err := loop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		aliases, err := planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
@@ -90,15 +93,15 @@ func BenchmarkRemoteSegment(b *testing.B) {
 			require.NoError(b, err)
 		}
 
-		observer := audit.NewCollector(3, rand.New(rand.NewSource(time.Now().Unix())))
+		observer := audit.NewObserver(zap.NewNop(), nil, planet.Satellites[0].Config.Audit)
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
-		loopSegments := []*segmentloop.Segment{}
+		loopSegments := []segmentloop.Segment{}
 
 		for _, segment := range segments {
-			loopSegments = append(loopSegments, &segmentloop.Segment{
+			loopSegments = append(loopSegments, segmentloop.Segment{
 				StreamID:   segment.StreamID,
 				Position:   segment.Position,
 				CreatedAt:  segment.CreatedAt,
@@ -108,14 +111,12 @@ func BenchmarkRemoteSegment(b *testing.B) {
 			})
 		}
 
+		fork, err := observer.Fork(ctx)
+		require.NoError(b, err)
+
 		b.Run("multiple segments", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				for _, loopSegment := range loopSegments {
-					err := observer.RemoteSegment(ctx, loopSegment)
-					if err != nil {
-						b.FailNow()
-					}
-				}
+				_ = fork.Process(ctx, loopSegments)
 			}
 		})
 	})

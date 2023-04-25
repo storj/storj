@@ -143,7 +143,6 @@ type Satellite struct {
 		ReverifyQueue        audit.ReverifyQueue
 		Worker               *audit.Worker
 		ReverifyWorker       *audit.ReverifyWorker
-		Chore                *audit.Chore
 		Verifier             *audit.Verifier
 		Reverifier           *audit.Reverifier
 		Reporter             audit.Reporter
@@ -198,7 +197,6 @@ type Satellite struct {
 	}
 
 	GracefulExit struct {
-		Chore    *gracefulexit.Chore
 		Endpoint *gracefulexit.Endpoint
 	}
 }
@@ -638,7 +636,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.ReverifyQueue = auditorPeer.Audit.ReverifyQueue
 	system.Audit.Worker = auditorPeer.Audit.Worker
 	system.Audit.ReverifyWorker = auditorPeer.Audit.ReverifyWorker
-	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = auditorPeer.Audit.Verifier
 	system.Audit.Reverifier = auditorPeer.Audit.Reverifier
 	system.Audit.Reporter = auditorPeer.Audit.Reporter
@@ -660,7 +657,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.ProjectLimits.Cache = api.ProjectLimits.Cache
 
-	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	return system

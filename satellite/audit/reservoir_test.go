@@ -33,7 +33,7 @@ func TestReservoir(t *testing.T) {
 			// If we sample N segments, less than the max, we should record all N
 			r := NewReservoir(size)
 			for _, sample := range samples {
-				r.Sample(rng, &sample)
+				r.Sample(rng, sample)
 			}
 			require.Equal(t, samples, r.Segments())
 			require.Len(t, r.Keys(), len(samples))
@@ -50,14 +50,14 @@ func TestReservoirMerge(t *testing.T) {
 		}
 		rng := rand.New(rand.NewSource(999))
 		r1 := NewReservoir(3)
-		r1.Sample(rng, &segments[0])
-		r1.Sample(rng, &segments[1])
-		r1.Sample(rng, &segments[2])
+		r1.Sample(rng, segments[0])
+		r1.Sample(rng, segments[1])
+		r1.Sample(rng, segments[2])
 
 		r2 := NewReservoir(3)
-		r2.Sample(rng, &segments[3])
-		r2.Sample(rng, &segments[4])
-		r2.Sample(rng, &segments[5])
+		r2.Sample(rng, segments[3])
+		r2.Sample(rng, segments[4])
+		r2.Sample(rng, segments[5])
 
 		err := r1.Merge(r2)
 		require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestReservoirWeights(t *testing.T) {
 		weight1StreamID:  0,
 	}
 
-	segments := []*segmentloop.Segment{
+	segments := []segmentloop.Segment{
 		{
 			StreamID:      weight10StreamID,
 			Position:      metabase.SegmentPosition{},
@@ -167,7 +167,7 @@ func TestReservoirBias(t *testing.T) {
 				EncryptedSize: weight,
 			}
 			binary.BigEndian.PutUint64(seg.StreamID[0:8], uint64(n)<<(64-useBits))
-			res.Sample(rng, &seg)
+			res.Sample(rng, seg)
 		}
 		for i, seg := range res.Segments() {
 			num := binary.BigEndian.Uint64(seg.StreamID[0:8]) >> (64 - useBits)
