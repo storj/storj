@@ -15,7 +15,7 @@ pipeline {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
-        PLAYWRIGHT_BROWSERS_PATH='ms-playwright/'
+        PLAYWRIGHT_BROWSERS_PATH=0
     }
     stages {
         stage('Checkout') {
