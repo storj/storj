@@ -107,7 +107,7 @@
             <InfoContainer
                 title="Billing"
                 :subtitle="status"
-                :value="estimatedCharges | centsToDollars"
+                :value="centsToDollars(estimatedCharges)"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
@@ -170,6 +170,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { centsToDollars } from '@/utils/strings';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';

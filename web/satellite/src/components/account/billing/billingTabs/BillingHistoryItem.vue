@@ -14,7 +14,7 @@
                     <span>{{ item.formattedStatus }}</span>
                 </p>
                 <p class="array-val">
-                    {{ item.amount | centsToDollars }}
+                    {{ centsToDollars(item.amount) }}
                 </p>
             </div>
         </th>
@@ -33,7 +33,7 @@
             </th>
             <th class="align-left data tablet-laptop">
                 <p>
-                    {{ item.amount | centsToDollars }}
+                    {{ centsToDollars(item.amount) }}
                 </p>
             </th>
             <th class="align-left data tablet-laptop">
@@ -46,6 +46,7 @@
 <script setup lang="ts">
 import { Fragment as VFragment } from 'vue-fragment';
 
+import { centsToDollars } from '@/utils/strings';
 import { PaymentsHistoryItem, PaymentsHistoryItemStatus } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

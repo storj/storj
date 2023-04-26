@@ -44,9 +44,9 @@
                 </p>
                 <p class="dashboard-header__limits">
                     <span class="dashboard-header__limits--bold">Storage Limit</span>
-                    per month: {{ limits.storageLimit | bytesToBase10String }} |
+                    per month: {{ bytesToBase10String(limits.storageLimit) }} |
                     <span class="dashboard-header__limits--bold">Bandwidth Limit</span>
-                    per month: {{ limits.bandwidthLimit | bytesToBase10String }}
+                    per month: {{ bytesToBase10String(limits.bandwidthLimit) }}
                 </p>
                 <VButton
                     label="Upload"
@@ -71,6 +71,7 @@ import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { bytesToBase10String } from '@/utils/strings';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';

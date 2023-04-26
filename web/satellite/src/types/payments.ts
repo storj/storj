@@ -145,6 +145,10 @@ export class AccountBalance {
         return formatPrice(decimalShift(this._credits, 2));
     }
 
+    public get formattedCoins(): string {
+        return formatPrice(this._coins);
+    }
+
     public get sum(): number {
         return this.freeCredits + this.coins;
     }
