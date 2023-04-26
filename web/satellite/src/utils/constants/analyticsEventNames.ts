@@ -81,6 +81,7 @@ export enum AnalyticsErrorEventSource {
     ADD_TOKEN_FUNDS_MODAL = 'Add token funds modal',
     CHANGE_PASSWORD_MODAL = 'Change password modal',
     CREATE_PROJECT_MODAL = 'Create project modal',
+    CREATE_PROJECT_PASSPHRASE_MODAL = 'Create project passphrase modal',
     DELETE_BUCKET_MODAL = 'Delete bucket modal',
     ENABLE_MFA_MODAL = 'Enable MFA modal',
     DISABLE_MFA_MODAL = 'Disable MFA modal',
