@@ -22,9 +22,6 @@ import (
 	"storj.io/uplink"
 )
 
-// LATEST is the name of the file that contains the most recently completed bloomfilter generation prefix.
-const LATEST = "LATEST"
-
 var mon = monkit.Package()
 
 // Config contains configurable values for garbage collection.
