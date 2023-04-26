@@ -109,7 +109,7 @@
         </div>
         <InactivityModal
             v-if="inactivityModalShown"
-            :on-continue="refreshSession"
+            :on-continue="() => refreshSession(true)"
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
@@ -559,8 +559,9 @@ function restartSessionTimers(): void {
 
 /**
  * Refreshes session and resets session timers.
+ * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
  */
-async function refreshSession(): Promise<void> {
+async function refreshSession(manual = false): Promise<void> {
     isSessionRefreshing.value = true;
 
     try {
@@ -577,6 +578,10 @@ async function refreshSession(): Promise<void> {
     inactivityModalShown.value = false;
     isSessionActive.value = false;
     isSessionRefreshing.value = false;
+
+    if (manual && !usersStore.state.settings.sessionDuration) {
+        appStore.updateActiveModal(MODALS.editSessionTimeout);
+    }
 }
 
 /**
