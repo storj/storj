@@ -98,13 +98,21 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 		if config.GarbageCollectionBF.UseRangedLoop {
 			log.Info("using ranged loop")
 
-			provider := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
-			peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{
-				bloomfilter.NewObserver(log.Named("gc-bf"),
+			var observer rangedloop.Observer
+			if config.GarbageCollectionBF.UseSyncObserver {
+				observer = bloomfilter.NewSyncObserver(log.Named("gc-bf"),
 					config.GarbageCollectionBF,
 					peer.Overlay.DB,
-				),
-			})
+				)
+			} else {
+				observer = bloomfilter.NewObserver(log.Named("gc-bf"),
+					config.GarbageCollectionBF,
+					peer.Overlay.DB,
+				)
+			}
+
+			provider := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
+			peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{observer})
 
 			if !config.GarbageCollectionBF.RunOnce {
 				peer.Services.Add(lifecycle.Item{

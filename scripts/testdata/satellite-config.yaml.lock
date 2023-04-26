@@ -457,6 +457,9 @@ contact.external-address: ""
 # whether to use ranged loop instead of segment loop
 # garbage-collection-bf.use-ranged-loop: false
 
+# whether to use test GC SyncObserver with ranged loop
+# garbage-collection-bf.use-sync-observer: false
+
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
 
