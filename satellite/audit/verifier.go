@@ -130,7 +130,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	var offlineNodes storj.NodeIDList
-	var failedNodes storj.NodeIDList
+	var failedNodes metabase.Pieces
 	var unknownNodes storj.NodeIDList
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
@@ -206,7 +206,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		case RequestFailure:
 			if errs2.IsRPC(share.Error, rpcstatus.NotFound) {
 				// missing share
-				failedNodes = append(failedNodes, share.NodeID)
+				failedNodes = append(failedNodes, metabase.Piece{
+					Number:      uint16(share.PieceNum),
+					StorageNode: share.NodeID,
+				})
 				errLogger.Info("Verify: piece not found (audit failed)")
 				continue
 			}
@@ -258,6 +261,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
 		verifier.log.Error("could not verify shares", zap.String("Segment", segmentInfoString(segment)), zap.Error(err))
 		return Report{
+			Segment:  &segmentInfo,
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
@@ -268,7 +272,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		verifier.log.Info("Verify: share data altered (audit failed)",
 			zap.Stringer("Node ID", shares[pieceNum].NodeID),
 			zap.String("Segment", segmentInfoString(segment)))
-		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
+		failedNodes = append(failedNodes, metabase.Piece{
+			StorageNode: shares[pieceNum].NodeID,
+			Number:      uint16(pieceNum),
+		})
 	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
@@ -276,6 +283,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	pendingAudits, err := createPendingAudits(ctx, containedNodes, segment)
 	if err != nil {
 		return Report{
+			Segment:   &segmentInfo,
 			Successes: successNodes,
 			Fails:     failedNodes,
 			Offlines:  offlineNodes,
@@ -284,6 +292,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	return Report{
+		Segment:       &segmentInfo,
 		Successes:     successNodes,
 		Fails:         failedNodes,
 		Offlines:      offlineNodes,
@@ -542,11 +551,11 @@ func getOfflineNodes(segment metabase.Segment, limits []*pb.AddressedOrderLimit,
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit.
-func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes metabase.Pieces, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
-		fails[fail] = true
+		fails[fail.StorageNode] = true
 	}
 	for _, offline := range offlineNodes {
 		fails[offline] = true

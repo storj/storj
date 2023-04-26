@@ -530,6 +530,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	report := audit.Report{
+		Segment:         &segment,
 		NodesReputation: cachedNodesReputation,
 	}
 
@@ -537,7 +538,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		report.Successes = append(report.Successes, outcome.Piece.StorageNode)
 	}
 	for _, outcome := range piecesReport.Failed {
-		report.Fails = append(report.Fails, outcome.Piece.StorageNode)
+		report.Fails = append(report.Fails, metabase.Piece{
+			StorageNode: outcome.Piece.StorageNode,
+			Number:      outcome.Piece.Number,
+		})
 	}
 	for _, outcome := range piecesReport.Offline {
 		report.Offlines = append(report.Offlines, outcome.Piece.StorageNode)
