@@ -152,10 +152,6 @@
                 </span>
             </div>
         </div>
-        <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-        />
         <router-view />
     </div>
 </template>
@@ -172,9 +168,10 @@ import { AccessType } from '@/types/createAccessGrant';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
-import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -188,12 +185,12 @@ const FIRST_PAGE = 1;
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
-const isDeleteClicked = ref<boolean>(false);
 const activeDropdown = ref<number>(-1);
 const areGrantsFetching = ref<boolean>(true);
 
@@ -272,16 +269,10 @@ function openDropdown(key: number): void {
  * Holds on button click login for deleting access grant process.
  */
 function onDeleteClick(grant: AccessGrant): void {
+    agStore.setAccessNameToDelete(grant.name);
     agStore.toggleSelection(grant);
-    isDeleteClicked.value = true;
-}
 
-/**
- * Clears access grants selection.
- */
-function onClearSelection(): void {
-    isDeleteClicked.value = false;
-    agStore.clearSelection();
+    appStore.updateActiveModal(MODALS.deleteAccessGrant);
 }
 
 /**
@@ -293,7 +284,7 @@ async function fetch(searchQuery: string): Promise<void> {
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -350,7 +341,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-    onClearSelection();
+    agStore.clearSelection();
 });
 </script>
 <style scoped lang="scss">

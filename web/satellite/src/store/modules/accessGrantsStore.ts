@@ -31,6 +31,7 @@ class AccessGrantsState {
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
+    public accessNameToDelete = '';
 }
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
@@ -112,6 +113,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     function setSortingBy(order: AccessGrantsOrderBy): void {
         state.cursor.order = order;
+    }
+
+    function setAccessNameToDelete(name: string): void {
+        state.accessNameToDelete = name;
     }
 
     function setDurationPermission(permission: DurationPermission): void {
@@ -223,6 +228,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         getEdgeCredentials,
         setSearchQuery,
         setSortingBy,
+        setAccessNameToDelete,
         setSortingDirection,
         toggleSortingDirection,
         setDurationPermission,

@@ -30,6 +30,7 @@ import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
 import NewCreateProjectModal from '@/components/modals/NewCreateProjectModal.vue';
 import EditSessionTimeoutModal from '@/components/modals/EditSessionTimeoutModal.vue';
 import UpgradeAccountModal from '@/components/modals/upgradeAccountFlow/UpgradeAccountModal.vue';
+import DeleteAccessGrantModal from '@/components/modals/DeleteAccessGrantModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -76,6 +77,7 @@ enum Modals {
     NEW_CREATE_PROJECT = 'newCreateProject',
     EDIT_SESSION_TIMEOUT = 'editSessionTimeout',
     UPGRADE_ACCOUNT = 'upgradeAccount',
+    DELETE_ACCESS_GRANT = 'deleteAccessGrant',
 }
 
 // modals could be of VueConstructor type or Object (for composition api components).
@@ -106,4 +108,5 @@ export const MODALS: Record<Modals, unknown> = {
     [Modals.NEW_CREATE_PROJECT]: NewCreateProjectModal,
     [Modals.EDIT_SESSION_TIMEOUT]: EditSessionTimeoutModal,
     [Modals.UPGRADE_ACCOUNT]: UpgradeAccountModal,
+    [Modals.DELETE_ACCESS_GRANT]: DeleteAccessGrantModal,
 };
