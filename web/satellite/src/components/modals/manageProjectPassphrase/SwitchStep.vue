@@ -3,7 +3,6 @@
 
 <template>
     <div class="switch-step">
-        <h1 class="switch-step__title">Switch passphrase</h1>
         <p class="switch-step__info">
             Switch passphrases to view existing data that is uploaded with a different passphrase, or upload new data.
             Please note that you won’t see the previous data once you switch passphrases.
@@ -21,15 +20,20 @@
             <VButton
                 label="Back"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :is-white="true"
                 :on-press="onCancel"
             />
             <VButton
-                label="Switch Passphrase"
+                label="Continue ->"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :on-press="onSwitch"
+                :is-disabled="!passphrase"
             />
         </div>
     </div>
@@ -98,29 +102,26 @@ async function onSwitch(): Promise<void> {
     flex-direction: column;
     align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
-    }
+    max-width: 350px;
 
     &__info {
         font-size: 14px;
         line-height: 19px;
         color: #354049;
-        margin-bottom: 24px;
+        padding-bottom: 16px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
     }
 
     &__buttons {
         display: flex;
         align-items: center;
         justify-content: center;
-        column-gap: 33px;
-        margin-top: 20px;
+        column-gap: 16px;
+        margin-top: 16px;
+        padding-top: 24px;
+        border-top: 1px solid var(--c-grey-2);
         width: 100%;
 
         @media screen and (max-width: 530px) {

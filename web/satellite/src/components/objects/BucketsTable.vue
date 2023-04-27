@@ -36,7 +36,7 @@
             :limit="bucketsPage.limit"
             :total-page-count="bucketsPage.pageCount"
             items-label="buckets"
-            :on-page-click-callback="fetchBuckets"
+            :on-page-change="fetchBuckets"
             :total-items-count="bucketsPage.totalCount"
             :selectable="false"
         >
@@ -166,9 +166,9 @@ function onCreateBucketClick(): void {
 /**
  * Fetches bucket using api.
  */
-async function fetchBuckets(page = 1): Promise<void> {
+async function fetchBuckets(page = 1, limit: number): Promise<void> {
     try {
-        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }

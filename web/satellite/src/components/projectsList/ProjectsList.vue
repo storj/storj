@@ -25,7 +25,7 @@
             :limit="projectsPage.limit"
             :total-page-count="projectsPage.pageCount"
             items-label="projects"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
             :total-items-count="projectsPage.totalCount"
         >
             <template #head>
@@ -96,11 +96,12 @@ const projectsPage = computed((): ProjectsPage => {
 /**
  * Fetches owned projects page page by clicked page number.
  * @param page
+ * @param limit
  */
-async function onPageClick(page: number): Promise<void> {
+async function onPageChange(page: number, limit: number): Promise<void> {
     currentPageNumber.value = page;
     try {
-        await projectsStore.getOwnedProjects(currentPageNumber.value);
+        await projectsStore.getOwnedProjects(currentPageNumber.value, limit);
     } catch (error) {
         await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }

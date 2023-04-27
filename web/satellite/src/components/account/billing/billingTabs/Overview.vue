@@ -11,7 +11,7 @@
             <div class="total-cost__card-container">
                 <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
+                    <p class="total-cost__card__money-text">{{ centsToDollars(priceSummary) }}</p>
                     <p class="total-cost__card__label-text">
                         Total Estimated Charges
                         <img
@@ -36,7 +36,7 @@
                 </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">${{ balance.coins }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.formattedCoins }}</p>
                     <p class="total-cost__card__label-text">STORJ Token Balance</p>
                     <p
                         class="total-cost__card__link-text"
@@ -91,6 +91,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import { centsToDollars } from '@/utils/strings';
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';

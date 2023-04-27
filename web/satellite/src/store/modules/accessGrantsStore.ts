@@ -15,6 +15,7 @@ import {
 import { SortDirection } from '@/types/common';
 import { AccessGrantsApiGql } from '@/api/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 class AccessGrantsState {
     public cursor: AccessGrantCursor = new AccessGrantCursor();
@@ -66,8 +67,9 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.isAccessGrantsWebWorkerReady = false;
     }
 
-    async function getAccessGrants(pageNumber: number, projectID: string): Promise<AccessGrantsPage> {
+    async function getAccessGrants(pageNumber: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<AccessGrantsPage> {
         state.cursor.page = pageNumber;
+        state.cursor.limit = limit;
 
         const accessGrantsPage: AccessGrantsPage = await api.get(projectID, state.cursor);
 

@@ -126,7 +126,7 @@
                 :limit="accessGrantLimit"
                 :total-page-count="totalPageCount"
                 :total-items-count="accessGrantsTotalCount"
-                :on-page-click-callback="onPageClick"
+                :on-page-change="onPageClick"
             >
                 <template #head>
                     <access-grants-header />
@@ -245,10 +245,11 @@ const emptyStateLabel = computed((): string => {
 /**
  * Fetches access grants page by clicked index.
  * @param index
+ * @param limit
  */
-async function onPageClick(index: number): Promise<void> {
+async function onPageClick(index: number, limit: number): Promise<void> {
     try {
-        agStore.getAccessGrants(index, projectsStore.state.selectedProject.id);
+        await agStore.getAccessGrants(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }

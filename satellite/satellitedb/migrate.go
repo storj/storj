@@ -2322,6 +2322,21 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE stripe_customers ADD COLUMN purchased_package_at timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create project_invitations table",
+				Version:     232,
+				Action: migrate.SQL{
+					`CREATE TABLE project_invitations (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						email text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, email )
+					);`,
+					`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id );`,
+					`CREATE INDEX project_invitations_email_index ON project_invitations ( email );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

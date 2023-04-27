@@ -1,6 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+export const DEFAULT_PAGE_LIMIT = 10;
+
+export type PageChangeCallback = (page: number, limit: number) => Promise<void>;
+
 export type OnPageClickCallback = (search: number) => Promise<void>;
 export type CheckSelected = (index: number) => boolean;
 

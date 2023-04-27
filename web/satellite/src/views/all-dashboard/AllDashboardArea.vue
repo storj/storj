@@ -194,7 +194,12 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return configStore.state.config.inactivityTimerDuration * 1000;
+    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
+    if (duration > maxTimeout) {
+        return maxTimeout;
+    }
+    return duration;
 });
 
 /**
@@ -579,8 +584,13 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction((action) => {
-        if (action.name === 'clear') clearSessionTimers();
+    usersStore.$onAction(({ name, after, args }) => {
+        if (name === 'clear') clearSessionTimers();
+        else if (name === 'updateSettings') {
+            if (args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+                after((_) => refreshSession());
+            }
+        }
     });
 
     try {

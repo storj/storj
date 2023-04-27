@@ -35,6 +35,68 @@ import (
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
+func TestService_BalanceInvoiceItems(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		numberOfUsers := 10
+		users := make([]*console.User, numberOfUsers)
+		projects := make([]*console.Project, numberOfUsers)
+		// create a bunch of users
+		for i := 0; i < numberOfUsers; i++ {
+			var err error
+
+			users[i], err = satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
+			require.NoError(t, err)
+
+			projects[i], err = satellite.AddProject(ctx, users[i].ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+		}
+
+		// give one of the users a stripe balance
+		cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, users[4].ID)
+		require.NoError(t, err)
+		_, err = payments.StripeClient.Customers().Update(cusID, &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Balance: stripe.Int64(1000),
+		})
+		require.NoError(t, err)
+
+		// convert the stripe balance into an invoice item
+		require.NoError(t, payments.StripeService.CreateBalanceInvoiceItems(ctx))
+
+		// check that the invoice item was created
+		itr := payments.StripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+			Customer: stripe.String(cusID),
+		})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+		require.Equal(t, int64(1000), itr.InvoiceItem().UnitAmount)
+
+		// check that the stripe balance was reset
+		cus, err := payments.StripeClient.Customers().Get(cusID, &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(0), cus.Balance)
+	})
+}
+
 func TestService_InvoiceElementsProcessing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

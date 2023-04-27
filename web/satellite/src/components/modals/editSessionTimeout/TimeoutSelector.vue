@@ -111,13 +111,14 @@ function toggleSelector() {
         align-items: center;
         justify-content: space-between;
         position: relative;
-        margin: 10px 14px;
+        padding: 10px 14px;
 
         &__label {
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-grey-6);
+            cursor: default;
         }
 
         &__arrow {
@@ -142,6 +143,10 @@ function toggleSelector() {
 
         &__item {
             padding: 10px;
+
+            &__label {
+                cursor: default;
+            }
 
             &.selected {
                 background: var(--c-grey-1);

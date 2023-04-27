@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/charge"
 	"github.com/stripe/stripe-go/v72/client"
+	"github.com/stripe/stripe-go/v72/customer"
 	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
 	"github.com/stripe/stripe-go/v72/form"
 	"github.com/stripe/stripe-go/v72/invoice"
@@ -43,6 +44,7 @@ type Customers interface {
 	New(params *stripe.CustomerParams) (*stripe.Customer, error)
 	Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error)
 	Update(id string, params *stripe.CustomerParams) (*stripe.Customer, error)
+	List(listParams *stripe.CustomerListParams) *customer.Iter
 }
 
 // PaymentMethods Stripe PaymentMethods interface.

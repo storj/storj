@@ -774,6 +774,60 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	return scheduled, draft, errGrp.Err()
 }
 
+// CreateBalanceInvoiceItems will find users with a stripe balance, create an invoice
+// item with the charges due, and zero out the stripe balance.
+func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	custListParams := &stripe.CustomerListParams{
+		ListParams: stripe.ListParams{
+			Context: ctx,
+			Limit:   stripe.Int64(100),
+		},
+	}
+
+	var errGrp errs.Group
+	itr := service.stripeClient.Customers().List(custListParams)
+	for itr.Next() {
+		if itr.Customer().Balance <= 0 {
+			continue
+		}
+		service.log.Info("Creating invoice item for customer prior balance", zap.String("CustomerID", itr.Customer().ID))
+		itemParams := &stripe.InvoiceItemParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Customer:    stripe.String(itr.Customer().ID),
+			Description: stripe.String("Prior Stripe Customer Balance"),
+			Quantity:    stripe.Int64(1),
+			UnitAmount:  stripe.Int64(itr.Customer().Balance),
+		}
+		invoiceItem, err := service.stripeClient.InvoiceItems().New(itemParams)
+		if err != nil {
+			service.log.Error("Failed to add invoice item for customer prior balance", zap.Error(err))
+			errGrp.Add(err)
+			continue
+		}
+		service.log.Info("Updating customer balance to 0", zap.String("CustomerID", itr.Customer().ID))
+		custParams := &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Balance:     stripe.Int64(0),
+			Description: stripe.String("Customer balance adjusted to 0 after adding invoice item " + invoiceItem.ID),
+		}
+		_, err = service.stripeClient.Customers().Update(itr.Customer().ID, custParams)
+		if err != nil {
+			service.log.Error("Failed to update customer balance to 0 after adding invoice item", zap.Error(err))
+			errGrp.Add(err)
+			continue
+		}
+		service.log.Info("Customer successfully updated", zap.String("CustomerID", itr.Customer().ID), zap.Int64("Prior Balance", itr.Customer().Balance), zap.Int64("New Balance", 0), zap.String("InvoiceItemID", invoiceItem.ID))
+	}
+	return errGrp.Err()
+}
+
 // GenerateInvoices performs all tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking ApplyFreeTierCoupons, PrepareInvoiceProjectRecords,
 // InvoiceApplyProjectRecords, and CreateInvoices in order.

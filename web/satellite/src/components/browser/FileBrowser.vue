@@ -95,7 +95,7 @@
                         :on-close="closeBanner"
                     />
 
-                    <v-table selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
+                    <v-table items-label="objects" :total-items-count="files.length" selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
                         <template #head>
                             <file-browser-header />
                         </template>
@@ -589,7 +589,6 @@ onBeforeMount(async () => {
 }
 
 .file-browser-table {
-    border: 1px solid var(--c-grey-3);
     box-shadow: none;
 }
 

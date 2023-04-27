@@ -12,6 +12,7 @@ import (
 
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/charge"
+	"github.com/stripe/stripe-go/v72/customer"
 	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
 	"github.com/stripe/stripe-go/v72/form"
 	"github.com/stripe/stripe-go/v72/invoice"
@@ -194,6 +195,21 @@ type mockCustomers struct {
 	coupons     map[string]*stripe.Coupon
 }
 
+func (m *mockCustomers) List(listParams *stripe.CustomerListParams) *customer.Iter {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	return &customer.Iter{
+		Iter: stripe.GetIter(listParams, func(p *stripe.Params, vals *form.Values) ([]interface{}, stripe.ListContainer, error) {
+			var customers []interface{}
+			for _, cus := range m.state.customers {
+				customers = append(customers, cus)
+			}
+			return customers, newListContainer(&stripe.ListMeta{}), nil
+		}),
+	}
+}
+
 type mockCustomersState struct {
 	customers   []*stripe.Customer
 	repopulated bool
@@ -332,7 +348,9 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		}
 		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: c.ID}}
 	}
-
+	if params.Balance != nil {
+		customer.Balance = *params.Balance
+	}
 	// TODO update customer with more params as necessary
 
 	return customer, nil
@@ -660,6 +678,9 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	}
 	if params.UnitAmountDecimal != nil {
 		item.UnitAmountDecimal = *params.UnitAmountDecimal
+	}
+	if params.UnitAmount != nil {
+		item.UnitAmount = *params.UnitAmount
 	}
 	if params.Amount != nil {
 		item.Amount = *params.Amount

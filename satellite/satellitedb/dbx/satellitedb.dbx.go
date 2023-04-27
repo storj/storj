@@ -18,7 +18,6 @@ import (
 	"unicode"
 
 	"github.com/jackc/pgconn"
-
 	"storj.io/private/tagsql"
 )
 
@@ -849,6 +848,12 @@ CREATE TABLE bucket_metainfos (
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, name )
 );
+CREATE TABLE project_invitations (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	email text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, email )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -892,7 +897,9 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
-CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;`
+CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
+CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;`
 }
 
 func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
@@ -1522,6 +1529,12 @@ CREATE TABLE bucket_metainfos (
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, name )
 );
+CREATE TABLE project_invitations (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	email text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, email )
+);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1565,7 +1578,9 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
-CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;`
+CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
+CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;`
 }
 
 func (obj *pgxcockroachDB) wrapTx(tx tagsql.Tx) txMethods {
@@ -11258,6 +11273,74 @@ func (f BucketMetainfo_Placement_Field) value() interface{} {
 
 func (BucketMetainfo_Placement_Field) _Column() string { return "placement" }
 
+type ProjectInvitation struct {
+	ProjectId []byte
+	Email     string
+	CreatedAt time.Time
+}
+
+func (ProjectInvitation) _Table() string { return "project_invitations" }
+
+type ProjectInvitation_Update_Fields struct {
+}
+
+type ProjectInvitation_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectInvitation_ProjectId(v []byte) ProjectInvitation_ProjectId_Field {
+	return ProjectInvitation_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvitation_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvitation_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectInvitation_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ProjectInvitation_Email(v string) ProjectInvitation_Email_Field {
+	return ProjectInvitation_Email_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvitation_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvitation_Email_Field) _Column() string { return "email" }
+
+type ProjectInvitation_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectInvitation_CreatedAt(v time.Time) ProjectInvitation_CreatedAt_Field {
+	return ProjectInvitation_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f ProjectInvitation_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectInvitation_CreatedAt_Field) _Column() string { return "created_at" }
+
 type ProjectMember struct {
 	MemberId  []byte
 	ProjectId []byte
@@ -11816,6 +11899,11 @@ func (h *__sqlbundle_Hole) Render() string {
 //
 // end runtime support for building sql statements
 //
+
+type ApiKey_Project_PublicId_Row struct {
+	ApiKey           ApiKey
+	Project_PublicId []byte
+}
 
 type Balance_Row struct {
 	Balance int64
@@ -12904,6 +12992,34 @@ func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project_member, nil
+
+}
+
+func (obj *pgxImpl) Create_ProjectInvitation(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_invitation_project_id.value()
+	__email_val := project_invitation_email.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, created_at ) VALUES ( ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __email_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
 
 }
 
@@ -15829,12 +15945,102 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	rows []*ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	row *ApiKey_Project_PublicId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -15842,21 +16048,21 @@ func (obj *pgxImpl) Get_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Head(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -15864,22 +16070,22 @@ func (obj *pgxImpl) Get_ApiKey_By_Head(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -15887,12 +16093,12 @@ func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
@@ -18934,6 +19140,34 @@ func (obj *pgxImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.C
 
 }
 
+func (obj *pgxImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -19204,6 +19438,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20598,6 +20842,34 @@ func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project_member, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ProjectInvitation(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := project_invitation_project_id.value()
+	__email_val := project_invitation_email.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, created_at ) VALUES ( ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __email_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
 
 }
 
@@ -23523,12 +23795,102 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
-	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	rows []*ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.created_at FROM project_invitations WHERE project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.created_at FROM project_invitations WHERE project_invitations.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
+	api_key_id ApiKey_Id_Field) (
+	row *ApiKey_Project_PublicId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -23536,21 +23898,21 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.head = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_head.value())
@@ -23558,22 +23920,22 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
-func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at FROM api_keys WHERE api_keys.name = ? AND api_keys.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.partner_id, api_keys.user_agent, api_keys.created_at, projects.public_id FROM projects  JOIN api_keys ON projects.id = api_keys.project_id WHERE api_keys.name = ? AND api_keys.project_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_name.value(), api_key_project_id.value())
@@ -23581,12 +23943,12 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	api_key = &ApiKey{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.UserAgent, &api_key.CreatedAt)
+	row = &ApiKey_Project_PublicId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ApiKey.Id, &row.ApiKey.ProjectId, &row.ApiKey.Head, &row.ApiKey.Name, &row.ApiKey.Secret, &row.ApiKey.PartnerId, &row.ApiKey.UserAgent, &row.ApiKey.CreatedAt, &row.Project_PublicId)
 	if err != nil {
-		return (*ApiKey)(nil), obj.makeErr(err)
+		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
-	return api_key, nil
+	return row, nil
 
 }
 
@@ -26628,6 +26990,34 @@ func (obj *pgxcockroachImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx 
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_invitations WHERE project_invitations.project_id = ? AND project_invitations.email = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_invitation_project_id.value(), project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -26898,6 +27288,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -27483,6 +27883,26 @@ func (rx *Rx) All_Project(ctx context.Context) (
 	return tx.All_Project(ctx)
 }
 
+func (rx *Rx) All_ProjectInvitation_By_Email(ctx context.Context,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	rows []*ProjectInvitation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectInvitation_By_Email(ctx, project_invitation_email)
+}
+
+func (rx *Rx) All_ProjectInvitation_By_ProjectId(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
+	rows []*ProjectInvitation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectInvitation_By_ProjectId(ctx, project_invitation_project_id)
+}
+
 func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*ProjectMember, err error) {
@@ -27887,6 +28307,18 @@ func (rx *Rx) Create_Project(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_ProjectInvitation(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	project_invitation *ProjectInvitation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ProjectInvitation(ctx, project_invitation_project_id, project_invitation_email)
+
+}
+
 func (rx *Rx) Create_ProjectMember(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -28155,6 +28587,17 @@ func (rx *Rx) Delete_OauthClient_By_Id(ctx context.Context,
 	return tx.Delete_OauthClient_By_Id(ctx, oauth_client_id)
 }
 
+func (rx *Rx) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ProjectInvitation_By_ProjectId_And_Email(ctx, project_invitation_project_id, project_invitation_email)
+}
+
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -28314,35 +28757,35 @@ func (rx *Rx) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
 	return tx.Get_AccountFreezeEvent_By_UserId_And_Event(ctx, account_freeze_event_user_id, account_freeze_event_event)
 }
 
-func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 	api_key_head ApiKey_Head_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Head(ctx, api_key_head)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx, api_key_head)
 }
 
-func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx, api_key_id)
 }
 
-func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+func (rx *Rx) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 	api_key_name ApiKey_Name_Field,
 	api_key_project_id ApiKey_ProjectId_Field) (
-	api_key *ApiKey, err error) {
+	row *ApiKey_Project_PublicId_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
+	return tx.Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx, api_key_name, api_key_project_id)
 }
 
 func (rx *Rx) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
@@ -29394,6 +29837,14 @@ type Methods interface {
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
+	All_ProjectInvitation_By_Email(ctx context.Context,
+		project_invitation_email ProjectInvitation_Email_Field) (
+		rows []*ProjectInvitation, err error)
+
+	All_ProjectInvitation_By_ProjectId(ctx context.Context,
+		project_invitation_project_id ProjectInvitation_ProjectId_Field) (
+		rows []*ProjectInvitation, err error)
+
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
@@ -29596,6 +30047,11 @@ type Methods interface {
 		optional Project_Create_Fields) (
 		project *Project, err error)
 
+	Create_ProjectInvitation(ctx context.Context,
+		project_invitation_project_id ProjectInvitation_ProjectId_Field,
+		project_invitation_email ProjectInvitation_Email_Field) (
+		project_invitation *ProjectInvitation, err error)
+
 	Create_ProjectMember(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -29722,6 +30178,11 @@ type Methods interface {
 		oauth_client_id OauthClient_Id_Field) (
 		deleted bool, err error)
 
+	Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+		project_invitation_project_id ProjectInvitation_ProjectId_Field,
+		project_invitation_email ProjectInvitation_Email_Field) (
+		deleted bool, err error)
+
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -29788,18 +30249,18 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field) (
 		account_freeze_event *AccountFreezeEvent, err error)
 
-	Get_ApiKey_By_Head(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
-	Get_ApiKey_By_Id(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
-	Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
+	Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx context.Context,
 		api_key_name ApiKey_Name_Field,
 		api_key_project_id ApiKey_ProjectId_Field) (
-		api_key *ApiKey, err error)
+		row *ApiKey_Project_PublicId_Row, err error)
 
 	Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field) (

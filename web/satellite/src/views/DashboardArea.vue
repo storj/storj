@@ -172,7 +172,6 @@ import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
 const bucketsStore = useBucketsStore();
-
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -212,7 +211,12 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return configStore.state.config.inactivityTimerDuration * 1000;
+    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
+    if (duration > maxTimeout) {
+        return maxTimeout;
+    }
+    return duration;
 });
 
 /**
@@ -560,7 +564,7 @@ async function refreshSession(): Promise<void> {
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -620,7 +624,7 @@ async function handleInactive(): Promise<void> {
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -647,7 +651,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 }
 
@@ -695,8 +699,13 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction((action) => {
-        if (action.name === 'clear') clearSessionTimers();
+    usersStore.$onAction(({ name, after, args }) => {
+        if (name === 'clear') clearSessionTimers();
+        else if (name === 'updateSettings') {
+            if (args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+                after((_) => refreshSession());
+            }
+        }
     });
 
     if (LocalData.getLargeUploadNotificationDismissed()) {
@@ -712,7 +721,7 @@ onMounted(async () => {
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
-            await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
@@ -724,26 +733,26 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
-            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         if (couponType === CouponType.SignupCoupon) {
-            await notify.success(`The coupon code was added successfully`);
+            notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     let projects: Project[] = [];

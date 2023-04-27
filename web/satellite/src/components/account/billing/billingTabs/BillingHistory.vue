@@ -7,7 +7,7 @@
             Billing History
         </h1>
 
-        <v-table class="billing-history__table">
+        <v-table :total-items-count="historyItems.length" class="billing-history__table">
             <template #head>
                 <BillingHistoryHeader />
             </template>

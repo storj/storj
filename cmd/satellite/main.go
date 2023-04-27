@@ -208,6 +208,12 @@ var (
 		Long:  "Applies free tier coupon to Stripe customers without a coupon",
 		RunE:  cmdApplyFreeTierCoupons,
 	}
+	createCustomerBalanceInvoiceItems = &cobra.Command{
+		Use:   "create-balance-invoice-items",
+		Short: "Creates stripe invoice line items for stripe customer balance",
+		Long:  "Creates stripe invoice line items for stripe customer balances obtained from past invoices and other miscellaneous charges.",
+		RunE:  cmdCreateCustomerBalanceInvoiceItems,
+	}
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
 		Use:   "prepare-invoice-records [period]",
 		Short: "Prepares invoice project records",
@@ -375,6 +381,7 @@ func init() {
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
+	billingCmd.AddCommand(createCustomerBalanceInvoiceItems)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
@@ -406,6 +413,7 @@ func init() {
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerBalanceInvoiceItems, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -744,6 +752,14 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
+}
+
+func cmdCreateCustomerBalanceInvoiceItems(cmd *cobra.Command, _ []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.CreateBalanceInvoiceItems(ctx)
+	})
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {

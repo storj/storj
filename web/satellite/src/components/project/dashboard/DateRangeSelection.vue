@@ -12,7 +12,7 @@
             <DatepickerIcon class="range-selection__toggle-container__icon" />
             <h1 class="range-selection__toggle-container__label">{{ dateRangeLabel }}</h1>
         </div>
-        <div v-show="isOpen" v-click-outside="closePicker" class="range-selection__popup">
+        <div v-if="isOpen" v-click-outside="closePicker" class="range-selection__popup">
             <VDateRangePicker :on-date-pick="onDatePick" :is-open="true" :date-range="pickerDateRange" />
         </div>
     </div>
