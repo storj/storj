@@ -455,6 +455,7 @@ onBeforeUnmount((): void => {
 <style scoped lang="scss">
     .project-dashboard {
         max-width: calc(100vw - 280px - 95px);
+        background-origin: content-box;
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;

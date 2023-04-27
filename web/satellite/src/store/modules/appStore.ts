@@ -7,10 +7,12 @@ import { defineStore } from 'pinia';
 import { OnboardingOS, PricingPlanInfo } from '@/types/common';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
+import { LocalData } from '@/utils/localData';
 
 class AppState {
     public fetchState = FetchState.LOADING;
     public isSuccessfulPasswordResetShown = false;
+    public isUpdateSessionTimeoutBanner = !LocalData.getSessionTimeoutBannerAcknowledged();
     public hasJustLoggedIn = false;
     public onbAGStepBackRoute = '';
     public onbAPIKeyStepBackRoute = '';
@@ -125,6 +127,12 @@ export const useAppStore = defineStore('app', () => {
         state.isLargeUploadNotificationShown = value;
     }
 
+    function closeUpdateSessionTimeoutBanner(): void {
+        LocalData.setSessionTimeoutBannerAcknowledged();
+
+        state.isUpdateSessionTimeoutBanner = false;
+    }
+
     function closeDropdowns(): void {
         state.activeDropdown = '';
     }
@@ -174,6 +182,7 @@ export const useAppStore = defineStore('app', () => {
         setLargeUploadWarningNotification,
         setLargeUploadNotification,
         closeDropdowns,
+        closeUpdateSessionTimeoutBanner,
         setErrorPage,
         removeErrorPage,
         clear,

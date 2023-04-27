@@ -18,6 +18,11 @@
             <div class="all-dashboard__content__divider" />
 
             <div class="all-dashboard__banners">
+                <UpdateSessionTimeoutBanner
+                    v-if="isUpdateSessionTimeoutBanner && dashboardContent"
+                    :dashboard-ref="dashboardContent"
+                />
+
                 <UpgradeNotification
                     v-if="isPaidTierBannerShown"
                     class="all-dashboard__banners__upgrade"
@@ -151,6 +156,7 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -207,6 +213,13 @@ const sessionDuration = computed((): number => {
  */
 const sessionRefreshInterval = computed((): number => {
     return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether the update session timeout notification should be shown.
+ */
+const isUpdateSessionTimeoutBanner = computed((): boolean => {
+    return router.currentRoute.name !== RouteConfig.Settings2.name && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -427,7 +440,7 @@ async function handleInactive(): Promise<void> {
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -439,7 +452,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 }
 
@@ -520,7 +533,7 @@ function restartSessionTimers(): void {
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
             await clearStoreAndTimers();
-            await notify.notify('Your session was timed out.');
+            notify.notify('Your session was timed out.');
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
 
@@ -553,7 +566,7 @@ async function refreshSession(): Promise<void> {
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -594,10 +607,17 @@ onMounted(async () => {
     });
 
     try {
-        await usersStore.getUser();
-        await usersStore.getFrozenStatus();
-        await abTestingStore.fetchValues();
-        await usersStore.getSettings();
+        await Promise.all([
+            usersStore.getUser(),
+            usersStore.getFrozenStatus(),
+            abTestingStore.fetchValues(),
+            usersStore.getSettings(),
+        ]);
+
+        if (usersStore.state.settings.sessionDuration && appStore.state.isUpdateSessionTimeoutBanner) {
+            appStore.closeUpdateSessionTimeoutBanner();
+        }
+
         setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -614,26 +634,26 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
-            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
         if (couponType === CouponType.SignupCoupon) {
-            await notify.success(`The coupon code was added successfully`);
+            notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
@@ -717,15 +737,6 @@ onBeforeUnmount(() => {
 
     &__banners {
         margin-bottom: 20px;
-
-        &__billing {
-            position: initial;
-            margin-top: 20px;
-
-            & :deep(.notification-wrap__content) {
-                position: initial;
-            }
-        }
 
         &__upgrade,
         &__project-limit,

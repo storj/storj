@@ -16,6 +16,11 @@
                         <BetaSatBar v-if="isBetaSatellite" />
                         <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
                         <div class="banner-container dashboard__wrap__main-area__content-wrap__container__content">
+                            <UpdateSessionTimeoutBanner
+                                v-if="isUpdateSessionTimeoutBanner && dashboardContent"
+                                :dashboard-ref="dashboardContent"
+                            />
+
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
@@ -167,6 +172,7 @@ import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
+import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 
 import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
@@ -224,6 +230,13 @@ const sessionDuration = computed((): number => {
  */
 const sessionRefreshInterval = computed((): number => {
     return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether the update session timeout notification should be shown.
+ */
+const isUpdateSessionTimeoutBanner = computed((): boolean => {
+    return router.currentRoute.name !== RouteConfig.Settings.name && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -713,10 +726,17 @@ onMounted(async () => {
     }
 
     try {
-        await usersStore.getUser();
-        await usersStore.getFrozenStatus();
-        await abTestingStore.fetchValues();
-        await usersStore.getSettings();
+        await Promise.all([
+            usersStore.getUser(),
+            usersStore.getFrozenStatus(),
+            abTestingStore.fetchValues(),
+            usersStore.getSettings(),
+        ]);
+
+        if (usersStore.state.settings.sessionDuration && appStore.state.isUpdateSessionTimeoutBanner) {
+            appStore.closeUpdateSessionTimeoutBanner();
+        }
+
         setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -897,6 +917,10 @@ onBeforeUnmount(() => {
 
         .dashboard__wrap__main-area__content-wrap__container__content {
             padding: 32px 24px 50px;
+        }
+
+        .banner-container {
+            padding-bottom: 0;
         }
     }
 
