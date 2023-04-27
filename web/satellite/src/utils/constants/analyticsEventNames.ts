@@ -114,4 +114,5 @@ export enum AnalyticsErrorEventSource {
     ONBOARDING_OVERVIEW_STEP = 'Onboarding Overview step error',
     PRICING_PLAN_STEP = 'Onboarding Pricing Plan step error',
     EDIT_TIMEOUT_MODAL = 'Edit session timeout error',
+    SKIP_PASSPHRASE_MODAL = 'Remember skip passphrase error',
 }

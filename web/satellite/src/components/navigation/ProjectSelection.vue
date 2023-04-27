@@ -196,7 +196,9 @@ async function onProjectSelected(projectID: string): Promise<void> {
     closeDropdown();
 
     bucketsStore.clearS3Data();
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+    if (userStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
 
     if (isBucketsView.value) {
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });

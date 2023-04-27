@@ -151,7 +151,9 @@ async function onCreateProjectClick(): Promise<void> {
     closeModal();
 
     bucketsStore.clearS3Data();
-    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    if (usersStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    }
 
     analytics.pageVisit(RouteConfig.ProjectDashboard.path);
     await router.push(RouteConfig.ProjectDashboard.path);

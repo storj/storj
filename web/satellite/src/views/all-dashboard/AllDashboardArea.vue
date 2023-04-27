@@ -605,7 +605,7 @@ onMounted(async () => {
     usersStore.$onAction(({ name, after, args }) => {
         if (name === 'clear') clearSessionTimers();
         else if (name === 'updateSettings') {
-            if (args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
                 after((_) => refreshSession());
             }
         }

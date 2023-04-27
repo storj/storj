@@ -163,6 +163,7 @@ export class UserSettings {
         private _sessionDuration: number | null = null,
         public onboardingStart = false,
         public onboardingEnd = false,
+        public passphrasePrompt = true,
         public onboardingStep: string | null = null,
     ) {}
 
@@ -177,6 +178,7 @@ export class UserSettings {
 export interface SetUserSettingsData {
     onboardingStart?: boolean
     onboardingEnd?: boolean;
+    passphrasePrompt?: boolean;
     onboardingStep?: string | null;
     sessionDuration?: number;
 }

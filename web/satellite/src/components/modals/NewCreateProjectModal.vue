@@ -182,7 +182,12 @@ async function onCreateProjectClick(): Promise<void> {
         return;
     }
 
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.ProjectDashboard.path);
+
+    if (usersStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
 }
 
 /**

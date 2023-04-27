@@ -125,7 +125,12 @@ async function onOpenClicked(): Promise<void> {
         return;
     }
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+
+    if (usersStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
+    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.ProjectDashboard.path);
 }
 
 async function selectProject() {

@@ -1,42 +1,32 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
-
 <template>
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
                 <div class="modal__header">
                     <AccessEncryptionIcon />
-                    <h1 class="modal__header__title">Enter passphrase</h1>
+                    <h1 class="modal__header__title">Skip passphrase</h1>
                 </div>
                 <p class="modal__info">
-                    Enter your encryption passphrase to view and manage your data in the browser. This passphrase will
-                    be used to unlock all buckets in this project.
+                    Do you want to remember this choice and always skip the passphrase when opening a project?
                 </p>
-                <VInput
-                    label="Encryption Passphrase"
-                    placeholder="Enter a passphrase here"
-                    :error="enterError"
-                    role-description="passphrase"
-                    is-password
-                    @setData="setPassphrase"
-                />
+
                 <div class="modal__buttons">
                     <VButton
-                        label="Skip"
+                        label="No"
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
                         :is-transparent="true"
-                        :on-press="skipPassphrase"
+                        :on-press="closeModal"
                     />
                     <VButton
-                        label="Continue ->"
+                        label="Yes"
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
-                        :on-press="onContinue"
-                        :is-disabled="!passphrase"
+                        :on-press="rememberSkip"
                     />
                 </div>
             </div>
@@ -45,70 +35,38 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
-
 import AccessEncryptionIcon from '../../../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useNotify } from '@/utils/hooks';
 
-import VModal from '@/components/common/VModal.vue';
-import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import VModal from '@/components/common/VModal.vue';
 
-const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-const enterError = ref<string>('');
-const passphrase = ref<string>('');
+const usersStore = useUsersStore();
+const notify = useNotify();
 
 /**
- * Sets passphrase.
+ * Remembers to skip passphrase entry next time.
  */
-function onContinue(): void {
-    if (!passphrase.value) {
-        enterError.value = 'Passphrase can\'t be empty';
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-
-        return;
+async function rememberSkip() {
+    try {
+        await usersStore.updateSettings({ passphrasePrompt: false });
+        appStore.removeActiveModal();
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.SKIP_PASSPHRASE_MODAL);
     }
-
-    bucketsStore.setPassphrase(passphrase.value);
-    bucketsStore.setPromptForPassphrase(false);
-
-    closeModal();
 }
 
 /**
- * Opens the SkipPassphrase modal for confirmation.
- */
-function skipPassphrase(): void {
-    appStore.updateActiveModal(MODALS.skipPassphrase);
-}
-
-/**
- * Closes enter passphrase modal.
+ * Closes modal.
  */
 function closeModal(): void {
     appStore.removeActiveModal();
-}
-
-/**
- * Sets passphrase from child component.
- */
-function setPassphrase(value: string): void {
-    if (enterError.value) enterError.value = '';
-
-    passphrase.value = value;
 }
 </script>
 
@@ -142,7 +100,6 @@ function setPassphrase(value: string): void {
             line-height: 19px;
             color: #354049;
             padding-bottom: 16px;
-            margin-bottom: 16px;
             border-bottom: 1px solid var(--c-grey-2);
             text-align: left;
         }
