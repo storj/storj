@@ -107,11 +107,11 @@ const emit = defineEmits(['selectAllClicked']);
             font-family: 'font_regular', sans-serif;
             color: #111827;
             font-size: 1rem;
-            border-top: solid 1px #e5e7eb;
+            border-top: solid 1px var(--c-grey-2);
 
             @media screen and (max-width: 550px) {
                 border-top: none;
-                border-bottom: solid 1px #e5e7eb;
+                border-bottom: solid 1px var(--c-grey-2);
             }
         }
 
@@ -136,7 +136,7 @@ const emit = defineEmits(['selectAllClicked']);
 .icon {
     width: 50px;
     overflow: visible !important;
-    background: var(--c-grey-1);
+    border-right: 1px solid var(--c-grey-2);
 }
 
 .table-footer {

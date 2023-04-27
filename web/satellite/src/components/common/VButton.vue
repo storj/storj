@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { computed, VueConstructor } from 'vue';
 
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
@@ -114,6 +115,7 @@ const icons = new Map<string, VueConstructor>([
     ['folder', FolderIcon],
     ['resources', ResourcesIcon],
     ['addcircle', AddCircleIcon],
+    ['add', WhitePlusIcon],
 ]);
 
 const iconComponent = computed((): VueConstructor | undefined => icons.get(props.icon.toLowerCase()));

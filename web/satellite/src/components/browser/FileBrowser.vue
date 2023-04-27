@@ -105,7 +105,7 @@
                                 :key="index"
                             >
                                 <!-- using <th> to comply with common Vtable.vue-->
-                                <th class="hide-mobile" />
+                                <th class="hide-mobile icon" />
                                 <th
                                     class="align-left"
                                     aria-roledescription="file-uploading"
@@ -140,7 +140,7 @@
                             </tr>
 
                             <tr v-if="filesUploading.length" class="files-uploading-count">
-                                <th class="hide-mobile files-uploading-count__content" />
+                                <th class="hide-mobile files-uploading-count__content icon" />
                                 <th class="align-left files-uploading-count__content" aria-roledescription="files-uploading-count">
                                     {{ formattedFilesWaitingToBeUploaded }}
                                     waiting to be uploaded...
