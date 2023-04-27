@@ -27,7 +27,7 @@
                 height="40px"
                 font-size="13px"
                 border-radius="8px"
-                :on-press="toggleTeamMembersModal"
+                :on-press="toggleAddTeamMembersModal"
                 icon="add"
                 :is-disabled="isAddButtonDisabled"
             />
@@ -49,7 +49,7 @@
                         label="Delete"
                         width="122px"
                         height="40px"
-                        :on-press="onFirstDeleteClick"
+                        :on-press="toggleRemoveTeamMembersModal"
                     />
                     <VButton
                         class="button"
@@ -60,35 +60,13 @@
                         :on-press="onClearSelection"
                     />
                 </div>
-                <div v-if="areSelectedProjectMembersBeingDeleted" class="header-after-delete-click">
-                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{ selectedProjectMembersCount }}</b> {{ userCountTitle }}?</span>
-                    <div class="header-after-delete-click__button-area">
-                        <VButton
-                            class="button deletion"
-                            label="Delete"
-                            width="122px"
-                            height="40px"
-                            :on-press="onDelete"
-                        />
-                        <VButton
-                            class="button"
-                            label="Cancel"
-                            width="122px"
-                            height="40px"
-                            :is-transparent="true"
-                            :on-press="onClearSelection"
-                        />
-                    </div>
-                </div>
             </div>
-            <div v-if="isDeleteClicked" class="blur-content" />
-            <div v-if="isDeleteClicked" class="blur-search" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
@@ -129,8 +107,6 @@ const props = withDefaults(defineProps<{
     isAddButtonDisabled: false,
 });
 
-const emit = defineEmits(['onSuccessAction']);
-
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -152,10 +128,6 @@ const areProjectMembersSelected = computed((): boolean => {
     return props.headerState === 1 && !isDeleteClicked.value;
 });
 
-const areSelectedProjectMembersBeingDeleted = computed((): boolean => {
-    return props.headerState === 1 && isDeleteClicked.value;
-});
-
 const userCountTitle = computed((): string => {
     return props.selectedProjectMembersCount === 1 ? 'user' : 'users';
 });
@@ -163,12 +135,12 @@ const userCountTitle = computed((): string => {
 /**
  * Opens add team members modal.
  */
-function toggleTeamMembersModal(): void {
+function toggleAddTeamMembersModal(): void {
     appStore.updateActiveModal(MODALS.addTeamMember);
 }
 
-function onFirstDeleteClick(): void {
-    isDeleteClicked.value = true;
+function toggleRemoveTeamMembersModal(): void {
+    appStore.updateActiveModal(MODALS.removeTeamMember);
 }
 
 /**
@@ -177,26 +149,6 @@ function onFirstDeleteClick(): void {
 function onClearSelection(): void {
     pmStore.clearProjectMemberSelection();
     isDeleteClicked.value = false;
-
-    emit('onSuccessAction');
-}
-
-/**
- * Removes user from selected project.
- */
-async function onDelete(): Promise<void> {
-    try {
-        await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
-        await setProjectState();
-    } catch (error) {
-        await notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
-        isDeleteClicked.value = false;
-        return;
-    }
-
-    emit('onSuccessAction');
-    await notify.success('Members were successfully removed from project');
-    isDeleteClicked.value = false;
 }
 
 /**
@@ -204,7 +156,10 @@ async function onDelete(): Promise<void> {
  * @param search
  */
 async function processSearchQuery(search: string): Promise<void> {
-    pmStore.setSearchQuery(search);
+    // avoid infinite loop due to listener on pmStore.setSearchQuery('') itself indirectly calling pmStore.setSearchQuery('')
+    if (pmStore.getSearchQuery() !== search) {
+        pmStore.setSearchQuery(search);
+    }
     try {
         await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
@@ -212,24 +167,17 @@ async function processSearchQuery(search: string): Promise<void> {
     }
 }
 
-async function setProjectState(): Promise<void> {
-    const projects: Project[] = await projectsStore.getProjects();
-    if (!projects.length) {
-        const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
-
-        analytics.pageVisit(onboardingPath);
-        router.push(onboardingPath);
-
-        return;
-    }
-
-    if (!projects.includes(projectsStore.state.selectedProject)) {
-        projectsStore.selectProject(projects[0].id);
-    }
-
-    await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
-    searchInput.value?.clearSearch();
-}
+/**
+ * Lifecycle hook after initial render.
+ * Set up listener to clear search bar.
+ */
+onMounted((): void => {
+    pmStore.$onAction(({ name, after, args }) => {
+        if (name === 'setSearchQuery' && args[0] === '') {
+            after((_) => searchInput.value?.clearSearch());
+        }
+    });
+});
 
 /**
  * Lifecycle hook before component destruction.

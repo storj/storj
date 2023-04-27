@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
+import RemoveTeamMemberModal from '@/components/modals/RemoveProjectMemberModal.vue';
 import EditProfileModal from '@/components/modals/EditProfileModal.vue';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
@@ -53,6 +54,7 @@ export const APP_STATE_DROPDOWNS = {
 
 enum Modals {
     ADD_TEAM_MEMBER = 'addTeamMember',
+    REMOVE_TEAM_MEMBER = 'removeTeamMember',
     EDIT_PROFILE = 'editProfile',
     CHANGE_PASSWORD = 'changePassword',
     CREATE_PROJECT = 'createProject',
@@ -85,6 +87,7 @@ enum Modals {
 // modals could be of VueConstructor type or Object (for composition api components).
 export const MODALS: Record<Modals, unknown> = {
     [Modals.ADD_TEAM_MEMBER]: AddTeamMemberModal,
+    [Modals.REMOVE_TEAM_MEMBER]: RemoveTeamMemberModal,
     [Modals.EDIT_PROFILE]: EditProfileModal,
     [Modals.CHANGE_PASSWORD]: ChangePasswordModal,
     [Modals.CREATE_PROJECT]: CreateProjectModal,
