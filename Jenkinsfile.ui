@@ -98,6 +98,14 @@ pipeline {
             }
         }
 
+        stage('install playwright') {
+            steps {
+                dir("testsuite/playwright-ui") {
+                    sh 'npm ci'
+                }
+            }
+        }
+
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui/") {
