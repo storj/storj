@@ -130,6 +130,21 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 30m0s
 
+# interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past
+# console-db-cleanup.as-of-system-time-interval: -5m0s
+
+# whether to run this chore
+# console-db-cleanup.enabled: false
+
+# interval between chore cycles
+# console-db-cleanup.interval: 24h0m0s
+
+# maximum lifetime of unverified user account records
+# console-db-cleanup.max-unverified-user-age: 168h0m0s
+
+# maximum number of database records to scan at once
+# console-db-cleanup.page-size: 1000
+
 # the Flagship API key
 # console.ab-testing.api-key: ""
 

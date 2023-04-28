@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -384,5 +385,54 @@ func TestUserSettings(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, newBool, settings.PassphrasePrompt)
 		})
+	})
+}
+
+func TestDeleteUnverifiedBefore(t *testing.T) {
+	maxUnverifiedAge := time.Hour
+	now := time.Now()
+	expiration := now.Add(-maxUnverifiedAge)
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersDB := db.Console().Users()
+		now := time.Now()
+
+		// Only positive page sizes should be allowed.
+		require.Error(t, usersDB.DeleteUnverifiedBefore(ctx, time.Time{}, 0, 0))
+		require.Error(t, usersDB.DeleteUnverifiedBefore(ctx, time.Time{}, 0, -1))
+
+		createUser := func(status console.UserStatus, createdAt time.Time) uuid.UUID {
+			user, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				PasswordHash: testrand.Bytes(8),
+			})
+			require.NoError(t, err)
+
+			result, err := db.Testing().RawDB().ExecContext(ctx,
+				"UPDATE users SET created_at = $1, status = $2 WHERE id = $3",
+				createdAt, status, user.ID,
+			)
+			require.NoError(t, err)
+
+			count, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, count)
+
+			return user.ID
+		}
+
+		oldActive := createUser(console.Active, expiration.Add(-time.Second))
+		newUnverified := createUser(console.Inactive, now)
+		oldUnverified := createUser(console.Inactive, expiration.Add(-time.Second))
+
+		require.NoError(t, usersDB.DeleteUnverifiedBefore(ctx, expiration, 0, 1))
+
+		// Ensure that the old, unverified user record was deleted and the others remain.
+		_, err := usersDB.Get(ctx, oldUnverified)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		_, err = usersDB.Get(ctx, newUnverified)
+		require.NoError(t, err)
+		_, err = usersDB.Get(ctx, oldActive)
+		require.NoError(t, err)
 	})
 }

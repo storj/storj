@@ -33,8 +33,10 @@ type Users interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
-	// Delete is a method for deleting user by Id from the database.
+	// Delete is a method for deleting user by ID from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
+	// DeleteUnverifiedBefore deletes unverified users created prior to some time from the database.
+	DeleteUnverifiedBefore(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.

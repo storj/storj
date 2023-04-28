@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -139,6 +140,10 @@ type Core struct {
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
+	}
+
+	ConsoleDBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 }
 
@@ -566,6 +571,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Close: peer.Payments.AccountFreeze.Close,
 			})
 		}
+	}
+
+	// setup console DB cleanup service
+	if config.ConsoleDBCleanup.Enabled {
+		peer.ConsoleDBCleanup.Chore = dbcleanup.NewChore(
+			peer.Log.Named("console.dbcleanup:chore"),
+			peer.DB.Console(),
+			config.ConsoleDBCleanup,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "dbcleanup:chore",
+			Run:   peer.ConsoleDBCleanup.Chore.Run,
+			Close: peer.ConsoleDBCleanup.Chore.Close,
+		})
 	}
 
 	return peer, nil
