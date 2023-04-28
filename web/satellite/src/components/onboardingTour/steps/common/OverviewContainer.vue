@@ -21,7 +21,7 @@
             By using the web browser you are opting in to
             <a
                 class="overview-container__encryption-container__link"
-                href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption"
+                href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-roledescription="server-side-encryption-link"
