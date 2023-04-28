@@ -103,7 +103,7 @@ pipeline {
                 dir("testsuite/playwright-ui") {
                     warnError('Script failed!') {
                         sh 'npm ci'
-                        sh 'npx playwright test'
+                        sh 'npx playwright install'
                     }
                 }
             }
