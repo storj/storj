@@ -14,7 +14,7 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onCopy"
-                    :icon="isCopied ? 'none' : 'copy'"
+                    :icon="isCopied ? 'check' : 'copy'"
                     :is-white="!isCopied"
                     :is-white-green="isCopied"
                 />
@@ -26,9 +26,9 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onDownload"
-                    :icon="isDownloaded ? 'none' : 'download'"
+                    :icon="isDownloaded ? 'check' : 'download'"
                     :is-white="!isDownloaded"
-                    :is-green-white="isDownloaded"
+                    :is-white-green="isDownloaded"
                 />
             </template>
         </ButtonsContainer>

@@ -211,11 +211,10 @@ function isSelectedOption(option: PassphraseOption): boolean {
         }
 
         &__disclaimer {
-            font-weight: bold;
+            font-family: 'font_bold', sans-serif;
             font-size: 14px;
             line-height: 22px;
             color: var(--c-black);
-            font-style: italic;
             text-align: left;
         }
     }

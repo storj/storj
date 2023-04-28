@@ -55,6 +55,7 @@ import { computed, VueConstructor } from 'vue';
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
@@ -107,6 +108,7 @@ const props = withDefaults(defineProps<{
 
 const icons = new Map<string, VueConstructor>([
     ['copy', CopyIcon],
+    ['check', CheckIcon],
     ['download', DownloadIcon],
     ['lock', LockIcon],
     ['credit-card', CreditCardIcon],
@@ -222,6 +224,11 @@ function handleClick(): void {
         .label {
             color: var(--c-green-5) !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-green-5) !important;
+        }
     }
 
     .green {
@@ -296,7 +303,6 @@ function handleClick(): void {
 
         .label {
             font-family: 'font_medium', sans-serif;
-            line-height: 23px;
             color: #fff;
             margin: 0;
             white-space: nowrap;
@@ -314,8 +320,7 @@ function handleClick(): void {
 
                 :deep(path),
                 :deep(rect) {
-                    stroke: white;
-                    fill: white;
+                    fill: white !important;
                 }
 
                 .label {

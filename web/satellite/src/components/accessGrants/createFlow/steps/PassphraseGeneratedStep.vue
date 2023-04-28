@@ -19,7 +19,7 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onCopy"
-                    :icon="isPassphraseCopied ? 'none' : 'copy'"
+                    :icon="isPassphraseCopied ? 'check' : 'copy'"
                     :is-white="!isPassphraseCopied"
                     :is-white-green="isPassphraseCopied"
                 />
@@ -31,9 +31,9 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onDownload"
-                    :icon="isPassphraseDownloaded ? 'none' : 'download'"
+                    :icon="isPassphraseDownloaded ? 'check' : 'download'"
                     :is-white="!isPassphraseDownloaded"
-                    :is-green-white="isPassphraseDownloaded"
+                    :is-white-green="isPassphraseDownloaded"
                 />
             </template>
         </ButtonsContainer>
