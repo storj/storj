@@ -302,6 +302,10 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 	settings.OnboardingStart = row.OnboardingStart
 	settings.OnboardingEnd = row.OnboardingEnd
 	settings.OnboardingStep = row.OnboardingStep
+	settings.PassphrasePrompt = true
+	if row.PassphrasePrompt != nil {
+		settings.PassphrasePrompt = *row.PassphrasePrompt
+	}
 	if row.SessionMinutes != nil {
 		dur := time.Duration(*row.SessionMinutes) * time.Minute
 		settings.SessionDuration = &dur
@@ -332,6 +336,10 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 	if settings.OnboardingEnd != nil {
 		update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(*settings.OnboardingEnd)
+		fieldCount++
+	}
+	if settings.PassphrasePrompt != nil {
+		update.PassphrasePrompt = dbx.UserSettings_PassphrasePrompt(*settings.PassphrasePrompt)
 		fieldCount++
 	}
 	if settings.OnboardingStep != nil {

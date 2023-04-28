@@ -363,5 +363,26 @@ func TestUserSettings(t *testing.T) {
 			require.Equal(t, newBool, settings.OnboardingEnd)
 			require.Equal(t, &newStep, settings.OnboardingStep)
 		})
+
+		t.Run("test passphrase prompt", func(t *testing.T) {
+			id = testrand.UUID()
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err := users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.True(t, settings.PassphrasePrompt)
+
+			newBool := false
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+				PassphrasePrompt: &newBool,
+			}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, newBool, settings.PassphrasePrompt)
+
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, newBool, settings.PassphrasePrompt)
+		})
 	})
 }
