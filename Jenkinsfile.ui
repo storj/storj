@@ -101,7 +101,10 @@ pipeline {
         stage('install playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-                    sh 'npm ci'
+                    warnError('Script failed!') {
+                        sh 'npm ci'
+                        sh 'npx playwright test'
+                    }
                 }
             }
         }
@@ -109,7 +112,9 @@ pipeline {
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui/") {
-                    sh 'npm run browser-debug'
+                     warnError('Script failed!') {
+                        sh 'npm run browser-debug'
+                     }
                 }
             }
         }
