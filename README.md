@@ -3,6 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/storj)
 [![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/main/cobertura)
+[![Twitter Follow](https://img.shields.io/twitter/follow/storj?style=social)](https://twitter.com/storj)
 
 <img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
