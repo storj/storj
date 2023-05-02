@@ -1,5 +1,5 @@
 {
-  "name": "Storj-Plug",
+  "name": "StorjPlug",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -17,11 +17,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.29.2",
-    "playwright-slack-report": "^1.0.19",
-    "mocha-multi-reporters": "^1.5.1",
+    "@playwright/test": "^1.33.0",
     "allure-commandline": "^2.20.1",
     "allure-playwright": "^2.0.0-beta.21",
+    "mocha-multi-reporters": "^1.5.1",
+    "playwright-slack-report": "^1.0.19",
     "rimraf": "^4.0.4"
   },
   "dependencies": {
