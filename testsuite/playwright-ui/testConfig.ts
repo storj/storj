@@ -6,6 +6,6 @@ export const testConfig = {
     port: `:443`,
     username: `test@storj.io`,
     password: `123a123`,
-    waitForElement: 120000,
+    // waitForElement: 120000,
 
 };
