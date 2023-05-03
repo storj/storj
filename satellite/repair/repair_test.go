@@ -1161,15 +1161,15 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 					require.NoError(t, err)
 					nodesReputation[piece.StorageNode] = *info
 				}
-        
-        satellite.Repair.Repairer.TestingSetMinFailures(1) // expect one node with bad data
-        satellite.Repair.Checker.Loop.Restart()
-        satellite.Repair.Checker.Loop.TriggerWait()
-        satellite.Repair.Checker.Loop.Pause()
-        satellite.Repair.Repairer.Loop.Restart()
-        satellite.Repair.Repairer.Loop.TriggerWait()
-        satellite.Repair.Repairer.Loop.Pause()
-        satellite.Repair.Repairer.WaitForPendingRepairs()
+
+				satellite.Repair.Repairer.TestingSetMinFailures(1) // expect one node with bad data
+				satellite.Repair.Checker.Loop.Restart()
+				satellite.Repair.Checker.Loop.TriggerWait()
+				satellite.Repair.Checker.Loop.Pause()
+				satellite.Repair.Repairer.Loop.Restart()
+				satellite.Repair.Repairer.Loop.TriggerWait()
+				satellite.Repair.Repairer.Loop.Pause()
+				satellite.Repair.Repairer.WaitForPendingRepairs()
 
 				nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
 				for _, piece := range availablePieces {
