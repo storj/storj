@@ -34,8 +34,6 @@ type FrontendConfig struct {
 	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
 	DefaultPaidStorageLimit         memory.Size           `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit       memory.Size           `json:"defaultPaidBandwidthLimit"`
-	NewBillingScreen                bool                  `json:"newBillingScreen"`
-	NewAccessGrantFlow              bool                  `json:"newAccessGrantFlow"`
 	InactivityTimerEnabled          bool                  `json:"inactivityTimerEnabled"`
 	InactivityTimerDuration         int                   `json:"inactivityTimerDuration"`
 	InactivityTimerViewerEnabled    bool                  `json:"inactivityTimerViewerEnabled"`

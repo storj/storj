@@ -41,7 +41,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -52,7 +52,7 @@ type Satellite struct {
 	DatabaseOptions struct {
 		APIKeysCache struct {
 			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
-			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
+			Capacity   int           `help:"satellite database api key lru capacity" default:"10000"`
 		}
 		RevocationsCache struct {
 			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
@@ -207,6 +207,12 @@ var (
 		Short: "Applies free tier coupon to Stripe customers",
 		Long:  "Applies free tier coupon to Stripe customers without a coupon",
 		RunE:  cmdApplyFreeTierCoupons,
+	}
+	createCustomerBalanceInvoiceItems = &cobra.Command{
+		Use:   "create-balance-invoice-items",
+		Short: "Creates stripe invoice line items for stripe customer balance",
+		Long:  "Creates stripe invoice line items for stripe customer balances obtained from past invoices and other miscellaneous charges.",
+		RunE:  cmdCreateCustomerBalanceInvoiceItems,
 	}
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
 		Use:   "prepare-invoice-records [period]",
@@ -375,6 +381,7 @@ func init() {
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
+	billingCmd.AddCommand(createCustomerBalanceInvoiceItems)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
@@ -406,6 +413,7 @@ func init() {
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerBalanceInvoiceItems, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -746,6 +754,14 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
 }
 
+func cmdCreateCustomerBalanceInvoiceItems(cmd *cobra.Command, _ []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.CreateBalanceInvoiceItems(ctx)
+	})
+}
+
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -754,7 +770,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.PrepareInvoiceProjectRecords(ctx, periodStart)
 	})
 }
@@ -767,7 +783,7 @@ func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (er
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, periodStart)
 	})
 }
@@ -780,7 +796,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.CreateInvoices(ctx, periodStart)
 	})
 }
@@ -793,7 +809,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.GenerateInvoices(ctx, periodStart)
 	})
 }
@@ -801,7 +817,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.FinalizeInvoices(ctx)
 	})
 }
@@ -814,7 +830,7 @@ func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		err := payments.InvoiceApplyTokenBalance(ctx, periodStart)
 		if err != nil {
 			return errs.New("error applying native token payments: %v", err)

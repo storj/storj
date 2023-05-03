@@ -14,11 +14,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 )
 
 var (
@@ -72,7 +74,7 @@ type PieceExpirationDB interface {
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
 // metadata goes in the "pieceinfo" table in the storagenodedb). The actual pieces are stored
-// behind something providing the storage.Blobs interface.
+// behind something providing the blobstore.Blobs interface.
 //
 // architecture: Database
 type V0PieceInfoDB interface {
@@ -90,7 +92,7 @@ type V0PieceInfoDB interface {
 	// non-nil error, WalkSatelliteV0Pieces will stop iterating and return the error
 	// immediately. The ctx parameter is intended specifically to allow canceling iteration
 	// early.
-	WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) error
+	WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) error
 }
 
 // V0PieceInfoDBForTest is like V0PieceInfoDB, but adds on the Add() method so
@@ -127,7 +129,7 @@ type PieceSpaceUsedDB interface {
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
 // WalkSatellitePieces-type methods.
 type StoredPieceAccess interface {
-	storage.BlobInfo
+	blobstore.BlobInfo
 
 	// PieceID gives the pieceID of the piece
 	PieceID() storj.PieceID
@@ -157,6 +159,9 @@ type SatelliteUsage struct {
 type Config struct {
 	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
 	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
+	// TODO(clement): default is set to false for now.
+	//  I will test and monitor on my node for some time before changing the default to true.
+	EnableLazyFilewalker bool `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" releaseDefault:"false" devDefault:"true" testDefault:"false"`
 }
 
 // DefaultConfig is the default value for the Config.
@@ -171,10 +176,13 @@ type Store struct {
 	log    *zap.Logger
 	config Config
 
-	blobs          storage.Blobs
-	v0PieceInfo    V0PieceInfoDB
+	blobs          blobstore.Blobs
 	expirationInfo PieceExpirationDB
 	spaceUsedDB    PieceSpaceUsedDB
+	v0PieceInfo    V0PieceInfoDB
+
+	Filewalker     *FileWalker
+	lazyFilewalker *lazyfilewalker.Supervisor
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
@@ -184,16 +192,16 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store.
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB,
-	expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
-
+func NewStore(log *zap.Logger, fw *FileWalker, lazyFilewalker *lazyfilewalker.Supervisor, blobs blobstore.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, spaceUsedDB PieceSpaceUsedDB, config Config) *Store {
 	return &Store{
 		log:            log,
 		config:         config,
 		blobs:          blobs,
-		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
-		spaceUsedDB:    pieceSpaceUsedDB,
+		spaceUsedDB:    spaceUsedDB,
+		v0PieceInfo:    v0PieceInfo,
+		Filewalker:     fw,
+		lazyFilewalker: lazyFilewalker,
 	}
 }
 
@@ -208,10 +216,29 @@ func (store *Store) VerifyStorageDir(ctx context.Context, id storj.NodeID) error
 	return store.blobs.VerifyStorageDir(ctx, id)
 }
 
+// VerifyStorageDirWithTimeout verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file. It uses the provided timeout for the operation.
+func (store *Store) VerifyStorageDirWithTimeout(ctx context.Context, id storj.NodeID, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ch := make(chan error, 1)
+	go func() {
+		ch <- store.VerifyStorageDir(ctx, id)
+	}()
+
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	blobWriter, err := store.blobs.Create(ctx, storage.BlobRef{
+	blobWriter, err := store.blobs.Create(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, store.config.WritePreallocSize.Int64())
@@ -227,19 +254,19 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 // This is meant to be used externally only in test situations (thus the StoreForTest receiver
 // type).
 func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion storage.FormatVersion, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
+	pieceID storj.PieceID, formatVersion blobstore.FormatVersion, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
-	blobRef := storage.BlobRef{
+	blobRef := blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}
-	var blobWriter storage.BlobWriter
+	var blobWriter blobstore.BlobWriter
 	switch formatVersion {
 	case filestore.FormatV0:
 		fStore, ok := store.blobs.(interface {
-			TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+			TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error)
 		})
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
@@ -257,10 +284,29 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	return writer, Error.Wrap(err)
 }
 
+// ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
+// potential need to check multiple storage formats to find the right blob.
+func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
+	pieceID storj.PieceID, formatVersion blobstore.FormatVersion) (_ *Reader, err error) {
+
+	defer mon.Task()(&ctx)(&err)
+	ref := blobstore.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
+	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, err
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	reader, err := NewReader(blob)
+	return reader, Error.Wrap(err)
+}
+
 // Reader returns a new piece reader.
 func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	blob, err := store.blobs.Open(ctx, storage.BlobRef{
+	blob, err := store.blobs.Open(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	})
@@ -275,29 +321,10 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
-// ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
-// potential need to check multiple storage formats to find the right blob.
-func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
-
-	defer mon.Task()(&ctx)(&err)
-	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
-	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, err
-		}
-		return nil, Error.Wrap(err)
-	}
-
-	reader, err := NewReader(blob)
-	return reader, Error.Wrap(err)
-}
-
 // Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.blobs.Delete(ctx, storage.BlobRef{
+	err = store.blobs.Delete(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	})
@@ -346,7 +373,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 
 	// Check if the MaxFormatVersionSupported piece exists. If not, we assume
 	// this is an old piece version and attempt to migrate it.
-	_, err = store.blobs.StatWithStorageFormat(ctx, storage.BlobRef{
+	_, err = store.blobs.StatWithStorageFormat(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, filestore.MaxFormatVersionSupported)
@@ -366,7 +393,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 	}
 
 	err = store.expirationInfo.Trash(ctx, satellite, pieceID)
-	err = errs.Combine(err, store.blobs.Trash(ctx, storage.BlobRef{
+	err = errs.Combine(err, store.blobs.Trash(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}))
@@ -451,7 +478,7 @@ func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID,
 		return Error.Wrap(err)
 	}
 
-	err = store.blobs.DeleteWithStorageFormat(ctx, storage.BlobRef{
+	err = store.blobs.DeleteWithStorageFormat(ctx, blobstore.BlobRef{
 		Namespace: satelliteID.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, filestore.FormatV0)
@@ -501,33 +528,32 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 	return pieceHash, header.OrderLimit, nil
 }
 
-// WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
-// given satellite. If walkFunc returns a non-nil error, WalkSatellitePieces will stop iterating
-// and return the error immediately. The ctx parameter is intended specifically to allow canceling
-// iteration early.
-//
-// Note that this method includes all locally stored pieces, both V0 and higher.
+// WalkSatellitePieces wraps FileWalker.WalkSatellitePieces.
 func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
-		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
-			// we'll address this piece while iterating over the V0 pieces below.
-			return nil
+
+	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
+}
+
+// SatellitePiecesToTrash returns a list of piece IDs that are trash for the given satellite.
+//
+// If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
+// the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
+// will be used as a fallback.
+func (store *Store) SatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+		if err == nil {
+			return pieceIDs, piecesCount, piecesSkipped, nil
 		}
-		pieceAccess, err := newStoredPieceAccess(store, blobInfo)
-		if err != nil {
-			// this is not a real piece blob. the blob store can't distinguish between actual piece
-			// blobs and stray files whose names happen to decode as valid base32. skip this
-			// "blob".
-			return nil //nolint: nilerr // we ignore other files
-		}
-		return walkFunc(pieceAccess)
-	})
-	if err == nil && store.v0PieceInfo != nil {
-		err = store.v0PieceInfo.WalkSatelliteV0Pieces(ctx, store.blobs, satellite, walkFunc)
+		store.log.Error("lazyfilewalker failed", zap.Error(err))
 	}
-	return err
+	// fallback to the regular filewalker
+	pieceIDs, piecesCount, piecesSkipped, err = store.Filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+
+	return pieceIDs, piecesCount, piecesSkipped, err
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.
@@ -678,18 +704,20 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 		var satPiecesTotal int64
 		var satPiecesContentSize int64
 
-		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
-			pieceTotal, pieceContentSize, err := access.Size(ctx)
+		failover := true
+		if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+			satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-				return err
+				store.log.Error("failed to lazywalk space used by satellite", zap.Error(err), zap.Stringer("Satellite ID", satelliteID))
+			} else {
+				failover = false
 			}
-			satPiecesTotal += pieceTotal
-			satPiecesContentSize += pieceContentSize
-			return nil
-		})
+		}
+
+		if failover {
+			satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		}
+
 		if err != nil {
 			group.Add(err)
 		}
@@ -734,28 +762,48 @@ func (store *Store) CheckWritability(ctx context.Context) error {
 	return store.blobs.CheckWritability(ctx)
 }
 
+// CheckWritabilityWithTimeout tests writability of the storage directory by creating and deleting a file with a timeout.
+func (store *Store) CheckWritabilityWithTimeout(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ch := make(chan error, 1)
+	go func() {
+		ch <- store.CheckWritability(ctx)
+	}()
+
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // Stat looks up disk metadata on the blob file.
-func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (storage.BlobInfo, error) {
-	return store.blobs.Stat(ctx, storage.BlobRef{
+func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (blobstore.BlobInfo, error) {
+	return store.blobs.Stat(ctx, blobstore.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	})
 }
 
 type storedPieceAccess struct {
-	storage.BlobInfo
-	store   *Store
+	blobstore.BlobInfo
 	pieceID storj.PieceID
+	blobs   blobstore.Blobs
 }
 
-func newStoredPieceAccess(store *Store, blobInfo storage.BlobInfo) (storedPieceAccess, error) {
-	pieceID, err := storj.PieceIDFromBytes(blobInfo.BlobRef().Key)
+func newStoredPieceAccess(blobs blobstore.Blobs, blobInfo blobstore.BlobInfo) (storedPieceAccess, error) {
+	ref := blobInfo.BlobRef()
+	pieceID, err := storj.PieceIDFromBytes(ref.Key)
 	if err != nil {
 		return storedPieceAccess{}, err
 	}
+
 	return storedPieceAccess{
 		BlobInfo: blobInfo,
-		store:    store,
+		blobs:    blobs,
 		pieceID:  pieceID,
 	}, nil
 }
@@ -790,14 +838,23 @@ func (access storedPieceAccess) Size(ctx context.Context) (size, contentSize int
 // header. If exact precision is not required, ModTime() may be a better solution.
 func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	satellite, err := access.Satellite()
+
+	blob, err := access.blobs.OpenWithStorageFormat(ctx, access.BlobInfo.BlobRef(), access.BlobInfo.StorageFormatVersion())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return time.Time{}, err
+		}
+		return time.Time{}, err
+	}
+
+	reader, err := NewReader(blob)
 	if err != nil {
 		return time.Time{}, err
 	}
-	reader, err := access.store.ReaderWithStorageFormat(ctx, satellite, access.PieceID(), access.StorageFormatVersion())
-	if err != nil {
-		return time.Time{}, err
-	}
+	defer func() {
+		err = errs.Combine(err, reader.Close())
+	}()
+
 	header, err := reader.GetPieceHeader()
 	if err != nil {
 		return time.Time{}, err

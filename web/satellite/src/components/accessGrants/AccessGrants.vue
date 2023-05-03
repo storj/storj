@@ -126,11 +126,10 @@
                 :limit="accessGrantLimit"
                 :total-page-count="totalPageCount"
                 :total-items-count="accessGrantsTotalCount"
-                :on-page-click-callback="onPageClick"
+                :on-page-change="onPageClick"
             >
                 <template #head>
-                    <th class="align-left">Name</th>
-                    <th class="align-left">Date Created</th>
+                    <access-grants-header />
                 </template>
                 <template #body>
                     <AccessGrantsItem
@@ -153,25 +152,26 @@
                 </span>
             </div>
         </div>
-        <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-        />
         <router-view />
     </div>
 </template>
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
+import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
-import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -181,243 +181,168 @@ import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.s
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
-const {
-    FETCH,
-    TOGGLE_SELECTION,
-    CLEAR_SELECTION,
-    SET_SEARCH_QUERY,
-} = ACCESS_GRANTS_ACTIONS;
+const FIRST_PAGE = 1;
 
-// @vue/component
-@Component({
-    components: {
-        AccessGrantsItem,
-        AccessGrantsIcon,
-        CLIIcon,
-        S3Icon,
-        VButton,
-        ConfirmDeletePopup,
-        VLoader,
-        VHeader,
-        VTable,
-    },
-})
-export default class AccessGrants extends Vue {
-    private FIRST_PAGE = 1;
-    private isDeleteClicked = false;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const router = useRouter();
 
-    public activeDropdown = -1;
-    public areGrantsFetching = true;
+const activeDropdown = ref<number>(-1);
+const areGrantsFetching = ref<boolean>(true);
 
-    /**
-     * Lifecycle hook after initial render where list of existing access grants is fetched.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-            this.areGrantsFetching = false;
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
-        }
-    }
+/**
+ * Returns access grants pages count from store.
+ */
+const totalPageCount = computed((): number => {
+    return agStore.state.page.pageCount;
+});
 
-    /**
-     * Lifecycle hook before component destruction.
-     * Clears existing access grants selection.
-     */
-    public beforeDestroy(): void {
-        this.onClearSelection();
-    }
+/**
+ * Returns access grants total page count from store.
+ */
+const accessGrantsTotalCount = computed((): number => {
+    return agStore.state.page.totalCount;
+});
 
-    /**
-     * Toggles access grant selection.
-     * @param accessGrant
-     */
-    public async toggleSelection(accessGrant: AccessGrant): Promise<void> {
-        await this.$store.dispatch(TOGGLE_SELECTION, accessGrant);
-    }
+/**
+ * Returns access grants limit from store.
+ */
+const accessGrantLimit = computed((): number => {
+    return agStore.state.page.limit;
+});
 
-    /**
-     * Fetches access grants page by clicked index.
-     * @param index
-     */
-    public async onPageClick(index: number): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, index);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
-        }
-    }
+/**
+ * Returns access grants from store.
+ */
+const accessGrantsList = computed((): AccessGrant[] => {
+    return agStore.state.page.accessGrants;
+});
 
-    /**
-     * Opens AccessGrantItem2 dropdown.
-     */
-    public openDropdown(key: number): void {
-        if (this.activeDropdown === key) {
-            this.activeDropdown = -1;
+/**
+ * Returns search query from store.
+ */
+const searchQuery = computed((): string => {
+    return agStore.state.cursor.search;
+});
 
-            return;
-        }
+/**
+ * Returns correct empty state label.
+ */
+const emptyStateLabel = computed((): string => {
+    const noGrants = 'No accesses were created yet.';
+    const noSearchResults = 'No results found.';
 
-        this.activeDropdown = key;
-    }
+    return searchQuery.value ? noSearchResults : noGrants;
+});
 
-    /**
-     * Holds on button click login for deleting access grant process.
-     */
-    public async onDeleteClick(grant: AccessGrant): Promise<void> {
-        await this.$store.dispatch(TOGGLE_SELECTION, grant);
-        this.isDeleteClicked = true;
-    }
-
-    /**
-     * Clears access grants selection.
-     */
-    public async onClearSelection(): Promise<void> {
-        this.isDeleteClicked = false;
-        await this.$store.dispatch(CLEAR_SELECTION);
-    }
-
-    /**
-     * Fetches Access records by name depending on search query.
-     */
-    public async fetch(searchQuery: string): Promise<void> {
-        await this.$store.dispatch(SET_SEARCH_QUERY, searchQuery);
-
-        try {
-            await this.$store.dispatch(FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
-        }
-    }
-
-    /**
-     * Returns access grants pages count from store.
-     */
-    public get totalPageCount(): number {
-        return this.$store.state.accessGrantsModule.page.pageCount;
-    }
-
-    /**
-     * Returns access grants total page count from store.
-     */
-    public get accessGrantsTotalCount(): number {
-        return this.$store.state.accessGrantsModule.page.totalCount;
-    }
-
-    /**
-     * Returns access grants limit from store.
-     */
-    public get accessGrantLimit(): number {
-        return this.$store.state.accessGrantsModule.page.limit;
-    }
-
-    /**
-     * Returns access grants from store.
-     */
-    public get accessGrantsList(): AccessGrant[] {
-        return this.$store.state.accessGrantsModule.page.accessGrants;
-    }
-
-    /**
-     * Returns search query from store.
-     */
-    private get searchQuery(): string {
-        return this.$store.state.accessGrantsModule.cursor.search;
-    }
-
-    /**
-     * Returns correct empty state label.
-     */
-    private get emptyStateLabel(): string {
-        const noGrants = 'No accesses were created yet.';
-        const noSearchResults = 'No results found.';
-
-        return this.searchQuery ? noSearchResults : noGrants;
-    }
-
-    /**
-     * Access grant button click.
-     */
-    public accessGrantClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
-
-        if (this.isNewAccessGrantFlow) {
-            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.AccessGrant },
-            });
-            return;
-        }
-
-        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 'access' },
-        });
-    }
-
-    /**
-     * S3 Access button click..
-     */
-    public s3Click(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
-
-        if (this.isNewAccessGrantFlow) {
-            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.S3 },
-            });
-            return;
-        }
-
-        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 's3' },
-        });
-    }
-
-    /**
-     * CLI Access button click.
-     */
-    public cliClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
-
-        if (this.isNewAccessGrantFlow) {
-            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.APIKey },
-            });
-            return;
-        }
-
-        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 'api' },
-        });
-    }
-
-    /**
-     * Sends "trackPageVisit" event to segment and opens link.
-     */
-    public trackPageVisit(link: string): void {
-        this.analytics.pageVisit(link);
-    }
-
-    /**
-     * Indicates if new access grant flow should be used.
-     */
-    private get isNewAccessGrantFlow(): boolean {
-        return this.$store.state.appStateModule.isNewAccessGrantFlow;
+/**
+ * Fetches access grants page by clicked index.
+ * @param index
+ * @param limit
+ */
+async function onPageClick(index: number, limit: number): Promise<void> {
+    try {
+        await agStore.getAccessGrants(index, projectsStore.state.selectedProject.id, limit);
+    } catch (error) {
+        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
+
+/**
+ * Opens AccessGrantItem2 dropdown.
+ */
+function openDropdown(key: number): void {
+    if (activeDropdown.value === key) {
+        activeDropdown.value = -1;
+
+        return;
+    }
+
+    activeDropdown.value = key;
+}
+
+/**
+ * Holds on button click login for deleting access grant process.
+ */
+function onDeleteClick(grant: AccessGrant): void {
+    agStore.setAccessNameToDelete(grant.name);
+    agStore.toggleSelection(grant);
+
+    appStore.updateActiveModal(MODALS.deleteAccessGrant);
+}
+
+/**
+ * Fetches Access records by name depending on search query.
+ */
+async function fetch(searchQuery: string): Promise<void> {
+    agStore.setSearchQuery(searchQuery);
+
+    try {
+        await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
+    } catch (error) {
+        notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+    }
+}
+
+/**
+ * Access grant button click.
+ */
+function accessGrantClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
+    trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+    router.push({
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.AccessGrant },
+    });
+}
+
+/**
+ * S3 Access button click..
+ */
+function s3Click(): void {
+    analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+    trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+    router.push({
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.S3 },
+    });
+}
+
+/**
+ * CLI Access button click.
+ */
+function cliClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
+    trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+    router.push({
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.APIKey },
+    });
+}
+
+/**
+ * Sends "trackPageVisit" event to segment and opens link.
+ */
+function trackPageVisit(link: string): void {
+    analytics.pageVisit(link);
+}
+
+onMounted(async () => {
+    try {
+        await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
+        areGrantsFetching.value = false;
+    } catch (error) {
+        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+    }
+});
+
+onBeforeUnmount(() => {
+    agStore.clearSelection();
+});
 </script>
 <style scoped lang="scss">
     @mixin grant-flow-card {

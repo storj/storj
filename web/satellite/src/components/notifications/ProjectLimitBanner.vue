@@ -24,13 +24,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
-import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
-const store = useStore();
+const configStore = useConfigStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
 
 const props = defineProps<{
     dashboardRef: HTMLElement;
@@ -51,28 +54,28 @@ const bannerTextData = computed((): { title: string, body: string } => {
 });
 
 const projectLimitsIncreaseRequestURL = computed((): string => {
-    return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**
  * Returns whether user is in paid tier.
  */
 const isPaidTier = computed((): boolean => {
-    return store.state.usersModule.user.paidTier;
+    return usersStore.state.user.paidTier;
 });
 
 /**
  * Returns user's projects count.
  */
 const projectsCount = computed((): number => {
-    return store.getters.projectsCount;
+    return projectsStore.projectsCount(usersStore.state.user.id);
 });
 
 /**
  * Returns project limit from store.
  */
 const projectLimit = computed((): number => {
-    const projectLimit: number = store.getters.user.projectLimit;
+    const projectLimit: number = usersStore.state.user.projectLimit;
     if (projectLimit < projectsCount.value) return projectsCount.value;
 
     return projectLimit;

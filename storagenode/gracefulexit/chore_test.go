@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 func TestChore(t *testing.T) {
@@ -32,8 +32,6 @@ func TestChore(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite1 := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
-
-		satellite1.GracefulExit.Chore.Loop.Pause()
 
 		err := uplinkPeer.Upload(ctx, satellite1, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
@@ -91,8 +89,9 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	// initiate graceful exit on satellite side by running the SN chore.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 
-	// run the satellite chore to build the transfer queue.
-	satellite1.GracefulExit.Chore.Loop.TriggerWait()
+	// run the satellite ranged loop to build the transfer queue.
+	_, err = satellite1.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+	require.NoError(t, err)
 
 	// check that the satellite knows the storage node is exiting.
 	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
@@ -129,7 +128,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
 	require.NoError(t, err)
 	for _, ns := range namespaces {
-		err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+		err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
 			return errs.New("found a piece on the node. this shouldn't happen.")
 		})
 		require.NoError(t, err)
@@ -146,7 +145,7 @@ func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[s
 			return nil, err
 		}
 		for _, ns := range namespaces {
-			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
 				nodePieceCounts[node.ID()]++
 				return nil
 			})

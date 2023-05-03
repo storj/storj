@@ -1,0 +1,44 @@
+<!--Copyright (C) 2023 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .StatusCode }} | Storj</title>
+<style>
+.link { text-decoration: none; color: #000; }
+.title { font-size: 4em; }
+.button {
+    display: inline-block;
+    margin-top: 32px;
+    padding: 16px 37.5px;
+    border-radius: 26px;
+    background-color: #0149ff;
+    color: white;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+.button:hover {
+    background-color: #0059d0;
+}
+</style>
+</head>
+<body>
+    <div class="error-area">
+        <div class="container">
+            <a class="link" href="/"><h1 class="title">{{ .StatusCode }} | Storj</h1></a>
+            <h2 class="subtitle">
+                {{- if eq .StatusCode 400 -}}
+                    Bad request.
+                {{- else if eq .StatusCode 500 -}}
+                    Internal server error.
+                {{- else -}}
+                    An error occurred.
+                {{- end -}}
+            </h2>
+            <a href="/" class="button">Go to homepage</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -3,7 +3,7 @@
 
 <template>
     <div ref="accountArea" class="account-area">
-        <div class="account-area__wrap" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
+        <div role="button" tabindex="0" class="account-area__wrap" :class="{ active: isDropdown }" aria-roledescription="account-area" @keyup.enter="toggleDropdown" @click.stop="toggleDropdown">
             <div class="account-area__wrap__left">
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
@@ -31,6 +31,10 @@
                     </a>
                 </div>
             </div>
+            <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                <UpgradeIcon />
+                <p class="account-area__dropdown__item__label">Upgrade</p>
+            </div>
             <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
@@ -47,26 +51,27 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
-import { LocalData } from '@/utils/localData';
 import { AuthHttpApi } from '@/api/auth';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -74,148 +79,145 @@ import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
+import UpgradeIcon from '@/../static/images/navigation/upgrade.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
-// @vue/component
-@Component({
-    components: {
-        InfoIcon,
-        SatelliteIcon,
-        AccountIcon,
-        ArrowImage,
-        BillingIcon,
-        SettingsIcon,
-        LogoutIcon,
-        TierBadgeFree,
-        TierBadgePro,
-    },
-})
-export default class AccountArea extends Vue {
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
-    private dropdownYPos = 0;
-    private dropdownXPos = 0;
+const router = useRouter();
+const notify = useNotify();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const configStore = useConfigStore();
+const obStore = useObjectBrowserStore();
+const projectsStore = useProjectsStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
+const pmStore = useProjectMembersStore();
+const notificationsStore = useNotificationsStore();
 
-    public $refs!: {
-        accountArea: HTMLDivElement,
-    };
+const auth: AuthHttpApi = new AuthHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Navigates user to billing page.
-     */
-    public navigateToBilling(): void {
-        this.closeDropdown();
-        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
+const dropdownYPos = ref<number>(0);
+const dropdownXPos = ref<number>(0);
+const accountArea = ref<HTMLDivElement>();
 
-        this.isNewBillingScreen ?
-            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path) :
-            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+/**
+ * Returns bottom and left position of dropdown.
+ */
+const style = computed((): Record<string, string> => {
+    return { top: `${dropdownYPos.value}px`, left: `${dropdownXPos.value}px` };
+});
 
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+/**
+ * Indicates if account dropdown is visible.
+ */
+const isDropdown = computed((): boolean => {
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
+});
 
+/**
+ * Returns satellite name from store.
+ */
+const satellite = computed((): string => {
+    return configStore.state.config.satelliteName;
+});
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
+
+/**
+ * Starts upgrade account flow.
+ */
+function onUpgrade(): void {
+    closeDropdown();
+
+    appStore.updateActiveModal(MODALS.upgradeAccount);
+}
+
+/**
+ * Navigates user to billing page.
+ */
+function navigateToBilling(): void {
+    closeDropdown();
+
+    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+}
+
+/**
+ * Navigates user to account settings page.
+ */
+function navigateToSettings(): void {
+    closeDropdown();
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
+}
+
+/**
+ * Logouts user and navigates to login page.
+ */
+async function onLogout(): Promise<void> {
+    analytics.pageVisit(RouteConfig.Login.path);
+    router.push(RouteConfig.Login.path);
+
+    await Promise.all([
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        abTestingStore.reset(),
+        obStore.clear(),
+    ]);
+
+    try {
+        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        await auth.logout();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+    }
+}
+
+/**
+ * Toggles account dropdown visibility.
+ */
+function toggleDropdown(): void {
+    if (!accountArea.value) {
+        return;
     }
 
-    /**
-     * Navigates user to account settings page.
-     */
-    public navigateToSettings(): void {
-        this.closeDropdown();
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
-    }
+    const DROPDOWN_HEIGHT = 224; // pixels
+    const SIXTEEN_PIXELS = 16;
+    const TWENTY_PIXELS = 20;
+    const SEVENTY_PIXELS = 70;
+    const accountContainer = accountArea.value.getBoundingClientRect();
 
-    /**
-     * Logouts user and navigates to login page.
-     */
-    public async onLogout(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.Login.path);
-        await this.$router.push(RouteConfig.Login.path);
+    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (usersStore.state.user.paidTier ? SIXTEEN_PIXELS : SEVENTY_PIXELS);
+    dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
-        await Promise.all([
-            this.$store.dispatch(PM_ACTIONS.CLEAR),
-            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
-            this.$store.dispatch(USER_ACTIONS.CLEAR),
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
-            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
-            this.$store.dispatch(APP_STATE_ACTIONS.CLEAR),
-            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
-            this.$store.dispatch('files/clear'),
-        ]);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);
+}
 
-        try {
-            this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-            await this.auth.logout();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
-        }
-    }
-
-    /**
-     * Toggles account dropdown visibility.
-     */
-    public toggleDropdown(): void {
-        const DROPDOWN_HEIGHT = 224; // pixels
-        const SIXTEEN_PIXELS = 16;
-        const TWENTY_PIXELS = 20;
-        const accountContainer = this.$refs.accountArea.getBoundingClientRect();
-
-        this.dropdownYPos = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
-        this.dropdownXPos = accountContainer.right - TWENTY_PIXELS;
-
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.ACCOUNT);
-        this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    }
-
-    /**
-     * Closes dropdowns.
-     */
-    public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Indicates if tabs options are hidden.
-     */
-    public get isNewBillingScreen(): boolean {
-        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === 'true';
-    }
-
-    /**
-     * Returns bottom and left position of dropdown.
-     */
-    public get style(): Record<string, string> {
-        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px` };
-    }
-
-    /**
-     * Indicates if account dropdown is visible.
-     */
-    public get isDropdown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
-    }
-
-    /**
-     * Returns satellite name from store.
-     */
-    public get satellite(): boolean {
-        return this.$store.state.appStateModule.satelliteName;
-    }
-
-    /**
-     * Returns user entity from store.
-     */
-    public get user(): User {
-        return this.$store.getters.user;
-    }
+/**
+ * Closes dropdowns.
+ */
+function closeDropdown(): void {
+    appStore.closeDropdowns();
 }
 </script>
 
@@ -227,6 +229,8 @@ export default class AccountArea extends Vue {
         &__wrap {
             box-sizing: border-box;
             padding: 22px 32px;
+            outline: none;
+            border: none;
             border-left: 4px solid #fff;
             width: 100%;
             display: flex;
@@ -264,6 +268,21 @@ export default class AccountArea extends Vue {
 
                 .account-area__wrap__arrow :deep(path),
                 .account-area__wrap__left__icon :deep(path) {
+                    fill: var(--c-blue-3);
+                }
+            }
+
+            &:focus {
+                outline: none;
+                border-color: var(--c-grey-1);
+                background-color: var(--c-grey-1);
+                color: var(--c-blue-3);
+
+                p {
+                    color: var(--c-blue-3);
+                }
+
+                :deep(path) {
                     fill: var(--c-blue-3);
                 }
             }

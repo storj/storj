@@ -59,123 +59,117 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-        VInput,
-        VLoader,
-    },
-})
-export default class CreateProjectModal extends Vue {
-    private description = '';
-    private createdProjectId = '';
-    private isLoading = false;
+const projectsStore = useProjectsStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const notify = useNotify();
+const router = useRouter();
 
-    public projectName = '';
-    public nameError = '';
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const description = ref<string>('');
+const createdProjectId = ref<string>('');
+const projectName = ref<string>('');
+const nameError = ref<string>('');
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Sets project name from input value.
-     */
-    public setProjectName(value: string): void {
-        this.projectName = value;
-        this.nameError = '';
+/**
+ * Sets project name from input value.
+ */
+function setProjectName(value: string): void {
+    projectName.value = value;
+    nameError.value = '';
+}
+
+/**
+ * Sets project description from input value.
+ */
+function setProjectDescription(value: string): void {
+    description.value = value;
+}
+
+/**
+ * Creates project and refreshes store.
+ */
+async function onCreateProjectClick(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+    projectName.value = projectName.value.trim();
+
+    const project = new ProjectFields(
+        projectName.value,
+        description.value,
+        usersStore.state.user.id,
+    );
+
+    try {
+        project.checkName();
+    } catch (error) {
+        isLoading.value = false;
+        nameError.value = error.message;
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+
+        return;
     }
 
-    /**
-     * Sets project description from input value.
-     */
-    public setProjectDescription(value: string): void {
-        this.description = value;
+    try {
+        createdProjectId.value = await projectsStore.createProject(project);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+        isLoading.value = false;
+
+        return;
     }
 
-    /**
-     * Creates project and refreshes store.
-     */
-    public async onCreateProjectClick(): Promise<void> {
-        if (this.isLoading) {
-            return;
-        }
+    selectCreatedProject();
 
-        this.isLoading = true;
-        this.projectName = this.projectName.trim();
+    await notify.success('Project created successfully!');
 
-        const project = new ProjectFields(
-            this.projectName,
-            this.description,
-            this.$store.getters.user.id,
-        );
+    isLoading.value = false;
+    closeModal();
 
-        try {
-            project.checkName();
-        } catch (error) {
-            this.isLoading = false;
-            this.nameError = error.message;
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+    bucketsStore.clearS3Data();
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 
-            return;
-        }
+    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    await router.push(RouteConfig.ProjectDashboard.path);
+}
 
-        try {
-            const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-            this.createdProjectId = createdProject.id;
-        } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
-            this.isLoading = false;
+/**
+ * Selects just created project.
+ */
+function selectCreatedProject(): void {
+    projectsStore.selectProject(createdProjectId.value);
+    LocalData.setSelectedProjectId(createdProjectId.value);
+}
 
-            return;
-        }
-
-        this.selectCreatedProject();
-
-        await this.$notify.success('Project created successfully!');
-
-        this.isLoading = false;
-        this.closeModal();
-
-        this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-
-        this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
-        await this.$router.push(RouteConfig.ProjectDashboard.path);
-    }
-
-    /**
-     * Selects just created project.
-     */
-    private selectCreatedProject(): void {
-        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
-        LocalData.setSelectedProjectId(this.createdProjectId);
-    }
-
-    /**
-     * Closes create project modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
-    }
+/**
+ * Closes create project modal.
+ */
+function closeModal(): void {
+    appStore.updateActiveModal(MODALS.createProject);
 }
 </script>
 

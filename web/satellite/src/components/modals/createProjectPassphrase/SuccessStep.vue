@@ -3,58 +3,65 @@
 
 <template>
     <div class="success-step">
-        <SuccessIcon class="success-step__big-icon" />
-        <SmallSuccessIcon class="success-step__small-icon" />
-        <h1 class="success-step__title">Success</h1>
+        <div class="success-step__header">
+            <SuccessIcon />
+            <h1 class="success-step__header__title">Success</h1>
+        </div>
         <p class="success-step__info">
             Your encryption passphrase is ready to use. Now you can upload files into your buckets securely using an
-            encryption only you know.
+            encryption passphrase only you know.
         </p>
+        <VButton
+            label="Continue ->"
+            width="100%"
+            height="40px"
+            font-size="14px"
+            border-radius="10px"
+            :on-press="onContinue"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import SuccessIcon from '@/../static/images/projectPassphrase/success.svg';
-import SmallSuccessIcon from '@/../static/images/projectPassphrase/smallSuccess.svg';
+import VButton from '@/components/common/VButton.vue';
+
+import SuccessIcon from '@/../static/images/accessGrants/newCreateFlow/accessCreated.svg';
+
+const props = defineProps<{
+    onContinue: () => void
+}>();
 </script>
 
 <style scoped lang="scss">
 .success-step {
     display: flex;
     flex-direction: column;
-    align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
+    max-width: 350px;
 
-    &__small-icon {
-        display: none;
+    &__header {
+        display: flex;
+        align-items: center;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
 
-        @media screen and (max-width: 530px) {
-            display: block;
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 24px;
+            line-height: 31px;
+            color: var(--c-grey-8);
+            margin-left: 16px;
         }
-    }
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
     }
 
     &__info {
         font-size: 14px;
         line-height: 19px;
-        color: #354049;
-        margin-bottom: 24px;
-        max-width: 376px;
-    }
-}
-
-@media screen and (max-width: 530px) {
-
-    .success-step__big-icon {
-        display: none;
+        color: var(--c-blue-6);
+        padding: 16px 0;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
     }
 }
 </style>

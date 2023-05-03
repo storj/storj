@@ -23,10 +23,10 @@ import (
 	"storj.io/private/debug"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
@@ -183,6 +183,8 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				NotifyLowDiskCooldown:     defaultInterval,
 				VerifyDirReadableInterval: defaultInterval,
 				VerifyDirWritableInterval: defaultInterval,
+				VerifyDirReadableTimeout:  10 * time.Second,
+				VerifyDirWritableTimeout:  10 * time.Second,
 			},
 			Trust: trust.Config{
 				Sources:         sources,

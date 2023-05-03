@@ -7,7 +7,7 @@
             <div class="modal">
                 <Icon class="modal__icon" :class="{ warning: severity === 'warning', critical: severity === 'critical' }" />
                 <h1 class="modal__title">{{ title }}</h1>
-                <p class="modal__info">To get more {{ limitType }} limit, upgrade to a Pro Account. You will still get 150GB free storage and bandwidth per month, and only pay what you use beyond that.</p>
+                <p class="modal__info">To get more {{ limitType }} limit, upgrade to a Pro Account. You will still get {{ bytesToBase10String(limits.storageUsed) }} free storage and bandwidth per month, and only pay what you use beyond that.</p>
                 <div class="modal__buttons">
                     <VButton
                         label="Cancel"
@@ -33,34 +33,34 @@
     </v-modal>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import { ProjectLimits } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { bytesToBase10String } from '@/utils/strings';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import Icon from '@/../static/images/project/chart.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-        Icon,
-    },
-})
-export default class LimitWarningModal extends Vue {
-    @Prop({ default: 'warning' })
-    private readonly severity: 'warning' | 'critical';
-    @Prop({ default: '' })
-    private readonly title: string;
-    @Prop({ default: '' })
-    private readonly limitType: string;
-    @Prop({ default: () => {} })
-    private readonly onUpgrade: () => Promise<void>;
-    @Prop({ default: () => {} })
-    private readonly onClose: () => void;
-}
+const projectsStore = useProjectsStore();
+
+const props = defineProps<{
+    severity: 'warning' | 'critical';
+    title: string;
+    limitType: string;
+    onUpgrade: () => void;
+    onClose: () => void
+}>();
+
+/**
+ * Returns current limits from store.
+ */
+const limits = computed((): ProjectLimits => {
+    return projectsStore.state.currentLimits;
+});
 </script>
 
 <style scoped lang="scss">

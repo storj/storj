@@ -9,37 +9,38 @@
         :select-disabled="isProjectOwner"
         :selected="itemData.isSelected"
         :on-click="(_) => $emit('memberClick', itemData)"
-        @selectChange="(value) => $emit('selectChange', value)"
+        @selectClicked="($event) => $emit('selectClicked', $event)"
     />
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { ProjectMember } from '@/types/projectMembers';
+import { useResize } from '@/composables/resize';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import TableItem from '@/components/common/TableItem.vue';
-import Resizable from '@/components/common/Resizable.vue';
 
-// @vue/component
-@Component({
-    components: { TableItem },
-})
-export default class ProjectMemberListItem extends Resizable {
-    @Prop({ default: new ProjectMember('', '', '', new Date(), '') })
-    public itemData: ProjectMember;
+const { isMobile, isTablet } = useResize();
+const projectsStore = useProjectsStore();
 
-    public get isProjectOwner(): boolean {
-        return this.itemData.user.id === this.$store.getters.selectedProject.ownerId;
-    }
+const props = withDefaults(defineProps<{
+    itemData: ProjectMember;
+}>(), {
+    itemData: () => new ProjectMember('', '', '', new Date(), ''),
+});
 
-    public get itemToRender(): { [key: string]: string | string[] } {
-        if (!this.isMobile && !this.isTablet) return { name: this.itemData.name, date: this.itemData.localDate(), email: this.itemData.email };
+const isProjectOwner = computed((): boolean => {
+    return props.itemData.user.id === projectsStore.state.selectedProject.ownerId;
+});
 
-        // TODO: change after adding actions button to list item
-        return { name: this.itemData.name, email: this.itemData.email };
-    }
-}
+const itemToRender = computed((): { [key: string]: string | string[] } => {
+    if (!isMobile.value && !isTablet.value) return { name: props.itemData.name, date: props.itemData.localDate(), email: props.itemData.email };
+
+    // TODO: change after adding actions button to list item
+    return { name: props.itemData.name, email: props.itemData.email };
+});
 </script>
 
 <style scoped lang="scss">

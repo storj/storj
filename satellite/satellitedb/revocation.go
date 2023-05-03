@@ -15,7 +15,7 @@ import (
 
 type revocationDB struct {
 	db      *satelliteDB
-	lru     *lrucache.ExpiringLRU
+	lru     *lrucache.ExpiringLRUOf[bool]
 	methods dbx.Methods
 }
 
@@ -37,7 +37,7 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 	// again.
 	finalTail := tails[numTails-1]
 
-	val, err := db.lru.Get(string(finalTail), func() (interface{}, error) {
+	revoked, err := db.lru.Get(ctx, string(finalTail), func() (bool, error) {
 		const query = "SELECT EXISTS(SELECT 1 FROM revocations WHERE revoked IN (%s))"
 
 		var (
@@ -57,18 +57,13 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 		row := db.db.QueryRowContext(ctx, fmt.Sprintf(query, tailQuery), tailsForQuery...)
 		err := row.Scan(&revoked)
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 
 		return revoked, nil
 	})
 	if err != nil {
 		return false, errs.Wrap(err)
-	}
-
-	revoked, ok := val.(bool)
-	if !ok {
-		return false, errs.New("Revoked not a bool")
 	}
 
 	return revoked, nil

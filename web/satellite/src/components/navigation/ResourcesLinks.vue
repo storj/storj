@@ -45,9 +45,7 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
@@ -55,43 +53,33 @@ import DocsIcon from '@/../static/images/navigation/docs.svg';
 import ForumIcon from '@/../static/images/navigation/forum.svg';
 import SupportIcon from '@/../static/images/navigation/support.svg';
 
-// @vue/component
-@Component({
-    components: {
-        DocsIcon,
-        ForumIcon,
-        SupportIcon,
-    },
-})
-export default class ResourcesLinks extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Sends "View Docs" event to segment and opens link.
-     */
-    public trackViewDocsEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-        window.open(link);
-    }
+/**
+ * Sends "View Docs" event to segment and opens link.
+ */
+function trackViewDocsEvent(link: string): void {
+    analytics.pageVisit(link);
+    analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(link);
+}
 
-    /**
-     * Sends "View Forum" event to segment and opens link.
-     */
-    public trackViewForumEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
-        window.open(link);
-    }
+/**
+ * Sends "View Forum" event to segment and opens link.
+ */
+function trackViewForumEvent(link: string): void {
+    analytics.pageVisit(link);
+    analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
+    window.open(link);
+}
 
-    /**
-     * Sends "View Support" event to segment and opens link.
-     */
-    public trackViewSupportEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
-        window.open(link);
-    }
+/**
+ * Sends "View Support" event to segment and opens link.
+ */
+function trackViewSupportEvent(link: string): void {
+    analytics.pageVisit(link);
+    analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
+    window.open(link);
 }
 </script>
 

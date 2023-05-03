@@ -18,14 +18,7 @@
             <slot name="icon" />
         </div>
         <span class="label" :class="{uppercase: isUppercase}">
-            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
-            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
-            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
-            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
-            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
-            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
-            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
-            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <component :is="iconComponent" v-if="iconComponent" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
             {{ label }}
         </span>
@@ -46,15 +39,7 @@
             <slot name="icon" />
         </div>
         <span class="label" :class="{uppercase: isUppercase}">
-            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
-            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
-            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
-            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
-            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
-            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
-            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
-            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
-            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <component :is="iconComponent" v-if="iconComponent" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
             {{ label }}
         </span>
@@ -65,9 +50,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed, VueConstructor } from 'vue';
 
-import { computed } from 'vue';
-
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
@@ -120,6 +105,21 @@ const props = withDefaults(defineProps<{
     onPress: () => {},
 });
 
+const icons = new Map<string, VueConstructor>([
+    ['copy', CopyIcon],
+    ['download', DownloadIcon],
+    ['lock', LockIcon],
+    ['credit-card', CreditCardIcon],
+    ['document', DocumentIcon],
+    ['trash', TrashIcon],
+    ['folder', FolderIcon],
+    ['resources', ResourcesIcon],
+    ['addcircle', AddCircleIcon],
+    ['add', WhitePlusIcon],
+]);
+
+const iconComponent = computed((): VueConstructor | undefined => icons.get(props.icon.toLowerCase()));
+
 const containerClassName = computed((): string => {
     if (props.isDisabled) return 'disabled';
 
@@ -171,6 +171,11 @@ function handleClick(): void {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049 !important;
+        }
     }
 
     .solid-red {
@@ -197,7 +202,7 @@ function handleClick(): void {
 
         :deep(path),
         :deep(rect) {
-            fill: #354049;
+            fill: #354049 !important;
         }
     }
 
@@ -233,12 +238,12 @@ function handleClick(): void {
     }
 
     .disabled {
-        background-color: #dadde5 !important;
-        border-color: #dadde5 !important;
+        background-color: var(--c-grey-5) !important;
+        border-color: var(--c-grey-5) !important;
         pointer-events: none !important;
 
         .label {
-            color: #acb0bc !important;
+            color: var(--c-white) !important;
         }
     }
 
@@ -263,6 +268,11 @@ function handleClick(): void {
         background-color: var(--c-blue-3);
         cursor: pointer;
         box-sizing: border-box;
+
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-white);
+        }
 
         .trash-icon {
             margin-right: 5px;

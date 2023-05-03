@@ -55,14 +55,14 @@ func (reservoir *Reservoir) Keys() []float64 {
 // be passed in. The way this is accomplished is known as _Reservoir Sampling_.
 // The specific algorithm we are using here is called A-Res on the Wikipedia
 // article: https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Res
-func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
+func (reservoir *Reservoir) Sample(r *rand.Rand, segment segmentloop.Segment) {
 	k := -math.Log(r.Float64()) / float64(segment.EncryptedSize)
 	reservoir.sample(k, segment)
 }
 
-func (reservoir *Reservoir) sample(k float64, segment *segmentloop.Segment) {
+func (reservoir *Reservoir) sample(k float64, segment segmentloop.Segment) {
 	if reservoir.index < reservoir.size {
-		reservoir.segments[reservoir.index] = *segment
+		reservoir.segments[reservoir.index] = segment
 		reservoir.keys[reservoir.index] = k
 		reservoir.index++
 	} else {
@@ -73,7 +73,7 @@ func (reservoir *Reservoir) sample(k float64, segment *segmentloop.Segment) {
 			}
 		}
 		if k < reservoir.keys[max] {
-			reservoir.segments[max] = *segment
+			reservoir.segments[max] = segment
 			reservoir.keys[max] = k
 		}
 	}
@@ -85,7 +85,7 @@ func (reservoir *Reservoir) Merge(operand *Reservoir) error {
 		return errs.New("cannot merge: mismatched size: expected %d but got %d", reservoir.size, operand.size)
 	}
 	for i := int8(0); i < operand.index; i++ {
-		reservoir.sample(operand.keys[i], &operand.segments[i])
+		reservoir.sample(operand.keys[i], operand.segments[i])
 	}
 	return nil
 }

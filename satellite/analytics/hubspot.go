@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,6 +27,16 @@ var mon = monkit.Package()
 const (
 	eventPrefix      = "pe20293085"
 	expiryBufferTime = 5 * time.Minute
+	// string template for hubspot submission form. %s is a placeholder for the form(ID) being submitted.
+	hubspotFormTemplate = "https://api.hsforms.com/submissions/v3/integration/submit/20293085/%s"
+	// This form(ID) is the business account form.
+	professionalFormID = "cc693502-9d55-4204-ae61-406a19148cfe"
+	// This form(ID) is the personal account form.
+	basicFormID = "77cfa709-f533-44b8-bf3a-ed1278ca3202"
+	// The hubspot lifecycle stage of business accounts (Product Qualified Lead).
+	businessLifecycleStage = "66198674"
+	// The hubspot lifecycle stage of personal accounts.
+	personalLifecycleStage = "other"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
@@ -128,18 +139,46 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		}
 	}
 
+	formFields := []map[string]interface{}{
+		newField("email", fields.Email),
+		newField("firstname", firstName),
+		newField("lastname", lastName),
+		newField("origin_header", fields.OriginHeader),
+		newField("signup_referrer", fields.Referrer),
+		newField("account_created", "true"),
+		newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
+		newField("signup_partner", fields.UserAgent),
+	}
+
+	properties := map[string]interface{}{
+		"userid":             fields.ID.String(),
+		"email":              fields.Email,
+		"name":               fields.FullName,
+		"satellite_selected": q.satelliteName,
+		"account_type":       string(fields.Type),
+		"company_size":       fields.EmployeeCount,
+		"company_name":       fields.CompanyName,
+		"job_title":          fields.JobTitle,
+	}
+
+	var formURL string
+
+	if fields.Type == Professional {
+		formFields = append(formFields, newField("lifecyclestage", businessLifecycleStage))
+		formFields = append(formFields, newField("company", fields.CompanyName))
+		formFields = append(formFields, newField("storage_needs", fields.StorageNeeds))
+
+		properties["storage_needs"] = fields.StorageNeeds
+
+		formURL = fmt.Sprintf(hubspotFormTemplate, professionalFormID)
+	} else {
+		formFields = append(formFields, newField("lifecyclestage", personalLifecycleStage))
+
+		formURL = fmt.Sprintf(hubspotFormTemplate, basicFormID)
+	}
+
 	data := map[string]interface{}{
-		"fields": []map[string]interface{}{
-			newField("email", fields.Email),
-			newField("firstname", firstName),
-			newField("lastname", lastName),
-			newField("lifecyclestage", "other"),
-			newField("origin_header", fields.OriginHeader),
-			newField("signup_referrer", fields.Referrer),
-			newField("account_created", "true"),
-			newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
-			newField("signup_partner", fields.UserAgent),
-		},
+		"fields": formFields,
 	}
 
 	if fields.HubspotUTK != "" {
@@ -149,25 +188,16 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	}
 
 	createUser := HubSpotEvent{
-		Endpoint: "https://api.hsforms.com/submissions/v3/integration/submit/20293085/77cfa709-f533-44b8-bf3a-ed1278ca3202",
+		Endpoint: formURL,
 		Data:     data,
 	}
 
 	sendUserEvent := HubSpotEvent{
 		Endpoint: "https://api.hubapi.com/events/v3/send",
 		Data: map[string]interface{}{
-			"email":     fields.Email,
-			"eventName": eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
-			"properties": map[string]interface{}{
-				"userid":             fields.ID.String(),
-				"email":              fields.Email,
-				"name":               fields.FullName,
-				"satellite_selected": q.satelliteName,
-				"account_type":       string(fields.Type),
-				"company_size":       fields.EmployeeCount,
-				"company_name":       fields.CompanyName,
-				"job_title":          fields.JobTitle,
-			},
+			"email":      fields.Email,
+			"eventName":  eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
+			"properties": properties,
 		},
 	}
 	select {

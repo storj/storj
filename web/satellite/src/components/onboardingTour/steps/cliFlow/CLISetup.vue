@@ -31,11 +31,10 @@
     </CLIFlowContainer>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useRouter } from '@/utils/hooks';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
@@ -43,34 +42,24 @@ import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vu
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CLIFlowContainer,
-        Icon,
-        OSContainer,
-        TabWithCopy,
-    },
-})
-export default class CLISetup extends Vue {
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const router = useRouter();
 
-    /**
-     * Holds on back button click logic.
-     */
-    public async onBackClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
-    }
+/**
+ * Holds on back button click logic.
+ */
+async function onBackClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
+}
 
-    /**
-     * Holds on next button click logic.
-     */
-    public async onNextClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
-    }
+/**
+ * Holds on next button click logic.
+ */
+async function onNextClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
 }
 </script>
 

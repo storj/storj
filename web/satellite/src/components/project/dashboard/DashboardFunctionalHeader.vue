@@ -44,9 +44,9 @@
                 </p>
                 <p class="dashboard-header__limits">
                     <span class="dashboard-header__limits--bold">Storage Limit</span>
-                    per month: {{ limits.storageLimit | bytesToBase10String }} |
+                    per month: {{ bytesToBase10String(limits.storageLimit) }} |
                     <span class="dashboard-header__limits--bold">Bandwidth Limit</span>
-                    per month: {{ limits.bandwidthLimit | bytesToBase10String }}
+                    per month: {{ bytesToBase10String(limits.bandwidthLimit) }}
                 </p>
                 <VButton
                     label="Upload"
@@ -62,13 +62,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
 import { LocalData } from '@/utils/localData';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { bytesToBase10String } from '@/utils/strings';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -79,14 +82,16 @@ const props = withDefaults(defineProps<{
     loading: false,
 });
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const router = useRouter();
 
 /**
  * Indicates if user should be prompt for passphrase.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
@@ -105,28 +110,28 @@ const bucketWasCreated = computed((): boolean => {
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
-    return store.state.projectsModule.currentLimits;
+    return projectsStore.state.currentLimits;
 });
 
 /**
  * Returns fetched buckets page from store.
  */
 const bucketsPage = computed((): BucketPage => {
-    return store.state.bucketUsageModule.page;
+    return bucketsStore.state.page;
 });
 
 /**
  * Toggles create project passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**

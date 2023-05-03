@@ -298,7 +298,7 @@ func TestBilling_UploadNoEgress(t *testing.T) {
 		// Make sure that we don't have interference with billed repair traffic
 		// in case of a bug. There is a specific test to verify that the repair
 		// traffic isn't billed.
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -340,7 +340,7 @@ func TestBilling_DownloadTraffic(t *testing.T) {
 		// Make sure that we don't have interference with billed repair traffic
 		// in case of a bug. There is a specific test to verify that the repair
 		// traffic isn't billed.
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -376,7 +376,7 @@ func TestBilling_ExpiredFiles(t *testing.T) {
 		)
 
 		satelliteSys := planet.Satellites[0]
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 
 		satelliteSys.Accounting.Tally.Loop.Pause()

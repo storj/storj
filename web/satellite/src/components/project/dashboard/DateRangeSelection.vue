@@ -12,7 +12,7 @@
             <DatepickerIcon class="range-selection__toggle-container__icon" />
             <h1 class="range-selection__toggle-container__label">{{ dateRangeLabel }}</h1>
         </div>
-        <div v-show="isOpen" v-click-outside="closePicker" class="range-selection__popup">
+        <div v-if="isOpen" v-click-outside="closePicker" class="range-selection__popup">
             <VDateRangePicker :on-date-pick="onDatePick" :is-open="true" :date-range="pickerDateRange" />
         </div>
     </div>
@@ -21,8 +21,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
@@ -42,7 +41,7 @@ const props = withDefaults(defineProps<{
     toggle: () => {},
 });
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Returns formatted date range string.
@@ -68,7 +67,7 @@ const pickerDateRange = computed((): Date[] => {
  * Closes duration picker.
  */
 function closePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 </script>
 

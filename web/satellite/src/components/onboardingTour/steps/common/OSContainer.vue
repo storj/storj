@@ -35,81 +35,79 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { OnboardingOS } from '@/types/common';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
-// @vue/component
-@Component
-export default class OSContainer extends Vue {
-    @Prop({ default: false })
-    public readonly isInstallStep: boolean;
+const appStore = useAppStore();
 
-    public osSelected = OnboardingOS.WINDOWS;
-    // This is done to fix "non-reactive property issue" to be able to use enum in template.
-    public OnboardingOS = OnboardingOS;
+const props = withDefaults(defineProps<{
+    isInstallStep?: boolean;
+}>(), {
+    isInstallStep: false,
+});
 
-    /**
-     * Lifecycle hook after initial render.
-     * Checks user's OS.
-     */
-    public mounted(): void {
-        if (this.storedOsSelected) {
-            this.setTab(this.storedOsSelected);
+const osSelected = ref<OnboardingOS>(OnboardingOS.WINDOWS);
 
-            return;
-        }
+/**
+ * Returns selected os from store.
+ */
+const storedOsSelected = computed((): OnboardingOS | null => {
+    return appStore.state.onbSelectedOs;
+});
 
-        switch (true) {
-        case navigator.appVersion.indexOf('Mac') !== -1:
-            this.setTab(OnboardingOS.MAC);
-            return;
-        case navigator.appVersion.indexOf('Linux') !== -1:
-            this.setTab(OnboardingOS.LINUX);
-            return;
-        default:
-            this.setTab(OnboardingOS.WINDOWS);
-        }
-    }
+/**
+ * Indicates if mac tab is selected.
+ */
+const isMacOS = computed((): boolean => {
+    return osSelected.value === OnboardingOS.MAC;
+});
 
-    /**
-     * Sets view to given state.
-     */
-    public setTab(os: OnboardingOS): void {
-        this.osSelected = os;
-        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_OS, os);
-    }
+/**
+ * Indicates if linux tab is selected.
+ */
+const isLinux = computed((): boolean => {
+    return osSelected.value === OnboardingOS.LINUX;
+});
 
-    /**
-     * Returns selected os from store.
-     */
-    public get storedOsSelected(): OnboardingOS | null {
-        return this.$store.state.appStateModule.appState.onbSelectedOs;
-    }
+/**
+ * Indicates if windows tab is selected.
+ */
+const isWindows = computed((): boolean => {
+    return osSelected.value === OnboardingOS.WINDOWS;
+});
 
-    /**
-     * Indicates if mac tab is selected.
-     */
-    private get isMacOS(): boolean {
-        return this.osSelected === OnboardingOS.MAC;
-    }
-
-    /**
-     * Indicates if linux tab is selected.
-     */
-    private get isLinux(): boolean {
-        return this.osSelected === OnboardingOS.LINUX;
-    }
-
-    /**
-     * Indicates if windows tab is selected.
-     */
-    private get isWindows(): boolean {
-        return this.osSelected === OnboardingOS.WINDOWS;
-    }
+/**
+ * Sets view to given state.
+ */
+function setTab(os: OnboardingOS): void {
+    osSelected.value = os;
+    appStore.setOnboardingOS(os);
 }
+
+/**
+ * Lifecycle hook after initial render.
+ * Checks user's OS.
+ */
+onMounted((): void => {
+    if (storedOsSelected.value) {
+        setTab(storedOsSelected.value);
+        return;
+    }
+
+    switch (true) {
+    case navigator.appVersion.indexOf('Mac') !== -1:
+        setTab(OnboardingOS.MAC);
+        return;
+    case navigator.appVersion.indexOf('Linux') !== -1:
+        setTab(OnboardingOS.LINUX);
+        return;
+    default:
+        setTab(OnboardingOS.WINDOWS);
+    }
+});
 </script>
 
 <style scoped lang="scss">

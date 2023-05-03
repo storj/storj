@@ -74,17 +74,17 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { Validator } from '@/utils/validation';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -94,206 +94,188 @@ import KeyIcon from '@/../static/images/resetPassword/success.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
-// @vue/component
-@Component({
-    components: {
-        LogoIcon,
-        VInput,
-        PasswordStrength,
-        KeyIcon,
-        ConfirmMFAInput,
-        GreyWarningIcon,
-    },
-})
+const configStore = useConfigStore();
+const appStore = useAppStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-export default class ResetPassword extends Vue {
-    private token = '';
-    private password = '';
-    private repeatedPassword = '';
-    private passcode = '';
-    private recoveryCode = '';
+const auth: AuthHttpApi = new AuthHttpApi();
+const loginPath: string = RouteConfig.Login.path;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private passwordError = '';
-    private repeatedPasswordError = '';
-    private isLoading = false;
-    private isMFARequired = false;
-    private isMFAError = false;
-    private isRecoveryCodeState = false;
+const token = ref<string>('');
+const password = ref<string>('');
+const repeatedPassword = ref<string>('');
+const passcode = ref<string>('');
+const recoveryCode = ref<string>('');
+const passwordError = ref<string>('');
+const repeatedPasswordError = ref<string>('');
+const isLoading = ref<boolean>(false);
+const isMFARequired = ref<boolean>(false);
+const isMFAError = ref<boolean>(false);
+const isRecoveryCodeState = ref<boolean>(false);
+const isPasswordStrengthShown = ref<boolean>(false);
+const mfaInput = ref<ConfirmMFAInput>();
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+/**
+ * Returns whether the successful password reset area is shown.
+ */
+const isSuccessfulPasswordResetShown = computed(() : boolean => {
+    return appStore.state.isSuccessfulPasswordResetShown;
+});
 
-    public isPasswordStrengthShown = false;
+/**
+ * Validates input fields and requests password reset.
+ */
+async function onResetClick(): Promise<void> {
+    if (isLoading.value) return;
 
-    public readonly loginPath: string = RouteConfig.Login.path;
+    isLoading.value = true;
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-    public $refs!: {
-        mfaInput: ConfirmMFAInput;
-    };
-
-    /**
-     * Lifecycle hook on component destroy.
-     * Sets view to default state.
-     */
-    public beforeDestroy(): void {
-        if (this.isSuccessfulPasswordResetShown) {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
-        }
+    if (!validateFields()) {
+        isLoading.value = false;
+        return;
     }
 
-    /**
-     * Lifecycle hook after initial render.
-     * Initializes recovery token from route param
-     * and redirects to login if token doesn't exist.
-     */
-    public mounted(): void {
-        if (this.$route.query.token) {
-            this.token = this.$route.query.token.toString();
-        } else {
-            this.analytics.pageVisit(RouteConfig.Login.path);
-            this.$router.push(RouteConfig.Login.path);
-        }
-    }
+    try {
+        await auth.resetPassword(token.value, password.value, passcode.value.trim(), recoveryCode.value.trim());
+        appStore.toggleSuccessfulPasswordReset();
+    } catch (error) {
+        isLoading.value = false;
 
-    /**
-     * Returns whether the successful password reset area is shown.
-     */
-    public get isSuccessfulPasswordResetShown() : boolean {
-        return this.$store.state.appStateModule.appState.isSuccessfulPasswordResetShown;
-    }
-
-    /**
-     * Validates input fields and requests password reset.
-     */
-    public async onResetClick(): Promise<void> {
-        if (this.isLoading) {
+        if (error instanceof ErrorMFARequired) {
+            if (isMFARequired.value) isMFAError.value = true;
+            isMFARequired.value = true;
             return;
         }
 
-        this.isLoading = true;
-
-        if (!this.validateFields()) {
-            this.isLoading = false;
-
+        if (error instanceof ErrorTokenExpired) {
+            await router.push(`${RouteConfig.ForgotPassword.path}?expired=true`);
             return;
         }
 
-        try {
-            await this.auth.resetPassword(this.token, this.password, this.passcode.trim(), this.recoveryCode.trim());
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
-        } catch (error) {
-            this.isLoading = false;
-
-            if (error instanceof ErrorMFARequired) {
-                if (this.isMFARequired) this.isMFAError = true;
-                this.isMFARequired = true;
-                return;
-            }
-
-            if (error instanceof ErrorTokenExpired) {
-                await this.$router.push(`${RouteConfig.ForgotPassword.path}?expired=true`);
-                return;
-            }
-
-            if (this.isMFARequired) {
-                this.isMFAError = true;
-                return;
-            }
-
-            await this.$notify.error(error.message, null);
+        if (isMFARequired.value) {
+            isMFAError.value = true;
+            return;
         }
 
-        this.isLoading = false;
+        await notify.error(error.message, null);
     }
 
-    /**
-     * Validates input values to satisfy expected rules.
-     */
-    private validateFields(): boolean {
-        let isNoErrors = true;
-
-        if (!Validator.password(this.password)) {
-            this.passwordError = 'Invalid password';
-            isNoErrors = false;
-        }
-
-        if (this.repeatedPassword !== this.password) {
-            this.repeatedPasswordError = 'Password doesn\'t match';
-            isNoErrors = false;
-        }
-
-        return isNoErrors;
-    }
-
-    /**
-     * Makes password strength container visible.
-     */
-    public showPasswordStrength(): void {
-        this.isPasswordStrengthShown = true;
-    }
-
-    /**
-     * Hides password strength container.
-     */
-    public hidePasswordStrength(): void {
-        this.isPasswordStrengthShown = false;
-    }
-
-    /**
-     * Redirects to storj.io homepage.
-     */
-    public onLogoClick(): void {
-        const homepageURL = MetaUtils.getMetaContent('homepage-url');
-        window.location.href = homepageURL;
-    }
-
-    /**
-     * Sets user's password field from value string.
-     */
-    public setPassword(value: string): void {
-        this.password = value.trim();
-        this.passwordError = '';
-    }
-
-    /**
-     * Sets user's repeat password field from value string.
-     */
-    public setRepeatedPassword(value: string): void {
-        this.repeatedPassword = value.trim();
-        this.repeatedPasswordError = '';
-    }
-
-    /**
-     * Sets page to recovery code state.
-     */
-    public setRecoveryCodeState(): void {
-        this.isMFAError = false;
-        this.passcode = '';
-        this.$refs.mfaInput.clearInput();
-        this.isRecoveryCodeState = true;
-    }
-
-    /**
-     * Cancels MFA passcode input state.
-     */
-    public onMFACancelClick(): void {
-        this.isMFARequired = false;
-        this.isRecoveryCodeState = false;
-        this.isMFAError = false;
-        this.passcode = '';
-        this.recoveryCode = '';
-    }
-
-    /**
-     * Sets confirmation passcode value from input.
-     */
-    public onConfirmInput(value: string): void {
-        this.isMFAError = false;
-
-        this.isRecoveryCodeState ? this.recoveryCode = value : this.passcode = value;
-    }
+    isLoading.value = false;
 }
+
+/**
+ * Validates input values to satisfy expected rules.
+ */
+function validateFields(): boolean {
+    let isNoErrors = true;
+    let config = configStore.state.config;
+
+    if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
+        passwordError.value = 'Invalid password';
+        isNoErrors = false;
+    }
+
+    if (repeatedPassword.value !== password.value) {
+        repeatedPasswordError.value = 'Password doesn\'t match';
+        isNoErrors = false;
+    }
+
+    return isNoErrors;
+}
+
+/**
+ * Makes password strength container visible.
+ */
+function showPasswordStrength(): void {
+    isPasswordStrengthShown.value = true;
+}
+
+/**
+ * Hides password strength container.
+ */
+function hidePasswordStrength(): void {
+    isPasswordStrengthShown.value = false;
+}
+
+/**
+ * Redirects to storj.io homepage.
+ */
+function onLogoClick(): void {
+    window.location.href = configStore.state.config.homepageURL;
+}
+
+/**
+ * Sets user's password field from value string.
+ */
+function setPassword(value: string): void {
+    password.value = value.trim();
+    passwordError.value = '';
+}
+
+/**
+ * Sets user's repeat password field from value string.
+ */
+function setRepeatedPassword(value: string): void {
+    repeatedPassword.value = value.trim();
+    repeatedPasswordError.value = '';
+}
+
+/**
+ * Sets page to recovery code state.
+ */
+function setRecoveryCodeState(): void {
+    isMFAError.value = false;
+    passcode.value = '';
+    mfaInput.value?.clearInput();
+    isRecoveryCodeState.value = true;
+}
+
+/**
+ * Cancels MFA passcode input state.
+ */
+function onMFACancelClick(): void {
+    isMFARequired.value = false;
+    isRecoveryCodeState.value = false;
+    isMFAError.value = false;
+    passcode.value = '';
+    recoveryCode.value = '';
+}
+
+/**
+ * Sets confirmation passcode value from input.
+ */
+function onConfirmInput(value: string): void {
+    isMFAError.value = false;
+
+    isRecoveryCodeState.value ? recoveryCode.value = value : passcode.value = value;
+}
+
+/**
+ * Lifecycle hook on component destroy.
+ * Sets view to default state.
+ */
+onBeforeUnmount((): void => {
+    if (isSuccessfulPasswordResetShown.value) {
+        appStore.toggleSuccessfulPasswordReset();
+    }
+});
+
+/**
+ * Lifecycle hook after initial render.
+ * Initializes recovery token from route param
+ * and redirects to login if token doesn't exist.
+ */
+onMounted((): void => {
+    if (router.currentRoute.query.token) {
+        token.value = router.currentRoute.query.token.toString();
+    } else {
+        analytics.pageVisit(RouteConfig.Login.path);
+        router.push(RouteConfig.Login.path);
+    }
+});
 </script>
 
 <style scoped lang="scss">

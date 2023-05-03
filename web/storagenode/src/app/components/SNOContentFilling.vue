@@ -4,6 +4,23 @@
 <template>
     <div class="info-area">
         <SatelliteSelection />
+        <div class="info-area__announcement">
+            <LargeInfoIcon
+                class="info-area__announcement__image"
+                alt="Announcement image"
+            />
+            <p class="info-area__announcement__info">
+                Please read the information on the
+                <a
+                    class="info-area__announcement__info__link"
+                    href="https://www.storj.io/s/storage-node-pricing-update-2023"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                >
+                    forum
+                </a> regarding the Storage Node payout changes.
+            </p>
+        </div>
         <div v-if="isDisqualifiedInfoShown" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
@@ -181,6 +198,7 @@ import WalletArea from '@/app/components/WalletArea.vue';
 
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+import LargeInfoIcon from '@/../static/images/LargeInfo.svg';
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
 // @vue/component
@@ -199,6 +217,7 @@ import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
         LargeDisqualificationIcon,
         LargeSuspensionIcon,
         BlueArrowRight,
+        LargeInfoIcon,
     },
 })
 export default class SNOContentFilling extends Vue {
@@ -470,6 +489,32 @@ export default class SNOContentFilling extends Vue {
             border-radius: 12px;
             width: calc(100% - 52px);
             margin-top: 17px;
+
+            &__image {
+                min-height: 35px;
+                min-width: 38px;
+                margin-right: 17px;
+            }
+
+            &__info {
+                font-size: 14px;
+                line-height: 21px;
+
+                &__link {
+                    color: var(--navigation-link-color);
+                }
+            }
+        }
+
+        &__announcement {
+            display: flex;
+            align-items: center;
+            padding: 20px 27px 20px 25px;
+            background-color: var(--block-background-color);
+            border-radius: 12px;
+            width: calc(100% - 52px);
+            margin-top: 17px;
+            color: var(--regular-text-color);
 
             &__image {
                 min-height: 35px;

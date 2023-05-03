@@ -23,11 +23,17 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (CouponType, error)
 
-	// Balance returns an object that represents current free credits and coins balance in cents.
-	Balance(ctx context.Context, userID uuid.UUID) (Balance, error)
+	// UpdatePackage updates a customer's package plan information.
+	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) error
+
+	// GetPackageInfo returns the package plan and time of purchase for a user.
+	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
+
+	// Balances exposes functionality to manage account balances.
+	Balances() Balances
 
 	// ProjectCharges returns how much money current user will be charged for each project.
-	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)
+	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProjectChargesResponse, error)
 
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel

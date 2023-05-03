@@ -4,9 +4,18 @@
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
-import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
+import {
+    FreezeStatus,
+    SetUserSettingsData,
+    TokenInfo,
+    UpdatedUser,
+    User,
+    UsersApi,
+    UserSettings,
+} from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { Duration } from '@/utils/time';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -225,16 +234,65 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async getFrozenStatus(): Promise<boolean> {
+    public async getFrozenStatus(): Promise<FreezeStatus> {
         const path = `${this.ROOT_PATH}/account/freezestatus`;
         const response = await this.http.get(path);
         if (response.ok) {
             const responseData = await response.json();
 
-            return responseData.frozen;
+            return new FreezeStatus(
+                responseData.frozen,
+                responseData.warned,
+            );
         }
 
         throw new Error('can not get user frozen status');
+    }
+
+    /**
+     * Fetches user's settings.
+     *
+     * @throws Error
+     */
+    public async getUserSettings(): Promise<UserSettings> {
+        const path = `${this.ROOT_PATH}/account/settings`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return new UserSettings(
+                responseData.sessionDuration,
+                responseData.onboardingStart,
+                responseData.onboardingEnd,
+                responseData.onboardingStep,
+            );
+        }
+
+        throw new Error('can not get user settings');
+    }
+
+    /**
+     * Changes user's settings.
+     *
+     * @param data
+     * @returns UserSettings
+     * @throws Error
+     */
+    public async updateSettings(data: SetUserSettingsData): Promise<UserSettings> {
+        const path = `${this.ROOT_PATH}/account/settings`;
+        const response = await this.http.patch(path, JSON.stringify(data));
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return new UserSettings(
+                responseData.sessionDuration,
+                responseData.onboardingStart,
+                responseData.onboardingEnd,
+                responseData.onboardingStep,
+            );
+        }
+
+        throw new Error('can not get user settings');
     }
 
     // TODO: remove secret after Vanguard release
@@ -247,7 +305,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<void> {
+    public async register(user: Partial<User & { storageNeeds: string }>, secret: string, captchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -259,6 +317,7 @@ export class AuthHttpApi implements UsersApi {
             isProfessional: user.isProfessional,
             position: user.position,
             companyName: user.companyName,
+            storageNeeds: user.storageNeeds || '',
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
             captchaResponse: captchaResponse,

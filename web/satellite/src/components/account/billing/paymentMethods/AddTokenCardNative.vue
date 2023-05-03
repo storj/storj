@@ -90,16 +90,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -109,88 +109,84 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
-// @vue/component
-@Component({
-    components: {
-        InfoIcon,
-        StorjSmall,
-        StorjLarge,
-        VButton,
-        VLoader,
-        VInfo,
-    },
-})
-export default class AddTokenCardNative extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const notify = useNotify();
+const router = useRouter();
 
-    public isLoading = false;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    async mounted(): Promise<void> {
-        await this.getWallet();
+const isLoading = ref<boolean>(false);
 
-        // check if user navigated here from Billing overview screen
-        if (this.$route.params.action !== 'add tokens') {
-            return;
-        }
-        // user clicked 'Add Funds' on Billing overview screen.
-        if (this.wallet.address) {
-            this.onAddTokensClick();
-        } else {
-            await this.claimWalletClick();
-        }
+/**
+ * Returns wallet from store.
+ */
+const wallet = computed((): Wallet => {
+    return billingStore.state.wallet as Wallet;
+});
+
+/**
+ * getWallet tries to get an existing wallet for this user. this will not claim a wallet.
+ */
+async function getWallet(): Promise<void> {
+    if (wallet.value.address) {
+        return;
     }
 
-    /**
-     * getWallet tries to get an existing wallet for this user. this will not claim a wallet.
-     */
-    private async getWallet() {
-        if (this.wallet.address) {
-            return;
-        }
-        this.isLoading = true;
-        await this.$store.dispatch(PAYMENTS_ACTIONS.GET_WALLET).catch(_ => {});
-        this.isLoading = false;
-    }
+    isLoading.value = true;
+    await billingStore.getWallet().catch(_ => {});
+    isLoading.value = false;
+}
 
-    /**
-     * claimWallet claims a wallet for the current account.
-     */
-    private async claimWallet(): Promise<void> {
-        if (!this.wallet.address)
-            await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
-    }
-
-    /**
-     * Called when "Add STORJ Tokens" button is clicked.
-     */
-    public async claimWalletClick(): Promise<void> {
-        this.isLoading = true;
-        try {
-            await this.claimWallet();
-            // wallet claimed; open token modal
-            this.onAddTokensClick();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
-        }
-        this.isLoading = false;
-    }
-
-    /**
-     * Holds on add tokens button click logic.
-     * Triggers Add funds popup.
-     */
-    public onAddTokensClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTokenFunds);
-    }
-
-    /**
-     * Returns wallet from store.
-     */
-    private get wallet(): Wallet {
-        return this.$store.state.paymentsModule.wallet;
+/**
+ * claimWallet claims a wallet for the current account.
+ */
+async function claimWallet(): Promise<void> {
+    if (!wallet.value.address) {
+        await billingStore.claimWallet();
     }
 }
+
+/**
+ * Called when "Add STORJ Tokens" button is clicked.
+ */
+async function claimWalletClick(): Promise<void> {
+    isLoading.value = true;
+
+    try {
+        await claimWallet();
+        // wallet claimed; open token modal
+        onAddTokensClick();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
+    }
+
+    isLoading.value = false;
+}
+
+/**
+ * Holds on add tokens button click logic.
+ * Triggers Add funds popup.
+ */
+function onAddTokensClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+    appStore.updateActiveModal(MODALS.addTokenFunds);
+}
+
+onMounted(async (): Promise<void> => {
+    await getWallet();
+
+    // check if user navigated here from Billing overview screen
+    if (router.currentRoute.params.action !== 'add tokens') {
+        return;
+    }
+    // user clicked 'Add Funds' on Billing overview screen.
+    if (wallet.value.address) {
+        onAddTokensClick();
+    } else {
+        await claimWalletClick();
+    }
+});
 </script>
 
 <style scoped lang="scss">

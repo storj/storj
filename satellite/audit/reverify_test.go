@@ -19,16 +19,16 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 )
 
 func TestReverifySuccess(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// This is a bulky test but all it's doing is:
@@ -90,7 +90,7 @@ func TestReverifySuccess(t *testing.T) {
 }
 
 func TestReverifyFailMissingShare(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
@@ -160,7 +160,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 }
 
 func TestReverifyOffline(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
@@ -226,7 +226,7 @@ func TestReverifyOffline(t *testing.T) {
 }
 
 func TestReverifyOfflineDialTimeout(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
@@ -320,7 +320,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 }
 
 func TestReverifyDeletedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
@@ -401,7 +401,7 @@ func cloneAndDropPiece(ctx context.Context, metabaseDB *metabase.DB, segment *me
 }
 
 func TestReverifyModifiedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
@@ -479,7 +479,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 }
 
 func TestReverifyReplacedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
@@ -548,7 +548,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 
 // TestReverifyExpired tests the case where the segment passed into Reverify is expired.
 func TestReverifyExpired(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -609,7 +609,7 @@ func TestReverifyExpired(t *testing.T) {
 // audit service gets put into containment mode.
 func TestReverifySlowDownload(t *testing.T) {
 	const auditTimeout = time.Second
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -684,7 +684,7 @@ func TestReverifySlowDownload(t *testing.T) {
 
 // TestReverifyUnknownError checks that a node that returns an unknown error during an audit does not get marked as successful, failed, or contained.
 func TestReverifyUnknownError(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -750,7 +750,7 @@ func TestReverifyUnknownError(t *testing.T) {
 
 func TestMaxReverifyCount(t *testing.T) {
 	const auditTimeout = time.Second
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -851,7 +851,7 @@ func TestTimeDelayBeforeReverifies(t *testing.T) {
 		auditTimeout     = time.Second
 		reverifyInterval = time.Second / 4
 	)
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {

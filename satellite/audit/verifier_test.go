@@ -26,20 +26,20 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
 // returned by the DownloadShares method contain no error if all shares were
 // downloaded successfully.
 func TestDownloadSharesHappyPath(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -94,7 +94,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesOfflineNode(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -157,7 +157,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesMissingPiece(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -216,7 +216,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDialTimeout(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -297,7 +297,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -370,7 +370,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 }
 
 func TestVerifierHappyPath(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -409,7 +409,7 @@ func TestVerifierHappyPath(t *testing.T) {
 }
 
 func TestVerifierExpired(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -448,7 +448,7 @@ func TestVerifierExpired(t *testing.T) {
 }
 
 func TestVerifierOfflineNode(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 
@@ -493,7 +493,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 }
 
 func TestVerifierMissingPiece(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -540,7 +540,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 }
 
 func TestVerifierNotEnoughPieces(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -609,7 +609,7 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 }
 
 func TestVerifierDialTimeout(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -674,7 +674,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 }
 
 func TestVerifierDeletedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -712,7 +712,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 }
 
 func TestVerifierModifiedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -765,7 +765,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 }
 
 func TestVerifierReplacedSegment(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -805,7 +805,7 @@ func TestVerifierReplacedSegment(t *testing.T) {
 }
 
 func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -855,7 +855,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 // TestVerifierSlowDownload checks that a node that times out while sending data to the
 // audit service gets put into containment mode.
 func TestVerifierSlowDownload(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -916,7 +916,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 // TestVerifierUnknownError checks that a node that returns an unknown error in response to an audit request
 // does not get marked as successful, failed, or contained.
 func TestVerifierUnknownError(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -1108,7 +1108,7 @@ func getRemoteSegment(
 func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
-	blobRef := storage.BlobRef{
+	blobRef := blobstore.BlobRef{
 		Namespace: planet.Satellites[0].ID().Bytes(),
 		Key:       corruptedPieceID.Bytes(),
 	}
@@ -1144,7 +1144,7 @@ func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Plan
 }
 
 func TestIdentifyContainedNodes(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
@@ -1198,7 +1198,7 @@ func TestConcurrentAuditsSuccess(t *testing.T) {
 		minPieces           = 5
 	)
 
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: minPieces, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			// every segment gets a piece on every node, so that every segment audit
@@ -1273,14 +1273,14 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 		badNodes            = minPieces / 2
 	)
 
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: minPieces, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			// every segment gets a piece on every node, so that every segment audit
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return newBadBlobsAllowVerify(log.Named("baddb"), db), nil
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -1356,14 +1356,14 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 		badNodes            = minPieces / 2
 	)
 
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: minPieces, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			// every segment gets a piece on every node, so that every segment audit
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return newBadBlobsAllowVerify(log.Named("baddb"), db), nil
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -1443,7 +1443,7 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 		retryInterval       = 5 * time.Minute
 	)
 
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: minPieces, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			// every segment should get a piece on every node, so that every segment audit
@@ -1556,27 +1556,4 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 			require.EqualValues(t, appearancesPerNode[planet.StorageNodes[n].ID()], numConcurrentAudits)
 		}
 	})
-}
-
-func newBadBlobsAllowVerify(log *zap.Logger, nodeDB storagenode.DB) storagenode.DB {
-	badBlobsDB := testblobs.NewBadDB(log.Named("baddb"), nodeDB)
-	badBlobsDB.Blobs = &badBlobsAllowVerify{ErrorBlobs: badBlobsDB.Blobs, goodBlobs: nodeDB.Pieces()}
-	return badBlobsDB
-}
-
-type badBlobsAllowVerify struct {
-	testblobs.ErrorBlobs
-	goodBlobs storage.Blobs
-}
-
-func (b *badBlobsAllowVerify) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
-	return b.goodBlobs.VerifyStorageDir(ctx, id)
-}
-
-func (b *badBlobsAllowVerify) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
-	return b.goodBlobs.CreateVerificationFile(ctx, id)
-}
-
-func (b *badBlobsAllowVerify) CheckWritability(ctx context.Context) error {
-	return b.goodBlobs.CheckWritability(ctx)
 }

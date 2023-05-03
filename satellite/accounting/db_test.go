@@ -71,7 +71,7 @@ func TestStorageNodeUsage(t *testing.T) {
 
 		// save tallies
 		for latestTally, tallies := range tallies {
-			err = accountingDB.SaveTallies(ctx, latestTally, tallies)
+			err = accountingDB.SaveTallies(ctx, latestTally, tallies.nodeIDs, tallies.totals)
 			require.NoError(t, err)
 		}
 
@@ -244,10 +244,15 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 	return bucketTallies, expectedTallies, nil
 }
 
+type nodesAndTallies struct {
+	nodeIDs []storj.NodeID
+	totals  []float64
+}
+
 // make rollups and tallies for specified nodes and date range.
-func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]map[storj.NodeID]float64, time.Time) {
+func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]nodesAndTallies, time.Time) {
 	rollups := make(accounting.RollupStats)
-	tallies := make(map[time.Time]map[storj.NodeID]float64)
+	tallies := make(map[time.Time]nodesAndTallies)
 
 	const (
 		hours = 12
@@ -259,7 +264,15 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 			rollups[startDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
 
-		for _, node := range nodes {
+		for h := 0; h < hours; h++ {
+			intervalEndTime := startDay.Add(time.Hour * time.Duration(h))
+			tallies[intervalEndTime] = nodesAndTallies{
+				nodeIDs: make([]storj.NodeID, len(nodes)),
+				totals:  make([]float64, len(nodes)),
+			}
+		}
+
+		for nodeIndex, node := range nodes {
 			rollup := &accounting.Rollup{
 				NodeID:    node,
 				StartTime: startDay,
@@ -267,12 +280,10 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 
 			for h := 0; h < hours; h++ {
 				intervalEndTime := startDay.Add(time.Hour * time.Duration(h))
-				if tallies[intervalEndTime] == nil {
-					tallies[intervalEndTime] = make(map[storj.NodeID]float64)
-				}
 
 				tallieAtRest := math.Round(testrand.Float64n(1000))
-				tallies[intervalEndTime][node] = tallieAtRest
+				tallies[intervalEndTime].nodeIDs[nodeIndex] = node
+				tallies[intervalEndTime].totals[nodeIndex] = tallieAtRest
 				rollup.AtRestTotal += tallieAtRest
 				rollup.IntervalEndTime = intervalEndTime
 			}

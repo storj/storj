@@ -3,13 +3,19 @@
 
 import Vue, { VueConstructor } from 'vue';
 
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { getId } from '@/utils/idGenerator';
 
 import SuccessIcon from '@/../static/images/notifications/success.svg';
 import NotificationIcon from '@/../static/images/notifications/notification.svg';
 import ErrorIcon from '@/../static/images/notifications/error.svg';
 import WarningIcon from '@/../static/images/notifications/warning.svg';
+
+export const NOTIFICATION_TYPES = {
+    SUCCESS: 'SUCCESS',
+    NOTIFICATION: 'NOTIFICATION',
+    ERROR: 'ERROR',
+    WARNING: 'WARNING',
+};
 
 export class DelayedNotification {
     private readonly successColor: string = '#DBF1D3';

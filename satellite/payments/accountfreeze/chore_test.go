@@ -12,10 +12,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestAutoFreezeChore(t *testing.T) {
@@ -33,8 +34,9 @@ func TestAutoFreezeChore(t *testing.T) {
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
 		chore := sat.Core.Payments.AccountFreeze
+		chore.TestSetFreezeService(service)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
@@ -49,7 +51,10 @@ func TestAutoFreezeChore(t *testing.T) {
 		curr := string(stripe.CurrencyUSD)
 
 		t.Run("No freeze event for paid invoice", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
 				Customer: &cus1,
@@ -63,12 +68,15 @@ func TestAutoFreezeChore(t *testing.T) {
 				Currency:    &curr,
 			})
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:       stripe.Params{Context: ctx},
 				Customer:     &cus1,
 				InvoiceItems: items,
 			})
 			require.NoError(t, err)
 
-			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{})
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params: stripe.Params{Context: ctx},
+			})
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
 
@@ -98,10 +106,13 @@ func TestAutoFreezeChore(t *testing.T) {
 		})
 
 		t.Run("Freeze event for failed invoice", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
 			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
 				Customer: &cus1,
@@ -115,13 +126,15 @@ func TestAutoFreezeChore(t *testing.T) {
 				Currency:    &curr,
 			})
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:       stripe.Params{Context: ctx},
 				Customer:     &cus1,
 				InvoiceItems: items,
 			})
 			require.NoError(t, err)
 
-			paymentMethod := stripecoinpayments.MockInvoicesPayFailure
+			paymentMethod := stripe1.MockInvoicesPayFailure
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
 				PaymentMethod: &paymentMethod,
 			})
 			require.Error(t, err)
@@ -153,3 +166,46 @@ func TestAutoFreezeChore(t *testing.T) {
 		})
 	})
 }
+
+type freezeTrackerMock struct {
+	t            *testing.T
+	freezeCounts map[string]int
+	warnCounts   map[string]int
+}
+
+func newFreezeTrackerMock(t *testing.T) *freezeTrackerMock {
+	return &freezeTrackerMock{
+		t:            t,
+		freezeCounts: map[string]int{},
+		warnCounts:   map[string]int{},
+	}
+}
+
+// The following functions are implemented from analytics.FreezeTracker.
+// They mock/test to make sure freeze events are sent just once.
+
+func (mock *freezeTrackerMock) TrackAccountFrozen(_ uuid.UUID, email string) {
+	mock.freezeCounts[email]++
+	// make sure this tracker has not been called already for this email.
+	require.Equal(mock.t, 1, mock.freezeCounts[email])
+}
+
+func (mock *freezeTrackerMock) TrackAccountUnfrozen(_ uuid.UUID, email string) {
+	mock.freezeCounts[email]--
+	// make sure this tracker has not been called already for this email.
+	require.Equal(mock.t, 0, mock.freezeCounts[email])
+}
+
+func (mock *freezeTrackerMock) TrackAccountUnwarned(_ uuid.UUID, email string) {
+	mock.warnCounts[email]--
+	// make sure this tracker has not been called already for this email.
+	require.Equal(mock.t, 0, mock.warnCounts[email])
+}
+
+func (mock *freezeTrackerMock) TrackAccountFreezeWarning(_ uuid.UUID, email string) {
+	mock.warnCounts[email]++
+	// make sure this tracker has not been called already for this email.
+	require.Equal(mock.t, 1, mock.warnCounts[email])
+}
+
+func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}

@@ -27,8 +27,11 @@
                 <div class="navigation-area__container__wrap__border" />
                 <div ref="resourcesContainer" class="container-wrapper">
                     <div
+                        role="button"
+                        tabindex="0"
                         class="navigation-area__container__wrap__item-container"
                         :class="{ active: isResourcesDropdownShown }"
+                        @keyup.enter="toggleResourcesDropdown"
                         @click.stop="toggleResourcesDropdown"
                     >
                         <div class="navigation-area__container__wrap__item-container__left">
@@ -48,8 +51,11 @@
                 </div>
                 <div ref="quickStartContainer" class="container-wrapper">
                     <div
+                        role="button"
+                        tabindex="0"
                         class="navigation-area__container__wrap__item-container"
                         :class="{ active: isQuickStartDropdownShown }"
+                        @keyup.enter="toggleQuickStartDropdown"
                         @click.stop="toggleQuickStartDropdown"
                     >
                         <div class="navigation-area__container__wrap__item-container__left">
@@ -73,15 +79,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -99,197 +106,184 @@ import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
-// @vue/component
-@Component({
-    components: {
-        QuickStartLinks,
-        ResourcesLinks,
-        ProjectSelection,
-        GuidesDropdown,
-        AccountArea,
-        LogoIcon,
-        SmallLogoIcon,
-        DashboardIcon,
-        AccessGrantsIcon,
-        UsersIcon,
-        BucketsIcon,
-        ResourcesIcon,
-        QuickStartIcon,
-        ArrowIcon,
-    },
-})
-export default class NavigationArea extends Vue {
-    private readonly TWENTY_PIXELS = 20;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const configStore = useConfigStore();
+const appStore = useAppStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public resourcesDropdownYPos = 0;
-    public resourcesDropdownXPos = 0;
-    public quickStartDropdownYPos = 0;
-    public quickStartDropdownXPos = 0;
-    public navigation: NavigationLink[] = [
-        RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.Buckets.withIcon(BucketsIcon),
-        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-        RouteConfig.Users.withIcon(UsersIcon),
-    ];
+const TWENTY_PIXELS = 20;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const navigation: NavigationLink[] = [
+    RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
+    RouteConfig.Buckets.withIcon(BucketsIcon),
+    RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
+    RouteConfig.Team.withIcon(UsersIcon),
+];
 
-    public $refs!: {
-        resourcesContainer: HTMLDivElement;
-        quickStartContainer: HTMLDivElement;
-        navigationContainer: HTMLDivElement;
-    };
+const resourcesDropdownYPos = ref<number>(0);
+const resourcesDropdownXPos = ref<number>(0);
+const quickStartDropdownYPos = ref<number>(0);
+const quickStartDropdownXPos = ref<number>(0);
+const resourcesContainer = ref<HTMLDivElement>();
+const quickStartContainer = ref<HTMLDivElement>();
+const navigationContainer = ref<HTMLDivElement>();
+const windowWidth = ref<number>(window.innerWidth);
 
-    private windowWidth = window.innerWidth;
+/**
+ * Indicates if resources dropdown shown.
+ */
+const isResourcesDropdownShown = computed((): boolean => {
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
+});
 
-    /**
-     * Mounted hook after initial render.
-     * Adds scroll event listener to close dropdowns.
-     */
-    public mounted(): void {
-        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns);
-        window.addEventListener('resize', this.onResize);
-    }
+/**
+ * Indicates if quick start dropdown shown.
+ */
+const isQuickStartDropdownShown = computed((): boolean => {
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
+});
 
-    /**
-     * Mounted hook before component destroy.
-     * Removes scroll event listener.
-     */
-    public beforeDestroy(): void {
-        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns);
-        window.removeEventListener('resize', this.onResize);
-    }
+/**
+ * Indicates if all projects dashboard should be used.
+ */
+const isAllProjectsDashboard = computed((): boolean => {
+    return configStore.state.config.allProjectsDashboard;
+});
 
-    /**
-     * On screen resize handler.
-     */
-    public onResize(): void {
-        this.windowWidth = window.innerWidth;
-        this.closeDropdowns();
-    }
-
-    /**
-     * Redirects to project dashboard.
-     */
-    public onLogoClick(): void {
-        if (this.isAllProjectsDashboard) {
-            this.$router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
-
-        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-            return;
-        }
-
-        this.$router.push(RouteConfig.ProjectDashboard.path);
-    }
-
-    /**
-     * Sets resources dropdown Y position depending on container's current position.
-     * It is used to handle small screens.
-     */
-    public setResourcesDropdownYPos(): void {
-        const container = this.$refs.resourcesContainer.getBoundingClientRect();
-        this.resourcesDropdownYPos =  container.top + container.height / 2;
-    }
-
-    /**
-     * Sets resources dropdown X position depending on container's current position.
-     * It is used to handle small screens.
-     */
-    public setResourcesDropdownXPos(): void {
-        this.resourcesDropdownXPos = this.$refs.resourcesContainer.getBoundingClientRect().width - this.TWENTY_PIXELS;
-    }
-
-    /**
-     * Sets quick start dropdown Y position depending on container's current position.
-     * It is used to handle small screens.
-     */
-    public setQuickStartDropdownYPos(): void {
-        const container = this.$refs.quickStartContainer.getBoundingClientRect();
-        this.quickStartDropdownYPos =  container.top + container.height / 2;
-    }
-
-    /**
-     * Sets quick start dropdown X position depending on container's current position.
-     * It is used to handle small screens.
-     */
-    public setQuickStartDropdownXPos(): void {
-        this.quickStartDropdownXPos = this.$refs.quickStartContainer.getBoundingClientRect().width - this.TWENTY_PIXELS;
-    }
-
-    /**
-     * Toggles resources dropdown visibility.
-     */
-    public toggleResourcesDropdown(): void {
-        this.setResourcesDropdownYPos();
-        this.setResourcesDropdownXPos();
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.RESOURCES);
-    }
-
-    /**
-     * Toggles quick start dropdown visibility.
-     */
-    public toggleQuickStartDropdown(): void {
-        this.setQuickStartDropdownYPos();
-        this.setQuickStartDropdownXPos();
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.QUICK_START);
-    }
-
-    /**
-     * Closes dropdowns.
-     */
-    public closeDropdowns(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Indicates if resources dropdown shown.
-     */
-    public get isResourcesDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
-    }
-
-    /**
-     * Indicates if quick start dropdown shown.
-     */
-    public get isQuickStartDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
-    }
-
-    /**
-     * Indicates if all projects dashboard should be used.
-     */
-    public get isAllProjectsDashboard(): boolean {
-        return this.$store.state.appStateModule.isAllProjectsDashboard;
-    }
-
-    /**
-     * Sends new path click event to segment.
-     */
-    public trackClickEvent(path: string): void {
-        if (this.isNewBillingScreen && path === '/account/billing') {
-            this.routeToOverview();
-        } else {
-            this.analytics.pageVisit(path);
-        }
-    }
-
-    /**
-     * Routes for new billing screens.
-     */
-    public routeToOverview(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
-    }
-
-    /**
-     * Indicates if tabs options are hidden.
-     */
-    public get isNewBillingScreen(): boolean {
-        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === 'true';
-    }
-
+/**
+ * On screen resize handler.
+ */
+function onResize(): void {
+    windowWidth.value = window.innerWidth;
+    closeDropdowns();
 }
+
+/**
+ * Redirects to project dashboard.
+ */
+function onLogoClick(): void {
+    if (isAllProjectsDashboard.value) {
+        router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
+    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+        return;
+    }
+
+    router.push(RouteConfig.ProjectDashboard.path);
+}
+
+/**
+ * Sets resources dropdown Y position depending on container's current position.
+ * It is used to handle small screens.
+ */
+function setResourcesDropdownYPos(): void {
+    if (!resourcesContainer.value) {
+        return;
+    }
+
+    const container = resourcesContainer.value.getBoundingClientRect();
+    resourcesDropdownYPos.value =  container.top + container.height / 2;
+}
+
+/**
+ * Sets resources dropdown X position depending on container's current position.
+ * It is used to handle small screens.
+ */
+function setResourcesDropdownXPos(): void {
+    if (!resourcesContainer.value) {
+        return;
+    }
+
+    resourcesDropdownXPos.value = resourcesContainer.value.getBoundingClientRect().width - TWENTY_PIXELS;
+}
+
+/**
+ * Sets quick start dropdown Y position depending on container's current position.
+ * It is used to handle small screens.
+ */
+function setQuickStartDropdownYPos(): void {
+    if (!quickStartContainer.value) {
+        return;
+    }
+
+    const container = quickStartContainer.value.getBoundingClientRect();
+    quickStartDropdownYPos.value =  container.top + container.height / 2;
+}
+
+/**
+ * Sets quick start dropdown X position depending on container's current position.
+ * It is used to handle small screens.
+ */
+function setQuickStartDropdownXPos(): void {
+    if (!quickStartContainer.value) {
+        return;
+    }
+
+    quickStartDropdownXPos.value = quickStartContainer.value.getBoundingClientRect().width - TWENTY_PIXELS;
+}
+
+/**
+ * Toggles resources dropdown visibility.
+ */
+function toggleResourcesDropdown(): void {
+    setResourcesDropdownYPos();
+    setResourcesDropdownXPos();
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.RESOURCES);
+}
+
+/**
+ * Toggles quick start dropdown visibility.
+ */
+function toggleQuickStartDropdown(): void {
+    setQuickStartDropdownYPos();
+    setQuickStartDropdownXPos();
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.QUICK_START);
+}
+
+/**
+ * Closes dropdowns.
+ */
+function closeDropdowns(): void {
+    appStore.closeDropdowns();
+}
+
+/**
+ * Sends new path click event to segment.
+ */
+function trackClickEvent(path: string): void {
+    if (path === '/account/billing') {
+        routeToOverview();
+    } else {
+        analytics.pageVisit(path);
+    }
+}
+
+/**
+ * Routes for new billing screens.
+ */
+function routeToOverview(): void {
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+}
+
+/**
+ * Mounted hook after initial render.
+ * Adds scroll event listener to close dropdowns.
+ */
+onMounted(() => {
+    navigationContainer.value?.addEventListener('scroll', closeDropdowns);
+    window.addEventListener('resize', onResize);
+});
+
+/**
+ * Mounted hook before component destroy.
+ * Removes scroll event listener.
+ */
+onBeforeUnmount(() => {
+    navigationContainer.value?.removeEventListener('scroll', closeDropdowns);
+    window.removeEventListener('resize', onResize);
+});
 </script>
 
 <style scoped lang="scss">
@@ -348,6 +342,7 @@ export default class NavigationArea extends Vue {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    border: none;
                     border-left: 4px solid #fff;
                     color: var(--c-grey-6);
                     position: static;
@@ -366,6 +361,17 @@ export default class NavigationArea extends Vue {
                     }
 
                     &:hover {
+                        border-color: var(--c-grey-1);
+                        background-color: var(--c-grey-1);
+                        color: var(--c-blue-3);
+
+                        :deep(path) {
+                            fill: var(--c-blue-3);
+                        }
+                    }
+
+                    &:focus {
+                        outline: none;
                         border-color: var(--c-grey-1);
                         background-color: var(--c-grey-1);
                         color: var(--c-blue-3);

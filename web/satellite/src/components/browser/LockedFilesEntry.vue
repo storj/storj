@@ -3,6 +3,8 @@
 
 <template>
     <table-item
+        selectable
+        select-hidden
         :on-click="openModal"
         :on-primary-click="openModal"
         :item="{'name': 'Objects locked', 'size': '', 'date': ''}"
@@ -13,20 +15,19 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Open the modal for the current file.
  */
 function openModal(): void {
-    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, ManageProjectPassphraseStep.Switch);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.setManagePassphraseStep(ManageProjectPassphraseStep.Switch);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 }
 </script>

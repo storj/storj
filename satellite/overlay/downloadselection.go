@@ -35,7 +35,7 @@ type DownloadSelectionCache struct {
 	db     DownloadSelectionDB
 	config DownloadSelectionCacheConfig
 
-	cache sync2.ReadCache
+	cache sync2.ReadCacheOf[*DownloadSelectionCacheState]
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
@@ -62,7 +62,7 @@ func (cache *DownloadSelectionCache) Refresh(ctx context.Context) (err error) {
 }
 
 // read loads the latest download selection state.
-func (cache *DownloadSelectionCache) read(ctx context.Context) (_ interface{}, err error) {
+func (cache *DownloadSelectionCache) read(ctx context.Context) (_ *DownloadSelectionCacheState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	onlineNodes, err := cache.db.SelectAllStorageNodesDownload(ctx, cache.config.OnlineWindow, cache.config.AsOfSystemTime)
@@ -79,11 +79,10 @@ func (cache *DownloadSelectionCache) read(ctx context.Context) (_ interface{}, e
 func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stateAny, err := cache.cache.Get(ctx, time.Now())
+	state, err := cache.cache.Get(ctx, time.Now())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	state := stateAny.(*DownloadSelectionCacheState)
 
 	return state.IPs(nodes), nil
 }
@@ -92,22 +91,19 @@ func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []sto
 func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stateAny, err := cache.cache.Get(ctx, time.Now())
+	state, err := cache.cache.Get(ctx, time.Now())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	state := stateAny.(*DownloadSelectionCacheState)
-
 	return state.Nodes(nodes), nil
 }
 
 // Size returns how many nodes are in the cache.
 func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
-	stateAny, err := cache.cache.Get(ctx, time.Now())
-	if stateAny == nil || err != nil {
+	state, err := cache.cache.Get(ctx, time.Now())
+	if state == nil || err != nil {
 		return 0, Error.Wrap(err)
 	}
-	state := stateAny.(*DownloadSelectionCacheState)
 	return state.Size(), nil
 }
 

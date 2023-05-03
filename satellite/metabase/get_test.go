@@ -64,7 +64,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
@@ -81,7 +81,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        11,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
@@ -115,7 +115,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
@@ -142,7 +142,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 			}.Check(ctx, t, db)
 			metabasetest.Verify{Objects: []metabase.RawObject{
 				{
@@ -215,7 +215,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				Opts: metabase.GetObjectLastCommitted{
 					ObjectLocation: location,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -235,7 +235,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				Opts: metabase.GetObjectLastCommitted{
 					ObjectLocation: location,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
@@ -1036,7 +1036,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Opts: metabase.GetLatestObjectLastSegment{
 					ObjectLocation: location,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 

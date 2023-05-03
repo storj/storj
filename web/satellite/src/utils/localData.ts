@@ -9,9 +9,10 @@ export class LocalData {
     private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
+    private static sessionTimeoutBannerAcknowledged = 'sessionTimeoutBannerAcknowledged';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
-    private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
+    private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
 
@@ -61,6 +62,14 @@ export class LocalData {
         return value === 'true';
     }
 
+    public static getSessionTimeoutBannerAcknowledged(): boolean {
+        return Boolean(localStorage.getItem(LocalData.sessionTimeoutBannerAcknowledged));
+    }
+
+    public static setSessionTimeoutBannerAcknowledged(): void {
+        localStorage.setItem(LocalData.sessionTimeoutBannerAcknowledged, 'true');
+    }
+
     /**
      * "Disable" showing the server-side encryption banner on the bucket page
      */
@@ -85,12 +94,12 @@ export class LocalData {
         return value === 'true';
     }
 
-    public static getBillingNotificationAcknowledged(): boolean {
-        return Boolean(localStorage.getItem(LocalData.billingNotificationAcknowledged));
+    public static getLargeUploadNotificationDismissed(): boolean {
+        return Boolean(localStorage.getItem(LocalData.largeUploadNotificationDismissed));
     }
 
-    public static setBillingNotificationAcknowledged(): void {
-        localStorage.setItem(LocalData.billingNotificationAcknowledged, 'true');
+    public static setLargeUploadNotificationDismissed(): void {
+        localStorage.setItem(LocalData.largeUploadNotificationDismissed, 'true');
     }
 
     public static getSessionExpirationDate(): Date | null {

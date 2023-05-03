@@ -5,11 +5,14 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
 	"storj.io/common/lrucache"
@@ -37,6 +40,8 @@ const (
 
 var (
 	mon = monkit.Package()
+	evs = eventkit.Package()
+
 	// Error general metainfo error.
 	Error = errs.Class("metainfo")
 	// ErrNodeAlreadyExists pointer already has a piece for a node err.
@@ -58,31 +63,33 @@ type APIKeys interface {
 type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
-	log                  *zap.Logger
-	buckets              *buckets.Service
-	metabase             *metabase.DB
-	deletePieces         *piecedeletion.Service
-	orders               *orders.Service
-	overlay              *overlay.Service
-	attributions         attribution.DB
-	pointerVerification  *pointerverification.Service
-	projectUsage         *accounting.Service
-	projects             console.Projects
-	apiKeys              APIKeys
-	satellite            signing.Signer
-	limiterCache         *lrucache.ExpiringLRU
-	encInlineSegmentSize int64 // max inline segment size + encryption overhead
-	revocations          revocation.DB
-	defaultRS            *pb.RedundancyScheme
-	config               Config
-	versionCollector     *versionCollector
+	log                    *zap.Logger
+	buckets                *buckets.Service
+	metabase               *metabase.DB
+	deletePieces           *piecedeletion.Service
+	orders                 *orders.Service
+	overlay                *overlay.Service
+	attributions           attribution.DB
+	pointerVerification    *pointerverification.Service
+	projectUsage           *accounting.Service
+	projectLimits          *accounting.ProjectLimitCache
+	projects               console.Projects
+	apiKeys                APIKeys
+	satellite              signing.Signer
+	limiterCache           *lrucache.ExpiringLRUOf[*rate.Limiter]
+	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
+	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
+	revocations            revocation.DB
+	defaultRS              *pb.RedundancyScheme
+	config                 Config
+	versionCollector       *versionCollector
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
 	attributions attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
+	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
@@ -114,11 +121,17 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
+		projectLimits:       projectLimits,
 		projects:            projects,
 		satellite:           satellite,
-		limiterCache: lrucache.New(lrucache.Options{
+		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
+			Name:       "metainfo-ratelimit",
+		}),
+		singleObjectLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
+			Expiration: config.UploadLimiter.SingleObjectLimit,
+			Capacity:   config.UploadLimiter.CacheCapacity,
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
@@ -144,6 +157,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
 	if err != nil {
@@ -151,7 +165,8 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: salt,
+		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
+		ProjectSalt:     salt,
 	}, nil
 }
 
@@ -169,6 +184,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
@@ -286,7 +302,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 	}
 
 	switch {
-	case storj.ErrObjectNotFound.Has(err):
+	case metabase.ErrObjectNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrSegmentNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -302,4 +318,12 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+}
+
+func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
+	evs.Event("usage", append([]eventkit.Tag{
+		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
+		eventkit.String("user-agent", string(header.UserAgent)),
+		eventkit.String("request", name),
+	}, tags...)...)
 }

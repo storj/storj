@@ -50,7 +50,6 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
@@ -62,7 +61,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
@@ -121,7 +120,7 @@ type DB interface {
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
-	StripeCoinPayments() stripecoinpayments.DB
+	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
 	// Wallets returns storjscan wallets database.
@@ -208,8 +207,6 @@ type Config struct {
 	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
-
-	Metrics metrics.Config
 
 	Compensation compensation.Config
 

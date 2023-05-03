@@ -12,13 +12,6 @@ export enum OnboardingOS {
     LINUX = 'linux',
 }
 
-export class PartneredSatellite {
-    constructor(
-        public name: string = '',
-        public address: string = '',
-    ) {}
-}
-
 export class PricingPlanInfo {
     constructor(
         public type: PricingPlanType = PricingPlanType.FREE,
@@ -42,3 +35,8 @@ export enum PricingPlanType {
     PARTNER = 'partner',
     PRO = 'pro',
 }
+
+// TODO: fully implement these types and their methods according to their Go counterparts
+export type UUID = string
+export type MemorySize = string
+export type Time = string

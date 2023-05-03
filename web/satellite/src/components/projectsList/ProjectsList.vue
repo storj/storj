@@ -25,7 +25,7 @@
             :limit="projectsPage.limit"
             :total-page-count="projectsPage.pageCount"
             items-label="projects"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
             :total-items-count="projectsPage.totalCount"
         >
             <template #head>
@@ -45,138 +45,129 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 
-const {
-    FETCH_OWNED,
-} = PROJECTS_ACTIONS;
+const FIRST_PAGE = 1;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-// @vue/component
-@Component({
-    components: {
-        ProjectsListItem,
-        VButton,
-        VLoader,
-        VTable,
-    },
-})
-export default class Projects extends Vue {
-    private currentPageNumber = 1;
-    private FIRST_PAGE = 1;
-    private isLoading = false;
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const router = useRouter();
 
-    public areProjectsFetching = true;
+const currentPageNumber = ref<number>(1);
+const isLoading = ref<boolean>(false);
+const areProjectsFetching = ref<boolean>(true);
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Returns projects page from store.
+ */
+const projectsPage = computed((): ProjectsPage => {
+    return projectsStore.state.page;
+});
 
-    /**
-     * Lifecycle hook after initial render where list of existing owned projects is fetched.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
-
-            this.areProjectsFetching = false;
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
-        }
+/**
+ * Fetches owned projects page page by clicked page number.
+ * @param page
+ * @param limit
+ */
+async function onPageChange(page: number, limit: number): Promise<void> {
+    currentPageNumber.value = page;
+    try {
+        await projectsStore.getOwnedProjects(currentPageNumber.value, limit);
+    } catch (error) {
+        await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
-
-    /**
-     * Fetches owned projects page page by clicked page number.
-     * @param page
-     */
-    public async onPageClick(page: number): Promise<void> {
-        this.currentPageNumber = page;
-        try {
-            await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
-        }
-    }
-
-    /**
-     * Redirects to create project page.
-     */
-    public onCreateClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-
-        const user: User = this.$store.getters.user;
-        const ownProjectsCount: number = this.$store.getters.projectsCount;
-
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-        } else {
-            this.analytics.pageVisit(RouteConfig.CreateProject.path);
-            this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
-        }
-    }
-
-    /**
-     * Fetches all project related information.
-     * @param project
-     */
-    public async onProjectSelected(project: Project): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        const projectID = project.id;
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-
-            this.analytics.pageVisit(RouteConfig.EditProjectDetails.path);
-            await this.$router.push(RouteConfig.EditProjectDetails.path);
-        } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
-        }
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Returns ProjectsList item component.
-     */
-    public get itemComponent(): typeof ProjectsListItem {
-        return ProjectsListItem;
-    }
-
-    /**
-     * Returns projects page from store.
-     */
-    public get projectsPage(): ProjectsPage {
-        return this.$store.state.projectsModule.page;
-    }
-
 }
+
+/**
+ * Redirects to create project page.
+ */
+function onCreateClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+
+    const user: User = usersStore.state.user;
+    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
+
+    if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+        appStore.updateActiveModal(MODALS.createProjectPrompt);
+    } else {
+        analytics.pageVisit(RouteConfig.CreateProject.path);
+        appStore.updateActiveModal(MODALS.createProject);
+    }
+}
+
+/**
+ * Fetches all project related information.
+ * @param project
+ */
+async function onProjectSelected(project: Project): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    const projectID = project.id;
+    projectsStore.selectProject(projectID);
+    LocalData.setSelectedProjectId(projectID);
+    pmStore.setSearchQuery('');
+
+    try {
+        await Promise.all([
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
+            pmStore.getProjectMembers(FIRST_PAGE, projectID),
+            agStore.getAccessGrants(FIRST_PAGE, projectID),
+            bucketsStore.getBuckets(FIRST_PAGE, projectID),
+            projectsStore.getProjectLimits(projectID),
+        ]);
+
+        analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+        await router.push(RouteConfig.EditProjectDetails.path);
+    } catch (error) {
+        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
+    }
+
+    isLoading.value = false;
+}
+
+/**
+ * Lifecycle hook after initial render where list of existing owned projects is fetched.
+ */
+onMounted(async () => {
+    try {
+        await projectsStore.getOwnedProjects(currentPageNumber.value);
+
+        areProjectsFetching.value = false;
+    } catch (error) {
+        await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
+    }
+});
 </script>
 
 <style lang="scss">

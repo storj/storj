@@ -19,29 +19,30 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-// @vue/component
-@Component
-export default class ConfirmMFAInput extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly onInput: (value: string) => void;
-    @Prop({ default: false })
-    public readonly isRecovery: boolean;
-    @Prop({ default: false })
-    public readonly isError: boolean;
+const props = withDefaults(defineProps<{
+    onInput: (value: string) => void;
+    isRecovery?: boolean;
+    isError: boolean;
+}>(), {
+    onInput: () => {},
+    isRecovery: false,
+    isError: false,
+});
 
-    public code = '';
+const code = ref<string>('');
 
-    /**
-     * Clears input.
-     * Is used outside of this component.
-     */
-    public clearInput(): void {
-        this.code = '';
-    }
+/**
+ * Clears input.
+ * Is used outside of this component.
+ */
+function clearInput(): void {
+    code.value = '';
 }
+
+defineExpose({ clearInput });
 </script>
 
 <style scoped lang="scss">

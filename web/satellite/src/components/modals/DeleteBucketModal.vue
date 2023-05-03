@@ -28,161 +28,172 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VButton,
-        VModal,
-    },
-})
-export default class DeleteBucketModal extends Vue {
-    private worker: Worker;
-    private name = '';
-    private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public isLoading = false;
+const configStore = useConfigStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets local worker.
-     */
-    public mounted(): void {
-        this.setWorker();
+const worker = ref<Worker| null>(null);
+const name = ref<string>('');
+const isLoading = ref<boolean>(false);
+
+/**
+ * Returns apiKey from store.
+ */
+const apiKey = computed((): string => {
+    return bucketsStore.state.apiKey;
+});
+
+/**
+ * Holds on delete button click logic.
+ * Creates unrestricted access grant and deletes bucket.
+ */
+async function onDelete(): Promise<void> {
+    if (!worker.value) {
+        return;
     }
 
-    /**
-     * Holds on delete button click logic.
-     * Creates unrestricted access grant and deletes bucket.
-     */
-    public async onDelete(): Promise<void> {
-        if (this.isLoading) return;
+    if (isLoading.value) return;
 
-        this.isLoading = true;
+    isLoading.value = true;
 
-        try {
-            if (!this.apiKey) {
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
-                const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
-                await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+    const projectID = projectsStore.state.selectedProject.id;
+
+    try {
+        if (!apiKey.value) {
+            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+            bucketsStore.setApiKey(cleanAPIKey.secret);
+        }
+
+        const now = new Date();
+        const inOneHour = new Date(now.setHours(now.getHours() + 1));
+
+        await worker.value.postMessage({
+            'type': 'SetPermission',
+            'isDownload': false,
+            'isUpload': false,
+            'isList': true,
+            'isDelete': true,
+            'notAfter': inOneHour.toISOString(),
+            'buckets': [name.value],
+            'apiKey': apiKey.value,
+        });
+
+        const grantEvent: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
             }
-
-            const now = new Date();
-            const inOneHour = new Date(now.setHours(now.getHours() + 1));
-
-            await this.worker.postMessage({
-                'type': 'SetPermission',
-                'isDownload': false,
-                'isUpload': false,
-                'isList': true,
-                'isDelete': true,
-                'notAfter': inOneHour.toISOString(),
-                'buckets': [this.name],
-                'apiKey': this.apiKey,
-            });
-
-            const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-            if (grantEvent.data.error) {
-                await this.$notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-                return;
-            }
-
-            const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
-            const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-
-            this.worker.postMessage({
-                'type': 'GenerateAccess',
-                'apiKey': grantEvent.data.value,
-                'passphrase': '',
-                'salt': salt,
-                'satelliteNodeURL': satelliteNodeURL,
-            });
-
-            const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-            if (accessGrantEvent.data.error) {
-                await this.$notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-                return;
-            }
-
-            const accessGrant = accessGrantEvent.data.value;
-
-            const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_DELETE, gatewayCredentials);
-            await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.name);
-            this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
-            await this.fetchBuckets();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        });
+        if (grantEvent.data.error) {
+            await notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
             return;
-        } finally {
-            this.isLoading = false;
         }
 
-        this.closeModal();
-    }
+        const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
+        const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
 
-    /**
-     * Fetches bucket using api.
-     */
-    private async fetchBuckets(page = 1): Promise<void> {
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        worker.value.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': grantEvent.data.value,
+            'passphrase': '',
+            'salt': salt,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessGrantEvent: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
+            }
+        });
+        if (accessGrantEvent.data.error) {
+            notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            return;
         }
+
+        const accessGrant = accessGrantEvent.data.value;
+
+        const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
+        bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
+        await bucketsStore.deleteBucket(name.value);
+        analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+        await fetchBuckets();
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        return;
+    } finally {
+        isLoading.value = false;
     }
 
-    /**
-     * Sets local worker with worker instantiated in store.
-     */
-    public setWorker(): void {
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-        };
-    }
+    closeModal();
+}
 
-    /**
-     * Sets name from input.
-     */
-    public onChangeName(value: string): void {
-        this.name = value;
-    }
-
-    /**
-     * Closes modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.deleteBucket);
-    }
-
-    /**
-     * Returns apiKey from store.
-     */
-    private get apiKey(): string {
-        return this.$store.state.objectsModule.apiKey;
+/**
+ * Fetches bucket using api.
+ */
+async function fetchBuckets(page = 1): Promise<void> {
+    try {
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
+    } catch (error) {
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
     }
 }
+
+/**
+ * Sets local worker with worker instantiated in store.
+ */
+function setWorker(): void {
+    worker.value = agStore.state.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        };
+    }
+}
+
+/**
+ * Sets name from input.
+ */
+function onChangeName(value: string): void {
+    name.value = value;
+}
+
+/**
+ * Closes modal.
+ */
+function closeModal(): void {
+    appStore.updateActiveModal(MODALS.deleteBucket);
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Sets local worker.
+ */
+onMounted(() => {
+    setWorker();
+});
 </script>
 
 <style scoped lang="scss">

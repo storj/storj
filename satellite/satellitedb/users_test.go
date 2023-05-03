@@ -340,5 +340,28 @@ func TestUserSettings(t *testing.T) {
 				require.Equal(t, tt.expected, settings.SessionDuration)
 			})
 		}
+
+		t.Run("test onboarding", func(t *testing.T) {
+			id = testrand.UUID()
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err := users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.False(t, settings.OnboardingStart)
+			require.False(t, settings.OnboardingEnd)
+			require.Nil(t, settings.OnboardingStep)
+
+			newBool := true
+			newStep := "Overview"
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+				OnboardingStart: &newBool,
+				OnboardingEnd:   &newBool,
+				OnboardingStep:  &newStep,
+			}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, newBool, settings.OnboardingStart)
+			require.Equal(t, newBool, settings.OnboardingEnd)
+			require.Equal(t, &newStep, settings.OnboardingStep)
+		})
 	})
 }

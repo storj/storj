@@ -15,33 +15,30 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { useNotify } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-    },
-})
-export default class ValueWithCopy extends Vue {
-    @Prop({ default: '' })
-    public readonly value: string;
-    @Prop({ default: '' })
-    public readonly label: string;
-    @Prop({ default: '' })
-    public readonly roleDescription: string;
+const notify = useNotify();
 
-    /**
-     * Holds on copy button click logic.
-     * Copies value to clipboard.
-     */
-    public onCopyClick(): void {
-        this.$copyText(this.value);
-        this.$notify.success(`${this.label} was copied successfully`);
-    }
+const props = withDefaults(defineProps<{
+    value: string;
+    label: string;
+    roleDescription: string;
+}>(), {
+    value: '',
+    label: '',
+    roleDescription: '',
+});
+
+/**
+ * Holds on copy button click logic.
+ * Copies value to clipboard.
+ */
+function onCopyClick(): void {
+    navigator.clipboard.writeText(props.value);
+    notify.success(`${props.label} was copied successfully`);
 }
 </script>
 

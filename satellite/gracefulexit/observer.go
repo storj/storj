@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -31,6 +32,7 @@ type Observer struct {
 }
 
 var _ rangedloop.Observer = (*Observer)(nil)
+var _ rangedloop.Partial = (*observerFork)(nil)
 
 // NewObserver returns a new ranged loop observer.
 func NewObserver(log *zap.Logger, db DB, overlay overlay.DB, config Config) *Observer {
@@ -79,21 +81,19 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: trim out/refactor segmentloop.Observer bits from path collector
-	// once segmentloop.Observer is removed.
-	return NewPathCollector(obs.log, obs.db, obs.exitingNodes, obs.config.ChoreBatchSize), nil
+	return newObserverFork(obs.log, obs.db, obs.exitingNodes, obs.config.ChoreBatchSize), nil
 }
 
 // Join flushes the forked path collector and aggregates collected metrics.
 func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pathCollector, ok := partial.(*PathCollector)
+	pathCollector, ok := partial.(*observerFork)
 	if !ok {
 		return Error.New("expected partial type %T but got %T", pathCollector, partial)
 	}
 
-	if err := pathCollector.Flush(ctx); err != nil {
+	if err := pathCollector.flush(ctx, 1); err != nil {
 		return err
 	}
 
@@ -163,4 +163,97 @@ func (obs *Observer) checkForInactiveNodes(ctx context.Context, exitingNodes []*
 		}
 	}
 
+}
+
+type observerFork struct {
+	log           *zap.Logger
+	db            DB
+	buffer        []TransferQueueItem
+	batchSize     int
+	nodeIDStorage map[storj.NodeID]int64
+}
+
+func newObserverFork(log *zap.Logger, db DB, exitingNodes storj.NodeIDList, batchSize int) *observerFork {
+	fork := &observerFork{
+		log:           log,
+		db:            db,
+		buffer:        make([]TransferQueueItem, 0, batchSize),
+		batchSize:     batchSize,
+		nodeIDStorage: make(map[storj.NodeID]int64, len(exitingNodes)),
+	}
+
+	if len(exitingNodes) > 0 {
+		for _, nodeID := range exitingNodes {
+			fork.nodeIDStorage[nodeID] = 0
+		}
+	}
+
+	return fork
+}
+
+// Process adds transfer queue items for remote segments belonging to newly exiting nodes.
+func (observer *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+	// Intentionally omitting mon.Task here. The duration for all process
+	// calls are aggregated and and emitted by the ranged loop service.
+
+	if len(observer.nodeIDStorage) == 0 {
+		return nil
+	}
+
+	for _, segment := range segments {
+		if segment.Inline() {
+			continue
+		}
+		if err := observer.handleRemoteSegment(ctx, segment); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (observer *observerFork) handleRemoteSegment(ctx context.Context, segment segmentloop.Segment) (err error) {
+	numPieces := len(segment.Pieces)
+	for _, piece := range segment.Pieces {
+		if _, ok := observer.nodeIDStorage[piece.StorageNode]; !ok {
+			continue
+		}
+
+		pieceSize := segment.PieceSize()
+
+		observer.nodeIDStorage[piece.StorageNode] += pieceSize
+
+		item := TransferQueueItem{
+			NodeID:          piece.StorageNode,
+			StreamID:        segment.StreamID,
+			Position:        segment.Position,
+			PieceNum:        int32(piece.Number),
+			RootPieceID:     segment.RootPieceID,
+			DurabilityRatio: float64(numPieces) / float64(segment.Redundancy.TotalShares),
+		}
+
+		observer.log.Debug("adding piece to transfer queue.", zap.Stringer("Node ID", piece.StorageNode),
+			zap.String("stream_id", segment.StreamID.String()), zap.Int32("part", int32(segment.Position.Part)),
+			zap.Int32("index", int32(segment.Position.Index)), zap.Uint16("piece num", piece.Number),
+			zap.Int("num pieces", numPieces), zap.Int16("total possible pieces", segment.Redundancy.TotalShares))
+
+		observer.buffer = append(observer.buffer, item)
+		err = observer.flush(ctx, observer.batchSize)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (observer *observerFork) flush(ctx context.Context, limit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(observer.buffer) >= limit {
+		err = observer.db.Enqueue(ctx, observer.buffer, observer.batchSize)
+		observer.buffer = observer.buffer[:0]
+
+		return errs.Wrap(err)
+	}
+	return nil
 }

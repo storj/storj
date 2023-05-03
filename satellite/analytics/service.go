@@ -80,6 +80,8 @@ const (
 	eventProjectStorageLimitUpdated   = "Project Storage Limit Updated"
 	eventProjectBandwidthLimitUpdated = "Project Bandwidth Limit Updated"
 	eventAccountFrozen                = "Account Frozen"
+	eventAccountUnfrozen              = "Account Unfrozen"
+	eventAccountUnwarned              = "Account Unwarned"
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 )
@@ -94,6 +96,24 @@ type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
+}
+
+// FreezeTracker is an interface for account freeze event tracking methods.
+type FreezeTracker interface {
+	// TrackAccountFrozen sends an account frozen event to Segment.
+	TrackAccountFrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnfrozen sends an account unfrozen event to Segment.
+	TrackAccountUnfrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnwarned sends an account unwarned event to Segment.
+	TrackAccountUnwarned(userID uuid.UUID, email string)
+
+	// TrackAccountFreezeWarning sends an account freeze warning event to Segment.
+	TrackAccountFreezeWarning(userID uuid.UUID, email string)
+
+	// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string)
 }
 
 // Service for sending analytics.
@@ -174,6 +194,7 @@ type TrackCreateUserFields struct {
 	Type             UserType
 	EmployeeCount    string
 	CompanyName      string
+	StorageNeeds     string
 	JobTitle         string
 	HaveSalesContact bool
 	OriginHeader     string
@@ -242,6 +263,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
 	}
 
 	service.enqueueMessage(segment.Track{
@@ -318,6 +340,38 @@ func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventAccountFrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnfrozen sends an account unfrozen event to Segment.
+func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnfrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnwarned sends an account unwarned event to Segment.
+func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnwarned,
 		Properties: props,
 	})
 }

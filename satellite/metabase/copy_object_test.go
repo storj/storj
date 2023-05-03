@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
@@ -224,7 +223,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewStreamID:           newStreamID,
 				},
 				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "source object not found",
 			}.Check(ctx, t, db)
 		})
@@ -289,7 +288,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "source object not found",
 			}.Check(ctx, t, db)
 
@@ -330,7 +329,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 					NewEncryptedMetadataKey:      testrand.Bytes(32),
 				},
-				ErrClass: &storj.ErrObjectNotFound,
+				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object was changed during copy",
 			}.Check(ctx, t, db)
 		})
@@ -1066,7 +1065,6 @@ func TestFinishCopyObject(t *testing.T) {
 
 			for _, tc := range testCases {
 				metabasetest.DeleteAll{}.Check(ctx, t, db)
-				db.TestingEnableMultipleVersions(false)
 				sourceObjStream.BucketName = tc.Bucket
 				sourceObjStream.ObjectKey = tc.Key
 				destinationObjStream.BucketName = tc.NewBucket
@@ -1138,7 +1136,6 @@ func TestFinishCopyObject(t *testing.T) {
 					}.Run(ctx, t, db, destinationObjStream, 0)
 				}
 
-				db.TestingEnableMultipleVersions(true)
 				copyObj, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
 					OriginalObject:   sourceObj,
 					CopyObjectStream: &destinationObjStream,

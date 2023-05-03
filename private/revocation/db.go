@@ -14,7 +14,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls"
 	"storj.io/common/peertls/extensions"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 // (i.e. nodeID [CA certificate's public key hash] is the key, values is
 // the most recently seen revocation).
 type DB struct {
-	store storage.KeyValueStore
+	store kvstore.Store
 }
 
 // Get attempts to retrieve the most recent revocation for the given cert chain
@@ -46,7 +46,7 @@ func (db *DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions
 	}
 
 	revBytes, err := db.store.Get(ctx, nodeID.Bytes())
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !kvstore.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 	if revBytes == nil {
@@ -108,29 +108,20 @@ func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err erro
 		return nil, nil
 	}
 
-	keys, err := db.store.List(ctx, []byte{}, 0)
-	if err != nil {
-		return nil, extensions.ErrRevocationDB.Wrap(err)
-	}
-
-	marshaledRevs, err := db.store.GetAll(ctx, keys)
-	if err != nil {
-		return nil, extensions.ErrRevocationDB.Wrap(err)
-	}
-
-	for _, revBytes := range marshaledRevs {
+	err = db.store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
 		rev := new(extensions.Revocation)
-		if err := rev.Unmarshal(revBytes); err != nil {
-			return nil, extensions.ErrRevocationDB.Wrap(err)
+		if err := rev.Unmarshal(value); err != nil {
+			return extensions.ErrRevocationDB.Wrap(err)
 		}
 
 		revs = append(revs, rev)
-	}
-	return revs, nil
+		return nil
+	})
+	return revs, extensions.ErrRevocationDB.Wrap(err)
 }
 
 // TestGetStore returns the internal store for testing.
-func (db *DB) TestGetStore() storage.KeyValueStore {
+func (db *DB) TestGetStore() kvstore.Store {
 	return db.store
 }
 

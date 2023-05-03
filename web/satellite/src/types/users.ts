@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Duration } from '@/utils/time';
+
 /**
  * Exposes all user-related functionality.
  */
@@ -25,7 +27,24 @@ export interface UsersApi {
      * @returns boolean
      * @throws Error
      */
-    getFrozenStatus(): Promise<boolean>;
+    getFrozenStatus(): Promise<FreezeStatus>;
+
+    /**
+     * Fetches user frozen status.
+     *
+     * @returns UserSettings
+     * @throws Error
+     */
+    getUserSettings(): Promise<UserSettings>;
+
+    /**
+     * Changes user's settings.
+     *
+     * @param data
+     * @returns UserSettings
+     * @throws Error
+     */
+    updateSettings(data: SetUserSettingsData): Promise<UserSettings>;
 
     /**
      * Enable user's MFA.
@@ -75,7 +94,7 @@ export class User {
         public mfaRecoveryCodeCount: number = 0,
         public _createdAt: string | null = null,
         public signupPromoCode: string = '',
-        public isFrozen: boolean = false,
+        public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) {}
 
     public get createdAt(): Date | null {
@@ -133,5 +152,41 @@ export class TokenInfo {
     public constructor(
         public token: string,
         public expiresAt: Date,
+    ) {}
+}
+
+/**
+ * UserSettings represents response from GET /auth/account/settings.
+ */
+export class UserSettings {
+    public constructor(
+        private _sessionDuration: number | null = null,
+        public onboardingStart = false,
+        public onboardingEnd = false,
+        public onboardingStep: string | null = null,
+    ) {}
+
+    public get sessionDuration(): Duration | null {
+        if (this._sessionDuration) {
+            return new Duration(this._sessionDuration);
+        }
+        return null;
+    }
+}
+
+export interface SetUserSettingsData {
+    onboardingStart?: boolean
+    onboardingEnd?: boolean;
+    onboardingStep?: string | null;
+    sessionDuration?: number;
+}
+
+/**
+ * FreezeStatus represents a freeze-status endpoint response.
+ */
+export class FreezeStatus {
+    public constructor(
+        public frozen = false,
+        public warned = false,
     ) {}
 }

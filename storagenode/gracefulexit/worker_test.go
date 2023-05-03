@@ -16,11 +16,11 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/storj/storagenode/gracefulexit"
 )
 
@@ -43,8 +43,6 @@ func TestWorkerSuccess(t *testing.T) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -59,9 +57,9 @@ func TestWorkerSuccess(t *testing.T) {
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
 		require.NoError(t, err)
 
-		// run the satellite chore to build the transfer queue.
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
-		satellite.GracefulExit.Chore.Loop.Pause()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// check that the satellite knows the storage node is exiting.
 		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
@@ -114,8 +112,6 @@ func TestWorkerTimeout(t *testing.T) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
 
-		satellite.GracefulExit.Chore.Loop.Pause()
-
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -130,9 +126,9 @@ func TestWorkerTimeout(t *testing.T) {
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
 		require.NoError(t, err)
 
-		// run the satellite chore to build the transfer queue.
-		satellite.GracefulExit.Chore.Loop.TriggerWait()
-		satellite.GracefulExit.Chore.Loop.Pause()
+		// run the satellite ranged loop to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// check that the satellite knows the storage node is exiting.
 		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
@@ -191,8 +187,6 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
-
-		satellite.GracefulExit.Chore.Loop.Pause()
 
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)

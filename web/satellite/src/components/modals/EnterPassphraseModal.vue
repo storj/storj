@@ -38,14 +38,15 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { reactive, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -53,58 +54,52 @@ import VButton from '@/components/common/VButton.vue';
 
 import EnterPassphraseIcon from '@/../static/images/buckets/openBucket.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VModal,
-        VButton,
-        EnterPassphraseIcon,
-    },
-})
-export default class EnterPassphraseModal extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public enterError = '';
-    public passphrase = '';
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Sets passphrase.
-     */
-    public onContinue(): void {
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+const enterError = ref<string>('');
+const passphrase = ref<string>('');
 
-            return;
-        }
+/**
+ * Sets passphrase.
+ */
+function onContinue(): void {
+    if (!passphrase.value) {
+        enterError.value = 'Passphrase can\'t be empty';
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
 
-        this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
-        this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-
-        this.closeModal();
+        return;
     }
 
-    /**
-     * Closes enter passphrase modal and navigates to single project dashboard from
-     * all projects dashboard.
-     */
-    public closeModal(isCloseButton = false): void {
-        if (!isCloseButton && this.$route.name === RouteConfig.AllProjectsDashboard.name) {
-            this.$router.push(RouteConfig.ProjectDashboard.path);
-        }
+    bucketsStore.setPassphrase(passphrase.value);
+    bucketsStore.setPromptForPassphrase(false);
 
-        this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    closeModal();
+}
+
+/**
+ * Closes enter passphrase modal and navigates to single project dashboard from
+ * all projects dashboard.
+ */
+function closeModal(isCloseButton = false): void {
+    if (!isCloseButton && router.currentRoute.name === RouteConfig.AllProjectsDashboard.name) {
+        router.push(RouteConfig.ProjectDashboard.path);
     }
 
-    /**
-     * Sets passphrase from child component.
-     */
-    public setPassphrase(passphrase: string): void {
-        if (this.enterError) this.enterError = '';
+    appStore.removeActiveModal();
+}
 
-        this.passphrase = passphrase;
-    }
+/**
+ * Sets passphrase from child component.
+ */
+function setPassphrase(value: string): void {
+    if (enterError.value) enterError.value = '';
+
+    passphrase.value = value;
 }
 </script>
 

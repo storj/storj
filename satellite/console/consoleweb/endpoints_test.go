@@ -90,11 +90,116 @@ func TestAuth(t *testing.T) {
 			resp, body := test.request(http.MethodGet, "/auth/account/freezestatus", nil)
 			require.Equal(test.t, http.StatusOK, resp.StatusCode)
 			require.Contains(test.t, body, "frozen")
+			require.Contains(test.t, body, "warned")
 
-			var freezestatus struct{ Frozen bool }
+			var freezestatus struct {
+				Frozen bool
+				Warned bool
+			}
 			require.NoError(test.t, json.Unmarshal([]byte(body), &freezestatus))
 			require.Equal(test.t, http.StatusOK, resp.StatusCode)
 			require.False(test.t, freezestatus.Frozen)
+			require.False(test.t, freezestatus.Warned)
+		}
+
+		{ // Test_UserSettings
+			testGetSettings := func(expected struct {
+				SessionDuration *time.Duration
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}) {
+				resp, body := test.request(http.MethodGet, "/auth/account/settings", nil)
+
+				var settings struct {
+					SessionDuration *time.Duration
+					OnboardingStart bool
+					OnboardingEnd   bool
+					OnboardingStep  *string
+				}
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+				require.NoError(test.t, json.Unmarshal([]byte(body), &settings))
+				require.Equal(test.t, expected.OnboardingStart, settings.OnboardingStart)
+				require.Equal(test.t, expected.OnboardingEnd, settings.OnboardingEnd)
+				require.Equal(test.t, expected.OnboardingStep, settings.OnboardingStep)
+				require.Equal(test.t, expected.SessionDuration, settings.SessionDuration)
+			}
+
+			testGetSettings(struct {
+				SessionDuration *time.Duration
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   true,
+				OnboardingStep:  nil,
+			})
+
+			step := "cli"
+			duration := time.Duration(15) * time.Minute
+			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"sessionDuration": duration,
+					"onboardingStart": true,
+					"onboardingEnd":   false,
+					"onboardingStep":  step,
+				}))
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			testGetSettings(struct {
+				SessionDuration *time.Duration
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: &duration,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+			})
+
+			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"sessionDuration": nil,
+					"onboardingStart": nil,
+					"onboardingEnd":   nil,
+					"onboardingStep":  nil,
+				}))
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			// having passed nil to /auth/account/settings shouldn't have changed existing values.
+			testGetSettings(struct {
+				SessionDuration *time.Duration
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: &duration,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+			})
+
+			// having passed 0 as sessionDuration to /auth/account/settings should nullify it.
+			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"sessionDuration": 0,
+				}))
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			testGetSettings(struct {
+				SessionDuration *time.Duration
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+			})
 		}
 
 		{ // Logout

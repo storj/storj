@@ -3,7 +3,6 @@
 
 <template>
     <div class="create-step">
-        <h1 class="create-step__title">Create a new passphrase</h1>
         <p class="create-step__info">
             Creating a new passphrase allows you to upload data separately from the data uploaded with the current
             encryption passphrase.
@@ -12,14 +11,18 @@
             <VButton
                 label="Back"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :is-white="true"
                 :on-press="onCancel"
             />
             <VButton
-                label="Next"
+                label="Continue ->"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :on-press="onNext"
             />
         </div>
@@ -27,10 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -40,14 +41,14 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Starts create new passphrase flow.
  */
 function onNext(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 </script>
 
@@ -55,30 +56,24 @@ function onNext(): void {
 .create-step {
     display: flex;
     flex-direction: column;
-    align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
-    }
+    max-width: 350px;
 
     &__info {
         font-size: 14px;
         line-height: 19px;
         color: #354049;
+        padding-bottom: 16px;
         margin-bottom: 24px;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
     }
 
     &__buttons {
         display: flex;
         align-items: center;
         justify-content: center;
-        column-gap: 33px;
+        column-gap: 16px;
         width: 100%;
 
         @media screen and (max-width: 530px) {

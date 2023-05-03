@@ -4,6 +4,7 @@
 package contact
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 
 // RateLimiter allows to prevent multiple events in fixed period of time.
 type RateLimiter struct {
-	limiters *lrucache.ExpiringLRU
+	limiters *lrucache.ExpiringLRUOf[*rate.Limiter]
 	interval time.Duration // interval during which events are not limiting.
 	burst    int           // maximum number of events allowed during duration.
 }
@@ -22,15 +23,19 @@ type RateLimiter struct {
 // NewRateLimiter is a constructor for RateLimiter.
 func NewRateLimiter(interval time.Duration, burst, numLimits int) *RateLimiter {
 	return &RateLimiter{
-		limiters: lrucache.New(lrucache.Options{Expiration: -1, Capacity: numLimits}),
+		limiters: lrucache.NewOf[*rate.Limiter](lrucache.Options{
+			Expiration: -1,
+			Capacity:   numLimits,
+			Name:       "contact-ratelimit",
+		}),
 		interval: interval,
 		burst:    burst,
 	}
 }
 
 // IsAllowed indicates if event is allowed to happen.
-func (rateLimiter *RateLimiter) IsAllowed(key string) bool {
-	limiter, err := rateLimiter.limiters.Get(key, func() (interface{}, error) {
+func (rateLimiter *RateLimiter) IsAllowed(ctx context.Context, key string) bool {
+	limiter, err := rateLimiter.limiters.Get(ctx, key, func() (*rate.Limiter, error) {
 		return rate.NewLimiter(
 			rate.Limit(time.Second)/rate.Limit(rateLimiter.interval),
 			rateLimiter.burst,
@@ -40,5 +45,5 @@ func (rateLimiter *RateLimiter) IsAllowed(key string) bool {
 		panic(fmt.Sprintf("unreachable: %+v", err))
 	}
 
-	return limiter.(*rate.Limiter).Allow()
+	return limiter.Allow()
 }

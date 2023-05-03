@@ -21,7 +21,7 @@
             By using the web browser you are opting in to
             <a
                 class="overview-container__encryption-container__link"
-                href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption"
+                href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-roledescription="server-side-encryption-link"
@@ -40,36 +40,27 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import VButton from '@/components/common/VButton.vue';
 
 import WebIcon from '@/../static/images/onboardingTour/web.svg';
 import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        WebIcon,
-        CLIIcon,
-    },
-})
-export default class OverviewContainer extends Vue {
-    @Prop({ default: false })
-    public readonly isWeb: boolean;
-    @Prop({ default: '' })
-    public readonly title: string;
-    @Prop({ default: '' })
-    public readonly info: string;
-    @Prop({ default: false })
-    public readonly isDisabled: boolean;
-    @Prop({ default: '' })
-    public readonly buttonLabel: string;
-    @Prop({ default: () => () => {} })
-    public readonly onClick: () => void;
-}
+const props = withDefaults(defineProps<{
+    isWeb?: boolean;
+    title: string;
+    info: string;
+    isDisabled?: boolean;
+    buttonLabel: string;
+    onClick: () => void;
+}>(), {
+    isWeb: false,
+    title: '',
+    info: '',
+    isDisabled: false,
+    buttonLabel: '',
+    onClick: () => {},
+});
 </script>
 
 <style scoped lang="scss">

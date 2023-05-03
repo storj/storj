@@ -75,19 +75,21 @@
 </template>
 
 <script setup lang="ts">
-
 import { ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -96,14 +98,19 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const configStore = useConfigStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const pmStore = useProjectMembersStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
-const store = useStore();
+
 const description = ref('');
 const createdProjectId = ref('');
 const hasDescription = ref(false);
 const isLoading = ref(false);
-
 const projectName = ref('');
 const nameError = ref('');
 
@@ -132,14 +139,13 @@ async function onCreateProjectClick(): Promise<void> {
         return;
     }
 
-    const isFirstProject = store.getters.projectsCount === 0;
     isLoading.value = true;
     projectName.value = projectName.value.trim();
 
     const project = new ProjectFields(
         projectName.value,
         description.value,
-        store.getters.user.id,
+        usersStore.state.user.id,
     );
 
     try {
@@ -153,8 +159,7 @@ async function onCreateProjectClick(): Promise<void> {
     }
 
     try {
-        const createdProject = await store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-        createdProjectId.value = createdProject.id;
+        createdProjectId.value = await projectsStore.createProject(project);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
         isLoading.value = false;
@@ -164,34 +169,38 @@ async function onCreateProjectClick(): Promise<void> {
 
     await selectCreatedProject();
 
-    await notify.success('Project created successfully!');
+    notify.success('Project created successfully!');
 
     isLoading.value = false;
     closeModal();
 
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
 
-    if (isFirstProject) {
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
-        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
+    if (usersStore.shouldOnboard && configStore.state.config.allProjectsDashboard) {
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;
     }
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+
+    appStore.updateActiveModal(MODALS.enterPassphrase);
 }
 
 /**
  * Selects just created project.
  */
 async function selectCreatedProject() {
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
+    projectsStore.selectProject(createdProjectId.value);
     LocalData.setSelectedProjectId(createdProjectId.value);
+    pmStore.setSearchQuery('');
+
+    bucketsStore.clearS3Data();
 }
 
 /**
  * Closes create project modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
 }
 </script>
 

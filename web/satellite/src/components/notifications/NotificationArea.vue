@@ -11,34 +11,29 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
 
 import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
-// @vue/component
-@Component({
-    components: {
-        NotificationItem,
-    },
-})
-export default class NotificationArea extends Vue {
-    /**
-     * Returns all notification queue from store.
-     */
-    public get notifications(): DelayedNotification[] {
-        return this.$store.state.notificationsModule.notificationQueue;
-    }
+const notificationsStore = useNotificationsStore();
 
-    /**
-     * Indicates if any notifications are in queue.
-     */
-    public get doNotificationsExist(): boolean {
-        return this.notifications.length > 0;
-    }
-}
+/**
+ * Returns all notification queue from store.
+ */
+const notifications = computed((): DelayedNotification[] => {
+    return notificationsStore.state.notificationQueue as DelayedNotification[];
+});
+
+/**
+ * Indicates if any notifications are in queue.
+ */
+const doNotificationsExist = computed((): boolean => {
+    return notifications.value.length > 0;
+});
 </script>
 
 <style scoped lang="scss">

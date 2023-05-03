@@ -288,6 +288,7 @@ echo -e "\nRunning stage 2."
 fix_last_nets() {
     $(version_dir ${stage2_sat_version})/bin/satellite --config-dir "${test_dir}/local-network/satellite/0" fix-last-nets
 }
+fix_last_nets
 
 # Starting old satellite api in the background
 has_marketing_server=$(echo $stage1_sat_version | awk 'BEGIN{FS="[v.]"} ($2 == 1 && $3 <= 22) || $2 == 0 {print $0}')
@@ -314,12 +315,10 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    fix_last_nets
     PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
     if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
-        fix_last_nets
         PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade-final-upload.sh" "${test_dir}/local-network"
     fi
 done

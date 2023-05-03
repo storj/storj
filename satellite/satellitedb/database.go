@@ -30,7 +30,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
@@ -218,9 +218,11 @@ func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounti
 func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db := dbc.getByName("revocation")
 	db.revocationDBOnce.Do(func() {
+		options := db.opts.RevocationLRUOptions
+		options.Name = "satellitedb-revocations"
 		db.revocationDB = &revocationDB{
 			db:      db,
-			lru:     lrucache.New(db.opts.RevocationLRUOptions),
+			lru:     lrucache.NewOf[bool](options),
 			methods: db,
 		}
 	})
@@ -268,7 +270,7 @@ func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
 }
 
 // StripeCoinPayments returns database for stripecoinpayments.
-func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
+func (dbc *satelliteDBCollection) StripeCoinPayments() stripe.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 

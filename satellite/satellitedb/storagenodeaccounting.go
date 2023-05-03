@@ -25,15 +25,8 @@ type StoragenodeAccounting struct {
 }
 
 // SaveTallies records raw tallies of at rest data to the database.
-func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) (err error) {
+func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeIDs []storj.NodeID, totals []float64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	var nodeIDs []storj.NodeID
-	var totals []float64
-	for id, total := range nodeData {
-		nodeIDs = append(nodeIDs, id)
-		totals = append(totals, total)
-	}
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(`
