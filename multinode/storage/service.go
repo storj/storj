@@ -85,6 +85,7 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 	}
 
 	var totalSummary float64
+	var totalSummaryBytes float64
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
@@ -98,14 +99,16 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 		}
 
 		totalSummary += usage.Summary
+		totalSummaryBytes += usage.SummaryBytes
 		for _, stamp := range usage.Stamps {
 			cache.Add(stamp)
 		}
 	}
 
 	return Usage{
-		Stamps:  cache.Sorted(),
-		Summary: totalSummary,
+		Stamps:       cache.Sorted(),
+		Summary:      totalSummary,
+		SummaryBytes: totalSummaryBytes,
 	}, nil
 }
 
@@ -119,6 +122,7 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	}
 
 	var totalSummary float64
+	var totalSummaryBytes float64
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
@@ -132,14 +136,16 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 		}
 
 		totalSummary += usage.Summary
+		totalSummaryBytes += usage.SummaryBytes
 		for _, stamp := range usage.Stamps {
 			cache.Add(stamp)
 		}
 	}
 
 	return Usage{
-		Stamps:  cache.Sorted(),
-		Summary: totalSummary,
+		Stamps:       cache.Sorted(),
+		Summary:      totalSummary,
+		SummaryBytes: totalSummaryBytes,
 	}, nil
 }
 
@@ -246,14 +252,16 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 	var stamps []UsageStamp
 	for _, usage := range resp.GetStorageUsage() {
 		stamps = append(stamps, UsageStamp{
-			AtRestTotal:   usage.GetAtRestTotal(),
-			IntervalStart: usage.GetIntervalStart(),
+			AtRestTotal:      usage.GetAtRestTotal(),
+			AtRestTotalBytes: usage.GetAtRestTotalBytes(),
+			IntervalStart:    usage.GetIntervalStart(),
 		})
 	}
 
 	return Usage{
-		Stamps:  stamps,
-		Summary: resp.GetSummary(),
+		Stamps:       stamps,
+		Summary:      resp.GetSummary(),
+		SummaryBytes: resp.GetAverageUsageBytes(),
 	}, nil
 }
 
@@ -290,13 +298,15 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 	var stamps []UsageStamp
 	for _, usage := range resp.GetStorageUsage() {
 		stamps = append(stamps, UsageStamp{
-			AtRestTotal:   usage.GetAtRestTotal(),
-			IntervalStart: usage.GetIntervalStart(),
+			AtRestTotal:      usage.GetAtRestTotal(),
+			AtRestTotalBytes: usage.GetAtRestTotalBytes(),
+			IntervalStart:    usage.GetIntervalStart(),
 		})
 	}
 
 	return Usage{
-		Stamps:  stamps,
-		Summary: resp.GetSummary(),
+		Stamps:       stamps,
+		Summary:      resp.GetSummary(),
+		SummaryBytes: resp.GetAverageUsageBytes(),
 	}, nil
 }
