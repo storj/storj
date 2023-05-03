@@ -38,6 +38,12 @@ export default class BaseChart extends Vue {
         this.chartWidth = this.width;
         this.chartKey += 1;
     }
+    /**
+     * Rebuilds chart after type switch.
+     */
+    public mounted(): void {
+        this.rebuildChart();
+    }
 }
 </script>
 
