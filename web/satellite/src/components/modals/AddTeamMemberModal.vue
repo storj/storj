@@ -212,8 +212,8 @@ async function onAddUsersClick(): Promise<void> {
 
     try {
         await pmStore.addProjectMembers(emailArray, projectsStore.state.selectedProject.id);
-    } catch (error) {
-        await notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+    } catch (_) {
+        await notify.error(`Error during adding project members.`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 
         return;

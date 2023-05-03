@@ -1965,6 +1965,9 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
 			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
+				if strings.Contains(err.Error(), "duplicate key") {
+					return errs.New("%s is already on the project", user.Email)
+				}
 				return err
 			}
 		}
