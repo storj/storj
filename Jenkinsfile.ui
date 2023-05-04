@@ -51,7 +51,7 @@ pipeline {
                     steps {
                         dir("testsuite/playwright-ui") {
                             sh 'pwd'
-                            archiveArtifacts artifacts: './test-results/'
+                            archiveArtifacts artifacts: 'test-results/'
                         }
                     }
                 }
