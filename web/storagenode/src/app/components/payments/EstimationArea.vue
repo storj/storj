@@ -36,7 +36,7 @@
                     <p class="estimation-table-container__labels-area__text">Type</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p class="estimation-table-container__labels-area__text">Price</p>
+                    <p v-if="isSatelliteSelected" class="estimation-table-container__labels-area__text">Price</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -56,7 +56,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.type }}</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p class="estimation-table-container__info-area__text">{{ item.price }}</p>
+                    <p v-if="isSatelliteSelected" class="estimation-table-container__info-area__text">{{ item.price }}</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__info-area__text">{{ item.disk }}</p>
