@@ -2,9 +2,7 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image 'storjqa/ci:latest'
-            alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
+            image 'mcr.microsoft.com/playwright:v1.32.0-jammy'
         }
     }
     options {
