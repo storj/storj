@@ -115,7 +115,7 @@ pipeline {
             steps {
                 dir("testsuite/playwright-ui/") {
                      warnError('Script failed!') {
-                        sh 'npm run browser-debug'
+                        sh 'npm run test'
                      }
                 }
             }
