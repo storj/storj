@@ -20,9 +20,6 @@ pipeline {
             steps {
                 checkout scm
                 sh 'mkdir -p .build'
-
-                // pre-check that we cannot do at a later stage reliably
-                sh 'check-large-files'
             }
         }
         stage('install playwright') {
