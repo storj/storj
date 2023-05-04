@@ -3,6 +3,7 @@ pipeline {
         docker {
             label 'main'
             image 'mcr.microsoft.com/playwright:v1.32.0-jammy'
+            args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
