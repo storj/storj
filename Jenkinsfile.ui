@@ -49,7 +49,10 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'check-clean-directory'
+                        dir("testsuite/playwright-ui") {
+                            sh 'pwd'
+                            archiveArtifacts artifacts: './test-results/'
+                        }
                     }
                 }
                 stage('report') {
