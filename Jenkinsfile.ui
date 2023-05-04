@@ -28,6 +28,7 @@ pipeline {
                     warnError('Script failed!') {
                         sh 'npm ci'
                         sh 'npm install -D @playwright/test@latest'
+                        sh 'npm install playwright-slack-report -D'
                     }
                 }
             }
