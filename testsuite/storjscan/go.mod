@@ -145,7 +145,7 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v0.0.33-0.20230417171205-2ca712ef4ab5 // indirect
+	storj.io/drpc v0.0.33 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
 )
