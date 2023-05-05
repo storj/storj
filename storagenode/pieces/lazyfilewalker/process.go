@@ -11,6 +11,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/execabs"
+
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
 // process is a subprocess that can be used to perform filewalker operations.
@@ -18,10 +20,15 @@ type process struct {
 	log        *zap.Logger
 	executable string
 	args       []string
+
+	cmd execwrapper.Command
 }
 
-func newProcess(log *zap.Logger, executable string, args []string) *process {
+// newProcess creates a new process.
+// The cmd argument can be used to replace the subprocess with a runner for testing, it can be nil.
+func newProcess(cmd execwrapper.Command, log *zap.Logger, executable string, args []string) *process {
 	return &process{
+		cmd:        cmd,
 		log:        log,
 		executable: executable,
 		args:       args,
@@ -48,19 +55,22 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 		return errLazyFilewalker.Wrap(err)
 	}
 
-	cmd := execabs.CommandContext(ctx, p.executable, p.args...)
-	cmd.Stdin = &buf
-	cmd.Stdout = &outbuf
-	cmd.Stderr = writer
+	if p.cmd == nil {
+		p.cmd = execwrapper.CommandContext(ctx, p.executable, p.args...)
+	}
 
-	if err := cmd.Start(); err != nil {
+	p.cmd.SetIn(&buf)
+	p.cmd.SetOut(&outbuf)
+	p.cmd.SetErr(writer)
+
+	if err := p.cmd.Start(); err != nil {
 		p.log.Error("failed to start subprocess", zap.Error(err))
 		return errLazyFilewalker.Wrap(err)
 	}
 
 	p.log.Info("subprocess started")
 
-	if err := cmd.Wait(); err != nil {
+	if err := p.cmd.Wait(); err != nil {
 		var exitErr *execabs.ExitError
 		if errors.As(err, &exitErr) {
 			p.log.Info("subprocess exited with status", zap.Int("status", exitErr.ExitCode()), zap.Error(exitErr))
