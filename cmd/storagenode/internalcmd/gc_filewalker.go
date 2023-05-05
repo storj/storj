@@ -90,7 +90,7 @@ func (g *GCLazyFileWalker) Run() (err error) {
 		return err
 	}
 
-	log.Info("gc-filewalker started", zap.Time("created_before", req.CreatedBefore), zap.Int("bloom_filter_size", len(req.BloomFilter)))
+	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
 
 	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo())
 	pieceIDs, piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter)
@@ -104,7 +104,7 @@ func (g *GCLazyFileWalker) Run() (err error) {
 		PiecesSkippedCount: piecesSkippedCount,
 	}
 
-	log.Info("gc-filewalker completed", zap.Int64("pieces_count", piecesCount), zap.Int64("pieces_skipped_count", piecesSkippedCount))
+	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int64("piecesSkippedCount", piecesSkippedCount))
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(g.stdout).Encode(resp)

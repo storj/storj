@@ -87,7 +87,7 @@ func (u *UsedSpaceLazyFileWalker) Run() (err error) {
 	}
 	resp := lazyfilewalker.UsedSpaceResponse{PiecesTotal: total, PiecesContentSize: contentSize}
 
-	log.Info("used-space-filewalker completed", zap.Int64("pieces_total", total), zap.Int64("content_size", contentSize))
+	log.Info("used-space-filewalker completed", zap.Int64("piecesTotal", total), zap.Int64("piecesContentSize", contentSize))
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(u.stdout).Encode(resp)
