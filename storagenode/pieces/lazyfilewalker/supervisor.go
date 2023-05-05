@@ -45,11 +45,11 @@ type Supervisor struct {
 }
 
 // NewSupervisor creates a new lazy filewalker Supervisor.
-func NewSupervisor(log *zap.Logger, executable string, args []string) *Supervisor {
+func NewSupervisor(log *zap.Logger, config Config, executable string) *Supervisor {
 	return &Supervisor{
 		log:           log,
-		gcArgs:        append([]string{GCFilewalkerCmdName}, args...),
-		usedSpaceArgs: append([]string{UsedSpaceFilewalkerCmdName}, args...),
+		gcArgs:        append([]string{GCFilewalkerCmdName}, config.Args()...),
+		usedSpaceArgs: append([]string{UsedSpaceFilewalkerCmdName}, config.Args()...),
 		executable:    executable,
 	}
 }
