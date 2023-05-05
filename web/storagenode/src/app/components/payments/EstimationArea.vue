@@ -36,7 +36,7 @@
                     <p class="estimation-table-container__labels-area__text">Type</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p v-if="isSatelliteSelected" class="estimation-table-container__labels-area__text">Price</p>
+                    <p v-if="isSatelliteSelected && !isHistoricalPeriod" class="estimation-table-container__labels-area__text">Price</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -56,7 +56,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.type }}</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p v-if="isSatelliteSelected" class="estimation-table-container__info-area__text">{{ item.price }}</p>
+                    <p v-if="isSatelliteSelected && !isHistoricalPeriod" class="estimation-table-container__info-area__text">{{ item.price }}</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__info-area__text">{{ item.disk }}</p>
@@ -363,9 +363,9 @@ export default class EstimationArea extends Vue {
     public get tableData(): EstimationTableRow[] {
         if (this.isHistoricalPeriod) {
             return [
-                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
+                new EstimationTableRow('Download', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', ``, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
             ];
         }
 
