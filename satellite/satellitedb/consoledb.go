@@ -48,7 +48,7 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 
 // ProjectInvitations is a getter for ProjectInvitations repository.
 func (db *ConsoleDB) ProjectInvitations() console.ProjectInvitations {
-	return &projectInvitations{db.methods}
+	return &projectInvitations{db.db}
 }
 
 // APIKeys is a getter for APIKeys repository.

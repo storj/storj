@@ -24,7 +24,8 @@ type Config struct {
 	AsOfSystemTimeInterval time.Duration `help:"interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past" default:"-5m" testDefault:"0"`
 	PageSize               int           `help:"maximum number of database records to scan at once" default:"1000"`
 
-	MaxUnverifiedUserAge time.Duration `help:"maximum lifetime of unverified user account records" default:"168h"`
+	MaxUnverifiedUserAge    time.Duration `help:"maximum lifetime of unverified user account records" default:"168h"`
+	MaxProjectInvitationAge time.Duration `help:"maximum lifetime of project member invitation records" default:"168h"`
 }
 
 // Chore periodically removes unwanted records from the satellite console database.
@@ -54,6 +55,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		if err != nil {
 			chore.log.Error("Error deleting unverified users", zap.Error(err))
 		}
+
+		before = time.Now().Add(-chore.config.MaxProjectInvitationAge)
+		err = chore.db.ProjectInvitations().DeleteBefore(ctx, before, chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
+		if err != nil {
+			chore.log.Error("Error deleting project member invitations", zap.Error(err))
+		}
+
 		return nil
 	})
 }
