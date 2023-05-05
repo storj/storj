@@ -104,7 +104,7 @@ func TestQueryAttribution(t *testing.T) {
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name:       "new partnerID, userAgent, projectID, alpha",
+				name:       "new userAgent, projectID, alpha",
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -118,7 +118,7 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent, new projectID, alpha",
+				name:       "userAgent, new projectID, alpha",
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -132,7 +132,7 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, userAgent, projectID, beta",
+				name:       "new userAgent, projectID, beta",
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -146,7 +146,7 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent new projectID, beta",
+				name:       "userAgent new projectID, beta",
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -186,7 +186,7 @@ func TestQueryAllAttribution(t *testing.T) {
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name:       "new partnerID, userAgent, projectID, alpha",
+				name:       "new userAgent, projectID, alpha",
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -200,7 +200,7 @@ func TestQueryAllAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent, new projectID, alpha",
+				name:       "userAgent, new projectID, alpha",
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -214,7 +214,7 @@ func TestQueryAllAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, userAgent, projectID, beta",
+				name:       "new userAgent, projectID, beta",
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -228,7 +228,7 @@ func TestQueryAllAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent new projectID, beta",
+				name:       "userAgent new projectID, beta",
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -272,7 +272,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name: "new partnerID, userAgent, projectID, alpha",
+				name: "new userAgent, projectID, alpha",
 
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
@@ -287,7 +287,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "partnerID, userAgent, new projectID, alpha",
+				name: "userAgent, new projectID, alpha",
 
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
@@ -302,7 +302,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "new partnerID, userAgent, projectID, beta",
+				name: "new userAgent, projectID, beta",
 
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
@@ -317,7 +317,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "partnerID, userAgent new projectID, beta",
+				name: "userAgent new projectID, beta",
 
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
@@ -359,7 +359,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name: "new partnerID, userAgent, projectID, alpha",
+				name: "new userAgent, projectID, alpha",
 
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
@@ -374,7 +374,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "partnerID, userAgent, new projectID, alpha",
+				name: "userAgent, new projectID, alpha",
 
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
@@ -389,7 +389,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "new partnerID, userAgent, projectID, beta",
+				name: "new userAgent, projectID, beta",
 
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
@@ -404,7 +404,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name: "partnerID, userAgent new projectID, beta",
+				name: "userAgent new projectID, beta",
 
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),

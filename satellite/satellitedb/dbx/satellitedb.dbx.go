@@ -792,7 +792,7 @@ CREATE TABLE user_settings (
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
-	partner_id bytea NOT NULL,
+	partner_id bytea,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
@@ -1473,7 +1473,7 @@ CREATE TABLE user_settings (
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
-	partner_id bytea NOT NULL,
+	partner_id bytea,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
@@ -10280,6 +10280,7 @@ type ValueAttribution struct {
 func (ValueAttribution) _Table() string { return "value_attributions" }
 
 type ValueAttribution_Create_Fields struct {
+	PartnerId ValueAttribution_PartnerId_Field
 	UserAgent ValueAttribution_UserAgent_Field
 }
 
@@ -10333,6 +10334,19 @@ type ValueAttribution_PartnerId_Field struct {
 func ValueAttribution_PartnerId(v []byte) ValueAttribution_PartnerId_Field {
 	return ValueAttribution_PartnerId_Field{_set: true, _value: v}
 }
+
+func ValueAttribution_PartnerId_Raw(v []byte) ValueAttribution_PartnerId_Field {
+	if v == nil {
+		return ValueAttribution_PartnerId_Null()
+	}
+	return ValueAttribution_PartnerId(v)
+}
+
+func ValueAttribution_PartnerId_Null() ValueAttribution_PartnerId_Field {
+	return ValueAttribution_PartnerId_Field{_set: true, _null: true}
+}
+
+func (f ValueAttribution_PartnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f ValueAttribution_PartnerId_Field) value() interface{} {
 	if !f._set || f._null {
@@ -13117,7 +13131,6 @@ func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
 func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field,
 	optional ValueAttribution_Create_Fields) (
 	value_attribution *ValueAttribution, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -13125,7 +13138,7 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
-	__partner_id_val := value_attribution_partner_id.value()
+	__partner_id_val := optional.PartnerId.value()
 	__user_agent_val := optional.UserAgent.value()
 	__last_updated_val := __now
 
@@ -20967,7 +20980,6 @@ func (obj *pgxcockroachImpl) Create_BucketMetainfo(ctx context.Context,
 func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field,
 	optional ValueAttribution_Create_Fields) (
 	value_attribution *ValueAttribution, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -20975,7 +20987,7 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
-	__partner_id_val := value_attribution_partner_id.value()
+	__partner_id_val := optional.PartnerId.value()
 	__user_agent_val := optional.UserAgent.value()
 	__last_updated_val := __now
 
@@ -28462,14 +28474,13 @@ func (rx *Rx) Create_User(ctx context.Context,
 func (rx *Rx) Create_ValueAttribution(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field,
 	optional ValueAttribution_Create_Fields) (
 	value_attribution *ValueAttribution, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ValueAttribution(ctx, value_attribution_project_id, value_attribution_bucket_name, value_attribution_partner_id, optional)
+	return tx.Create_ValueAttribution(ctx, value_attribution_project_id, value_attribution_bucket_name, optional)
 
 }
 
@@ -30125,7 +30136,6 @@ type Methods interface {
 	Create_ValueAttribution(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field,
-		value_attribution_partner_id ValueAttribution_PartnerId_Field,
 		optional ValueAttribution_Create_Fields) (
 		value_attribution *ValueAttribution, err error)
 

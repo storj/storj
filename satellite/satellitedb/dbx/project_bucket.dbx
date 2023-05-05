@@ -151,7 +151,7 @@ model value_attribution (
 	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
 	// deprecated: use user_agent instead.
 	// note: this field is duplicated in bucket_metainfo.project_id.
-	field partner_id	blob
+	field partner_id	blob ( nullable )
 	// user_agent is the first User-Agent that was used to upload data.
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.

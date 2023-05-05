@@ -474,7 +474,7 @@ CREATE TABLE user_settings (
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
-	partner_id bytea NOT NULL,
+	partner_id bytea,
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
