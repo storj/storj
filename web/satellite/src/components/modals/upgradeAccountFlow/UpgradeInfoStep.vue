@@ -19,8 +19,8 @@
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" title="Projects" info="1 project" />
                         <InfoBullet class="info-step__column__bullets__item" title="Storage" info="25 GB limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Download" info="10,000 segments limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Segments" info="1 project" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Download" info="25 GB limit" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Segments" info="10,000 segments limit" />
                         <InfoBullet class="info-step__column__bullets__item" title="Link Sharing" info="Link sharing with Storj domain" />
                     </div>
                 </div>

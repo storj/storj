@@ -535,7 +535,7 @@ async function onSaveStorageLimitButtonClick(): Promise<void> {
 
     toggleStorageLimitEditing();
     analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
-    await notify.success('Project storage limit updated successfully!');
+    notify.success('Project storage limit updated successfully!');
 }
 
 /**
@@ -560,7 +560,7 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
 
     toggleBandwidthLimitEditing();
     analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
-    await notify.success('Project bandwidth limit updated successfully!');
+    notify.success('Project bandwidth limit updated successfully!');
 }
 
 /**

@@ -103,6 +103,7 @@
                 </template>
             </div>
         </div>
+        <LimitsArea :is-loading="isDataFetching" />
         <div class="project-dashboard__info">
             <InfoContainer
                 title="Billing"
@@ -183,6 +184,7 @@ import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
+import LimitsArea from '@/components/project/dashboard/LimitsArea.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -428,8 +430,11 @@ onMounted(async (): Promise<void> => {
             appStore.toggleHasJustLoggedIn();
         }
 
-        await projectsStore.getDailyProjectData({ since: past, before: now });
-        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        await Promise.all([
+            projectsStore.getDailyProjectData({ since: past, before: now }),
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
+            billingStore.getCoupon(),
+        ]);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {
