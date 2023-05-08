@@ -181,16 +181,16 @@ function handleClick(): void {
     }
 
     .solid-red {
-        background-color: #ff1313 !important;
-        border: 1px solid #ff1313 !important;
+        background-color: var(--c-red-2) !important;
+        border: 1px solid var(--c-red-2) !important;
 
         .label {
             color: #fff !important;
         }
 
         &:hover {
-            background-color: #c90e0e !important;
-            border: 1px solid #c90e0e !important;
+            background-color: var(--c-red-3) !important;
+            border: 1px solid var(--c-red-3) !important;
         }
     }
 
