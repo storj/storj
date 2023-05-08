@@ -845,8 +845,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
 
 	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -861,8 +861,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if console.ErrTokenExpiration.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
