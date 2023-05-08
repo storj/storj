@@ -243,7 +243,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
+		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, service.listingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}

@@ -232,12 +232,6 @@ read one (
 	where stripecoinpayments_invoice_project_record.period_start = ?
 	where stripecoinpayments_invoice_project_record.period_end = ?
 )
-read limitoffset (
-	select stripecoinpayments_invoice_project_record
-	where stripecoinpayments_invoice_project_record.period_start = ?
-	where stripecoinpayments_invoice_project_record.period_end = ?
-	where stripecoinpayments_invoice_project_record.state = ?
-)
 
 // stripecoinpayments_tx_conversion_rate contains information about a conversion-rate that was used in a transaction.
 model stripecoinpayments_tx_conversion_rate (

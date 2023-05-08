@@ -139,7 +139,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		// check if we have project record for each project
-		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, numberOfProjects, len(recordsPage.Records))
 
@@ -147,7 +147,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify that we applied all unapplied project records
-		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(recordsPage.Records))
 	})
@@ -284,7 +284,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
 		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
-		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, len(projects), len(recordsPage.Records))
 	})
