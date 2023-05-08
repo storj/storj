@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var mon = monkit.Package()
@@ -1965,7 +1966,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
 			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
-				if strings.Contains(err.Error(), "duplicate key") {
+				if dbx.IsConstraintError(err) {
 					return errs.New("%s is already on the project", user.Email)
 				}
 				return err
