@@ -482,3 +482,15 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 
 	return nil
 }
+
+// GetSatellitePricingModel returns pricing model for the specified satellite.
+func (s *Service) GetSatellitePricingModel(ctx context.Context, satelliteID storj.NodeID) (pricingModel *pricing.Pricing, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pricingModel, err = s.pricingDB.Get(ctx, satelliteID)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	return pricingModel, nil
+}
