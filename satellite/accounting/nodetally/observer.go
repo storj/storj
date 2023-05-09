@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var (
@@ -154,7 +153,7 @@ func newObserverFork(log *zap.Logger, nowFn func() time.Time) *observerFork {
 }
 
 // Process iterates over segment range updating partial node usage map.
-func (partial *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (partial *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	now := partial.nowFn()
 
 	for _, segment := range segments {
@@ -164,7 +163,7 @@ func (partial *observerFork) Process(ctx context.Context, segments []segmentloop
 	return nil
 }
 
-func (partial *observerFork) processSegment(now time.Time, segment segmentloop.Segment) {
+func (partial *observerFork) processSegment(now time.Time, segment rangedloop.Segment) {
 	if segment.Inline() {
 		return
 	}

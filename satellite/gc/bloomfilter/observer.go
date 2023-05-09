@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -165,7 +164,7 @@ func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 }
 
 // Process adds pieces to the bloom filter from remote segments.
-func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	for _, segment := range segments {
 		if segment.Inline() {
 			continue

@@ -11,7 +11,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var _ monkit.StatSource = (*LiveCountObserver)(nil)
@@ -72,7 +71,7 @@ func (o *LiveCountObserver) Join(ctx context.Context, partial Partial) error {
 }
 
 // Process increments the counter.
-func (o *LiveCountObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (o *LiveCountObserver) Process(ctx context.Context, segments []Segment) error {
 	processed := atomic.AddInt64(&o.segmentsProcessed, int64(len(segments)))
 
 	mon.IntVal("segmentsProcessed").Observe(processed)

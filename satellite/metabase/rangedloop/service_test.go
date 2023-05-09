@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -66,7 +65,7 @@ func runCountTest(t *testing.T, parallelism int, nSegments int, nObservers int) 
 			Parallelism: parallelism,
 		},
 		&rangedlooptest.RangeSplitter{
-			Segments: make([]segmentloop.Segment, nSegments),
+			Segments: make([]rangedloop.Segment, nSegments),
 		},
 		observers,
 	)
@@ -99,11 +98,11 @@ func TestLoopDuration(t *testing.T) {
 		})
 	}
 
-	segments := []segmentloop.Segment{}
+	segments := []rangedloop.Segment{}
 	for i := 0; i < nSegments; i++ {
 		streamId, err := uuid.FromBytes([]byte{byte(i), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 		require.NoError(t, err)
-		segments = append(segments, segmentloop.Segment{
+		segments = append(segments, rangedloop.Segment{
 			StreamID: streamId,
 		})
 	}
@@ -143,7 +142,7 @@ func TestLoopCancellation(t *testing.T) {
 	observers := []rangedloop.Observer{
 		&rangedlooptest.CountObserver{},
 		&rangedlooptest.CallbackObserver{
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				// cancel from inside the loop, when it is certain that the loop has started
 				cancel()
 				return nil
@@ -169,7 +168,7 @@ func TestLoopCancellation(t *testing.T) {
 func TestLoopContinuesAfterObserverError(t *testing.T) {
 	parallelism := 2
 	batchSize := 1
-	segments := make([]segmentloop.Segment, 2)
+	segments := make([]rangedloop.Segment, 2)
 
 	numOnStartCalls := 0
 	numOnForkCalls := 0
@@ -193,7 +192,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				incNumOnProcessCalls()
 				return nil
 			},
@@ -215,7 +214,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				require.Fail(t, "OnFork should not be called")
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				require.Fail(t, "OnProcess should not be called")
 				return nil
 			},
@@ -237,7 +236,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, errors.New("Test OnFork error")
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				require.Fail(t, "OnProcess should not be called")
 				return nil
 			},
@@ -259,7 +258,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				incNumOnProcessCalls()
 				return errors.New("Test OnProcess error")
 			},
@@ -281,7 +280,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				incNumOnProcessCalls()
 				return nil
 			},
@@ -303,7 +302,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				incNumOnProcessCalls()
 				return nil
 			},
@@ -325,7 +324,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 				numOnForkCalls++
 				return nil, nil
 			},
-			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+			OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 				incNumOnProcessCalls()
 				return nil
 			},
@@ -483,7 +482,7 @@ func TestLoopBoundaries(t *testing.T) {
 			}
 
 			callbackObserver := rangedlooptest.CallbackObserver{
-				OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				OnProcess: func(ctx context.Context, segments []rangedloop.Segment) error {
 					// OnProcess is called many times by different goroutines
 					mu.Lock()
 					defer mu.Unlock()

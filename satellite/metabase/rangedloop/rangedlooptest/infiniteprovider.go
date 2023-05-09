@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var _ rangedloop.RangeSplitter = (*InfiniteSegmentProvider)(nil)
@@ -31,9 +30,9 @@ func (m *InfiniteSegmentProvider) Range() rangedloop.UUIDRange {
 }
 
 // Iterate allows to loop over the segments stored in the provider.
-func (m *InfiniteSegmentProvider) Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error {
+func (m *InfiniteSegmentProvider) Iterate(ctx context.Context, fn func([]rangedloop.Segment) error) error {
 	for {
-		err := fn(make([]segmentloop.Segment, 3))
+		err := fn(make([]rangedloop.Segment, 3))
 		if err != nil {
 			return err
 		}

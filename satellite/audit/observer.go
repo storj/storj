@@ -14,7 +14,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // Observer populates reservoirs and the audit queue.
@@ -140,7 +139,7 @@ func newObserverFork(reservoirSlots int, r *rand.Rand) *observerFork {
 }
 
 // Process performs per-node reservoir sampling on remote segments for addition into the audit queue.
-func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
 	for _, segment := range segments {
 		// The reservoir ends up deferencing and copying the segment internally
 		// but that's not obvious, so alias the loop variable.

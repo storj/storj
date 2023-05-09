@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -192,7 +191,7 @@ func newObserverFork(log *zap.Logger, db DB, exitingNodes storj.NodeIDList, batc
 }
 
 // Process adds transfer queue items for remote segments belonging to newly exiting nodes.
-func (observer *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+func (observer *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
 	// Intentionally omitting mon.Task here. The duration for all process
 	// calls are aggregated and and emitted by the ranged loop service.
 
@@ -211,7 +210,7 @@ func (observer *observerFork) Process(ctx context.Context, segments []segmentloo
 	return nil
 }
 
-func (observer *observerFork) handleRemoteSegment(ctx context.Context, segment segmentloop.Segment) (err error) {
+func (observer *observerFork) handleRemoteSegment(ctx context.Context, segment rangedloop.Segment) (err error) {
 	numPieces := len(segment.Pieces)
 	for _, piece := range segment.Pieces {
 		if _, ok := observer.nodeIDStorage[piece.StorageNode]; !ok {

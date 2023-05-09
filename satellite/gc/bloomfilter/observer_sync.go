@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -103,7 +102,7 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 }
 
 // Process adds pieces to the bloom filter from remote segments.
-func (obs *SyncObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	latestCreationTime := time.Time{}
 	for _, segment := range segments {
 		if segment.Inline() {

@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -555,10 +554,10 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
-		loopSegments := []segmentloop.Segment{}
+		loopSegments := []rangedloop.Segment{}
 
 		for _, segment := range segments {
-			loopSegments = append(loopSegments, segmentloop.Segment{
+			loopSegments = append(loopSegments, rangedloop.Segment{
 				StreamID:   segment.StreamID,
 				Position:   segment.Position,
 				CreatedAt:  segment.CreatedAt,

@@ -18,7 +18,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/queue"
@@ -276,7 +275,7 @@ func (fork *observerFork) loadRedundancy(redundancy storj.RedundancyScheme) (int
 }
 
 // Process repair implementation of partial's Process.
-func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
 	for _, segment := range segments {
 		if err := fork.process(ctx, &segment); err != nil {
 			return err
@@ -286,7 +285,7 @@ func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Se
 	return nil
 }
 
-func (fork *observerFork) process(ctx context.Context, segment *segmentloop.Segment) (err error) {
+func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segment) (err error) {
 	if segment.Inline() {
 		if fork.lastStreamID.Compare(segment.StreamID) != 0 {
 			fork.lastStreamID = segment.StreamID

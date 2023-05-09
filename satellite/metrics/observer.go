@@ -12,7 +12,6 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var (
@@ -89,7 +88,7 @@ type observerFork struct {
 
 // Process aggregates metrics about a range of metrics provided by the
 // segment ranged loop.
-func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	for _, segment := range segments {
 		if fork.streamID != segment.StreamID {
 			// Stream ID has changed. Flush what we have so far.

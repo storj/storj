@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/uplink"
 )
 
@@ -245,9 +244,9 @@ func TestObserverGarbageCollection_MultipleRanges(t *testing.T) {
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
-		loopSegments := []segmentloop.Segment{}
+		loopSegments := []rangedloop.Segment{}
 		for _, segment := range segments {
-			loopSegments = append(loopSegments, segmentloop.Segment{
+			loopSegments = append(loopSegments, rangedloop.Segment{
 				StreamID:      segment.StreamID,
 				Position:      segment.Position,
 				CreatedAt:     segment.CreatedAt,

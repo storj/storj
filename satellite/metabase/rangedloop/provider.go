@@ -5,8 +5,6 @@ package rangedloop
 
 import (
 	"context"
-
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // RangeSplitter splits a source of segments into ranges,
@@ -20,5 +18,5 @@ type RangeSplitter interface {
 // SegmentProvider iterates through a range of segments.
 type SegmentProvider interface {
 	Range() UUIDRange
-	Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error
+	Iterate(ctx context.Context, fn func([]Segment) error) error
 }

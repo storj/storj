@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // TestAuditCollector does the following:
@@ -98,10 +97,10 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
-		loopSegments := []segmentloop.Segment{}
+		loopSegments := []rangedloop.Segment{}
 
 		for _, segment := range segments {
-			loopSegments = append(loopSegments, segmentloop.Segment{
+			loopSegments = append(loopSegments, rangedloop.Segment{
 				StreamID:   segment.StreamID,
 				Position:   segment.Position,
 				CreatedAt:  segment.CreatedAt,
