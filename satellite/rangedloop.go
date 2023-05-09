@@ -112,6 +112,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.Log.Named("gracefulexit:observer"),
 			peer.DB.GracefulExit(),
 			peer.DB.OverlayCache(),
+			metabaseDB,
 			config.GracefulExit,
 		)
 	}

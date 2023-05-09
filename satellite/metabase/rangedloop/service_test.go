@@ -414,6 +414,7 @@ func TestAllInOne(t *testing.T) {
 			gracefulexit.NewObserver(log.Named("gracefulexit:observer"),
 				satellite.DB.GracefulExit(),
 				satellite.DB.OverlayCache(),
+				satellite.Metabase.DB,
 				satellite.Config.GracefulExit,
 			),
 			bloomfilter.NewObserver(log.Named("gc-bf"),
