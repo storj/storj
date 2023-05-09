@@ -2355,6 +2355,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add inviter_id column to project_invitations table",
+				Version:     235,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD COLUMN inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

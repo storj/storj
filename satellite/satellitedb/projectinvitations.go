@@ -22,11 +22,37 @@ type projectInvitations struct {
 	db *satelliteDB
 }
 
-// Insert is a method for inserting a project member invitation into the database.
-func (invites *projectInvitations) Insert(ctx context.Context, projectID uuid.UUID, email string) (_ *console.ProjectInvitation, err error) {
+// Insert inserts a project member invitation into the database.
+func (invites *projectInvitations) Insert(ctx context.Context, invite *console.ProjectInvitation) (_ *console.ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if invite == nil {
+		return nil, Error.New("invitation is nil")
+	}
+
+	createFields := dbx.ProjectInvitation_Create_Fields{}
+	if invite.InviterID != nil {
+		id := invite.InviterID[:]
+		createFields.InviterId = dbx.ProjectInvitation_InviterId(id)
+	}
+
 	dbxInvite, err := invites.db.Create_ProjectInvitation(ctx,
+		dbx.ProjectInvitation_ProjectId(invite.ProjectID[:]),
+		dbx.ProjectInvitation_Email(normalizeEmail(invite.Email)),
+		createFields,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return projectInvitationFromDBX(dbxInvite)
+}
+
+// Get returns a project member invitation from the database.
+func (invites *projectInvitations) Get(ctx context.Context, projectID uuid.UUID, email string) (_ *console.ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxInvite, err := invites.db.Get_ProjectInvitation_By_ProjectId_And_Email(ctx,
 		dbx.ProjectInvitation_ProjectId(projectID[:]),
 		dbx.ProjectInvitation_Email(normalizeEmail(email)),
 	)
@@ -61,7 +87,7 @@ func (invites *projectInvitations) GetByEmail(ctx context.Context, email string)
 	return projectInvitationSliceFromDBX(dbxInvites)
 }
 
-// Delete is a method for deleting a project member invitation from the database.
+// Delete removes a project member invitation from the database.
 func (invites *projectInvitations) Delete(ctx context.Context, projectID uuid.UUID, email string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -153,16 +179,26 @@ func projectInvitationFromDBX(dbxInvite *dbx.ProjectInvitation) (_ *console.Proj
 		return nil, Error.New("dbx invitation is nil")
 	}
 
+	invite := &console.ProjectInvitation{
+		Email:     dbxInvite.Email,
+		CreatedAt: dbxInvite.CreatedAt,
+	}
+
 	projectID, err := uuid.FromBytes(dbxInvite.ProjectId)
 	if err != nil {
 		return nil, err
 	}
+	invite.ProjectID = projectID
 
-	return &console.ProjectInvitation{
-		ProjectID: projectID,
-		Email:     dbxInvite.Email,
-		CreatedAt: dbxInvite.CreatedAt,
-	}, nil
+	if dbxInvite.InviterId != nil {
+		inviterID, err := uuid.FromBytes(dbxInvite.InviterId)
+		if err != nil {
+			return nil, err
+		}
+		invite.InviterID = &inviterID
+	}
+
+	return invite, nil
 }
 
 // projectInvitationSliceFromDBX converts a project member invitation slice from the database to a

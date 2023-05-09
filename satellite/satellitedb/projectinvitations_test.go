@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,8 @@ func TestProjectInvitations(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		invitesDB := db.Console().ProjectInvitations()
 		projectsDB := db.Console().Projects()
+
+		inviterID := testrand.UUID()
 		projID := testrand.UUID()
 		projID2 := testrand.UUID()
 		email := "user@mail.test"
@@ -31,19 +34,57 @@ func TestProjectInvitations(t *testing.T) {
 		_, err = projectsDB.Insert(ctx, &console.Project{ID: projID2})
 		require.NoError(t, err)
 
-		invite, err := invitesDB.Insert(ctx, projID, email)
-		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), invite.CreatedAt, time.Minute)
-		require.Equal(t, projID, invite.ProjectID)
-		require.Equal(t, strings.ToUpper(email), invite.Email)
+		invite := &console.ProjectInvitation{
+			ProjectID: projID,
+			Email:     email,
+			InviterID: &inviterID,
+		}
+		inviteSameEmail := &console.ProjectInvitation{
+			ProjectID: projID2,
+			Email:     email,
+		}
+		inviteSameProject := &console.ProjectInvitation{
+			ProjectID: projID,
+			Email:     email2,
+		}
 
-		_, err = invitesDB.Insert(ctx, projID, email)
-		require.Error(t, err)
+		if !t.Run("insert invitations", func(t *testing.T) {
+			// Expect failure because no user with inviterID exists.
+			_, err = invitesDB.Insert(ctx, invite)
+			require.Error(t, err)
 
-		inviteSameEmail, err := invitesDB.Insert(ctx, projID2, email)
-		require.NoError(t, err)
-		inviteSameProject, err := invitesDB.Insert(ctx, projID, email2)
-		require.NoError(t, err)
+			_, err = db.Console().Users().Insert(ctx, &console.User{
+				ID:           inviterID,
+				PasswordHash: testrand.Bytes(8),
+			})
+			require.NoError(t, err)
+
+			invite, err = invitesDB.Insert(ctx, invite)
+			require.NoError(t, err)
+			require.WithinDuration(t, time.Now(), invite.CreatedAt, time.Minute)
+			require.Equal(t, projID, invite.ProjectID)
+			require.Equal(t, strings.ToUpper(email), invite.Email)
+
+			// Duplicate invitations should be rejected.
+			_, err = invitesDB.Insert(ctx, invite)
+			require.Error(t, err)
+
+			inviteSameEmail, err = invitesDB.Insert(ctx, inviteSameEmail)
+			require.NoError(t, err)
+			inviteSameProject, err = invitesDB.Insert(ctx, inviteSameProject)
+			require.NoError(t, err)
+		}) {
+			// None of the following subtests will pass if invitation insertion failed.
+			return
+		}
+
+		t.Run("get invitation", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			other, err := invitesDB.Get(ctx, projID, email)
+			require.NoError(t, err)
+			require.Equal(t, invite, other)
+		})
 
 		t.Run("get invitations by email", func(t *testing.T) {
 			ctx := testcontext.New(t)
@@ -67,6 +108,15 @@ func TestProjectInvitations(t *testing.T) {
 			invites, err = invitesDB.GetByProjectID(ctx, projID)
 			require.NoError(t, err)
 			require.ElementsMatch(t, invites, []console.ProjectInvitation{*invite, *inviteSameProject})
+		})
+
+		t.Run("ensure inviter removal nullifies inviter ID", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			require.NoError(t, db.Console().Users().Delete(ctx, inviterID))
+			invite, err := invitesDB.Get(ctx, projID, email)
+			require.NoError(t, err)
+			require.Nil(t, invite.InviterID)
 		})
 
 		t.Run("delete invitation", func(t *testing.T) {
@@ -109,10 +159,11 @@ func TestDeleteBefore(t *testing.T) {
 		require.Error(t, invitesDB.DeleteBefore(ctx, time.Time{}, 0, -1))
 
 		createInvite := func(createdAt time.Time) *console.ProjectInvitation {
-			id := testrand.UUID()
-			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: id})
+			projID := testrand.UUID()
+			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projID})
 			require.NoError(t, err)
-			invite, err := invitesDB.Insert(ctx, id, "")
+
+			invite, err := invitesDB.Insert(ctx, &console.ProjectInvitation{ProjectID: projID})
 			require.NoError(t, err)
 
 			result, err := db.Testing().RawDB().ExecContext(ctx,
@@ -134,12 +185,9 @@ func TestDeleteBefore(t *testing.T) {
 		require.NoError(t, invitesDB.DeleteBefore(ctx, expiration, 0, 1))
 
 		// Ensure that the old invitation record was deleted and the other remains.
-		invites, err := invitesDB.GetByProjectID(ctx, oldInvite.ProjectID)
+		_, err := invitesDB.Get(ctx, oldInvite.ProjectID, oldInvite.Email)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		_, err = invitesDB.Get(ctx, newInvite.ProjectID, newInvite.Email)
 		require.NoError(t, err)
-		require.Empty(t, invites)
-
-		invites, err = invitesDB.GetByProjectID(ctx, newInvite.ProjectID)
-		require.NoError(t, err)
-		require.Len(t, invites, 1)
 	})
 }
