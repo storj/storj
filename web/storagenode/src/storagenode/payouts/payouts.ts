@@ -178,8 +178,6 @@ export class TotalPayments {
     public held = 0;
     public paid = 0;
     public disposed = 0;
-    // TODO: remove
-    public currentMonthEarnings = 0;
     public balance = 0;
 
     public constructor(
@@ -191,10 +189,6 @@ export class TotalPayments {
             this.held += this.convertToCents(paystub.held - paystub.disposed);
             this.balance += this.convertToCents(paystub.paid - paystub.distributed);
         });
-    }
-
-    public setCurrentMonthEarnings(value: number): void {
-        this.currentMonthEarnings = value;
     }
 
     private convertToCents(value: number): number {

@@ -8,7 +8,6 @@ import {
 } from '@/app/types/payout';
 import { StorageNodeState } from '@/app/types/sno';
 import { getHeldPercentage } from '@/app/utils/payout';
-import { SizeBreakpoints } from '@/private/memory/size';
 import {
     EstimatedPayout,
     PayoutPeriod,
@@ -70,7 +69,6 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
             },
             [PAYOUT_MUTATIONS.SET_TOTAL](state: PayoutState, totalPayments: TotalPayments): void {
                 state.totalPayments = totalPayments;
-                state.currentMonthEarnings = totalPayments.currentMonthEarnings;
             },
             [PAYOUT_MUTATIONS.SET_RANGE](state: PayoutState, periodRange: PayoutInfoRange): void {
                 state.periodRange = periodRange;
@@ -83,6 +81,7 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
             },
             [PAYOUT_MUTATIONS.SET_ESTIMATION](state: PayoutState, estimatedInfo: EstimatedPayout): void {
                 state.estimation = estimatedInfo;
+                state.currentMonthEarnings = estimatedInfo.currentMonth.payout + estimatedInfo.currentMonth.held;
             },
             [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
                 state.payoutPeriods = periods;
@@ -114,26 +113,6 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                 const end = new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth());
 
                 const totalPayments = await service.totalPayments(start, end, satelliteId);
-
-                // TODO: move to service
-                const currentBandwidthDownload = (rootState.node.egressChartData || [])
-                    .map(data => data.egress.usage)
-                    .reduce((previous, current) => previous + current, 0);
-
-                const currentBandwidthAuditAndRepair = (rootState.node.egressChartData || [])
-                    .map(data => data.egress.audit + data.egress.repair)
-                    .reduce((previous, current) => previous + current, 0);
-
-                const approxHourInMonth = 720;
-                const currentDiskSpace = (rootState.node.storageChartData || [])
-                    .map(data => data.atRestTotal)
-                    .reduce((previous, current) => previous + current, 0) / approxHourInMonth;
-
-                const thisMonthEarnings = (currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-                    + currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-                    + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / SizeBreakpoints.TB;
-
-                totalPayments.setCurrentMonthEarnings(thisMonthEarnings);
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
