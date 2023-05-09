@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -59,10 +58,6 @@ type RangedLoop struct {
 	}
 
 	GracefulExit struct {
-		Observer rangedloop.Observer
-	}
-
-	GarbageCollectionBF struct {
 		Observer rangedloop.Observer
 	}
 
@@ -149,10 +144,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
-	{ // setup garbage collection bloom filter observer
-		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
-	}
-
 	{ // setup ranged loop
 		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
@@ -169,10 +160,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
 			observers = append(observers, peer.GracefulExit.Observer)
-		}
-
-		if config.GarbageCollectionBF.Enabled && config.GarbageCollectionBF.UseRangedLoop {
-			observers = append(observers, peer.GarbageCollectionBF.Observer)
 		}
 
 		if config.Repairer.UseRangedLoop {

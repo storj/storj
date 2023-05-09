@@ -143,6 +143,7 @@ func (service *Service) RunOnce(ctx context.Context) (observerDurations []Observ
 		rangeObservers := []*rangeObserverState{}
 		for i, observerState := range observerStates {
 			if observerState.err != nil {
+				service.log.Debug("observer returned error", zap.Error(observerState.err))
 				continue
 			}
 			rangeObserver, err := observerState.observer.Fork(ctx)

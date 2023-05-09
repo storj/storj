@@ -89,8 +89,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	loopStartTime := time.Now()
-
 	switch {
 	case service.Config.AccessGrant == "":
 		return errs.New("Access Grant is not set")
@@ -150,10 +148,10 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 
 		if err != nil {
 			// We store the error in the bucket and then continue with the next zip file.
-			return service.moveToErrorPrefix(ctx, project, objectKey, err, loopStartTime)
+			return service.moveToErrorPrefix(ctx, project, objectKey, err)
 		}
 
-		return service.moveToSentPrefix(ctx, project, objectKey, loopStartTime)
+		return service.moveToSentPrefix(ctx, project, objectKey)
 	})
 }
 
@@ -198,7 +196,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 
 // moveToErrorPrefix moves an object to prefix "error" and attaches the error to the metadata.
 func (service *Service) moveToErrorPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, previousErr error, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string, previousErr error,
 ) error {
 	newObjectKey := "error-" + objectKey
 
@@ -235,9 +233,9 @@ func (service *Service) uploadError(
 	return upload.Commit()
 }
 
-// moveToErrorPrefix moves an object to prefix "sent-[timestamp]".
+// moveToSentPrefix moves an object to prefix "sent".
 func (service *Service) moveToSentPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string,
 ) error {
 	newObjectKey := "sent-" + objectKey
 

@@ -454,9 +454,6 @@ contact.external-address: ""
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
 
-# set if garbage collection bloom filters is enabled or not
-# garbage-collection-bf.enabled: true
-
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
 
@@ -466,14 +463,8 @@ contact.external-address: ""
 # the initial number of pieces expected for a storage node to have, used for creating a filter
 # garbage-collection-bf.initial-pieces: 400000
 
-# the time between each garbage collection executions
-# garbage-collection-bf.interval: 120h0m0s
-
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
-
-# whether to use ranged loop instead of segment loop
-# garbage-collection-bf.use-ranged-loop: false
 
 # whether to use test GC SyncObserver with ranged loop
 # garbage-collection-bf.use-sync-observer: false

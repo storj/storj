@@ -74,8 +74,6 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 			// directly, as is already done for the service. Maybe we can
 			// improve this later.
 			config := planet.Satellites[0].Config.GarbageCollectionBF
-			config.Enabled = true
-			config.UseRangedLoop = true
 			config.AccessGrant = accessString
 			config.Bucket = tc.Bucket
 			config.ZipBatchSize = tc.ZipBatchSize
@@ -201,10 +199,8 @@ func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T)
 		// directly, as is already done for the service. Maybe we can
 		// improve this later.
 		config := planet.Satellites[0].Config.GarbageCollectionBF
-		config.Enabled = true
 		config.AccessGrant = accessString
 		config.Bucket = "bloomfilters"
-		config.UseRangedLoop = true
 		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
 
 		// TODO: see comment above. ideally this should use the rangedloop
@@ -273,10 +269,8 @@ func TestObserverGarbageCollection_MultipleRanges(t *testing.T) {
 		// directly, as is already done for the service. Maybe we can
 		// improve this later.
 		config := planet.Satellites[0].Config.GarbageCollectionBF
-		config.Enabled = true
 		config.AccessGrant = accessString
 		config.Bucket = "bloomfilters"
-		config.UseRangedLoop = true
 		observers := []rangedloop.Observer{
 			bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),
 			bloomfilter.NewSyncObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),

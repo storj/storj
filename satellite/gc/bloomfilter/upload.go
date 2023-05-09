@@ -54,7 +54,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate ti
 		return nil
 	}
 
-	prefix := time.Now().Format(time.RFC3339)
+	prefix := time.Now().Format(time.RFC3339Nano)
 
 	expirationTime := time.Now().Add(bfu.config.ExpireIn)
 
