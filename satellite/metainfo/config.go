@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/uplink/private/eestream"
 )
@@ -140,7 +139,6 @@ type Config struct {
 	MaxNumberOfParts            int                  `default:"10000" help:"maximum number of parts object can contain"`
 	Overlay                     bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                          RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	SegmentLoop                 segmentloop.Config   `help:"segment loop configuration"`
 	RateLimiter                 RateLimiterConfig    `help:"rate limiter configuration"`
 	UploadLimiter               UploadLimiterConfig  `help:"object upload limiter configuration"`
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`

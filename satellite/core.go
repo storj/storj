@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/nodeevents"
@@ -95,8 +94,7 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Metabase    *metabase.DB
-		SegmentLoop *segmentloop.Service
+		Metabase *metabase.DB
 	}
 
 	Reputation struct {
@@ -304,17 +302,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
-
-		peer.Metainfo.SegmentLoop = segmentloop.New(
-			peer.Log.Named("metainfo:segmentloop"),
-			config.Metainfo.SegmentLoop,
-			peer.Metainfo.Metabase,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:segmentloop",
-			Run:   peer.Metainfo.SegmentLoop.Run,
-			Close: peer.Metainfo.SegmentLoop.Close,
-		})
 	}
 
 	{ // setup reputation

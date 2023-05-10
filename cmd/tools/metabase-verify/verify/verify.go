@@ -42,7 +42,7 @@ func New(log *zap.Logger, mdb *metabase.DB, config Config) *Chore {
 	}
 }
 
-// RunOnce creates a new segmentloop and runs the verifications.
+// RunOnce creates a new rangedloop and runs the verifications.
 func (chore *Chore) RunOnce(ctx context.Context) error {
 	plainOffset := &SegmentSizes{
 		Log: chore.Log.Named("segment-sizes"),

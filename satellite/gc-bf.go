@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -42,10 +41,6 @@ type GarbageCollectionBF struct {
 
 	Overlay struct {
 		DB overlay.DB
-	}
-
-	Metainfo struct {
-		SegmentLoop *segmentloop.Service
 	}
 
 	GarbageCollection struct {

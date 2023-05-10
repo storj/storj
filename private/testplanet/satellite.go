@@ -45,7 +45,6 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -107,8 +106,6 @@ type Satellite struct {
 		// TODO remove when uplink will be adjusted to use Metabase.DB
 		Metabase *metabase.DB
 		Endpoint *metainfo.Endpoint
-		// TODO remove when uplink will be adjusted to use Metabase.SegmentLoop
-		SegmentLoop *segmentloop.Service
 	}
 
 	Userinfo struct {
@@ -116,8 +113,7 @@ type Satellite struct {
 	}
 
 	Metabase struct {
-		DB          *metabase.DB
-		SegmentLoop *segmentloop.Service
+		DB *metabase.DB
 	}
 
 	Inspector struct {
@@ -452,7 +448,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Compensation.DisposePercent = 0
 	config.ProjectLimit.CacheCapacity = 0
 	config.ProjectLimit.CacheExpiration = 0
-	config.Metainfo.SegmentLoop.ListLimit = 0
 
 	// Actual testplanet-specific configuration
 	config.Server.Address = planet.NewListenAddress()
@@ -619,7 +614,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Userinfo.Endpoint = api.Userinfo.Endpoint
 
 	system.Metabase.DB = api.Metainfo.Metabase
-	system.Metabase.SegmentLoop = peer.Metainfo.SegmentLoop
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 

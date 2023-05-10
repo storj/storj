@@ -35,10 +35,7 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 		StorageNodeCount: 7,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.SegmentLoop.AsOfSystemInterval = 1
-				testplanet.ReconfigureRS(2, 2, 7, 7)(log, index, config)
-			},
+			Satellite: testplanet.ReconfigureRS(2, 2, 7, 7),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(10*memory.KiB))
@@ -172,7 +169,6 @@ func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T)
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.SegmentLoop.AsOfSystemInterval = 1
 				testplanet.ReconfigureRS(2, 2, 4, 4)(log, index, config)
 			},
 		},
