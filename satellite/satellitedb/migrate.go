@@ -2337,6 +2337,24 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX project_invitations_email_index ON project_invitations ( email );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make value_attributions.partner_id nullable",
+				Version:     233,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ALTER COLUMN partner_id DROP NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for owner_id column for projects",
+				Version:     234,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

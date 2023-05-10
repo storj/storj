@@ -16,12 +16,12 @@ import (
 func main() {
 	process.SetHardcodedApplicationName("storagenode")
 
-	if startAsService() {
-		return
-	}
-
 	allowDefaults := !isFilewalkerCommand()
 	rootCmd, _ := newRootCmd(allowDefaults)
+
+	if startAsService(rootCmd) {
+		return
+	}
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
 		return logger.With(zap.String("process", rootCmd.Use))

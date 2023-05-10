@@ -717,6 +717,7 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 	openDir, err := os.Open(nsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
+			dir.log.Debug("directory not found", zap.String("dir", nsDir))
 			// job accomplished: there are no blobs in this namespace!
 			return nil
 		}

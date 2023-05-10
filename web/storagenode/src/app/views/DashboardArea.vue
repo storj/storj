@@ -54,6 +54,12 @@ export default class Dashboard extends Vue {
             console.error(error);
         }
 
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+        } catch (error) {
+            console.error(error);
+        }
+
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 }

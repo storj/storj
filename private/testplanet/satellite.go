@@ -57,7 +57,6 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -134,7 +133,6 @@ type Satellite struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
 		Repairer *repairer.Service
 	}
 
@@ -629,7 +627,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Orders.Service = api.Orders.Service
 	system.Orders.Chore = api.Orders.Chore
 
-	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
 
 	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue

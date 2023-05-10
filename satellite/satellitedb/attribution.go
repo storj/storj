@@ -248,11 +248,11 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 	defer mon.Task()(&ctx)(&err)
 
 	err = keys.db.QueryRowContext(ctx, `
-		INSERT INTO value_attributions (project_id, bucket_name, partner_id, user_agent, last_updated) 
-		VALUES ($1, $2, $3, $4, now())
+		INSERT INTO value_attributions (project_id, bucket_name, user_agent, last_updated) 
+		VALUES ($1, $2, $3, now())
 		ON CONFLICT (project_id, bucket_name) DO NOTHING
 		RETURNING last_updated
-	`, info.ProjectID[:], info.BucketName, "", info.UserAgent).Scan(&info.CreatedAt)
+	`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
 	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 	if errors.Is(err, sql.ErrNoRows) {
 		return info, nil

@@ -5,38 +5,42 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <CreateBucketIcon class="modal__icon" />
-                <h1 class="modal__title" aria-roledescription="modal-title">
-                    Create a Bucket
-                </h1>
+                <div class="modal__header">
+                    <CreateBucketIcon />
+                    <h1 class="modal__header__title">Create a Bucket</h1>
+                </div>
                 <p class="modal__info">
                     Buckets are used to store and organize your files. Enter lowercase alphanumeric characters only,
                     no spaces.
                 </p>
-                <VLoader v-if="bucketNamesLoading" width="100px" height="100px" />
-                <VInput
-                    v-else
-                    :init-value="bucketName"
-                    label="Bucket Name"
-                    placeholder="Enter bucket name"
-                    class="full-input"
-                    :error="nameError"
-                    @setData="setBucketName"
-                />
+                <div class="modal__input-container">
+                    <VLoader v-if="bucketNamesLoading" width="100px" height="100px" />
+                    <VInput
+                        v-else
+                        :init-value="bucketName"
+                        label="Bucket Name"
+                        additional-label="Required"
+                        placeholder="Enter bucket name"
+                        :error="nameError"
+                        @setData="setBucketName"
+                    />
+                </div>
                 <div class="modal__button-container">
                     <VButton
                         label="Cancel"
                         width="100%"
                         height="48px"
                         font-size="14px"
+                        border-radius="10px"
                         :on-press="closeModal"
                         :is-transparent="true"
                     />
                     <VButton
-                        label="Create bucket"
+                        label="Create bucket ->"
                         width="100%"
                         height="48px"
                         font-size="14px"
+                        border-radius="10px"
                         :on-press="onCreate"
                         :is-disabled="!bucketName"
                     />
@@ -323,86 +327,34 @@ onMounted(async (): Promise<void> => {
 </script>
 
 <style scoped lang="scss">
-    .modal {
-        width: 430px;
-        padding: 43px 60px 66px;
-        display: flex;
-        align-items: center;
-        flex-direction: column;
-        font-family: 'font_regular', sans-serif;
+.modal {
+    padding: 32px;
+    font-family: 'font_regular', sans-serif;
+    display: flex;
+    flex-direction: column;
+    max-width: 350px;
 
-        @media screen and (max-width: 600px) {
-            width: calc(100% - 48px);
-            padding: 54px 24px 32px;
-        }
-
-        &__icon {
-            max-height: 154px;
-            max-width: 118px;
-        }
-
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 34px;
-            color: #1b2533;
-            margin-top: 20px;
-            text-align: center;
-
-            @media screen and (max-width: 600px) {
-                margin-top: 16px;
-                font-size: 24px;
-                line-height: 31px;
-            }
-        }
-
-        &__info {
-            font-family: 'font_regular', sans-serif;
-            font-size: 16px;
-            line-height: 21px;
-            text-align: center;
-            color: #354049;
-            margin: 20px 0 0;
-        }
-
-        &__button-container {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 30px;
-            column-gap: 20px;
-
-            @media screen and (max-width: 600px) {
-                margin-top: 20px;
-                column-gap: unset;
-                row-gap: 8px;
-                flex-direction: column-reverse;
-            }
-        }
-
-        &__blur {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 100%;
-            background-color: rgb(229 229 229 / 20%);
-            border-radius: 8px;
-            z-index: 100;
-
-            &__loader {
-                width: 25px;
-                height: 25px;
-                position: absolute;
-                right: 40px;
-                top: 40px;
-            }
-        }
+    @media screen and (max-width: 615px) {
+        padding: 30px 20px;
     }
 
-    .full-input {
-        margin-top: 20px;
+    &__blur {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background-color: rgb(229 229 229 / 20%);
+        border-radius: 8px;
+        z-index: 100;
+
+        &__loader {
+            width: 25px;
+            height: 25px;
+            position: absolute;
+            right: 40px;
+            top: 40px;
+        }
     }
 
     :deep(.label-container) {
@@ -414,4 +366,52 @@ onMounted(async (): Promise<void> => {
         font-size: 14px;
         color: #56606d;
     }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 24px;
+            line-height: 31px;
+            color: var(--c-grey-8);
+            margin-left: 16px;
+            text-align: left;
+        }
+    }
+
+    &__info {
+        font-size: 14px;
+        line-height: 20px;
+        color: var(--c-blue-6);
+        padding: 16px 0;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
+    }
+
+    &__input-container {
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+    }
+
+    &__button-container {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+        column-gap: 20px;
+
+        @media screen and (max-width: 600px) {
+            margin-top: 20px;
+            column-gap: unset;
+            row-gap: 8px;
+            flex-direction: column-reverse;
+        }
+    }
+}
+
 </style>

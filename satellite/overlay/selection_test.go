@@ -172,7 +172,6 @@ func TestEnsureMinimumRequested(t *testing.T) {
 
 		// pause chores that might update node data
 		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
-		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 		for _, node := range planet.StorageNodes {
 			node.Contact.Chore.Pause(ctx)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/leak"
 	"storj.io/storj/storagenode/blobstore"
 )
 
@@ -43,10 +44,12 @@ const (
 type blobReader struct {
 	*os.File
 	formatVersion blobstore.FormatVersion
+
+	track leak.Ref
 }
 
-func newBlobReader(file *os.File, formatVersion blobstore.FormatVersion) *blobReader {
-	return &blobReader{file, formatVersion}
+func newBlobReader(track leak.Ref, file *os.File, formatVersion blobstore.FormatVersion) *blobReader {
+	return &blobReader{file, formatVersion, track}
 }
 
 // Size returns how large is the blob.
@@ -63,6 +66,11 @@ func (blob *blobReader) StorageFormatVersion() blobstore.FormatVersion {
 	return blob.formatVersion
 }
 
+// Close closes the reader.
+func (blob *blobReader) Close() error {
+	return errs.Combine(blob.File.Close(), blob.track.Close())
+}
+
 // blobWriter implements writing blobs.
 type blobWriter struct {
 	ref           blobstore.BlobRef
@@ -71,9 +79,11 @@ type blobWriter struct {
 	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
 	fh            *os.File
+
+	track leak.Ref
 }
 
-func newBlobWriter(ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int) *blobWriter {
+func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
@@ -81,6 +91,8 @@ func newBlobWriter(ref blobstore.BlobRef, store *blobStore, formatVersion blobst
 		formatVersion: formatVersion,
 		buffer:        bufio.NewWriterSize(file, bufferSize),
 		fh:            file,
+
+		track: track,
 	}
 }
 
@@ -100,7 +112,7 @@ func (blob *blobWriter) Cancel(ctx context.Context) (err error) {
 
 	err = blob.fh.Close()
 	removeErr := os.Remove(blob.fh.Name())
-	return Error.Wrap(errs.Combine(err, removeErr))
+	return Error.Wrap(errs.Combine(err, removeErr, blob.track.Close()))
 }
 
 // Commit moves the file to the target location.
@@ -113,11 +125,12 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 	blob.closed = true
 
 	if err := blob.buffer.Flush(); err != nil {
+		// TODO: when flush fails, it looks like we don't close the file handle
 		return err
 	}
 
 	err = blob.store.dir.Commit(ctx, blob.fh, blob.ref, blob.formatVersion)
-	return Error.Wrap(err)
+	return Error.Wrap(errs.Combine(err, blob.track.Close()))
 }
 
 // Seek flushes any buffer and seeks the underlying file.

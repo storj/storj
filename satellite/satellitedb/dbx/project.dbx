@@ -7,6 +7,11 @@ model project (
         fields public_id
     )
 
+    index (
+        name projects_owner_id_index
+        fields owner_id
+    )
+
     // id is a UUID used for identifying the project.
     field id                                blob
     // public_id is a UUID that's used in web requests.

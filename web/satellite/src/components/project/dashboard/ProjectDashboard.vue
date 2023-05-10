@@ -413,12 +413,16 @@ onMounted(async (): Promise<void> => {
         await projectsStore.getProjectLimits(projectID);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
-                appStore.updateActiveModal(MODALS.enterPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.enterPassphrase);
+                }
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
                 }
             } else {
-                appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                }
             }
 
             appStore.toggleHasJustLoggedIn();

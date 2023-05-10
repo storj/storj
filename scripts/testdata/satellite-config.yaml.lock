@@ -130,6 +130,24 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 30m0s
 
+# interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past
+# console-db-cleanup.as-of-system-time-interval: -5m0s
+
+# whether to run this chore
+# console-db-cleanup.enabled: false
+
+# interval between chore cycles
+# console-db-cleanup.interval: 24h0m0s
+
+# maximum lifetime of project member invitation records
+# console-db-cleanup.max-project-invitation-age: 168h0m0s
+
+# maximum lifetime of unverified user account records
+# console-db-cleanup.max-unverified-user-age: 168h0m0s
+
+# maximum number of database records to scan at once
+# console-db-cleanup.page-size: 1000
+
 # the Flagship API key
 # console.ab-testing.api-key: ""
 
@@ -593,7 +611,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.max-commit-interval: 48h0m0s
 
 # maximum encrypted object key length
-# metainfo.max-encrypted-object-key-length: 1280
+# metainfo.max-encrypted-object-key-length: 1750
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
@@ -955,8 +973,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
-# whether to use ranged loop instead of segment loop
-# repairer.use-ranged-loop: false
+# whether to enable repair checker observer with ranged loop
+# repairer.use-ranged-loop: true
 
 # the number of times a node has been audited to not be considered a New Node
 # reputation.audit-count: 100

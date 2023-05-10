@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -47,7 +48,6 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -103,10 +103,6 @@ type Core struct {
 		Service *reputation.Service
 	}
 
-	Repair struct {
-		Checker *checker.Checker
-	}
-
 	Audit struct {
 		VerifyQueue          audit.VerifyQueue
 		ReverifyQueue        audit.ReverifyQueue
@@ -139,6 +135,10 @@ type Core struct {
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
+	}
+
+	ConsoleDBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 }
 
@@ -315,29 +315,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metainfo.SegmentLoop.Run,
 			Close: peer.Metainfo.SegmentLoop.Close,
 		})
-	}
-
-	{ // setup data repair
-		log := peer.Log.Named("repair:checker")
-		if config.Repairer.UseRangedLoop {
-			log.Info("using ranged loop")
-		} else {
-			peer.Repair.Checker = checker.NewChecker(
-				log,
-				peer.DB.RepairQueue(),
-				peer.Metainfo.Metabase,
-				peer.Metainfo.SegmentLoop,
-				peer.Overlay.Service,
-				config.Checker)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "repair:checker",
-				Run:   peer.Repair.Checker.Run,
-				Close: peer.Repair.Checker.Close,
-			})
-
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		}
 	}
 
 	{ // setup reputation
@@ -566,6 +543,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Close: peer.Payments.AccountFreeze.Close,
 			})
 		}
+	}
+
+	// setup console DB cleanup service
+	if config.ConsoleDBCleanup.Enabled {
+		peer.ConsoleDBCleanup.Chore = dbcleanup.NewChore(
+			peer.Log.Named("console.dbcleanup:chore"),
+			peer.DB.Console(),
+			config.ConsoleDBCleanup,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "dbcleanup:chore",
+			Run:   peer.ConsoleDBCleanup.Chore.Run,
+			Close: peer.ConsoleDBCleanup.Chore.Close,
+		})
 	}
 
 	return peer, nil

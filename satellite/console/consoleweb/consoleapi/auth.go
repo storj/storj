@@ -845,8 +845,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
 
 	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -861,8 +861,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if console.ErrTokenExpiration.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -971,10 +971,11 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateInfo struct {
-		OnboardingStart *bool   `json:"onboardingStart"`
-		OnboardingEnd   *bool   `json:"onboardingEnd"`
-		OnboardingStep  *string `json:"onboardingStep"`
-		SessionDuration *int64  `json:"sessionDuration"`
+		OnboardingStart  *bool   `json:"onboardingStart"`
+		OnboardingEnd    *bool   `json:"onboardingEnd"`
+		PassphrasePrompt *bool   `json:"passphrasePrompt"`
+		OnboardingStep   *string `json:"onboardingStep"`
+		SessionDuration  *int64  `json:"sessionDuration"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateInfo)
@@ -993,10 +994,11 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	settings, err := a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
-		OnboardingStart: updateInfo.OnboardingStart,
-		OnboardingEnd:   updateInfo.OnboardingEnd,
-		OnboardingStep:  updateInfo.OnboardingStep,
-		SessionDuration: newDuration,
+		OnboardingStart:  updateInfo.OnboardingStart,
+		OnboardingEnd:    updateInfo.OnboardingEnd,
+		OnboardingStep:   updateInfo.OnboardingStep,
+		PassphrasePrompt: updateInfo.PassphrasePrompt,
+		SessionDuration:  newDuration,
 	})
 	if err != nil {
 		a.serveJSONError(w, err)

@@ -34,7 +34,7 @@ type Config struct {
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 	InMemoryRepair                bool          `help:"whether to download pieces for repair in memory (true) or download to disk (false)" default:"false"`
 	ReputationUpdateEnabled       bool          `help:"whether the audit score of nodes should be updated as a part of repair" default:"false"`
-	UseRangedLoop                 bool          `help:"whether to use ranged loop instead of segment loop" default:"false"`
+	UseRangedLoop                 bool          `help:"whether to enable repair checker observer with ranged loop" default:"true"`
 }
 
 // Service contains the information needed to run the repair service.

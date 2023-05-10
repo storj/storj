@@ -817,6 +817,7 @@ func TestTrashAndRestore(t *testing.T) {
 func requireFileMatches(ctx context.Context, t *testing.T, store blobstore.Blobs, data []byte, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) {
 	r, err := store.OpenWithStorageFormat(ctx, ref, formatVer)
 	require.NoError(t, err)
+	defer func() { require.NoError(t, err, r.Close()) }()
 
 	buf, err := io.ReadAll(r)
 	require.NoError(t, err)
@@ -861,6 +862,7 @@ func TestBlobMemoryBuffer(t *testing.T) {
 
 	reader, err := store.Open(ctx, ref)
 	require.NoError(t, err)
+	defer func() { require.NoError(t, reader.Close()) }()
 
 	buf, err := io.ReadAll(reader)
 	require.NoError(t, err)

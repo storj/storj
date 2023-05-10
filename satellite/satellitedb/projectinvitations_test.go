@@ -94,3 +94,52 @@ func TestProjectInvitations(t *testing.T) {
 		})
 	})
 }
+
+func TestDeleteBefore(t *testing.T) {
+	maxAge := time.Hour
+	now := time.Now()
+	expiration := now.Add(-maxAge)
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		invitesDB := db.Console().ProjectInvitations()
+		now := time.Now()
+
+		// Only positive page sizes should be allowed.
+		require.Error(t, invitesDB.DeleteBefore(ctx, time.Time{}, 0, 0))
+		require.Error(t, invitesDB.DeleteBefore(ctx, time.Time{}, 0, -1))
+
+		createInvite := func(createdAt time.Time) *console.ProjectInvitation {
+			id := testrand.UUID()
+			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: id})
+			require.NoError(t, err)
+			invite, err := invitesDB.Insert(ctx, id, "")
+			require.NoError(t, err)
+
+			result, err := db.Testing().RawDB().ExecContext(ctx,
+				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2",
+				createdAt, invite.ProjectID,
+			)
+			require.NoError(t, err)
+
+			count, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, count)
+
+			return invite
+		}
+
+		newInvite := createInvite(now)
+		oldInvite := createInvite(expiration.Add(-time.Second))
+
+		require.NoError(t, invitesDB.DeleteBefore(ctx, expiration, 0, 1))
+
+		// Ensure that the old invitation record was deleted and the other remains.
+		invites, err := invitesDB.GetByProjectID(ctx, oldInvite.ProjectID)
+		require.NoError(t, err)
+		require.Empty(t, invites)
+
+		invites, err = invitesDB.GetByProjectID(ctx, newInvite.ProjectID)
+		require.NoError(t, err)
+		require.Len(t, invites, 1)
+	})
+}

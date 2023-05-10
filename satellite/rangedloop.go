@@ -55,7 +55,7 @@ type RangedLoop struct {
 	}
 
 	Repair struct {
-		Observer rangedloop.Observer
+		Observer *checker.Observer
 	}
 
 	GracefulExit struct {
@@ -141,7 +141,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		peer.Repair.Observer = checker.NewRangedLoopObserver(
+		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,

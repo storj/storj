@@ -243,7 +243,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
+		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, service.listingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -280,18 +280,6 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 	var errGrp errs.Group
 
 	for _, wallet := range wallets {
-		// get the user token balance, if it's not > 0, don't bother with the rest
-		monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
-		// truncate here since stripe only has cent level precision for invoices.
-		// The users account balance will still maintain the full precision monetary value!
-		tokenBalance := currency.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), currency.USDollars)
-		if err != nil {
-			errGrp.Add(Error.New("unable to compute balance for user ID %s", wallet.UserID.String()))
-			continue
-		}
-		if tokenBalance.BaseUnits() <= 0 {
-			continue
-		}
 		// get the stripe customer invoice balance
 		cusID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
@@ -306,6 +294,18 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 		for _, invoice := range invoices {
 			// if no balance due, do nothing
 			if invoice.AmountRemaining <= 0 {
+				continue
+			}
+			monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to get balance for user ID %s", wallet.UserID.String()))
+				continue
+			}
+			// truncate here since stripe only has cent level precision for invoices.
+			// The users account balance will still maintain the full precision monetary value!
+			tokenBalance := currency.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), currency.USDollars)
+			// if token balance is not > 0, don't bother with the rest
+			if tokenBalance.BaseUnits() <= 0 {
 				continue
 			}
 
@@ -824,6 +824,10 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			continue
 		}
 		service.log.Info("Customer successfully updated", zap.String("CustomerID", itr.Customer().ID), zap.Int64("Prior Balance", itr.Customer().Balance), zap.Int64("New Balance", 0), zap.String("InvoiceItemID", invoiceItem.ID))
+	}
+	if itr.Err() != nil {
+		service.log.Error("Failed to create invoice items for all customers", zap.Error(itr.Err()))
+		errGrp.Add(itr.Err())
 	}
 	return errGrp.Err()
 }

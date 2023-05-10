@@ -6,6 +6,7 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -303,9 +304,15 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 
 	switch {
 	case metabase.ErrObjectNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrObjectNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "object not found: "+message)
 	case metabase.ErrSegmentNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrSegmentNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):

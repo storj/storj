@@ -66,6 +66,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.search = search;
     }
 
+    function getSearchQuery() {
+        return state.cursor.search;
+    }
+
     function setSortingBy(order: ProjectMemberOrderBy) {
         state.cursor.order = order;
     }
@@ -109,6 +113,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
+        getSearchQuery,
         setSortingBy,
         setSortingDirection,
         setPage,

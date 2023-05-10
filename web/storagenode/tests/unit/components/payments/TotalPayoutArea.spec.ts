@@ -6,7 +6,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
-import { Paystub, TotalPayments } from '@/storagenode/payouts/payouts';
+import { EstimatedPayout, Paystub, PreviousMonthEstimatedPayout, TotalPayments } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
@@ -45,9 +45,14 @@ describe('TotalPayoutArea', (): void => {
         paystub.paid = 1000000;
 
         const totalPayments = new TotalPayments([paystub]);
-        totalPayments.setCurrentMonthEarnings(40000);
-
         await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
+
+        const currentMonthEstimation = new PreviousMonthEstimatedPayout();
+        currentMonthEstimation.payout = 30000;
+        currentMonthEstimation.held = 10000;
+        const estimation = new EstimatedPayout();
+        estimation.currentMonth = currentMonthEstimation;
+        await store.commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimation);
 
         expect(wrapper).toMatchSnapshot();
 

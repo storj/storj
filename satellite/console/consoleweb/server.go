@@ -536,6 +536,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMinimumLength:           console.PasswordMinimumLength,
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
+		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

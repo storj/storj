@@ -4,6 +4,7 @@
 package stripe_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func TestProjectRecords(t *testing.T) {
 			assert.Equal(t, stripe.ErrProjectRecordExists, err)
 		})
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, 1, start, end)
+		page, err := projectRecordsDB.ListUnapplied(ctx, uuid.UUID{}, 1, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(page.Records))
 
@@ -59,7 +60,7 @@ func TestProjectRecords(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		page, err = projectRecordsDB.ListUnapplied(ctx, 0, 1, start, end)
+		page, err = projectRecordsDB.ListUnapplied(ctx, uuid.UUID{}, 1, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(page.Records))
 	})
@@ -74,8 +75,7 @@ func TestProjectRecordsList(t *testing.T) {
 
 		projectRecordsDB := db.StripeCoinPayments().ProjectRecords()
 
-		const limit = 5
-		const recordsLen = limit * 4
+		const recordsLen = 20
 
 		var createProjectRecords []stripe.CreateProjectRecord
 		for i := 0; i < recordsLen; i++ {
@@ -95,37 +95,42 @@ func TestProjectRecordsList(t *testing.T) {
 		err := projectRecordsDB.Create(ctx, createProjectRecords, start, end)
 		require.NoError(t, err)
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, start, end)
-		require.NoError(t, err)
+		for _, limit := range []int{1, 3, 5, 30} {
+			t.Run(fmt.Sprintf("limit-%d", limit), func(t *testing.T) {
+				records := []stripe.ProjectRecord{}
 
-		records := page.Records
+				var page stripe.ProjectRecordsPage
+				for {
+					page, err = projectRecordsDB.ListUnapplied(ctx, page.Cursor, limit, start, end)
+					require.NoError(t, err)
 
-		for page.Next {
-			page, err = projectRecordsDB.ListUnapplied(ctx, page.NextOffset, limit, start, end)
-			require.NoError(t, err)
-
-			records = append(records, page.Records...)
-		}
-
-		require.Equal(t, recordsLen, len(records))
-		assert.False(t, page.Next)
-		assert.Equal(t, int64(0), page.NextOffset)
-
-		for _, record := range page.Records {
-			for _, createRecord := range createProjectRecords {
-				if record.ProjectID != createRecord.ProjectID {
-					continue
+					records = append(records, page.Records...)
+					if !page.Next {
+						break
+					}
 				}
 
-				assert.NotNil(t, record.ID)
-				assert.Equal(t, 16, len(record.ID))
-				assert.Equal(t, createRecord.ProjectID, record.ProjectID)
-				assert.Equal(t, createRecord.Storage, record.Storage)
-				assert.Equal(t, createRecord.Egress, record.Egress)
-				assert.Equal(t, createRecord.Segments, record.Segments)
-				assert.True(t, start.Equal(record.PeriodStart))
-				assert.True(t, end.Equal(record.PeriodEnd))
-			}
+				require.Equal(t, recordsLen, len(records))
+				assert.False(t, page.Next)
+				assert.Equal(t, uuid.UUID{}, page.Cursor)
+
+				for _, record := range page.Records {
+					for _, createRecord := range createProjectRecords {
+						if record.ProjectID != createRecord.ProjectID {
+							continue
+						}
+
+						assert.NotNil(t, record.ID)
+						assert.Equal(t, 16, len(record.ID))
+						assert.Equal(t, createRecord.ProjectID, record.ProjectID)
+						assert.Equal(t, createRecord.Storage, record.Storage)
+						assert.Equal(t, createRecord.Egress, record.Egress)
+						assert.Equal(t, createRecord.Segments, record.Segments)
+						assert.True(t, start.Equal(record.PeriodStart))
+						assert.True(t, end.Equal(record.PeriodEnd))
+					}
+				}
+			})
 		}
 	})
 }

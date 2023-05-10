@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
 const (
@@ -38,16 +39,31 @@ type Supervisor struct {
 	executable    string
 	gcArgs        []string
 	usedSpaceArgs []string
+
+	testingGCCmd        execwrapper.Command
+	testingUsedSpaceCmd execwrapper.Command
 }
 
 // NewSupervisor creates a new lazy filewalker Supervisor.
-func NewSupervisor(log *zap.Logger, executable string, args []string) *Supervisor {
+func NewSupervisor(log *zap.Logger, config Config, executable string) *Supervisor {
 	return &Supervisor{
 		log:           log,
-		gcArgs:        append([]string{GCFilewalkerCmdName}, args...),
-		usedSpaceArgs: append([]string{UsedSpaceFilewalkerCmdName}, args...),
+		gcArgs:        append([]string{GCFilewalkerCmdName}, config.Args()...),
+		usedSpaceArgs: append([]string{UsedSpaceFilewalkerCmdName}, config.Args()...),
 		executable:    executable,
 	}
+}
+
+// TestingSetGCCmd sets the command for the gc-filewalker subprocess.
+// The cmd acts as a replacement for the subprocess.
+func (fw *Supervisor) TestingSetGCCmd(cmd execwrapper.Command) {
+	fw.testingGCCmd = cmd
+}
+
+// TestingSetUsedSpaceCmd sets the command for the used-space-filewalker subprocess.
+// The cmd acts as a replacement for the subprocess.
+func (fw *Supervisor) TestingSetUsedSpaceCmd(cmd execwrapper.Command) {
+	fw.testingUsedSpaceCmd = cmd
 }
 
 // UsedSpaceRequest is the request struct for the used-space-filewalker process.
@@ -86,7 +102,7 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 
 	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(log, fw.executable, fw.usedSpaceArgs).run(ctx, req, &resp)
+	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, req, &resp)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -111,7 +127,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
 
-	err = newProcess(log, fw.executable, fw.gcArgs).run(ctx, req, &resp)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, req, &resp)
 	if err != nil {
 		return nil, 0, 0, err
 	}

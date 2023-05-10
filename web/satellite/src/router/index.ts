@@ -94,7 +94,7 @@ export abstract class RouteConfig {
     public static BillingPaymentMethods2 = new NavigationLink('payment-methods', 'Payment Methods 2');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     // this duplicates the path of BillingHistory so that they can be used interchangeably in BillingArea.vue
-    public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    public static BillingHistory2 = new NavigationLink('billing-history', 'Billing History 2');
     public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static BillingCoupons2 = new NavigationLink('coupons', 'Billing Coupons');
 

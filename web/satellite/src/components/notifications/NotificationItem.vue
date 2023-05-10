@@ -9,6 +9,14 @@
             </div>
             <div class="notification-wrap__content-area__message-area">
                 <p class="notification-wrap__content-area__message">{{ notification.message }}</p>
+
+                <p v-if="isTimeoutMentioned && notOnSettingsPage" class="notification-wrap__content-area__account-msg">
+                    To change this go to your
+                    <router-link :to="settingsRoute" class="notification-wrap__content-area__account-msg__link">
+                        account settings
+                    </router-link>
+                </p>
+
                 <a
                     v-if="isSupportLinkMentioned"
                     :href="requestURL"
@@ -28,16 +36,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { RouteConfig } from '@/router';
+import { useRouter } from '@/utils/hooks';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
 const configStore = useConfigStore();
 const notificationsStore = useNotificationsStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const props = withDefaults(defineProps<{
     notification: DelayedNotification;
@@ -48,10 +60,40 @@ const props = withDefaults(defineProps<{
 const isClassActive = ref<boolean>(false);
 
 /**
+ * Returns the correct settings route based on if we're on all projects dashboard.
+ */
+const settingsRoute = computed((): string => {
+    if (
+        router.currentRoute.path.includes(RouteConfig.AllProjectsDashboard.path)
+        || router.currentRoute.path.includes(RouteConfig.AccountSettings.path)
+    ) {
+        return RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
+    }
+
+    return RouteConfig.Account.with(RouteConfig.Settings).path;
+});
+
+/**
  * Returns the URL for the general request page from the store.
  */
 const requestURL = computed((): string => {
     return configStore.state.config.generalRequestURL;
+});
+
+/**
+ * Returns whether we are not on a settings page.
+ */
+const notOnSettingsPage = computed((): boolean => {
+    return router.currentRoute.name !== RouteConfig.Settings.name
+        && router.currentRoute.name !== RouteConfig.Settings2.name;
+});
+
+/**
+ * Indicates if session timeout is mentioned in message.
+ * Temporal solution, can be changed later.
+ */
+const isTimeoutMentioned = computed((): boolean => {
+    return props.notification.message.toLowerCase().includes('session timeout');
 });
 
 /**
@@ -138,6 +180,17 @@ onMounted((): void => {
                 text-decoration: underline;
                 cursor: pointer;
                 word-break: normal;
+            }
+
+            &__account-msg {
+                margin-top: 20px;
+
+                &__link {
+                    display: block;
+                    color: var(--c-black);
+                    text-decoration: underline;
+                    cursor: pointer;
+                }
             }
         }
 
