@@ -1,0 +1,68 @@
+pipeline {
+    agent {
+        docker {
+            label 'main'
+            image 'mcr.microsoft.com/playwright:v1.33.0-jammy'
+            args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
+        }
+    }
+    options {
+        timeout(time: 4, unit: 'HOURS')
+        skipDefaultCheckout(false)
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
+        COCKROACH_MEMPROF_INTERVAL=0
+        PLAYWRIGHT_BROWSERS_PATH=0
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'mkdir -p .build'
+            }
+        }
+        stage('install playwright') {
+            steps {
+                dir("testsuite/playwright-ui") {
+                    warnError('Script failed!') {
+                        // sh 'npm ci'
+                        // sh 'npm install -D @playwright/test@latest'
+                        sh 'npx playwright install'
+                        sh 'npm install playwright-slack-report -D'
+                        sh 'npm install @slack/web-api @slack/socket-mode'
+                    }
+                }
+            }
+        }
+
+        stage('execute ui tests') {
+            steps {
+                dir("testsuite/playwright-ui/") {
+                     warnError('Script failed!') {
+                        sh 'npm run test'
+                     }
+                }
+            }
+        }
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        dir("testsuite/playwright-ui") {
+                            sh 'pwd'
+                            archiveArtifacts artifacts: 'test-results/'
+                        }
+                    }
+                }
+                stage('report') {
+                    steps {
+                        //execute the report
+                        sh 'npm run posttest'
+                    }
+                }
+            }
+        }
+    }
+}
