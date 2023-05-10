@@ -12,7 +12,7 @@
             :used-info="`Storage limit: ${usedOrLimitFormatted(limits.storageLimit, true)}`"
             :available-title="`${availableFormatted(limits.storageLimit - limits.storageUsed)} Available`"
             :action-title="usageActionTitle(storageUsed)"
-            :on-action="storageAction"
+            :on-action="() => usageAction(LimitToChange.Storage)"
             :is-loading="isLoading"
             use-action
         />
@@ -25,7 +25,7 @@
             :used-info="`Download limit: ${usedOrLimitFormatted(limits.bandwidthLimit, true)} per month`"
             :available-title="`${availableFormatted(limits.bandwidthLimit - limits.bandwidthUsed)} Available`"
             :action-title="usageActionTitle(bandwidthUsed)"
-            :on-action="bandwidthAction"
+            :on-action="() => usageAction(LimitToChange.Bandwidth)"
             :is-loading="isLoading"
             use-action
         />
@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { ProjectLimits } from '@/types/projects';
+import { LimitToChange, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -280,27 +280,16 @@ function usedOrLimitFormatted(value: number, withoutSpace = false): string {
 }
 
 /**
- * Handles storage card CTA click.
+ * Handles usage card CTA click.
  */
-function storageAction(): void {
+function usageAction(limit: LimitToChange): void {
     if (!isPaidTier.value) {
         startUpgradeFlow();
         return;
     }
 
-    // toggle storage modal
-}
-
-/**
- * Handles bandwidth card CTA click.
- */
-function bandwidthAction(): void {
-    if (!isPaidTier.value) {
-        startUpgradeFlow();
-        return;
-    }
-
-    // toggle bandwidth modal
+    appStore.setActiveChangeLimit(limit);
+    appStore.updateActiveModal(MODALS.changeProjectLimit);
 }
 
 /**
@@ -324,5 +313,9 @@ function navigateToCoupons(): void {
     grid-template-columns: calc(50% - 8px) calc(50% - 8px);
     grid-gap: 16px;
     margin-top: 16px;
+
+    @media screen and (max-width: 750px) {
+        grid-template-columns: auto;
+    }
 }
 </style>

@@ -550,6 +550,12 @@ onBeforeUnmount((): void => {
                         align-items: center;
                         margin: 16px 16px 0 0;
 
+                        @media screen and (max-width: 390px) {
+                            flex-direction: column;
+                            align-items: flex-end;
+                            row-gap: 5px;
+                        }
+
                         &__allocated-color,
                         &__settled-color {
                             width: 10px;
@@ -575,10 +581,18 @@ onBeforeUnmount((): void => {
 
                         &__allocated-label {
                             margin-right: 16px;
+
+                            @media screen and (max-width: 390px) {
+                                margin-right: 0;
+                            }
                         }
 
                         &__settled-label {
                             margin-right: 11px;
+
+                            @media screen and (max-width: 390px) {
+                                margin-right: 0;
+                            }
                         }
 
                         &__info {

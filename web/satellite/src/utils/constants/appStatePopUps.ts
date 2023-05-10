@@ -5,6 +5,7 @@ import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
 import RemoveTeamMemberModal from '@/components/modals/RemoveProjectMemberModal.vue';
 import EditProfileModal from '@/components/modals/EditProfileModal.vue';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
+import ChangeProjectLimitModal from '@/components/modals/ChangeProjectLimitModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
 import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
 import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
@@ -82,6 +83,7 @@ enum Modals {
     UPGRADE_ACCOUNT = 'upgradeAccount',
     DELETE_ACCESS_GRANT = 'deleteAccessGrant',
     SKIP_PASSPHRASE = 'skipPassphrase',
+    CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
 }
 
 // modals could be of VueConstructor type or Object (for composition api components).
@@ -115,4 +117,5 @@ export const MODALS: Record<Modals, unknown> = {
     [Modals.UPGRADE_ACCOUNT]: UpgradeAccountModal,
     [Modals.DELETE_ACCESS_GRANT]: DeleteAccessGrantModal,
     [Modals.SKIP_PASSPHRASE]: SkipPassphraseModal,
+    [Modals.CHANGE_PROJECT_LIMIT]: ChangeProjectLimitModal,
 };

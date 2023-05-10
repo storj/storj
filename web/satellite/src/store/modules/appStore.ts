@@ -8,6 +8,7 @@ import { OnboardingOS, PricingPlanInfo } from '@/types/common';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { LocalData } from '@/utils/localData';
+import { LimitToChange } from '@/types/projects';
 
 class AppState {
     public fetchState = FetchState.LOADING;
@@ -32,6 +33,7 @@ class AppState {
     public error: ErrorPageState = new ErrorPageState();
     public isLargeUploadNotificationShown = true;
     public isLargeUploadWarningNotificationShown = false;
+    public activeChangeLimit: LimitToChange = LimitToChange.Storage;
 }
 
 class ErrorPageState {
@@ -107,6 +109,10 @@ export const useAppStore = defineStore('app', () => {
         state.onbSelectedOs = os;
     }
 
+    function setActiveChangeLimit(limit: LimitToChange): void {
+        state.activeChangeLimit = limit;
+    }
+
     function setPricingPlan(plan: PricingPlanInfo): void {
         state.selectedPricingPlan = plan;
     }
@@ -176,6 +182,7 @@ export const useAppStore = defineStore('app', () => {
         setOnboardingAPIKey,
         setOnboardingCleanAPIKey,
         setOnboardingOS,
+        setActiveChangeLimit,
         setPricingPlan,
         setManagePassphraseStep,
         setHasShownPricingPlan,

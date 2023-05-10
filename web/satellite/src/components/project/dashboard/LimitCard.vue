@@ -18,7 +18,7 @@
                     <p class="card__data__info">{{ usedInfo }}</p>
                 </div>
                 <div>
-                    <h2 class="card__data__title">{{ availableTitle }}</h2>
+                    <h2 class="card__data__title alight-right">{{ availableTitle }}</h2>
                     <p v-if="useAction" class="card__data__action" @click="onAction">{{ actionTitle }}</p>
                     <a
                         v-else
@@ -154,5 +154,9 @@ const style = computed((): Record<string, string> => {
             cursor: pointer;
         }
     }
+}
+
+.alight-right {
+    text-align: right;
 }
 </style>

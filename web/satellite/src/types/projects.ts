@@ -230,3 +230,8 @@ export interface ProjectUsageDateRange {
     since: Date;
     before: Date;
 }
+
+export enum LimitToChange {
+    Storage = 'Storage',
+    Bandwidth = 'Bandwidth',
+}
