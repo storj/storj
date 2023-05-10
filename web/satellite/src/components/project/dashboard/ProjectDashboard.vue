@@ -5,7 +5,7 @@
     <div class="project-dashboard">
         <div class="project-dashboard__heading">
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
-            <project-ownership-tag :project="selectedProject" />
+            <project-ownership-tag :is-owner="selectedProject.ownerId === user.id" />
         </div>
 
         <p class="project-dashboard__message">
@@ -191,6 +191,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { centsToDollars } from '@/utils/strings';
+import { User } from '@/types/users';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -326,6 +327,13 @@ const bucketWasCreated = computed((): boolean => {
     }
 
     return false;
+});
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
 });
 
 /**

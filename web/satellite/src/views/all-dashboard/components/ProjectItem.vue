@@ -4,7 +4,7 @@
 <template>
     <div v-if="project.id" class="project-item">
         <div class="project-item__header">
-            <project-ownership-tag :project="project" />
+            <project-ownership-tag :is-owner="isOwner" />
 
             <a
                 v-click-outside="closeDropDown" href="" class="project-item__header__menu"
@@ -101,7 +101,7 @@ const user = computed((): User => {
 });
 
 /**
- * Returns projects list from store.
+ * Returns if the current user is the owner of this project.
  */
 const isOwner = computed((): boolean => {
     return props.project.ownerId === user.value.id;

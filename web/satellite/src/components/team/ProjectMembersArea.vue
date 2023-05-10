@@ -29,8 +29,9 @@
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
+                <th class="align-left">Role</th>
+                <th class="align-left date-added">Date Added</th>
             </template>
             <template #body>
                 <ProjectMemberListItem

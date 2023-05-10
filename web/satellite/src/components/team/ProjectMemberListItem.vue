@@ -35,25 +35,18 @@ const isProjectOwner = computed((): boolean => {
     return props.itemData.user.id === projectsStore.state.selectedProject.ownerId;
 });
 
-const itemToRender = computed((): { [key: string]: string | string[] } => {
-    if (!isMobile.value && !isTablet.value) return { name: props.itemData.name, date: props.itemData.localDate(), email: props.itemData.email };
+const itemToRender = computed((): { [key: string]: unknown | string[] } => {
+    if (!isMobile.value && !isTablet.value) return { name: props.itemData.name, email: props.itemData.email, owner: isProjectOwner.value, date: props.itemData.localDate() };
 
+    if (isTablet.value) {
+        return { name: props.itemData.name, email: props.itemData.email, owner: isProjectOwner.value };
+    }
     // TODO: change after adding actions button to list item
     return { name: props.itemData.name, email: props.itemData.email };
 });
 </script>
 
 <style scoped lang="scss">
-    .owner {
-        cursor: not-allowed;
-
-        & > :deep(th:nth-child(2):after) {
-            content: 'Project Owner';
-            font-size: 13px;
-            color: #afb7c1;
-        }
-    }
-
     :deep(.primary) {
         overflow: hidden;
         white-space: nowrap;
