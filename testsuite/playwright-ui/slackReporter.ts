@@ -2,7 +2,7 @@
 import {Block, KnownBlock} from "@slack/web-api";
 import {SummaryResults} from "playwright-slack-report/dist/src";
 
-export default function generateCustomLayoutSimpleMeta(
+export default function GenerateCustomLayoutSimpleMeta(
     summaryResults: SummaryResults,
 ): Array<Block | KnownBlock> {
     const meta: { type: string; text: { type: string; text: string; }; }[] = [];

@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+>>>>>>> af_JenkPlay
 import test from '@lib/BaseTest';
 
 test.describe('Check for branded signup page, and sign up personal/business accounts', () => {

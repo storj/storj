@@ -1,6 +1,6 @@
 // @ts-ignore
 import os from 'node:os';
-import generateCustomLayoutSimpleMeta from './slackReporter';
+import GenerateCustomLayoutSimpleMeta from '@config/slackReporter';
 import { PlaywrightTestConfig, devices} from '@playwright/test';
 
 // require('dotenv').config();
@@ -47,7 +47,7 @@ const config: PlaywrightTestConfig = {
   ],
     use: {                                              /* Shared settings for all the projects below. */
         actionTimeout: 0,                                 /* Maximum time each action can take. */
-        baseURL: 'http://nightly.storj.rodeo:10000/',     /* Base URL to use in actions like `await page.goto('/')`. */
+        baseURL: 'http://nightly.storj.rodeo/',     /* Base URL to use in actions like `await page.goto('/')`. */
         // baseURL: 'http://localhost:10000',
         // headless: process.env.CI ? false : true,       /* Starts the UI tests in headed mode, so we can watch execution in development */
         ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */

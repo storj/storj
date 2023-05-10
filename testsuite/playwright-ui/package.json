@@ -1,5 +1,5 @@
 {
-  "name": "sand",
+  "name": "StorjPlug",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,18 +8,20 @@
     "allure:open": "npx allure open ./allure-report",
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate",
-    "test": "npx playwright test",
+    "test": "npx playwright test ./tests/",
+    "test-debug": "npx playwright test ./tests/ --trace on",
+    "browser-debug": "DEBUG=pw:browser* npx playwright test",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.29.2",
-    "playwright-slack-report": "^1.0.19",
-    "mocha-multi-reporters": "^1.5.1",
+    "@playwright/test": "^1.33.0",
     "allure-commandline": "^2.20.1",
     "allure-playwright": "^2.0.0-beta.21",
+    "mocha-multi-reporters": "^1.5.1",
+    "playwright-slack-report": "^1.0.19",
     "rimraf": "^4.0.4"
   },
   "dependencies": {

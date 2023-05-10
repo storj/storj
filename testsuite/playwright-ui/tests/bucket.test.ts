@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+>>>>>>> af_JenkPlay
 import test from '@lib/BaseTest';
 
 test.describe('Filebrowser + edge services', () => {
@@ -10,15 +16,27 @@ test.describe('Filebrowser + edge services', () => {
 
     // This test check file download, upload using drag and drop function and basic link-sharing features
 
+<<<<<<< HEAD
     test('File download and upload', async ({navigationMenu, bucketsPage, dashboardPage}) => {
+=======
+    test('File download and upload', async ({navigationMenu, bucketsPage}) => {
+>>>>>>> af_JenkPlay
         const bucketName = 'uitest1';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
 
+<<<<<<< HEAD
         await dashboardPage.enterOwnPassphraseModal(bucketPassphrase)
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
+=======
+        await bucketsPage.closeModal();
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.openBucketByName(bucketName);
+        await bucketsPage.enterPassphrase(bucketPassphrase);
+        await bucketsPage.clickContinueConfirmPassphrase();
+>>>>>>> af_JenkPlay
 
         // Checks for successful download
         await bucketsPage.downloadFileByName(fileName);
@@ -38,17 +56,30 @@ test.describe('Filebrowser + edge services', () => {
     });
 
     // This test check folder creation, upload using drag and drop function
+<<<<<<< HEAD
     test('Folder creation and folder drag and drop upload', async ({navigationMenu, dashboardPage, bucketsPage}) => {
+=======
+    test('Folder creation and folder drag and drop upload', async ({navigationMenu, bucketsPage}) => {
+>>>>>>> af_JenkPlay
 
         const bucketName = 'testbucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
         const folderName = 'test_folder';
 
+<<<<<<< HEAD
         await dashboardPage.enterOwnPassphraseModal(bucketPassphrase)
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
+=======
+        await bucketsPage.closeModal();
+
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.openBucketByName(bucketName);
+        await bucketsPage.enterPassphrase(bucketPassphrase);
+        await bucketsPage.clickContinueConfirmPassphrase();
+>>>>>>> af_JenkPlay
 
         //Create empty folder using New Folder Button
         await bucketsPage.createNewFolder(folderName);
@@ -59,15 +90,28 @@ test.describe('Filebrowser + edge services', () => {
         await bucketsPage.deleteFileByName(folderName);
 
     });
+<<<<<<< HEAD
     test('Share bucket and bucket details page', async ({navigationMenu, dashboardPage, bucketsPage, page}) => {
+=======
+    test('Share bucket and bucket details page', async ({navigationMenu, bucketsPage, page}) => {
+>>>>>>> af_JenkPlay
         const bucketName = 'sharebucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test1.jpeg';
 
+<<<<<<< HEAD
         await dashboardPage.enterOwnPassphraseModal(bucketPassphrase)
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
+=======
+        await bucketsPage.closeModal();
+
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.openBucketByName(bucketName);
+        await bucketsPage.enterPassphrase(bucketPassphrase);
+        await bucketsPage.clickContinueConfirmPassphrase();
+>>>>>>> af_JenkPlay
 
         //open bucket uitest3
         await bucketsPage.openFileByName(fileName);

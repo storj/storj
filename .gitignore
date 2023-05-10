@@ -39,7 +39,7 @@ resource.syso
 
 # Test debug output
 *.test.*
-!*.test.ts #Exception for playwright tests
+
 
 # storj-up automatically generates these files and should not be commit
 /docker-compose.yaml
@@ -52,3 +52,6 @@ dist
 # go workspaces
 go.work
 go.work.sum
+
+!*.test.ts #Exception for playwright tests
+!/testsuite/playwright-ui/tests/*
