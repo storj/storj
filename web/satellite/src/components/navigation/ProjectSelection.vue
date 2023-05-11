@@ -217,6 +217,8 @@ async function onProjectSelected(projectID: string): Promise<void> {
                 billingStore.getProjectUsageAndChargesCurrentRollup(),
                 projectsStore.getProjectLimits(projectID),
                 bucketsStore.getBuckets(FIRST_PAGE, projectID),
+                agStore.getAccessGrants(FIRST_PAGE, projectID),
+                pmStore.getProjectMembers(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
