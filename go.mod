@@ -43,7 +43,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
-	github.com/zeebo/clingy v0.0.0-20230301225531-f2d4117c8e8c
+	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
 	github.com/zyedidia/generic v1.2.1

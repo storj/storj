@@ -18,7 +18,6 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/uplink"
-	"storj.io/uplink/private/testuplink"
 )
 
 // External is the interface for all of the ways that the uplink command may interact with
@@ -43,9 +42,8 @@ type External interface {
 
 // Options contains all of the possible options for opening a filesystem or project.
 type Options struct {
-	EncryptionBypass               bool
-	ConnectionPoolOptions          rpcpool.Options
-	ConcurrentSegmentUploadsConfig testuplink.ConcurrentSegmentUploadsConfig
+	EncryptionBypass      bool
+	ConnectionPoolOptions rpcpool.Options
 }
 
 // LoadOptions takes a slice of Option values and returns a filled out Options struct.
@@ -69,11 +67,6 @@ func BypassEncryption(bypass bool) Option {
 // ConnectionPoolOptions will initialize the connection pool with options.
 func ConnectionPoolOptions(options rpcpool.Options) Option {
 	return Option{apply: func(opt *Options) { opt.ConnectionPoolOptions = options }}
-}
-
-// ConcurrentSegmentUploadsConfig will initialize the concurrent segment uploads config with config.
-func ConcurrentSegmentUploadsConfig(config testuplink.ConcurrentSegmentUploadsConfig) Option {
-	return Option{apply: func(opt *Options) { opt.ConcurrentSegmentUploadsConfig = config }}
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
