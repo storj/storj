@@ -114,21 +114,19 @@ func (o *stdReadHandle) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	if o.len >= 0 && o.len < int64(len(p)) {
+	if o.len < int64(len(p)) {
 		p = p[:o.len]
 	}
 
 	n, err := o.stdin.Read(p)
-	if o.len > 0 {
-		o.len -= int64(n)
-	}
+	o.len -= int64(n)
 
 	if err != nil && o.err == nil {
 		o.err = err
 		o.done.Release()
 	}
 
-	if o.len == 0 {
+	if o.len <= 0 {
 		o.closed = true
 		o.done.Release()
 	}
@@ -140,17 +138,143 @@ func (o *stdReadHandle) Read(p []byte) (int, error) {
 // write handles
 //
 
-// stdWriteHandle implements WriteHandle for stdouts.
-type stdWriteHandle struct {
-	stdout io.Writer
+// stdMultiWriteHandle implements MultiWriteHandle for stdouts.
+type stdMultiWriteHandle struct {
+	stdout closableWriter
+
+	mu   sync.Mutex
+	next *sync.Mutex
+	tail bool
+	done bool
 }
 
-func newStdWriteHandle(stdout io.Writer) *stdWriteHandle {
-	return &stdWriteHandle{
-		stdout: stdout,
+func newStdMultiWriteHandle(stdout io.Writer) *stdMultiWriteHandle {
+	return &stdMultiWriteHandle{
+		stdout: closableWriter{Writer: stdout},
+		next:   new(sync.Mutex),
 	}
 }
 
-func (s *stdWriteHandle) Write(b []byte) (int, error) { return s.stdout.Write(b) }
-func (s *stdWriteHandle) Commit() error               { return nil }
-func (s *stdWriteHandle) Abort() error                { return nil }
+func (s *stdMultiWriteHandle) NextPart(ctx context.Context, length int64) (WriteHandle, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.done {
+		return nil, errs.New("already closed")
+	} else if s.tail {
+		return nil, errs.New("unable to make part after tail part")
+	}
+
+	next := new(sync.Mutex)
+	next.Lock()
+
+	w := &stdWriteHandle{
+		stdout: &s.stdout,
+		mu:     s.next,
+		next:   next,
+		tail:   length < 0,
+		len:    length,
+	}
+
+	s.tail = w.tail
+	s.next = next
+
+	return w, nil
+}
+
+func (s *stdMultiWriteHandle) Commit(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.done = true
+	return nil
+}
+
+func (s *stdMultiWriteHandle) Abort(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.done = true
+	return nil
+}
+
+// stdWriteHandle implements WriteHandle for stdouts.
+type stdWriteHandle struct {
+	stdout *closableWriter
+	mu     *sync.Mutex
+	next   *sync.Mutex
+	tail   bool
+	len    int64
+}
+
+func (s *stdWriteHandle) unlockNext(err error) {
+	if s.next != nil {
+		if err != nil {
+			s.stdout.close(err)
+		}
+		s.next.Unlock()
+		s.next = nil
+	}
+}
+
+func (s *stdWriteHandle) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.tail {
+		if s.len <= 0 {
+			return 0, errs.New("write past maximum length")
+		} else if s.len < int64(len(p)) {
+			p = p[:s.len]
+		}
+	}
+
+	n, err := s.stdout.Write(p)
+
+	if !s.tail {
+		s.len -= int64(n)
+		if s.len == 0 {
+			s.unlockNext(err)
+		}
+	}
+
+	return n, err
+}
+
+func (s *stdWriteHandle) Commit() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.len = 0
+	s.unlockNext(nil)
+
+	return nil
+}
+
+func (s *stdWriteHandle) Abort() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.len = 0
+	s.unlockNext(context.Canceled)
+
+	return nil
+}
+
+type closableWriter struct {
+	io.Writer
+	err error
+}
+
+func (out *closableWriter) Write(p []byte) (int, error) {
+	if out.err != nil {
+		return 0, out.err
+	}
+	n, err := out.Writer.Write(p)
+	out.err = err
+	return n, err
+}
+
+func (out *closableWriter) close(err error) {
+	out.err = err
+}
