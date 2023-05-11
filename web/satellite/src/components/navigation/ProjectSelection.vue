@@ -42,17 +42,21 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
+            <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                <ProjectIcon />
+                <p class="project-selection__dropdown__link-container__label">All projects</p>
+            </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
-            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
+            <div v-if="!isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
                 <ManageIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
             </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
-                <p class="project-selection__dropdown__link-container__label">Create new</p>
+                <p class="project-selection__dropdown__link-container__label">Create new project</p>
             </div>
         </div>
     </div>
@@ -76,6 +80,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -93,6 +98,7 @@ const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -117,6 +123,13 @@ const style = computed((): Record<string, string> => {
  */
 const isOnboardingTour = computed((): boolean => {
     return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/**
+ * Indicates if all projects dashboard is enabled.
+ */
+const isAllProjectsDashboard = computed((): boolean => {
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -263,6 +276,15 @@ function onProjectsLinkClick(): void {
         router.push(RouteConfig.ProjectsList.path);
     }
 
+    closeDropdown();
+}
+
+/**
+ * Route to all projects page.
+ */
+function onAllProjectsClick(): void {
+    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
     closeDropdown();
 }
 
