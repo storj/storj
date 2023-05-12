@@ -26,10 +26,12 @@ import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -39,7 +41,9 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
+const router = useRouter();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -123,6 +127,11 @@ function hideBanner(): void {
  * Sets bucket view.
  */
 onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
     await setBucketsView();
 });

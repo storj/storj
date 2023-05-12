@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -104,17 +104,23 @@ import { computed, onMounted } from 'vue';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { Duration } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
+const router = useRouter();
 const { isLoading, withLoading } = useLoading();
 
 /**
@@ -129,6 +135,13 @@ const user = computed((): User => {
  */
 const userDuration = computed((): Duration | null => {
     return usersStore.state.settings.sessionDuration;
+});
+
+/**
+ * Returns whether we're on the settings page on the all projects dashboard.
+ */
+const isOnAllDashboardSettings = computed((): boolean => {
+    return router.currentRoute.path.includes(RouteConfig.AccountSettings.path);
 });
 
 /**
@@ -205,6 +218,11 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Lifecycle hook after initial render where user info is fetching.
  */
 onMounted(() => {
+    if (!isOnAllDashboardSettings.value && !projectsStore.state.selectedProject.id) {
+        router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     usersStore.getUser();
 });
 </script>

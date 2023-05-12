@@ -53,9 +53,11 @@ import {
     ProjectMemberHeaderState,
 } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -66,7 +68,9 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
+const router = useRouter();
 
 const FIRST_PAGE = 1;
 
@@ -152,6 +156,11 @@ async function onPageChange(index: number, limit: number): Promise<void> {
  * Fetches first page of team members list of current project.
  */
 onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     try {
         await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
 
