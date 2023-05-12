@@ -236,7 +236,7 @@ const sessionRefreshInterval = computed((): number => {
  * Indicates whether the update session timeout notification should be shown.
  */
 const isUpdateSessionTimeoutBanner = computed((): boolean => {
-    return router.currentRoute.name !== RouteConfig.Settings.name && appStore.state.isUpdateSessionTimeoutBanner;
+    return (router.currentRoute.name !== RouteConfig.Settings.name && !isOnboardingTour.value) && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -338,13 +338,7 @@ const limitState = computed((): LimitedState => {
  * Indicates if navigation sidebar is hidden.
  */
 const isNavigationHidden = computed((): boolean => {
-    return (!isAllProjectsDashboard.value && isOnboardingTour.value)
-        || isCreateProjectPage.value;
-});
-
-/* whether all projects dashboard should be used */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
+    return isOnboardingTour.value || isCreateProjectPage.value;
 });
 
 /* whether the project limit banner should be shown. */
