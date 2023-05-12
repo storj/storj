@@ -7,7 +7,26 @@
     </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+
+import { onMounted } from 'vue';
+
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useRouter } from '@/utils/hooks';
+
+const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
+const router = useRouter();
+
+onMounted(() => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        router.push(RouteConfig.AllProjectsDashboard.path);
+    }
+});
+
+</script>
 
 <style scoped lang="scss">
 .tour-area {

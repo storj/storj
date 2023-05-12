@@ -50,9 +50,13 @@ import { NavigationLink } from '@/types/navigation';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const appStore = useAppStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -140,6 +144,11 @@ function routeToCoupons(): void {
  * Fetches account balance.
  */
 onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     try {
         await billingStore.getBalance();
     } catch (error) {
