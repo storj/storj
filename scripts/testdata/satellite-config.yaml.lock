@@ -1171,6 +1171,9 @@ server.private-address: 127.0.0.1:7778
 # server address to check its version against
 # version.server-address: https://version.storj.io
 
+# as of system interval
+# zombie-deletion.as-of-system-interval: -5m0s
+
 # set if zombie object cleanup is enabled or not
 # zombie-deletion.enabled: true
 
