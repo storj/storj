@@ -4,8 +4,10 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -3082,6 +3084,10 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	if err != nil {
 		return WalletPayments{}, Error.Wrap(err)
 	}
+	txns, err := payment.service.billing.ListSource(ctx, user.ID, billing.StorjScanBonusSource)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
 
 	var paymentInfos []PaymentInfo
 	for _, walletPayment := range walletPayments {
@@ -3105,6 +3111,25 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Status:    txInfo.Status.String(),
 			Link:      txInfo.Link,
 			Timestamp: txInfo.CreatedAt.UTC(),
+		})
+	}
+	for _, txn := range txns {
+		var meta struct {
+			ReferenceID string
+			LogIndex    int
+		}
+		err = json.NewDecoder(bytes.NewReader(txn.Metadata)).Decode(&meta)
+		if err != nil {
+			return WalletPayments{}, Error.Wrap(err)
+		}
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+			Type:      txn.Source,
+			Wallet:    address.Hex(),
+			Amount:    txn.Amount,
+			Status:    string(txn.Status),
+			Link:      EtherscanURL(meta.ReferenceID),
+			Timestamp: txn.Timestamp,
 		})
 	}
 

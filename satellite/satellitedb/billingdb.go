@@ -235,6 +235,25 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 	return txs, nil
 }
 
+func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource string) (txs []billing.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx,
+		dbx.BillingTransaction_UserId(userID[:]), dbx.BillingTransaction_Source(txSource))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, dbxTX := range dbxTXs {
+		tx, err := fromDBXBillingTransaction(dbxTX)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		txs = append(txs, *tx)
+	}
+
+	return txs, nil
+}
+
 func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currency.Amount, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBilling, err := db.db.Get_BillingBalance_Balance_By_UserId(ctx,

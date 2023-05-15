@@ -4,6 +4,7 @@
 package console_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -30,6 +31,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
@@ -1485,6 +1487,12 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.BillingConfig.DisableLoop = false
+				config.Payments.BonusRate = 10
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		now := time.Now().Truncate(time.Second).UTC()
@@ -1571,6 +1579,37 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Status:    tx.Status.String(),
 				Link:      coinpayments.GetCheckoutURL(tx.Key, tx.ID),
 				Timestamp: tx.CreatedAt,
+			})
+		}
+
+		// get billing chore to insert bonuses for transactions.
+		sat.Core.Payments.BillingChore.TransactionCycle.TriggerWait()
+
+		txns, err := sat.DB.Billing().ListSource(ctx, user.ID, billing.StorjScanBonusSource)
+		require.NoError(t, err)
+		require.NotEmpty(t, txns)
+
+		for _, txn := range txns {
+			if txn.Source != billing.StorjScanBonusSource {
+				continue
+			}
+			var meta struct {
+				ReferenceID string
+				Wallet      string
+				LogIndex    int
+			}
+			err = json.NewDecoder(bytes.NewReader(txn.Metadata)).Decode(&meta)
+			if err != nil {
+				continue
+			}
+			expected = append(expected, console.PaymentInfo{
+				ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+				Type:      txn.Source,
+				Wallet:    meta.Wallet,
+				Amount:    txn.Amount,
+				Status:    string(txn.Status),
+				Link:      console.EtherscanURL(meta.ReferenceID),
+				Timestamp: txn.Timestamp,
 			})
 		}
 
