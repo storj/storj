@@ -50,6 +50,8 @@ func main() {
 		"*sql.Tx", "tagsql.Tx",
 		"*sql.Rows", "tagsql.Rows",
 		`_ "github.com/jackc/pgx/v4/stdlib"`, `"storj.io/private/tagsql"`,
+		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/private/tagsql"`,
+		`"github.com/jackc/pgx/v5/pgconn"`, `"github.com/jackc/pgconn"`,
 		"type DB struct {\n\t*sql.DB", "type DB struct {\n\ttagsql.DB",
 		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.Wrap(sql_db)",
 	)
