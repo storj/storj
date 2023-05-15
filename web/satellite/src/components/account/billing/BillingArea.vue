@@ -78,10 +78,17 @@ const isBalanceDropdownShown = computed((): boolean => {
 });
 
 /**
+ * Returns whether we're on the settings/billing page on the all projects dashboard.
+ */
+const isOnAllDashboardSettings = computed((): boolean => {
+    return router.currentRoute.path.includes(RouteConfig.AccountSettings.path);
+});
+
+/**
  * Returns the base account route based on if we're on all projects dashboard.
  */
 const baseAccountRoute = computed((): NavigationLink => {
-    if (router.currentRoute.path.includes(RouteConfig.AccountSettings.path)) {
+    if (isOnAllDashboardSettings.value) {
         return RouteConfig.AccountSettings;
     }
 
@@ -144,7 +151,7 @@ function routeToCoupons(): void {
  * Fetches account balance.
  */
 onMounted(async (): Promise<void> => {
-    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+    if (!isOnAllDashboardSettings.value && !projectsStore.state.selectedProject.id) {
         await router.push(RouteConfig.AllProjectsDashboard.path);
         return;
     }

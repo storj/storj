@@ -172,6 +172,11 @@ async function processSearchQuery(search: string): Promise<void> {
  * Set up listener to clear search bar.
  */
 onMounted((): void => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        // navigation back to the all projects dashboard is done in ProjectMembersArea.vue
+        return;
+    }
+
     pmStore.$onAction(({ name, after, args }) => {
         if (name === 'setSearchQuery' && args[0] === '') {
             after((_) => searchInput.value?.clearSearch());
