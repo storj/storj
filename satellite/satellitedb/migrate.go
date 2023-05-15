@@ -2363,6 +2363,18 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE project_invitations ADD COLUMN inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop partner_id columns",
+				Version:     236,
+				Action: migrate.SQL{
+					`ALTER TABLE projects DROP COLUMN partner_id;`,
+					`ALTER TABLE users DROP COLUMN partner_id;`,
+					`ALTER TABLE api_keys DROP COLUMN partner_id;`,
+					`ALTER TABLE bucket_metainfos DROP COLUMN partner_id;`,
+					`ALTER TABLE value_attributions DROP COLUMN partner_id;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

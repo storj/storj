@@ -39,9 +39,6 @@ model project (
     field burst_limit                       int       ( nullable, updatable )
     // max_buckets is the maximum number of buckets that can be created for the project.
     field max_buckets                       int       ( nullable, updatable )
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    field partner_id                        blob      ( nullable )
     // user_agent is the referred partner who created the project.
     field user_agent                        blob      ( nullable )
     // owner_id refers to the user UUID in user.id.
@@ -206,9 +203,6 @@ model api_key (
     field  name        text       (updatable)
     // secret is the macaroon secret.
     field  secret      blob
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    field  partner_id  blob       (nullable)
     // user_agent is the referred partner who created the project.
     field  user_agent  blob       (nullable)
     // created_at indicates when the api key was added.
