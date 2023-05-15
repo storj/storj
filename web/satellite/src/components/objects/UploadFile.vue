@@ -94,6 +94,13 @@ const linksharingURL = computed((): string => {
 });
 
 /**
+ * Returns public linksharing URL from store.
+ */
+const publicLinksharingURL = computed((): string => {
+    return configStore.state.config.publicLinksharingURL;
+});
+
+/**
  * Generates a URL for an object map.
  */
 async function generateObjectPreviewAndMapUrl(path: string): Promise<string> {
@@ -128,7 +135,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
 
         await analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
-        return `${linksharingURL.value}/${credentials.accessKeyId}/${path}`;
+        return `${publicLinksharingURL.value}/${credentials.accessKeyId}/${path}`;
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 

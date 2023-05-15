@@ -254,7 +254,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.storjshare.io
+# console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
 
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
@@ -271,8 +271,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
-# url link for linksharing requests
-# console.linksharing-url: https://link.storjshare.io
+# url link for linksharing requests within the application
+# console.linksharing-url: https://link.storjsatelliteshare.io
 
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
@@ -309,6 +309,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
+
+# url link for linksharing requests for external sharing
+# console.public-linksharing-url: https://link.storjshare.io
 
 # number of events before the limit kicks in
 # console.rate-limit.burst: 5

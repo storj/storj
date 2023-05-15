@@ -164,9 +164,9 @@ async function setShareLink(): Promise<void> {
 
         path = encodeURIComponent(path.trim());
 
-        const linksharingURL = configStore.state.config.linksharingURL;
+        const publicLinksharingURL = configStore.state.config.publicLinksharingURL;
 
-        link.value = `${linksharingURL}/${credentials.accessKeyId}/${path}`;
+        link.value = `${publicLinksharingURL}/${credentials.accessKeyId}/${path}`;
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
     } finally {

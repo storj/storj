@@ -29,6 +29,7 @@ type FrontendConfig struct {
 	CouponCodeSignupUIEnabled       bool                  `json:"couponCodeSignupUIEnabled"`
 	FileBrowserFlowDisabled         bool                  `json:"fileBrowserFlowDisabled"`
 	LinksharingURL                  string                `json:"linksharingURL"`
+	PublicLinksharingURL            string                `json:"publicLinksharingURL"`
 	PathwayOverviewEnabled          bool                  `json:"pathwayOverviewEnabled"`
 	Captcha                         console.CaptchaConfig `json:"captcha"`
 	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
