@@ -5,12 +5,13 @@ package verify
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
 // Error is the default error class for the package.
@@ -22,17 +23,18 @@ type Chore struct {
 
 	Config Config
 
-	DB segmentloop.MetabaseDB
+	DB *metabase.DB
 }
 
 // Config contains configuration for all the services.
 type Config struct {
 	ProgressPrintFrequency int64
-	Loop                   segmentloop.Config
+
+	Loop rangedloop.Config
 }
 
 // New creates new verification.
-func New(log *zap.Logger, mdb segmentloop.MetabaseDB, config Config) *Chore {
+func New(log *zap.Logger, mdb *metabase.DB, config Config) *Chore {
 	return &Chore{
 		Log:    log,
 		Config: config,
@@ -42,28 +44,23 @@ func New(log *zap.Logger, mdb segmentloop.MetabaseDB, config Config) *Chore {
 
 // RunOnce creates a new segmentloop and runs the verifications.
 func (chore *Chore) RunOnce(ctx context.Context) error {
-	loop := segmentloop.New(chore.Log, chore.Config.Loop, chore.DB)
+	plainOffset := &SegmentSizes{
+		Log: chore.Log.Named("segment-sizes"),
+	}
+	progress := &ProgressObserver{
+		Log:                    chore.Log.Named("progress"),
+		ProgressPrintFrequency: chore.Config.ProgressPrintFrequency,
+	}
 
-	var group errs2.Group
-	group.Go(func() error {
-		plainOffset := &SegmentSizes{
-			Log: chore.Log.Named("segment-sizes"),
-		}
-		err := loop.Join(ctx, plainOffset)
-		return Error.Wrap(err)
-	})
+	// override parallelism to simulate old segments loop
+	chore.Config.Loop.Parallelism = 1
+	provider := rangedloop.NewMetabaseRangeSplitter(chore.DB, 5*time.Second, 2500)
+	loop := rangedloop.NewService(chore.Log, chore.Config.Loop, provider,
+		[]rangedloop.Observer{
+			plainOffset,
+			progress,
+		})
 
-	group.Go(func() error {
-		progress := &ProgressObserver{
-			Log:                    chore.Log.Named("progress"),
-			ProgressPrintFrequency: chore.Config.ProgressPrintFrequency,
-		}
-		err := loop.Monitor(ctx, progress)
-		progress.Report()
-		return Error.Wrap(err)
-	})
-	group.Go(func() error {
-		return Error.Wrap(loop.RunOnce(ctx))
-	})
-	return Error.Wrap(errs.Combine(group.Wait()...))
+	_, err := loop.RunOnce(ctx)
+	return Error.Wrap(err)
 }
