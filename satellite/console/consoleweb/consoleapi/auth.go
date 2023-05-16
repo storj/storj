@@ -132,14 +132,13 @@ func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	authToken := r.Header.Get("Authorization")
-	split := strings.Split(authToken, "Bearer ")
-	if len(split) != 2 {
+	if !(strings.HasPrefix(authToken, "Bearer ")) {
 		a.log.Info("authorization key format is incorrect. Should be 'Bearer <key>'")
 		a.serveJSONError(w, err)
 		return
 	}
 
-	apiKey := split[1]
+	apiKey := strings.TrimPrefix(authToken, "Bearer ")
 
 	userAgent := r.UserAgent()
 	ip, err := web.GetRequestIP(r)
