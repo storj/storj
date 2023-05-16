@@ -125,7 +125,7 @@ type DB interface {
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
-	// TestVetNode directly sets a node's offline_suspended timestamp to make testing easier
+	// TestSuspendNodeOffline directly sets a node's offline_suspended timestamp to make testing easier
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
@@ -430,7 +430,7 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // requested node is not in the database, an empty string will be returned corresponding
 // to that node's last_net.
 func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
-	return service.db.GetNodesNetworkInOrder(ctx, nodeIDs)
+	return service.UploadSelectionCache.GetNodesNetwork(ctx, nodeIDs)
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
@@ -930,6 +930,11 @@ func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.No
 	}
 
 	return nil
+}
+
+// TestRefreshUploadSelectionCache refreshes the upload selection cache.
+func (service *Service) TestRefreshUploadSelectionCache(ctx context.Context) (err error) {
+	return service.UploadSelectionCache.Refresh(ctx)
 }
 
 func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storj.NodeID, repEvents []nodeevents.Type) {
