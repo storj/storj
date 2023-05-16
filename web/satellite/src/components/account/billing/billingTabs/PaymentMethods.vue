@@ -165,8 +165,8 @@
                     </template>
                     <template #body>
                         <token-transaction-item
-                            v-for="item in displayedHistory"
-                            :key="item.id"
+                            v-for="(item, index) in displayedHistory"
+                            :key="index"
                             :item="item"
                         />
                     </template>
@@ -940,10 +940,15 @@ $align: center;
             flex-wrap: wrap;
             gap: 0.3rem;
 
+            @media screen and (width <= 650px) {
+                width: 100%;
+            }
+
             &__address {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
+                width: 100%;
                 gap: 0.3rem;
 
                 &__label {
@@ -953,6 +958,8 @@ $align: center;
 
                 &__value {
                     font-family: 'font_bold', sans-serif;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
             }
         }

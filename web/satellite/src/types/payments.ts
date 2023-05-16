@@ -611,14 +611,17 @@ export class NativePaymentHistoryItem {
     }
 
     public get formattedType(): string {
-        return this.type.charAt(0).toUpperCase() + this.type.substring(1);
+        if (this.type.includes('bonus')) {
+            return 'Bonus';
+        }
+        return 'Deposit';
     }
 
-    public get linkName(): string {
-        if (this.type === 'storjscan') {
-            return 'Etherscan';
+    public get formattedAmount(): string {
+        if (this.type === 'coinpayments') {
+            return this.received.formattedValue;
         }
-        return this.formattedType;
+        return this.amount.formattedValue;
     }
 }
 
@@ -630,6 +633,10 @@ export class TokenAmount {
 
     public get value(): number {
         return Number.parseFloat(this._value);
+    }
+
+    public get formattedValue(): string {
+        return formatPrice(this._value);
     }
 }
 

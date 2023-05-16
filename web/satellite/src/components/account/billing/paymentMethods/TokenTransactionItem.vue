@@ -6,38 +6,38 @@
         <th class="align-left data mobile">
             <div class="few-items">
                 <p class="array-val">
-                    Deposit on {{ item.formattedType }}
+                    STORJ {{ item.formattedType }}
                 </p>
                 <p class="array-val">
-                    <span v-if="item.type === 'storjscan'">{{ item.amount.value }}</span>
-                    <span v-else>{{ item.received.value }}</span>
+                    <span class="amount">+ {{ item.formattedAmount }}</span>
                 </p>
                 <p
                     class="array-val" :class="{
                         pending_txt: item.status === 'pending',
-                        confirmed_txt: item.status === 'confirmed',
+                        confirmed_txt: item.status === 'confirmed' || item.status === 'complete',
                         rejected_txt: item.status === 'rejected',
                     }"
                 >
                     {{ item.formattedStatus }}
                 </p>
                 <p class="array-val">
-                    {{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}
+                    {{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }},
+                    {{ item.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}
                 </p>
             </div>
         </th>
 
         <th class="align-left data tablet-laptop">
-            <p>{{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}</p>
+            <p class="date">{{ item.timestamp.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) }}</p>
+            <p class="time">{{ item.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}</p>
         </th>
         <th class="align-left data tablet-laptop">
-            <p>Deposit on {{ item.formattedType }}</p>
+            <p>STORJ {{ item.formattedType }}</p>
             <p class="laptop">{{ item.wallet }}</p>
         </th>
 
-        <th class="align-right data tablet-laptop">
-            <p v-if="item.type === 'storjscan'">{{ item.amount.value }}</p>
-            <p v-else>{{ item.received.value }}</p>
+        <th class="align-left data tablet-laptop">
+            <p class="amount">+ {{ item.formattedAmount }}</p>
         </th>
 
         <th class="align-left data tablet-laptop">
@@ -45,7 +45,7 @@
                 <span
                     class="status__dot" :class="{
                         pending: item.status === 'pending',
-                        confirmed: item.status === 'confirmed',
+                        confirmed: item.status === 'confirmed' || item.status === 'complete',
                         rejected: item.status === 'rejected'
                     }"
                 />
@@ -57,13 +57,14 @@
             <a
                 v-if="item.link" class="download-link" target="_blank"
                 rel="noopener noreferrer" :href="item.link"
-            >View on {{ item.linkName }}</a>
+            >View</a>
         </th>
     </tr>
 </template>
 
 <script setup lang="ts">
-import { NativePaymentHistoryItem } from '@/types/payments';
+import { formatPrice } from '@/utils/strings';
+import { NativePaymentHistoryItem, NativePaymentType } from '@/types/payments';
 import { useResize } from '@/composables/resize';
 
 const props = withDefaults(defineProps<{
@@ -82,6 +83,19 @@ function goToTxn() {
 </script>
 
 <style scoped lang="scss">
+    .amount {
+        color: var(--c-green-5);
+    }
+
+    p,
+    span {
+        line-height: 20px;
+    }
+
+    .time {
+        color: var(--c-grey-5);
+    }
+
     .pending {
         background: var(--c-yellow-4);
     }
