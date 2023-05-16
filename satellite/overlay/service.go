@@ -932,11 +932,6 @@ func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.No
 	return nil
 }
 
-// TestRefreshUploadSelectionCache refreshes the upload selection cache.
-func (service *Service) TestRefreshUploadSelectionCache(ctx context.Context) (err error) {
-	return service.UploadSelectionCache.Refresh(ctx)
-}
-
 func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storj.NodeID, repEvents []nodeevents.Type) {
 	defer mon.Task()(&ctx)(nil)
 
