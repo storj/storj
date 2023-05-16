@@ -34,7 +34,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  */
 function onCloseClick(): void {
     analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
-    appStore.updateActiveModal(MODALS.newBillingAddCoupon);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -44,7 +44,7 @@ function onCloseClick(): void {
         padding: 32px;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 650px) {
+        @media screen and (width <= 650px) {
             width: unset;
             padding: 24px;
         }

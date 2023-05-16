@@ -1,6 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Component } from 'vue';
+
 import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
 import RemoveTeamMemberModal from '@/components/modals/RemoveProjectMemberModal.vue';
 import EditProfileModal from '@/components/modals/EditProfileModal.vue';
@@ -86,8 +88,7 @@ enum Modals {
     CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
 }
 
-// modals could be of VueConstructor type or Object (for composition api components).
-export const MODALS: Record<Modals, unknown> = {
+export const MODALS: Record<Modals, Component> = {
     [Modals.ADD_TEAM_MEMBER]: AddTeamMemberModal,
     [Modals.REMOVE_TEAM_MEMBER]: RemoveTeamMemberModal,
     [Modals.EDIT_PROFILE]: EditProfileModal,

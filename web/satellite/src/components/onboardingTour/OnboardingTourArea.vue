@@ -8,13 +8,12 @@
 </template>
 
 <script setup lang="ts">
-
 import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useRouter } from '@/utils/hooks';
 
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
@@ -25,7 +24,6 @@ onMounted(() => {
         router.push(RouteConfig.AllProjectsDashboard.path);
     }
 });
-
 </script>
 
 <style scoped lang="scss">
@@ -38,7 +36,7 @@ onMounted(() => {
     align-items: center;
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .tour-area {
         width: 88% !important;

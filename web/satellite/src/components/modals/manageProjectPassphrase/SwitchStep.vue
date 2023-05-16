@@ -43,7 +43,6 @@
 import { ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -92,7 +91,7 @@ async function onSwitch(): Promise<void> {
     bucketsStore.setPromptForPassphrase(false);
 
     notify.success('Passphrase was switched successfully');
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -124,7 +123,7 @@ async function onSwitch(): Promise<void> {
         border-top: 1px solid var(--c-grey-2);
         width: 100%;
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             column-gap: unset;
             flex-direction: column-reverse;
             row-gap: 15px;

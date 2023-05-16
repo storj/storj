@@ -140,14 +140,13 @@ function onOneYearClick(): void {
         top: 100%;
         left: 0;
         display: flex;
-        align-items: center;
         cursor: default;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             left: -90px;
         }
 
-        @media screen and (max-width: 460px) {
+        @media screen and (width <= 460px) {
             flex-direction: column;
             width: 320px;
             left: -78px;
@@ -158,7 +157,7 @@ function onOneYearClick(): void {
             padding-left: 0;
             margin-top: 0;
 
-            @media screen and (max-width: 460px) {
+            @media screen and (width <= 460px) {
                 columns: 2;
                 width: 100%;
             }
@@ -170,6 +169,7 @@ function onOneYearClick(): void {
                 color: var(--c-grey-8);
                 cursor: pointer;
                 white-space: nowrap;
+                line-height: 33px;
 
                 &:hover {
                     font-weight: bold;

@@ -36,12 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed, Component } from 'vue';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 const props = withDefaults(defineProps<{
-    icon: VueConstructor
+    icon: Component
     title: string
     color: string
     usedValue: number
@@ -64,7 +64,7 @@ const props = withDefaults(defineProps<{
  * Returns progress bar styling which depends on provided prop values.
  */
 const style = computed((): Record<string, string> => {
-    let color = '';
+    let color: string;
     switch (true) {
     case props.isDark:
         color = '#091c45';

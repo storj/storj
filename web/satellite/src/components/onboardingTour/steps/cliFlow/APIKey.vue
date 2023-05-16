@@ -22,10 +22,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 

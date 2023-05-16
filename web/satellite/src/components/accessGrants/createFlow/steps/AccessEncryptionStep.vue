@@ -190,7 +190,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
         align-items: flex-start;
         margin-top: 16px;
 
-        @media screen and (max-width: 460px) {
+        @media screen and (width <= 460px) {
             flex-direction: column;
         }
 
@@ -198,7 +198,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
             min-width: 32px;
             margin-right: 16px;
 
-            @media screen and (max-width: 460px) {
+            @media screen and (width <= 460px) {
                 margin: 0 0 16px;
             }
         }

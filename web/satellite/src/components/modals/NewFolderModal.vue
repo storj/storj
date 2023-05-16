@@ -41,7 +41,6 @@
 import { computed, ref } from 'vue';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -94,7 +93,7 @@ const createFolderEnabled = computed((): boolean => {
  * Close the NewFolderModal.
  */
 function close(): void {
-    appStore.updateActiveModal(MODALS.newFolder);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -144,7 +143,7 @@ async function createFolder(): Promise<void> {
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 450px) {
+        @media screen and (width <= 450px) {
             width: 320px;
         }
 
@@ -165,7 +164,7 @@ async function createFolder(): Promise<void> {
             margin-top: 30px;
             column-gap: 20px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 margin-top: 20px;
                 column-gap: unset;
                 row-gap: 8px;

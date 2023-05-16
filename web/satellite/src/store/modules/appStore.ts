@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { Component, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { OnboardingOS, PricingPlanInfo } from '@/types/common';
@@ -25,8 +25,7 @@ class AppState {
     public selectedPricingPlan: PricingPlanInfo | null = null;
     public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined;
     public activeDropdown = 'none';
-    // activeModal could be of VueConstructor type or Object (for composition api components).
-    public activeModal: unknown | null = null;
+    public activeModal: Component | null = null;
     // this field is mainly used on the all projects dashboard as an exit condition
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
@@ -64,8 +63,7 @@ export const useAppStore = defineStore('app', () => {
         state.isSuccessfulPasswordResetShown = !state.isSuccessfulPasswordResetShown;
     }
 
-    function updateActiveModal(modal: unknown): void {
-        // modal could be of VueConstructor type or Object (for composition api components).
+    function updateActiveModal(modal: Component): void {
         if (state.activeModal === modal) {
             state.activeModal = null;
             return;

@@ -50,9 +50,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
@@ -81,6 +82,7 @@ import BillingIcon from '@/../static/images/navigation/billing.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const analytics = new AnalyticsHttpApi();
@@ -129,7 +131,7 @@ function navigateToBilling(): void {
     closeDropdown();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
@@ -144,7 +146,7 @@ function navigateToBilling(): void {
 function navigateToSettings(): void {
     closeDropdown();
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 

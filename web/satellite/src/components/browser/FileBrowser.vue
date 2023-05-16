@@ -194,6 +194,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
@@ -203,7 +204,7 @@ import BreadCrumbs from './BreadCrumbs.vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -224,8 +225,8 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const folderInput = ref<HTMLInputElement>();
@@ -234,6 +235,10 @@ const fileInput = ref<HTMLInputElement>();
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
 const isBannerShown = ref<boolean>(true);
+/**
+ * Retrieve the pathMatch from the current route.
+ */
+const routePath = ref(calculateRoutePath());
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -363,11 +368,6 @@ const folders = computed((): BrowserObject[] => {
 });
 
 /**
- * Retrieve the pathMatch from the current route.
- */
-const routePath = ref(calculateRoutePath());
-
-/**
  * Returns bucket name from store.
  */
 const bucket = computed((): string => {
@@ -382,11 +382,11 @@ function closeBanner(): void {
 }
 
 function calculateRoutePath(): string {
-    let pathMatch = router.currentRoute.params.pathMatch;
+    let pathMatch = route.params.pathMatch;
     pathMatch = Array.isArray(pathMatch)
         ? pathMatch.join('/') + '/'
         : pathMatch;
-    return pathMatch;
+    return pathMatch || '';
 }
 
 async function onBack(): Promise<void> {
@@ -542,7 +542,7 @@ onBeforeMount(async () => {
             obStore.getObjectCount(),
         ]);
     } catch (err) {
-        await notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+        notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
 
     // remove the spinner after files have been fetched
@@ -556,12 +556,12 @@ onBeforeMount(async () => {
 }
 
 .hide-mobile {
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
         display: none;
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
     // hide size, upload date columns on mobile screens
 
     :deep(.data:not(:nth-child(2))) {
@@ -606,7 +606,7 @@ onBeforeMount(async () => {
     svg {
         width: 300px;
 
-        @media screen and (max-width: 425px) {
+        @media screen and (width <= 425px) {
             width: unset;
         }
     }
@@ -796,7 +796,7 @@ onBeforeMount(async () => {
     align-items: center;
     margin: 1.5em 0;
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
         flex-direction: column;
         justify-content: flex-start;
         align-items: flex-start;
@@ -809,7 +809,7 @@ onBeforeMount(async () => {
         line-height: 1.2;
         word-break: break-all;
 
-        @media screen and (max-width: 768px) {
+        @media screen and (width <= 768px) {
             margin-bottom: 0.5rem;
         }
     }

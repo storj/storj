@@ -44,7 +44,6 @@ import { computed, reactive, ref } from 'vue';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -90,14 +89,14 @@ async function onUpdateClick(): Promise<void> {
     try {
         await userStore.updateUser(userInfo);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
 
         return;
     }
 
     analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
 
-    await notify.success('Account info successfully updated!');
+    notify.success('Account info successfully updated!');
 
     closeModal();
 }
@@ -106,7 +105,7 @@ async function onUpdateClick(): Promise<void> {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.editProfile);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -120,15 +119,15 @@ function closeModal(): void {
         min-width: 530px;
         box-sizing: border-box;
 
-        @media screen and (max-width: 580px) {
+        @media screen and (width <= 580px) {
             min-width: 450px;
         }
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             min-width: unset;
         }
 
-        @media screen and (max-width: 400px) {
+        @media screen and (width <= 400px) {
             padding: 24px;
         }
 
@@ -137,7 +136,7 @@ function closeModal(): void {
             align-items: center;
             margin-bottom: 30px;
 
-            @media screen and (max-width: 400px) {
+            @media screen and (width <= 400px) {
                 margin-bottom: 0;
             }
 
@@ -151,7 +150,7 @@ function closeModal(): void {
                 background: #e8eaf2;
                 margin-right: 20px;
 
-                @media screen and (max-width: 400px) {
+                @media screen and (width <= 400px) {
                     display: none;
                 }
 
@@ -179,7 +178,7 @@ function closeModal(): void {
             margin-top: 40px;
             column-gap: 20px;
 
-            @media screen and (max-width: 400px) {
+            @media screen and (width <= 400px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;

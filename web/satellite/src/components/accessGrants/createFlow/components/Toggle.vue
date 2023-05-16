@@ -161,7 +161,7 @@ const props = withDefaults(defineProps<{
     filter: none;
     transform: rotate(-180deg);
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
         left: unset;
         right: -83px;
     }
@@ -180,7 +180,7 @@ const props = withDefaults(defineProps<{
     height: 10px;
     margin-bottom: -3px;
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
         margin-right: 88px;
     }
 }

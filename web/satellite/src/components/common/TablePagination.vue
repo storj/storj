@@ -276,7 +276,7 @@ async function prevPage(): Promise<void> {
                 line-height: 22px;
             }
 
-            @media only screen and (max-width: 550px) {
+            @media only screen and (width <= 550px) {
 
                 &.index:not(.selected),
                 &.jumper {

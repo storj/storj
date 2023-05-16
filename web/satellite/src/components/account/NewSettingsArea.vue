@@ -100,11 +100,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { Duration } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -121,6 +122,7 @@ const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 const { isLoading, withLoading } = useLoading();
 
 /**
@@ -141,7 +143,7 @@ const userDuration = computed((): Duration | null => {
  * Returns whether we're on the settings page on the all projects dashboard.
  */
 const isOnAllDashboardSettings = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.AccountSettings.path);
+    return route.path.includes(RouteConfig.AccountSettings.path);
 });
 
 /**
@@ -258,7 +260,7 @@ onMounted(() => {
                 grid-template-columns: 1fr 1fr 1fr;
                 align-items: center;
 
-                @media screen and (max-width: 500px) {
+                @media screen and (width <= 500px) {
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -286,7 +288,7 @@ onMounted(() => {
                     justify-content: flex-end;
                     gap: 5px;
 
-                    @media screen and (max-width: 500px) {
+                    @media screen and (width <= 500px) {
                         width: 100%;
                         justify-content: flex-start;
                     }

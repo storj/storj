@@ -336,7 +336,7 @@ onMounted(() => {
     padding: 32px;
     font-family: 'font_regular', sans-serif;
 
-    @media screen and (max-width: 375px) {
+    @media screen and (width <= 375px) {
         padding: 32px 16px;
     }
 
@@ -369,7 +369,7 @@ onMounted(() => {
             column-gap: 16px;
 
             &__wrap {
-                @media screen and (max-width: 475px) {
+                @media screen and (width <= 475px) {
                     width: calc(50% - 8px);
                 }
 
@@ -404,7 +404,7 @@ onMounted(() => {
                         width: 100px;
                         border-radius: 8px 0 0 8px;
 
-                        @media screen and (max-width: 475px) {
+                        @media screen and (width <= 475px) {
                             padding-right: 0;
                             width: calc(100% - 54px);
                         }

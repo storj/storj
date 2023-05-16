@@ -85,7 +85,7 @@ function onCreateProjectClicked(): void {
         justify-content: space-between;
         align-items: center;
 
-        @media screen and (max-width: 425px) {
+        @media screen and (width <= 425px) {
             flex-direction: column;
             align-items: start;
             gap: 20px;
@@ -117,15 +117,15 @@ function onCreateProjectClicked(): void {
             overflow: hidden;
         }
 
-        @media screen and (max-width: 1024px) {
+        @media screen and (width <= 1024px) {
             grid-template-columns: 1fr 1fr 1fr;
         }
 
-        @media screen and (max-width: 786px) {
+        @media screen and (width <= 786px) {
             grid-template-columns: 1fr 1fr;
         }
 
-        @media screen and (max-width: 425px) {
+        @media screen and (width <= 425px) {
             grid-template-columns: auto;
         }
     }
@@ -143,7 +143,7 @@ function onCreateProjectClicked(): void {
             left: 0;
         }
 
-        @media screen and (max-width: 425px) {
+        @media screen and (width <= 425px) {
 
             & :deep(.empty-project-item) {
                 width: 100%;

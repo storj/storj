@@ -65,12 +65,10 @@
 <script setup lang='ts'>
 import { computed, ref } from 'vue';
 
-import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -127,10 +125,6 @@ const isButtonActive = computed((): boolean => {
     }
 
     return false;
-});
-
-const registerPath = computed((): string => {
-    return location.host + RouteConfig.Register.path;
 });
 
 function setInput(index: number, str: string) {
@@ -247,7 +241,7 @@ function deleteInput(index: number): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.addTeamMember);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -266,7 +260,7 @@ function resetFormErrors(index: number): void {
         width: 346px;
         padding: 32px;
 
-        @media screen and (max-width: 460px) {
+        @media screen and (width <= 460px) {
             width: 280px;
             padding: 16px;
         }
@@ -278,7 +272,7 @@ function resetFormErrors(index: number): void {
             margin-bottom: 16px;
             border-bottom: 1px solid var(--c-grey-2);
 
-            @media screen and (max-width: 460px) {
+            @media screen and (width <= 460px) {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -292,7 +286,7 @@ function resetFormErrors(index: number): void {
                 color: var(--c-black);
                 text-align: left;
 
-                @media screen and (max-width: 460px) {
+                @media screen and (width <= 460px) {
                     margin: 10px 0 0;
                 }
             }
@@ -366,7 +360,7 @@ function resetFormErrors(index: number): void {
             margin-top: 10px;
             width: 100%;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;

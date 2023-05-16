@@ -1,8 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue from 'vue';
-import Router, { RouteRecord } from 'vue-router';
+import { RouteRecord, createRouter, useRoute, createWebHistory } from 'vue-router';
 
 import { NavigationLink } from '@/types/navigation';
 import { useAppStore } from '@/store/modules/appStore';
@@ -53,8 +52,6 @@ const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
 const RegisterArea = () => import('@/views/registration/RegisterArea.vue');
 const ResetPassword = () => import('@/views/ResetPassword.vue');
-
-Vue.use(Router);
 
 /**
  * RouteConfig contains information about all routes and subroutes
@@ -121,7 +118,7 @@ export abstract class RouteConfig {
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
-    public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+    public static UploadFileChildren = new NavigationLink(':pathMatch*', 'Objects Upload Children');
 }
 
 export const notProjectRelatedRoutes = [
@@ -140,8 +137,8 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Settings.name,
 ];
 
-export const router = new Router({
-    mode: 'history',
+export const router = createRouter({
+    history: createWebHistory(),
     routes: [
         {
             path: RouteConfig.Login.path,
@@ -386,7 +383,7 @@ export const router = new Router({
             component: AllDashboardArea,
             children: [
                 {
-                    path: RouteConfig.Root.path,
+                    path: RouteConfig.AllProjectsDashboard.path,
                     name: RouteConfig.AllProjectsDashboard.name,
                     component: MyProjects,
                 },
@@ -464,17 +461,6 @@ router.beforeEach(async (to, from, next) => {
         appStore.toggleHasJustLoggedIn(false);
     }
 
-    // TODO: Disabled this navigation guard because we try to get active pinia before it is initialised.
-    // In any case this feature is redundant since we have project level passphrase.
-
-    // if (!to.path.includes(RouteConfig.UploadFile.path)) {
-    //     const appStore = useAppStore();
-    //     if (appStore.state.viewsState.activeModal !== MODALS.uploadCancelPopup) {
-    //         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
-    //         if (areUploadsInProgress) return;
-    //     }
-    // }
-
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
@@ -529,7 +515,8 @@ function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink
 function updateTitle(): void {
     const configStore = useConfigStore();
     const projectsStore = useProjectsStore();
-    const routeName = router.currentRoute.name;
+    const route = useRoute();
+    const routeName = route.name as string;
     const parts = [routeName, configStore.state.config.satelliteName];
 
     if (routeName && !notProjectRelatedRoutes.includes(routeName)) {

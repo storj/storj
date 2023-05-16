@@ -100,22 +100,7 @@
                         Or use recovery code
                     </span>
                 </template>
-                <div v-if="captchaConfig.recaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
-                    <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
-                        <ErrorIcon />
-                        <p class="login-area__content-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
-                    </div>
-                    <VueRecaptcha
-                        ref="recaptcha"
-                        :sitekey="captchaConfig.recaptcha.siteKey"
-                        :load-recaptcha-script="true"
-                        size="invisible"
-                        @verify="onCaptchaVerified"
-                        @expired="onCaptchaError"
-                        @error="onCaptchaError"
-                    />
-                </div>
-                <div v-else-if="captchaConfig.hcaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
+                <div v-if="captchaConfig.hcaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
                     <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
                         <ErrorIcon />
                         <p class="login-area__content-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
@@ -159,9 +144,9 @@
 </template>
 
 <script setup lang="ts">
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
@@ -173,7 +158,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -213,7 +198,6 @@ const isDropdownShown = ref(false);
 
 const returnURL = ref(RouteConfig.ProjectDashboard.path);
 
-const recaptcha = ref<VueRecaptcha | null>(null);
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const mfaInput = ref<ConfirmMFAInput & ClearInput | null>(null);
 
@@ -227,8 +211,8 @@ const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 /**
  * Name of the current satellite.
@@ -256,14 +240,14 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
-    isActivatedBannerShown.value = !!router.currentRoute.query.activated;
-    isActivatedError.value = router.currentRoute.query.activated === 'false';
+    isActivatedBannerShown.value = !!route.query.activated;
+    isActivatedError.value = route.query.activated === 'false';
 
     if (configStore.state.config.allProjectsDashboard) {
         returnURL.value = RouteConfig.AllProjectsDashboard.path;
     }
 
-    returnURL.value = router.currentRoute.query.return_url as string || returnURL.value;
+    returnURL.value = route.query.return_url as string || returnURL.value;
 });
 
 /**
@@ -373,7 +357,7 @@ async function onLoginClick(): Promise<void> {
         return;
     }
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.id === 'loginDropdown') return;
 
@@ -383,10 +367,6 @@ async function onLoginClick(): Promise<void> {
     }
 
     isLoading.value = true;
-    if (recaptcha.value && !captchaResponseToken.value) {
-        recaptcha.value?.execute();
-        return;
-    }
     if (hcaptcha.value && !captchaResponseToken.value) {
         hcaptcha.value?.execute();
         return;
@@ -410,10 +390,6 @@ async function login(): Promise<void> {
         const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
     } catch (error) {
-        if (recaptcha.value) {
-            recaptcha.value?.reset();
-            captchaResponseToken.value = '';
-        }
         if (hcaptcha.value) {
             hcaptcha.value?.reset();
             captchaResponseToken.value = '';
@@ -483,10 +459,7 @@ function validateFields(): boolean {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -731,7 +704,7 @@ function validateFields(): boolean {
         visibility: hidden;
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .login-area {
 
@@ -752,7 +725,7 @@ function validateFields(): boolean {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .login-area {
 

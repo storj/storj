@@ -44,7 +44,6 @@ const appStore = useAppStore();
  * Closes this modal and opens upgrade account modal.
  */
 function onClick(): void {
-    appStore.updateActiveModal(MODALS.createProjectPrompt);
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
@@ -52,7 +51,7 @@ function onClick(): void {
  * Closes create project prompt modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.createProjectPrompt);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -65,12 +64,12 @@ function closeModal(): void {
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 768px) {
+        @media screen and (width <= 768px) {
             width: unset;
             padding: 54px 24px 65px;
         }
 
-        @media screen and (max-width: 450px) {
+        @media screen and (width <= 450px) {
             padding: 54px 12px 32px;
         }
 
@@ -78,7 +77,7 @@ function closeModal(): void {
             max-height: 154px;
             max-width: 118px;
 
-            @media screen and (max-width: 450px) {
+            @media screen and (width <= 450px) {
                 max-height: 127px;
                 max-width: 97px;
             }
@@ -92,7 +91,7 @@ function closeModal(): void {
             margin-top: 40px;
             text-align: center;
 
-            @media screen and (max-width: 450px) {
+            @media screen and (width <= 450px) {
                 margin-top: 24px;
                 font-size: 24px;
                 line-height: 31px;
@@ -107,7 +106,7 @@ function closeModal(): void {
             color: #354049;
             margin: 15px 0 45px;
 
-            @media screen and (max-width: 450px) {
+            @media screen and (width <= 450px) {
                 margin: 10px 0 24px;
                 font-size: 14px;
                 line-height: 20px;
@@ -119,7 +118,7 @@ function closeModal(): void {
             justify-content: center;
             width: 256px;
 
-            @media screen and (max-width: 768px) {
+            @media screen and (width <= 768px) {
                 width: 224px;
             }
         }

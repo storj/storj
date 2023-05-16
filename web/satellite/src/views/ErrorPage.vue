@@ -23,8 +23,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -92,10 +92,7 @@ onMounted(() => {
 <style scoped lang="scss">
     .error-area {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         padding: 52px 24px;
         box-sizing: border-box;
         display: flex;
@@ -150,7 +147,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-height: 500px) {
+    @media screen and (height <= 500px) {
 
         .error-area {
             justify-content: flex-start;

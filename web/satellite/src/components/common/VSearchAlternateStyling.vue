@@ -66,7 +66,7 @@ defineExpose({ clearSearch });
         background-size: 22px 22px;
         background-position: top 8px left 14px;
 
-        @media screen and (max-width: 1150px) {
+        @media screen and (width <= 1150px) {
             width: 100%;
         }
     }

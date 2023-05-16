@@ -133,7 +133,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -145,7 +146,7 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -190,8 +191,8 @@ const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -236,7 +237,7 @@ const sessionRefreshInterval = computed((): number => {
  * Indicates whether the update session timeout notification should be shown.
  */
 const isUpdateSessionTimeoutBanner = computed((): boolean => {
-    return (router.currentRoute.name !== RouteConfig.Settings.name && !isOnboardingTour.value) && appStore.state.isUpdateSessionTimeoutBanner;
+    return (route.name !== RouteConfig.Settings.name && !isOnboardingTour.value) && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -378,14 +379,14 @@ const joinedWhileAgo = computed((): boolean => {
  * Indicates if current route is projects list page.
  */
 const isProjectListPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.ProjectsList.name;
+    return route.name === RouteConfig.ProjectsList.name;
 });
 
 /**
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+    return route.path.includes(RouteConfig.OnboardingTour.path);
 });
 
 /**
@@ -428,21 +429,21 @@ const isLargeUploadWarningNotificationShown = computed((): boolean => {
  * Indicates if current route is create project page.
  */
 const isCreateProjectPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.CreateProject.name;
+    return route.name === RouteConfig.CreateProject.name;
 });
 
 /**
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.ProjectDashboard.name;
+    return route.name === RouteConfig.ProjectDashboard.name;
 });
 
 /**
  * Indicates if current route is the bucketsView page.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.BucketsManagement.name;
+    return route.name === RouteConfig.BucketsManagement.name;
 });
 
 /**
@@ -524,7 +525,7 @@ function restartSessionTimers(): void {
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
 
-    if (!debugTimerShown) return;
+    if (!debugTimerShown.value) return;
 
     const debugTimer = () => {
         const expiresAt = LocalData.getSessionExpirationDate();
@@ -791,7 +792,7 @@ onMounted(async () => {
             }
 
             const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
-            if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
+            if (usersStore.shouldOnboard && route.path !== onboardingPath) {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
             }
@@ -901,7 +902,7 @@ onBeforeUnmount(() => {
         width: 100%;
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .regular-navigation {
             display: none;
@@ -912,7 +913,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 800px) {
+    @media screen and (width <= 800px) {
 
         .dashboard__wrap__main-area__content-wrap__container__content {
             padding: 32px 24px 50px;
@@ -923,7 +924,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         .dashboard__wrap__main-area {
             flex-direction: column;

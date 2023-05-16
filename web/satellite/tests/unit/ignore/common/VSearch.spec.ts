@@ -7,19 +7,19 @@ import SearchComponent from '@/components/common/VSearch.vue';
 
 describe('SearchComponent.vue', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount<SearchComponent>(SearchComponent);
+        const wrapper = shallowMount(SearchComponent);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with default props', () => {
-        const wrapper = mount<SearchComponent>(SearchComponent);
+        const wrapper = mount(SearchComponent);
 
         expect(wrapper.vm.$props.placeholder).toMatch('');
     });
 
     it('functions onMouseEnter/onMouseLeave work correctly', () => {
-        const wrapper = mount<SearchComponent>(SearchComponent);
+        const wrapper = mount(SearchComponent);
 
         wrapper.vm.onMouseEnter();
 
@@ -34,7 +34,7 @@ describe('SearchComponent.vue', () => {
     it('function clearSearch works correctly', () => {
         const processSearchQuerySpy = jest.fn();
 
-        const wrapper = mount<SearchComponent>(SearchComponent);
+        const wrapper = mount(SearchComponent);
 
         wrapper.vm.processSearchQuery = processSearchQuerySpy;
         wrapper.vm.clearSearch();

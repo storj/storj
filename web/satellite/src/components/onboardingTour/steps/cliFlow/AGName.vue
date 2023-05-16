@@ -26,12 +26,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -99,9 +100,9 @@ async function onNextClick(): Promise<void> {
     try {
         createdAccessGrant = await agStore.createAccessGrant(name.value, projectsStore.state.selectedProject.id);
 
-        await notify.success('New clean access grant was generated successfully.');
+        notify.success('New clean access grant was generated successfully.');
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
         return;
     } finally {
         isLoading.value = false;

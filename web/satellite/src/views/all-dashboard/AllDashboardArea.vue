@@ -119,7 +119,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { User } from '@/types/users';
@@ -127,7 +128,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -160,8 +161,8 @@ import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSession
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const configStore = useConfigStore();
@@ -219,7 +220,7 @@ const sessionRefreshInterval = computed((): number => {
  * Indicates whether the update session timeout notification should be shown.
  */
 const isUpdateSessionTimeoutBanner = computed((): boolean => {
-    return router.currentRoute.name !== RouteConfig.Settings2.name && appStore.state.isUpdateSessionTimeoutBanner;
+    return route.name !== RouteConfig.Settings2.name && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -321,7 +322,7 @@ const limitState = computed((): LimitedState => {
  * Whether the current route is the billing page.
  */
 const isBillingPage = computed(() => {
-    return router.currentRoute.path.includes(RouteConfig.Billing2.path);
+    return route.path.includes(RouteConfig.Billing2.path);
 });
 
 /**
@@ -718,7 +719,7 @@ onBeforeUnmount(() => {
         max-width: 1200px;
         box-sizing: border-box;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             margin-top: 0;
             padding: 0;
         }
@@ -734,7 +735,7 @@ onBeforeUnmount(() => {
             margin: 20px 0;
             border: 0.5px solid var(--c-grey-2);
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 display: none;
             }
         }
@@ -775,10 +776,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     align-items: center;
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--c-white);
     visibility: hidden;
     opacity: 0;
@@ -792,10 +790,7 @@ onBeforeUnmount(() => {
 
 .loading-icon {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     margin: auto;
 }
 

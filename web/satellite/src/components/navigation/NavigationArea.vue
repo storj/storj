@@ -80,13 +80,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -108,8 +108,8 @@ import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
 const configStore = useConfigStore();
 const appStore = useAppStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const TWENTY_PIXELS = 20;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -167,7 +167,7 @@ function onLogoClick(): void {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         return;
     }
 
@@ -461,7 +461,7 @@ onBeforeUnmount(() => {
         color: var(--c-blue-3);
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .navigation-area {
             min-width: unset;

@@ -53,7 +53,7 @@ describe('actions', () => {
 
         await store.getProjects();
 
-        expect(store.state.projects).toBe(projects);
+        expect(store.state.projects).toStrictEqual(projects);
     });
 
     it('fetch throws an error when api call fails', async () => {

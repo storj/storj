@@ -70,7 +70,7 @@ const props = defineProps<{
     align-items: center;
     column-gap: 16px;
 
-    @media screen and (max-width: 520px) {
+    @media screen and (width <= 520px) {
         flex-direction: column;
         column-gap: unset;
         row-gap: 16px;

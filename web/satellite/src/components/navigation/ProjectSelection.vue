@@ -63,7 +63,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -72,7 +73,7 @@ import { LocalData } from '@/utils/localData';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -100,8 +101,8 @@ const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -122,7 +123,7 @@ const style = computed((): Record<string, string> => {
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+    return route.path.includes(RouteConfig.OnboardingTour.path);
 });
 
 /**
@@ -157,7 +158,7 @@ const selectedProject = computed((): Project => {
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.Buckets.path);
+    return route.path.includes(RouteConfig.Buckets.path);
 });
 
 /**
@@ -219,7 +220,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         const now = new Date();
         const past = new Date();
         past.setDate(past.getDate() - 30);
@@ -240,7 +241,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.AccessGrants.name) {
+    if (route.name === RouteConfig.AccessGrants.name) {
         try {
             await agStore.getAccessGrants(FIRST_PAGE, projectID);
         } catch (error) {
@@ -250,7 +251,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.Team.name) {
+    if (route.name === RouteConfig.Team.name) {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {
@@ -270,7 +271,7 @@ function closeDropdown(): void {
  * Route to projects list page.
  */
 function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+    if (route.name !== RouteConfig.ProjectsList.name) {
         analytics.pageVisit(RouteConfig.ProjectsList.path);
         analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
@@ -301,7 +302,7 @@ function onManagePassphraseClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+    if (route.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = userStore.state.user;
@@ -526,7 +527,7 @@ function onCreateLinkClick(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .project-selection__selected {
             padding: 10px 0;

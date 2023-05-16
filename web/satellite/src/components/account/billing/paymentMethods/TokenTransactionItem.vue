@@ -27,46 +27,42 @@
             </div>
         </th>
 
-        <fragment>
-            <th class="align-left data tablet-laptop">
-                <p>{{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}</p>
-            </th>
-            <th class="align-left data tablet-laptop">
-                <p>Deposit on {{ item.formattedType }}</p>
-                <p class="laptop">{{ item.wallet }}</p>
-            </th>
+        <th class="align-left data tablet-laptop">
+            <p>{{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}</p>
+        </th>
+        <th class="align-left data tablet-laptop">
+            <p>Deposit on {{ item.formattedType }}</p>
+            <p class="laptop">{{ item.wallet }}</p>
+        </th>
 
-            <th class="align-right data tablet-laptop">
-                <p v-if="item.type === 'storjscan'">{{ item.amount.value }}</p>
-                <p v-else>{{ item.received.value }}</p>
-            </th>
+        <th class="align-right data tablet-laptop">
+            <p v-if="item.type === 'storjscan'">{{ item.amount.value }}</p>
+            <p v-else>{{ item.received.value }}</p>
+        </th>
 
-            <th class="align-left data tablet-laptop">
-                <div class="status">
-                    <span
-                        class="status__dot" :class="{
-                            pending: item.status === 'pending',
-                            confirmed: item.status === 'confirmed',
-                            rejected: item.status === 'rejected'
-                        }"
-                    />
-                    <span class="status__text">{{ item.formattedStatus }}</span>
-                </div>
-            </th>
+        <th class="align-left data tablet-laptop">
+            <div class="status">
+                <span
+                    class="status__dot" :class="{
+                        pending: item.status === 'pending',
+                        confirmed: item.status === 'confirmed',
+                        rejected: item.status === 'rejected'
+                    }"
+                />
+                <span class="status__text">{{ item.formattedStatus }}</span>
+            </div>
+        </th>
 
-            <th class="align-left data laptop">
-                <a
-                    v-if="item.link" class="download-link" target="_blank"
-                    rel="noopener noreferrer" :href="item.link"
-                >View on {{ item.linkName }}</a>
-            </th>
-        </fragment>
+        <th class="align-left data laptop">
+            <a
+                v-if="item.link" class="download-link" target="_blank"
+                rel="noopener noreferrer" :href="item.link"
+            >View on {{ item.linkName }}</a>
+        </th>
     </tr>
 </template>
 
 <script setup lang="ts">
-import { Fragment } from 'vue-fragment';
-
 import { NativePaymentHistoryItem } from '@/types/payments';
 import { useResize } from '@/composables/resize';
 
@@ -149,7 +145,7 @@ function goToTxn() {
         }
     }
 
-    @media only screen and (max-width: 425px) {
+    @media only screen and (width <= 425px) {
 
         .mobile {
             display: table-cell;
@@ -161,7 +157,7 @@ function goToTxn() {
         }
     }
 
-    @media only screen and (min-width: 426px) {
+    @media only screen and (width >= 426px) {
 
         .tablet-laptop {
             display: table-cell;
@@ -172,14 +168,14 @@ function goToTxn() {
         }
     }
 
-    @media only screen and (max-width: 1024px) and (min-width: 426px) {
+    @media only screen and (width <= 1024px) and (width >= 426px) {
 
         .laptop {
             display: none;
         }
     }
 
-    @media only screen and (min-width: 1024px) {
+    @media only screen and (width >= 1024px) {
 
         .laptop {
             display: table-cell;

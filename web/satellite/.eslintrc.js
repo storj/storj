@@ -81,11 +81,13 @@ module.exports = {
         'vue/html-button-has-type': ['error'],
         'vue/no-unused-properties': ['warn'],
         'vue/no-unused-refs': ['warn'],
+        'vue/no-unused-vars': ['warn'],
         'vue/no-useless-v-bind': ['warn'],
 
         'vue/no-useless-template-attributes': ['off'], // TODO: fix later
+        'vue/no-multiple-template-root': ['off'], // it's possible to have multiple roots in template in Vue 3
 
-        'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
+        'vue/no-undef-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
 
         'storj/vue/require-annotation': 'warn',
 

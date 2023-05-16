@@ -64,7 +64,7 @@ const itemToRender = computed((): { [key: string]: string | string[] } => {
         max-width: 25rem;
     }
 
-    @media screen and (max-width: 940px) {
+    @media screen and (width <= 940px) {
 
         :deep(th) {
             max-width: 10rem;

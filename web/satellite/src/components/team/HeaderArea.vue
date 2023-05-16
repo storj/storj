@@ -68,13 +68,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 
-import { RouteConfig } from '@/router';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
-import { Project } from '@/types/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -95,15 +93,12 @@ const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const router = useRouter();
 
 const props = withDefaults(defineProps<{
     headerState: ProjectMemberHeaderState;
-    selectedProjectMembersCount: number;
     isAddButtonDisabled: boolean;
 }>(), {
     headerState: ProjectMemberHeaderState.DEFAULT,
-    selectedProjectMembersCount: 0,
     isAddButtonDisabled: false,
 });
 
@@ -120,16 +115,8 @@ const projectName = computed((): string => {
     return projectsStore.state.selectedProject.name;
 });
 
-const isDefaultState = computed((): boolean => {
-    return props.headerState === 0;
-});
-
 const areProjectMembersSelected = computed((): boolean => {
     return props.headerState === 1 && !isDeleteClicked.value;
-});
-
-const userCountTitle = computed((): string => {
-    return props.selectedProjectMembersCount === 1 ? 'user' : 'users';
 });
 
 /**
@@ -163,7 +150,7 @@ async function processSearchQuery(search: string): Promise<void> {
     try {
         await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
     }
 }
 
@@ -203,7 +190,7 @@ onBeforeUnmount((): void => {
             justify-content: space-between;
             align-items: center;
 
-            @media screen and (max-width: 1150px) {
+            @media screen and (width <= 1150px) {
                 flex-direction: column;
                 align-items: flex-start;
                 justify-content: flex-start;
@@ -313,7 +300,7 @@ onBeforeUnmount((): void => {
         align-items: center;
         justify-content: space-between;
 
-        @media screen and (max-width: 1150px) {
+        @media screen and (width <= 1150px) {
             flex-direction: column;
             align-items: flex-start;
             justify-content: flex-start;
@@ -345,7 +332,7 @@ onBeforeUnmount((): void => {
             opacity: 0.3;
             background-color: #f5f6fa;
 
-            @media screen and (max-width: 1150px) {
+            @media screen and (width <= 1150px) {
                 bottom: unset;
                 right: 0;
                 width: unset;

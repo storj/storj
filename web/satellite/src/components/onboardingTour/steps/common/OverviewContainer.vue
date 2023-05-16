@@ -129,7 +129,7 @@ const props = withDefaults(defineProps<{
     }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .overview-container {
         width: 250px;

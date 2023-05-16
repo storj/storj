@@ -2,19 +2,22 @@
 // See LICENSE for copying information.
 
 <template>
-    <DatePicker
+    <VueDatePicker
         aria-roledescription="datepicker"
         range
         :open="isOpen"
-        :inline="true"
         :value="dateRange"
+        :editable="false"
+        :clearable="false"
+        :append-to-body="false"
         popup-class="picker"
+        :popup-style="{position: 'relative', left: 0, top: 0}"
         @change="onDatePick"
     />
 </template>
 
 <script setup lang="ts">
-import DatePicker from 'vue2-datepicker';
+import VueDatePicker from 'vue-datepicker-next';
 
 const props = withDefaults(defineProps<{
     isOpen?: boolean;
@@ -28,18 +31,26 @@ const props = withDefaults(defineProps<{
 </script>
 
 <style lang="scss">
-    @import '~vue2-datepicker/scss/index';
+    @import 'vue-datepicker-next/index.css';
+
+    .mx-input-wrapper {
+        display: none;
+    }
+
+    .mx-datepicker-popup {
+        box-shadow: unset;
+    }
+
+    .mx-calendar {
+        width: 100%;
+    }
 
     .picker,
     .mx-datepicker,
     .mx-range-wrapper {
-        width: 100%;
         border: none;
         border-radius: 8px;
         cursor: default;
-    }
-
-    .mx-calendar {
         width: 100%;
     }
 
@@ -58,11 +69,11 @@ const props = withDefaults(defineProps<{
     .mx-calendar-content .cell {
         font-size: 12px;
         line-height: 18px;
-        color: #000;
+        color: var(--c-black);
     }
 
     .mx-calendar-content .cell.in-range {
-        color: #000;
+        color: var(--c-black);
         background-color: var(--c-blue-1);
         border-radius: 999px;
     }
@@ -82,12 +93,12 @@ const props = withDefaults(defineProps<{
         font-family: 'font_medium', sans-serif;
         font-size: 14px;
         line-height: 20px;
-        color: #000;
+        color: var(--c-black);
     }
 
     .mx-btn:hover {
-        border-color: #000;
-        color: #000;
+        border-color: var(--c-black);
+        color: var(--c-black);
     }
 
     .mx-btn-icon-double-right,
@@ -102,7 +113,7 @@ const props = withDefaults(defineProps<{
         border-width: 4px 0 0 4px;
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
 
         .range-selection__popup {
             width: 320px !important;

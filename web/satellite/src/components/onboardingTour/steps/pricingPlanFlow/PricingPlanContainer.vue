@@ -181,7 +181,7 @@ const isFree = computed((): boolean => props.plan.type === PricingPlanType.FREE)
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-container {
         width: 100%;

@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed, Component } from 'vue';
 
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
@@ -82,7 +82,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits(['selectClicked']);
 
-const icons = new Map<string, VueConstructor>([
+const icons = new Map<string, Component>([
     ['locked', TableLockedIcon],
     ['bucket', ColorBucketIcon],
     ['folder', ColorFolderIcon],

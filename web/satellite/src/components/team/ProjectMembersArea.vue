@@ -47,13 +47,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import {
     ProjectMember,
     ProjectMemberHeaderState,
 } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { RouteConfig } from '@/router';
@@ -166,7 +167,7 @@ onMounted(async (): Promise<void> => {
 
         areMembersFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
 });
 </script>
@@ -203,7 +204,7 @@ onMounted(async (): Promise<void> => {
         }
     }
 
-    @media screen and (max-width: 800px) and (min-width: 500px) {
+    @media screen and (width <= 800px) and (width >= 500px) {
 
         .date-added {
             display: none;

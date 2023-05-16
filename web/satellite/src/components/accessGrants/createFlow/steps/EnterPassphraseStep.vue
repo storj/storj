@@ -57,7 +57,7 @@ import VInput from '@/components/common/VInput.vue';
 
 const props = withDefaults(defineProps<{
     isProjectPassphrase?: boolean;
-    isNewPassphrase: boolean;
+    isNewPassphrase?: boolean;
     info: string;
     passphrase: string;
     setPassphrase: (value: string) => void;
@@ -65,6 +65,7 @@ const props = withDefaults(defineProps<{
     onContinue: () => void;
 }>(), {
     isProjectPassphrase: false,
+    isNewPassphrase: false,
 });
 
 const isPassphraseSaved = ref<boolean>(false);

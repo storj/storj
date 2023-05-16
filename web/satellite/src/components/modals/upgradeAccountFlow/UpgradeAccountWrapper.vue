@@ -12,10 +12,10 @@
 </template>
 
 <script setup lang="ts">
-import Vue, { VueConstructor } from 'vue';
+import { Component } from 'vue';
 
 const props = defineProps<{
-    icon?: VueConstructor<Vue>;
+    icon?: Component;
     title: string;
 }>();
 </script>
@@ -25,7 +25,7 @@ const props = defineProps<{
     padding: 32px;
     font-family: 'font_bold', sans-serif;
 
-    @media screen and (max-width: 350px) {
+    @media screen and (width <= 350px) {
         padding: 32px 16px;
     }
 
@@ -36,7 +36,7 @@ const props = defineProps<{
         margin-bottom: 16px;
         border-bottom: 1px solid var(--c-grey-2);
 
-        @media screen and (max-width: 690px) {
+        @media screen and (width <= 690px) {
             display: none;
         }
 

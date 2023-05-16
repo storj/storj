@@ -53,6 +53,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
@@ -60,7 +61,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -85,6 +86,7 @@ import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const configStore = useConfigStore();
@@ -149,7 +151,7 @@ function onUpgrade(): void {
 function navigateToBilling(): void {
     closeDropdown();
 
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
     analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
@@ -186,10 +188,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        await analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -408,7 +410,7 @@ function closeDropdown(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .account-area__wrap {
             padding: 10px 0;

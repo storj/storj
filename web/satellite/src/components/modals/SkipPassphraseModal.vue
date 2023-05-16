@@ -110,7 +110,7 @@ function closeModal(): void {
             margin-top: 31px;
             width: 100%;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 20px;

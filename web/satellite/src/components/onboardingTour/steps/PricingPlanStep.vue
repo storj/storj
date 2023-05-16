@@ -20,11 +20,12 @@
 
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -130,10 +131,7 @@ onBeforeMount(async () => {
 
     &__loader {
         position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        inset: 0;
         align-items: center;
     }
 
@@ -162,7 +160,7 @@ onBeforeMount(async () => {
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-area__plans {
         max-width: 444px;

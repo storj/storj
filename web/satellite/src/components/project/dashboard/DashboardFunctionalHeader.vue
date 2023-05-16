@@ -61,8 +61,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';

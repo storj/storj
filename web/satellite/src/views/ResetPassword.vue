@@ -75,14 +75,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -97,8 +98,8 @@ import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
@@ -171,7 +172,7 @@ async function onResetClick(): Promise<void> {
  */
 function validateFields(): boolean {
     let isNoErrors = true;
-    let config = configStore.state.config;
+    const config = configStore.state.config;
 
     if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid password';
@@ -269,8 +270,8 @@ onBeforeUnmount((): void => {
  * and redirects to login if token doesn't exist.
  */
 onMounted((): void => {
-    if (router.currentRoute.query.token) {
-        token.value = router.currentRoute.query.token.toString();
+    if (route.query.token) {
+        token.value = route.query.token.toString();
     } else {
         analytics.pageVisit(RouteConfig.Login.path);
         router.push(RouteConfig.Login.path);
@@ -287,10 +288,7 @@ onMounted((): void => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -433,7 +431,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .reset-area {
 
@@ -446,7 +444,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .reset-area {
 

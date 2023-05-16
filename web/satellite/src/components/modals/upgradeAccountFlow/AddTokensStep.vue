@@ -110,11 +110,11 @@ onMounted(async (): Promise<void> => {
     max-width: 482px;
     font-family: 'font_regular', sans-serif;
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
         max-width: 350px;
     }
 
-    @media screen and (max-width: 470px) {
+    @media screen and (width <= 470px) {
         max-width: 280px;
     }
 

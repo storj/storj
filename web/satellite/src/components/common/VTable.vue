@@ -86,7 +86,7 @@ const emit = defineEmits(['selectAllClicked']);
         background: var(--c-block-gray);
         text-transform: uppercase;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             display: none;
         }
 
@@ -109,7 +109,7 @@ const emit = defineEmits(['selectAllClicked']);
             font-size: 1rem;
             border-top: solid 1px var(--c-grey-2);
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 border-top: none;
                 border-bottom: solid 1px var(--c-grey-2);
             }
@@ -146,12 +146,12 @@ const emit = defineEmits(['selectAllClicked']);
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
         border-top: none;
     }
 }
 
-@media screen and (max-width: 970px) {
+@media screen and (width <= 970px) {
 
     tbody tr > .data p {
         max-width: 25rem;
@@ -161,14 +161,14 @@ const emit = defineEmits(['selectAllClicked']);
     }
 }
 
-@media screen and (max-width: 870px) {
+@media screen and (width <= 870px) {
 
     tbody tr > .data p {
         max-width: 20rem;
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     .select {
         display: none;
@@ -179,28 +179,28 @@ const emit = defineEmits(['selectAllClicked']);
     }
 }
 
-@media screen and (max-width: 660px) {
+@media screen and (width <= 660px) {
 
     tbody tr > .data p {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     tbody tr > .data p {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 440px) {
+@media screen and (width <= 440px) {
 
     tbody tr > .data p {
         max-width: 10rem;
     }
 }
 
-@media screen and (max-width: 350px) {
+@media screen and (width <= 350px) {
 
     tbody tr > .data p {
         max-width: 8rem;

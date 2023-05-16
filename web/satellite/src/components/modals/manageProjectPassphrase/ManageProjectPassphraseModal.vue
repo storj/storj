@@ -37,7 +37,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -111,7 +110,7 @@ function setManageOptions(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.removeActiveModal();
 }
 
 onMounted(() => {
@@ -123,7 +122,7 @@ onMounted(() => {
 .modal {
     padding: 32px;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
     }
 

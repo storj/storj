@@ -1,15 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-
-const localVue = createLocalVue();
 
 const projectsApi = new ProjectsApiMock();
 
@@ -28,9 +26,7 @@ describe('ProjectMembersArea.vue', () => {
     // pmApi.setMockPage(testProjectMembersPage);
 
     it('renders correctly', async (): Promise<void> => {
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         await wrapper.setData({ areMembersFetching: false });
 
@@ -40,9 +36,7 @@ describe('ProjectMembersArea.vue', () => {
     it('function fetchProjectMembers works correctly', () => {
         // store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         expect(wrapper.vm.projectMembers).toEqual([projectMember1]);
     });
@@ -50,9 +44,7 @@ describe('ProjectMembersArea.vue', () => {
     it('team area renders correctly', async (): Promise<void> => {
         // store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         await wrapper.setData({ areMembersFetching: false });
 
@@ -68,9 +60,7 @@ describe('ProjectMembersArea.vue', () => {
     it('action on toggle works correctly', () => {
         // store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         wrapper.vm.onMemberCheckChange(projectMember1);
 
@@ -87,9 +77,7 @@ describe('ProjectMembersArea.vue', () => {
         testProjectMembersPage.pageCount = 1;
         // store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         wrapper.vm.onMemberCheckChange(projectMember3);
 
@@ -105,9 +93,7 @@ describe('ProjectMembersArea.vue', () => {
 
         // store.commit(FETCH, testPage);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         // expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember1.user.id);
 
@@ -128,9 +114,7 @@ describe('ProjectMembersArea.vue', () => {
 
         // store.commit(FETCH, testPage1);
 
-        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(ProjectMembersArea);
 
         await wrapper.setData({ areMembersFetching: false });
 

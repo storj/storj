@@ -12,53 +12,55 @@
         :item-type="fileType"
         @selectClicked="selectFile"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
-            <div
-                v-if="loadingSpinner()"
-                class="spinner-border"
-                role="status"
-            />
-            <dots-icon v-else />
-            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
-                <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
-                    <preview-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Preview</p>
-                </div>
+        <template #options>
+            <th v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
+                <div
+                    v-if="loadingSpinner"
+                    class="spinner-border"
+                    role="status"
+                />
+                <dots-icon v-else />
+                <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                    <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
+                        <preview-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Preview</p>
+                    </div>
 
-                <div class="file-entry__functional__dropdown__item" @click.stop="download">
-                    <download-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Download</p>
-                </div>
+                    <div class="file-entry__functional__dropdown__item" @click.stop="download">
+                        <download-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Download</p>
+                    </div>
 
-                <div class="file-entry__functional__dropdown__item" @click.stop="share">
-                    <share-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Share</p>
-                </div>
+                    <div class="file-entry__functional__dropdown__item" @click.stop="share">
+                        <share-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Share</p>
+                    </div>
 
-                <div v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item" @click.stop="confirmDeletion">
-                    <delete-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
-                </div>
-                <div v-else class="file-entry__functional__dropdown__item confirmation">
-                    <div class="delete-confirmation">
-                        <p class="delete-confirmation__text">
-                            Are you sure?
-                        </p>
-                        <div class="delete-confirmation__options">
-                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
-                                <span><delete-icon /></span>
-                                <span>Yes</span>
-                            </span>
+                    <div v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item" @click.stop="confirmDeletion">
+                        <delete-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                    </div>
+                    <div v-else class="file-entry__functional__dropdown__item confirmation">
+                        <div class="delete-confirmation">
+                            <p class="delete-confirmation__text">
+                                Are you sure?
+                            </p>
+                            <div class="delete-confirmation__options">
+                                <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                    <span><delete-icon /></span>
+                                    <span>Yes</span>
+                                </span>
 
-                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
-                                <span><close-icon /></span>
-                                <span>No</span>
-                            </span>
+                                <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                    <span><close-icon /></span>
+                                    <span>No</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
     <table-item
         v-else-if="fileTypeIsFolder"
@@ -70,49 +72,52 @@
         item-type="folder"
         @selectClicked="selectFile"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
-            <div
-                v-if="loadingSpinner()"
-                class="spinner-border"
-                role="status"
-            />
-            <dots-icon v-else />
-            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+        <template #options>
+            <th v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
                 <div
-                    v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
-                    @click.stop="confirmDeletion"
-                >
-                    <delete-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
-                </div>
-                <div v-else class="file-entry__functional__dropdown__item confirmation">
-                    <div class="delete-confirmation">
-                        <p class="delete-confirmation__text">
-                            Are you sure?
-                        </p>
-                        <div class="delete-confirmation__options">
-                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
-                                <span><delete-icon /></span>
-                                <span>Yes</span>
-                            </span>
+                    v-if="loadingSpinner"
+                    class="spinner-border"
+                    role="status"
+                />
+                <dots-icon v-else />
+                <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                    <div
+                        v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
+                        @click.stop="confirmDeletion"
+                    >
+                        <delete-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                    </div>
+                    <div v-else class="file-entry__functional__dropdown__item confirmation">
+                        <div class="delete-confirmation">
+                            <p class="delete-confirmation__text">
+                                Are you sure?
+                            </p>
+                            <div class="delete-confirmation__options">
+                                <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                    <span><delete-icon /></span>
+                                    <span>Yes</span>
+                                </span>
 
-                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
-                                <span><close-icon /></span>
-                                <span>No</span>
-                            </span>
+                                <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                    <span><close-icon /></span>
+                                    <span>No</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -234,21 +239,21 @@ const fileTypeIsFile = computed((): boolean => {
 });
 
 /**
+ * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
+ */
+const loadingSpinner = computed((): boolean => {
+    return obStore.state.filesToBeDeleted.some(
+        (file) => file.Key === props.file.Key,
+    );
+});
+
+/**
  * Open the modal for the current file.
  */
 function openModal(): void {
     obStore.setObjectPathForModal(props.path + props.file.Key);
     appStore.updateActiveModal(MODALS.objectDetails);
     obStore.closeDropdown();
-}
-
-/**
- * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
- */
-function loadingSpinner(): boolean {
-    return Boolean(obStore.state.filesToBeDeleted.find(
-        (file) => file === props.file,
-    ));
 }
 
 /**
@@ -270,8 +275,8 @@ function selectFile(event: KeyboardEvent): void {
     setSelectedFile(isSelectedFile);
 }
 
-function openFolder(): void {
-    router.push(link.value);
+async function openFolder(): Promise<void> {
+    await router.push(link.value);
     obStore.clearAllSelectedFiles();
     emit('onUpdate');
 }
@@ -481,7 +486,7 @@ function cancelDeletion(): void {
         position: relative;
         cursor: pointer;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 0 10px;
             width: unset;
         }
@@ -566,7 +571,7 @@ function cancelDeletion(): void {
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
     // hide size, upload date columns on mobile screens
 
     :deep(.data:not(:nth-child(2))) {
@@ -602,14 +607,14 @@ function cancelDeletion(): void {
     max-width: 26rem;
 }
 
-@media screen and (max-width: 940px) {
+@media screen and (width <= 940px) {
 
     :deep(th) {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 650px) {
+@media screen and (width <= 650px) {
 
     :deep(th) {
         max-width: 10rem;

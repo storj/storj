@@ -31,10 +31,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -53,6 +54,7 @@ const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
 const props = defineProps<{
     setSuccess: () => void;
@@ -91,11 +93,11 @@ async function addCardToDB(token: string): Promise<void> {
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
 
-        if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+        if (route.name === RouteConfig.ProjectDashboard.name) {
             await projectsStore.getProjectLimits(projectsStore.state.selectedProject.id);
         }
 
-        if (router.currentRoute.path.includes(RouteConfig.Billing.path) || router.currentRoute.path.includes(RouteConfig.Billing2.path)) {
+        if (route.path.includes(RouteConfig.Billing.path) || route.path.includes(RouteConfig.Billing2.path)) {
             await billingStore.getCreditCards();
         }
 
@@ -104,7 +106,7 @@ async function addCardToDB(token: string): Promise<void> {
         loading.value = false;
         props.setSuccess();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         loading.value = false;
     }
 }

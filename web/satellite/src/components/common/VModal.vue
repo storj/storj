@@ -69,7 +69,7 @@ onMounted((): void => {
                 box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 margin: 0 24px;
 
-                @media screen and (max-width: 400px) {
+                @media screen and (width <= 400px) {
                     margin: 0;
                 }
 

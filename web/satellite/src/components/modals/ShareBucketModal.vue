@@ -44,7 +44,6 @@ import { computed, onMounted, ref } from 'vue';
 
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -193,7 +192,7 @@ function setWorker(): void {
 function closeModal(): void {
     if (isLoading.value) return;
 
-    appStore.updateActiveModal(MODALS.shareBucket);
+    appStore.removeActiveModal();
 }
 
 onMounted(async () => {
@@ -211,7 +210,7 @@ onMounted(async () => {
         padding: 50px;
         max-width: 470px;
 
-        @media screen and (max-width: 430px) {
+        @media screen and (width <= 430px) {
             padding: 20px;
         }
 
@@ -247,7 +246,7 @@ onMounted(async () => {
             margin-top: 32px;
             width: 100%;
 
-            @media screen and (max-width: 430px) {
+            @media screen and (width <= 430px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 15px;
@@ -274,7 +273,7 @@ onMounted(async () => {
             max-width: 340px;
             width: 100%;
 
-            @media screen and (max-width: 430px) {
+            @media screen and (width <= 430px) {
                 max-width: 210px;
             }
         }

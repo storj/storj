@@ -17,17 +17,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
 const appStore = useAppStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const props = defineProps<{
     dashboardRef: HTMLElement
@@ -39,7 +38,7 @@ const props = defineProps<{
 function redirectToSettingsPage(): void {
     onCloseClick();
 
-    if (router.currentRoute.path.includes(RouteConfig.AllProjectsDashboard.path)) {
+    if (route.path.includes(RouteConfig.AllProjectsDashboard.path)) {
         router.push(RouteConfig.AccountSettings.with(RouteConfig.Settings2).path);
         return;
     }

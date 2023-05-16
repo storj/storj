@@ -40,14 +40,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -58,8 +59,8 @@ const billingStore = useBillingStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -81,7 +82,7 @@ const isBalanceDropdownShown = computed((): boolean => {
  * Returns whether we're on the settings/billing page on the all projects dashboard.
  */
 const isOnAllDashboardSettings = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.AccountSettings.path);
+    return route.path.includes(RouteConfig.AccountSettings.path);
 });
 
 /**
@@ -99,7 +100,7 @@ const baseAccountRoute = computed((): NavigationLink => {
  * Whether current route name contains term.
  */
 function routeHas(term: string): boolean {
-    return !!router.currentRoute.name?.toLowerCase().includes(term);
+    return (route.name as string).toLowerCase().includes(term);
 }
 
 /**
@@ -116,7 +117,7 @@ function closeDropdown(): void {
  */
 function routeToOverview(): void {
     const overviewPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
-    if (router.currentRoute.path !== overviewPath) {
+    if (route.path !== overviewPath) {
         analytics.pageVisit(overviewPath);
         router.push(overviewPath);
     }
@@ -124,7 +125,7 @@ function routeToOverview(): void {
 
 function routeToPaymentMethods(): void {
     const payMethodsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
-    if (router.currentRoute.path !== payMethodsPath) {
+    if (route.path !== payMethodsPath) {
         analytics.pageVisit(payMethodsPath);
         router.push(payMethodsPath);
     }
@@ -132,7 +133,7 @@ function routeToPaymentMethods(): void {
 
 function routeToBillingHistory(): void {
     const billingPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path;
-    if (router.currentRoute.path !== billingPath) {
+    if (route.path !== billingPath) {
         analytics.pageVisit(billingPath);
         router.push(billingPath);
     }
@@ -140,7 +141,7 @@ function routeToBillingHistory(): void {
 
 function routeToCoupons(): void {
     const couponsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
-    if (router.currentRoute.path !== couponsPath) {
+    if (route.path !== couponsPath) {
         analytics.pageVisit(couponsPath);
         router.push(couponsPath);
     }
@@ -159,7 +160,7 @@ onMounted(async (): Promise<void> => {
     try {
         await billingStore.getBalance();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
+        notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
     }
 });
 </script>
@@ -384,7 +385,7 @@ onMounted(async (): Promise<void> => {
         margin-left: 10px;
     }
 
-    @media only screen and (max-width: 625px) {
+    @media only screen and (width <= 625px) {
 
         .account-billing-area__header__div {
             margin-right: -24px;

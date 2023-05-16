@@ -68,11 +68,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
@@ -265,7 +266,7 @@ onBeforeUnmount(() => {
             &__image {
                 margin-bottom: 60px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     display: none;
                 }
             }
@@ -274,7 +275,7 @@ onBeforeUnmount(() => {
                 display: none;
                 margin-bottom: 60px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     display: block;
                 }
             }
@@ -346,7 +347,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 875px) {
+    @media screen and (width <= 875px) {
 
         :deep(thead) {
             display: none;

@@ -90,6 +90,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { centsToDollars } from '@/utils/strings';
 import { RouteConfig } from '@/router';
@@ -97,7 +98,7 @@ import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -163,7 +164,7 @@ function routeToPaymentMethods(): void {
 function balanceClicked(): void {
     router.push({
         name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
-        params: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
+        query: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
     });
 }
 
@@ -190,7 +191,7 @@ onMounted(async () => {
     isDataFetching.value = false;
 
     const rawDate = new Date();
-    let currentYear = rawDate.getFullYear();
+    const currentYear = rawDate.getFullYear();
     currentDate.value = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
 });
 </script>
@@ -224,11 +225,11 @@ onMounted(async () => {
             gap: 10px;
             margin-top: 20px;
 
-            @media screen and (max-width: 786px) {
+            @media screen and (width <= 786px) {
                 grid-template-columns: 1fr 1fr;
             }
 
-            @media screen and (max-width: 425px) {
+            @media screen and (width <= 425px) {
                 grid-template-columns: auto;
             }
         }
@@ -274,7 +275,7 @@ onMounted(async () => {
                 top: 5px;
                 left: 86px;
 
-                @media screen and (max-width: 635px) {
+                @media screen and (width <= 635px) {
                     top: 5px;
                     left: -21px;
                 }
@@ -294,7 +295,7 @@ onMounted(async () => {
                 &:after {
                     left: 50%;
 
-                    @media screen and (max-width: 635px) {
+                    @media screen and (width <= 635px) {
                         left: 90%;
                     }
 

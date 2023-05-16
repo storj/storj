@@ -121,7 +121,7 @@ onBeforeMount(() => {
     &__column {
 
         &:first-of-type {
-            @media screen and (max-width: 690px) {
+            @media screen and (width <= 690px) {
                 display: none;
             }
         }

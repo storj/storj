@@ -136,7 +136,7 @@ export const useBucketsStore = defineStore('buckets', () => {
             'isList': true,
             'isDelete': true,
             'notAfter': inThreeDays.toISOString(),
-            'buckets': [],
+            'buckets': JSON.stringify([]),
             'apiKey': state.apiKey,
         });
 

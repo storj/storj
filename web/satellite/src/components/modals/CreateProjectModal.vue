@@ -61,6 +61,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { ProjectFields } from '@/types/projects';
@@ -68,7 +69,7 @@ import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -145,7 +146,7 @@ async function onCreateProjectClick(): Promise<void> {
 
     selectCreatedProject();
 
-    await notify.success('Project created successfully!');
+    notify.success('Project created successfully!');
 
     isLoading.value = false;
     closeModal();
@@ -171,7 +172,7 @@ function selectCreatedProject(): void {
  * Closes create project modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.createProject);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -184,7 +185,7 @@ function closeModal(): void {
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             width: calc(100% - 48px);
             padding: 54px 24px 32px;
         }
@@ -193,7 +194,7 @@ function closeModal(): void {
             max-height: 154px;
             max-width: 118px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 max-height: 77px;
                 max-width: 59px;
             }
@@ -207,7 +208,7 @@ function closeModal(): void {
             margin-top: 40px;
             text-align: center;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 margin-top: 16px;
                 font-size: 24px;
                 line-height: 31px;
@@ -231,7 +232,7 @@ function closeModal(): void {
             margin-top: 30px;
             column-gap: 20px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 margin-top: 20px;
                 column-gap: unset;
                 row-gap: 8px;
@@ -263,7 +264,7 @@ function closeModal(): void {
         margin-top: 20px;
     }
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
 
         :deep(.add-label) {
             display: none;

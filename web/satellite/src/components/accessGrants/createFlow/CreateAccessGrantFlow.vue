@@ -48,7 +48,6 @@
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterMyPassphrase"
-                    :is-new-passphrase="false"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
                     :on-continue="() => setStep(CreateAccessStep.ConfirmDetails)"
                     :passphrase="enteredPassphrase"
@@ -57,7 +56,7 @@
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterNewPassphrase"
-                    :is-new-passphrase="true"
+                    is-new-passphrase
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
                     :on-continue="() => setStep(CreateAccessStep.ConfirmDetails)"
                     :passphrase="enteredPassphrase"
@@ -107,10 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import {
     AccessType,
@@ -146,8 +146,8 @@ const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const initPermissions = [
@@ -467,12 +467,12 @@ async function createCLIAccess(): Promise<void> {
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectID);
     } catch (error) {
-        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
 
     let permissionsMsg = {
         'type': 'SetPermission',
-        'buckets': selectedBuckets.value,
+        'buckets': JSON.stringify(selectedBuckets.value),
         'apiKey': cleanAPIKey.secret,
         'isDownload': selectedPermissions.value.includes(Permission.Read),
         'isUpload': selectedPermissions.value.includes(Permission.Write),
@@ -618,8 +618,8 @@ async function setLastStep(): Promise<void> {
 }
 
 onMounted(async () => {
-    if (router.currentRoute.params.accessType) {
-        selectedAccessTypes.value.push(router.currentRoute.params.accessType as AccessType);
+    if (route.query.accessType) {
+        selectedAccessTypes.value.push(route.query.accessType as AccessType);
     }
 
     setWorker();
@@ -641,7 +641,7 @@ onMounted(async () => {
     flex-direction: column;
     position: relative;
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
         width: 280px;
         padding: 16px;
     }
@@ -652,7 +652,7 @@ onMounted(async () => {
         padding-bottom: 16px;
         border-bottom: 1px solid var(--c-grey-2);
 
-        @media screen and (max-width: 460px) {
+        @media screen and (width <= 460px) {
             flex-direction: column;
             align-items: flex-start;
         }
@@ -666,7 +666,7 @@ onMounted(async () => {
             color: var(--c-black);
             text-align: left;
 
-            @media screen and (max-width: 460px) {
+            @media screen and (width <= 460px) {
                 margin: 10px 0 0;
             }
         }
@@ -674,10 +674,7 @@ onMounted(async () => {
 
     &__blur {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        top: 0;
+        inset: 0;
         background-color: rgb(0 0 0 / 10%);
         border-radius: 10px;
     }

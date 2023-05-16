@@ -55,15 +55,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { Validator } from '@/utils/validation';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { LocalData } from '@/utils/localData';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
@@ -215,7 +215,7 @@ async function onCreate(): Promise<void> {
             'isList': false,
             'isDelete': false,
             'notAfter': inOneHour.toISOString(),
-            'buckets': [],
+            'buckets': JSON.stringify([]),
             'apiKey': apiKey.value,
         });
 
@@ -281,7 +281,7 @@ function setBucketName(name: string): void {
  * Closes create bucket modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.createBucket);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -334,7 +334,7 @@ onMounted(async (): Promise<void> => {
     flex-direction: column;
     max-width: 350px;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
     }
 
@@ -405,7 +405,7 @@ onMounted(async (): Promise<void> => {
         margin-top: 16px;
         column-gap: 20px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             margin-top: 20px;
             column-gap: unset;
             row-gap: 8px;

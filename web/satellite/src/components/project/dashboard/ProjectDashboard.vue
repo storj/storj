@@ -171,6 +171,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
@@ -180,7 +181,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -604,7 +605,7 @@ onBeforeUnmount((): void => {
                         align-items: center;
                         margin: 16px 16px 0 0;
 
-                        @media screen and (max-width: 390px) {
+                        @media screen and (width <= 390px) {
                             flex-direction: column;
                             align-items: flex-end;
                             row-gap: 5px;
@@ -636,7 +637,7 @@ onBeforeUnmount((): void => {
                         &__allocated-label {
                             margin-right: 16px;
 
-                            @media screen and (max-width: 390px) {
+                            @media screen and (width <= 390px) {
                                 margin-right: 0;
                             }
                         }
@@ -644,7 +645,7 @@ onBeforeUnmount((): void => {
                         &__settled-label {
                             margin-right: 11px;
 
-                            @media screen and (max-width: 390px) {
+                            @media screen and (width <= 390px) {
                                 margin-right: 0;
                             }
                         }
@@ -698,7 +699,7 @@ onBeforeUnmount((): void => {
                 box-sizing: border-box;
             }
 
-            @media screen and (max-width: 1060px) {
+            @media screen and (width <= 1060px) {
 
                 > .info-container {
                     width: calc((100% - 16px) / 2);
@@ -706,7 +707,7 @@ onBeforeUnmount((): void => {
                 }
             }
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
 
                 > .info-container {
                     width: 100%;
@@ -766,21 +767,21 @@ onBeforeUnmount((): void => {
         z-index: 1;
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .project-dashboard {
             max-width: calc(100vw - 86px - 95px);
         }
     }
 
-    @media screen and (max-width: 960px) {
+    @media screen and (width <= 960px) {
 
         :deep(.range-selection__popup) {
             right: -148px;
         }
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
 
         .project-dashboard {
 
@@ -807,7 +808,7 @@ onBeforeUnmount((): void => {
         }
     }
 
-    @media screen and (max-width: 480px) {
+    @media screen and (width <= 480px) {
 
         .project-dashboard {
 

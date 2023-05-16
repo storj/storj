@@ -45,14 +45,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { ref } from 'vue';
 
 import AccessEncryptionIcon from '../../../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -63,8 +61,6 @@ import VButton from '@/components/common/VButton.vue';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -153,7 +149,7 @@ function setPassphrase(value: string): void {
             margin-top: 31px;
             width: 100%;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 20px;

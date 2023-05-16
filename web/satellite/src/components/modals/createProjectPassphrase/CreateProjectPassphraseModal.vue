@@ -37,11 +37,11 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { ref } from 'vue';
 import { generateMnemonic } from 'bip39';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
@@ -69,8 +69,8 @@ enum CreatePassphraseOption {
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const generatedPassphrase = generateMnemonic();
 
@@ -99,7 +99,7 @@ function setOption(option: CreatePassphraseOption): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -146,7 +146,7 @@ async function onContinue(): Promise<void> {
     }
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
-        if (router.currentRoute.name === RouteConfig.OverviewStep.name) {
+        if (route.name === RouteConfig.OverviewStep.name) {
             router.push(RouteConfig.ProjectDashboard.path);
         }
 
@@ -179,7 +179,7 @@ function onCancelOrBack(): void {
     padding: 32px;
     font-family: 'font_regular', sans-serif;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
     }
 }

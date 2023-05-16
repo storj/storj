@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { ProjectFields } from '@/types/projects';
@@ -83,7 +84,7 @@ import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -254,7 +255,7 @@ function closeModal(): void {
         }
     }
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
         width: calc(100% - 48px);
         padding: 54px 24px 32px;
     }
@@ -274,7 +275,7 @@ function closeModal(): void {
         justify-content: space-between;
         column-gap: 20px;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             column-gap: unset;
             row-gap: 8px;
             flex-direction: column-reverse;
@@ -305,7 +306,7 @@ function closeModal(): void {
     margin-top: 20px;
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     :deep(.add-label) {
         display: none;

@@ -32,7 +32,7 @@ describe('Pagination.vue', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.findAll('span').length).toBe(4);
-        expect(wrapper.findAll('span').at(2).classes().includes('selected')).toBe(true);
+        expect(wrapper.findAll('span').at(2)?.classes().includes('selected')).toBe(true);
     });
 
     it('behaves correctly on page click', () => {
@@ -50,7 +50,7 @@ describe('Pagination.vue', () => {
             },
         });
 
-        wrapper.findAll('span').at(1).trigger('click');
+        wrapper.findAll('span').at(1)?.trigger('click');
 
         expect(callbackSpy).toHaveBeenCalledTimes(1);
     });

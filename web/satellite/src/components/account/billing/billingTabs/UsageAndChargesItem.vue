@@ -343,7 +343,7 @@ function toggleDetailedInfo(): void {
         text-align: right;
     }
 
-    @media only screen and (max-width: 1040px) {
+    @media only screen and (width <= 1040px) {
 
         .price-per-month {
             display: none;
@@ -364,7 +364,7 @@ function toggleDetailedInfo(): void {
         }
     }
 
-    @media only screen and (max-width: 768px) {
+    @media only screen and (width <= 768px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__period-container,
         .period-header {
@@ -372,7 +372,7 @@ function toggleDetailedInfo(): void {
         }
     }
 
-    @media only screen and (max-width: 625px) {
+    @media only screen and (width <= 625px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__usage-container,
         .usage-header {

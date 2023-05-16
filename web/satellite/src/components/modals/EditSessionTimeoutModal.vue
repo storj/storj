@@ -54,13 +54,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useLoading } from '@/composables/useLoading';
-import { RouteConfig } from '@/router';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -71,7 +70,6 @@ import Icon from '@/../static/images/session/inactivityTimer.svg';
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
-const router = useRouter();
 const { isLoading, withLoading } = useLoading();
 
 const sessionDuration = ref<Duration | null>(null);
@@ -146,7 +144,7 @@ function onClose(): void {
         gap: 20px;
         margin: 20px 0;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             flex-direction: column;
             align-items: flex-start;
             gap: 10px;
@@ -186,7 +184,7 @@ function onClose(): void {
         display: flex;
         gap: 16px;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             flex-direction: column-reverse;
         }
 

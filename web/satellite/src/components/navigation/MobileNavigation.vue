@@ -164,6 +164,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -174,7 +175,7 @@ import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -237,6 +238,7 @@ const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -267,7 +269,7 @@ const projects = computed((): Project[] => {
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.BucketsManagement.path);
+    return route.path.includes(RouteConfig.BucketsManagement.path);
 });
 
 /**
@@ -300,7 +302,7 @@ function onLogoClick(): void {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         return;
     }
 
@@ -406,7 +408,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
             projectsStore.getProjectLimits(projectID),
         ]);
     } catch (error) {
-        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 
@@ -414,7 +416,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
  * Route to projects list page.
  */
 function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+    if (route.name !== RouteConfig.ProjectsList.name) {
         analytics.pageVisit(RouteConfig.ProjectsList.path);
         analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
@@ -427,7 +429,7 @@ function onProjectsLinkClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+    if (route.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = usersStore.state.user;
@@ -457,7 +459,7 @@ function onUpgrade(): void {
  */
 function navigateToBilling(): void {
     isOpened.value = false;
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
     let link = RouteConfig.Account.with(RouteConfig.Billing);
     if (configStore.state.config.newBillingScreen) {
@@ -501,7 +503,7 @@ async function onLogout(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 </script>

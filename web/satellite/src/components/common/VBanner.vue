@@ -83,7 +83,7 @@ watch(() => props.dashboardRef, () => {
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-    @media screen and (max-width: 450px) {
+    @media screen and (width <= 450px) {
         flex-direction: column;
         align-items: flex-start;
         row-gap: 10px;
@@ -136,7 +136,7 @@ watch(() => props.dashboardRef, () => {
         cursor: pointer;
         flex-shrink: 0;
 
-        @media screen and (max-width: 450px) {
+        @media screen and (width <= 450px) {
             position: absolute;
             right: 20px;
             top: 20px;

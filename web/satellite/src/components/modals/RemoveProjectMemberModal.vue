@@ -50,22 +50,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { Project } from '@/types/projects';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
-import { LocalData } from '@/utils/localData';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import VLoader from '@/components/common/VLoader.vue';
-import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -112,11 +109,11 @@ async function onRemove(): Promise<void> {
         await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
         await setProjectState();
     } catch (error) {
-        await notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         return;
     }
 
-    await notify.success('Members were successfully removed from project');
+    notify.success('Members were successfully removed from project');
     pmStore.setSearchQuery('');
     closeModal();
 }
@@ -125,7 +122,7 @@ async function onRemove(): Promise<void> {
  * Closes remove team member modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.removeTeamMember);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -137,7 +134,7 @@ function closeModal(): void {
     flex-direction: column;
     max-width: 350px;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
     }
 
@@ -207,7 +204,7 @@ function closeModal(): void {
         margin-top: 16px;
         column-gap: 20px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             margin-top: 20px;
             column-gap: unset;
             row-gap: 8px;

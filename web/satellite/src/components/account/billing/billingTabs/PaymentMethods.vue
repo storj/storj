@@ -177,8 +177,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import QRCode from 'qrcode';
+import { useRoute, useRouter } from 'vue-router';
 
 import {
     CreditCard,
@@ -188,7 +189,7 @@ import {
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -233,8 +234,8 @@ const usersStore = useUsersStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
@@ -485,7 +486,7 @@ function paginationController(i: number, limit: number): void {
 }
 
 onMounted((): void => {
-    if (router.currentRoute.params.action === 'token history') {
+    if (route.query.action === 'token history') {
         showTransactionsTable();
     }
 });
@@ -645,10 +646,7 @@ $align: center;
 
 .edit_payment_method {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 100;
     background: rgb(27 37 51 / 75%);
     display: $flex;
@@ -927,7 +925,7 @@ $align: center;
                     text-overflow: ellipsis;
                     overflow: hidden;
 
-                    @media screen and (max-width: 375px) {
+                    @media screen and (width <= 375px) {
                         width: 16rem;
                     }
                 }

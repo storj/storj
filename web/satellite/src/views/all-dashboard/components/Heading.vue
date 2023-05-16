@@ -92,8 +92,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -129,6 +130,7 @@ import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const configStore = useConfigStore();
@@ -188,7 +190,7 @@ function goToProjects(): void {
     appStore.closeDropdowns();
 
     const projects = RouteConfig.AllProjectsDashboard.path;
-    if (router.currentRoute.path.includes(projects)) {
+    if (route.path.includes(projects)) {
         return;
     }
 
@@ -200,7 +202,7 @@ function navigateToBilling(): void {
     toggleNavigation();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
@@ -216,7 +218,7 @@ function navigateToSettings(): void {
     toggleNavigation();
 
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 
@@ -249,7 +251,7 @@ async function onLogout(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -373,7 +375,7 @@ function sendDocsEvent(): void {
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         &__content {
             display: none;

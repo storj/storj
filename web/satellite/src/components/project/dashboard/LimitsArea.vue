@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { LimitToChange, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -93,7 +94,6 @@ import { Size } from '@/utils/bytesSize';
 import { Coupon, ProjectCharges } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 
 import LimitCard from '@/components/project/dashboard/LimitCard.vue';
@@ -314,7 +314,7 @@ function navigateToCoupons(): void {
     grid-gap: 16px;
     margin-top: 16px;
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
         grid-template-columns: auto;
     }
 }

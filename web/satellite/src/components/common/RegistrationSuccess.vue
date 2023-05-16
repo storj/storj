@@ -49,11 +49,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -68,8 +69,8 @@ const props = withDefaults(defineProps<{
     showManualActivationMsg: true,
 });
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -79,7 +80,7 @@ const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
-    return props.email || router.currentRoute.query.email.toString();
+    return props.email || route.query.email?.toString() || '';
 });
 
 /**
@@ -154,10 +155,7 @@ onBeforeUnmount(() => {
         padding: 0 20px;
         box-sizing: border-box;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         overflow-y: scroll;
 
         &__logo-wrapper {
@@ -254,7 +252,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .register-success-area__container {
             width: 100%;

@@ -11,4 +11,10 @@ module.exports = {
         '^.+\\.svg$': '<rootDir>/tests/unit/mock/svgTransform.js',
     },
     modulePathIgnorePatterns: ['<rootDir>/tests/unit/ignore'],
+    moduleFileExtensions: [
+        'js',
+        'ts',
+        'json',
+        'vue',
+    ],
 };

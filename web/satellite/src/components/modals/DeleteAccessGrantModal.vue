@@ -112,7 +112,7 @@ async function onDelete(): Promise<void> {
     flex-direction: column;
     font-family: 'font_regular', sans-serif;
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
         width: unset;
     }
 
@@ -158,7 +158,7 @@ async function onDelete(): Promise<void> {
         align-items: center;
         column-gap: 16px;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             column-gap: unset;
             row-gap: 10px;
             flex-direction: column-reverse;

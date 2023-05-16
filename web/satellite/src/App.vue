@@ -31,7 +31,7 @@ const isLoading = ref<boolean>(true);
 /**
  * Indicates whether an error page should be shown in place of the router view.
  */
-const isErrorPageShown = computed((): boolean => {
+const isErrorPageShown = computed<boolean>((): boolean => {
     return appStore.state.error.visible;
 });
 

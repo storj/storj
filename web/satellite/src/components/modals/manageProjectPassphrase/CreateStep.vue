@@ -47,7 +47,6 @@ const appStore = useAppStore();
  * Starts create new passphrase flow.
  */
 function onNext(): void {
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 </script>
@@ -76,7 +75,7 @@ function onNext(): void {
         column-gap: 16px;
         width: 100%;
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             column-gap: unset;
             flex-direction: column-reverse;
             row-gap: 15px;

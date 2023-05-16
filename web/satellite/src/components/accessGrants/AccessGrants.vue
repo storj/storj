@@ -157,6 +157,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
@@ -165,7 +166,7 @@ import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -298,7 +299,7 @@ function accessGrantClick(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.AccessGrant },
+        query: { accessType: AccessType.AccessGrant },
     });
 }
 
@@ -310,7 +311,7 @@ function s3Click(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.S3 },
+        query: { accessType: AccessType.S3 },
     });
 }
 
@@ -322,7 +323,7 @@ function cliClick(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.APIKey },
+        query: { accessType: AccessType.APIKey },
     });
 }
 
@@ -364,7 +365,7 @@ onBeforeUnmount(() => {
         border-radius: 10px;
         min-width: 175px;
 
-        @media screen and (max-width: 930px) {
+        @media screen and (width <= 930px) {
             width: 100%;
         }
     }
@@ -413,7 +414,7 @@ onBeforeUnmount(() => {
             &__cli-credentials {
                 @include grant-flow-card;
 
-                @media screen and (max-width: 370px) {
+                @media screen and (width <= 370px) {
 
                     .access-grants__flows-area__button-container {
                         flex-direction: column;
@@ -471,7 +472,7 @@ onBeforeUnmount(() => {
         .access-grants-items {
             padding-bottom: 55px;
 
-            @media screen and (max-width: 1150px) {
+            @media screen and (width <= 1150px) {
                 margin-top: -45px;
             }
 

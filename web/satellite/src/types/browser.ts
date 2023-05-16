@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VueConstructor } from 'vue';
+import { Component } from 'vue';
 
 import EmailIcon from '../../static/images/objects/email.svg';
 
@@ -31,6 +31,6 @@ export class ShareButtonConfig {
       public label: ShareOptions = ShareOptions.Email,
       public color: string = 'white',
       public link: string = '',
-      public image: VueConstructor = EmailIcon,
+      public image: Component = EmailIcon,
     ) {}
 }

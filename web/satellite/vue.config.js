@@ -8,7 +8,7 @@ const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
-let plugins = [
+const plugins = [
     new CompressionWebpackPlugin({
         algorithm: 'brotliCompress',
         filename: '[path][name].br',
@@ -38,7 +38,7 @@ module.exports = {
     parallel: true,
     lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
     configureWebpack: {
-        plugins: plugins,
+        plugins,
         resolve: {
             fallback: {
                 'util': require.resolve('util/'),

@@ -355,7 +355,7 @@ onMounted(() => {
         word-break: break-all;
     }
 
-    @media screen and (max-width: 1300px) {
+    @media screen and (width <= 1300px) {
 
         .settings {
 
@@ -376,7 +376,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-height: 825px) {
+    @media screen and (height <= 825px) {
 
         .settings {
             height: 535px;
@@ -396,7 +396,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 650px) {
+    @media screen and (width <= 650px) {
 
         .settings__secondary-container__change-password__text-container {
             margin: 0;
@@ -408,7 +408,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
 
         .settings__edit-profile,
         .settings__secondary-container__change-password,
