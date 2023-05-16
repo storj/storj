@@ -141,6 +141,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, cursor uuid.
 			stripecoinpayments_invoice_project_records 
 		WHERE 
 			id > ? AND period_start = ? AND period_end = ? AND state = ?
+		ORDER BY id
 		LIMIT ?
 	`), cursor, start, end, invoiceProjectRecordStateUnapplied.Int(), limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
