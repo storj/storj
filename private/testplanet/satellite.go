@@ -324,6 +324,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.GCBF.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.RangedLoop.Run(ctx))
+	})
 	return group.Wait()
 }
 

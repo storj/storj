@@ -129,6 +129,22 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 	return selected, nil
 }
 
+// GetNodesNetwork returns the cached network for each given node ID.
+func (state *State) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nets []string) {
+	defer mon.Task()(&ctx)(nil)
+
+	state.mu.RLock()
+	defer state.mu.RUnlock()
+
+	nets = make([]string, len(nodeIDs))
+	for i, nodeID := range nodeIDs {
+		if net, ok := state.netByID[nodeID]; ok {
+			nets[i] = net
+		}
+	}
+	return nets
+}
+
 // Stats returns state information.
 func (state *State) Stats() Stats {
 	state.mu.RLock()

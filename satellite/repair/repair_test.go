@@ -3279,6 +3279,8 @@ func TestRepairClumpedPieces(t *testing.T) {
 		}
 		err = satellite.DB.OverlayCache().UpdateCheckIn(ctx, checkInInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
+		err = satellite.RangedLoop.Overlay.Service.TestRefreshUploadSelectionCache(ctx)
+		require.NoError(t, err)
 
 		// running repair checker again should put the segment into the repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
