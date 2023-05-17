@@ -66,6 +66,7 @@ export class Project {
     userSpecifiedStorageLimit: MemorySize;
     userSpecifiedBandwidthLimit: MemorySize;
     segmentLimit: number;
+    defaultPlacement: number;
 }
 
 export class ProjectInfo {
