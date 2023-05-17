@@ -66,6 +66,7 @@ type Satellite struct {
 
 	Core       *satellite.Core
 	API        *satellite.API
+	UI         *satellite.UI
 	Repairer   *satellite.Repairer
 	Auditor    *satellite.Auditor
 	Admin      *satellite.Admin
@@ -172,9 +173,14 @@ type Satellite struct {
 		Service *mailservice.Service
 	}
 
-	Console struct {
+	ConsoleBackend struct {
 		Listener net.Listener
 		Service  *console.Service
+		Endpoint *consoleweb.Server
+	}
+
+	ConsoleFrontend struct {
+		Listener net.Listener
 		Endpoint *consoleweb.Server
 	}
 
@@ -298,6 +304,11 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.API.Run(ctx))
 	})
+	if system.UI != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(system.UI.Run(ctx))
+		})
+	}
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
 	})
@@ -519,6 +530,15 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	// only run if front-end endpoints on console back-end server are disabled.
+	var ui *satellite.UI
+	if !config.Console.FrontendEnable {
+		ui, err = planet.newUI(ctx, index, identity, config, api.ExternalAddress, api.Console.Listener.Addr().String())
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
 	adminPeer, err := planet.newAdmin(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -548,19 +568,20 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, ui, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, ui *satellite.UI, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
 	system := &Satellite{
 		Name:       name,
 		Config:     config,
 		Core:       peer,
 		API:        api,
+		UI:         ui,
 		Repairer:   repairerPeer,
 		Auditor:    auditorPeer,
 		Admin:      adminPeer,
@@ -653,6 +674,15 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
+}
+
+func (planet *Planet) newUI(ctx context.Context, index int, identity *identity.FullIdentity, config satellite.Config, satelliteAddr, consoleAPIAddr string) (_ *satellite.UI, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-ui" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	return satellite.NewUI(log, identity, &config, nil, satelliteAddr, consoleAPIAddr)
 }
 
 func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {

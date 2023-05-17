@@ -15,6 +15,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -62,10 +63,14 @@ var (
 
 // Config contains configuration for console web server.
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
-	StaticDir       string `help:"path to static resources" default:""`
-	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
-	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
+	Address             string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
+	FrontendAddress     string `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
+	ExternalAddress     string `help:"external endpoint of the satellite if hosted" default:""`
+	FrontendEnable      bool   `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
+	BackendReverseProxy string `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`
+
+	StaticDir string `help:"path to static resources" default:""`
+	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
@@ -220,7 +225,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		packagePlans:      packagePlans,
 	}
 
-	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
+	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
@@ -353,29 +358,25 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 
-	if server.config.StaticDir != "" {
-		oidc := oidc.NewEndpoint(
-			server.nodeURL, server.config.ExternalAddress,
-			logger, oidcService, service,
-			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
-		)
+	oidc := oidc.NewEndpoint(
+		server.nodeURL, server.config.ExternalAddress,
+		logger, oidcService, service,
+		server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
+	)
 
-		router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
-		router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
-		router.Handle("/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
-		router.Handle("/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
-		router.Handle("/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+	router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
+	router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
+	router.Handle("/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
+	router.Handle("/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
+	router.Handle("/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
 
+	router.HandleFunc("/invited", server.handleInvited)
+	router.HandleFunc("/activation", server.accountActivationHandler)
+	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
+
+	if server.config.StaticDir != "" && server.config.FrontendEnable {
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-
-		router.HandleFunc("/invited", server.handleInvited)
-
-		// These paths previously required a trailing slash, so we support both forms for now
-		slashRouter := router.NewRoute().Subrouter()
-		slashRouter.StrictSlash(true)
-		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
-		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
 		if server.config.UseVuetifyProject {
 			router.PathPrefix("/vuetifypoc").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
@@ -424,6 +425,100 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return err
 	})
 
+	return group.Wait()
+}
+
+// NewFrontendServer creates new instance of console front-end server.
+// NB: The return type is currently consoleweb.Server, but it does not contain all the dependencies.
+// It should only be used with RunFrontEnd and Close. We plan on moving this to its own type, but
+// right now since we have a feature flag to allow the backend server to continue serving the frontend, it
+// makes it easier if they are the same type.
+func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storj.NodeURL, stripePublicKey string) (server *Server, err error) {
+	server = &Server{
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		nodeURL:         nodeURL,
+		stripePublicKey: stripePublicKey,
+	}
+
+	logger.Debug("Starting Satellite UI server.", zap.Stringer("Address", server.listener.Addr()))
+
+	router := mux.NewRouter()
+
+	// N.B. This middleware has to be the first one because it has to be called
+	// the earliest in the HTTP chain.
+	router.Use(newTraceRequestMiddleware(logger, router))
+
+	// in local development, proxy certain requests to the console back-end server
+	if config.BackendReverseProxy != "" {
+		target, err := url.Parse(config.BackendReverseProxy)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		logger.Debug("Reverse proxy targeting", zap.String("address", config.BackendReverseProxy))
+
+		router.PathPrefix("/api").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		}))
+		router.PathPrefix("/oauth").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		}))
+		router.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		router.HandleFunc("/invited", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		router.HandleFunc("/activation", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		router.HandleFunc("/cancel-password-recovery", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		router.HandleFunc("/registrationToken/", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		router.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+	}
+
+	fs := http.FileServer(http.Dir(server.config.StaticDir))
+
+	router.HandleFunc("/robots.txt", server.seoHandler)
+	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
+	router.HandleFunc("/config", server.frontendConfigHandler)
+	if server.config.UseVuetifyProject {
+		router.PathPrefix("/vuetifypoc").Handler(http.HandlerFunc(server.vuetifyAppHandler))
+	}
+	router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
+	server.server = http.Server{
+		Handler:        server.withRequest(router),
+		MaxHeaderBytes: ContentLengthLimit.Int(),
+	}
+	return server, nil
+}
+
+// RunFrontend starts the server that runs the webapp.
+func (server *Server) RunFrontend(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		<-ctx.Done()
+		return server.server.Shutdown(context.Background())
+	})
+	group.Go(func() error {
+		defer cancel()
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
+	})
 	return group.Wait()
 }
 
