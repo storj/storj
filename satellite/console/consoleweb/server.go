@@ -32,6 +32,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
@@ -105,6 +106,8 @@ type Config struct {
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
 	OauthRefreshTokenExpiry time.Duration `help:"how long oauth refresh tokens are issued for" default:"720h"`
+
+	BodySizeLimit memory.Size `help:"The maximum body size allowed to be received by the API" default:"100.00 KB"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -238,6 +241,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
+
+	// limit body size
+	router.Use(newBodyLimiterMiddleware(logger.Named("body-limiter-middleware"), config.BodySizeLimit))
 
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
@@ -977,6 +983,21 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 			mon.Event("visit_event", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))
 
 			next.ServeHTTP(&respWCode, r)
+		})
+	}
+}
+
+// newBodyLimiterMiddleware returns a middleware that places a length limit on each request's body.
+func newBodyLimiterMiddleware(log *zap.Logger, limit memory.Size) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ContentLength > limit.Int64() {
+				web.ServeJSONError(log, w, http.StatusRequestEntityTooLarge, errs.New("Request body is too large"))
+				return
+			}
+
+			r.Body = http.MaxBytesReader(w, r.Body, limit.Int64())
+			next.ServeHTTP(w, r)
 		})
 	}
 }

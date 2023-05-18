@@ -1062,6 +1062,8 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
+	var maxBytesError *http.MaxBytesError
+
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err):
 		return http.StatusBadRequest
@@ -1071,6 +1073,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case errors.As(err, &maxBytesError):
+		return http.StatusRequestEntityTooLarge
 	default:
 		return http.StatusInternalServerError
 	}
@@ -1078,6 +1082,8 @@ func (a *Auth) getStatusCode(err error) int {
 
 // getUserErrorMessage returns a user-friendly representation of the error.
 func (a *Auth) getUserErrorMessage(err error) string {
+	var maxBytesError *http.MaxBytesError
+
 	switch {
 	case console.ErrCaptcha.Has(err):
 		return "Validation of captcha was unsuccessful"
@@ -1104,6 +1110,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
+	case errors.As(err, &maxBytesError):
+		return "Request body is too large"
 	default:
 		return "There was an error processing your request"
 	}

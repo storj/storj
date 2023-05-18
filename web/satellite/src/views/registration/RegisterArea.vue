@@ -115,6 +115,7 @@
                     <div class="register-area__input-wrapper first-input">
                         <VInput
                             label="Full Name"
+                            max-symbols="72"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
                             role-description="name"
@@ -124,6 +125,7 @@
                     <div class="register-area__input-wrapper">
                         <VInput
                             label="Email Address"
+                            max-symbols="72"
                             placeholder="user@example.com"
                             :error="emailError"
                             role-description="email"
@@ -134,6 +136,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Company Name"
+                                max-symbols="72"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
                                 role-description="company-name"
@@ -143,6 +146,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Position"
+                                max-symbols="72"
                                 placeholder="Position Title"
                                 :error="positionError"
                                 role-description="position"

@@ -11,6 +11,7 @@
         :style="style"
         type="text"
         autocomplete="off"
+        maxlength="72"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="processSearchQuery"

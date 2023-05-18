@@ -50,6 +50,7 @@
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <VInput
                         label="Email Address"
+                        max-symbols="72"
                         placeholder="user@example.com"
                         :error="emailError"
                         @setData="setEmail"

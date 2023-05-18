@@ -9,7 +9,7 @@
         <div class="register-success-area__container">
             <MailIcon />
             <h2 class="register-success-area__container__title" aria-roledescription="title">You're almost there!</h2>
-            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title">
+            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title fill">
                 If an account with the email address
                 <p class="register-success-area__container__sub-title__email">{{ userEmail }}</p>
                 exists, a verification email has been sent.
@@ -196,6 +196,10 @@ onBeforeUnmount(() => {
                 max-width: 350px;
                 text-align: center;
                 margin-bottom: 27px;
+
+                &.fill {
+                    max-width: unset;
+                }
 
                 &__email {
                     font-family: 'font_bold', sans-serif;

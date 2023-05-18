@@ -14,6 +14,7 @@
                 <VInput
                     label="Full Name"
                     placeholder="Enter Full Name"
+                    max-symbols="72"
                     :error="fullNameError"
                     :init-value="userInfo.fullName"
                     @setData="setFullName"

@@ -262,6 +262,12 @@ onMounted(() => {
                     font-size: 14px;
                     line-height: 20px;
                     color: var(--c-grey-6);
+                    word-wrap: break-word;
+                    overflow: hidden;
+
+                    @media screen and (width <= 500px) {
+                        width: 100%;
+                    }
                 }
 
                 &__actions {

@@ -9,6 +9,7 @@
         type="text"
         autocomplete="off"
         readonly
+        maxlength="72"
         @input="processSearchQuery"
         @focus="removeReadOnly"
         @blur="addReadOnly"

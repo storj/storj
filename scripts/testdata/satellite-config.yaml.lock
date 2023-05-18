@@ -190,6 +190,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# The maximum body size allowed to be received by the API
+# console.body-size-limit: 100.00 KB
+
 # whether or not captcha is enabled
 # console.captcha.login.hcaptcha.enabled: false
 
