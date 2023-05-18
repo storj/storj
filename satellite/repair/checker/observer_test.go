@@ -303,7 +303,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.TestRefreshUploadSelectionCache(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
 		// check that repair queue is empty to avoid false positive
 		count, err := repairQueue.Count(ctx)
@@ -325,7 +325,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.TestRefreshUploadSelectionCache(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
 		// The checker will not insert/update the now healthy segments causing
 		// them to be removed from the queue at the end of the checker iteration
