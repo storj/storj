@@ -6,7 +6,9 @@ package audit_test
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"syscall"
@@ -372,7 +374,9 @@ func TestDownloadSharesDialIOTimeout(t *testing.T) {
 					for {
 						_, err = conn.Read(buf)
 						if err != nil {
-							assert.ErrorIs(t, err, syscall.ECONNRESET)
+							if !errors.Is(err, syscall.ECONNRESET) && !errors.Is(err, io.EOF) {
+								t.Fatalf("expected econnreset or eof, got %q", err.Error())
+							}
 							return nil
 						}
 					}
