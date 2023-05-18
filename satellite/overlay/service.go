@@ -430,7 +430,19 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // requested node is not in the database, an empty string will be returned corresponding
 // to that node's last_net.
 func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
-	return service.UploadSelectionCache.GetNodesNetwork(ctx, nodeIDs)
+	defer mon.Task()(&ctx)(nil)
+
+	nodes, err := service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	lastNets = make([]string, len(nodeIDs))
+	for i, nodeID := range nodeIDs {
+		if selectedNode, ok := nodes[nodeID]; ok {
+			lastNets[i] = selectedNode.LastNet
+		}
+	}
+	return lastNets, nil
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
