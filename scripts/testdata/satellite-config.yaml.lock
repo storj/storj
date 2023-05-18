@@ -88,6 +88,9 @@
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
+# Treat pieces on the same network as in need of repair
+# checker.do-declumping: false
+
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
@@ -945,6 +948,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
+
+# repair pieces on the same network to other nodes
+# repairer.do-declumping: false
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
