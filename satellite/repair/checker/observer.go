@@ -439,11 +439,7 @@ func (fork *observerFork) process(ctx context.Context, segment *segmentloop.Segm
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
 			// otherwise). Produce a brief report of where the clumping occurred so that we have
 			// a better understanding of the cause.
-			clumpedNets := clumpingReport{
-				clumpedPieces: clumpedPieces,
-				allPieces:     segment.Pieces,
-				lastNets:      lastNets,
-			}
+			clumpedNets := clumpingReport{lastNets: lastNets}
 			fork.log.Info("segment needs repair because of clumping", zap.Stringer("Segment StreamID", segment.StreamID), zap.Uint64("Segment Position", segment.Position.Encode()), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.Stringer("clumping", &clumpedNets))
 		}
 	} else {
@@ -474,28 +470,24 @@ func (fork *observerFork) process(ctx context.Context, segment *segmentloop.Segm
 }
 
 type clumpingReport struct {
-	clumpedPieces metabase.Pieces
-	allPieces     metabase.Pieces
-	lastNets      []string
+	lastNets []string
 }
 
 // String produces the clumping report. In case the satellite isn't logging at the required level,
 // we avoid doing the work of building the report until String() is called.
 func (cr *clumpingReport) String() string {
-	clumpedNets := make(map[string]int)
-	for _, clumpedPiece := range cr.clumpedPieces {
-		lastNet := ""
-		for i, piece := range cr.allPieces {
-			if piece.Number == clumpedPiece.Number && piece.StorageNode.Compare(clumpedPiece.StorageNode) == 0 {
-				lastNet = cr.lastNets[i]
-				break
-			}
+	netCounts := make(map[string]int)
+	for _, lastNet := range cr.lastNets {
+		if lastNet == "" {
+			lastNet = "unknown"
 		}
-		clumpedNets[lastNet]++
+		netCounts[lastNet]++
 	}
-	counts := make([]string, 0, len(clumpedNets))
-	for clumpedNet, count := range clumpedNets {
-		counts = append(counts, fmt.Sprintf("[%s]: %d", clumpedNet, count))
+	counts := make([]string, 0, len(netCounts))
+	for lastNet, count := range netCounts {
+		if count > 1 {
+			counts = append(counts, fmt.Sprintf("[%s]: %d", lastNet, count))
+		}
 	}
 	return strings.Join(counts, ", ")
 }
