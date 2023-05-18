@@ -86,6 +86,7 @@ type SegmentRepairer struct {
 	reporter       audit.Reporter
 
 	reputationUpdateEnabled bool
+	doDeclumping            bool
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -133,6 +134,7 @@ func NewSegmentRepairer(
 		repairOverrides:            repairOverrides.GetMap(),
 		reporter:                   reporter,
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
+		doDeclumping:               config.DoDeclumping,
 
 		nowFn: time.Now,
 	}
@@ -196,20 +198,25 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 
-	// if multiple pieces are on the same last_net, keep only the first one. The rest are
-	// to be considered retrievable but unhealthy.
-	nodeIDs := make([]storj.NodeID, len(pieces))
-	for i, p := range pieces {
-		nodeIDs[i] = p.StorageNode
-	}
-	lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, nodeIDs)
-	if err != nil {
-		return false, metainfoGetError.Wrap(err)
-	}
-	clumpedPieces := repair.FindClumpedPieces(segment.Pieces, lastNets)
-	clumpedPiecesSet := make(map[uint16]bool)
-	for _, clumpedPiece := range clumpedPieces {
-		clumpedPiecesSet[clumpedPiece.Number] = true
+	var clumpedPieces metabase.Pieces
+	var clumpedPiecesSet map[uint16]bool
+	if repairer.doDeclumping {
+		// if multiple pieces are on the same last_net, keep only the first one. The rest are
+		// to be considered retrievable but unhealthy.
+		nodeIDs := make([]storj.NodeID, len(pieces))
+		for i, p := range pieces {
+			nodeIDs[i] = p.StorageNode
+		}
+		lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, nodeIDs)
+		if err != nil {
+			return false, metainfoGetError.Wrap(err)
+		}
+		clumpedPieces = repair.FindClumpedPieces(segment.Pieces, lastNets)
+		clumpedPiecesSet = make(map[uint16]bool)
+		for _, clumpedPiece := range clumpedPieces {
+			clumpedPiecesSet[clumpedPiece.Number] = true
+		}
+
 	}
 
 	numRetrievable := len(pieces) - len(missingPieces)
@@ -258,7 +265,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	if numHealthy-numHealthyInExcludedCountries > int(repairThreshold) {
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
-		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
+		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold), zap.Int("numClumped", len(clumpedPieces)))
 		return true, nil
 	}
 
@@ -598,6 +605,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
 	stats.segmentRepairCount.Observe(repairCount)
 
+	repairer.log.Debug("repaired segment",
+		zap.Stringer("Stream ID", segment.StreamID),
+		zap.Uint64("Position", segment.Position.Encode()),
+		zap.Int("clumped pieces", len(clumpedPieces)),
+		zap.Int("in excluded countries", numHealthyInExcludedCountries),
+		zap.Int("removed pieces", len(toRemove)),
+		zap.Int("repaired pieces", len(repairedPieces)),
+		zap.Int("healthy before repair", numHealthy),
+		zap.Int("healthy after repair", healthyAfterRepair))
 	return true, nil
 }
 

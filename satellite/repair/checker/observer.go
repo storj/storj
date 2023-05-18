@@ -39,6 +39,7 @@ type Observer struct {
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
+	doDeclumping         bool
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -59,6 +60,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
+		doDeclumping:         config.DoDeclumping,
 		statsCollector:       make(map[string]*observerRSStats),
 	}
 }
@@ -226,6 +228,7 @@ type observerFork struct {
 	nodeFailureRate  float64
 	getNodesEstimate func(ctx context.Context) (int, error)
 	log              *zap.Logger
+	doDeclumping     bool
 	lastStreamID     uuid.UUID
 	totalStats       aggregateStats
 
@@ -244,6 +247,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		nodeFailureRate:  observer.nodeFailureRate,
 		getNodesEstimate: observer.getNodesEstimate,
 		log:              observer.logger,
+		doDeclumping:     observer.doDeclumping,
 		getObserverStats: observer.getObserverStats,
 	}
 }
@@ -332,19 +336,23 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("error getting missing pieces: %w", err)
 	}
 
-	// if multiple pieces are on the same last_net, keep only the first one. The rest are
-	// to be considered retrievable but unhealthy.
-	nodeIDs := make([]storj.NodeID, len(pieces))
-	for i, p := range pieces {
-		nodeIDs[i] = p.StorageNode
+	var clumpedPieces metabase.Pieces
+	var lastNets []string
+	if fork.doDeclumping {
+		// if multiple pieces are on the same last_net, keep only the first one. The rest are
+		// to be considered retrievable but unhealthy.
+		nodeIDs := make([]storj.NodeID, len(pieces))
+		for i, p := range pieces {
+			nodeIDs[i] = p.StorageNode
+		}
+		lastNets, err = fork.overlayService.GetNodesNetworkInOrder(ctx, nodeIDs)
+		if err != nil {
+			fork.totalStats.remoteSegmentsFailedToCheck++
+			stats.iterationAggregates.remoteSegmentsFailedToCheck++
+			return errs.Combine(Error.New("error determining node last_nets"), err)
+		}
+		clumpedPieces = repair.FindClumpedPieces(segment.Pieces, lastNets)
 	}
-	lastNets, err := fork.overlayService.GetNodesNetworkInOrder(ctx, nodeIDs)
-	if err != nil {
-		fork.totalStats.remoteSegmentsFailedToCheck++
-		stats.iterationAggregates.remoteSegmentsFailedToCheck++
-		return errs.Combine(Error.New("error determining node last_nets"), err)
-	}
-	clumpedPieces := repair.FindClumpedPieces(segment.Pieces, lastNets)
 
 	numHealthy := len(pieces) - len(missingPieces) - len(clumpedPieces)
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces))) //mon:locked

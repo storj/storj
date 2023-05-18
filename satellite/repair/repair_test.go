@@ -3227,7 +3227,13 @@ func TestRepairClumpedPieces(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Checker.DoDeclumping = true
+					config.Repairer.DoDeclumping = true
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
