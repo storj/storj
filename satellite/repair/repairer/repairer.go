@@ -35,6 +35,7 @@ type Config struct {
 	InMemoryRepair                bool          `help:"whether to download pieces for repair in memory (true) or download to disk (false)" default:"false"`
 	ReputationUpdateEnabled       bool          `help:"whether the audit score of nodes should be updated as a part of repair" default:"false"`
 	UseRangedLoop                 bool          `help:"whether to enable repair checker observer with ranged loop" default:"true"`
+	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"false"`
 }
 
 // Service contains the information needed to run the repair service.
