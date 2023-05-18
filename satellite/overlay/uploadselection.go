@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
@@ -115,15 +114,6 @@ func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount
 	}
 	stats := state.Stats()
 	return stats.Reputable, stats.New, nil
-}
-
-// GetNodesNetwork returns the cached network for each given node ID.
-func (cache *UploadSelectionCache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nets []string, err error) {
-	state, err := cache.cache.Get(ctx, time.Now())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return state.GetNodesNetwork(ctx, nodeIDs), nil
 }
 
 func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {
