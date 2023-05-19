@@ -55,6 +55,36 @@ func (email *ProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project on Storj"
 }
 
+// ExistingUserProjectInvitationEmail is mailservice template for project invitation email for existing users.
+type ExistingUserProjectInvitationEmail struct {
+	InviterEmail string
+	Region       string
+	SignInLink   string
+}
+
+// Template returns email template name.
+func (*ExistingUserProjectInvitationEmail) Template() string { return "ExistingUserInvite" }
+
+// Subject gets email subject.
+func (email *ExistingUserProjectInvitationEmail) Subject() string {
+	return "You were invited to join a project on Storj"
+}
+
+// NewUserProjectInvitationEmail is mailservice template for project invitation email for new users.
+type NewUserProjectInvitationEmail struct {
+	InviterEmail string
+	Region       string
+	SignUpLink   string
+}
+
+// Template returns email template name.
+func (*NewUserProjectInvitationEmail) Template() string { return "NewUserInvite" }
+
+// Subject gets email subject.
+func (email *NewUserProjectInvitationEmail) Subject() string {
+	return "You were invited to join a project on Storj"
+}
+
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.
 type UnknownResetPasswordEmail struct {
 	Satellite           string

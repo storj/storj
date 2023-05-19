@@ -138,6 +138,7 @@ func TestGraphqlMutation(t *testing.T) {
 		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
 		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
 		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
+		rootObject[consoleql.SatelliteRegion] = "EU1"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
 		require.NoError(t, err)

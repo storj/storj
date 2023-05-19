@@ -191,21 +191,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							userName = user.FullName
 						}
 
-						contactInfoURL := rootObject[ContactInfoURL].(string)
-						letUsKnowURL := rootObject[LetUsKnowURL].(string)
-						termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+						satelliteRegion := rootObject[SatelliteRegion].(string)
 
 						mailService.SendRenderedAsync(
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
-							&console.ProjectInvitationEmail{
-								Origin:                origin,
-								UserName:              userName,
-								InviterEmail:          inviter.Email,
-								SignInLink:            signIn,
-								LetUsKnowURL:          letUsKnowURL,
-								TermsAndConditionsURL: termsAndConditionsURL,
-								ContactInfoURL:        contactInfoURL,
+							&console.ExistingUserProjectInvitationEmail{
+								InviterEmail: inviter.Email,
+								Region:       satelliteRegion,
+								SignInLink:   signIn,
 							},
 						)
 					}

@@ -712,6 +712,7 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
 	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
 	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
+	rootObject[consoleql.SatelliteRegion] = server.config.SatelliteName
 
 	result := graphql.Do(graphql.Params{
 		Schema:         server.schema,
