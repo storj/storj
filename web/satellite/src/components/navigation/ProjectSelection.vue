@@ -308,11 +308,11 @@ function onCreateLinkClick(): void {
         const user: User = userStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
+            appStore.updateActiveModal(MODALS.newCreateProject);
         }
     }
 
