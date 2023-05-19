@@ -100,55 +100,57 @@
                             <file-browser-header />
                         </template>
                         <template #body>
-                            <tr
-                                v-for="(file, index) in formattedFilesUploading"
-                                :key="index"
-                            >
-                                <!-- using <th> to comply with common Vtable.vue-->
-                                <th class="hide-mobile icon" />
-                                <th
-                                    class="align-left"
-                                    aria-roledescription="file-uploading"
+                            <template v-if="!isNewUploadingModal">
+                                <tr
+                                    v-for="(file, index) in formattedFilesUploading"
+                                    :key="index"
                                 >
-                                    <p class="file-name">
-                                        <file-icon />
-                                        <span>{{ filename(file) }}</span>
-                                    </p>
-                                </th>
-                                <th aria-roledescription="progress-bar">
-                                    <div class="progress">
-                                        <div
-                                            class="progress-bar"
-                                            role="progressbar"
-                                            :style="{
-                                                width: `${file.progress}%`
-                                            }"
-                                        >
-                                            {{ file.progress }}%
+                                    <!-- using <th> to comply with common Vtable.vue-->
+                                    <th class="hide-mobile icon" />
+                                    <th
+                                        class="align-left"
+                                        aria-roledescription="file-uploading"
+                                    >
+                                        <p class="file-name">
+                                            <file-icon />
+                                            <span>{{ filename(file) }}</span>
+                                        </p>
+                                    </th>
+                                    <th aria-roledescription="progress-bar">
+                                        <div class="progress">
+                                            <div
+                                                class="progress-bar"
+                                                role="progressbar"
+                                                :style="{
+                                                    width: `${file.progress}%`
+                                                }"
+                                            >
+                                                {{ file.progress }}%
+                                            </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th>
-                                    <v-button
-                                        width="60px"
-                                        font-size="14px"
-                                        label="Cancel" :is-deletion="true"
-                                        :on-press="() => cancelUpload(file.Key)"
-                                    />
-                                </th>
-                                <th class="hide-mobile" />
-                            </tr>
+                                    </th>
+                                    <th>
+                                        <v-button
+                                            width="60px"
+                                            font-size="14px"
+                                            label="Cancel" :is-deletion="true"
+                                            :on-press="() => cancelUpload(file.Key)"
+                                        />
+                                    </th>
+                                    <th class="hide-mobile" />
+                                </tr>
 
-                            <tr v-if="filesUploading.length" class="files-uploading-count">
-                                <th class="hide-mobile files-uploading-count__content icon" />
-                                <th class="align-left files-uploading-count__content" aria-roledescription="files-uploading-count">
-                                    {{ formattedFilesWaitingToBeUploaded }}
-                                    waiting to be uploaded...
-                                </th>
-                                <th class="hide-mobile files-uploading-count__content" />
-                                <th class="hide-mobile files-uploading-count__content" />
-                                <th class="files-uploading-count__content" />
-                            </tr>
+                                <tr v-if="filesUploading.length" class="files-uploading-count">
+                                    <th class="hide-mobile files-uploading-count__content icon" />
+                                    <th class="align-left files-uploading-count__content" aria-roledescription="files-uploading-count">
+                                        {{ formattedFilesWaitingToBeUploaded }}
+                                        waiting to be uploaded...
+                                    </th>
+                                    <th class="hide-mobile files-uploading-count__content" />
+                                    <th class="hide-mobile files-uploading-count__content" />
+                                    <th class="files-uploading-count__content" />
+                                </tr>
+                            </template>
 
                             <up-entry v-if="path.length > 0" :on-back="onBack" />
 
@@ -193,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, reactive, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
@@ -210,6 +212,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -224,6 +227,7 @@ import UploadIcon from '@/../static/images/browser/upload.svg';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -248,6 +252,13 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  */
 const isInitialized = computed((): boolean => {
     return obStore.isInitialized;
+});
+
+/**
+ * Indicates if new objects uploading flow should be working.
+ */
+const isNewUploadingModal = computed((): boolean => {
+    return configStore.state.config.newUploadModalEnabled;
 });
 
 /**

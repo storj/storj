@@ -31,8 +31,6 @@ export class FrontendConfig {
     allProjectsDashboard: boolean;
     defaultPaidStorageLimit: MemorySize;
     defaultPaidBandwidthLimit: MemorySize;
-    newBillingScreen: boolean;
-    newAccessGrantFlow: boolean;
     inactivityTimerEnabled: boolean;
     inactivityTimerDuration: number;
     inactivityTimerViewerEnabled: boolean;
@@ -43,6 +41,7 @@ export class FrontendConfig {
     passwordMaximumLength: number;
     abTestingEnabled: boolean;
     pricingPackagesEnabled: boolean;
+    newUploadModalEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

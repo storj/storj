@@ -18,7 +18,6 @@ export class Time {
  * This class simplifies working with duration (nanoseconds) sent from the backend.
  * */
 export class Duration {
-
     static MINUTES_15 = new Duration(9e+11);
     static MINUTES_30 = new Duration(1.8e+12);
     static HOUR_1 = new Duration(3.6e+12);
@@ -88,6 +87,24 @@ export class Duration {
             unitPart = `${unitPart}s`;
         }
         return `${numberPart} ${unitPart}`;
+    }
+
+    get remainingFormatted(): string {
+        const seconds = Math.floor(this.nanoseconds / 1000000000);
+        const remainingHours = Math.floor(seconds / 3600);
+        const remainingMinutes = Math.floor((seconds % 3600) / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+
+        let timeString = '';
+        if (remainingHours > 0) {
+            timeString += `${remainingHours}h `;
+        }
+        if (remainingMinutes > 0) {
+            timeString += `${remainingMinutes}m `;
+        }
+        timeString += `${remainingSeconds}s`;
+
+        return timeString;
     }
 
     public isEqualTo(other: Duration): boolean {

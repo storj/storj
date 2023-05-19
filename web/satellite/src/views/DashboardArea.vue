@@ -120,6 +120,7 @@
             :on-upgrade="togglePMModal"
         />
         <AllModals />
+        <ObjectsUploadingModal v-if="isObjectsUploadModal" />
         <!-- IMPORTANT! Make sure these 2 modals are positioned as the last elements here so that they are shown on top of everything else -->
         <InactivityModal
             v-if="inactivityModalShown"
@@ -174,6 +175,7 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
+import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
 
 import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
@@ -231,6 +233,13 @@ const sessionDuration = computed((): number => {
  */
 const sessionRefreshInterval = computed((): number => {
     return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether objects upload modal should be shown.
+ */
+const isObjectsUploadModal = computed((): boolean => {
+    return configStore.state.config.newUploadModalEnabled && appStore.state.isUploadingModal;
 });
 
 /**

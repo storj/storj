@@ -26,6 +26,7 @@ class AppState {
     public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined;
     public activeDropdown = 'none';
     public activeModal: Component | null = null;
+    public isUploadingModal = false;
     // this field is mainly used on the all projects dashboard as an exit condition
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
@@ -97,6 +98,10 @@ export const useAppStore = defineStore('app', () => {
 
     function setOnboardingAPIKey(apiKey: string): void {
         state.onbApiKey = apiKey;
+    }
+
+    function setUploadingModal(value: boolean): void {
+        state.isUploadingModal = value;
     }
 
     function setOnboardingCleanAPIKey(apiKey: string): void {
@@ -184,6 +189,7 @@ export const useAppStore = defineStore('app', () => {
         setPricingPlan,
         setManagePassphraseStep,
         setHasShownPricingPlan,
+        setUploadingModal,
         setLargeUploadWarningNotification,
         setLargeUploadNotification,
         closeDropdowns,

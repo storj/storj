@@ -9,6 +9,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const listCache = new Map();
 
@@ -26,6 +27,24 @@ export type BrowserObject = {
     path?: string;
 };
 
+export enum FailedUploadMessage {
+    Failed = 'Upload failed',
+    TooBig = 'File is too big',
+}
+
+export enum UploadingStatus {
+    InProgress,
+    Finished,
+    Failed,
+    Cancelled,
+}
+
+export type UploadingBrowserObject = BrowserObject & {
+    status: UploadingStatus;
+    Body: File;
+    failedMessage?: FailedUploadMessage;
+}
+
 export class FilesState {
     s3: S3 | null = null;
     accessKey: null | string = null;
@@ -34,7 +53,7 @@ export class FilesState {
     browserRoot = '/';
     files: BrowserObject[] = [];
     uploadChain: Promise<void> = Promise.resolve();
-    uploading: BrowserObject[] = [];
+    uploading: UploadingBrowserObject[] = [];
     selectedAnchorFile: BrowserObject | null = null;
     unselectedAnchorFile: BrowserObject | null = null;
     selectedFiles: BrowserObject[] = [];
@@ -110,6 +129,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     });
 
     const uploadingLength = computed(() => {
+        const config = useConfigStore();
+
+        if (config.state.config.newUploadModalEnabled) {
+            return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
+        }
+
         return state.uploading.length;
     });
 
@@ -298,7 +323,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 : [];
 
         async function* traverse(item: Item | Item[], path = '') {
-            if ('isFile' in item && item.isFile === true) {
+            if ('isFile' in item && item.isFile) {
                 const file = await new Promise(item.file.bind(item));
                 yield { path, file };
             } else if (item instanceof File) {
@@ -329,7 +354,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                         path + item.name + '/',
                     );
                 }
-            } else if ('length' in item && typeof item.length === 'number') {
+            } else if ('length' in item) {
                 for (const i of item) {
                     yield* traverse(i);
                 }
@@ -363,6 +388,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
 
         const appStore = useAppStore();
+        const config = useConfigStore();
+        const { notifyError } = useNotificationsStore();
 
         for await (const { path, file } of traverse(iterator)) {
             const directories = path.split('/');
@@ -376,6 +403,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 Body: file,
             };
 
+            if (config.state.config.newUploadModalEnabled) {
+                if (state.uploading.some(f => f.Key === params.Key && f.status === UploadingStatus.InProgress)) {
+                    notifyError({ message: `${params.Key} is already uploading`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+                    continue;
+                }
+            }
+
             // If file size exceeds 1 GB, show warning notification
             if (file.size > (1024 * 1024 * 1024)) {
                 appStore.setLargeUploadWarningNotification(true);
@@ -387,14 +421,36 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             );
 
             upload.on('httpUploadProgress', async (progress) => {
-                const file = state.uploading.find((file) => file.Key === params.Key);
-
-                if (file === undefined) {
+                const file = state.uploading.find(file => file.Key === params.Key);
+                if (!file) {
                     throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
                 }
 
                 file.progress = Math.round((progress.loaded / progress.total) * 100);
             });
+
+            if (config.state.config.newUploadModalEnabled) {
+                if (state.uploading.some(f => f.Key === params.Key && f.status === UploadingStatus.Cancelled)) {
+                    state.uploading = state.uploading.filter(f => f.Key !== params.Key);
+                }
+
+                // If file size exceeds 30 GB, abort the upload attempt
+                if (file.size > (30 * 1024 * 1024 * 1024)) {
+                    state.uploading.push({
+                        ...params,
+                        upload,
+                        progress: 0,
+                        Size: 0,
+                        LastModified: 0,
+                        Body: file,
+                        status: UploadingStatus.Failed,
+                        failedMessage: FailedUploadMessage.TooBig,
+                    });
+
+                    appStore.setUploadingModal(true);
+                    continue;
+                }
+            }
 
             state.uploading.push({
                 ...params,
@@ -402,41 +458,105 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 progress: 0,
                 Size: 0,
                 LastModified: 0,
+                status: UploadingStatus.InProgress,
             });
 
+            if (config.state.config.newUploadModalEnabled && !appStore.state.isUploadingModal) {
+                appStore.setUploadingModal(true);
+            }
+
             state.uploadChain = state.uploadChain.then(async () => {
-                if (
-                    state.uploading.findIndex((file) => file.Key === params.Key) === -1
-                ) {
+                const index = state.uploading.findIndex(f => f.Key === params.Key);
+                if (index === -1) {
                     // upload cancelled or removed
                     return;
                 }
 
                 try {
                     await upload.promise();
+                    state.uploading[index].status = UploadingStatus.Finished;
                 } catch (error) {
-                    const { notifyError } = useNotificationsStore();
-                    const limitExceededError = 'storage limit exceeded';
-                    if (error.message.includes(limitExceededError)) {
-                        notifyError({ message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
-                    } else {
-                        notifyError({ message: error.message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
-                    }
+                    handleUploadError(error.message, index);
+                    return;
                 }
 
                 await list();
 
-                const uploadedFiles = state.files.filter(
-                    (file) => file.type === 'file',
-                );
-
+                const uploadedFiles = state.files.filter(f => f.type === 'file');
                 if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
                     state.objectPathForModal = params.Key;
                     appStore.updateActiveModal(MODALS.objectDetails);
                 }
 
-                state.uploading = state.uploading.filter((file) => file.Key !== params.Key);
+                if (!config.state.config.newUploadModalEnabled) {
+                    state.uploading = state.uploading.filter((file) => file.Key !== params.Key);
+                }
             });
+        }
+    }
+
+    async function retryUpload(item: UploadingBrowserObject): Promise<void> {
+        assertIsInitialized(state);
+
+        const index = state.uploading.findIndex(f => f.Key === item.Key);
+        if (index === -1) {
+            throw new Error(`No file found with key ${JSON.stringify(item.Key)}`);
+        }
+
+        const params = {
+            Bucket: state.bucket,
+            Key: item.Key,
+            Body: item.Body,
+        };
+
+        const upload = state.s3.upload(
+            { ...params },
+            { partSize: 64 * 1024 * 1024 },
+        );
+
+        upload.on('httpUploadProgress', async (progress) => {
+            const file = state.uploading.find(file => file.Key === params.Key);
+            if (!file) {
+                throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
+            }
+
+            file.progress = Math.round((progress.loaded / progress.total) * 100);
+        });
+
+        state.uploading[index] = {
+            ...params,
+            upload,
+            progress: 0,
+            Size: 0,
+            LastModified: 0,
+            status: UploadingStatus.InProgress,
+        };
+
+        try {
+            await upload.promise();
+            state.uploading[index].status = UploadingStatus.Finished;
+        } catch (error) {
+            handleUploadError(error.message, index);
+        }
+
+        await list();
+    }
+
+    function handleUploadError(message: string, index: number): void {
+        const config = useConfigStore();
+
+        if (config.state.config.newUploadModalEnabled) {
+            state.uploading[index].status = UploadingStatus.Failed;
+            state.uploading[index].failedMessage = FailedUploadMessage.Failed;
+        }
+
+        const { notifyError } = useNotificationsStore();
+
+        const limitExceededError = 'storage limit exceeded';
+        if (message.includes(limitExceededError)) {
+            notifyError({ message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+        } else {
+            notifyError({ message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
         }
     }
 
@@ -466,6 +586,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 Key: path + file.Key,
             })
             .promise();
+
+        const config = useConfigStore();
+        if (config.state.config.newUploadModalEnabled) {
+            state.uploading = state.uploading.filter(f => f.Key !== file.Key);
+        }
 
         if (!isFolder) {
             await list();
@@ -582,7 +707,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     function removeFileFromToBeDeleted(file): void {
         state.filesToBeDeleted = state.filesToBeDeleted.filter(
-            (singleFile) => singleFile.Key !== file.Key,
+            singleFile => singleFile.Key !== file.Key,
         );
     }
 
@@ -609,16 +734,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     function cancelUpload(key): void {
-        const file = state.uploading.find((file) => file.Key === key);
-
-        if (typeof file === 'object') {
-            if (file.progress !== undefined && file.upload && file.progress > 0) {
-                file.upload.abort();
-            }
-
-            state.uploading = state.uploading.filter((file) => file.Key !== key);
-        } else {
+        const index = state.uploading.findIndex(f => f.Key === key);
+        if (index === -1) {
             throw new Error(`File ${JSON.stringify(key)} not found`);
+        }
+
+        const file = state.uploading[index];
+        if (file.progress !== undefined && file.upload && file.progress > 0) {
+            file.upload.abort();
+            state.uploading[index].status = UploadingStatus.Cancelled;
         }
     }
 
@@ -641,14 +765,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.unselectedAnchorFile = file;
     }
 
-    function closeAllInteractions(): void {
-        if (state.openedDropdown) {
-            closeDropdown();
-        }
-
-        if (state.selectedAnchorFile) {
-            clearAllSelectedFiles();
-        }
+    function clearUploading(): void {
+        state.uploading = [];
     }
 
     function clear(): void {
@@ -681,12 +799,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         uploadingLength,
         init,
         reinit,
-        updateFiles,
         list,
         back,
         sort,
         getObjectCount,
         upload,
+        retryUpload,
         createFolder,
         deleteObject,
         deleteFolder,
@@ -704,7 +822,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         setSelectedAnchorFile,
         setUnselectedAnchorFile,
         cancelUpload,
-        closeAllInteractions,
+        clearUploading,
         clear,
     };
 });

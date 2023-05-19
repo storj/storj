@@ -10,7 +10,9 @@
         :item="{'name': 'Objects locked', 'size': '', 'date': ''}"
         item-type="locked"
     >
-        <th slot="options" />
+        <template #options>
+            <th />
+        </template>
     </table-item>
 </template>
 

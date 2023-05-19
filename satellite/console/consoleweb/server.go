@@ -98,6 +98,7 @@ type Config struct {
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -540,6 +541,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
 		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
+		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
