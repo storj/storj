@@ -399,12 +399,18 @@ func TestBilling_ExpiredFiles(t *testing.T) {
 		require.NotZero(t, len(tallies), "There should be at least one tally")
 
 		// set the tally service to be in the future for the next get tallies call. it should
-		// not add any tallies.
-		planet.Satellites[0].Accounting.Tally.SetNow(func() time.Time {
+		// add an empty tally because the object we uploaded should have expired.
+		satelliteSys.Accounting.Tally.SetNow(func() time.Time {
 			return now.Add(2 * time.Hour)
 		})
 		newTallies := getTallies(ctx, t, planet, 0)
-		require.Equal(t, tallies, newTallies)
+		tallies = append(tallies, accounting.BucketTally{
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  planet.Uplinks[0].Projects[0].ID,
+				BucketName: bucketName,
+			},
+		})
+		require.ElementsMatch(t, tallies, newTallies)
 	})
 }
 

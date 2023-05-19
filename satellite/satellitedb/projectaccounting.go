@@ -22,6 +22,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/pgxutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -142,6 +143,39 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 	)
 
 	return Error.Wrap(err)
+}
+
+// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
+// whose most recent tally does not represent empty usage.
+func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation) (result []metabase.BucketLocation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = withRows(db.db.QueryContext(ctx, `
+		SELECT project_id, name
+		FROM bucket_metainfos bm
+		WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
+		AND NOT 0 IN (
+			SELECT object_count FROM bucket_storage_tallies
+			WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
+			ORDER BY interval_start DESC
+			LIMIT 1
+		)
+	`, from.ProjectID, from.BucketName, to.ProjectID, to.BucketName),
+	)(func(r tagsql.Rows) error {
+		for r.Next() {
+			loc := metabase.BucketLocation{}
+			if err := r.Scan(&loc.ProjectID, &loc.BucketName); err != nil {
+				return err
+			}
+			result = append(result, loc)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.

@@ -452,3 +452,49 @@ func Test_GetProjectObjectsSegments(t *testing.T) {
 			require.Zero(t, projectStats.SegmentCount)
 		})
 }
+
+func TestProjectUsageGap(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+		tally := sat.Accounting.Tally
+
+		tally.Loop.Pause()
+
+		now := time.Time{}
+		tally.SetNow(func() time.Time {
+			return now
+		})
+
+		const (
+			bucketName = "testbucket"
+			objectPath = "test/path"
+		)
+
+		data := testrand.Bytes(10)
+		require.NoError(t, uplink.Upload(ctx, sat, bucketName, objectPath, data))
+		tally.Loop.TriggerWait()
+
+		objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objs, 1)
+		expectedStorage := objs[0].TotalEncryptedSize
+
+		now = now.Add(time.Hour)
+		require.NoError(t, uplink.DeleteObject(ctx, sat, bucketName, objectPath))
+		tally.Loop.TriggerWait()
+
+		// This object is only uploaded and tallied so that the usage calculator knows
+		// how long it's been since the previous tally.
+		now = now.Add(time.Hour)
+		require.NoError(t, uplink.Upload(ctx, sat, bucketName, objectPath, data))
+		tally.Loop.TriggerWait()
+
+		// The bucket was full for only 1 hour, so expect `expectedStorage` byte-hours of storage usage.
+		usage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, uplink.Projects[0].ID, time.Time{}, now.Add(time.Second))
+		require.NoError(t, err)
+		require.EqualValues(t, expectedStorage, usage.Storage)
+	})
+}

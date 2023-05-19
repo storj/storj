@@ -193,7 +193,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all buckets
-	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.config)
+	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.projectAccountingDB, service.config)
 	err = collector.Run(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -244,22 +244,24 @@ type BucketTallyCollector struct {
 	Log    *zap.Logger
 	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 
-	metabase  *metabase.DB
-	bucketsDB buckets.DB
-	config    Config
+	metabase            *metabase.DB
+	bucketsDB           buckets.DB
+	projectAccountingDB accounting.ProjectAccounting
+	config              Config
 }
 
 // NewBucketTallyCollector returns a collector that adds up totals for buckets.
 // The now argument controls when the collector considers objects to be expired.
-func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, config Config) *BucketTallyCollector {
+func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, projectAccountingDB accounting.ProjectAccounting, config Config) *BucketTallyCollector {
 	return &BucketTallyCollector{
 		Now:    now,
 		Log:    log,
 		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 
-		metabase:  db,
-		bucketsDB: bucketsDB,
-		config:    config,
+		metabase:            db,
+		bucketsDB:           bucketsDB,
+		projectAccountingDB: projectAccountingDB,
+		config:              config,
 	}
 }
 
@@ -282,9 +284,24 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 	var lastBucketLocation metabase.BucketLocation
 	for {
 		more, err := observer.bucketsDB.IterateBucketLocations(ctx, lastBucketLocation.ProjectID, lastBucketLocation.BucketName, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+			fromBucket := bucketLocations[0]
+			toBucket := bucketLocations[len(bucketLocations)-1]
+
+			// Prepopulate the results with empty tallies. Otherwise, empty buckets will be unaccounted for
+			// since they're not reached when iterating over objects in the metainfo DB.
+			// We only do this for buckets whose last tally is non-empty because only one empty tally is
+			// required for us to know that a bucket was empty the last time we checked.
+			locs, err := observer.projectAccountingDB.GetNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket)
+			if err != nil {
+				return err
+			}
+			for _, loc := range locs {
+				observer.Bucket[loc] = &accounting.BucketTally{BucketLocation: loc}
+			}
+
 			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
-				From:               bucketLocations[0],
-				To:                 bucketLocations[len(bucketLocations)-1],
+				From:               fromBucket,
+				To:                 toBucket,
 				AsOfSystemTime:     startingTime,
 				AsOfSystemInterval: observer.config.AsOfSystemInterval,
 				Now:                observer.Now,
