@@ -728,7 +728,6 @@ onMounted(async () => {
     try {
         await Promise.all([
             usersStore.getUser(),
-            usersStore.getFrozenStatus(),
             abTestingStore.fetchValues(),
             usersStore.getSettings(),
         ]);

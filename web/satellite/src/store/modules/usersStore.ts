@@ -46,13 +46,10 @@ export const useUsersStore = defineStore('users', () => {
         const configStore = useConfigStore();
 
         const user = await api.get();
+        user.freezeStatus = await api.getFrozenStatus();
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         setUser(user);
-    }
-
-    async function getFrozenStatus(): Promise<void> {
-        state.user.freezeStatus = await api.getFrozenStatus();
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
@@ -112,7 +109,6 @@ export const useUsersStore = defineStore('users', () => {
         generateUserMFARecoveryCodes,
         clear,
         login,
-        getFrozenStatus,
         setUser,
         updateSettings,
         getSettings,
