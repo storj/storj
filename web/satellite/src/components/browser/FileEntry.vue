@@ -8,7 +8,7 @@
         :selected="isFileSelected"
         :on-click="openModal"
         :on-primary-click="openModal"
-        :item="{'name': file.Key, 'size': size, 'date': uploadDate}"
+        :item="{'fileName': file.Key, 'size': size, 'date': uploadDate}"
         :item-type="fileType"
         @selectClicked="selectFile"
     >

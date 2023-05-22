@@ -21,8 +21,8 @@
                 <div v-if="icon && index === 0" class="item-icon file-background">
                     <component :is="icon" />
                 </div>
-                <p :class="{primary: ((!icon && index === 0) || (icon && index === 1))}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
-                    <middle-truncate v-if="(itemType?.toLowerCase() === 'file')" :text="val" />
+                <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
+                    <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
                     <project-ownership-tag v-else-if="keyVal === 'owner'" no-icon :is-owner="val" />
                     <span v-else>{{ val }}</span>
                 </p>
