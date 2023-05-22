@@ -298,7 +298,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, retrievablePieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, segment, retrievablePieces)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
@@ -349,7 +349,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -686,7 +686,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 
 	// we treat all pieces as "healthy" for our purposes here; we want to download as many
 	// of them as we reasonably can. Thus, we pass in seg.Pieces for 'healthy'
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, *seg, seg.Pieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, *seg, seg.Pieces)
 	if err != nil {
 		return nil, errs.New("could not create order limits: %w", err)
 	}

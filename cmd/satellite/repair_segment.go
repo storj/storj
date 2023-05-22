@@ -275,8 +275,8 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 	optimalThresholdMultiplier := float64(1) // is this value fine?
 	numHealthyInExcludedCountries := 0
-	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment,
-		make([]*pb.AddressedOrderLimit, len(newNodes)), make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, segment, make([]*pb.AddressedOrderLimit, len(newNodes)),
+		make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
 	if err != nil {
 		return errs.New("could not create PUT_REPAIR order limits: %w", err)
 	}
