@@ -1099,7 +1099,7 @@ server.private-address: 127.0.0.1:7778
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 
-# how many objects to query in a batch
+# how many buckets to query in a batch
 # tally.list-limit: 2500
 
 # how large of batches GetBandwidthSince should process at a time
@@ -1107,9 +1107,6 @@ server.private-address: 127.0.0.1:7778
 
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
-
-# flag to switch between calculating bucket tallies using objects loop or custom query
-# tally.use-objects-loop: false
 
 # whether to enable node tally with ranged loop
 # tally.use-ranged-loop: true

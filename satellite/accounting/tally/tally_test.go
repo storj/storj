@@ -199,59 +199,9 @@ func TestIgnoresExpiredPointers(t *testing.T) {
 	})
 }
 
-func TestLiveAccountingWithObjectsLoop(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tally := planet.Satellites[0].Accounting.Tally
-		projectID := planet.Uplinks[0].Projects[0].ID
-		tally.Loop.Pause()
-
-		expectedData := testrand.Bytes(19 * memory.KiB)
-
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-		require.Len(t, segments, 1)
-
-		segmentSize := int64(segments[0].EncryptedSize)
-
-		tally.Loop.TriggerWait()
-
-		expectedSize := segmentSize
-
-		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
-		require.NoError(t, err)
-		require.Equal(t, expectedSize, total)
-
-		for i := 0; i < 3; i++ {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/path/%d", i), expectedData)
-			require.NoError(t, err)
-
-			tally.Loop.TriggerWait()
-
-			expectedSize += segmentSize
-
-			total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
-			require.NoError(t, err)
-			require.Equal(t, expectedSize, total)
-		}
-	})
-}
-
 func TestLiveAccountingWithCustomSQLQuery(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.UseObjectsLoop = false
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -450,7 +400,6 @@ func TestTallyBatchSize(t *testing.T) {
 		for _, batchSize := range []int{1, 2, 3, numberOfBuckets, 14, planet.Satellites[0].Config.Tally.ListLimit} {
 			collector := tally.NewBucketTallyCollector(zaptest.NewLogger(t), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].DB.Buckets(), tally.Config{
 				Interval:           1 * time.Hour,
-				UseObjectsLoop:     false,
 				ListLimit:          batchSize,
 				AsOfSystemInterval: 1 * time.Microsecond,
 			})

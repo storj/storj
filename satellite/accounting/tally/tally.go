@@ -29,10 +29,9 @@ type Config struct {
 	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
-	UseObjectsLoop      bool          `help:"flag to switch between calculating bucket tallies using objects loop or custom query" default:"false"`
 	UseRangedLoop       bool          `help:"whether to enable node tally with ranged loop" default:"true"`
 
-	ListLimit          int           `help:"how many objects to query in a batch" default:"2500"`
+	ListLimit          int           `help:"how many buckets to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
@@ -233,14 +232,11 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
 		monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
-		monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	}
 
 	// return errors if something went wrong.
 	return errAtRest
 }
-
-var objectFunc = mon.Task()
 
 // BucketTallyCollector collects and adds up tallies for buckets.
 type BucketTallyCollector struct {
@@ -276,24 +272,7 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	if !observer.config.UseObjectsLoop {
-		return observer.fillBucketTallies(ctx, startingTime)
-	}
-
-	return observer.metabase.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
-		BatchSize:          observer.config.ListLimit,
-		AsOfSystemTime:     startingTime,
-		AsOfSystemInterval: observer.config.AsOfSystemInterval,
-	}, func(ctx context.Context, it metabase.LoopObjectsIterator) (err error) {
-		var entry metabase.LoopObjectEntry
-		for it.Next(ctx, &entry) {
-			err = observer.object(ctx, entry)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return observer.fillBucketTallies(ctx, startingTime)
 }
 
 // fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
@@ -350,26 +329,6 @@ func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocat
 	}
 
 	return bucket
-}
-
-// Object is called for each object once.
-func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) error {
-	defer objectFunc(&ctx)(nil)
-
-	if object.Expired(observer.Now) {
-		return nil
-	}
-
-	bucket := observer.ensureBucket(object.ObjectStream.Location())
-	bucket.TotalSegments += int64(object.SegmentCount)
-	bucket.TotalBytes += object.TotalEncryptedSize
-	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
-	bucket.ObjectCount++
-	if object.Status == metabase.Pending {
-		bucket.PendingObjectCount++
-	}
-
-	return nil
 }
 
 func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]accounting.Usage {
