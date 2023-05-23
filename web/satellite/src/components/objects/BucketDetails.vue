@@ -70,6 +70,8 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Bucket from store found by router prop.
  */
 const bucket = computed((): Bucket => {
+    if (!projectsStore.state.selectedProject.id) return new Bucket();
+
     const data = bucketsStore.state.page.buckets.find(
         (bucket: Bucket) => bucket.name === route.query.bucketName,
     );

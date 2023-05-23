@@ -238,17 +238,18 @@ onBeforeMount(() => {
 });
 
 watch(passphrase, async () => {
+    const projectID = projectsStore.state.selectedProject.id;
+    if (!projectID) return;
+
     if (!passphrase.value) {
         await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
         return;
     }
 
-    const projectID = projectsStore.state.selectedProject.id;
-
     try {
         await bucketsStore.setS3Client(projectID);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
 
@@ -266,7 +267,7 @@ watch(passphrase, async () => {
             obStore.getObjectCount(),
         ]);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
     }
 });
 </script>

@@ -7,7 +7,6 @@
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
             <project-ownership-tag :is-owner="selectedProject.ownerId === user.id" />
         </div>
-
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>

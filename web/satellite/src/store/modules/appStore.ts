@@ -169,6 +169,7 @@ export const useAppStore = defineStore('app', () => {
         state.selectedPricingPlan = null;
         state.hasShownPricingPlan = false;
         state.activeDropdown = '';
+        state.isUploadingModal = false;
         state.error.visible = false;
     }
 

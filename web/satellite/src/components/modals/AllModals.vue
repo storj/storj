@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed } from 'vue';
+import { computed, Component } from 'vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 

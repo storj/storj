@@ -36,12 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, Component } from 'vue';
+import { computed } from 'vue';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 const props = withDefaults(defineProps<{
-    icon: Component
+    icon: string
     title: string
     color: string
     usedValue: number

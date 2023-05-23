@@ -15,7 +15,7 @@ self.onmessage = async function (event) {
     switch (data.type) {
     case 'Setup':
         try {
-            const go = new global.Go();
+            const go = new self.Go();
             const response = await fetch('/static/static/wasm/access.wasm');
             const buffer = await response.arrayBuffer();
             const module = await WebAssembly.compile(buffer);

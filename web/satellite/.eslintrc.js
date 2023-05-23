@@ -18,11 +18,8 @@ module.exports = {
         parser: '@typescript-eslint/parser',
         sourceType: 'module',
         ecmaVersion: 2020,
-        vueFeatures: {
-            filter: true,
-        },
     },
-    plugins: ['storj', 'eslint-plugin-import'],
+    plugins: ['eslint-plugin-import'],
     rules: {
         'linebreak-style': ['error', 'unix'],
 
@@ -88,8 +85,6 @@ module.exports = {
         'vue/no-multiple-template-root': ['off'], // it's possible to have multiple roots in template in Vue 3
 
         'vue/no-undef-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
-
-        'storj/vue/require-annotation': 'warn',
 
         'vue/no-v-html': ['error'],
     },

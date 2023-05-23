@@ -138,6 +138,8 @@ onMounted(async (): Promise<void> => {
 });
 
 watch(selectedProjectID, async () => {
+    if (!selectedProjectID.value) return;
+
     isLoading.value = true;
 
     bucketsStore.clear();

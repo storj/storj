@@ -17,12 +17,10 @@
 </template>
 
 <script setup lang="ts">
-import { Component } from 'vue';
-
 import VLoader from '@/components/common/VLoader.vue';
 
 const props = withDefaults(defineProps<{
-    icon: Component,
+    icon: string,
     isDataFetching: boolean,
     title: string,
     subtitle: string,

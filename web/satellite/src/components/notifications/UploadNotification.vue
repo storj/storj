@@ -13,14 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import { Component } from 'vue';
-
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 const props = defineProps<{
   wordingBold: string;
   wording: string;
-  notificationIcon: Component;
+  notificationIcon: string;
   warningNotification: boolean;
   onCloseClick: () => void;
 }>();

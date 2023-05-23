@@ -107,7 +107,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { generateMnemonic } from 'bip39';
+import { generateMnemonic } from 'bip39-english';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useNotify } from '@/utils/hooks';

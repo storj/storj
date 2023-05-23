@@ -12,10 +12,8 @@
 </template>
 
 <script setup lang="ts">
-import { Component } from 'vue';
-
 const props = defineProps<{
-    icon?: Component;
+    icon?: string;
     title: string;
 }>();
 </script>

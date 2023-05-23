@@ -9,7 +9,7 @@
                     <img
                         v-if="previewAndMapFailed"
                         class="failed-preview"
-                        src="/static/static/images/common/errorNotice.svg"
+                        :src="ErrorNoticeIcon"
                         alt="failed preview"
                     >
                     <template v-else>
@@ -126,6 +126,7 @@ import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+import ErrorNoticeIcon from '@/../static/images/common/errorNotice.svg?url';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
 const appStore = useAppStore();

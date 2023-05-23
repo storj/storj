@@ -171,7 +171,7 @@ async function fetchBuckets(page = 1, limit: number): Promise<void> {
     try {
         await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 }
 
@@ -180,14 +180,14 @@ async function fetchBuckets(page = 1, limit: number): Promise<void> {
  */
 async function searchBuckets(searchQuery: string): Promise<void> {
     bucketsStore.setBucketsSearch(searchQuery);
-    await analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
+    analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
     searchLoading.value = true;
 
     try {
         await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
+        notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 
     searchLoading.value = false;
@@ -219,7 +219,7 @@ async function openBucket(bucketName: string): Promise<void> {
                 await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 overallLoading.value = false;
             } catch (error) {
-                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
+                notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
                 overallLoading.value = false;
                 return;
             }

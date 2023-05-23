@@ -281,11 +281,6 @@ import { computed, onBeforeMount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
-import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
-import LogoIcon from '../../../static/images/logo.svg';
-import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
@@ -299,6 +294,10 @@ import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 
+import LogoWithPartnerIcon from '@/../static/images/partnerStorjLogo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 import InfoIcon from '@/../static/images/register/info.svg';
 

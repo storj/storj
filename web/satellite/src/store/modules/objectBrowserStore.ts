@@ -3,7 +3,20 @@
 
 import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
-import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
+import {
+    S3Client,
+    CommonPrefix,
+    S3ClientConfig,
+    ListObjectsCommand,
+    ListObjectsV2Command,
+    DeleteObjectCommand,
+    PutObjectCommand,
+    _Object,
+    GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Upload } from '@aws-sdk/lib-storage';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -46,7 +59,7 @@ export type UploadingBrowserObject = BrowserObject & {
 }
 
 export class FilesState {
-    s3: S3 | null = null;
+    s3: S3Client | null = null;
     accessKey: null | string = null;
     path = '';
     bucket = '';
@@ -70,7 +83,7 @@ export class FilesState {
 }
 
 type InitializedFilesState = FilesState & {
-  s3: S3;
+  s3: S3Client;
 };
 
 function assertIsInitialized(
@@ -157,17 +170,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         fetchSharedLink: (arg0: string) => Promisable<string>;
         fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
     }): void {
-        const s3Config = {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey,
+        const s3Config: S3ClientConfig = {
+            credentials: {
+                accessKeyId: accessKey,
+                secretAccessKey: secretKey,
+            },
             endpoint,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            connectTimeout: 0,
-            httpOptions: { timeout: 0 },
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+            region: 'us-east-1',
         };
 
-        state.s3 = new S3(s3Config);
+        state.s3 = new S3Client(s3Config);
         state.accessKey = accessKey;
         state.bucket = bucket;
         state.browserRoot = browserRoot;
@@ -187,18 +201,19 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         secretKey: string;
         endpoint: string;
     }): void {
-        const s3Config = {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey,
+        const s3Config: S3ClientConfig = {
+            credentials: {
+                accessKeyId: accessKey,
+                secretAccessKey: secretKey,
+            },
             endpoint,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            connectTimeout: 0,
-            httpOptions: { timeout: 0 },
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+            region: 'us-east-1',
         };
 
         state.files = [];
-        state.s3 = new S3(s3Config);
+        state.s3 = new S3Client(s3Config);
         state.accessKey = accessKey;
     }
 
@@ -214,24 +229,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         assertIsInitialized(state);
 
-        const response = await state.s3
-            .listObjects({
-                Bucket: state.bucket,
-                Delimiter: '/',
-                Prefix: path,
-            })
-            .promise();
+        const response = await state.s3.send(new ListObjectsCommand({
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+        }));
 
-        const { Contents, CommonPrefixes } = response;
+        let { Contents, CommonPrefixes } = response;
 
         if (Contents === undefined) {
-            throw new Error('Bad S3 listObjects() response: "Contents" undefined');
+            Contents = [];
         }
 
         if (CommonPrefixes === undefined) {
-            throw new Error(
-                'Bad S3 listObjects() response: "CommonPrefixes" undefined',
-            );
+            CommonPrefixes = [];
         }
 
         Contents.sort((a, b) => {
@@ -302,11 +313,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function getObjectCount(): Promise<void> {
         assertIsInitialized(state);
 
-        const responseV2 = await state.s3
-            .listObjectsV2({
-                Bucket: state.bucket,
-            })
-            .promise();
+        const responseV2 = await state.s3.send(new ListObjectsV2Command({
+            Bucket: state.bucket,
+        }));
 
         state.objectsCount = responseV2.KeyCount === undefined ? 0 : responseV2.KeyCount;
     }
@@ -375,7 +384,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         const fileNames = state.files.map((file) => file.Key);
 
-        function getUniqueFileName(fileName) {
+        function getUniqueFileName(fileName: string): string {
             for (let count = 1; fileNames.includes(fileName); count++) {
                 if (count > 1) {
                     fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
@@ -415,10 +424,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 appStore.setLargeUploadWarningNotification(true);
             }
 
-            const upload = state.s3.upload(
-                { ...params },
-                { partSize: 64 * 1024 * 1024 },
-            );
+            const upload = new Upload({
+                client: state.s3,
+                partSize: 64 * 1024 * 1024,
+                params,
+            });
 
             upload.on('httpUploadProgress', async (progress) => {
                 const file = state.uploading.find(file => file.Key === params.Key);
@@ -426,7 +436,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
                 }
 
-                file.progress = Math.round((progress.loaded / progress.total) * 100);
+                let p = 0;
+                if (progress.loaded && progress.total) {
+                    p = Math.round((progress.loaded / progress.total) * 100);
+                }
+                file.progress = p;
             });
 
             if (config.state.config.newUploadModalEnabled) {
@@ -473,7 +487,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 }
 
                 try {
-                    await upload.promise();
+                    await upload.done();
                     state.uploading[index].status = UploadingStatus.Finished;
                 } catch (error) {
                     handleUploadError(error.message, index);
@@ -509,10 +523,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: item.Body,
         };
 
-        const upload = state.s3.upload(
-            { ...params },
-            { partSize: 64 * 1024 * 1024 },
-        );
+        const upload = new Upload({
+            client: state.s3,
+            partSize: 64 * 1024 * 1024,
+            params,
+        });
 
         upload.on('httpUploadProgress', async (progress) => {
             const file = state.uploading.find(file => file.Key === params.Key);
@@ -520,7 +535,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
             }
 
-            file.progress = Math.round((progress.loaded / progress.total) * 100);
+            let p = 0;
+            if (progress.loaded && progress.total) {
+                p = Math.round((progress.loaded / progress.total) * 100);
+            }
+            file.progress = p;
         });
 
         state.uploading[index] = {
@@ -533,7 +552,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         };
 
         try {
-            await upload.promise();
+            await upload.done();
             state.uploading[index].status = UploadingStatus.Finished;
         } catch (error) {
             handleUploadError(error.message, index);
@@ -563,29 +582,26 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function createFolder(name): Promise<void> {
         assertIsInitialized(state);
 
-        await state.s3
-            .putObject({
-                Bucket: state.bucket,
-                Key: state.path + name + '/.file_placeholder',
-            })
-            .promise();
+        await state.s3.send(new PutObjectCommand({
+            Bucket: state.bucket,
+            Key: state.path + name + '/.file_placeholder',
+            Body: '',
+        }));
 
         list();
     }
 
-    async function deleteObject(path: string, file?: S3.Object | BrowserObject, isFolder = false): Promise<void> {
+    async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false): Promise<void> {
         if (!file) {
             return;
         }
 
         assertIsInitialized(state);
 
-        await state.s3
-            .deleteObject({
-                Bucket: state.bucket,
-                Key: path + file.Key,
-            })
-            .promise();
+        await state.s3.send(new DeleteObjectCommand({
+            Bucket: state.bucket,
+            Key: path + file.Key,
+        }));
 
         const config = useConfigStore();
         if (config.state.config.newUploadModalEnabled) {
@@ -604,31 +620,23 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         async function recurse(filePath) {
             assertIsInitialized(state);
 
-            const { Contents, CommonPrefixes } = await state.s3
-                .listObjects({
-                    Bucket: state.bucket,
-                    Delimiter: '/',
-                    Prefix: filePath,
-                })
-                .promise();
+            let { Contents, CommonPrefixes } = await state.s3.send(new ListObjectsCommand({
+                Bucket: state.bucket,
+                Delimiter: '/',
+                Prefix: filePath,
+            }));
 
             if (Contents === undefined) {
-                throw new Error(
-                    'Bad S3 listObjects() response: "Contents" undefined',
-                );
+                Contents = [];
             }
 
             if (CommonPrefixes === undefined) {
-                throw new Error(
-                    'Bad S3 listObjects() response: "CommonPrefixes" undefined',
-                );
+                CommonPrefixes = [];
             }
 
             async function thread() {
                 if (Contents === undefined) {
-                    throw new Error(
-                        'Bad S3 listObjects() response: "Contents" undefined',
-                    );
+                    Contents = [];
                 }
 
                 while (Contents.length) {
@@ -679,10 +687,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     function download(file): void {
         assertIsInitialized(state);
 
-        const url = state.s3.getSignedUrl('getObject', {
+        const url = getSignedUrl(state.s3, new GetObjectCommand({
             Bucket: state.bucket,
             Key: state.path + file.Key,
-        });
+        }));
         const downloadURL = function(data, fileName) {
             const a = document.createElement('a');
             a.href = data;

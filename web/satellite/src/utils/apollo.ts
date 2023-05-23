@@ -13,7 +13,7 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
  * Satellite url.
  */
 const satelliteUrl = new HttpLink({
-    uri: process.env.VUE_APP_ENDPOINT_URL,
+    uri: import.meta.env.VITE_ENDPOINT_URL,
 });
 
 /**

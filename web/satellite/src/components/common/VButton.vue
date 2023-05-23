@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, Component } from 'vue';
+import { computed } from 'vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
@@ -106,7 +106,7 @@ const props = withDefaults(defineProps<{
     onPress: () => {},
 });
 
-const icons = new Map<string, Component>([
+const icons = new Map<string, string>([
     ['copy', CopyIcon],
     ['check', CheckIcon],
     ['download', DownloadIcon],
@@ -120,7 +120,7 @@ const icons = new Map<string, Component>([
     ['add', WhitePlusIcon],
 ]);
 
-const iconComponent = computed((): Component | undefined => icons.get(props.icon.toLowerCase()));
+const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));
 
 const containerClassName = computed((): string => {
     if (props.isDisabled) return 'disabled';

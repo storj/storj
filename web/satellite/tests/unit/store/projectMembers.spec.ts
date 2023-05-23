@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
@@ -23,7 +24,7 @@ const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'tes
 describe('actions', () => {
     beforeEach(() => {
         setActivePinia(createPinia());
-        jest.resetAllMocks();
+        vi.resetAllMocks();
     });
 
     it('fetch project members', async function () {
@@ -34,7 +35,7 @@ describe('actions', () => {
         testProjectMembersPage.totalCount = 1;
         testProjectMembersPage.pageCount = 1;
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -95,7 +96,7 @@ describe('actions', () => {
         expect(store.state.page.projectMembers[0].isSelected).toBe(true);
         expect(store.state.selectedProjectMembersEmails.length).toBe(1);
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -130,7 +131,7 @@ describe('actions', () => {
     it('add project members', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'add').mockReturnValue(Promise.resolve());
+        vi.spyOn(ProjectMembersApiGql.prototype, 'add').mockReturnValue(Promise.resolve());
 
         try {
             await store.addProjectMembers([projectMember1.user.email], selectedProject.id);
@@ -143,7 +144,7 @@ describe('actions', () => {
     it('add project member throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'add').mockImplementation(() => {
+        vi.spyOn(ProjectMembersApiGql.prototype, 'add').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
@@ -164,7 +165,7 @@ describe('actions', () => {
     it('delete project members', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'delete').mockReturnValue(Promise.resolve());
+        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockReturnValue(Promise.resolve());
 
         try {
             await store.deleteProjectMembers(selectedProject.id);
@@ -177,7 +178,7 @@ describe('actions', () => {
     it('delete project member throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'delete').mockImplementation(() => {
+        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
@@ -198,7 +199,7 @@ describe('actions', () => {
     it('fetch project members', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
             Promise.resolve(new ProjectMembersPage(
                 [projectMember1],
                 '',
@@ -223,7 +224,7 @@ describe('actions', () => {
     it('fetch project members throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get').mockImplementation(() => {
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
