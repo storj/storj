@@ -11,9 +11,10 @@ import (
 type BucketTally struct {
 	metabase.BucketLocation
 
-	ObjectCount   int64
-	TotalSegments int64
-	TotalBytes    int64
+	ObjectCount        int64
+	PendingObjectCount int64
+	TotalSegments      int64
+	TotalBytes         int64
 
 	MetadataSize int64
 }
@@ -21,6 +22,7 @@ type BucketTally struct {
 // Combine aggregates all the tallies.
 func (s *BucketTally) Combine(o *BucketTally) {
 	s.ObjectCount += o.ObjectCount
+	s.PendingObjectCount += o.PendingObjectCount
 	s.TotalSegments += o.TotalSegments
 	s.TotalBytes += o.TotalBytes
 }

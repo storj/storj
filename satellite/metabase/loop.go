@@ -411,7 +411,8 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 type BucketTally struct {
 	BucketLocation
 
-	ObjectCount int64
+	ObjectCount        int64
+	PendingObjectCount int64
 
 	TotalSegments int64
 	TotalBytes    int64
@@ -452,7 +453,10 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 	}
 
 	err = withRows(db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name, SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0), count(*)
+			SELECT
+				project_id, bucket_name,
+				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
+				count(*), count(*) FILTER (WHERE status = 1)
 			FROM objects
 			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
@@ -467,6 +471,7 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 				&bucketTally.ProjectID, &bucketTally.BucketName,
 				&bucketTally.TotalBytes, &bucketTally.TotalSegments,
 				&bucketTally.MetadataSize, &bucketTally.ObjectCount,
+				&bucketTally.PendingObjectCount,
 			); err != nil {
 				return Error.New("unable to query bucket tally: %w", err)
 			}

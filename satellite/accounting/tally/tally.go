@@ -232,6 +232,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
 		monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
+		monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	}
 
 	// return errors if something went wrong.
@@ -319,6 +320,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 				bucket.TotalBytes = tally.TotalBytes
 				bucket.MetadataSize = tally.MetadataSize
 				bucket.ObjectCount = tally.ObjectCount
+				bucket.PendingObjectCount = tally.PendingObjectCount
 			}
 
 			lastBucketLocation = bucketLocations[len(bucketLocations)-1]
