@@ -68,7 +68,8 @@ export class Admin {
 							{ text: 'European Union', value: 'EU' },
 							{ text: 'European Economic Area', value: 'EEA' },
 							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' }
+							{ text: 'Germany', value: 'DE' },
+							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
 						])
 					]
 				],
