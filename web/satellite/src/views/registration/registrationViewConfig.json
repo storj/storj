@@ -1,11 +1,11 @@
 
 {
   "default": {
-    "title": "Welcome to the decentralized cloud.",
+    "title": "Welcome to the distributed cloud.",
     "partnerUrl": "",
     "partnerLogoTopUrl": "",
     "partnerLogoBottomUrl": "",
-    "description": "Join thousands of developers building on the safer, decentralized cloud, and start uploading data in just a few minutes.",
+    "description": "Join thousands of developers building on the safer, distributed cloud, and start uploading data in just a few minutes.",
     "customHtmlDescription": "",
     "signupButtonLabel": "Sign Up",
     "tooltip": "When selecting the Satellite for your project, you'll want to choose the geographic region where the majority of the end users of your service who will be interacting with the objects on Storj DCS will be located."
