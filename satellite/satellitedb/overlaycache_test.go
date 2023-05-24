@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/private/version"
@@ -357,4 +358,63 @@ func TestGetNodesNetwork(t *testing.T) {
 			require.Equal(t, lastNetsPlusOne, gotLastNets)
 		})
 	})
+}
+
+func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+		const netMask = 28
+		mask := net.CIDRMask(netMask, 32)
+
+		infos := make([]overlay.NodeCheckInInfo, 5)
+
+		for n := range infos {
+			id := testrand.NodeID()
+			ip := net.IP{0, 0, 1, byte(n)}
+			lastNet := ip.Mask(mask).String()
+
+			infos[n] = overlay.NodeCheckInInfo{
+				IsUp:        true,
+				Address:     &pb.NodeAddress{Address: ip.String()},
+				LastNet:     lastNet,
+				LastIPPort:  "0.0.0.0:0",
+				Version:     &pb.NodeVersion{Version: "v0.0.0"},
+				NodeID:      id,
+				CountryCode: location.Canada,
+			}
+			err := cache.UpdateCheckIn(ctx, infos[n], time.Now().UTC(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+		}
+
+		checkNodes := func(selectedNodes []*overlay.SelectedNode) {
+			selectedNodesMap := map[storj.NodeID]*overlay.SelectedNode{}
+			for _, node := range selectedNodes {
+				selectedNodesMap[node.ID] = node
+			}
+
+			for _, info := range infos {
+				selectedNode, ok := selectedNodesMap[info.NodeID]
+				require.True(t, ok)
+
+				require.Equal(t, info.NodeID, selectedNode.ID)
+				require.Equal(t, info.Address, selectedNode.Address)
+				require.Equal(t, info.CountryCode, selectedNode.CountryCode)
+				require.Equal(t, info.LastIPPort, selectedNode.LastIPPort)
+				require.Equal(t, info.LastNet, selectedNode.LastNet)
+			}
+		}
+
+		selectedNodes, err := cache.SelectAllStorageNodesDownload(ctx, time.Minute, overlay.AsOfSystemTimeConfig{})
+		require.NoError(t, err)
+
+		checkNodes(selectedNodes)
+
+		reputableNodes, newNodes, err := cache.SelectAllStorageNodesUpload(ctx, overlay.NodeSelectionConfig{
+			OnlineWindow: time.Minute,
+		})
+		require.NoError(t, err)
+
+		checkNodes(append(reputableNodes, newNodes...))
+	})
+
 }
