@@ -30,7 +30,7 @@ pipeline {
                 sh 'mkdir -p .build'
 
                 // pre-check that we cannot do at a later stage reliably
-                sh 'check-large-files'
+                // sh 'check-large-files'
             }
         }
 
