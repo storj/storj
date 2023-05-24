@@ -4,9 +4,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +48,7 @@ type cmdCp struct {
 
 	maximumConcurrentPieces int
 	longTailMargin          int
+	uploadLogFile           string
 
 	inmemoryEC bool
 
@@ -111,6 +114,9 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
 	).(int)
+	c.uploadLogFile = params.Flag("upload-log-file", "File to write upload logs to", "",
+		clingy.Advanced,
+	).(string)
 
 	c.inmemoryEC = params.Flag("inmemory-erasure-coding", "Keep erasure-coded pieces in-memory instead of writing them on the disk during upload", false,
 		clingy.Transform(strconv.ParseBool),
@@ -135,6 +141,17 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 func (c *cmdCp) Execute(ctx context.Context) error {
 	if len(c.locs) < 2 {
 		return errs.New("must have at least one source and destination path")
+	}
+
+	if c.uploadLogFile != "" {
+		fh, err := os.OpenFile(c.uploadLogFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() { _ = fh.Close() }()
+		bw := bufio.NewWriter(fh)
+		defer func() { _ = bw.Flush() }()
+		ctx = testuplink.WithLogWriter(ctx, bw)
 	}
 
 	fs, err := c.ex.OpenFilesystem(ctx, c.access,
