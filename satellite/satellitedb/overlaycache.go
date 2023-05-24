@@ -57,7 +57,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit
+		SELECT id, address, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, country_code
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
@@ -102,7 +102,8 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
 		var noise noiseScanner
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit)
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto,
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.CountryCode)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -141,7 +142,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit
+		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, country_code
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
@@ -165,7 +166,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var noise noiseScanner
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit)
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &noise.Proto,
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.CountryCode)
 		if err != nil {
 			return nil, err
 		}

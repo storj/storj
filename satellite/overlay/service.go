@@ -300,10 +300,11 @@ type NodeReputation struct {
 func (node *SelectedNode) Clone() *SelectedNode {
 	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
 	return &SelectedNode{
-		ID:         copy.Id,
-		Address:    copy.Address,
-		LastNet:    node.LastNet,
-		LastIPPort: node.LastIPPort,
+		ID:          copy.Id,
+		Address:     copy.Address,
+		LastNet:     node.LastNet,
+		LastIPPort:  node.LastIPPort,
+		CountryCode: node.CountryCode,
 	}
 }
 
