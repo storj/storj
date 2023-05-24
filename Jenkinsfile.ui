@@ -21,7 +21,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 // sh "chmod -R 777 ." // Del orphaned files
-                // sh "chown -R 1001:1002 /npm/cache"
+                sh "chown -R 1001:1002 /npm/cache"
                 // sh "npm install @playwright/test"
                 // sh "npx playwright install"
                 sh 'npx browserslist@latest --update-db'
