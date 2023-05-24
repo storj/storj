@@ -104,6 +104,7 @@ func TestParsePlacementConstraint(t *testing.T) {
 		{"EU", "EU", storj.EU, ""},
 		{"EEA", "EEA", storj.EEA, ""},
 		{"DE", "DE", storj.DE, ""},
+		{"NR", "NR", storj.NR, ""},
 	}
 
 	for _, testCase := range testCases {
