@@ -18,6 +18,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -1087,5 +1088,49 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		ne2 := getNE()
 		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
+	})
+}
+
+func TestService_GetNodesOutOfPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.AsOfSystemTime.Enabled = false
+				config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+
+		placement := storj.EU
+
+		nodeIDs := []storj.NodeID{}
+		for _, node := range planet.StorageNodes {
+			nodeIDs = append(nodeIDs, node.ID())
+
+			err := service.TestNodeCountryCode(ctx, node.ID(), location.Poland.String())
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
+
+		offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
+		require.NoError(t, err)
+		require.Empty(t, offNodes)
+
+		expectedNodeIDs := []storj.NodeID{}
+		for _, node := range planet.StorageNodes {
+			expectedNodeIDs = append(expectedNodeIDs, node.ID())
+			err := service.TestNodeCountryCode(ctx, node.ID(), location.Brazil.String())
+			require.NoError(t, err)
+
+			// we need to refresh cache because node country code was changed
+			require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
+
+			offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
+			require.NoError(t, err)
+			require.ElementsMatch(t, expectedNodeIDs, offNodes)
+		}
 	})
 }
