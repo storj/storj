@@ -4,44 +4,53 @@
 package internalcmd
 
 import (
-	"context"
 	"encoding/json"
-	"io"
 	"runtime"
 
+	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/private/process"
 	"storj.io/storj/storagenode/iopriority"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
-	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
-// GCLazyFileWalker is an execwrapper.Command for the gc-filewalker.
-type GCLazyFileWalker struct {
-	*RunOptions
-}
+// NewGCFilewalkerCmd creates a new cobra command for running garbage collection filewalker.
+func NewGCFilewalkerCmd() *LazyFilewalkerCmd {
+	var cfg FilewalkerCfg
+	var runOpts RunOptions
 
-var _ execwrapper.Command = (*GCLazyFileWalker)(nil)
+	cmd := &cobra.Command{
+		Use:   lazyfilewalker.GCFilewalkerCmdName,
+		Short: "An internal subcommand used to run garbage collection filewalker as a separate subprocess with lower IO priority",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			runOpts.normalize(cmd)
+			runOpts.config = &cfg
 
-// NewGCLazyFilewalker creates a new GCLazyFileWalker instance.
-func NewGCLazyFilewalker(ctx context.Context, logger *zap.Logger, config lazyfilewalker.Config) *GCLazyFileWalker {
-	return NewGCLazyFilewalkerWithConfig(ctx, logger, &FilewalkerCfg{config})
-}
+			return gcCmdRun(&runOpts)
+		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
+		Hidden: true,
+		Args:   cobra.ExactArgs(0),
+	}
 
-// NewGCLazyFilewalkerWithConfig creates a new GCLazyFileWalker instance with the given config.
-func NewGCLazyFilewalkerWithConfig(ctx context.Context, logger *zap.Logger, config *FilewalkerCfg) *GCLazyFileWalker {
-	return &GCLazyFileWalker{
-		RunOptions: DefaultRunOpts(ctx, logger, config),
+	process.Bind(cmd, &cfg)
+
+	return &LazyFilewalkerCmd{
+		Command:    cmd,
+		RunOptions: &runOpts,
 	}
 }
 
 // Run runs the GCLazyFileWalker.
-func (g *GCLazyFileWalker) Run() (err error) {
-	if g.Config.LowerIOPriority {
+func gcCmdRun(g *RunOptions) (err error) {
+	if g.config.LowerIOPriority {
 		if runtime.GOOS == "linux" {
 			// Pin the current goroutine to the current OS thread, so we can set the IO priority
 			// for the current thread.
@@ -75,7 +84,7 @@ func (g *GCLazyFileWalker) Run() (err error) {
 
 	// We still need the DB in this case because we still have to deal with v0 pieces.
 	// Once we drop support for v0 pieces, we can remove this.
-	db, err := storagenodedb.OpenExisting(g.Ctx, log.Named("db"), g.Config.DatabaseConfig())
+	db, err := storagenodedb.OpenExisting(g.Ctx, log.Named("db"), g.config.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
 	}
@@ -108,31 +117,4 @@ func (g *GCLazyFileWalker) Run() (err error) {
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(g.stdout).Encode(resp)
-}
-
-// Start starts the GCLazyFileWalker, assuming it behaves like the Start method on exec.Cmd.
-// This is a no-op and only exists to satisfy the execwrapper.Command interface.
-// Wait must be called to actually run the command.
-func (g *GCLazyFileWalker) Start() error {
-	return nil
-}
-
-// Wait waits for the GCLazyFileWalker to finish, assuming it behaves like the Wait method on exec.Cmd.
-func (g *GCLazyFileWalker) Wait() error {
-	return g.Run()
-}
-
-// SetIn sets the stdin of the GCLazyFileWalker.
-func (g *GCLazyFileWalker) SetIn(reader io.Reader) {
-	g.RunOptions.SetIn(reader)
-}
-
-// SetOut sets the stdout of the GCLazyFileWalker.
-func (g *GCLazyFileWalker) SetOut(writer io.Writer) {
-	g.RunOptions.SetOut(writer)
-}
-
-// SetErr sets the stderr of the GCLazyFileWalker.
-func (g *GCLazyFileWalker) SetErr(writer io.Writer) {
-	g.RunOptions.SetErr(writer)
 }

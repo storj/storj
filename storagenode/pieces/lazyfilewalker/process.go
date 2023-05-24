@@ -57,6 +57,9 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 
 	if p.cmd == nil {
 		p.cmd = execwrapper.CommandContext(ctx, p.executable, p.args...)
+	} else {
+		args := append([]string{p.executable}, p.args...)
+		p.cmd.SetArgs(args)
 	}
 
 	p.cmd.SetIn(&buf)

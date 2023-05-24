@@ -211,7 +211,10 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 
 		lazyFwCfg := db.Config().LazyFilewalkerConfig()
 		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
-		lazyFw.TestingSetGCCmd(internalcmd.NewGCLazyFilewalker(ctx, log.Named("gc-filewalker.subprocess"), lazyFwCfg))
+		cmd := internalcmd.NewGCFilewalkerCmd()
+		cmd.Logger = log.Named("used-space-filewalker")
+		cmd.Ctx = ctx
+		lazyFw.TestingSetGCCmd(cmd)
 		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
 		testStore := pieces.StoreForTest{Store: store}
 

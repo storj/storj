@@ -16,6 +16,7 @@ import (
 
 	"storj.io/private/process"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -24,23 +25,92 @@ type FilewalkerCfg struct {
 	lazyfilewalker.Config
 }
 
+// DatabaseConfig returns the storagenodedb.Config that should be used with this lazyfilewalker.
+func (config *FilewalkerCfg) DatabaseConfig() storagenodedb.Config {
+	return storagenodedb.Config{
+		Storage:   config.Storage,
+		Info:      config.Info,
+		Info2:     config.Info2,
+		Pieces:    config.Pieces,
+		Filestore: config.Filestore,
+		Driver:    config.Driver,
+	}
+}
+
 // RunOptions defines the options for the lazyfilewalker runners.
 type RunOptions struct {
 	Ctx    context.Context
 	Logger *zap.Logger
-	Config *FilewalkerCfg
+	config *FilewalkerCfg
 
 	stdin  io.Reader
 	stderr io.Writer
 	stdout io.Writer
 }
 
-type nopWriterSyncCloser struct {
-	io.Writer
+// LazyFilewalkerCmd is a wrapper for the lazyfilewalker commands.
+type LazyFilewalkerCmd struct {
+	Command *cobra.Command
+	*RunOptions
 }
 
-func (cw nopWriterSyncCloser) Close() error { return nil }
-func (cw nopWriterSyncCloser) Sync() error  { return nil }
+var _ execwrapper.Command = (*LazyFilewalkerCmd)(nil)
+
+// SetArgs sets arguments for the command.
+// The command or executable path should be passed as the first argument.
+func (cmd *LazyFilewalkerCmd) SetArgs(args []string) {
+	if len(args) > 0 {
+		// arg[0] is the command name or executable path, which we don't need
+		// args[1] is the lazyfilewalker subcommand.
+		args = args[2:]
+	}
+	cmd.Command.SetArgs(args)
+}
+
+// Run runs the LazyFileWalker.
+func (cmd *LazyFilewalkerCmd) Run() error {
+	return cmd.Command.ExecuteContext(cmd.Ctx)
+}
+
+// Start starts the LazyFileWalker command, assuming it behaves like the Start method on exec.Cmd.
+// This is a no-op and only exists to satisfy the execwrapper.Command interface.
+// Wait must be called to actually run the command.
+func (cmd *LazyFilewalkerCmd) Start() error {
+	return nil
+}
+
+// Wait waits for the LazyFileWalker to finish, assuming it behaves like the Wait method on exec.Cmd.
+func (cmd *LazyFilewalkerCmd) Wait() error {
+	return cmd.Run()
+}
+
+func (r *RunOptions) normalize(cmd *cobra.Command) {
+	if r.Ctx == nil {
+		ctx, _ := process.Ctx(cmd)
+		r.Ctx = ctx
+	}
+
+	if r.stdin == nil {
+		r.SetIn(os.Stdin)
+	}
+
+	if r.stdout == nil {
+		r.SetOut(os.Stdout)
+	}
+
+	if r.stderr == nil {
+		r.SetErr(os.Stderr)
+	}
+
+	if r.Logger == nil {
+		r.Logger = zap.L()
+	}
+}
+
+// SetIn sets the stdin reader.
+func (r *RunOptions) SetIn(reader io.Reader) {
+	r.stdin = reader
+}
 
 // SetOut sets the stdout writer.
 func (r *RunOptions) SetOut(writer io.Writer) {
@@ -50,13 +120,16 @@ func (r *RunOptions) SetOut(writer io.Writer) {
 // SetErr sets the stderr writer.
 func (r *RunOptions) SetErr(writer io.Writer) {
 	r.stderr = writer
-	writerkey := "zapwriter"
+	r.tryCreateNewLogger()
+}
 
+func (r *RunOptions) tryCreateNewLogger() {
 	// If the writer is os.Stderr, we don't need to register it because the stderr
 	// writer is registered by default.
-	if writer == os.Stderr {
+	if r.stderr == os.Stderr {
 		return
 	}
+	writerkey := "zapwriter"
 
 	err := zap.RegisterSink(writerkey, func(u *url.URL) (zap.Sink, error) {
 		return nopWriterSyncCloser{r.stderr}, nil
@@ -87,71 +160,9 @@ func (r *RunOptions) SetErr(writer io.Writer) {
 	r.Logger = logger
 }
 
-// SetIn sets the stdin reader.
-func (r *RunOptions) SetIn(reader io.Reader) {
-	r.stdin = reader
+type nopWriterSyncCloser struct {
+	io.Writer
 }
 
-// DefaultRunOpts returns the default RunOptions.
-func DefaultRunOpts(ctx context.Context, logger *zap.Logger, config *FilewalkerCfg) *RunOptions {
-	return &RunOptions{
-		Ctx:    ctx,
-		Logger: logger,
-		Config: config,
-		stdin:  os.Stdin,
-		stdout: os.Stdout,
-		stderr: os.Stderr,
-	}
-}
-
-// DatabaseConfig returns the storagenodedb.Config that should be used with this lazyfilewalker.
-func (config *FilewalkerCfg) DatabaseConfig() storagenodedb.Config {
-	return storagenodedb.Config{
-		Storage:   config.Storage,
-		Info:      config.Info,
-		Info2:     config.Info2,
-		Pieces:    config.Pieces,
-		Filestore: config.Filestore,
-		Driver:    config.Driver,
-	}
-}
-
-// NewUsedSpaceFilewalkerCmd creates a new cobra command for running used-space calculation filewalker.
-func NewUsedSpaceFilewalkerCmd() *cobra.Command {
-	var cfg FilewalkerCfg
-
-	cmd := &cobra.Command{
-		Use:   lazyfilewalker.UsedSpaceFilewalkerCmdName,
-		Short: "An internal subcommand used to run used-space calculation filewalker as a separate subprocess with lower IO priority",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, _ := process.Ctx(cmd)
-			return NewUsedSpaceLazyFilewalkerWithConfig(ctx, zap.L(), &cfg).Run()
-		},
-		Hidden: true,
-		Args:   cobra.ExactArgs(0),
-	}
-
-	process.Bind(cmd, &cfg)
-
-	return cmd
-}
-
-// NewGCFilewalkerCmd creates a new cobra command for running garbage collection filewalker.
-func NewGCFilewalkerCmd() *cobra.Command {
-	var cfg FilewalkerCfg
-
-	cmd := &cobra.Command{
-		Use:   lazyfilewalker.GCFilewalkerCmdName,
-		Short: "An internal subcommand used to run garbage collection filewalker as a separate subprocess with lower IO priority",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, _ := process.Ctx(cmd)
-			return NewGCLazyFilewalkerWithConfig(ctx, zap.L(), &cfg).Run()
-		},
-		Hidden: true,
-		Args:   cobra.ExactArgs(0),
-	}
-
-	process.Bind(cmd, &cfg)
-
-	return cmd
-}
+func (cw nopWriterSyncCloser) Close() error { return nil }
+func (cw nopWriterSyncCloser) Sync() error  { return nil }

@@ -32,6 +32,11 @@ func (c *Cmd) SetErr(writer io.Writer) {
 	c.cmd.Stderr = writer
 }
 
+// SetArgs sets arguments for the command including the command or executable path as the first argument.
+func (c *Cmd) SetArgs(args []string) {
+	c.cmd.Args = args
+}
+
 // CommandContext returns the Cmd struct to execute the named program with the given arguments.
 func CommandContext(ctx context.Context, executable string, args ...string) *Cmd {
 	return &Cmd{

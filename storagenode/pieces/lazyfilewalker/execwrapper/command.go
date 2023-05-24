@@ -24,4 +24,6 @@ type Command interface {
 	SetOut(io.Writer)
 	// SetErr sets the stderr of the command.
 	SetErr(io.Writer)
+	// SetArgs sets arguments for the command including the command or executable path as the first argument.
+	SetArgs([]string)
 }
