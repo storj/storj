@@ -4,7 +4,7 @@
 package lazyfilewalker
 
 import (
-	"strconv"
+	"fmt"
 
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
@@ -37,6 +37,6 @@ func (config *Config) Args() []string {
 		// use the json formatter in the subprocess, so we could read lines and re-log them in the main process
 		// with all the fields intact.
 		"--log.encoding", "json",
-		"--lower-io-priority", strconv.FormatBool(config.LowerIOPriority),
+		fmt.Sprintf("--lower-io-priority=%v", config.LowerIOPriority),
 	}
 }
