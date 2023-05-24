@@ -29,6 +29,6 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"pretty-print-json": "^1.2.4"
+		"pretty-print-json": "^1.5.0"
 	}
 }
