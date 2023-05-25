@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -249,5 +250,80 @@ func TestApiKeysList(t *testing.T) {
 
 		// Check get initial list of API keys.
 		assertGet(ctx, t, link, "[]", authToken)
+	})
+}
+
+func TestAPIKeyManagementGet(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		apikey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		link := fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apikey.Serialize())
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		resp, err := http.DefaultClient.Do(req) //nolint:bodyclose
+		require.NoError(t, err)
+		defer ctx.Check(resp.Body.Close)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		type apiKeyData struct {
+			ID        uuid.UUID `json:"id"`
+			Name      string    `json:"name"`
+			CreatedAt time.Time `json:"createdAt"`
+		}
+		type projectData struct {
+			ID   uuid.UUID `json:"id"`
+			Name string    `json:"name"`
+		}
+		type ownerData struct {
+			ID       uuid.UUID `json:"id"`
+			Email    string    `json:"email"`
+			PaidTier bool      `json:"paidTier"`
+		}
+		type response struct {
+			APIKey  apiKeyData  `json:"api_key"`
+			Project projectData `json:"project"`
+			Owner   ownerData   `json:"owner"`
+		}
+
+		var apiResp response
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiResp))
+
+		apiKeyInfo, err := planet.Satellites[0].DB.Console().APIKeys().GetByHead(ctx, apikey.Head())
+		require.NoError(t, err)
+
+		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, apiKeyInfo.ProjectID)
+		require.NoError(t, err)
+
+		owner, err := planet.Satellites[0].DB.Console().Users().Get(ctx, project.OwnerID)
+		require.NoError(t, err)
+
+		require.Equal(t, response{
+			APIKey: apiKeyData{
+				ID:        apiKeyInfo.ID,
+				Name:      apiKeyInfo.Name,
+				CreatedAt: apiKeyInfo.CreatedAt.UTC(),
+			},
+			Project: projectData{
+				ID:   project.ID,
+				Name: project.Name,
+			},
+			Owner: ownerData{
+				ID:       owner.ID,
+				Email:    owner.Email,
+				PaidTier: owner.PaidTier,
+			},
+		}, apiResp)
 	})
 }

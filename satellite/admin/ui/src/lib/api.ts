@@ -22,6 +22,14 @@ export class Admin {
 	readonly operations = {
 		APIKeys: [
 			{
+				name: 'get',
+				desc: 'Get information on the specific API key',
+				params: [['API key', new InputText('text', true)]],
+				func: async (apiKey: string): Promise<Record<string, unknown>> => {
+					return this.fetch('GET', `apikeys/${apiKey}`);
+				}
+			},
+			{
 				name: 'delete key',
 				desc: 'Delete an API key',
 				params: [['API key', new InputText('text', true)]],
