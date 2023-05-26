@@ -268,7 +268,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 
 		// verify that we deleted only pieces for "remote-no-copy" object
 		afterTotalUsedByNodes = allSpaceUsedForPieces()
-		require.Equal(t, singleRemoteUsed, afterTotalUsedByNodes)
+		require.Equal(t, totalUsedByNodes, afterTotalUsedByNodes)
 
 		// delete rest of objects to verify that everything will be removed also from SNs
 		for _, toDelete := range []string{
@@ -295,7 +295,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 
 		// verify that nothing more was deleted from storage nodes after GC
 		afterTotalUsedByNodes = allSpaceUsedForPieces()
-		require.EqualValues(t, 0, afterTotalUsedByNodes)
+		require.EqualValues(t, totalUsedByNodes, afterTotalUsedByNodes)
 	})
 }
 

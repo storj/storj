@@ -26,10 +26,6 @@ const (
 type DeleteBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
-
-	// DeletePieces is called for every batch of objects.
-	// Slice `segments` will be reused between calls.
-	DeletePieces func(ctx context.Context, segments []DeletedSegmentInfo) error
 }
 
 var deleteObjectsCockroachSubSQL = `
@@ -134,33 +130,7 @@ func (db *DB) deleteBucketObjectBatchWithCopyFeatureEnabled(ctx context.Context,
 		return 0, err
 	}
 
-	deletedObjectCount = int64(len(objects))
-
-	if opts.DeletePieces == nil {
-		// no callback, this should only be in test path
-		return deletedObjectCount, err
-	}
-
-	for _, object := range objects {
-		if object.PromotedAncestor != nil {
-			// don't remove pieces, they are now linked to the new ancestor
-			continue
-		}
-		for _, segment := range object.Segments {
-			// Is there an advantage to batching this?
-			err := opts.DeletePieces(ctx, []DeletedSegmentInfo{
-				{
-					RootPieceID: segment.RootPieceID,
-					Pieces:      segment.Pieces,
-				},
-			})
-			if err != nil {
-				return deletedObjectCount, err
-			}
-		}
-	}
-
-	return deletedObjectCount, err
+	return int64(len(objects)), err
 }
 
 func (db *DB) scanBucketObjectsDeletionServerSideCopy(ctx context.Context, location BucketLocation, rows tagsql.Rows) (result []deletedObjectInfo, err error) {
@@ -291,13 +261,6 @@ func (db *DB) deleteBucketObjectsWithCopyFeatureDisabled(ctx context.Context, op
 
 		if len(deletedSegments) == 0 {
 			return deletedObjectCount, nil
-		}
-
-		if opts.DeletePieces != nil {
-			err = opts.DeletePieces(ctx, deletedSegments)
-			if err != nil {
-				return deletedObjectCount, Error.Wrap(err)
-			}
 		}
 	}
 }

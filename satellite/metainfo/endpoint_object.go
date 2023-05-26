@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/context2"
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
@@ -25,7 +24,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -252,9 +250,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 
 		DisallowDelete: !allowDelete,
-		OnDelete: func(segments []metabase.DeletedSegmentInfo) {
-			endpoint.deleteSegmentPieces(ctx, segments)
-		},
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -1490,15 +1485,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		return nil, Error.Wrap(err)
 	}
 
-	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
-		endpoint.log.Error("failed to delete pointers",
+		endpoint.log.Error("failed to convert delete object result",
 			zap.Stringer("project", projectID),
 			zap.String("bucket", bucket),
 			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
-		return deletedObjects, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return deletedObjects, nil
@@ -1534,15 +1529,15 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 		return nil, Error.Wrap(err)
 	}
 
-	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
-		endpoint.log.Error("failed to delete pointers",
+		endpoint.log.Error("failed to convert delete object result",
 			zap.Stringer("project", location.ProjectID),
 			zap.String("bucket", location.BucketName),
 			zap.Binary("object", []byte(location.ObjectKey)),
 			zap.Error(err),
 		)
-		return deletedObjects, err
+		return nil, err
 	}
 
 	return deletedObjects, nil
@@ -1563,13 +1558,10 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 		return nil, err
 	}
 
-	return endpoint.deleteObjectsPieces(ctx, result)
+	return endpoint.deleteObjectResultToProto(ctx, result)
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
+func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
 		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
@@ -1579,48 +1571,7 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 		deletedObjects[i] = deletedObject
 	}
 
-	endpoint.deleteSegmentPieces(ctx, result.Segments)
-
 	return deletedObjects, nil
-}
-
-func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	nodesPieces := groupPiecesByNodeID(segments)
-
-	var requests []piecedeletion.Request
-	for node, pieces := range nodesPieces {
-		requests = append(requests, piecedeletion.Request{
-			Node: storj.NodeURL{
-				ID: node,
-			},
-			Pieces: pieces,
-		})
-	}
-
-	// Only return an error if we failed to delete the objects. If we failed
-	// to delete pieces, let garbage collector take care of it.
-	err = endpoint.deletePieces.Delete(ctx, requests)
-	if err != nil {
-		endpoint.log.Error("failed to delete pieces", zap.Error(err))
-	}
-}
-
-// groupPiecesByNodeID returns a map that contains pieces with node id as the key.
-func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeID][]storj.PieceID {
-	piecesToDelete := map[storj.NodeID][]storj.PieceID{}
-
-	for _, segment := range segments {
-		deriver := segment.RootPieceID.Deriver()
-		for _, piece := range segment.Pieces {
-			pieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
-			piecesToDelete[piece.StorageNode] = append(piecesToDelete[piece.StorageNode], pieceID)
-		}
-	}
-
-	return piecesToDelete
 }
 
 // Server side move.

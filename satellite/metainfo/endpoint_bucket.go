@@ -289,10 +289,6 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
 	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
-		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
-			endpoint.deleteSegmentPieces(ctx, deleted)
-			return nil
-		},
 	})
 
 	return deletedObjects, Error.Wrap(err)

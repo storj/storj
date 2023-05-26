@@ -37,7 +37,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storagenode/blobstore"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"
@@ -1445,42 +1444,9 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, objectName, testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 
-			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-			require.NoError(t, err)
-			require.Len(t, segments, 1)
-			require.NotZero(t, len(segments[0].Pieces))
-
-			for _, piece := range segments[0].Pieces {
-				node := planet.FindNode(piece.StorageNode)
-				pieceID := segments[0].RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
-
-				piece, err := node.DB.Pieces().Stat(ctx, blobstore.BlobRef{
-					Namespace: planet.Satellites[0].ID().Bytes(),
-					Key:       pieceID.Bytes(),
-				})
-				require.NoError(t, err)
-				require.NotNil(t, piece)
-			}
-
-			oldPieces := segments[0].Pieces
 			expectedData := testrand.Bytes(5 * memory.KiB)
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, objectName, expectedData)
 			require.NoError(t, err)
-
-			planet.WaitForStorageNodeDeleters(ctx)
-
-			// verify that old object pieces are not stored on storage nodes anymore
-			for _, piece := range oldPieces {
-				node := planet.FindNode(piece.StorageNode)
-				pieceID := segments[0].RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
-
-				piece, err := node.DB.Pieces().Stat(ctx, blobstore.BlobRef{
-					Namespace: planet.Satellites[0].ID().Bytes(),
-					Key:       pieceID.Bytes(),
-				})
-				require.Error(t, err)
-				require.Nil(t, piece)
-			}
 
 			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, objectName)
 			require.NoError(t, err)
@@ -1702,9 +1668,6 @@ func testDeleteObject(t *testing.T,
 				),
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			var (
-				percentExp = 0.75
-			)
 			for _, tc := range testCases {
 				tc := tc
 				t.Run(tc.caseDescription, func(t *testing.T) {
@@ -1735,12 +1698,8 @@ func testDeleteObject(t *testing.T,
 						totalUsedSpaceAfterDelete += piecesTotal
 					}
 
-					// At this point we can only guarantee that the 75% of the SNs pieces
-					// are delete due to the success threshold
-					deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-					if deletedUsedSpace < percentExp {
-						t.Fatalf("deleted used space is less than %f%%. Got %f", percentExp, deletedUsedSpace)
-					}
+					// we are not deleting data from SN right away so used space should be the same
+					require.Equal(t, totalUsedSpace, totalUsedSpaceAfterDelete)
 				})
 			}
 		})
@@ -1781,12 +1740,14 @@ func testDeleteObject(t *testing.T,
 			// Shutdown the first numToShutdown storage nodes before we delete the pieces
 			// and collect used space values for those nodes
 			snUsedSpace := make([]int64, len(planet.StorageNodes))
-			for i := 0; i < numToShutdown; i++ {
+			for i, node := range planet.StorageNodes {
 				var err error
-				snUsedSpace[i], _, err = planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+				snUsedSpace[i], _, err = node.Storage2.Store.SpaceUsedForPieces(ctx)
 				require.NoError(t, err)
 
-				require.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
+				if i < numToShutdown {
+					require.NoError(t, planet.StopPeer(node))
+				}
 			}
 
 			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
@@ -1797,12 +1758,8 @@ func testDeleteObject(t *testing.T,
 
 			planet.WaitForStorageNodeDeleters(ctx)
 
-			// Check that storage nodes that were offline when deleting the pieces
-			// they are still holding data
-			// Check that storage nodes which are online when deleting pieces don't
-			// hold any piece
-			// We are comparing used space from before deletion for nodes that were
-			// offline, values for available nodes are 0
+			// we are not deleting data from SN right away so used space should be the same
+			// for online and shutdown/offline node
 			for i, sn := range planet.StorageNodes {
 				usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 				require.NoError(t, err)
