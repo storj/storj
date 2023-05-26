@@ -36,6 +36,7 @@ type Config struct {
 	ReputationUpdateEnabled       bool          `help:"whether the audit score of nodes should be updated as a part of repair" default:"false"`
 	UseRangedLoop                 bool          `help:"whether to enable repair checker observer with ranged loop" default:"true"`
 	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"false"`
+	DoPlacementCheck              bool          `help:"repair pieces out of segment placement" default:"true"`
 }
 
 // Service contains the information needed to run the repair service.

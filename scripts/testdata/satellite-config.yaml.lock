@@ -940,6 +940,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repair pieces on the same network to other nodes
 # repairer.do-declumping: false
 
+# repair pieces out of segment placement
+# repairer.do-placement-check: true
+
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 
