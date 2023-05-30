@@ -173,7 +173,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.address: :10100
 
 # indicates if all projects dashboard should be used
-# console.all-projects-dashboard: true
+# console.all-projects-dashboard: false
 
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
