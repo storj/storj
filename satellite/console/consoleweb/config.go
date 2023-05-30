@@ -33,6 +33,7 @@ type FrontendConfig struct {
 	PathwayOverviewEnabled          bool                  `json:"pathwayOverviewEnabled"`
 	Captcha                         console.CaptchaConfig `json:"captcha"`
 	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
+	LimitsAreaEnabled               bool                  `json:"limitsAreaEnabled"`
 	DefaultPaidStorageLimit         memory.Size           `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit       memory.Size           `json:"defaultPaidBandwidthLimit"`
 	InactivityTimerEnabled          bool                  `json:"inactivityTimerEnabled"`
