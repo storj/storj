@@ -40,6 +40,7 @@ type Observer struct {
 	nodeFailureRate      float64
 	repairQueueBatchSize int
 	doDeclumping         bool
+	doPlacementCheck     bool
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -61,6 +62,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		nodeFailureRate:      config.NodeFailureRate,
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
 		doDeclumping:         config.DoDeclumping,
+		doPlacementCheck:     config.DoPlacementCheck,
 		statsCollector:       make(map[string]*observerRSStats),
 	}
 }
@@ -229,8 +231,10 @@ type observerFork struct {
 	getNodesEstimate func(ctx context.Context) (int, error)
 	log              *zap.Logger
 	doDeclumping     bool
+	doPlacementCheck bool
 	lastStreamID     uuid.UUID
 	totalStats       aggregateStats
+	allNodeIDs       []storj.NodeID
 
 	getObserverStats func(string) *observerRSStats
 }
@@ -248,6 +252,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		getNodesEstimate: observer.getNodesEstimate,
 		log:              observer.logger,
 		doDeclumping:     observer.doDeclumping,
+		doPlacementCheck: observer.doPlacementCheck,
 		getObserverStats: observer.getObserverStats,
 	}
 }
@@ -336,22 +341,41 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("error getting missing pieces: %w", err)
 	}
 
+	// reuse allNodeIDs slice if its large enough
+	if cap(fork.allNodeIDs) < len(pieces) {
+		fork.allNodeIDs = make([]storj.NodeID, len(pieces))
+	} else {
+		fork.allNodeIDs = fork.allNodeIDs[:len(pieces)]
+	}
+
+	for i, p := range pieces {
+		fork.allNodeIDs[i] = p.StorageNode
+	}
+
 	var clumpedPieces metabase.Pieces
 	var lastNets []string
 	if fork.doDeclumping {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
-		nodeIDs := make([]storj.NodeID, len(pieces))
-		for i, p := range pieces {
-			nodeIDs[i] = p.StorageNode
-		}
-		lastNets, err = fork.overlayService.GetNodesNetworkInOrder(ctx, nodeIDs)
+		lastNets, err = fork.overlayService.GetNodesNetworkInOrder(ctx, fork.allNodeIDs)
 		if err != nil {
 			fork.totalStats.remoteSegmentsFailedToCheck++
 			stats.iterationAggregates.remoteSegmentsFailedToCheck++
 			return errs.Combine(Error.New("error determining node last_nets"), err)
 		}
 		clumpedPieces = repair.FindClumpedPieces(segment.Pieces, lastNets)
+	}
+
+	numPiecesOutOfPlacement := 0
+	if fork.doPlacementCheck && segment.Placement != storj.EveryCountry {
+		outOfPlacementNodes, err := fork.overlayService.GetNodesOutOfPlacement(ctx, fork.allNodeIDs, segment.Placement)
+		if err != nil {
+			fork.totalStats.remoteSegmentsFailedToCheck++
+			stats.iterationAggregates.remoteSegmentsFailedToCheck++
+			return errs.Combine(Error.New("error determining nodes placement"), err)
+		}
+
+		numPiecesOutOfPlacement = len(outOfPlacementNodes)
 	}
 
 	numHealthy := len(pieces) - len(missingPieces) - len(clumpedPieces)
@@ -362,6 +386,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
 	mon.IntVal("checker_segment_clumped_count").Observe(int64(len(clumpedPieces))) //mon:locked
 	stats.segmentStats.segmentClumpedCount.Observe(int64(len(clumpedPieces)))
+	mon.IntVal("checker_segment_off_placement_count").Observe(int64(numPiecesOutOfPlacement)) //mon:locked
+	stats.segmentStats.segmentOffPlacementCount.Observe(int64(numPiecesOutOfPlacement))
 
 	segmentAge := time.Since(segment.CreatedAt)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
@@ -374,8 +400,10 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
-	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy <= repairThreshold && numHealthy < successThreshold {
+	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
+	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
+	// into queue right away.
+	if (numHealthy <= repairThreshold && numHealthy < successThreshold) || numPiecesOutOfPlacement > 0 {
 		mon.FloatVal("checker_injured_segment_health").Observe(segmentHealth) //mon:locked
 		stats.segmentStats.injuredSegmentHealth.Observe(segmentHealth)
 		fork.totalStats.remoteSegmentsNeedingRepair++

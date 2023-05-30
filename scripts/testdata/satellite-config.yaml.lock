@@ -91,6 +91,9 @@
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: false
 
+# Treat pieces out of segment placement as in need of repair
+# checker.do-placement-check: true
+
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
