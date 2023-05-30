@@ -86,6 +86,10 @@ async function endOnboarding(): Promise<void> {
         align-items: center;
         flex-direction: column;
 
+        @media screen and (width <= 600px) {
+            padding: 24px;
+        }
+
         &__title {
             margin: 20px 0;
             font-family: 'font_Bold', sans-serif;
@@ -108,6 +112,12 @@ async function endOnboarding(): Promise<void> {
             width: 100%;
             margin-top: 24px;
             column-gap: 24px;
+
+            @media screen and (width <= 450px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 24px;
+            }
         }
     }
 

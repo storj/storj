@@ -171,6 +171,10 @@ onMounted((): void => {
                 height: auto;
                 width: 270px;
                 word-break: break-word;
+
+                @media screen and (width <= 450px) {
+                    width: unset;
+                }
             }
 
             &__link {

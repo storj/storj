@@ -81,6 +81,10 @@ const fill = computed((): string => {
             background: var(--c-grey-3);
             border-radius: 8px;
 
+            @media screen and (width <= 600px) {
+                width: 100%;
+            }
+
             &__fill {
                 height: 16px;
                 background: var(--c-green-5);

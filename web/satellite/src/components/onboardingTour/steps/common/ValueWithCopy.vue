@@ -3,7 +3,7 @@
 
 <template>
     <div class="value-copy">
-        <p class="value-copy__value" :aria-roledescription="roleDescription">{{ value }}</p>
+        <p class="value-copy__value" :title="value" :aria-roledescription="roleDescription">{{ value }}</p>
         <VButton
             class="value-copy__button"
             label="Copy"
@@ -51,6 +51,11 @@ function onCopyClick(): void {
         border-radius: 10px;
         max-width: calc(100% - 50px);
 
+        @media screen and (width <= 450px) {
+            padding: 12px;
+            max-width: calc(100% - 24px);
+        }
+
         &__value {
             font-size: 16px;
             line-height: 28px;
@@ -63,6 +68,10 @@ function onCopyClick(): void {
         &__button {
             margin-left: 32px;
             min-width: 66px;
+
+            @media screen and (width <= 450px) {
+                margin-left: 12px;
+            }
         }
     }
 </style>

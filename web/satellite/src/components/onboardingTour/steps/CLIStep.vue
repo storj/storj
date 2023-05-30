@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="wrap">
         <ProgressBar />
         <router-view />
     </div>
@@ -11,3 +11,11 @@
 <script setup lang="ts">
 import ProgressBar from '@/components/onboardingTour/steps/cliFlow/ProgressBar.vue';
 </script>
+
+<style scoped lang="scss">
+.wrap {
+    @media screen and (width <= 600px) {
+        width: 100%;
+    }
+}
+</style>

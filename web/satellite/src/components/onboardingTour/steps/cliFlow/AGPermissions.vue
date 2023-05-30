@@ -256,6 +256,11 @@ onMounted(async (): Promise<void> => {
             width: 287px;
             padding: 0 98.5px;
 
+            @media screen and (width <= 600px) {
+                width: 100%;
+                padding: 0;
+            }
+
             &__label {
                 font-family: 'font_medium', sans-serif;
                 margin: 20px 0 8px;
@@ -272,6 +277,11 @@ onMounted(async (): Promise<void> => {
             padding: 0 98.5px;
             flex-wrap: wrap;
 
+            @media screen and (width <= 600px) {
+                width: 100%;
+                padding: 0;
+            }
+
             &__container {
                 display: flex;
                 margin-top: 5px;
@@ -283,5 +293,9 @@ onMounted(async (): Promise<void> => {
     :deep(.duration-selection) {
         width: 287px;
         margin-left: 0;
+
+        @media screen and (width <= 600px) {
+            width: 100%;
+        }
     }
 </style>
