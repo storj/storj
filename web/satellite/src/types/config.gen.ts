@@ -26,9 +26,11 @@ export class FrontendConfig {
     couponCodeSignupUIEnabled: boolean;
     fileBrowserFlowDisabled: boolean;
     linksharingURL: string;
+    publicLinksharingURL: string;
     pathwayOverviewEnabled: boolean;
     captcha: CaptchaConfig;
     allProjectsDashboard: boolean;
+    limitsAreaEnabled: boolean;
     defaultPaidStorageLimit: MemorySize;
     defaultPaidBandwidthLimit: MemorySize;
     inactivityTimerEnabled: boolean;
