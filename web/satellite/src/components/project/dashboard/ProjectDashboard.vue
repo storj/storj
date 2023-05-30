@@ -103,7 +103,7 @@
                 </template>
             </div>
         </div>
-        <LimitsArea :is-loading="isDataFetching" />
+        <LimitsArea v-if="limitsAreaEnabled" :is-loading="isDataFetching" />
         <div class="project-dashboard__info">
             <InfoContainer
                 :icon="BucketsIcon"
@@ -245,6 +245,13 @@ const isChartsDatePicker = computed((): boolean => {
  */
 const limits = computed((): ProjectLimits => {
     return projectsStore.state.currentLimits;
+});
+
+/**
+ * Returns the whether the limits area is enabled.
+ */
+const limitsAreaEnabled = computed((): boolean => {
+    return configStore.state.config.limitsAreaEnabled;
 });
 
 /**

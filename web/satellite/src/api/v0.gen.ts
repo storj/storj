@@ -7,6 +7,7 @@ import { MemorySize, Time, UUID } from '@/types/common';
 export class APIKeyInfo {
     id: UUID;
     projectId: UUID;
+    projectPublicId: UUID;
     userAgent: string;
     name: string;
     createdAt: Time;

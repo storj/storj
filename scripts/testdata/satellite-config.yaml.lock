@@ -274,6 +274,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# indicates whether limit card section of the UI is enabled
+# console.limits-area-enabled: false
+
 # url link for linksharing requests within the application
 # console.linksharing-url: https://link.storjsatelliteshare.io
 
