@@ -22,8 +22,10 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -579,4 +581,91 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		})
 	})
 
+}
+
+func TestObserver_PlacementCheck(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+
+		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Name:      "testbucket",
+			Placement: storj.EU,
+		})
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+		}
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		type testCase struct {
+			piecesOutOfPlacement int
+		}
+
+		for _, tc := range []testCase{
+			// all pieces/nodes are out of placement
+			{piecesOutOfPlacement: 4},
+			// few pieces/nodes are out of placement
+			{piecesOutOfPlacement: 2},
+		} {
+			for _, node := range planet.StorageNodes {
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			}
+
+			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 1)
+			require.Len(t, segments[0].Pieces, 4)
+
+			for _, piece := range segments[0].Pieces[:tc.piecesOutOfPlacement] {
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+			}
+
+			// confirm that some pieces are out of placement
+			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
+			require.NoError(t, err)
+			require.False(t, ok)
+
+			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+
+			_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
+			require.NoError(t, err)
+
+			injuredSegment, err := repairQueue.Select(ctx)
+			require.NoError(t, err)
+			err = repairQueue.Delete(ctx, injuredSegment)
+			require.NoError(t, err)
+
+			require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
+
+			count, err := repairQueue.Count(ctx)
+			require.Zero(t, err)
+			require.Zero(t, count)
+		}
+	})
+}
+
+func allPiecesInPlacement(ctx context.Context, overlay *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint) (bool, error) {
+	for _, piece := range pieces {
+		nodeDossier, err := overlay.Get(ctx, piece.StorageNode)
+		if err != nil {
+			return false, err
+		}
+		if !placement.AllowedCountry(nodeDossier.CountryCode) {
+			return false, nil
+		}
+	}
+	return true, nil
 }

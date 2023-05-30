@@ -91,6 +91,7 @@ storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_clumped_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_health" FloatVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
+storj.io/storj/satellite/repair/checker."checker_segment_off_placement_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_total_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segments_below_min_req" Counter
