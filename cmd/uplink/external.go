@@ -28,6 +28,7 @@ import (
 
 	"storj.io/common/experiment"
 	"storj.io/common/rpc/rpctracing"
+	"storj.io/common/tracing"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
 )
@@ -309,7 +310,12 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 
 		defer tracked(ctx, collector.Run)()
 
-		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: ex.tracing.sample})
+		cancel := jaeger.RegisterJaeger(monkit.Default, collector,
+			jaeger.Options{
+				Fraction: ex.tracing.sample,
+				Excluded: tracing.IsExcluded,
+			},
+		)
 		defer cancel()
 
 		if ex.tracing.traceID == 0 {
