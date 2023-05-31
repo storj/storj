@@ -2375,6 +2375,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE value_attributions DROP COLUMN partner_id;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add back value_attributions.partner_id column",
+				Version:     237,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN partner_id bytea DEFAULT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
