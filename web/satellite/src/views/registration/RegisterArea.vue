@@ -205,7 +205,7 @@
                         </div>
                         <p class="register-area__input-area__container__warning__message">
                             This means any data you upload to this satellite can be
-                            deleted at any time and your storage/bandwidth limits
+                            deleted at any time and your storage/egress limits
                             can fluctuate. To use our production service please
                             create an account on one of our production Satellites.
                             <a href="https://storj.io/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/signup/</a>

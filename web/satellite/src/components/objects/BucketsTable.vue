@@ -43,7 +43,7 @@
             <template #head>
                 <th class="align-left">Name</th>
                 <th class="align-left">Storage</th>
-                <th class="align-left">Bandwidth</th>
+                <th class="align-left">Egress</th>
                 <th class="align-left">Objects</th>
                 <th class="align-left">Segments</th>
                 <th class="align-left">Date Added</th>

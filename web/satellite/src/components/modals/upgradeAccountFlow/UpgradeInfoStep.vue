@@ -19,7 +19,7 @@
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" title="Projects" info="1 project" />
                         <InfoBullet class="info-step__column__bullets__item" title="Storage" info="25 GB limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Download" info="25 GB limit" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Egress" info="25 GB limit" />
                         <InfoBullet class="info-step__column__bullets__item" title="Segments" info="10,000 segments limit" />
                         <InfoBullet class="info-step__column__bullets__item" title="Link Sharing" info="Link sharing with Storj domain" />
                     </div>
@@ -38,7 +38,7 @@
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" is-pro title="Projects" info="3 projects + more on request" />
                         <InfoBullet class="info-step__column__bullets__item" is-pro :title="storagePrice" info="25 GB free included" />
-                        <InfoBullet class="info-step__column__bullets__item" is-pro title="Download $0.007 GB" :info="downloadInfo">
+                        <InfoBullet class="info-step__column__bullets__item" is-pro title="Egress $0.007 GB" :info="downloadInfo">
                             <template v-if="downloadMoreInfo" #moreInfo>
                                 <p class="info-step__column__bullets__message">{{ downloadMoreInfo }}</p>
                             </template>

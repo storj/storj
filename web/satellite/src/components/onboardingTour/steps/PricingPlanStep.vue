@@ -51,7 +51,7 @@ const plans = ref<PricingPlanInfo[]>([
         '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and bandwidth. Only pay for what you use beyond that.',
+        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and egress. Only pay for what you use beyond that.',
         'No charge today',
         '25GB Free',
     ),

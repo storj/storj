@@ -25,7 +25,7 @@
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
-                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
+                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Egress remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
                     </div>
                     <p
                         class="total-cost__card__link-text"

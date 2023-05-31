@@ -92,7 +92,7 @@ const itemToRender = computed((): { [key: string]: string | string[] } => {
     return { info: [
         props.itemData.name,
         `Storage ${props.itemData.storage.toFixed(2)}GB`,
-        `Bandwidth ${props.itemData.egress.toFixed(2)}GB`,
+        `Egress ${props.itemData.egress.toFixed(2)}GB`,
         `Objects ${props.itemData.objectCount.toString()}`,
         `Segments ${props.itemData.segmentCount.toString()}`,
         `Created ${formattedDate.value}`,

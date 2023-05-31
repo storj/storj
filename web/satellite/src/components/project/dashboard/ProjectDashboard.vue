@@ -63,7 +63,7 @@
             </div>
             <div class="project-dashboard__charts__container">
                 <div class="project-dashboard__charts__container__header">
-                    <h3 class="project-dashboard__charts__container__header__title">Bandwidth</h3>
+                    <h3 class="project-dashboard__charts__container__header__title">Egress</h3>
                     <div class="project-dashboard__charts__container__header__right">
                         <span class="project-dashboard__charts__container__header__right__allocated-color" />
                         <p class="project-dashboard__charts__container__header__right__allocated-label">Allocated</p>
@@ -75,7 +75,7 @@
                             </template>
                             <template #message>
                                 <p class="project-dashboard__charts__container__header__right__info__message">
-                                    The bandwidth allocated takes few hours to be settled.
+                                    The egress allocated takes few hours to be settled.
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
                                         href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"

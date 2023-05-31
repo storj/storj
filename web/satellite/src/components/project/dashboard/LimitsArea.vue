@@ -18,11 +18,11 @@
         />
         <LimitCard
             :icon="DownloadIcon"
-            title="Download"
+            title="Egress"
             color="#7b61ff"
             :used-value="bandwidthUsed"
             :used-title="`${usedOrLimitFormatted(limits.bandwidthUsed)} Used`"
-            :used-info="`Download limit: ${usedOrLimitFormatted(limits.bandwidthLimit, true)} per month`"
+            :used-info="`Egress limit: ${usedOrLimitFormatted(limits.bandwidthLimit, true)} per month`"
             :available-title="`${availableFormatted(limits.bandwidthLimit - limits.bandwidthUsed)} Available`"
             :action-title="usageActionTitle(bandwidthUsed)"
             :on-action="() => usageAction(LimitToChange.Bandwidth)"
