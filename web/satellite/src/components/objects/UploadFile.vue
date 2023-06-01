@@ -12,6 +12,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -19,12 +20,13 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
@@ -32,6 +34,7 @@ import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
@@ -45,7 +48,7 @@ const worker = ref<Worker | null>(null);
  * Indicates if upload cancel popup is visible.
  */
 const isCancelUploadPopupVisible = computed((): boolean => {
-    return appStore.state.viewsState.activeModal === MODALS.uploadCancelPopup;
+    return appStore.state.activeModal === MODALS.uploadCancelPopup;
 });
 
 /**
@@ -87,7 +90,14 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Returns linksharing URL from store.
  */
 const linksharingURL = computed((): string => {
-    return appStore.state.config.linksharingURL;
+    return configStore.state.config.linksharingURL;
+});
+
+/**
+ * Returns public linksharing URL from store.
+ */
+const publicLinksharingURL = computed((): string => {
+    return configStore.state.config.publicLinksharingURL;
 });
 
 /**
@@ -125,7 +135,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
 
         await analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
-        return `${linksharingURL.value}/${credentials.accessKeyId}/${path}`;
+        return `${publicLinksharingURL.value}/${credentials.accessKeyId}/${path}`;
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
@@ -153,7 +163,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
         throw new Error('Worker is not defined');
     }
 
-    const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
+    const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
     const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
     worker.value.postMessage({
@@ -228,17 +238,18 @@ onBeforeMount(() => {
 });
 
 watch(passphrase, async () => {
+    const projectID = projectsStore.state.selectedProject.id;
+    if (!projectID) return;
+
     if (!passphrase.value) {
         await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
         return;
     }
 
-    const projectID = projectsStore.state.selectedProject.id;
-
     try {
         await bucketsStore.setS3Client(projectID);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
 
@@ -256,7 +267,7 @@ watch(passphrase, async () => {
             obStore.getObjectCount(),
         ]);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
     }
 });
 </script>

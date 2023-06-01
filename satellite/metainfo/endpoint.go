@@ -5,8 +5,11 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -38,6 +41,8 @@ const (
 
 var (
 	mon = monkit.Package()
+	evs = eventkit.Package()
+
 	// Error general metainfo error.
 	Error = errs.Class("metainfo")
 	// ErrNodeAlreadyExists pointer already has a piece for a node err.
@@ -153,6 +158,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
 	if err != nil {
@@ -160,7 +166,8 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: salt,
+		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
+		ProjectSalt:     salt,
 	}, nil
 }
 
@@ -178,6 +185,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
@@ -296,9 +304,15 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 
 	switch {
 	case metabase.ErrObjectNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrObjectNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "object not found: "+message)
 	case metabase.ErrSegmentNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrSegmentNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
@@ -311,4 +325,12 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+}
+
+func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
+	evs.Event("usage", append([]eventkit.Tag{
+		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
+		eventkit.String("user-agent", string(header.UserAgent)),
+		eventkit.String("request", name),
+	}, tags...)...)
 }

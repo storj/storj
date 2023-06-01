@@ -20,23 +20,7 @@ type runQueueingOnceFunc = func(ctx context.Context, satellite *testplanet.Satel
 // testWithChoreAndObserver runs an audit test for both the chore and observer.
 // It provides functions that the test can use to pause and run the queueing
 // done by the chore or observer.
-func testWithChoreAndObserver(t *testing.T, planetConfig testplanet.Config, run func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc)) {
-	t.Run("Chore", func(t *testing.T) {
-		planetConfig := planetConfig
-		testplanet.Run(t, planetConfig, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			t.Helper()
-			run(t, ctx, planet,
-				func(satellite *testplanet.Satellite) {
-					satellite.Audit.Chore.Loop.Pause()
-				},
-				func(ctx context.Context, satellite *testplanet.Satellite) error {
-					satellite.Audit.Chore.Loop.TriggerWait()
-					return nil
-				},
-			)
-		})
-	})
-
+func testWithRangedLoop(t *testing.T, planetConfig testplanet.Config, run func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc)) {
 	t.Run("Observer", func(t *testing.T) {
 		planetConfig := planetConfig
 		reconfigureSatellite := planetConfig.Reconfigure.Satellite

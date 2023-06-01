@@ -79,14 +79,17 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# whether or not to use the ranged loop observer instead of the chore.
-# audit.use-ranged-loop: false
+# whether use Audit observer with ranged loop.
+# audit.use-ranged-loop: true
 
 # number of audit jobs to push at once to the verification queue
 # audit.verification-push-batch-size: 4096
 
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
+
+# Treat pieces on the same network as in need of repair
+# checker.do-declumping: false
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
@@ -129,6 +132,24 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 30m0s
+
+# interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past
+# console-db-cleanup.as-of-system-time-interval: -5m0s
+
+# whether to run this chore
+# console-db-cleanup.enabled: false
+
+# interval between chore cycles
+# console-db-cleanup.interval: 24h0m0s
+
+# maximum lifetime of project member invitation records
+# console-db-cleanup.max-project-invitation-age: 168h0m0s
+
+# maximum lifetime of unverified user account records
+# console-db-cleanup.max-unverified-user-age: 168h0m0s
+
+# maximum number of database records to scan at once
+# console-db-cleanup.page-size: 1000
 
 # the Flagship API key
 # console.ab-testing.api-key: ""
@@ -236,7 +257,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.storjshare.io
+# console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
 
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
@@ -253,14 +274,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
-# url link for linksharing requests
-# console.linksharing-url: https://link.storjshare.io
+# indicates whether limit card section of the UI is enabled
+# console.limits-area-enabled: false
+
+# url link for linksharing requests within the application
+# console.linksharing-url: https://link.storjsatelliteshare.io
 
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
+
+# whether to show new upload modal
+# console.new-upload-modal-enabled: false
 
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
@@ -291,6 +318,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
+
+# url link for linksharing requests for external sharing
+# console.public-linksharing-url: https://link.storjshare.io
 
 # number of events before the limit kicks in
 # console.rate-limit.burst: 5
@@ -436,9 +466,6 @@ contact.external-address: ""
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
 
-# set if garbage collection bloom filters is enabled or not
-# garbage-collection-bf.enabled: true
-
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
 
@@ -448,14 +475,11 @@ contact.external-address: ""
 # the initial number of pieces expected for a storage node to have, used for creating a filter
 # garbage-collection-bf.initial-pieces: 400000
 
-# the time between each garbage collection executions
-# garbage-collection-bf.interval: 120h0m0s
-
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
 
-# whether to use ranged loop instead of segment loop
-# garbage-collection-bf.use-ranged-loop: false
+# whether to use test GC SyncObserver with ranged loop
+# garbage-collection-bf.use-sync-observer: false
 
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
@@ -517,8 +541,8 @@ contact.external-address: ""
 # batch size (crdb specific) for deleting and adding items to the transfer queue
 # graceful-exit.transfer-queue-batch-size: 1000
 
-# whether or not to use the ranged loop observer instead of the chore.
-# graceful-exit.use-ranged-loop: false
+# whether use GE observer with ranged loop.
+# graceful-exit.use-ranged-loop: true
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
@@ -590,7 +614,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.max-commit-interval: 48h0m0s
 
 # maximum encrypted object key length
-# metainfo.max-encrypted-object-key-length: 1280
+# metainfo.max-encrypted-object-key-length: 1750
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
@@ -654,21 +678,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
-
-# as of system interval
-# metainfo.segment-loop.as-of-system-interval: -5m0s
-
-# how long to wait for new observers before starting iteration
-# metainfo.segment-loop.coalesce-duration: 5s
-
-# how many items to query in a batch
-# metainfo.segment-loop.list-limit: 2500
-
-# rate limit (default is 0 which is unlimited segments per second)
-# metainfo.segment-loop.rate-limit: 0
-
-# ratio where to consider processed count as supicious
-# metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
 # enable code for server-side copy, deprecated. please leave this to true.
 # metainfo.server-side-copy: true
@@ -862,6 +871,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10
 
+# whether to remove expired package credit or not
+# payments.stripe-coin-payments.remove-expired-credit: true
+
 # the duration of the first retry interval
 # payments.stripe-coin-payments.retries.initial-backoff: 20ms
 
@@ -925,6 +937,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
 
+# repair pieces on the same network to other nodes
+# repairer.do-declumping: false
+
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 
@@ -952,8 +967,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
-# whether to use ranged loop instead of segment loop
-# repairer.use-ranged-loop: false
+# whether to enable repair checker observer with ranged loop
+# repairer.use-ranged-loop: true
 
 # the number of times a node has been audited to not be considered a New Node
 # reputation.audit-count: 100
@@ -1090,7 +1105,7 @@ server.private-address: 127.0.0.1:7778
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 
-# how many objects to query in a batch
+# how many buckets to query in a batch
 # tally.list-limit: 2500
 
 # how large of batches GetBandwidthSince should process at a time
@@ -1099,11 +1114,8 @@ server.private-address: 127.0.0.1:7778
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
 
-# flag to switch between calculating bucket tallies using objects loop or custom query
-# tally.use-objects-loop: false
-
-# flag whether to use ranged loop instead of segment loop
-# tally.use-ranged-loop: false
+# whether to enable node tally with ranged loop
+# tally.use-ranged-loop: true
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

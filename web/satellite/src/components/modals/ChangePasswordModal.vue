@@ -63,13 +63,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -79,6 +80,7 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
@@ -143,7 +145,7 @@ async function onUpdateClick(): Promise<void> {
         hasError = true;
     }
 
-    const config = appStore.state.config;
+    const config = configStore.state.config;
 
     if (newPassword.value.length < config.passwordMinimumLength) {
         newPasswordError.value = `Invalid password. Use ${config.passwordMinimumLength} or more characters`;
@@ -197,7 +199,7 @@ async function onUpdateClick(): Promise<void> {
  * Closes popup.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.changePassword);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -211,16 +213,16 @@ function closeModal(): void {
         box-sizing: border-box;
         min-width: 550px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             min-width: 475px;
             padding: 48px 24px;
         }
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             min-width: 420px;
         }
 
-        @media screen and (max-width: 470px) {
+        @media screen and (width <= 470px) {
             min-width: unset;
         }
 
@@ -229,7 +231,7 @@ function closeModal(): void {
             align-items: center;
             margin-bottom: 20px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
 
                 svg {
                     display: none;
@@ -243,7 +245,7 @@ function closeModal(): void {
                 color: #384b65;
                 margin: 0 0 0 32px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     font-size: 24px;
                     line-height: 28px;
                     margin: 0;
@@ -258,7 +260,7 @@ function closeModal(): void {
             margin-top: 32px;
             column-gap: 20px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;
@@ -276,7 +278,7 @@ function closeModal(): void {
         margin-bottom: 15px;
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         :deep(.password-strength-container) {
             width: unset;

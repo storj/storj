@@ -79,13 +79,15 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,6 +101,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -114,7 +117,7 @@ const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
  * Returns the pricing plan selected from the onboarding tour.
  */
 const plan = computed((): PricingPlanInfo | null => {
-    return appStore.state.viewsState.selectedPricingPlan;
+    return appStore.state.selectedPricingPlan;
 });
 
 watch(plan, () => {
@@ -137,7 +140,7 @@ const isFree = computed((): boolean => {
 function onClose(): void {
     appStore.removeActiveModal();
     if (isSuccess.value) {
-        if (appStore.state.config.allProjectsDashboard) {
+        if (configStore.state.config.allProjectsDashboard) {
             router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }

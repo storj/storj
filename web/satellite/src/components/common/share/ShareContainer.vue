@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed } from 'vue';
 
 import { ShareButtonConfig, ShareOptions } from '@/types/browser';
 
@@ -29,7 +29,7 @@ import EmailIcon from '@/../static/images/objects/email.svg';
 
 const props = defineProps<{ link: string; }>();
 
-const images: Record<string, VueConstructor> = {
+const images: Record<string, string> = {
     [ShareOptions.Reddit]: RedditIcon,
     [ShareOptions.Facebook]: FacebookIcon,
     [ShareOptions.Twitter]: TwitterIcon,

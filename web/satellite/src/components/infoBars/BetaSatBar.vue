@@ -15,16 +15,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useAppStore } from '@/store/modules/appStore';
 import { FrontendConfig } from '@/types/config';
+import { useConfigStore } from '@/store/modules/configStore';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 
 /**
  * Returns the frontend config.
  */
 const config = computed((): FrontendConfig => {
-    return appStore.state.config;
+    return configStore.state.config;
 });
 </script>
 

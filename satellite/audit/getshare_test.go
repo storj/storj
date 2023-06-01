@@ -72,7 +72,7 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 }
 
 func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]
@@ -118,9 +118,9 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		mock := &mockConnector{}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
-		require.NoError(t, err)
+		share := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, share.Error)
+		require.Equal(t, audit.NoFailure, share.FailurePhase)
 
 		// we expect that the cached IP and port was actually dialed
 		require.Contains(t, mock.addressesDialed, cachedIPAndPort)
@@ -128,7 +128,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 }
 
 func TestGetSharePrefers(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]
@@ -183,9 +183,9 @@ func TestGetSharePrefers(t *testing.T) {
 		}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
-		require.NoError(t, err)
+		share := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, share.Error)
+		require.Equal(t, audit.NoFailure, share.FailurePhase)
 
 		// we expect that the cached IP and port was actually dialed
 		require.Contains(t, mock.addressesDialed, cachedIPAndPort)

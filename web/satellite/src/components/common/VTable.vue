@@ -16,21 +16,21 @@
                 <slot name="body" />
             </tbody>
         </table>
-        <div v-if="totalPageCount > 0" class="table-footer">
-            <span class="table-footer__label">{{ totalItemsCount }} {{ itemsLabel }}</span>
+        <div class="table-footer">
             <table-pagination
-                v-if="totalPageCount > 1"
+                class="table-footer__pagination"
                 :total-page-count="totalPageCount"
                 :total-items-count="totalItemsCount"
+                :items-label="itemsLabel"
                 :limit="limit"
-                :on-page-click-callback="onPageClickCallback"
+                :on-page-change="onPageChange"
             />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { OnPageClickCallback } from '@/types/pagination';
+import { PageChangeCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
     itemsLabel?: string,
     limit?: number,
     totalItemsCount?: number,
-    onPageClickCallback?: OnPageClickCallback,
+    onPageChange?: PageChangeCallback | null;
     totalPageCount?: number,
     selectable?: boolean,
     selected?: boolean,
@@ -49,10 +49,10 @@ const props = withDefaults(defineProps<{
     selected: false,
     showSelect: false,
     totalPageCount: 0,
-    itemsLabel: '',
+    itemsLabel: 'items',
     limit: 0,
     totalItemsCount: 0,
-    onPageClickCallback: () => () => Promise.resolve(),
+    onPageChange: null,
 });
 
 const emit = defineEmits(['selectAllClicked']);
@@ -61,7 +61,6 @@ const emit = defineEmits(['selectAllClicked']);
 <style lang="scss">
 .table-wrapper {
     background: #fff;
-    box-shadow: 0 4px 2rem rgb(0 0 0 / 4%);
     border-radius: 12px;
 }
 
@@ -69,6 +68,10 @@ const emit = defineEmits(['selectAllClicked']);
     display: table;
     width: 100%;
     z-index: 997;
+    border: 1px solid var(--c-grey-2);
+    border-bottom: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
 
     th {
         box-sizing: border-box;
@@ -83,7 +86,7 @@ const emit = defineEmits(['selectAllClicked']);
         background: var(--c-block-gray);
         text-transform: uppercase;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             display: none;
         }
 
@@ -104,11 +107,11 @@ const emit = defineEmits(['selectAllClicked']);
             font-family: 'font_regular', sans-serif;
             color: #111827;
             font-size: 1rem;
-            border-top: solid 1px #e5e7eb;
+            border-top: solid 1px var(--c-grey-2);
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 border-top: none;
-                border-bottom: solid 1px #e5e7eb;
+                border-bottom: solid 1px var(--c-grey-2);
             }
         }
 
@@ -133,26 +136,22 @@ const emit = defineEmits(['selectAllClicked']);
 .icon {
     width: 50px;
     overflow: visible !important;
-    background: var(--c-grey-1);
+    border-right: 1px solid var(--c-grey-2);
 }
 
 .table-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 15px 20px;
-    font-size: 1rem;
-    line-height: 1.7rem;
-    color: rgb(44 53 58 / 60%);
-    border-top: solid 1px #e5e7eb;
-    font-family: 'font-medium', sans-serif;
+    padding: 10px 20px;
+    background: var(--c-grey-1);
+    border: 1px solid var(--c-grey-2);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
         border-top: none;
     }
 }
 
-@media screen and (max-width: 970px) {
+@media screen and (width <= 970px) {
 
     tbody tr > .data p {
         max-width: 25rem;
@@ -162,14 +161,14 @@ const emit = defineEmits(['selectAllClicked']);
     }
 }
 
-@media screen and (max-width: 870px) {
+@media screen and (width <= 870px) {
 
     tbody tr > .data p {
         max-width: 20rem;
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     .select {
         display: none;
@@ -180,28 +179,28 @@ const emit = defineEmits(['selectAllClicked']);
     }
 }
 
-@media screen and (max-width: 660px) {
+@media screen and (width <= 660px) {
 
     tbody tr > .data p {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     tbody tr > .data p {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 440px) {
+@media screen and (width <= 440px) {
 
     tbody tr > .data p {
         max-width: 10rem;
     }
 }
 
-@media screen and (max-width: 350px) {
+@media screen and (width <= 350px) {
 
     tbody tr > .data p {
         max-width: 8rem;

@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/leak"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
@@ -54,11 +55,13 @@ type blobStore struct {
 	log    *zap.Logger
 	dir    *Dir
 	config Config
+
+	track leak.Ref
 }
 
 // New creates a new disk blob store in the specified directory.
 func New(log *zap.Logger, dir *Dir, config Config) blobstore.Blobs {
-	return &blobStore{dir: dir, log: log, config: config}
+	return &blobStore{dir: dir, log: log, config: config, track: leak.Root(1)}
 }
 
 // NewAt creates a new disk blob store in the specified directory.
@@ -67,11 +70,11 @@ func NewAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return &blobStore{dir: dir, log: log, config: config}, nil
+	return &blobStore{dir: dir, log: log, config: config, track: leak.Root(1)}, nil
 }
 
 // Close closes the store.
-func (store *blobStore) Close() error { return nil }
+func (store *blobStore) Close() error { return store.track.Close() }
 
 // Open loads blob with the specified hash.
 func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobReader, err error) {
@@ -83,7 +86,7 @@ func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blob
 		}
 		return nil, Error.Wrap(err)
 	}
-	return newBlobReader(file, formatVer), nil
+	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
 // OpenWithStorageFormat loads the already-located blob, avoiding the potential need to check multiple
@@ -97,7 +100,7 @@ func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef blobs
 		}
 		return nil, Error.Wrap(err)
 	}
-	return newBlobReader(file, formatVer), nil
+	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
 // Stat looks up disk metadata on the blob file.
@@ -173,7 +176,7 @@ func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef, size 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
 }
 
 // SpaceUsedForBlobs adds up the space used in all namespaces for blob storage.
@@ -296,7 +299,7 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.

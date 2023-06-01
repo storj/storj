@@ -41,7 +41,7 @@ const dateRangeLabel = ref<string>('Forever');
  * Indicates if date picker is shown.
  */
 const isDurationPickerVisible = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
 });
 
 /**

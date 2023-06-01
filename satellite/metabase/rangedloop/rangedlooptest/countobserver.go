@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var _ rangedloop.Observer = (*CountObserver)(nil)
@@ -45,7 +44,7 @@ func (c *CountObserver) Finish(ctx context.Context) error {
 }
 
 // Process counts the size of a batch of segments.
-func (c *CountObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (c *CountObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	c.NumSegments += len(segments)
 	return nil
 }

@@ -26,7 +26,8 @@ type ProjectRecordsDB interface {
 	// Consume consumes invoice project record.
 	Consume(ctx context.Context, id uuid.UUID) error
 	// ListUnapplied returns project records page with unapplied project records.
-	ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (ProjectRecordsPage, error)
+	// Cursor is not included into listing results.
+	ListUnapplied(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (ProjectRecordsPage, error)
 }
 
 // CreateProjectRecord holds info needed for creation new invoice
@@ -52,9 +53,9 @@ type ProjectRecord struct {
 
 // ProjectRecordsPage holds project records and
 // indicates if there is more data available
-// and provides next offset.
+// and provides cursor for next listing.
 type ProjectRecordsPage struct {
-	Records    []ProjectRecord
-	Next       bool
-	NextOffset int64
+	Records []ProjectRecord
+	Next    bool
+	Cursor  uuid.UUID
 }

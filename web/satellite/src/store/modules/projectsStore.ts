@@ -16,6 +16,7 @@ import {
     ProjectUsageDateRange,
 } from '@/types/projects';
 import { ProjectsApiGql } from '@/api/projects';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
 
@@ -32,8 +33,6 @@ export class ProjectsState {
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
 }
-
-const PROJECT_PAGE_LIMIT = 7;
 
 export const useProjectsStore = defineStore('projects', () => {
     const state = reactive<ProjectsState>(new ProjectsState());
@@ -72,9 +71,9 @@ export const useProjectsStore = defineStore('projects', () => {
         state.selectedProject = defaultSelectedProject;
     }
 
-    async function getOwnedProjects(pageNumber: number): Promise<void> {
+    async function getOwnedProjects(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
         state.cursor.page = pageNumber;
-        state.cursor.limit = PROJECT_PAGE_LIMIT;
+        state.cursor.limit = limit;
 
         state.page = await api.getOwnedProjects(state.cursor);
     }

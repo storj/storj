@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
@@ -97,7 +98,7 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -124,6 +125,7 @@ const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
 const worker = ref<Worker | null>(null);
 const valid = ref<boolean>(false);
@@ -373,8 +375,8 @@ function validate(): boolean {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(async () => {
-    oauthData.value = { ...router.currentRoute.query };
-    clientKey.value = router.currentRoute.hash ? router.currentRoute.hash.substring(1) : '';
+    oauthData.value = { ...route.query };
+    clientKey.value = route.hash ? route.hash.substring(1) : '';
 
     await ensureLogin();
     await ensureWorker();
@@ -395,10 +397,7 @@ onMounted(async () => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -663,7 +662,7 @@ onMounted(async () => {
         border-color: #dadde5;
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .authorize-area {
 
@@ -684,7 +683,7 @@ onMounted(async () => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .authorize-area {
 

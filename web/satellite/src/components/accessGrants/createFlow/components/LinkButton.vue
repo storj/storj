@@ -9,7 +9,7 @@
         rel="noopener noreferrer"
         @click="trackPageVisit"
     >
-        <LearnIcon v-if="withIcon" />
+        <LearnIcon v-if="withIcon" class="link-button__icon" />
         <p class="link-button__label">{{ label }}</p>
     </a>
 </template>
@@ -48,13 +48,16 @@ function trackPageVisit(): void {
     border: 1px solid #d8dee3;
     border-radius: 8px;
 
+    &__icon {
+        margin-right: 8px;
+    }
+
     &__label {
         font-family: 'font_medium', sans-serif;
         font-size: 14px;
         line-height: 24px;
         letter-spacing: -0.02em;
         color: #56606d;
-        margin-left: 8px;
     }
 
     &:hover {

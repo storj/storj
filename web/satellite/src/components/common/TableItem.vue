@@ -11,7 +11,7 @@
             <v-table-checkbox v-if="!selectHidden" :disabled="selectDisabled || selectHidden" :value="selected" @selectClicked="selectClicked" />
         </th>
         <th
-            v-for="(val, _, index) in item" :key="index" class="align-left data"
+            v-for="(val, keyVal, index) in item" :key="index" class="align-left data"
             :class="{'overflow-visible': showBucketGuide(index)}"
         >
             <div v-if="Array.isArray(val)" class="few-items">
@@ -22,7 +22,8 @@
                     <component :is="icon" />
                 </div>
                 <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
-                    <middle-truncate v-if="(itemType?.toLowerCase() === 'file')" :text="val" />
+                    <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'owner'" no-icon :is-owner="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -36,11 +37,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed } from 'vue';
 
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
 import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
+import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 
 import TableLockedIcon from '@/../static/images/browser/tableLocked.svg';
 import ColorFolderIcon from '@/../static/images/objects/colorFolder.svg';
@@ -82,7 +84,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits(['selectClicked']);
 
-const icons = new Map<string, VueConstructor>([
+const icons = new Map<string, string>([
     ['locked', TableLockedIcon],
     ['bucket', ColorBucketIcon],
     ['folder', ColorFolderIcon],

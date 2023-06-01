@@ -2,41 +2,24 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="project" class="tag" :class="{member: !isOwner}">
-        <box-icon class="tag__icon" />
+    <div class="tag" :class="{member: !isOwner}">
+        <box-icon v-if="!noIcon" class="tag__icon" />
 
         <span class="tag__text"> {{ isOwner ? 'Owner': 'Member' }} </span>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
-import { Project } from '@/types/projects';
-import { User } from '@/types/users';
-import { useUsersStore } from '@/store/modules/usersStore';
-
 import BoxIcon from '@/../static/images/allDashboard/box.svg';
 
-const usersStore = useUsersStore();
-
-const props = defineProps<{
-  project?: Project,
-}>();
-
-/**
- * Returns user entity from store.
- */
-const user = computed((): User => {
-    return usersStore.state.user;
+const props = withDefaults(defineProps<{
+    isOwner: boolean,
+    noIcon?: boolean,
+}>(), {
+    isOwner: false,
+    noIcon: false,
 });
 
-/**
- * Returns projects list from store.
- */
-const isOwner = computed((): boolean => {
-    return props.project?.ownerId === user.value.id;
-});
 </script>
 
 <style scoped lang="scss">

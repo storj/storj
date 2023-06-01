@@ -96,7 +96,7 @@ function openManageModal(): void {
     font-family: 'font_regular', sans-serif;
     margin-bottom: 21px;
 
-    @media screen and (max-width: 400px) {
+    @media screen and (width <= 400px) {
         flex-direction: column-reverse;
     }
 
@@ -105,7 +105,7 @@ function openManageModal(): void {
         align-items: center;
         margin-right: 15px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             flex-direction: column;
             align-items: flex-start;
         }
@@ -117,7 +117,7 @@ function openManageModal(): void {
         &__labels {
             margin-left: 16px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
                 margin: 10px 0 0;
             }
 
@@ -140,7 +140,7 @@ function openManageModal(): void {
         display: flex;
         align-items: center;
 
-        @media screen and (max-width: 400px) {
+        @media screen and (width <= 400px) {
             width: 100%;
             justify-content: space-between;
             margin-bottom: 10px;

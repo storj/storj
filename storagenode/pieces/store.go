@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -532,6 +533,27 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 	defer mon.Task()(&ctx)(&err)
 
 	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
+}
+
+// SatellitePiecesToTrash returns a list of piece IDs that are trash for the given satellite.
+//
+// If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
+// the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
+// will be used as a fallback.
+func (store *Store) SatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+		if err == nil {
+			return pieceIDs, piecesCount, piecesSkipped, nil
+		}
+		store.log.Error("lazyfilewalker failed", zap.Error(err))
+	}
+	// fallback to the regular filewalker
+	pieceIDs, piecesCount, piecesSkipped, err = store.Filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+
+	return pieceIDs, piecesCount, piecesSkipped, err
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.

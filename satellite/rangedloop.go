@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -55,19 +54,15 @@ type RangedLoop struct {
 	}
 
 	Repair struct {
-		Observer rangedloop.Observer
+		Observer *checker.Observer
 	}
 
 	GracefulExit struct {
 		Observer rangedloop.Observer
 	}
 
-	GarbageCollectionBF struct {
-		Observer rangedloop.Observer
-	}
-
 	Accounting struct {
-		NodeTallyObserver *nodetally.RangedLoopObserver
+		NodeTallyObserver *nodetally.Observer
 	}
 
 	RangedLoop struct {
@@ -117,12 +112,13 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.Log.Named("gracefulexit:observer"),
 			peer.DB.GracefulExit(),
 			peer.DB.OverlayCache(),
+			metabaseDB,
 			config.GracefulExit,
 		)
 	}
 
 	{ // setup node tally observer
-		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
+		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
 			db.StoragenodeAccounting(),
 			metabaseDB)
@@ -141,16 +137,12 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		peer.Repair.Observer = checker.NewRangedLoopObserver(
+		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
 			config.Checker,
 		)
-	}
-
-	{ // setup garbage collection bloom filter observer
-		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
 	}
 
 	{ // setup ranged loop
@@ -169,10 +161,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
 			observers = append(observers, peer.GracefulExit.Observer)
-		}
-
-		if config.GarbageCollectionBF.Enabled && config.GarbageCollectionBF.UseRangedLoop {
-			observers = append(observers, peer.GarbageCollectionBF.Observer)
 		}
 
 		if config.Repairer.UseRangedLoop {

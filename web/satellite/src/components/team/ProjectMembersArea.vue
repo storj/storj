@@ -25,12 +25,13 @@
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
             :total-items-count="projectMembersTotalCount"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
+                <th class="align-left">Role</th>
+                <th class="align-left date-added">Date Added</th>
             </template>
             <template #body>
                 <ProjectMemberListItem
@@ -47,6 +48,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import {
     ProjectMember,
@@ -56,6 +58,8 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -66,7 +70,9 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
+const router = useRouter();
 
 const FIRST_PAGE = 1;
 
@@ -137,10 +143,11 @@ function onMemberCheckChange(member: ProjectMember): void {
 /**
  * Fetches team member of selected page.
  * @param index
+ * @param limit
  */
-async function onPageClick(index: number): Promise<void> {
+async function onPageChange(index: number, limit: number): Promise<void> {
     try {
-        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id);
+        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
@@ -151,12 +158,17 @@ async function onPageClick(index: number): Promise<void> {
  * Fetches first page of team members list of current project.
  */
 onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     try {
         await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
 
         areMembersFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
 });
 </script>
@@ -193,7 +205,7 @@ onMounted(async (): Promise<void> => {
         }
     }
 
-    @media screen and (max-width: 800px) and (min-width: 500px) {
+    @media screen and (width <= 800px) and (width >= 500px) {
 
         .date-added {
             display: none;

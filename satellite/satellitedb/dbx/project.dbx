@@ -7,6 +7,11 @@ model project (
         fields public_id
     )
 
+    index (
+        name projects_owner_id_index
+        fields owner_id
+    )
+
     // id is a UUID used for identifying the project.
     field id                                blob
     // public_id is a UUID that's used in web requests.
@@ -34,9 +39,6 @@ model project (
     field burst_limit                       int       ( nullable, updatable )
     // max_buckets is the maximum number of buckets that can be created for the project.
     field max_buckets                       int       ( nullable, updatable )
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    field partner_id                        blob      ( nullable )
     // user_agent is the referred partner who created the project.
     field user_agent                        blob      ( nullable )
     // owner_id refers to the user UUID in user.id.
@@ -144,6 +146,47 @@ read all (
     where project_member.member_id = ?
 )
 
+// project_invitation contains info for pending project member invitations.
+model project_invitation (
+    key project_id email
+
+    index ( fields project_id )
+    index ( fields email )
+
+    // project_id is the ID of the project that the invitation is for.
+    field project_id  project.id  cascade
+    // email is the normalized form of the email address that the invitation email was sent to.
+    // See satellitedb.normalizeEmail for details.
+    field email       text
+    // inviter_id is the ID of the user who sent the invitation.
+    field inviter_id  user.id     setnull  ( nullable )
+    // created_at is the time that the invitation was created.
+    field created_at  timestamp            ( autoinsert )
+)
+
+create project_invitation ( )
+
+read one (
+    select project_invitation
+    where project_invitation.project_id = ?
+    where project_invitation.email = ?
+)
+
+read all (
+    select project_invitation
+    where project_invitation.email = ?
+)
+
+read all (
+    select project_invitation
+    where project_invitation.project_id = ?
+)
+
+delete project_invitation (
+    where project_invitation.project_id = ?
+    where project_invitation.email = ?
+)
+
 // api_key is used to authenticate in requests.
 model api_key (
     key    id
@@ -160,9 +203,6 @@ model api_key (
     field  name        text       (updatable)
     // secret is the macaroon secret.
     field  secret      blob
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    field  partner_id  blob       (nullable)
     // user_agent is the referred partner who created the project.
     field  user_agent  blob       (nullable)
     // created_at indicates when the api key was added.
@@ -177,15 +217,18 @@ update api_key (
 delete api_key ( where api_key.id = ? )
 
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.id = ?
 )
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.head = ?
 )
 read one (
-    select api_key
+    select api_key project.public_id
+    join project.id = api_key.project_id
     where api_key.name = ?
     where api_key.project_id = ?
 )

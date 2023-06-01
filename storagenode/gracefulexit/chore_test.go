@@ -33,8 +33,6 @@ func TestChore(t *testing.T) {
 		satellite1 := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 
-		satellite1.GracefulExit.Chore.Loop.Pause()
-
 		err := uplinkPeer.Upload(ctx, satellite1, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
@@ -91,8 +89,9 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	// initiate graceful exit on satellite side by running the SN chore.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 
-	// run the satellite chore to build the transfer queue.
-	satellite1.GracefulExit.Chore.Loop.TriggerWait()
+	// run the satellite ranged loop to build the transfer queue.
+	_, err = satellite1.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+	require.NoError(t, err)
 
 	// check that the satellite knows the storage node is exiting.
 	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)

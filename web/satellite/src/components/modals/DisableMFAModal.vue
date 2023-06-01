@@ -45,7 +45,6 @@ import { ref } from 'vue';
 
 import { DisableMFARequest } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -72,7 +71,7 @@ const mfaInput = ref<ConfirmMFAInput & ClearInput>();
  * Closes disable MFA modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.disableMFA);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -127,7 +126,7 @@ async function disable(): Promise<void> {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 48px 24px;
         }
 
@@ -139,7 +138,7 @@ async function disable(): Promise<void> {
             color: #000;
             margin: 0 0 30px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 24px;
                 line-height: 28px;
                 margin-bottom: 15px;
@@ -153,7 +152,7 @@ async function disable(): Promise<void> {
             color: #000;
             margin: 0 0 45px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 14px;
                 line-height: 18px;
                 margin-bottom: 20px;
@@ -202,7 +201,7 @@ async function disable(): Promise<void> {
             margin-top: 30px;
             column-gap: 15px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;

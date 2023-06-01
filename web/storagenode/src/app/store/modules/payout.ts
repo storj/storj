@@ -8,18 +8,18 @@ import {
 } from '@/app/types/payout';
 import { StorageNodeState } from '@/app/types/sno';
 import { getHeldPercentage } from '@/app/utils/payout';
-import { SizeBreakpoints } from '@/private/memory/size';
 import {
     EstimatedPayout,
     PayoutPeriod,
     SatelliteHeldHistory,
-    SatellitePayoutForPeriod,
+    SatellitePayoutForPeriod, SatellitePricingModel,
     TotalPayments,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 
 export const PAYOUT_MUTATIONS = {
+    SET_PRICING_MODEL: 'SET_PRICING_MODEL',
     SET_PAYOUT_INFO: 'SET_PAYOUT_INFO',
     SET_RANGE: 'SET_RANGE',
     SET_TOTAL: 'SET_TOTAL',
@@ -33,6 +33,7 @@ export const PAYOUT_MUTATIONS = {
 };
 
 export const PAYOUT_ACTIONS = {
+    GET_PRICING_MODEL: 'GET_PRICING_MODEL',
     GET_PAYOUT_INFO: 'GET_PAYOUT_INFO',
     SET_PERIODS_RANGE: 'SET_PERIODS_RANGE',
     GET_TOTAL: 'GET_TOTAL',
@@ -42,11 +43,6 @@ export const PAYOUT_ACTIONS = {
     GET_PAYOUT_HISTORY: 'GET_PAYOUT_HISTORY',
     SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
 };
-
-// TODO: move to config in storagenode/payouts
-export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
-export const BANDWIDTH_REPAIR_PRICE_PER_TB = 1000;
-export const DISK_SPACE_PRICE_PER_TB = 150;
 
 interface PayoutContext {
     rootState: {
@@ -70,7 +66,6 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
             },
             [PAYOUT_MUTATIONS.SET_TOTAL](state: PayoutState, totalPayments: TotalPayments): void {
                 state.totalPayments = totalPayments;
-                state.currentMonthEarnings = totalPayments.currentMonthEarnings;
             },
             [PAYOUT_MUTATIONS.SET_RANGE](state: PayoutState, periodRange: PayoutInfoRange): void {
                 state.periodRange = periodRange;
@@ -83,6 +78,10 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
             },
             [PAYOUT_MUTATIONS.SET_ESTIMATION](state: PayoutState, estimatedInfo: EstimatedPayout): void {
                 state.estimation = estimatedInfo;
+                state.currentMonthEarnings = estimatedInfo.currentMonth.payout + estimatedInfo.currentMonth.held;
+            },
+            [PAYOUT_MUTATIONS.SET_PRICING_MODEL](state: PayoutState, pricing: SatellitePricingModel): void {
+                state.pricingModel = pricing;
             },
             [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
                 state.payoutPeriods = periods;
@@ -115,26 +114,6 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
 
                 const totalPayments = await service.totalPayments(start, end, satelliteId);
 
-                // TODO: move to service
-                const currentBandwidthDownload = (rootState.node.egressChartData || [])
-                    .map(data => data.egress.usage)
-                    .reduce((previous, current) => previous + current, 0);
-
-                const currentBandwidthAuditAndRepair = (rootState.node.egressChartData || [])
-                    .map(data => data.egress.audit + data.egress.repair)
-                    .reduce((previous, current) => previous + current, 0);
-
-                const approxHourInMonth = 720;
-                const currentDiskSpace = (rootState.node.storageChartData || [])
-                    .map(data => data.atRestTotal)
-                    .reduce((previous, current) => previous + current, 0) / approxHourInMonth;
-
-                const thisMonthEarnings = (currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-                    + currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-                    + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / SizeBreakpoints.TB;
-
-                totalPayments.setCurrentMonthEarnings(thisMonthEarnings);
-
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
             },
@@ -159,6 +138,11 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                 const estimatedInfo = await service.estimatedPayout(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
+            },
+            [PAYOUT_ACTIONS.GET_PRICING_MODEL]: async function ({ commit }: PayoutContext, satelliteId): Promise<void> {
+                const pricing = await service.pricingModel(satelliteId);
+
+                commit(PAYOUT_MUTATIONS.SET_PRICING_MODEL, pricing);
             },
             [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: PayoutContext): Promise<void> {
                 if (!state.payoutHistoryPeriod) return;

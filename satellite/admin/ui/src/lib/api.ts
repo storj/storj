@@ -22,6 +22,14 @@ export class Admin {
 	readonly operations = {
 		APIKeys: [
 			{
+				name: 'get',
+				desc: 'Get information on the specific API key',
+				params: [['API key', new InputText('text', true)]],
+				func: async (apiKey: string): Promise<Record<string, unknown>> => {
+					return this.fetch('GET', `apikeys/${apiKey}`);
+				}
+			},
+			{
 				name: 'delete key',
 				desc: 'Delete an API key',
 				params: [['API key', new InputText('text', true)]],
@@ -378,25 +386,31 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'update user and project limits',
+				name: "update user's project limits",
 				desc: `Update limits for all of user's existing and future projects.
 				Blank fields will not be updated.`,
 				params: [
 					["current user's email", new InputText('email', true)],
-					['project storage limit (in bytes)', new InputText('number', false)],
-					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					[
+						'project storage limit (in bytes or notations like 1GB, 2tb)',
+						new InputText('text', false)
+					],
+					[
+						'project bandwidth limit (in bytes or notations like 1GB, 2tb)',
+						new InputText('text', false)
+					],
 					['project segment limit (max number)', new InputText('number', false)]
 				],
 				func: async (
 					currentEmail: string,
-					projectStorageLimit?: number,
-					projectBandwidthLimit?: number,
-					projectSegmentLimit?: number
+					storage?: number,
+					bandwidth?: number,
+					segment?: number
 				): Promise<null> => {
 					return this.fetch('PUT', `users/${currentEmail}/limits`, null, {
-						projectStorageLimit,
-						projectBandwidthLimit,
-						projectSegmentLimit
+						storage,
+						bandwidth,
+						segment
 					}) as Promise<null>;
 				}
 			},

@@ -34,12 +34,12 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -47,6 +47,7 @@ import VInput from '@/components/common/VInput.vue';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -96,7 +97,7 @@ async function onDelete(): Promise<void> {
             'isList': true,
             'isDelete': true,
             'notAfter': inOneHour.toISOString(),
-            'buckets': [name.value],
+            'buckets': JSON.stringify([name.value]),
             'apiKey': apiKey.value,
         });
 
@@ -111,7 +112,7 @@ async function onDelete(): Promise<void> {
         }
 
         const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
-        const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
+        const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
 
         worker.value.postMessage({
             'type': 'GenerateAccess',
@@ -127,7 +128,7 @@ async function onDelete(): Promise<void> {
             }
         });
         if (accessGrantEvent.data.error) {
-            await notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
             return;
         }
 
@@ -139,7 +140,7 @@ async function onDelete(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
         await fetchBuckets();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
         return;
     } finally {
         isLoading.value = false;
@@ -155,7 +156,7 @@ async function fetchBuckets(page = 1): Promise<void> {
     try {
         await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
     }
 }
 
@@ -182,7 +183,7 @@ function onChangeName(value: string): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.deleteBucket);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -206,7 +207,7 @@ onMounted(() => {
     background-color: #fff;
     max-width: 480px;
 
-    @media screen and (max-width: 700px) {
+    @media screen and (width <= 700px) {
         padding: 45px;
     }
 

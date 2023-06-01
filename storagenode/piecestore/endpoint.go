@@ -583,6 +583,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	maximumChunkSize := 1 * memory.MiB.Int64()
+	if memory.KiB.Int32() < message.MaximumChunkSize && message.MaximumChunkSize < memory.MiB.Int32() {
+		maximumChunkSize = int64(message.MaximumChunkSize)
+	}
+
 	actionSeriesTag := monkit.NewSeriesTag("action", limit.Action.String())
 
 	remoteAddr := getRemoteAddr(ctx)
@@ -692,8 +697,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
-		var maximumChunkSize = 1 * memory.MiB.Int64()
-
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
 

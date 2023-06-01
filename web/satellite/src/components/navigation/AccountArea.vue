@@ -31,6 +31,10 @@
                     </a>
                 </div>
             </div>
+            <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                <UpgradeIcon />
+                <p class="account-area__dropdown__item__label">Upgrade</p>
+            </div>
             <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
@@ -49,14 +53,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -67,6 +72,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -74,13 +80,16 @@ import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
+import UpgradeIcon from '@/../static/images/navigation/upgrade.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
+const configStore = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -110,14 +119,14 @@ const style = computed((): Record<string, string> => {
  * Indicates if account dropdown is visible.
  */
 const isDropdown = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
 });
 
 /**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
@@ -128,12 +137,21 @@ const user = computed((): User => {
 });
 
 /**
+ * Starts upgrade account flow.
+ */
+function onUpgrade(): void {
+    closeDropdown();
+
+    appStore.updateActiveModal(MODALS.upgradeAccount);
+}
+
+/**
  * Navigates user to billing page.
  */
 function navigateToBilling(): void {
     closeDropdown();
 
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
     analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
@@ -170,10 +188,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        await analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -188,9 +206,10 @@ function toggleDropdown(): void {
     const DROPDOWN_HEIGHT = 224; // pixels
     const SIXTEEN_PIXELS = 16;
     const TWENTY_PIXELS = 20;
+    const SEVENTY_PIXELS = 70;
     const accountContainer = accountArea.value.getBoundingClientRect();
 
-    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
+    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (usersStore.state.user.paidTier ? SIXTEEN_PIXELS : SEVENTY_PIXELS);
     dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
     appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);
@@ -391,7 +410,7 @@ function closeDropdown(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .account-area__wrap {
             padding: 10px 0;

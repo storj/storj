@@ -44,7 +44,7 @@ func TestInvoices(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, pi)
 
-			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, "test_payment_method")
+			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPaySuccess)
 			require.NoError(t, err)
 			require.Equal(t, pi.ID, confirmedPI.ID)
 			require.Equal(t, string(stripe.InvoiceStatusPaid), confirmedPI.Status)

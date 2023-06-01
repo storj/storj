@@ -7,7 +7,7 @@
             <div class="modal">
                 <Icon class="modal__icon" :class="{ warning: severity === 'warning', critical: severity === 'critical' }" />
                 <h1 class="modal__title">{{ title }}</h1>
-                <p class="modal__info">To get more {{ limitType }} limit, upgrade to a Pro Account. You will still get {{ limits.storageLimit | bytesToBase10String }} free storage and bandwidth per month, and only pay what you use beyond that.</p>
+                <p class="modal__info">To get more {{ limitType }} limit, upgrade to a Pro Account. You will still get {{ bytesToBase10String(limits.storageUsed) }} free storage and egress per month, and only pay what you use beyond that.</p>
                 <div class="modal__buttons">
                     <VButton
                         label="Cancel"
@@ -38,6 +38,7 @@ import { computed } from 'vue';
 
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { bytesToBase10String } from '@/utils/strings';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';

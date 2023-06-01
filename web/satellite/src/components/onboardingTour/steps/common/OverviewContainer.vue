@@ -21,7 +21,7 @@
             By using the web browser you are opting in to
             <a
                 class="overview-container__encryption-container__link"
-                href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption"
+                href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-roledescription="server-side-encryption-link"
@@ -47,10 +47,10 @@ import WebIcon from '@/../static/images/onboardingTour/web.svg';
 import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
 
 const props = withDefaults(defineProps<{
-    isWeb: boolean;
+    isWeb?: boolean;
     title: string;
     info: string;
-    isDisabled: boolean;
+    isDisabled?: boolean;
     buttonLabel: string;
     onClick: () => void;
 }>(), {
@@ -129,7 +129,7 @@ const props = withDefaults(defineProps<{
     }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .overview-container {
         width: 250px;

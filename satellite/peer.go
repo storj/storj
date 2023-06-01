@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
@@ -197,10 +198,11 @@ type Config struct {
 
 	Payments paymentsconfig.Config
 
-	RESTKeys       restkeys.Config
-	Console        consoleweb.Config
-	ConsoleAuth    consoleauth.Config
-	EmailReminders emailreminders.Config
+	RESTKeys         restkeys.Config
+	Console          consoleweb.Config
+	ConsoleAuth      consoleauth.Config
+	EmailReminders   emailreminders.Config
+	ConsoleDBCleanup dbcleanup.Config
 
 	AccountFreeze accountfreeze.Config
 

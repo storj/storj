@@ -70,7 +70,7 @@ defineExpose({ clearSearch });
         }
     }
 
-    @media screen and (max-width: 1150px) {
+    @media screen and (width <= 1150px) {
 
         .header-container {
             flex-direction: column;

@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, Component } from 'vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -17,8 +17,7 @@ const appStore = useAppStore();
 /**
  * Indicates the current active modal.
  */
-const activeModal = computed((): unknown | null => {
-    // modal could be of VueConstructor type or Object (for composition api components).
-    return appStore.state.viewsState.activeModal;
+const activeModal = computed((): Component | null => {
+    return appStore.state.activeModal;
 });
 </script>

@@ -4,7 +4,7 @@
 <template>
     <div v-if="project.id" class="project-item">
         <div class="project-item__header">
-            <project-ownership-tag :project="project" />
+            <project-ownership-tag :is-owner="isOwner" />
 
             <a
                 v-click-outside="closeDropDown" href="" class="project-item__header__menu"
@@ -47,9 +47,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Project } from '@/types/projects';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -89,7 +90,7 @@ const props = withDefaults(defineProps<{
  * isDropdownOpen if dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return appStore.state.viewsState.activeDropdown === props.project.id;
+    return appStore.state.activeDropdown === props.project.id;
 });
 
 /**
@@ -100,7 +101,7 @@ const user = computed((): User => {
 });
 
 /**
- * Returns projects list from store.
+ * Returns if the current user is the owner of this project.
  */
 const isOwner = computed((): boolean => {
     return props.project.ownerId === user.value.id;
@@ -125,7 +126,12 @@ async function onOpenClicked(): Promise<void> {
         return;
     }
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+
+    if (usersStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
+    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.ProjectDashboard.path);
 }
 
 async function selectProject() {

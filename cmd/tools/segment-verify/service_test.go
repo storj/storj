@@ -26,8 +26,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-var maxUUID = uuid.UUID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-
 func TestService_EmptyRange(t *testing.T) {
 	ctx := testcontext.New(t)
 	log := testplanet.NewLogger(t)
@@ -48,7 +46,7 @@ func TestService_EmptyRange(t *testing.T) {
 
 	defer ctx.Check(service.Close)
 
-	err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+	err = service.ProcessRange(ctx, uuid.UUID{}, uuid.Max())
 	require.NoError(t, err)
 }
 
@@ -271,7 +269,7 @@ func TestService_Failures(t *testing.T) {
 
 		defer ctx.Check(service.Close)
 
-		err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+		err = service.ProcessRange(ctx, uuid.UUID{}, uuid.Max())
 		require.NoError(t, err)
 
 		for node, list := range verifier.processed {

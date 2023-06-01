@@ -208,8 +208,8 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		)
 
 		satelliteSys := planet.Satellites[0]
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Audit.Worker.Loop.Pause()
-		satelliteSys.Repair.Checker.Loop.Pause()
 		satelliteSys.Repair.Repairer.Loop.Pause()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -298,7 +298,7 @@ func TestBilling_UploadNoEgress(t *testing.T) {
 		// Make sure that we don't have interference with billed repair traffic
 		// in case of a bug. There is a specific test to verify that the repair
 		// traffic isn't billed.
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -340,7 +340,7 @@ func TestBilling_DownloadTraffic(t *testing.T) {
 		// Make sure that we don't have interference with billed repair traffic
 		// in case of a bug. There is a specific test to verify that the repair
 		// traffic isn't billed.
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -376,7 +376,7 @@ func TestBilling_ExpiredFiles(t *testing.T) {
 		)
 
 		satelliteSys := planet.Satellites[0]
-		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
 
 		satelliteSys.Accounting.Tally.Loop.Pause()
@@ -399,12 +399,18 @@ func TestBilling_ExpiredFiles(t *testing.T) {
 		require.NotZero(t, len(tallies), "There should be at least one tally")
 
 		// set the tally service to be in the future for the next get tallies call. it should
-		// not add any tallies.
-		planet.Satellites[0].Accounting.Tally.SetNow(func() time.Time {
+		// add an empty tally because the object we uploaded should have expired.
+		satelliteSys.Accounting.Tally.SetNow(func() time.Time {
 			return now.Add(2 * time.Hour)
 		})
 		newTallies := getTallies(ctx, t, planet, 0)
-		require.Equal(t, tallies, newTallies)
+		tallies = append(tallies, accounting.BucketTally{
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  planet.Uplinks[0].Projects[0].ID,
+				BucketName: bucketName,
+			},
+		})
+		require.ElementsMatch(t, tallies, newTallies)
 	})
 }
 

@@ -4,8 +4,10 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -37,6 +39,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var mon = monkit.Package()
@@ -56,6 +59,9 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	generateSessionTokenErrMsg           = "Failed to generate session token"
+	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
+	apiKeyCredentialsErrMsg              = "Your API Key is incorrect"
 	changePasswordErrMsg                 = "Your old password is incorrect, please try again"
 	passwordTooShortErrMsg               = "Your password needs to be at least %d characters long"
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
@@ -1205,6 +1211,28 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	return response, nil
 }
 
+// TokenByAPIKey authenticates User by API Key and returns session token.
+func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	userID, _, err := s.restKeys.GetUserAndExpirationFromKey(ctx, apiKey)
+	if err != nil {
+		return nil, ErrUnauthorized.New(apiKeyCredentialsErrMsg)
+	}
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		return nil, Error.New(failedToRetrieveUserErrMsg)
+	}
+
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent)
+	if err != nil {
+		return nil, Error.New(generateSessionTokenErrMsg)
+	}
+
+	return response, nil
+}
+
 // UpdateUsersFailedLoginState updates User's failed login state.
 func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1965,6 +1993,9 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
 			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
+				if dbx.IsConstraintError(err) {
+					return errs.New("%s is already on the project", user.Email)
+				}
 				return err
 			}
 		}
@@ -3053,6 +3084,10 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	if err != nil {
 		return WalletPayments{}, Error.Wrap(err)
 	}
+	txns, err := payment.service.billing.ListSource(ctx, user.ID, billing.StorjScanBonusSource)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
 
 	var paymentInfos []PaymentInfo
 	for _, walletPayment := range walletPayments {
@@ -3076,6 +3111,25 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Status:    txInfo.Status.String(),
 			Link:      txInfo.Link,
 			Timestamp: txInfo.CreatedAt.UTC(),
+		})
+	}
+	for _, txn := range txns {
+		var meta struct {
+			ReferenceID string
+			LogIndex    int
+		}
+		err = json.NewDecoder(bytes.NewReader(txn.Metadata)).Decode(&meta)
+		if err != nil {
+			return WalletPayments{}, Error.Wrap(err)
+		}
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
+			Type:      txn.Source,
+			Wallet:    address.Hex(),
+			Amount:    txn.Amount,
+			Status:    string(txn.Status),
+			Link:      EtherscanURL(meta.ReferenceID),
+			Timestamp: txn.Timestamp,
 		})
 	}
 

@@ -6,6 +6,8 @@
 
 package main
 
-func startAsService() bool {
+import "github.com/spf13/cobra"
+
+func startAsService(*cobra.Command) bool {
 	return false
 }

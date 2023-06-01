@@ -1,15 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 import { RouteConfig, router } from '@/router';
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import DashboardArea from '@/views/DashboardArea.vue';
-
-const localVue = createLocalVue();
-localVue.use(new NotificatorPlugin());
 
 describe('Dashboard', () => {
     beforeEach(() => {
@@ -19,7 +15,6 @@ describe('Dashboard', () => {
 
     it('renders correctly when data is loading', () => {
         const wrapper = shallowMount(DashboardArea, {
-            localVue,
             router,
         });
 
@@ -30,7 +25,6 @@ describe('Dashboard', () => {
 
     it('renders correctly when data is loaded', () => {
         const wrapper = shallowMount(DashboardArea, {
-            localVue,
             router,
         });
 
@@ -47,7 +41,6 @@ describe('Dashboard', () => {
 
         for (let i = 0; i < availableWithoutProject.length; i++) {
             const wrapper = await shallowMount(DashboardArea, {
-                localVue,
                 router,
             });
 
@@ -68,7 +61,6 @@ describe('Dashboard', () => {
             await router.push(unavailableWithoutProject[i]);
 
             const wrapper = await shallowMount(DashboardArea, {
-                localVue,
                 router,
             });
 
@@ -81,7 +73,6 @@ describe('Dashboard', () => {
 
     it('loads routes correctly when not authorithed', () => {
         const wrapper = shallowMount(DashboardArea, {
-            localVue,
             router,
         });
 

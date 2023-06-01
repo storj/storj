@@ -11,7 +11,7 @@
             <div class="total-cost__card-container">
                 <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
+                    <p class="total-cost__card__money-text">{{ centsToDollars(priceSummary) }}</p>
                     <p class="total-cost__card__label-text">
                         Total Estimated Charges
                         <img
@@ -25,7 +25,7 @@
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
-                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
+                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Egress remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
                     </div>
                     <p
                         class="total-cost__card__link-text"
@@ -36,7 +36,7 @@
                 </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">${{ balance.coins }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.formattedCoins }}</p>
                     <p class="total-cost__card__label-text">STORJ Token Balance</p>
                     <p
                         class="total-cost__card__link-text"
@@ -90,13 +90,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
+import { centsToDollars } from '@/utils/strings';
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -162,7 +164,7 @@ function routeToPaymentMethods(): void {
 function balanceClicked(): void {
     router.push({
         name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
-        params: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
+        query: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
     });
 }
 
@@ -189,7 +191,7 @@ onMounted(async () => {
     isDataFetching.value = false;
 
     const rawDate = new Date();
-    let currentYear = rawDate.getFullYear();
+    const currentYear = rawDate.getFullYear();
     currentDate.value = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
 });
 </script>
@@ -223,11 +225,11 @@ onMounted(async () => {
             gap: 10px;
             margin-top: 20px;
 
-            @media screen and (max-width: 786px) {
+            @media screen and (width <= 786px) {
                 grid-template-columns: 1fr 1fr;
             }
 
-            @media screen and (max-width: 425px) {
+            @media screen and (width <= 425px) {
                 grid-template-columns: auto;
             }
         }
@@ -273,7 +275,7 @@ onMounted(async () => {
                 top: 5px;
                 left: 86px;
 
-                @media screen and (max-width: 635px) {
+                @media screen and (width <= 635px) {
                     top: 5px;
                     left: -21px;
                 }
@@ -293,7 +295,7 @@ onMounted(async () => {
                 &:after {
                     left: 50%;
 
-                    @media screen and (max-width: 635px) {
+                    @media screen and (width <= 635px) {
                         left: 90%;
                     }
 

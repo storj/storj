@@ -92,12 +92,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -113,6 +114,7 @@ const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -177,7 +179,7 @@ onMounted(async (): Promise<void> => {
     await getWallet();
 
     // check if user navigated here from Billing overview screen
-    if (router.currentRoute.params.action !== 'add tokens') {
+    if (route.query.action !== 'add tokens') {
         return;
     }
     // user clicked 'Add Funds' on Billing overview screen.

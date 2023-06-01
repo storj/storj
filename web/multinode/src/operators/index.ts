@@ -5,6 +5,11 @@ import { Operators as OperatorsClient } from '@/api/operators';
 import { Cursor, Page } from '@/private/pagination';
 
 /**
+ * Divider to convert payout amounts to cents.
+ */
+const PRICE_DIVIDER = 10000;
+
+/**
  *Operator contains contains SNO payouts contact details and amount of undistributed payouts.
  */
 export class Operator {
@@ -14,7 +19,9 @@ export class Operator {
         public wallet: string,
         public walletFeatures: string[] | null,
         public undistributed: number,
-    ) {}
+    ) {
+        this.undistributed = this.convertToCents(this.undistributed);
+    }
 
     /**
      * indicates if wallet features are enabled.
@@ -37,6 +44,10 @@ export class Operator {
     public get zkscanLink(): string {
         // TODO: place this to config.
         return `https://zkscan.io/explorer/accounts/${this.wallet}`;
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }
 

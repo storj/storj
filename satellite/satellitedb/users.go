@@ -194,12 +194,77 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	return userFromDBX(ctx, createdUser)
 }
 
-// Delete is a method for deleting user by Id from the database.
+// Delete is a method for deleting user by ID from the database.
 func (users *users) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = users.db.Delete_User_By_Id(ctx, dbx.User_Id(id[:]))
 
 	return err
+}
+
+// DeleteUnverifiedBefore deletes unverified users created prior to some time from the database.
+func (users *users) DeleteUnverifiedBefore(
+	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if pageSize <= 0 {
+		return Error.New("expected page size to be positive; got %d", pageSize)
+	}
+
+	var pageCursor, pageEnd uuid.UUID
+	aost := users.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
+	for {
+		// Select the ID beginning this page of records
+		err = users.db.QueryRowContext(ctx, `
+			SELECT id FROM users
+			`+aost+`
+			WHERE id > $1 AND users.status = $2 AND users.created_at < $3
+			ORDER BY id LIMIT 1
+		`, pageCursor, console.Inactive, before).Scan(&pageCursor)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		// Select the ID ending this page of records
+		err = users.db.QueryRowContext(ctx, `
+			SELECT id FROM users
+			`+aost+`
+			WHERE id >= $1
+			ORDER BY id LIMIT 1 OFFSET $2
+		`, pageCursor, pageSize).Scan(&pageEnd)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return Error.Wrap(err)
+			}
+			// Since this is the last page, we want to return all remaining IDs
+			pageEnd = uuid.Max()
+		}
+
+		// Delete all old, unverified users in the range between the beginning and ending IDs
+		_, err = users.db.ExecContext(ctx, `
+			DELETE FROM users
+			WHERE id IN (
+				SELECT id FROM users
+				`+aost+`
+				WHERE id >= $1 AND id <= $2
+				AND users.status = $3 AND users.created_at < $4
+				ORDER BY id
+			)
+		`, pageCursor, pageEnd, console.Inactive, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if pageEnd == uuid.Max() {
+			return nil
+		}
+
+		// Advance the cursor to the next page
+		pageCursor = pageEnd
+	}
 }
 
 // Update is a method for updating user entity.
@@ -302,6 +367,10 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 	settings.OnboardingStart = row.OnboardingStart
 	settings.OnboardingEnd = row.OnboardingEnd
 	settings.OnboardingStep = row.OnboardingStep
+	settings.PassphrasePrompt = true
+	if row.PassphrasePrompt != nil {
+		settings.PassphrasePrompt = *row.PassphrasePrompt
+	}
 	if row.SessionMinutes != nil {
 		dur := time.Duration(*row.SessionMinutes) * time.Minute
 		settings.SessionDuration = &dur
@@ -332,6 +401,10 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 	if settings.OnboardingEnd != nil {
 		update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(*settings.OnboardingEnd)
+		fieldCount++
+	}
+	if settings.PassphrasePrompt != nil {
+		update.PassphrasePrompt = dbx.UserSettings_PassphrasePrompt(*settings.PassphrasePrompt)
 		fieldCount++
 	}
 	if settings.OnboardingStep != nil {

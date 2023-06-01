@@ -14,6 +14,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -76,7 +77,9 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		prices,
 		priceOverrides,
 		pc.PackagePlans.Packages,
-		pc.BonusRate)
+		pc.BonusRate,
+		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
+	)
 }
 
 // parseYearMonth parses year and month from the provided string and returns a corresponding time.Time for the first day

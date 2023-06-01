@@ -22,17 +22,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import ValueWithCopy from '@/components/onboardingTour/steps/common/ValueWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const router = useRouter();
 
@@ -42,21 +44,21 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Returns the web address of this satellite from the store.
  */
 const satelliteAddress = computed((): string => {
-    return appStore.state.config.satelliteNodeURL;
+    return configStore.state.config.satelliteNodeURL;
 });
 
 /**
  * Returns API key from store.
  */
 const storedAPIKey = computed((): string => {
-    return appStore.state.viewsState.onbApiKey;
+    return appStore.state.onbApiKey;
 });
 
 /**
  * Returns back route from store.
  */
 const backRoute = computed((): string => {
-    return appStore.state.viewsState.onbAPIKeyStepBackRoute;
+    return appStore.state.onbAPIKeyStepBackRoute;
 });
 
 /**

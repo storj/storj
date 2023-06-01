@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="withLoading(onClose)">
+    <VModal :on-close="() => withLoading(onClose)">
         <template #content>
             <div class="timeout-modal">
                 <div class="timeout-modal__header">
@@ -32,7 +32,7 @@
                         font-size="13px"
                         is-white
                         class="timeout-modal__buttons__button"
-                        :on-press="withLoading(onClose)"
+                        :on-press="() => withLoading(onClose)"
                         :is-disabled="isLoading"
                     />
                     <VButton
@@ -42,7 +42,7 @@
                         border-radius="10px"
                         font-size="13px"
                         class="timeout-modal__buttons__button save"
-                        :on-press="withLoading(save)"
+                        :on-press="() => withLoading(save)"
                         :is-disabled="isLoading || !hasChanged"
                     />
                 </div>
@@ -59,6 +59,7 @@ import { Duration } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -69,8 +70,8 @@ import Icon from '@/../static/images/session/inactivityTimer.svg';
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
-const isLoading = ref(false);
 const sessionDuration = ref<Duration | null>(null);
 
 /**
@@ -128,18 +129,6 @@ async function save() {
 function onClose(): void {
     appStore.removeActiveModal();
 }
-
-/**
- * Returns a function that disables modal interaction during execution.
- */
-function withLoading(fn: () => Promise<void>): () => Promise<void> {
-    return async () => {
-        if (isLoading.value) return;
-        isLoading.value = true;
-        await fn();
-        isLoading.value = false;
-    };
-}
 </script>
 
 <style scoped lang="scss">
@@ -153,12 +142,17 @@ function withLoading(fn: () => Promise<void>): () => Promise<void> {
         display: flex;
         align-items: center;
         gap: 20px;
-        margin-bottom: 20px;
+        margin: 20px 0;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             flex-direction: column;
             align-items: flex-start;
             gap: 10px;
+        }
+
+        &__icon {
+            height: 40px;
+            width: 40px;
         }
 
         &__title {
@@ -190,7 +184,7 @@ function withLoading(fn: () => Promise<void>): () => Promise<void> {
         display: flex;
         gap: 16px;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             flex-direction: column-reverse;
         }
 

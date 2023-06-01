@@ -32,7 +32,7 @@ require (
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230419135619-fb89f20752cb
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
@@ -50,6 +50,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.6.0
+	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/net v0.6.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.1.0
@@ -59,11 +60,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20230419134608-0971ce717d0c
-	storj.io/drpc v0.0.33-0.20230417171205-2ca712ef4ab5
+	storj.io/common v0.0.0-20230504204616-8b62322ba410
+	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
 	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
-	storj.io/uplink v1.10.1-0.20230419134602-db8e801a38e4
+	storj.io/uplink v1.10.1-0.20230524150903-9e61c35f248e
 )
 
 require (
@@ -127,7 +128,6 @@ require (
 	go.opencensus.io v0.22.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/api v0.20.0 // indirect

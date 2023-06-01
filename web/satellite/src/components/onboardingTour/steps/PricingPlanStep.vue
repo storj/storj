@@ -20,20 +20,21 @@
 
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
@@ -50,7 +51,7 @@ const plans = ref<PricingPlanInfo[]>([
         '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and bandwidth. Only pay for what you use beyond that.',
+        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and egress. Only pay for what you use beyond that.',
         'No charge today',
         '25GB Free',
     ),
@@ -74,11 +75,11 @@ const plans = ref<PricingPlanInfo[]>([
 onBeforeMount(async () => {
     const user: User = usersStore.state.user;
     let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
-    if (appStore.state.config.allProjectsDashboard) {
+    if (configStore.state.config.allProjectsDashboard) {
         nextPath = RouteConfig.AllProjectsDashboard.path;
     }
 
-    const pricingPkgsEnabled = appStore.state.config.pricingPackagesEnabled;
+    const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
         return;
@@ -130,10 +131,7 @@ onBeforeMount(async () => {
 
     &__loader {
         position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        inset: 0;
         align-items: center;
     }
 
@@ -162,7 +160,7 @@ onBeforeMount(async () => {
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-area__plans {
         max-width: 444px;

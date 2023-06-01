@@ -250,7 +250,7 @@ export default defineComponent({
                 color: #354049;
 
                 & .add-label {
-                    font-size: 14px;
+                    font-size: 'font_medium' sans-serif;
                     color: var(--c-grey-5) !important;
                 }
             }

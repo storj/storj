@@ -274,10 +274,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		it.cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
 	}
 	if it.cursor.EndStreamID.IsZero() {
-		it.cursor.EndStreamID, err = maxUUID()
-		if err != nil {
-			return err
-		}
+		it.cursor.EndStreamID = uuid.Max()
 	}
 
 	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
@@ -408,11 +405,6 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 	}
 
 	return nil
-}
-
-func maxUUID() (uuid.UUID, error) {
-	maxUUID, err := uuid.FromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	return maxUUID, err
 }
 
 // BucketTally contains information about aggregate data stored in a bucket.

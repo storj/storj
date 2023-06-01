@@ -84,6 +84,8 @@ const (
 	eventAccountUnwarned              = "Account Unwarned"
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
+	eventExpiredCreditNeedsRemoval    = "Expired Credit Needs Removal"
+	eventExpiredCreditRemoved         = "Expired Credit Removed"
 )
 
 var (
@@ -96,6 +98,24 @@ type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
+}
+
+// FreezeTracker is an interface for account freeze event tracking methods.
+type FreezeTracker interface {
+	// TrackAccountFrozen sends an account frozen event to Segment.
+	TrackAccountFrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnfrozen sends an account unfrozen event to Segment.
+	TrackAccountUnfrozen(userID uuid.UUID, email string)
+
+	// TrackAccountUnwarned sends an account unwarned event to Segment.
+	TrackAccountUnwarned(userID uuid.UUID, email string)
+
+	// TrackAccountFreezeWarning sends an account freeze warning event to Segment.
+	TrackAccountFreezeWarning(userID uuid.UUID, email string)
+
+	// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string)
 }
 
 // Service for sending analytics.
@@ -617,4 +637,38 @@ func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email strin
 		Properties: props,
 	})
 
+}
+
+// TrackExpiredCreditNeedsRemoval sends an "Expired Credit Needs Removal" event to Segment.
+func (service *Service) TrackExpiredCreditNeedsRemoval(userID uuid.UUID, customerID, packagePlan string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("customer ID", customerID)
+	props.Set("package plan", packagePlan)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventExpiredCreditNeedsRemoval,
+		Properties: props,
+	})
+}
+
+// TrackExpiredCreditRemoved sends an "Expired Credit Removed" event to Segment.
+func (service *Service) TrackExpiredCreditRemoved(userID uuid.UUID, customerID, packagePlan string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("customer ID", customerID)
+	props.Set("package plan", packagePlan)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventExpiredCreditRemoved,
+		Properties: props,
+	})
 }

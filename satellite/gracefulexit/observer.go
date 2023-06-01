@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
 )
@@ -20,25 +21,28 @@ import (
 // timed out status and removes transefer queue items for inactive exiting
 // nodes.
 type Observer struct {
-	log     *zap.Logger
-	db      DB
-	overlay overlay.DB
-	config  Config
+	log      *zap.Logger
+	db       DB
+	overlay  overlay.DB
+	metabase *metabase.DB
+	config   Config
 
 	// The following variables are reset on each loop cycle
-	exitingNodes    storj.NodeIDList
-	bytesToTransfer map[storj.NodeID]int64
+	exitingNodes    map[metabase.NodeAlias]storj.NodeID
+	bytesToTransfer map[metabase.NodeAlias]int64
 }
 
 var _ rangedloop.Observer = (*Observer)(nil)
+var _ rangedloop.Partial = (*observerFork)(nil)
 
 // NewObserver returns a new ranged loop observer.
-func NewObserver(log *zap.Logger, db DB, overlay overlay.DB, config Config) *Observer {
+func NewObserver(log *zap.Logger, db DB, overlay overlay.DB, metabase *metabase.DB, config Config) *Observer {
 	return &Observer{
-		log:     log,
-		db:      db,
-		overlay: overlay,
-		config:  config,
+		log:      log,
+		db:       db,
+		overlay:  overlay,
+		metabase: metabase,
+		config:   config,
 	}
 }
 
@@ -64,11 +68,20 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 
 	obs.checkForInactiveNodes(ctx, exitingNodes)
 
-	obs.exitingNodes = nil
-	obs.bytesToTransfer = make(map[storj.NodeID]int64)
+	aliases, err := obs.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return err
+	}
+
+	obs.exitingNodes = make(map[metabase.NodeAlias]storj.NodeID, len(exitingNodes))
+	obs.bytesToTransfer = make(map[metabase.NodeAlias]int64)
 	for _, node := range exitingNodes {
 		if node.ExitLoopCompletedAt == nil {
-			obs.exitingNodes = append(obs.exitingNodes, node.NodeID)
+			alias, ok := aliases.Alias(node.NodeID)
+			if !ok {
+				return errs.New("unable to find alias for node: %s", node.NodeID)
+			}
+			obs.exitingNodes[alias] = node.NodeID
 		}
 	}
 	return nil
@@ -79,26 +92,24 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: trim out/refactor segmentloop.Observer bits from path collector
-	// once segmentloop.Observer is removed.
-	return NewPathCollector(obs.log, obs.db, obs.exitingNodes, obs.config.ChoreBatchSize), nil
+	return newObserverFork(obs.log, obs.db, obs.exitingNodes, obs.config.ChoreBatchSize), nil
 }
 
 // Join flushes the forked path collector and aggregates collected metrics.
 func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pathCollector, ok := partial.(*PathCollector)
+	pathCollector, ok := partial.(*observerFork)
 	if !ok {
 		return Error.New("expected partial type %T but got %T", pathCollector, partial)
 	}
 
-	if err := pathCollector.Flush(ctx); err != nil {
+	if err := pathCollector.flush(ctx, 1); err != nil {
 		return err
 	}
 
-	for nodeID, bytesToTransfer := range pathCollector.nodeIDStorage {
-		obs.bytesToTransfer[nodeID] += bytesToTransfer
+	for alias, bytesToTransfer := range pathCollector.nodeIDStorage {
+		obs.bytesToTransfer[alias] += bytesToTransfer
 	}
 	return nil
 }
@@ -110,7 +121,8 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 
 	// Record that the exit loop was completed for each node
 	now := time.Now().UTC()
-	for nodeID, bytesToTransfer := range obs.bytesToTransfer {
+	for alias, bytesToTransfer := range obs.bytesToTransfer {
+		nodeID := obs.exitingNodes[alias]
 		exitStatus := overlay.ExitStatusRequest{
 			NodeID:              nodeID,
 			ExitLoopCompletedAt: now,
@@ -163,4 +175,96 @@ func (obs *Observer) checkForInactiveNodes(ctx context.Context, exitingNodes []*
 		}
 	}
 
+}
+
+var flushMon = mon.Task()
+
+type observerFork struct {
+	log           *zap.Logger
+	db            DB
+	buffer        []TransferQueueItem
+	batchSize     int
+	nodeIDStorage map[metabase.NodeAlias]int64
+	exitingNodes  map[metabase.NodeAlias]storj.NodeID
+}
+
+func newObserverFork(log *zap.Logger, db DB, exitingNodes map[metabase.NodeAlias]storj.NodeID, batchSize int) *observerFork {
+	fork := &observerFork{
+		log:           log,
+		db:            db,
+		buffer:        make([]TransferQueueItem, 0, batchSize),
+		batchSize:     batchSize,
+		nodeIDStorage: make(map[metabase.NodeAlias]int64, len(exitingNodes)),
+		exitingNodes:  exitingNodes,
+	}
+
+	for alias := range exitingNodes {
+		fork.nodeIDStorage[alias] = 0
+	}
+
+	return fork
+}
+
+// Process adds transfer queue items for remote segments belonging to newly exiting nodes.
+func (observer *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
+	// Intentionally omitting mon.Task here. The duration for all process
+	// calls are aggregated and and emitted by the ranged loop service.
+
+	if len(observer.nodeIDStorage) == 0 {
+		return nil
+	}
+
+	for _, segment := range segments {
+		if segment.Inline() {
+			continue
+		}
+		if err := observer.handleRemoteSegment(ctx, segment); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (observer *observerFork) handleRemoteSegment(ctx context.Context, segment rangedloop.Segment) (err error) {
+	numPieces := len(segment.Pieces)
+	for _, alias := range segment.AliasPieces {
+		nodeID, ok := observer.exitingNodes[alias.Alias]
+		if !ok {
+			continue
+		}
+
+		pieceSize := segment.PieceSize()
+
+		observer.nodeIDStorage[alias.Alias] += pieceSize
+
+		item := TransferQueueItem{
+			NodeID:          nodeID,
+			StreamID:        segment.StreamID,
+			Position:        segment.Position,
+			PieceNum:        int32(alias.Number),
+			RootPieceID:     segment.RootPieceID,
+			DurabilityRatio: float64(numPieces) / float64(segment.Redundancy.TotalShares),
+		}
+
+		observer.log.Debug("adding piece to transfer queue.", zap.Stringer("Node ID", nodeID),
+			zap.String("stream_id", segment.StreamID.String()), zap.Int32("part", int32(segment.Position.Part)),
+			zap.Int32("index", int32(segment.Position.Index)), zap.Uint16("piece num", alias.Number),
+			zap.Int("num pieces", numPieces), zap.Int16("total possible pieces", segment.Redundancy.TotalShares))
+
+		observer.buffer = append(observer.buffer, item)
+	}
+
+	return observer.flush(ctx, observer.batchSize)
+}
+
+func (observer *observerFork) flush(ctx context.Context, limit int) (err error) {
+	defer flushMon(&ctx)(&err)
+
+	if len(observer.buffer) >= limit {
+		err = observer.db.Enqueue(ctx, observer.buffer, observer.batchSize)
+		observer.buffer = observer.buffer[:0]
+
+		return errs.Wrap(err)
+	}
+	return nil
 }

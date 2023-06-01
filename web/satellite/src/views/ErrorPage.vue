@@ -23,15 +23,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import Logo from '@/../static/images/logo.svg';
 
 const router = useRouter();
+const configStore = useConfigStore();
 const appStore = useAppStore();
 
 const messages = new Map<number, string>([
@@ -43,7 +45,7 @@ const messages = new Map<number, string>([
  * Retrieves the error's status code from the store.
  */
 const statusCode = computed((): number => {
-    return appStore.state.viewsState.error.statusCode;
+    return appStore.state.error.statusCode;
 });
 
 /**
@@ -57,14 +59,14 @@ const message = computed((): string => {
  * Indicates whether the error is unrecoverable.
  */
 const isFatal = computed((): boolean => {
-    return appStore.state.viewsState.error.fatal;
+    return appStore.state.error.fatal;
 });
 
 /**
  * Navigates to the homepage.
  */
 function goToHomepage(): void {
-    window.location.href = appStore.state.config.homepageURL || 'https://www.storj.io';
+    window.location.href = configStore.state.config.homepageURL || 'https://www.storj.io';
 }
 
 /**
@@ -82,7 +84,7 @@ function onButtonClick(): void {
  * Lifecycle hook after initial render. Sets page title.
  */
 onMounted(() => {
-    const satName = appStore.state.config.satelliteName;
+    const satName = configStore.state.config.satelliteName;
     document.title = statusCode.value.toString() + (satName ? ' | ' + satName : '');
 });
 </script>
@@ -90,14 +92,11 @@ onMounted(() => {
 <style scoped lang="scss">
     .error-area {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         padding: 52px 24px;
         box-sizing: border-box;
         display: flex;
-        background: url('~@/../static/images/errors/dotWorld.png') no-repeat center 178px;
+        background: url('../../static/images/errors/dotWorld.png') no-repeat center 178px;
         flex-direction: column;
         justify-content: center;
         overflow-y: auto;
@@ -148,7 +147,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-height: 500px) {
+    @media screen and (height <= 500px) {
 
         .error-area {
             justify-content: flex-start;

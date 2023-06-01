@@ -9,6 +9,7 @@ export class LocalData {
     private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
+    private static sessionTimeoutBannerAcknowledged = 'sessionTimeoutBannerAcknowledged';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
@@ -59,6 +60,14 @@ export class LocalData {
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
         return value === 'true';
+    }
+
+    public static getSessionTimeoutBannerAcknowledged(): boolean {
+        return Boolean(localStorage.getItem(LocalData.sessionTimeoutBannerAcknowledged));
+    }
+
+    public static setSessionTimeoutBannerAcknowledged(): void {
+        localStorage.setItem(LocalData.sessionTimeoutBannerAcknowledged, 'true');
     }
 
     /**

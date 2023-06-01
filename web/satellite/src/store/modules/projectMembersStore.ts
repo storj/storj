@@ -13,6 +13,7 @@ import {
 } from '@/types/projectMembers';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
@@ -35,8 +36,9 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         clearProjectMemberSelection();
     }
 
-    async function getProjectMembers(page: number, projectID: string): Promise<ProjectMembersPage> {
+    async function getProjectMembers(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<ProjectMembersPage> {
         state.cursor.page = page;
+        state.cursor.limit = limit;
 
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
@@ -62,6 +64,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     function setSearchQuery(search: string) {
         state.cursor.search = search;
+    }
+
+    function getSearchQuery() {
+        return state.cursor.search;
     }
 
     function setSortingBy(order: ProjectMemberOrderBy) {
@@ -107,6 +113,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
+        getSearchQuery,
         setSortingBy,
         setSortingDirection,
         setPage,

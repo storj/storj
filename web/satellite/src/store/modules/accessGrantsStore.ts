@@ -14,7 +14,8 @@ import {
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsApiGql } from '@/api/accessGrants';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 class AccessGrantsState {
     public cursor: AccessGrantCursor = new AccessGrantCursor();
@@ -30,6 +31,7 @@ class AccessGrantsState {
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
+    public accessNameToDelete = '';
 }
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
@@ -37,10 +39,13 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
-    const appStore = useAppStore();
+    const configStore = useConfigStore();
 
     async function startWorker(): Promise<void> {
-        const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
+        // TODO(vitalii): create an issue here https://github.com/vitejs/vite
+        // about worker chunk being auto removed after rebuild in watch mode if using new URL constructor.
+        // const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
+        const worker = new Worker('/static/src/utils/accessGrant.worker.js');
         worker.postMessage({ 'type': 'Setup' });
 
         const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
@@ -66,8 +71,9 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.isAccessGrantsWebWorkerReady = false;
     }
 
-    async function getAccessGrants(pageNumber: number, projectID: string): Promise<AccessGrantsPage> {
+    async function getAccessGrants(pageNumber: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<AccessGrantsPage> {
         state.cursor.page = pageNumber;
+        state.cursor.limit = limit;
 
         const accessGrantsPage: AccessGrantsPage = await api.get(projectID, state.cursor);
 
@@ -96,7 +102,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     async function getEdgeCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
-        const url = optionalURL || appStore.state.config.gatewayCredentialsRequestURL;
+        const url = optionalURL || configStore.state.config.gatewayCredentialsRequestURL;
         const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, url, isPublic);
 
         state.edgeCredentials = credentials;
@@ -110,6 +116,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     function setSortingBy(order: AccessGrantsOrderBy): void {
         state.cursor.order = order;
+    }
+
+    function setAccessNameToDelete(name: string): void {
+        state.accessNameToDelete = name;
     }
 
     function setDurationPermission(permission: DurationPermission): void {
@@ -221,6 +231,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         getEdgeCredentials,
         setSearchQuery,
         setSortingBy,
+        setAccessNameToDelete,
         setSortingDirection,
         toggleSortingDirection,
         setDurationPermission,

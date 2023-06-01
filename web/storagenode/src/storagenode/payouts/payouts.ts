@@ -32,6 +32,12 @@ export interface PayoutApi {
     getEstimatedPayout(satelliteId: string): Promise<EstimatedPayout>;
 
     /**
+     * Fetch satellite payout rate.
+     * @throws Error
+     */
+    getPricingModel(satelliteId: string): Promise<SatellitePricingModel>;
+
+    /**
      * Fetches payout history for all satellites.
      * @throws Error
      */
@@ -178,8 +184,6 @@ export class TotalPayments {
     public held = 0;
     public paid = 0;
     public disposed = 0;
-    // TODO: remove
-    public currentMonthEarnings = 0;
     public balance = 0;
 
     public constructor(
@@ -191,10 +195,6 @@ export class TotalPayments {
             this.held += this.convertToCents(paystub.held - paystub.disposed);
             this.balance += this.convertToCents(paystub.paid - paystub.distributed);
         });
-    }
-
-    public setCurrentMonthEarnings(value: number): void {
-        this.currentMonthEarnings = value;
     }
 
     private convertToCents(value: number): number {
@@ -324,5 +324,23 @@ export class SatellitePayoutForPeriod {
 
     private convertToCents(value: number): number {
         return value / PRICE_DIVIDER;
+    }
+}
+
+/**
+ * Contains satellite payout rates.
+ */
+export class SatellitePricingModel {
+    public constructor(
+        public satelliteID: string = '',
+        public egressBandwidth: number = 0,
+        public repairBandwidth: number = 0,
+        public auditBandwidth: number = 0,
+        public diskSpace: number = 0,
+    ) {
+        this.egressBandwidth = this.egressBandwidth / 100;
+        this.repairBandwidth = this.repairBandwidth / 100;
+        this.auditBandwidth = this.auditBandwidth / 100;
+        this.diskSpace = this.diskSpace / 100;
     }
 }

@@ -29,10 +29,7 @@ import LoaderImage from '@/../static/images/common/loadIcon.svg';
         justify-content: center;
         align-items: center;
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         background-color: #fff;
 
         &__spinner {
@@ -53,10 +50,7 @@ import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
         &__icon {
             position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            inset: 0;
             margin: auto;
         }
     }

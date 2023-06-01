@@ -126,7 +126,7 @@
                 :limit="accessGrantLimit"
                 :total-page-count="totalPageCount"
                 :total-items-count="accessGrantsTotalCount"
-                :on-page-click-callback="onPageClick"
+                :on-page-change="onPageClick"
             >
                 <template #head>
                     <access-grants-header />
@@ -152,15 +152,12 @@
                 </span>
             </div>
         </div>
-        <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-        />
         <router-view />
     </div>
 </template>
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
@@ -169,12 +166,14 @@ import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
-import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -188,12 +187,13 @@ const FIRST_PAGE = 1;
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
-const isDeleteClicked = ref<boolean>(false);
 const activeDropdown = ref<number>(-1);
 const areGrantsFetching = ref<boolean>(true);
 
@@ -245,10 +245,11 @@ const emptyStateLabel = computed((): string => {
 /**
  * Fetches access grants page by clicked index.
  * @param index
+ * @param limit
  */
-async function onPageClick(index: number): Promise<void> {
+async function onPageClick(index: number, limit: number): Promise<void> {
     try {
-        agStore.getAccessGrants(index, projectsStore.state.selectedProject.id);
+        await agStore.getAccessGrants(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
@@ -271,16 +272,10 @@ function openDropdown(key: number): void {
  * Holds on button click login for deleting access grant process.
  */
 function onDeleteClick(grant: AccessGrant): void {
+    agStore.setAccessNameToDelete(grant.name);
     agStore.toggleSelection(grant);
-    isDeleteClicked.value = true;
-}
 
-/**
- * Clears access grants selection.
- */
-function onClearSelection(): void {
-    isDeleteClicked.value = false;
-    agStore.clearSelection();
+    appStore.updateActiveModal(MODALS.deleteAccessGrant);
 }
 
 /**
@@ -292,7 +287,7 @@ async function fetch(searchQuery: string): Promise<void> {
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -304,7 +299,7 @@ function accessGrantClick(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.AccessGrant },
+        query: { accessType: AccessType.AccessGrant },
     });
 }
 
@@ -316,7 +311,7 @@ function s3Click(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.S3 },
+        query: { accessType: AccessType.S3 },
     });
 }
 
@@ -328,7 +323,7 @@ function cliClick(): void {
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.APIKey },
+        query: { accessType: AccessType.APIKey },
     });
 }
 
@@ -340,6 +335,11 @@ function trackPageVisit(link: string): void {
 }
 
 onMounted(async () => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         areGrantsFetching.value = false;
@@ -349,7 +349,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-    onClearSelection();
+    agStore.clearSelection();
 });
 </script>
 <style scoped lang="scss">
@@ -365,7 +365,7 @@ onBeforeUnmount(() => {
         border-radius: 10px;
         min-width: 175px;
 
-        @media screen and (max-width: 930px) {
+        @media screen and (width <= 930px) {
             width: 100%;
         }
     }
@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
             &__cli-credentials {
                 @include grant-flow-card;
 
-                @media screen and (max-width: 370px) {
+                @media screen and (width <= 370px) {
 
                     .access-grants__flows-area__button-container {
                         flex-direction: column;
@@ -472,7 +472,7 @@ onBeforeUnmount(() => {
         .access-grants-items {
             padding-bottom: 55px;
 
-            @media screen and (max-width: 1150px) {
+            @media screen and (width <= 1150px) {
                 margin-top: -45px;
             }
 

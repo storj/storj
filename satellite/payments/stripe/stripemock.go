@@ -12,6 +12,7 @@ import (
 
 	"github.com/stripe/stripe-go/v72"
 	"github.com/stripe/stripe-go/v72/charge"
+	"github.com/stripe/stripe-go/v72/customer"
 	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
 	"github.com/stripe/stripe-go/v72/form"
 	"github.com/stripe/stripe-go/v72/invoice"
@@ -39,6 +40,10 @@ const (
 	// MockInvoicesPayFailure can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
 	// an error.
 	MockInvoicesPayFailure = "mock_invoices_pay_failure"
+
+	// MockInvoicesPaySuccess can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
+	// a paid invoice.
+	MockInvoicesPaySuccess = "mock_invoices_pay_success"
 
 	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
 	// mockPaymentMethods.New to return an error.
@@ -136,6 +141,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
+	state.creditNotes = newMockCreditNotes(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -192,6 +198,21 @@ type mockCustomers struct {
 	usersDB     console.Users
 	state       *mockCustomersState
 	coupons     map[string]*stripe.Coupon
+}
+
+func (m *mockCustomers) List(listParams *stripe.CustomerListParams) *customer.Iter {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	return &customer.Iter{
+		Iter: stripe.GetIter(listParams, func(p *stripe.Params, vals *form.Values) ([]interface{}, stripe.ListContainer, error) {
+			var customers []interface{}
+			for _, cus := range m.state.customers {
+				customers = append(customers, cus)
+			}
+			return customers, newListContainer(&stripe.ListMeta{}), nil
+		}),
+	}
 }
 
 type mockCustomersState struct {
@@ -332,7 +353,9 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		}
 		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: c.ID}}
 	}
-
+	if params.Balance != nil {
+		customer.Balance = *params.Balance
+	}
 	// TODO update customer with more params as necessary
 
 	return customer, nil
@@ -498,12 +521,14 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
+	amountDue := int64(0)
 	lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
 	for _, item := range params.InvoiceItems {
 		lineData = append(lineData, &stripe.InvoiceLine{
 			InvoiceItem: *item.InvoiceItem,
 			Amount:      *item.Amount,
 		})
+		amountDue += *item.Amount
 	}
 
 	var desc string
@@ -523,6 +548,8 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		Lines: &stripe.InvoiceLineList{
 			Data: lineData,
 		},
+		AmountDue:       amountDue,
+		AmountRemaining: amountDue,
 	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
@@ -600,15 +627,21 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
-		for i, invoice := range invoices {
+		for _, invoice := range invoices {
 			if invoice.ID == id {
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen
 						return invoice, &stripe.Error{}
 					}
+					if *params.PaymentMethod == MockInvoicesPaySuccess {
+						invoice.Status = stripe.InvoiceStatusPaid
+						invoice.AmountRemaining = 0
+						return invoice, nil
+					}
+				} else if invoice.AmountRemaining == 0 {
+					invoice.Status = stripe.InvoiceStatusPaid
 				}
-				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
 				return invoice, nil
 			}
 		}
@@ -660,6 +693,9 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	}
 	if params.UnitAmountDecimal != nil {
 		item.UnitAmountDecimal = *params.UnitAmountDecimal
+	}
+	if params.UnitAmount != nil {
+		item.UnitAmount = *params.UnitAmount
 	}
 	if params.Amount != nil {
 		item.Amount = *params.Amount
@@ -744,7 +780,8 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 		ret := make([]interface{}, len(txs))
 
 		for i, v := range txs {
-			ret[i] = v
+			// stripe returns list of transactions ordered by most recent, so reverse the array.
+			ret[len(txs)-1-i] = v
 		}
 
 		listMeta := &stripe.ListMeta{
@@ -804,8 +841,35 @@ func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotion
 }
 
 type mockCreditNotes struct {
+	root *mockStripeState
+
+	CreditNotes map[string]*stripe.CreditNote
+}
+
+func newMockCreditNotes(root *mockStripeState) *mockCreditNotes {
+	return &mockCreditNotes{
+		root: root,
+	}
 }
 
 func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error) {
-	return nil, nil
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	item := &stripe.CreditNote{}
+
+	if params.Invoice != nil {
+		item.ID = *params.Invoice
+	}
+	if params.Memo != nil {
+		item.Memo = *params.Memo
+	}
+	for _, invoices := range m.root.invoices.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == *params.Invoice {
+				invoice.AmountRemaining -= *params.Lines[0].UnitAmount
+			}
+		}
+	}
+	return item, nil
 }

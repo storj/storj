@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/uplink"
@@ -54,8 +56,14 @@ func TestSendRetainFilters(t *testing.T) {
 		config.AccessGrant = accessString
 		config.ZipBatchSize = 2
 
-		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
-		err = bloomFilterService.RunOnce(ctx)
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		storageNode0 := planet.StorageNodes[0]
@@ -127,8 +135,14 @@ func TestSendRetainFiltersDisqualifedNode(t *testing.T) {
 		config.AccessGrant = accessString
 		config.ZipBatchSize = 2
 
-		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
-		err = bloomFilterService.RunOnce(ctx)
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		storageNode0 := planet.StorageNodes[0]

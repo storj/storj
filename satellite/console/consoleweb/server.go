@@ -80,7 +80,7 @@ type Config struct {
 	PartneredSatellites             Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
 	GeneralRequestURL               string     `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string     `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
+	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool       `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string     `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string     `help:"url link for for beta satellite support" default:""`
@@ -89,14 +89,17 @@ type Config struct {
 	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool       `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string     `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
+	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"false"`
+	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"false"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -285,6 +288,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
@@ -423,7 +427,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
 			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com *.hcaptcha.com",
+			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self' https://hcaptcha.com *.hcaptcha.com",
 			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
 		}
 
@@ -522,11 +526,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CouponCodeSignupUIEnabled:       server.config.CouponCodeSignupUIEnabled,
 		FileBrowserFlowDisabled:         server.config.FileBrowserFlowDisabled,
 		LinksharingURL:                  server.config.LinksharingURL,
+		PublicLinksharingURL:            server.config.PublicLinksharingURL,
 		PathwayOverviewEnabled:          server.config.PathwayOverviewEnabled,
 		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
 		AllProjectsDashboard:            server.config.AllProjectsDashboard,
+		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
@@ -536,6 +542,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMinimumLength:           console.PasswordMinimumLength,
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
+		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
+		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

@@ -7,7 +7,7 @@
         <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
-                is-web="true"
+                :is-web="true"
                 title="Start with web browser"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
                 button-label="Continue in web ->"
@@ -27,19 +27,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { PartneredSatellite } from '@/types/config';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -98,7 +101,7 @@ onMounted(async (): Promise<void> => {
         notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 
-    const config = appStore.state.config;
+    const config = configStore.state.config;
     const isPartnered = config.partneredSatellites.find((el: PartneredSatellite) => {
         return el.name === config.satelliteName;
     });
@@ -153,7 +156,7 @@ onMounted(async (): Promise<void> => {
     }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .overview-area {
         width: 250px;

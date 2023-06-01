@@ -65,6 +65,8 @@ type TransactionsDB interface {
 	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, []byte, error)
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
+	// ListSource returns all transactions for the specified user and source.
+	ListSource(ctx context.Context, userID uuid.UUID, txSource string) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
 	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 }

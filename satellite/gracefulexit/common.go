@@ -29,7 +29,7 @@ type Config struct {
 
 	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500" testDefault:"10"`
 	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s" testDefault:"$TESTINTERVAL"`
-	UseRangedLoop  bool          `help:"whether or not to use the ranged loop observer instead of the chore." default:"false" testDefault:"false"`
+	UseRangedLoop  bool          `help:"whether use GE observer with ranged loop." default:"true"`
 
 	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"300" testDefault:"100"`
 

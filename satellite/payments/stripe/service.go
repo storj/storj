@@ -25,6 +25,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -50,6 +51,7 @@ type Config struct {
 	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
+	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
 	Retries                RetryConfig
 }
 
@@ -68,6 +70,8 @@ type Service struct {
 	usageDB      accounting.ProjectAccounting
 	stripeClient Client
 
+	analytics *analytics.Service
+
 	usagePrices         payments.ProjectUsagePriceModel
 	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
 	packagePlans        map[string]payments.PackagePlan
@@ -80,14 +84,15 @@ type Service struct {
 	// Stripe Extended Features
 	AutoAdvance bool
 
-	listingLimit      int
-	skipEmptyInvoices bool
-	maxParallelCalls  int
-	nowFn             func() time.Time
+	listingLimit        int
+	skipEmptyInvoices   bool
+	maxParallelCalls    int
+	removeExpiredCredit bool
+	nowFn               func() time.Time
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -102,6 +107,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		usersDB:                usersDB,
 		usageDB:                usageDB,
 		stripeClient:           stripeClient,
+		analytics:              analyticsService,
 		usagePrices:            usagePrices,
 		usagePriceOverrides:    usagePriceOverrides,
 		packagePlans:           packagePlans,
@@ -112,6 +118,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		listingLimit:           config.ListingLimit,
 		skipEmptyInvoices:      config.SkipEmptyInvoices,
 		maxParallelCalls:       config.MaxParallelCalls,
+		removeExpiredCredit:    config.RemoveExpiredCredit,
 		nowFn:                  time.Now,
 	}, nil
 }
@@ -243,7 +250,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
+		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, service.listingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -280,18 +287,6 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 	var errGrp errs.Group
 
 	for _, wallet := range wallets {
-		// get the user token balance, if it's not > 0, don't bother with the rest
-		monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
-		// truncate here since stripe only has cent level precision for invoices.
-		// The users account balance will still maintain the full precision monetary value!
-		tokenBalance := currency.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), currency.USDollars)
-		if err != nil {
-			errGrp.Add(Error.New("unable to compute balance for user ID %s", wallet.UserID.String()))
-			continue
-		}
-		if tokenBalance.BaseUnits() <= 0 {
-			continue
-		}
 		// get the stripe customer invoice balance
 		cusID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
@@ -306,6 +301,18 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 		for _, invoice := range invoices {
 			// if no balance due, do nothing
 			if invoice.AmountRemaining <= 0 {
+				continue
+			}
+			monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to get balance for user ID %s", wallet.UserID.String()))
+				continue
+			}
+			// truncate here since stripe only has cent level precision for invoices.
+			// The users account balance will still maintain the full precision monetary value!
+			tokenBalance := currency.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), currency.USDollars)
+			// if token balance is not > 0, don't bother with the rest
+			if tokenBalance.BaseUnits() <= 0 {
 				continue
 			}
 
@@ -573,6 +580,75 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 	return result
 }
 
+// RemoveExpiredPackageCredit removes a user's package plan credit, or sends an analytics event, if it has expired.
+// If the user has never received credit from anything other than the package, and it is expired, the remaining package
+// credit is removed. If the user has received credit from another source, we send an analytics event instead of removing
+// the remaining credit so someone can remove it manually. `sentEvent` indicates whether this analytics event was sent.
+func (service *Service) RemoveExpiredPackageCredit(ctx context.Context, customer Customer) (sentEvent bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO: store the package expiration somewhere
+	if customer.PackagePlan == nil || customer.PackagePurchasedAt == nil ||
+		customer.PackagePurchasedAt.After(service.nowFn().AddDate(-1, -1, 0)) {
+		return false, nil
+	}
+	list := service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+		Customer: stripe.String(customer.ID),
+	})
+
+	var balance int64
+	var gotBalance, foundOtherCredit bool
+	var tx *stripe.CustomerBalanceTransaction
+
+	for list.Next() {
+		tx = list.CustomerBalanceTransaction()
+		if !gotBalance {
+			// Stripe returns list ordered by most recent, so ending balance of the first item is current balance.
+			balance = tx.EndingBalance
+			gotBalance = true
+			// if user doesn't have credit, we're done.
+			if balance >= 0 {
+				break
+			}
+		}
+
+		// negative amount means credit
+		if tx.Amount < 0 {
+			if tx.Description != *customer.PackagePlan {
+				foundOtherCredit = true
+			}
+		}
+	}
+
+	// send analytics event to notify someone to handle removing credit if credit other than package exists.
+	if foundOtherCredit {
+		if service.analytics != nil {
+			service.analytics.TrackExpiredCreditNeedsRemoval(customer.UserID, customer.ID, *customer.PackagePlan)
+		}
+		return true, nil
+	}
+
+	// If no other credit found, we can set the balance to zero.
+	if balance < 0 {
+		_, err = service.stripeClient.CustomerBalanceTransactions().New(&stripe.CustomerBalanceTransactionParams{
+			Customer:    stripe.String(customer.ID),
+			Amount:      stripe.Int64(-balance),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Description: stripe.String(fmt.Sprintf("%s expired", *customer.PackagePlan)),
+		})
+		if err != nil {
+			return false, Error.Wrap(err)
+		}
+		if service.analytics != nil {
+			service.analytics.TrackExpiredCreditRemoved(customer.UserID, customer.ID, *customer.PackagePlan)
+		}
+	}
+
+	err = service.Accounts().UpdatePackage(ctx, customer.UserID, nil, nil)
+
+	return false, Error.Wrap(err)
+}
+
 // ApplyFreeTierCoupons iterates through all customers in Stripe. For each customer,
 // if that customer does not currently have a Stripe coupon, the free tier Stripe coupon
 // is applied.
@@ -661,7 +737,7 @@ func (service *Service) applyFreeTierCoupon(ctx context.Context, cusID string) (
 	return true, nil
 }
 
-// CreateInvoices lists through all customers and creates invoices.
+// CreateInvoices lists through all customers, removes expired credit if applicable, and creates invoices.
 func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -681,6 +757,16 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		cusPage, err := service.db.Customers().List(ctx, nextCursor, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+
+		if service.removeExpiredCredit {
+			for _, c := range cusPage.Customers {
+				if c.PackagePlan != nil {
+					if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
+						return Error.Wrap(err)
+					}
+				}
+			}
 		}
 
 		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start)
@@ -774,9 +860,67 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	return scheduled, draft, errGrp.Err()
 }
 
-// GenerateInvoices performs all tasks necessary to generate Stripe invoices.
-// This is equivalent to invoking ApplyFreeTierCoupons, PrepareInvoiceProjectRecords,
-// InvoiceApplyProjectRecords, and CreateInvoices in order.
+// CreateBalanceInvoiceItems will find users with a stripe balance, create an invoice
+// item with the charges due, and zero out the stripe balance.
+func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	custListParams := &stripe.CustomerListParams{
+		ListParams: stripe.ListParams{
+			Context: ctx,
+			Limit:   stripe.Int64(100),
+		},
+	}
+
+	var errGrp errs.Group
+	itr := service.stripeClient.Customers().List(custListParams)
+	for itr.Next() {
+		if itr.Customer().Balance <= 0 {
+			continue
+		}
+		service.log.Info("Creating invoice item for customer prior balance", zap.String("CustomerID", itr.Customer().ID))
+		itemParams := &stripe.InvoiceItemParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Customer:    stripe.String(itr.Customer().ID),
+			Description: stripe.String("Prior Stripe Customer Balance"),
+			Quantity:    stripe.Int64(1),
+			UnitAmount:  stripe.Int64(itr.Customer().Balance),
+		}
+		invoiceItem, err := service.stripeClient.InvoiceItems().New(itemParams)
+		if err != nil {
+			service.log.Error("Failed to add invoice item for customer prior balance", zap.Error(err))
+			errGrp.Add(err)
+			continue
+		}
+		service.log.Info("Updating customer balance to 0", zap.String("CustomerID", itr.Customer().ID))
+		custParams := &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Balance:     stripe.Int64(0),
+			Description: stripe.String("Customer balance adjusted to 0 after adding invoice item " + invoiceItem.ID),
+		}
+		_, err = service.stripeClient.Customers().Update(itr.Customer().ID, custParams)
+		if err != nil {
+			service.log.Error("Failed to update customer balance to 0 after adding invoice item", zap.Error(err))
+			errGrp.Add(err)
+			continue
+		}
+		service.log.Info("Customer successfully updated", zap.String("CustomerID", itr.Customer().ID), zap.Int64("Prior Balance", itr.Customer().Balance), zap.Int64("New Balance", 0), zap.String("InvoiceItemID", invoiceItem.ID))
+	}
+	if itr.Err() != nil {
+		service.log.Error("Failed to create invoice items for all customers", zap.Error(itr.Err()))
+		errGrp.Add(itr.Err())
+	}
+	return errGrp.Err()
+}
+
+// GenerateInvoices performs tasks necessary to generate Stripe invoices.
+// This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
+// and CreateInvoices in order.
 func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -784,9 +928,6 @@ func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) 
 		Description string
 		Exec        func(context.Context, time.Time) error
 	}{
-		{"Applying free tier coupons", func(ctx context.Context, _ time.Time) error {
-			return service.ApplyFreeTierCoupons(ctx)
-		}},
 		{"Preparing invoice project records", service.PrepareInvoiceProjectRecords},
 		{"Applying invoice project records", service.InvoiceApplyProjectRecords},
 		{"Creating invoices", service.CreateInvoices},

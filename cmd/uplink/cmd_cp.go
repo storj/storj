@@ -4,9 +4,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,7 +27,6 @@ import (
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/storj/cmd/uplink/ulloc"
-	"storj.io/uplink/private/eestream/scheduler"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -44,8 +45,8 @@ type cmdCp struct {
 	parallelism          int
 	parallelismChunkSize memory.Size
 
-	maximumConcurrentPieces int
-	longTailMargin          int
+	uploadConfig  testuplink.ConcurrentSegmentUploadsConfig
+	uploadLogFile string
 
 	inmemoryEC bool
 
@@ -102,15 +103,31 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		}),
 	).(memory.Size)
 
-	def := testuplink.DefaultConcurrentSegmentUploadsConfig()
-	c.maximumConcurrentPieces = params.Flag("maximum-concurrent-pieces", "Maximum concurrent pieces to upload at once per transfer", def.SchedulerOptions.MaximumConcurrent,
+	c.uploadConfig = testuplink.DefaultConcurrentSegmentUploadsConfig()
+	c.uploadConfig.SchedulerOptions.MaximumConcurrent = params.Flag(
+		"maximum-concurrent-pieces",
+		"Maximum concurrent pieces to upload at once per transfer",
+		c.uploadConfig.SchedulerOptions.MaximumConcurrent,
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
 	).(int)
-	c.longTailMargin = params.Flag("long-tail-margin", "How many extra pieces to upload and cancel per segment", def.LongTailMargin,
+	c.uploadConfig.SchedulerOptions.MaximumConcurrentHandles = params.Flag(
+		"maximum-concurrent-segments",
+		"Maximum concurrent segments to upload at once per transfer",
+		c.uploadConfig.SchedulerOptions.MaximumConcurrentHandles,
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
 	).(int)
+	c.uploadConfig.LongTailMargin = params.Flag(
+		"long-tail-margin",
+		"How many extra pieces to upload and cancel per segment",
+		c.uploadConfig.LongTailMargin,
+		clingy.Transform(strconv.Atoi),
+		clingy.Advanced,
+	).(int)
+	c.uploadLogFile = params.Flag("upload-log-file", "File to write upload logs to", "",
+		clingy.Advanced,
+	).(string)
 
 	c.inmemoryEC = params.Flag("inmemory-erasure-coding", "Keep erasure-coded pieces in-memory instead of writing them on the disk during upload", false,
 		clingy.Transform(strconv.ParseBool),
@@ -137,15 +154,22 @@ func (c *cmdCp) Execute(ctx context.Context) error {
 		return errs.New("must have at least one source and destination path")
 	}
 
+	if c.uploadLogFile != "" {
+		fh, err := os.OpenFile(c.uploadLogFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() { _ = fh.Close() }()
+		bw := bufio.NewWriter(fh)
+		defer func() { _ = bw.Flush() }()
+		ctx = testuplink.WithLogWriter(ctx, bw)
+	}
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access,
-		ulext.ConcurrentSegmentUploadsConfig(testuplink.ConcurrentSegmentUploadsConfig{
-			SchedulerOptions: scheduler.Options{
-				MaximumConcurrent: c.maximumConcurrentPieces,
-			},
-			LongTailMargin: c.longTailMargin,
-		}),
+		ulext.ConcurrentSegmentUploadsConfig(c.uploadConfig),
 		ulext.ConnectionPoolOptions(rpcpool.Options{
-			Capacity:       c.maximumConcurrentPieces,
+			// Add a bit more capacity for connections to the satellite
+			Capacity:       c.uploadConfig.SchedulerOptions.MaximumConcurrent + 5,
 			KeyCapacity:    5,
 			IdleExpiration: 2 * time.Minute,
 		}))

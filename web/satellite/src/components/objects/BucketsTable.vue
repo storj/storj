@@ -36,14 +36,14 @@
             :limit="bucketsPage.limit"
             :total-page-count="bucketsPage.pageCount"
             items-label="buckets"
-            :on-page-click-callback="fetchBuckets"
+            :on-page-change="fetchBuckets"
             :total-items-count="bucketsPage.totalCount"
             :selectable="false"
         >
             <template #head>
                 <th class="align-left">Name</th>
                 <th class="align-left">Storage</th>
-                <th class="align-left">Bandwidth</th>
+                <th class="align-left">Egress</th>
                 <th class="align-left">Objects</th>
                 <th class="align-left">Segments</th>
                 <th class="align-left">Date Added</th>
@@ -68,11 +68,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
@@ -166,11 +167,11 @@ function onCreateBucketClick(): void {
 /**
  * Fetches bucket using api.
  */
-async function fetchBuckets(page = 1): Promise<void> {
+async function fetchBuckets(page = 1, limit: number): Promise<void> {
     try {
-        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id);
+        await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 }
 
@@ -179,14 +180,14 @@ async function fetchBuckets(page = 1): Promise<void> {
  */
 async function searchBuckets(searchQuery: string): Promise<void> {
     bucketsStore.setBucketsSearch(searchQuery);
-    await analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
+    analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
     searchLoading.value = true;
 
     try {
         await bucketsStore.getBuckets(1, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
+        notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 
     searchLoading.value = false;
@@ -218,7 +219,7 @@ async function openBucket(bucketName: string): Promise<void> {
                 await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 overallLoading.value = false;
             } catch (error) {
-                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
+                notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
                 overallLoading.value = false;
                 return;
             }
@@ -265,7 +266,7 @@ onBeforeUnmount(() => {
             &__image {
                 margin-bottom: 60px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     display: none;
                 }
             }
@@ -274,7 +275,7 @@ onBeforeUnmount(() => {
                 display: none;
                 margin-bottom: 60px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     display: block;
                 }
             }
@@ -346,7 +347,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 875px) {
+    @media screen and (width <= 875px) {
 
         :deep(thead) {
             display: none;

@@ -25,7 +25,8 @@ func TestConcurrentAudit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Chore.Loop.Stop()
+		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Stop()
+
 		data := testrand.Bytes(10 * memory.MB)
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "testpath", data)
 		require.NoError(t, err)

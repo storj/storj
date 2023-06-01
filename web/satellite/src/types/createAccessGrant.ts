@@ -1,8 +1,6 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VueConstructor } from 'vue';
-
 import CreateNewAccessIcon from '@/../static/images/accessGrants/newCreateFlow/createNewAccess.svg';
 import ChoosePermissionIcon from '@/../static/images/accessGrants/newCreateFlow/choosePermission.svg';
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
@@ -20,7 +18,7 @@ import EndDateIcon from '@/../static/images/accessGrants/newCreateFlow/endDateIc
 import EncryptionPassphraseIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionPassphraseIcon.svg';
 
 export interface IconAndTitle {
-    icon: VueConstructor;
+    icon: string;
     title: string;
 }
 

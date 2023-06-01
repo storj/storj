@@ -125,7 +125,7 @@ type DB interface {
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
-	// TestVetNode directly sets a node's offline_suspended timestamp to make testing easier
+	// TestSuspendNodeOffline directly sets a node's offline_suspended timestamp to make testing easier
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
@@ -300,10 +300,11 @@ type NodeReputation struct {
 func (node *SelectedNode) Clone() *SelectedNode {
 	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
 	return &SelectedNode{
-		ID:         copy.Id,
-		Address:    copy.Address,
-		LastNet:    node.LastNet,
-		LastIPPort: node.LastIPPort,
+		ID:          copy.Id,
+		Address:     copy.Address,
+		LastNet:     node.LastNet,
+		LastIPPort:  node.LastIPPort,
+		CountryCode: node.CountryCode,
 	}
 }
 
@@ -430,7 +431,37 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // requested node is not in the database, an empty string will be returned corresponding
 // to that node's last_net.
 func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
-	return service.db.GetNodesNetworkInOrder(ctx, nodeIDs)
+	defer mon.Task()(&ctx)(nil)
+
+	nodes, err := service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	lastNets = make([]string, len(nodeIDs))
+	for i, nodeID := range nodeIDs {
+		if selectedNode, ok := nodes[nodeID]; ok {
+			lastNets[i] = selectedNode.LastNet
+		}
+	}
+	return lastNets, nil
+}
+
+// GetNodesOutOfPlacement checks if nodes from nodeIDs list are in allowed country according to specified geo placement
+// and returns list of node ids which are not.
+func (service *Service) GetNodesOutOfPlacement(ctx context.Context, nodeIDs []storj.NodeID, placement storj.PlacementConstraint) (offNodes []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(nil)
+
+	nodes, err := service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	offNodes = make([]storj.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		if selectedNode, ok := nodes[nodeID]; ok && !placement.AllowedCountry(selectedNode.CountryCode) {
+			offNodes = append(offNodes, selectedNode.ID)
+		}
+	}
+	return offNodes, nil
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.

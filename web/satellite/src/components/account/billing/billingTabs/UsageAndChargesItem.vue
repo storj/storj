@@ -12,7 +12,7 @@
                 Estimated Total &nbsp;
                 <span
                     class="usage-charges-item-container__summary__amount"
-                >{{ projectCharges.getProjectPrice(projectId) | centsToDollars }}
+                >{{ centsToDollars(projectCharges.getProjectPrice(projectId)) }}
                 </span>
             </span>
         </div>
@@ -46,9 +46,9 @@
                         <p>{{ getSegmentCountFormatted(charge) }} Segment-month</p>
                     </div>
                     <div class="usage-charges-item-container__detailed-info-container__content-area__cost-container">
-                        <p class="price">{{ charge.storagePrice | centsToDollars }}</p>
-                        <p class="price">{{ charge.egressPrice | centsToDollars }}</p>
-                        <p class="price">{{ charge.segmentPrice | centsToDollars }}</p>
+                        <p class="price">{{ centsToDollars(charge.storagePrice) }}</p>
+                        <p class="price">{{ centsToDollars(charge.egressPrice) }}</p>
+                        <p class="price">{{ centsToDollars(charge.segmentPrice) }}</p>
                     </div>
                 </div>
             </div>
@@ -59,11 +59,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import { centsToDollars, decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_GB_SHIFT } from '@/utils/strings';
 import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_GB_SHIFT } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -343,7 +343,7 @@ function toggleDetailedInfo(): void {
         text-align: right;
     }
 
-    @media only screen and (max-width: 1040px) {
+    @media only screen and (width <= 1040px) {
 
         .price-per-month {
             display: none;
@@ -364,7 +364,7 @@ function toggleDetailedInfo(): void {
         }
     }
 
-    @media only screen and (max-width: 768px) {
+    @media only screen and (width <= 768px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__period-container,
         .period-header {
@@ -372,7 +372,7 @@ function toggleDetailedInfo(): void {
         }
     }
 
-    @media only screen and (max-width: 625px) {
+    @media only screen and (width <= 625px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__usage-container,
         .usage-header {

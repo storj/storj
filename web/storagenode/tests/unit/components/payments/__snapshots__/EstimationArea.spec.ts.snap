@@ -25,7 +25,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__labels-area__text">Type</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__labels-area__text">Price</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -45,7 +45,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$20 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -65,7 +65,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$10 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -85,7 +85,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Storage</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$1.5 / TBm</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">500MBm</p>
@@ -163,7 +163,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__labels-area__text">Type</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__labels-area__text">Price</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -183,7 +183,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$20 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -203,7 +203,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$10 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -223,7 +223,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__info-area__text">Storage</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$1.5 / TBm</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">50MBm</p>
@@ -309,7 +309,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__labels-area__text">Type</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__labels-area__text">Price</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -329,7 +329,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$20 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -349,7 +349,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$10 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -369,7 +369,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">Storage</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$1.5 / TBm</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">0Bm</p>
@@ -489,7 +489,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__labels-area__text">Type</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__labels-area__text">Price</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -509,7 +509,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$20 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -529,7 +529,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__info-area__text">Egress</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$10 / TB</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -549,7 +549,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__info-area__text">Storage</p>
       </div>
       <div class="column justify-start column-3">
-        <p class="estimation-table-container__info-area__text">$1.5 / TBm</p>
+        <!---->
       </div>
       <div class="column justify-start column-4">
         <p class="estimation-table-container__info-area__text">500MBm</p>

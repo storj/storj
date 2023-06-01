@@ -1,12 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue from 'vue';
-import Router, { RouteRecord } from 'vue-router';
+import { RouteRecord, createRouter, useRoute, createWebHistory } from 'vue-router';
 
 import { NavigationLink } from '@/types/navigation';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
@@ -53,8 +53,6 @@ const LoginArea = () => import('@/views/LoginArea.vue');
 const RegisterArea = () => import('@/views/registration/RegisterArea.vue');
 const ResetPassword = () => import('@/views/ResetPassword.vue');
 
-Vue.use(Router);
-
 /**
  * RouteConfig contains information about all routes and subroutes
  */
@@ -93,7 +91,7 @@ export abstract class RouteConfig {
     public static BillingPaymentMethods2 = new NavigationLink('payment-methods', 'Payment Methods 2');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     // this duplicates the path of BillingHistory so that they can be used interchangeably in BillingArea.vue
-    public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    public static BillingHistory2 = new NavigationLink('billing-history', 'Billing History 2');
     public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static BillingCoupons2 = new NavigationLink('coupons', 'Billing Coupons');
 
@@ -120,7 +118,7 @@ export abstract class RouteConfig {
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
-    public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+    public static UploadFileChildren = new NavigationLink(':pathMatch*', 'Objects Upload Children');
 }
 
 export const notProjectRelatedRoutes = [
@@ -139,8 +137,8 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Settings.name,
 ];
 
-export const router = new Router({
-    mode: 'history',
+export const router = createRouter({
+    history: createWebHistory(),
     routes: [
         {
             path: RouteConfig.Login.path,
@@ -385,7 +383,7 @@ export const router = new Router({
             component: AllDashboardArea,
             children: [
                 {
-                    path: RouteConfig.Root.path,
+                    path: RouteConfig.AllProjectsDashboard.path,
                     name: RouteConfig.AllProjectsDashboard.name,
                     component: MyProjects,
                 },
@@ -435,11 +433,12 @@ export const router = new Router({
 
 router.beforeEach(async (to, from, next) => {
     const appStore = useAppStore();
+    const configStore = useConfigStore();
 
     if (!to.matched.length) {
         appStore.setErrorPage(404);
         return;
-    } else if (appStore.state.viewsState.error.visible) {
+    } else if (appStore.state.error.visible) {
         appStore.removeErrorPage();
     }
 
@@ -462,17 +461,6 @@ router.beforeEach(async (to, from, next) => {
         appStore.toggleHasJustLoggedIn(false);
     }
 
-    // TODO: Disabled this navigation guard because we try to get active pinia before it is initialised.
-    // In any case this feature is redundant since we have project level passphrase.
-
-    // if (!to.path.includes(RouteConfig.UploadFile.path)) {
-    //     const appStore = useAppStore();
-    //     if (appStore.state.viewsState.activeModal !== MODALS.uploadCancelPopup) {
-    //         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
-    //         if (areUploadsInProgress) return;
-    //     }
-    // }
-
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
@@ -486,7 +474,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(appStore.firstOnboardingStep).path);
+        next(RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path);
 
         return;
     }
@@ -525,10 +513,11 @@ function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink
  * Updates the title of the webpage.
  */
 function updateTitle(): void {
-    const appStore = useAppStore();
+    const configStore = useConfigStore();
     const projectsStore = useProjectsStore();
-    const routeName = router.currentRoute.name;
-    const parts = [routeName, appStore.state.config.satelliteName];
+    const route = useRoute();
+    const routeName = route.name as string;
+    const parts = [routeName, configStore.state.config.satelliteName];
 
     if (routeName && !notProjectRelatedRoutes.includes(routeName)) {
         parts.unshift(projectsStore.state.selectedProject.name);

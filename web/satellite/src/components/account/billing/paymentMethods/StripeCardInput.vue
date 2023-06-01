@@ -18,7 +18,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { LoadScript } from '@/utils/loadScript';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 interface StripeResponse {
     error: string
@@ -30,7 +30,7 @@ interface StripeResponse {
     }
 }
 
-const appStore = useAppStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
@@ -53,7 +53,7 @@ const stripe = ref<any>(); // eslint-disable-line @typescript-eslint/no-explicit
  * Stripe initialization.
  */
 async function initStripe(): Promise<void> {
-    const stripePublicKey = appStore.state.config.stripePublicKey;
+    const stripePublicKey = configStore.state.config.stripePublicKey;
 
     stripe.value = window['Stripe'](stripePublicKey);
     if (!stripe.value) {
@@ -96,7 +96,7 @@ async function onStripeResponse(result: StripeResponse): Promise<void> {
     }
 
     if (result.token.card.funding === 'prepaid') {
-        await notify.error('Prepaid cards are not supported', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        notify.error('Prepaid cards are not supported', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
         return;
     }
 
@@ -115,7 +115,7 @@ async function onSubmit(): Promise<void> {
     try {
         await stripe.value.createToken(cardElement.value).then(onStripeResponse);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        notify.error(error.message, AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
     }
 
     isLoading.value = false;

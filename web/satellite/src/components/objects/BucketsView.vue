@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { LocalData } from '@/utils/localData';
 import { BucketPage } from '@/types/buckets';
@@ -30,6 +31,8 @@ import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -39,7 +42,9 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
+const router = useRouter();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -86,7 +91,7 @@ async function setBucketsView(): Promise<void> {
             appStore.updateActiveModal(MODALS.createBucket);
         }
     } catch (error) {
-        await notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
+        notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
     } finally {
         isLoading.value = false;
     }
@@ -99,7 +104,7 @@ async function fetchBuckets(page = 1): Promise<void> {
     try {
         await bucketsStore.getBuckets(page, selectedProjectID.value);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
     }
 }
 
@@ -123,11 +128,18 @@ function hideBanner(): void {
  * Sets bucket view.
  */
 onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
     await setBucketsView();
 });
 
 watch(selectedProjectID, async () => {
+    if (!selectedProjectID.value) return;
+
     isLoading.value = true;
 
     bucketsStore.clear();

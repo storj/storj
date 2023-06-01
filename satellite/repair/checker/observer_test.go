@@ -4,9 +4,11 @@
 package checker_test
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -261,7 +263,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		observer := planet.Satellites[0].RangedLoop.Repair.Observer.(*checker.RangedLoopObserver)
+		observer := planet.Satellites[0].RangedLoop.Repair.Observer
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
 		rs := storj.RedundancyScheme{
@@ -300,6 +302,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
 		// check that repair queue is empty to avoid false positive
 		count, err := repairQueue.Count(ctx)
@@ -321,6 +324,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
 		// The checker will not insert/update the now healthy segments causing
 		// them to be removed from the queue at the end of the checker iteration
@@ -458,4 +462,121 @@ func TestRepairObserver(t *testing.T) {
 			require.NoError(t, err)
 		}
 	})
+}
+
+func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+	pieces := make(metabase.Pieces, rs.OptimalShares)
+	for i := range pieces {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: planet.StorageNodes[i].Identity.ID,
+		}
+	}
+	return pieces
+}
+
+func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+	pieces := make(metabase.Pieces, rs.OptimalShares)
+	for i := range pieces[:rs.RequiredShares] {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: planet.StorageNodes[i].Identity.ID,
+		}
+	}
+	for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: storj.NodeID{byte(0xFF)},
+		}
+	}
+	return pieces
+}
+
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
+	metabaseDB := planet.Satellites[0].Metabase.DB
+
+	obj := metabase.ObjectStream{
+		ProjectID:  location.ProjectID,
+		BucketName: location.BucketName,
+		ObjectKey:  location.ObjectKey,
+		Version:    1,
+		StreamID:   testrand.UUID(),
+	}
+
+	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+		ObjectStream: obj,
+		Encryption: storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   256,
+		},
+		ExpiresAt: expiresAt,
+	})
+	require.NoError(t, err)
+
+	rootPieceID := testrand.PieceID()
+	err = metabaseDB.BeginSegment(ctx, metabase.BeginSegment{
+		ObjectStream: obj,
+		RootPieceID:  rootPieceID,
+		Pieces:       pieces,
+	})
+	require.NoError(t, err)
+
+	err = metabaseDB.CommitSegment(ctx, metabase.CommitSegment{
+		ObjectStream:      obj,
+		RootPieceID:       rootPieceID,
+		Pieces:            pieces,
+		EncryptedKey:      testrand.Bytes(256),
+		EncryptedKeyNonce: testrand.Bytes(256),
+		PlainSize:         1,
+		EncryptedSize:     1,
+		Redundancy:        rs,
+		ExpiresAt:         expiresAt,
+	})
+	require.NoError(t, err)
+
+	_, err = metabaseDB.CommitObject(ctx, metabase.CommitObject{
+		ObjectStream: obj,
+	})
+	require.NoError(t, err)
+
+	return obj.StreamID
+}
+
+func BenchmarkRemoteSegment(b *testing.B) {
+	testplanet.Bench(b, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object"+strconv.Itoa(i), testrand.Bytes(10*memory.KiB))
+			require.NoError(b, err)
+		}
+
+		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].DB.RepairQueue(),
+			planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(b, err)
+
+		loopSegments := []rangedloop.Segment{}
+
+		for _, segment := range segments {
+			loopSegments = append(loopSegments, rangedloop.Segment{
+				StreamID:   segment.StreamID,
+				Position:   segment.Position,
+				CreatedAt:  segment.CreatedAt,
+				ExpiresAt:  segment.ExpiresAt,
+				Redundancy: segment.Redundancy,
+				Pieces:     segment.Pieces,
+			})
+		}
+
+		fork, err := observer.Fork(ctx)
+		require.NoError(b, err)
+
+		b.Run("healthy segment", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = fork.Process(ctx, loopSegments)
+			}
+		})
+	})
+
 }

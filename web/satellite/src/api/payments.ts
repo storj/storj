@@ -354,7 +354,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.post(path, null);
 
         if (!response.ok) {
-            throw new Error('Can not claim new wallet');
+            throw new Error('Can not claim wallet');
         }
 
         const wallet = await response.json();

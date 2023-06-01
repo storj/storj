@@ -18,6 +18,11 @@
             <div class="all-dashboard__content__divider" />
 
             <div class="all-dashboard__banners">
+                <UpdateSessionTimeoutBanner
+                    v-if="isUpdateSessionTimeoutBanner && dashboardContent"
+                    :dashboard-ref="dashboardContent"
+                />
+
                 <UpgradeNotification
                     v-if="isPaidTierBannerShown"
                     class="all-dashboard__banners__upgrade"
@@ -104,16 +109,18 @@
         </div>
         <InactivityModal
             v-if="inactivityModalShown"
-            :on-continue="refreshSession"
+            :on-continue="() => refreshSession(true)"
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
         />
+        <SessionExpiredModal v-if="sessionExpiredModalShown" :on-redirect="redirectToLogin" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { User } from '@/types/users';
@@ -121,7 +128,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -139,8 +146,10 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
+import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
@@ -148,13 +157,15 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -179,6 +190,7 @@ const debugTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
 const debugTimerText = ref<string>('');
 const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 const inactivityModalShown = ref<boolean>(false);
+const sessionExpiredModalShown = ref<boolean>(false);
 const isSessionActive = ref<boolean>(false);
 const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
@@ -189,7 +201,12 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return appStore.state.config.inactivityTimerDuration * 1000;
+    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
+    if (duration > maxTimeout) {
+        return maxTimeout;
+    }
+    return duration;
 });
 
 /**
@@ -200,10 +217,17 @@ const sessionRefreshInterval = computed((): number => {
 });
 
 /**
+ * Indicates whether the update session timeout notification should be shown.
+ */
+const isUpdateSessionTimeoutBanner = computed((): boolean => {
+    return route.name !== RouteConfig.Settings2.name && appStore.state.isUpdateSessionTimeoutBanner;
+});
+
+/**
  * Indicates whether to display the session timer for debugging.
  */
 const debugTimerShown = computed((): boolean => {
-    return appStore.state.config.inactivityTimerViewerEnabled;
+    return configStore.state.config.inactivityTimerViewerEnabled;
 });
 
 /**
@@ -253,7 +277,7 @@ const limitState = computed((): LimitedState => {
     const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
-        { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
+        { name: 'egress', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
         { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
         { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
     ];
@@ -298,21 +322,21 @@ const limitState = computed((): LimitedState => {
  * Whether the current route is the billing page.
  */
 const isBillingPage = computed(() => {
-    return router.currentRoute.path.includes(RouteConfig.Billing2.path);
+    return route.path.includes(RouteConfig.Billing2.path);
 });
 
 /**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return appStore.state.config.isBetaSatellite;
+    return configStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return appStore.state.viewsState.fetchState === FetchState.LOADING;
+    return appStore.state.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -371,12 +395,19 @@ async function redirectToBillingPage(): Promise<void> {
 }
 
 /**
- * Performs logout and cleans event listeners and session timers.
+ * Redirects to log in screen.
  */
-async function handleInactive(): Promise<void> {
-    await analytics.pageVisit(RouteConfig.Login.path);
-    await router.push(RouteConfig.Login.path);
+function redirectToLogin(): void {
+    analytics.pageVisit(RouteConfig.Login.path);
+    router.push(RouteConfig.Login.path);
 
+    sessionExpiredModalShown.value = false;
+}
+
+/**
+ * Clears pinia stores and timers.
+ */
+async function clearStoreAndTimers(): Promise<void> {
     await Promise.all([
         pmStore.clear(),
         projectsStore.clear(),
@@ -396,13 +427,21 @@ async function handleInactive(): Promise<void> {
     });
     clearSessionTimers();
     inactivityModalShown.value = false;
+    sessionExpiredModalShown.value = true;
+}
+
+/**
+ * Performs logout and cleans event listeners and session timers.
+ */
+async function handleInactive(): Promise<void> {
+    await clearStoreAndTimers();
 
     try {
         await auth.logout();
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -414,7 +453,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 }
 
@@ -438,7 +477,10 @@ function closeInactivityModal(): void {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    }
 }
 
 /**
@@ -454,7 +496,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    if (!appStore.state.config.inactivityTimerEnabled) return;
+    if (!configStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -491,8 +533,8 @@ function restartSessionTimers(): void {
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
-            await handleInactive();
-            await notify.notify('Your session was timed out.');
+            await clearStoreAndTimers();
+            notify.notify('Your session was timed out.');
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
 
@@ -518,14 +560,15 @@ function restartSessionTimers(): void {
 
 /**
  * Refreshes session and resets session timers.
+ * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
  */
-async function refreshSession(): Promise<void> {
+async function refreshSession(manual = false): Promise<void> {
     isSessionRefreshing.value = true;
 
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -536,6 +579,10 @@ async function refreshSession(): Promise<void> {
     inactivityModalShown.value = false;
     isSessionActive.value = false;
     isSessionRefreshing.value = false;
+
+    if (manual && !usersStore.state.settings.sessionDuration) {
+        appStore.updateActiveModal(MODALS.editSessionTimeout);
+    }
 }
 
 /**
@@ -556,21 +603,28 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction((action) => {
-        if (action.name === 'clear') clearSessionTimers();
+    usersStore.$onAction(({ name, after, args }) => {
+        if (name === 'clear') clearSessionTimers();
+        else if (name === 'updateSettings') {
+            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+                after((_) => refreshSession());
+            }
+        }
     });
 
     try {
-        await usersStore.getUser();
-        await usersStore.getFrozenStatus();
-        await abTestingStore.fetchValues();
-        await usersStore.getSettings();
+        await Promise.all([
+            usersStore.getUser(),
+            abTestingStore.fetchValues(),
+            usersStore.getSettings(),
+        ]);
+
+        if (usersStore.state.settings.sessionDuration && appStore.state.isUpdateSessionTimeoutBanner) {
+            appStore.closeUpdateSessionTimeoutBanner();
+        }
+
         setupSessionTimers();
     } catch (error) {
-        usersStore.$onAction((action) => {
-            if (action.name === 'login') setupSessionTimers();
-        });
-
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
@@ -585,26 +639,26 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
-            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
         if (couponType === CouponType.SignupCoupon) {
-            await notify.success(`The coupon code was added successfully`);
+            notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
@@ -615,7 +669,7 @@ onMounted(async () => {
 
     appStore.changeState(FetchState.LOADED);
 
-    if (usersStore.shouldOnboard && !appStore.state.viewsState.hasShownPricingPlan) {
+    if (usersStore.shouldOnboard && !appStore.state.hasShownPricingPlan) {
         appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.
@@ -664,7 +718,7 @@ onBeforeUnmount(() => {
         max-width: 1200px;
         box-sizing: border-box;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             margin-top: 0;
             padding: 0;
         }
@@ -680,7 +734,7 @@ onBeforeUnmount(() => {
             margin: 20px 0;
             border: 0.5px solid var(--c-grey-2);
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 display: none;
             }
         }
@@ -688,15 +742,6 @@ onBeforeUnmount(() => {
 
     &__banners {
         margin-bottom: 20px;
-
-        &__billing {
-            position: initial;
-            margin-top: 20px;
-
-            & :deep(.notification-wrap__content) {
-                position: initial;
-            }
-        }
 
         &__upgrade,
         &__project-limit,
@@ -730,10 +775,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     align-items: center;
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--c-white);
     visibility: hidden;
     opacity: 0;
@@ -747,10 +789,7 @@ onBeforeUnmount(() => {
 
 .loading-icon {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     margin: auto;
 }
 

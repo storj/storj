@@ -264,6 +264,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.sessionDuration,
                 responseData.onboardingStart,
                 responseData.onboardingEnd,
+                responseData.passphrasePrompt,
                 responseData.onboardingStep,
             );
         }
@@ -288,6 +289,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.sessionDuration,
                 responseData.onboardingStart,
                 responseData.onboardingEnd,
+                responseData.passphrasePrompt,
                 responseData.onboardingStep,
             );
         }

@@ -16,11 +16,13 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import ErrorPage from '@/views/ErrorPage.vue';
 
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
+const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 
@@ -29,8 +31,8 @@ const isLoading = ref<boolean>(true);
 /**
  * Indicates whether an error page should be shown in place of the router view.
  */
-const isErrorPageShown = computed((): boolean => {
-    return appStore.state.viewsState.error.visible;
+const isErrorPageShown = computed<boolean>((): boolean => {
+    return appStore.state.error.visible;
 });
 
 /**
@@ -67,7 +69,7 @@ function updateViewportVariable(): void {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await appStore.getConfig();
+        await configStore.getConfig();
     } catch (error) {
         appStore.setErrorPage(500, true);
         notify.error(error.message, null);

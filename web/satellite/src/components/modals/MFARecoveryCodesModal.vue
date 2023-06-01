@@ -32,7 +32,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -53,7 +52,7 @@ const userMFARecoveryCodes = computed((): string[] => {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.mfaRecovery);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -67,7 +66,7 @@ function closeModal(): void {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 48px 24px;
         }
 
@@ -79,7 +78,7 @@ function closeModal(): void {
             color: #000;
             margin: 0 0 30px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 24px;
                 line-height: 28px;
                 margin-bottom: 15px;
@@ -103,7 +102,7 @@ function closeModal(): void {
                 margin: 0 0 30px;
                 max-width: 485px;
 
-                @media screen and (max-width: 550px) {
+                @media screen and (width <= 550px) {
                     font-size: 14px;
                     line-height: 18px;
                     margin-bottom: 15px;

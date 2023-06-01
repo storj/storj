@@ -124,9 +124,10 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
+
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter } from '@/utils/hooks';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';

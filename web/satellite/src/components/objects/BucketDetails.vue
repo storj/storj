@@ -21,7 +21,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, reactive, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Bucket } from '@/types/buckets';
 import { RouteConfig } from '@/router';
@@ -30,7 +31,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -44,8 +45,8 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -69,8 +70,10 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Bucket from store found by router prop.
  */
 const bucket = computed((): Bucket => {
+    if (!projectsStore.state.selectedProject.id) return new Bucket();
+
     const data = bucketsStore.state.page.buckets.find(
-        (bucket: Bucket) => bucket.name === router.currentRoute.params.bucketName,
+        (bucket: Bucket) => bucket.name === route.query.bucketName,
     );
 
     if (!data) {
@@ -96,7 +99,7 @@ function redirectToBucketsPage(): void {
 async function openBucket(): Promise<void> {
     bucketsStore.setFileComponentBucketName(bucket.value.name);
 
-    if (router.currentRoute.params.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
+    if (route.query.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
         if (!edgeCredentials.value.accessKeyId) {
             isLoading.value = true;
 
@@ -104,7 +107,7 @@ async function openBucket(): Promise<void> {
                 await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 isLoading.value = false;
             } catch (error) {
-                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
+                notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
                 isLoading.value = false;
                 return;
             }
@@ -124,7 +127,7 @@ async function openBucket(): Promise<void> {
  * Checks if bucket name was passed as route param.
  */
 onBeforeMount((): void => {
-    if (!router.currentRoute.params.bucketName) {
+    if (!route.query.bucketName) {
         redirectToBucketsPage();
     }
 });

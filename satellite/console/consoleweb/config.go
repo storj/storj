@@ -29,9 +29,11 @@ type FrontendConfig struct {
 	CouponCodeSignupUIEnabled       bool                  `json:"couponCodeSignupUIEnabled"`
 	FileBrowserFlowDisabled         bool                  `json:"fileBrowserFlowDisabled"`
 	LinksharingURL                  string                `json:"linksharingURL"`
+	PublicLinksharingURL            string                `json:"publicLinksharingURL"`
 	PathwayOverviewEnabled          bool                  `json:"pathwayOverviewEnabled"`
 	Captcha                         console.CaptchaConfig `json:"captcha"`
 	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
+	LimitsAreaEnabled               bool                  `json:"limitsAreaEnabled"`
 	DefaultPaidStorageLimit         memory.Size           `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit       memory.Size           `json:"defaultPaidBandwidthLimit"`
 	InactivityTimerEnabled          bool                  `json:"inactivityTimerEnabled"`
@@ -44,6 +46,7 @@ type FrontendConfig struct {
 	PasswordMaximumLength           int                   `json:"passwordMaximumLength"`
 	ABTestingEnabled                bool                  `json:"abTestingEnabled"`
 	PricingPackagesEnabled          bool                  `json:"pricingPackagesEnabled"`
+	NewUploadModalEnabled           bool                  `json:"newUploadModalEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -26,8 +26,11 @@ type Observer struct {
 	seedRand *rand.Rand
 
 	// The follow fields are reset on each segment loop cycle.
-	reservoirs map[metabase.NodeAlias]*Reservoir
+	Reservoirs map[metabase.NodeAlias]*Reservoir
 }
+
+var _ rangedloop.Observer = (*Observer)(nil)
+var _ rangedloop.Partial = (*observerFork)(nil)
 
 // NewObserver instantiates Observer.
 func NewObserver(log *zap.Logger, queue VerifyQueue, config Config) *Observer {
@@ -46,7 +49,7 @@ func NewObserver(log *zap.Logger, queue VerifyQueue, config Config) *Observer {
 func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obs.reservoirs = make(map[metabase.NodeAlias]*Reservoir)
+	obs.Reservoirs = make(map[metabase.NodeAlias]*Reservoir)
 	return nil
 }
 
@@ -60,22 +63,22 @@ func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error)
 	// for two or more RNGs. To prevent that, the observer itself uses an RNG
 	// to seed the per-collector RNGs.
 	rnd := rand.New(rand.NewSource(obs.seedRand.Int63()))
-	return NewCollector(obs.config.Slots, rnd), nil
+	return newObserverFork(obs.config.Slots, rnd), nil
 }
 
 // Join merges the audit reservoir collector into the per-node reservoirs.
 func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	collector, ok := partial.(*Collector)
+	fork, ok := partial.(*observerFork)
 	if !ok {
-		return errs.New("expected partial type %T but got %T", collector, partial)
+		return errs.New("expected partial type %T but got %T", fork, partial)
 	}
 
-	for nodeAlias, reservoir := range collector.Reservoirs {
-		existing, ok := obs.reservoirs[nodeAlias]
+	for nodeAlias, reservoir := range fork.reservoirs {
+		existing, ok := obs.Reservoirs[nodeAlias]
 		if !ok {
-			obs.reservoirs[nodeAlias] = reservoir
+			obs.Reservoirs[nodeAlias] = reservoir
 			continue
 		}
 		if err := existing.Merge(reservoir); err != nil {
@@ -99,7 +102,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 
 	// Add reservoir segments to queue in pseudorandom order.
 	for i := 0; i < obs.config.Slots; i++ {
-		for _, res := range obs.reservoirs {
+		for _, res := range obs.Reservoirs {
 			segments := res.Segments()
 			// Skip reservoir if no segment at this index.
 			if len(segments) <= i {
@@ -119,4 +122,40 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 
 	// Push new queue to queues struct so it can be fetched by worker.
 	return obs.queue.Push(ctx, newQueue, obs.config.VerificationPushBatchSize)
+}
+
+type observerFork struct {
+	reservoirs map[metabase.NodeAlias]*Reservoir
+	slotCount  int
+	rand       *rand.Rand
+}
+
+func newObserverFork(reservoirSlots int, r *rand.Rand) *observerFork {
+	return &observerFork{
+		reservoirs: make(map[metabase.NodeAlias]*Reservoir),
+		slotCount:  reservoirSlots,
+		rand:       r,
+	}
+}
+
+// Process performs per-node reservoir sampling on remote segments for addition into the audit queue.
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
+	for _, segment := range segments {
+		// The reservoir ends up deferencing and copying the segment internally
+		// but that's not obvious, so alias the loop variable.
+		segment := segment
+		if segment.Inline() {
+			continue
+		}
+
+		for _, piece := range segment.AliasPieces {
+			res, ok := fork.reservoirs[piece.Alias]
+			if !ok {
+				res = NewReservoir(fork.slotCount)
+				fork.reservoirs[piece.Alias] = res
+			}
+			res.Sample(fork.rand, segment)
+		}
+	}
+	return nil
 }

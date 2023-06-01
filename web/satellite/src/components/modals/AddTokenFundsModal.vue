@@ -77,7 +77,6 @@ import QRCode from 'qrcode';
 
 import { Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -105,7 +104,7 @@ const wallet = computed((): Wallet => {
  * Closes create project prompt modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.addTokenFunds);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -128,7 +127,7 @@ onMounted(async (): Promise<void> => {
     try {
         await QRCode.toCanvas(canvas.value, wallet.value.address);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
     }
 });
 </script>

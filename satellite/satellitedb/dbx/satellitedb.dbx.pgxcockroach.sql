@@ -227,7 +227,6 @@ CREATE TABLE projects (
 	rate_limit integer,
 	burst_limit integer,
 	max_buckets integer,
-	partner_id bytea,
 	user_agent bytea,
 	owner_id bytea NOT NULL,
 	salt bytea,
@@ -437,7 +436,6 @@ CREATE TABLE users (
 	short_name text,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
-	partner_id bytea,
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
@@ -474,8 +472,8 @@ CREATE TABLE user_settings (
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
-	partner_id bytea NOT NULL,
 	user_agent bytea,
+	partner_id bytea DEFAULT null,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
@@ -502,7 +500,6 @@ CREATE TABLE api_keys (
 	head bytea NOT NULL,
 	name text NOT NULL,
 	secret bytea NOT NULL,
-	partner_id bytea,
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
@@ -513,7 +510,6 @@ CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
-	partner_id bytea,
 	user_agent bytea,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -529,6 +525,13 @@ CREATE TABLE bucket_metainfos (
 	placement integer,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, name )
+);
+CREATE TABLE project_invitations (
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	email text NOT NULL,
+	inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, email )
 );
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -561,6 +564,7 @@ CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
+CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
@@ -574,3 +578,5 @@ CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_paymen
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
+CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;

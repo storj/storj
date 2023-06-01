@@ -190,7 +190,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
         align-items: flex-start;
         margin-top: 16px;
 
-        @media screen and (max-width: 460px) {
+        @media screen and (width <= 460px) {
             flex-direction: column;
         }
 
@@ -198,7 +198,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
             min-width: 32px;
             margin-right: 16px;
 
-            @media screen and (max-width: 460px) {
+            @media screen and (width <= 460px) {
                 margin: 0 0 16px;
             }
         }
@@ -211,11 +211,10 @@ function isSelectedOption(option: PassphraseOption): boolean {
         }
 
         &__disclaimer {
-            font-weight: bold;
+            font-family: 'font_bold', sans-serif;
             font-size: 14px;
             line-height: 22px;
             color: var(--c-black);
-            font-style: italic;
             text-align: left;
         }
     }

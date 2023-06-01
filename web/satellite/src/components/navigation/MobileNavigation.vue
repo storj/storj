@@ -139,6 +139,10 @@
                                 </a>
                             </div>
                         </div>
+                        <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                            <UpgradeIcon />
+                            <p class="account-area__dropdown__item__label">Upgrade</p>
+                        </div>
                         <div class="account-area__dropdown__item" @click="navigateToBilling">
                             <BillingIcon />
                             <p class="account-area__dropdown__item__label">Billing</p>
@@ -160,6 +164,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -170,7 +175,7 @@ import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -181,6 +186,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -193,6 +199,7 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import UpgradeIcon from '@/../static/images/navigation/upgrade.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -218,6 +225,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Team.withIcon(UsersIcon),
 ];
 
+const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -230,6 +238,7 @@ const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -246,7 +255,7 @@ const isLoading = ref<boolean>(false);
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.config.allProjectsDashboard;
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -260,7 +269,7 @@ const projects = computed((): Project[] => {
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.BucketsManagement.path);
+    return route.path.includes(RouteConfig.BucketsManagement.path);
 });
 
 /**
@@ -274,7 +283,7 @@ const selectedProject = computed((): Project => {
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
@@ -293,7 +302,7 @@ function onLogoClick(): void {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         return;
     }
 
@@ -399,7 +408,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
             projectsStore.getProjectLimits(projectID),
         ]);
     } catch (error) {
-        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 
@@ -407,7 +416,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
  * Route to projects list page.
  */
 function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+    if (route.name !== RouteConfig.ProjectsList.name) {
         analytics.pageVisit(RouteConfig.ProjectsList.path);
         analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
@@ -420,17 +429,17 @@ function onProjectsLinkClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+    if (route.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = usersStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
+            appStore.updateActiveModal(MODALS.newCreateProject);
         }
     }
 
@@ -438,14 +447,22 @@ function onCreateLinkClick(): void {
 }
 
 /**
+ * Starts upgrade account flow.
+ */
+function onUpgrade(): void {
+    isOpened.value = false;
+    appStore.updateActiveModal(MODALS.upgradeAccount);
+}
+
+/**
  * Navigates user to billing page.
  */
 function navigateToBilling(): void {
     isOpened.value = false;
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
     let link = RouteConfig.Account.with(RouteConfig.Billing);
-    if (appStore.state.config.newBillingScreen) {
+    if (configStore.state.config.newBillingScreen) {
         link = link.with(RouteConfig.BillingOverview);
     }
     router.push(link.path);
@@ -486,7 +503,7 @@ async function onLogout(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 </script>

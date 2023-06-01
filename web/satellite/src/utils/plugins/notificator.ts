@@ -31,12 +31,10 @@ export class Notificator {
     }
 }
 
-/**
- * Registers plugin in Vue instance.
- */
-export class NotificatorPlugin {
-    constructor() {}
-    public install(localVue: { prototype: { $notify: Notificator } }): void {
-        localVue.prototype.$notify = new Notificator();
-    }
-}
+export default {
+    install(app): void {
+        const instance = new Notificator();
+        app.config.globalProperties = instance;
+        app.provide('notify', instance);
+    },
+};
