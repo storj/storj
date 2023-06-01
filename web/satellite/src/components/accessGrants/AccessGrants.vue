@@ -171,7 +171,6 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useConfigStore } from '@/store/modules/configStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -190,7 +189,6 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
-const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -335,11 +333,6 @@ function trackPageVisit(link: string): void {
 }
 
 onMounted(async () => {
-    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
-        await router.push(RouteConfig.AllProjectsDashboard.path);
-        return;
-    }
-
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         areGrantsFetching.value = false;

@@ -791,12 +791,14 @@ onMounted(async () => {
         return;
     }
 
+    if (projects.length) {
+        selectProject(projects);
+    }
+
     if (!configStore.state.config.allProjectsDashboard) {
         try {
             if (!projects.length) {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
-            } else {
-                selectProject(projects);
             }
 
             const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;

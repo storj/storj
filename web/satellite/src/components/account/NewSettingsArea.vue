@@ -100,7 +100,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -110,19 +109,14 @@ import { useLoading } from '@/composables/useLoading';
 import { Duration } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { RouteConfig } from '@/router';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const router = useRouter();
-const route = useRoute();
 const { isLoading, withLoading } = useLoading();
 
 /**
@@ -137,13 +131,6 @@ const user = computed((): User => {
  */
 const userDuration = computed((): Duration | null => {
     return usersStore.state.settings.sessionDuration;
-});
-
-/**
- * Returns whether we're on the settings page on the all projects dashboard.
- */
-const isOnAllDashboardSettings = computed((): boolean => {
-    return route.path.includes(RouteConfig.AccountSettings.path);
 });
 
 /**
@@ -220,11 +207,6 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Lifecycle hook after initial render where user info is fetching.
  */
 onMounted(() => {
-    if (!isOnAllDashboardSettings.value && !projectsStore.state.selectedProject.id) {
-        router.push(RouteConfig.AllProjectsDashboard.path);
-        return;
-    }
-
     usersStore.getUser();
 });
 </script>

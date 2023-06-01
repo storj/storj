@@ -1599,9 +1599,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				LogIndex    int
 			}
 			err = json.NewDecoder(bytes.NewReader(txn.Metadata)).Decode(&meta)
-			if err != nil {
-				continue
-			}
+			require.NoError(t, err)
+
 			expected = append(expected, console.PaymentInfo{
 				ID:        fmt.Sprintf("%s#%d", meta.ReferenceID, meta.LogIndex),
 				Type:      txn.Source,

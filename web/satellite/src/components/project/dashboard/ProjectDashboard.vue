@@ -459,10 +459,6 @@ onMounted(async (): Promise<void> => {
 
     const projectID = selectedProject.value.id;
     if (!projectID) {
-        if (configStore.state.config.allProjectsDashboard) {
-            await router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
         const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
