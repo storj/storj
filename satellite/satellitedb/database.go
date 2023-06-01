@@ -398,13 +398,3 @@ func (dbc *satelliteDBCollectionTesting) ProductionMigration() *migrate.Migratio
 func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
 	return dbc.getByName("").TestMigration()
 }
-
-func withRows(rows tagsql.Rows, err error) func(func(tagsql.Rows) error) error {
-	return func(callback func(tagsql.Rows) error) error {
-		if err != nil {
-			return err
-		}
-		err := callback(rows)
-		return errs.Combine(rows.Err(), rows.Close(), err)
-	}
-}
