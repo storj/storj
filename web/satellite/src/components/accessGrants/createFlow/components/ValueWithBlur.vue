@@ -16,7 +16,7 @@
         </div>
         <div class="blured-container__wrap" :class="{justify: !isMnemonic}">
             <p v-if="isMnemonic" tabindex="0" class="blured-container__wrap__mnemonic" @keyup.space="onCopy">{{ value }}</p>
-            <p v-else tabindex="0" class="blured-container__wrap__text" @keyup.space="onCopy">{{ value }}</p>
+            <p v-else tabindex="0" class="blured-container__wrap__text" :class="{ shown: isValueShown }" @keyup.space="onCopy">{{ value }}</p>
             <div
                 v-if="!isMnemonic"
                 tabindex="0"
@@ -135,12 +135,12 @@ function onCopy(): void {
 
         &__text {
             font-size: 14px;
-            line-height: 20px;
             color: var(--c-grey-7);
+            margin-right: 16px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-right: 16px;
+            line-height: 24px;
         }
 
         &__copy {
@@ -158,6 +158,14 @@ function onCopy(): void {
             backdrop-filter: blur(10px);
         }
     }
+}
+
+.shown {
+    white-space: unset;
+    text-overflow: unset;
+    overflow-wrap: break-word;
+    text-align: left;
+    font-family: 'Courier', monospace;
 }
 
 .justify {
