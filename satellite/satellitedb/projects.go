@@ -427,20 +427,14 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 func projectsFromDbxSlice(ctx context.Context, projectsDbx []*dbx.Project) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var projects []console.Project
-	var errors []error
-
-	// Generating []dbo from []dbx and collecting all errors
-	for _, projectDbx := range projectsDbx {
-		project, err := projectFromDBX(ctx, projectDbx)
-		if err != nil {
-			errors = append(errors, err)
-			continue
-		}
-
-		projects = append(projects, *project)
-	}
-
+	projects, errors := convertSliceWithErrors(projectsDbx,
+		func(v *dbx.Project) (r console.Project, _ error) {
+			p, err := projectFromDBX(ctx, v)
+			if err != nil {
+				return r, err
+			}
+			return *p, nil
+		})
 	return projects, errs.Combine(errors...)
 }
 

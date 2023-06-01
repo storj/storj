@@ -204,12 +204,9 @@ func projectInvitationFromDBX(dbxInvite *dbx.ProjectInvitation) (_ *console.Proj
 // projectInvitationSliceFromDBX converts a project member invitation slice from the database to a
 // slice of console.ProjectInvitation.
 func projectInvitationSliceFromDBX(dbxInvites []*dbx.ProjectInvitation) (invites []console.ProjectInvitation, err error) {
-	for _, dbxInvite := range dbxInvites {
-		invite, err := projectInvitationFromDBX(dbxInvite)
-		if err != nil {
-			return nil, err
-		}
-		invites = append(invites, *invite)
-	}
-	return invites, nil
+	return convertSlice(dbxInvites,
+		func(i *dbx.ProjectInvitation) (console.ProjectInvitation, error) {
+			r, err := projectInvitationFromDBX(i)
+			return *r, err
+		})
 }
