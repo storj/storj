@@ -296,6 +296,17 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		updateRequest.ShortName = &shortNamePtr
 	}
 	if input.Email != "" {
+		existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
+		if err != nil && !errors.Is(sql.ErrNoRows, err) {
+			sendJSONError(w, "failed to check for user email",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if existingUser != nil {
+			sendJSONError(w, fmt.Sprintf("user with email already exists %s", input.Email),
+				"", http.StatusConflict)
+			return
+		}
 		updateRequest.Email = &input.Email
 	}
 	if len(input.PasswordHash) > 0 {

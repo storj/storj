@@ -262,6 +262,13 @@ func TestUserUpdate(t *testing.T) {
 			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "does not exist")
 		})
+
+		t.Run("Email already used", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", "alice+2@mail.test")
+			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
+			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusConflict, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "already exists")
+		})
 	})
 }
 
