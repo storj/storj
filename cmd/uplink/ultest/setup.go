@@ -199,11 +199,7 @@ func WithFile(location string, contents ...string) ExecuteOption {
 			cs.rfs.ensureBucket(bucket)
 		}
 
-		mwh, err := cs.fs.Create(ctx, loc, nil)
-		require.NoError(t, err)
-		defer func() { _ = mwh.Abort(ctx) }()
-
-		wh, err := mwh.NextPart(ctx, -1)
+		wh, err := cs.fs.Create(ctx, loc, nil)
 		require.NoError(t, err)
 		defer func() { _ = wh.Abort() }()
 
@@ -217,7 +213,6 @@ func WithFile(location string, contents ...string) ExecuteOption {
 		}
 
 		require.NoError(t, wh.Commit())
-		require.NoError(t, mwh.Commit(ctx))
 	}}
 }
 

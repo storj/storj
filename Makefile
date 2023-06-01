@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.19.6
+GO_VERSION ?= 1.20.3
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -397,9 +397,6 @@ certificates_%:
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: inspector_%
-inspector_%:
-	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONE: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -423,11 +420,11 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, inspector, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -511,7 +508,10 @@ bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
 	cd testsuite/ui;\
-		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
+		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
+		go mod tidy;
+	cd testsuite/storjscan;\
+		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
 		go mod tidy;
 
 update-proto-lock:

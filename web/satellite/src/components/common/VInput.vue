@@ -6,8 +6,10 @@
         <div v-if="!isOptional" class="label-container">
             <div class="label-container__main">
                 <ErrorIcon v-if="error" class="label-container__error-icon" />
-                <h3 v-if="!error" class="label-container__main__label">{{ label }}</h3>
-                <h3 v-if="!error" class="label-container__main__label add-label">{{ additionalLabel }}</h3>
+                <h3 v-if="!error" class="label-container__main__label">
+                    <span>{{ label }}</span>
+                    <span class="add-label">{{ additionalLabel }}</span>
+                </h3>
                 <h3 v-if="error" class="label-container__main__error">{{ error }}</h3>
                 <div v-if="isLoading" class="loader" />
             </div>
@@ -234,14 +236,23 @@ export default defineComponent({
         }
 
         &__main {
+            width: 100%;
             display: flex;
             justify-content: flex-start;
             align-items: center;
 
             &__label {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
+
+                & .add-label {
+                    font-size: 'font_medium' sans-serif;
+                    color: var(--c-grey-5) !important;
+                }
             }
 
             &__error {
@@ -253,6 +264,7 @@ export default defineComponent({
         }
 
         &__limit {
+            margin-left: 5px;
             font-size: 16px;
             line-height: 21px;
             color: rgb(56 75 101 / 40%);

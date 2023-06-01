@@ -9,7 +9,7 @@
                     <img
                         v-if="previewAndMapFailed"
                         class="failed-preview"
-                        src="/static/static/images/common/errorNotice.svg"
+                        :src="ErrorNoticeIcon"
                         alt="failed preview"
                     >
                     <template v-else>
@@ -113,212 +113,205 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
-import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+import ErrorNoticeIcon from '@/../static/images/common/errorNotice.svg?url';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VModal,
-        VButton,
-        VLoader,
-        PlaceholderImage,
-    },
-})
-export default class ObjectDetailsModal extends Vue {
-    public isLoading = false;
-    public objectMapUrl = '';
-    public objectPreviewUrl = '';
-    public previewAndMapFailed = false;
-    public objectLink = '';
-    public copyText = 'Copy Link';
+const appStore = useAppStore();
+const obStore = useObjectBrowserStore();
+const notify = useNotify();
 
-    /**
-     * Call `fetchPreviewAndMapUrl` on the created lifecycle method.
-     */
-    public created(): void {
-        this.fetchPreviewAndMapUrl();
+const isLoading = ref<boolean>(false);
+const previewAndMapFailed = ref<boolean>(false);
+const objectMapUrl = ref<string>('');
+const objectPreviewUrl = ref<string>('');
+const objectLink = ref<string>('');
+const copyText = ref<string>('Copy Link');
+
+/**
+ * Retrieve the file object that the modal is set to from the store.
+ */
+const file = computed((): BrowserObject | undefined => {
+    return obStore.state.files.find(
+        (file) => file.Key === filePath.value.split('/').slice(-1)[0],
+    );
+});
+
+/**
+ * Retrieve the filepath of the modal from the store.
+ */
+const filePath = computed((): string => {
+    return obStore.state.objectPathForModal;
+});
+
+/**
+ * Format the file size to be displayed.
+ */
+const size = computed((): string => {
+    return prettyBytes(
+        obStore.state.files.find((f) => f.Key === file.value?.Key)?.Size || 0,
+    );
+});
+
+/**
+ * Format the upload date of the current file.
+ */
+const uploadDate = computed((): string | undefined => {
+    return file.value?.LastModified.toLocaleString().split(',')[0];
+});
+
+/**
+ * Get the extension of the current file.
+ */
+const extension = computed((): string | undefined => {
+    return filePath.value.split('.').pop();
+});
+
+/**
+ * Check to see if the current file is an image file.
+ */
+const previewIsImage = computed((): boolean => {
+    if (typeof extension.value !== 'string') {
+        return false;
     }
 
-    /**
-     * Retrieve the file object that the modal is set to from the store.
-     */
-    private get file(): BrowserFile {
-        return this.$store.state.files.files.find(
-            (file) => file.Key === this.filePath.split('/').slice(-1)[0],
-        );
+    return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
+        extension.value.toLowerCase(),
+    );
+});
+
+/**
+ * Check to see if the current file is a video file.
+ */
+const previewIsVideo = computed((): boolean => {
+    if (typeof extension.value !== 'string') {
+        return false;
     }
 
-    /**
-     * Retrieve the filepath of the modal from the store.
-     */
-    public get filePath(): string {
-        return this.$store.state.files.objectPathForModal;
+    return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
+        extension.value.toLowerCase(),
+    );
+});
+
+/**
+ * Check to see if the current file is an audio file.
+ */
+const previewIsAudio = computed((): boolean => {
+    if (typeof extension.value !== 'string') {
+        return false;
     }
 
-    /**
-     * Format the file size to be displayed.
-     */
-    public get size(): string {
-        return prettyBytes(
-            this.$store.state.files.files.find(
-                (file) => file.Key === this.file.Key,
-            ).Size,
-        );
+    return ['mp3', 'wav', 'ogg'].includes(extension.value.toLowerCase());
+});
+
+/**
+ * Check to see if the current file is neither an image file, video file, or audio file.
+ */
+const placeHolderDisplayable = computed((): boolean => {
+    return [
+        previewIsImage.value,
+        previewIsVideo.value,
+        previewIsAudio.value,
+    ].every((value) => !value);
+});
+
+/**
+ * Get the object map url for the file being displayed.
+ */
+async function fetchPreviewAndMapUrl(): Promise<void> {
+    isLoading.value = true;
+
+    const url: string = await obStore.state.fetchPreviewAndMapUrl(
+        filePath.value,
+    );
+
+    if (!url) {
+        previewAndMapFailed.value = true;
+        isLoading.value = false;
+
+        return;
     }
 
-    /**
-     * Format the upload date of the current file.
-     */
-    public get uploadDate(): string {
-        return this.file.LastModified.toLocaleString().split(',')[0];
-    }
+    const mapURL = `${url}?map=1`;
+    const previewURL = `${url}?view=1`;
 
-    /**
-     * Get the extension of the current file.
-     */
-    private get extension(): string | undefined {
-        return this.filePath.split('.').pop();
-    }
+    await new Promise((resolve) => {
+        const preload = new Image();
+        preload.onload = resolve;
+        preload.src = mapURL;
+    });
 
-    /**
-     * Check to see if the current file is an image file.
-     */
-    public get previewIsImage(): boolean {
-        if (typeof this.extension !== 'string') {
-            return false;
-        }
+    objectMapUrl.value = mapURL;
+    objectPreviewUrl.value = previewURL;
+    isLoading.value = false;
+}
 
-        return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
-            this.extension.toLowerCase(),
-        );
-    }
-
-    /**
-     * Check to see if the current file is a video file.
-     */
-    public get previewIsVideo(): boolean {
-        if (typeof this.extension !== 'string') {
-            return false;
-        }
-
-        return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
-            this.extension.toLowerCase(),
-        );
-    }
-
-    /**
-     * Check to see if the current file is an audio file.
-     */
-    public get previewIsAudio(): boolean {
-        if (typeof this.extension !== 'string') {
-            return false;
-        }
-
-        return ['mp3', 'wav', 'ogg'].includes(this.extension.toLowerCase());
-    }
-
-    /**
-     * Check to see if the current file is neither an image file, video file, or audio file.
-     */
-    public get placeHolderDisplayable(): boolean {
-        return [
-            this.previewIsImage,
-            this.previewIsVideo,
-            this.previewIsAudio,
-        ].every((value) => !value);
-    }
-
-    /**
-     * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
-     */
-    @Watch('filePath')
-    private handleFilePathChange() {
-        this.fetchPreviewAndMapUrl();
-    }
-
-    /**
-     * Get the object map url for the file being displayed.
-     */
-    private async fetchPreviewAndMapUrl(): Promise<void> {
-        this.isLoading = true;
-        const url: string = await this.$store.state.files.fetchPreviewAndMapUrl(
-            this.filePath,
-        );
-
-        if (!url) {
-            this.previewAndMapFailed = true;
-            this.isLoading = false;
-
-            return;
-        }
-
-        const mapURL = `${url}?map=1`;
-        const previewURL = `${url}?view=1`;
-
-        await new Promise((resolve) => {
-            const preload = new Image();
-            preload.onload = resolve;
-            preload.src = mapURL;
-        });
-
-        this.objectMapUrl = mapURL;
-        this.objectPreviewUrl = previewURL;
-        this.isLoading = false;
-    }
-
-    /**
-     * Download the current opened file.
-     */
-    public download(): void {
-        try {
-            this.$store.dispatch('files/download', this.file);
-            this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
-        } catch (error) {
-            this.$notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
-        }
-    }
-
-    /**
-     * Close the current opened file details modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
-    }
-
-    /**
-     * Copy the current opened file.
-     */
-    public async copy(): Promise<void> {
-        await this.$copyText(this.objectLink);
-        await this.$notify.success('Link copied successfully.');
-        this.copyText = 'Copied!';
-        setTimeout(() => {
-            this.copyText = 'Copy Link';
-        }, 2000);
-    }
-
-    /**
-     * Get the share link of the current opened file.
-     */
-    public async getSharedLink(): Promise<void> {
-        this.objectLink = await this.$store.state.files.fetchSharedLink(
-            this.filePath,
-        );
+/**
+ * Download the current opened file.
+ */
+function download(): void {
+    try {
+        obStore.download(file.value);
+        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+    } catch (error) {
+        notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
 }
+
+/**
+ * Close the current opened file details modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
+}
+
+/**
+ * Copy the current opened file.
+ */
+async function copy(): Promise<void> {
+    await navigator.clipboard.writeText(objectLink.value);
+    notify.success('Link copied successfully.');
+
+    copyText.value = 'Copied!';
+    setTimeout(() => {
+        copyText.value = 'Copy Link';
+    }, 2000);
+}
+
+/**
+ * Get the share link of the current opened file.
+ */
+async function getSharedLink(): Promise<void> {
+    objectLink.value = await obStore.state.fetchSharedLink(
+        filePath.value,
+    );
+}
+
+/**
+ * Call `fetchPreviewAndMapUrl` on before mount lifecycle method.
+ */
+onBeforeMount((): void => {
+    fetchPreviewAndMapUrl();
+});
+
+/**
+ * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
+ */
+watch(filePath, () => {
+    fetchPreviewAndMapUrl();
+});
 </script>
 
 <style scoped lang="scss">
@@ -330,24 +323,24 @@ export default class ObjectDetailsModal extends Vue {
         width: 1140px;
         max-width: 1140px;
 
-        @media screen and (max-width: 1200px) {
+        @media screen and (width <= 1200px) {
             width: 800px;
             max-width: 800px;
         }
 
-        @media screen and (max-width: 900px) {
+        @media screen and (width <= 900px) {
             width: 600px;
             max-width: 600px;
         }
 
-        @media screen and (max-width: 660px) {
+        @media screen and (width <= 660px) {
             flex-direction: column-reverse;
             width: calc(100vw - 50px);
             min-width: calc(100vw - 50px);
             max-width: calc(100vw - 50px);
         }
 
-        @media screen and (max-width: 400px) {
+        @media screen and (width <= 400px) {
             width: calc(100vw - 20px);
             min-width: calc(100vw - 20px);
             max-width: calc(100vw - 20px);
@@ -361,12 +354,12 @@ export default class ObjectDetailsModal extends Vue {
             align-items: center;
             justify-content: center;
 
-            @media screen and (max-width: 900px) {
+            @media screen and (width <= 900px) {
                 width: 60%;
                 max-width: 60%;
             }
 
-            @media screen and (max-width: 660px) {
+            @media screen and (width <= 660px) {
                 width: 100%;
                 min-width: 100%;
                 max-width: 100%;
@@ -375,7 +368,7 @@ export default class ObjectDetailsModal extends Vue {
                 border-radius: 0 0 10px 10px;
             }
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 min-height: 30vh;
             }
         }
@@ -390,19 +383,19 @@ export default class ObjectDetailsModal extends Vue {
             align-items: flex-start;
             align-self: flex-start;
 
-            @media screen and (max-width: 900px) {
+            @media screen and (width <= 900px) {
                 width: 40%;
                 max-width: 40%;
             }
 
-            @media screen and (max-width: 660px) {
+            @media screen and (width <= 660px) {
                 width: 100%;
                 min-width: 100%;
                 max-width: 100%;
                 padding-bottom: 0;
             }
 
-            @media screen and (max-width: 400px) {
+            @media screen and (width <= 400px) {
                 padding: 64px 20px 0;
             }
 
@@ -436,17 +429,17 @@ export default class ObjectDetailsModal extends Vue {
                 align-items: center;
                 width: 100%;
 
-                @media screen and (max-width: 1200px) {
+                @media screen and (width <= 1200px) {
                     flex-direction: column;
                     align-items: flex-start;
                 }
 
-                @media screen and (max-width: 660px) {
+                @media screen and (width <= 660px) {
                     flex-direction: row;
                     align-items: center;
                 }
 
-                @media screen and (max-width: 400px) {
+                @media screen and (width <= 400px) {
                     flex-direction: column;
                     align-items: flex-start;
                 }

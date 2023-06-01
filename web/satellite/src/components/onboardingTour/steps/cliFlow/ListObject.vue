@@ -29,8 +29,8 @@
     </CLIFlowContainer>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -41,34 +41,24 @@ import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vu
 
 import Icon from '@/../static/images/onboardingTour/listObjectStep.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CLIFlowContainer,
-        Icon,
-        OSContainer,
-        TabWithCopy,
-    },
-})
-export default class ListObject extends Vue {
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Holds on back button click logic.
-     */
-    public async onBackClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
-    }
+/**
+ * Holds on back button click logic.
+ */
+async function onBackClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
+}
 
-    /**
-     * Holds on next button click logic.
-     */
-    public async onNextClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
-    }
+/**
+ * Holds on next button click logic.
+ */
+async function onNextClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
 }
 </script>
 

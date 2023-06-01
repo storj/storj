@@ -10,28 +10,27 @@
     </table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { Bucket } from '@/types/buckets';
 
 type TableData = { label: string, value: string }[];
 
-// @vue/component
-@Component
-export default class BucketDetailsOverview extends Vue {
-    @Prop({ default: null })
-    public readonly bucket: Bucket;
+const props = withDefaults(defineProps<{
+    bucket: Bucket;
+}>(), {
+    bucket: () => new Bucket(),
+});
 
-    public get tableData(): TableData {
-        return [
-            { label: 'Name', value: this.bucket.name },
-            { label: 'Date Created', value: this.bucket.since.toUTCString() },
-            { label: 'Last Updated', value: this.bucket.before.toUTCString() },
-            { label: 'Object Count', value: `${this.bucket.objectCount}` },
-        ];
-    }
-}
+const tableData = computed((): TableData => {
+    return [
+        { label: 'Name', value: props.bucket.name },
+        { label: 'Date Created', value: props.bucket.since.toUTCString() },
+        { label: 'Last Updated', value: props.bucket.before.toUTCString() },
+        { label: 'Object Count', value: `${props.bucket.objectCount}` },
+    ];
+});
 </script>
 
 <style lang="scss" scoped>

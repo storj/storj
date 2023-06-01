@@ -2,17 +2,20 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="() => closeModal(true)">
+    <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <EnterPassphraseIcon />
-                <h1 class="modal__title">Enter your encryption passphrase</h1>
+                <div class="modal__header">
+                    <AccessEncryptionIcon />
+                    <h1 class="modal__header__title">Enter passphrase</h1>
+                </div>
                 <p class="modal__info">
-                    To open a project and view your encrypted files, <br>please enter your encryption passphrase.
+                    Enter your encryption passphrase to view and manage your data in the browser. This passphrase will
+                    be used to unlock all buckets in this project.
                 </p>
                 <VInput
                     label="Encryption Passphrase"
-                    placeholder="Enter your passphrase"
+                    placeholder="Enter a passphrase here"
                     :error="enterError"
                     role-description="passphrase"
                     is-password
@@ -20,17 +23,20 @@
                 />
                 <div class="modal__buttons">
                     <VButton
-                        label="Enter without passphrase"
+                        label="Skip"
                         height="48px"
                         font-size="14px"
+                        border-radius="10px"
                         :is-transparent="true"
-                        :on-press="() => closeModal()"
+                        :on-press="skipPassphrase"
                     />
                     <VButton
                         label="Continue ->"
                         height="48px"
                         font-size="14px"
+                        border-radius="10px"
                         :on-press="onContinue"
+                        :is-disabled="!passphrase"
                     />
                 </div>
             </div>
@@ -38,73 +44,67 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import AccessEncryptionIcon from '../../../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
+
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import EnterPassphraseIcon from '@/../static/images/buckets/openBucket.svg';
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VModal,
-        VButton,
-        EnterPassphraseIcon,
-    },
-})
-export default class EnterPassphraseModal extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public enterError = '';
-    public passphrase = '';
+const enterError = ref<string>('');
+const passphrase = ref<string>('');
 
-    /**
-     * Sets passphrase.
-     */
-    public onContinue(): void {
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+/**
+ * Sets passphrase.
+ */
+function onContinue(): void {
+    if (!passphrase.value) {
+        enterError.value = 'Passphrase can\'t be empty';
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
 
-            return;
-        }
-
-        this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
-        this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-
-        this.closeModal();
+        return;
     }
 
-    /**
-     * Closes enter passphrase modal and navigates to single project dashboard from
-     * all projects dashboard.
-     */
-    public closeModal(isCloseButton = false): void {
-        if (!isCloseButton && this.$route.name === RouteConfig.AllProjectsDashboard.name) {
-            this.$router.push(RouteConfig.ProjectDashboard.path);
-        }
+    bucketsStore.setPassphrase(passphrase.value);
+    bucketsStore.setPromptForPassphrase(false);
 
-        this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
-    }
+    closeModal();
+}
 
-    /**
-     * Sets passphrase from child component.
-     */
-    public setPassphrase(passphrase: string): void {
-        if (this.enterError) this.enterError = '';
+/**
+ * Opens the SkipPassphrase modal for confirmation.
+ */
+function skipPassphrase(): void {
+    appStore.updateActiveModal(MODALS.skipPassphrase);
+}
 
-        this.passphrase = passphrase;
-    }
+/**
+ * Closes enter passphrase modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
+}
+
+/**
+ * Sets passphrase from child component.
+ */
+function setPassphrase(value: string): void {
+    if (enterError.value) enterError.value = '';
+
+    passphrase.value = value;
 }
 </script>
 
@@ -113,28 +113,34 @@ export default class EnterPassphraseModal extends Vue {
         font-family: 'font_regular', sans-serif;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        padding: 62px 62px 54px;
-        max-width: 500px;
+        padding: 32px;
+        max-width: 350px;
 
-        @media screen and (max-width: 600px) {
-            padding: 62px 24px 54px;
-        }
+        &__header {
+            display: flex;
+            align-items: center;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--c-grey-2);
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 26px;
-            line-height: 31px;
-            color: #131621;
-            margin: 30px 0 15px;
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 24px;
+                line-height: 31px;
+                color: var(--c-grey-8);
+                margin-left: 16px;
+                text-align: left;
+            }
         }
 
         &__info {
-            font-size: 16px;
-            line-height: 21px;
-            text-align: center;
+            font-size: 14px;
+            line-height: 19px;
             color: #354049;
-            margin-bottom: 32px;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--c-grey-2);
+            text-align: left;
         }
 
         &__buttons {
@@ -143,7 +149,7 @@ export default class EnterPassphraseModal extends Vue {
             margin-top: 31px;
             width: 100%;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 20px;

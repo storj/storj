@@ -37,117 +37,99 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
-import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VModal,
-        VButton,
-        VLoader,
-        VInput,
-    },
-})
-export default class NewFolderModal extends Vue {
-    public $refs!: {
-        folderInput: HTMLInputElement;
-        fileInput: HTMLInputElement;
-    };
+const obStore = useObjectBrowserStore();
+const appStore = useAppStore();
+const notify = useNotify();
 
-    public createFolderName = '';
-    public createFolderError = '';
-    public isLoading = false;
+const createFolderName = ref<string>('');
+const createFolderError = ref<string>('');
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Close the NewFolderModal.
-     */
-    public close(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
+/**
+ * Retrieve all the files sorted from the store.
+ */
+const files = computed((): BrowserObject[] => {
+    return obStore.sortedFiles;
+});
+
+/**
+ * Return a boolean signifying whether the current folder name abides by our convention.
+ */
+const createFolderEnabled = computed((): boolean => {
+    const charsOtherThanSpaceExist = createFolderName.value.trim().length > 0;
+    const noForwardSlashes = createFolderName.value.indexOf('/') === -1;
+
+    const nameIsNotOnlyPeriods =
+        [...createFolderName.value.trim()].filter(
+            (char) => char === '.',
+        ).length !== createFolderName.value.trim().length;
+
+    const notDuplicate = files.value.filter(
+        (file) => file.Key === createFolderName.value.trim(),
+    ).length === 0;
+
+    return (
+        charsOtherThanSpaceExist &&
+        noForwardSlashes &&
+        nameIsNotOnlyPeriods &&
+        notDuplicate
+    );
+});
+
+/**
+ * Close the NewFolderModal.
+ */
+function close(): void {
+    appStore.removeActiveModal();
+}
+
+/**
+ * Sets folder name from input value.
+ */
+function setName(value: string): void {
+    if (createFolderError.value) {
+        createFolderError.value = '';
     }
 
-    /**
-     * Sets folder name from input value.
-     */
-    public setName(value: string): void {
-        if (this.createFolderError) {
-            this.createFolderError = '';
-        }
+    createFolderName.value = value;
+}
 
-        this.createFolderName = value;
+/**
+ * Create a folder from the name inside of the folder creation input.
+ */
+async function createFolder(): Promise<void> {
+    if (isLoading.value) return;
+
+    if (!createFolderEnabled.value) {
+        createFolderError.value = 'Invalid name';
+
+        return;
     }
 
-    /**
-     * Retrieve all the files sorted from the store.
-     */
-    private get files(): BrowserFile[] {
-        return this.$store.getters['files/sortedFiles'];
+    isLoading.value = true;
+
+    try {
+        await obStore.createFolder(createFolderName.value.trim());
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
     }
 
-    /**
-     * Return a boolean signifying whether the current folder name abides by our convention.
-     */
-    public get createFolderEnabled(): boolean {
-        const charsOtherThanSpaceExist =
-            this.createFolderName.trim().length > 0;
-
-        const noForwardSlashes = this.createFolderName.indexOf('/') === -1;
-
-        const nameIsNotOnlyPeriods =
-            [...this.createFolderName.trim()].filter(
-                (char) => char === '.',
-            ).length !== this.createFolderName.trim().length;
-
-        const notDuplicate =
-            this.files.filter(
-                (file) => file.Key === this.createFolderName.trim(),
-            ).length === 0;
-
-        return (
-            charsOtherThanSpaceExist &&
-            noForwardSlashes &&
-            nameIsNotOnlyPeriods &&
-            notDuplicate
-        );
-    }
-
-    /**
-     * Create a folder from the name inside of the folder creation input.
-     */
-    public async createFolder(): Promise<void> {
-        if (this.isLoading) return;
-
-        if (!this.createFolderEnabled) {
-            this.createFolderError = 'Invalid name';
-
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(
-                'files/createFolder',
-                this.createFolderName.trim(),
-            );
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
-        }
-
-        this.createFolderName = '';
-        this.isLoading = false;
-        this.close();
-    }
+    createFolderName.value = '';
+    isLoading.value = false;
+    close();
 }
 </script>
 
@@ -161,7 +143,7 @@ export default class NewFolderModal extends Vue {
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 450px) {
+        @media screen and (width <= 450px) {
             width: 320px;
         }
 
@@ -182,7 +164,7 @@ export default class NewFolderModal extends Vue {
             margin-top: 30px;
             column-gap: 20px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 margin-top: 20px;
                 column-gap: unset;
                 row-gap: 8px;

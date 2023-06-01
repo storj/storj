@@ -10,14 +10,16 @@ import (
 
 // Usage holds storage usage stamps and summary for a particular period.
 type Usage struct {
-	Stamps  []UsageStamp `json:"stamps"`
-	Summary float64      `json:"summary"`
+	Stamps       []UsageStamp `json:"stamps"`
+	Summary      float64      `json:"summary"`
+	SummaryBytes float64      `json:"summaryBytes"`
 }
 
 // UsageStamp holds data at rest total for an interval beginning at interval start.
 type UsageStamp struct {
-	AtRestTotal   float64   `json:"atRestTotal"`
-	IntervalStart time.Time `json:"intervalStart"`
+	AtRestTotal      float64   `json:"atRestTotal"`
+	AtRestTotalBytes float64   `json:"atRestTotalBytes"`
+	IntervalStart    time.Time `json:"intervalStart"`
 }
 
 // UsageStampDailyCache caches storage usage stamps by interval date.
@@ -33,13 +35,15 @@ func (cache *UsageStampDailyCache) Add(stamp UsageStamp) {
 	cacheStamp, ok := cached[intervalStart]
 	if ok {
 		cached[intervalStart] = UsageStamp{
-			AtRestTotal:   cacheStamp.AtRestTotal + stamp.AtRestTotal,
-			IntervalStart: intervalStart,
+			AtRestTotal:      cacheStamp.AtRestTotal + stamp.AtRestTotal,
+			AtRestTotalBytes: cacheStamp.AtRestTotalBytes + stamp.AtRestTotalBytes,
+			IntervalStart:    intervalStart,
 		}
 	} else {
 		cached[intervalStart] = UsageStamp{
-			AtRestTotal:   stamp.AtRestTotal,
-			IntervalStart: intervalStart,
+			AtRestTotal:      stamp.AtRestTotal,
+			AtRestTotalBytes: stamp.AtRestTotalBytes,
+			IntervalStart:    intervalStart,
 		}
 	}
 

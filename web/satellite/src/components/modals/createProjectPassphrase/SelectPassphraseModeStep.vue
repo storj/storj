@@ -3,67 +3,87 @@
 
 <template>
     <div class="passphrase-mode">
-        <LockIcon />
-        <h1 class="passphrase-mode__title">Encryption Passphrase</h1>
+        <div class="passphrase-mode__header">
+            <AccessEncryptionIcon />
+            <h1 class="passphrase-mode__header__title">Encryption Passphrase</h1>
+        </div>
         <p class="passphrase-mode__info">
-            The encryption passphrase will be used to encrypt all the files you upload in this project. We encourage
-            you to generate the encryption passphrase. You can also enter your own passphrase.
+            The encryption passphrase will be used to encrypt the files you upload in this project. You can generate
+            a new encryption passphrase, or enter your own.
         </p>
-        <div
-            class="passphrase-mode__option"
-            :class="{selected: isGenerate}"
-            @click="setGenerate"
-        >
-            <div
-                class="passphrase-mode__option__check"
-                :class="{'selected-check': isGenerate}"
-            >
-                <CheckIcon />
-            </div>
-            <div class="passphrase-mode__option__info">
-                <h2 class="passphrase-mode__option__info__title">
-                    Generate passphrase
-                </h2>
-                <p class="passphrase-mode__option__info__msg">
-                    Automatically generate 12-word passphrase.
-                </p>
-            </div>
-        </div>
-        <div
-            class="passphrase-mode__option"
-            :class="{selected: !isGenerate}"
-            @click="setEnter"
-        >
-            <div
-                class="passphrase-mode__option__check"
-                :class="{'selected-check': !isGenerate}"
-            >
-                <CheckIcon />
-            </div>
-            <div class="passphrase-mode__option__info">
-                <h2 class="passphrase-mode__option__info__title">
-                    Enter passphrase
-                </h2>
-                <p class="passphrase-mode__option__info__msg">
-                    You can also enter your own passphrase.
-                </p>
-            </div>
-        </div>
+        <ContainerWithIcon :icon-and-title="FUNCTIONAL_CONTAINER_ICON_AND_TITLE[FunctionalContainer.EncryptionPassphrase]">
+            <template #functional>
+                <div class="passphrase-mode__radios">
+                    <Radio
+                        id="generate passphrase"
+                        :checked="isGenerate"
+                        :on-check="setGenerate"
+                        label="Generate 12-word passphrase"
+                        info="Create this access with a new encryption passphrase that will be generated for you on
+                            the next step. The access will not be able to manage any existing data."
+                    />
+                    <Radio
+                        id="new passphrase"
+                        :checked="!isGenerate"
+                        :on-check="setEnter"
+                        label="Enter a new passphrase"
+                        info="Create this access with a new encryption passphrase that you can enter on the next step.
+                            The access will not be able to manage any existing data."
+                    />
+                </div>
+            </template>
+        </ContainerWithIcon>
+        <ButtonsContainer>
+            <template #leftButton>
+                <VButton
+                    label="Cancel"
+                    width="100%"
+                    height="48px"
+                    font-size="14px"
+                    border-radius="10px"
+                    :on-press="onCancel"
+                    :is-white="true"
+                />
+            </template>
+            <template #rightButton>
+                <VButton
+                    label="Continue ->"
+                    width="100%"
+                    height="48px"
+                    font-size="14px"
+                    border-radius="10px"
+                    :on-press="onContinue"
+                />
+            </template>
+        </ButtonsContainer>
     </div>
 </template>
 
 <script setup lang="ts">
-import LockIcon from '@/../static/images/projectPassphrase/lock.svg';
-import CheckIcon from '@/../static/images/projectPassphrase/check.svg';
+import {
+    FUNCTIONAL_CONTAINER_ICON_AND_TITLE,
+    FunctionalContainer,
+} from '@/types/createAccessGrant';
+
+import ContainerWithIcon from '@/components/accessGrants/createFlow/components/ContainerWithIcon.vue';
+import Radio from '@/components/accessGrants/createFlow/components/Radio.vue';
+import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
 const props = withDefaults(defineProps<{
-    isGenerate?: boolean,
+    isGenerate?: boolean
     setGenerate?: () => void
     setEnter?: () => void
+    onContinue?: () => void
+    onCancel?: () => void
 }>(), {
     isGenerate: true,
     setGenerate: () => () => {},
     setEnter: () => () => {},
+    onContinue: () => () => {},
+    onCancel: () => () => {},
 });
 </script>
 
@@ -71,86 +91,39 @@ const props = withDefaults(defineProps<{
 .passphrase-mode {
     display: flex;
     flex-direction: column;
-    align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
+    max-width: 350px;
 
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
+    &__header {
+        display: flex;
+        align-items: center;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 24px;
+            line-height: 31px;
+            color: var(--c-grey-8);
+            margin-left: 16px;
+            text-align: left;
+        }
     }
 
     &__info {
         font-size: 14px;
         line-height: 19px;
-        color: #354049;
-        margin-bottom: 24px;
+        color: var(--c-blue-6);
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
     }
 
-    &__option {
-        padding: 14px 20px;
+    &__radios {
         display: flex;
-        align-items: center;
-        border: 1px solid #d8dee3;
-        background-color: #fafafb;
-        border-radius: 10px;
-        margin-bottom: 9px;
-        width: calc(100% - 40px);
-        cursor: pointer;
-
-        &__check {
-            min-width: 32px;
-            min-height: 32px;
-            background-color: #fff;
-            border: 1px solid #c8d3de;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        &__info {
-            margin-left: 16px;
-            align-items: flex-start;
-
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                line-height: 20px;
-                color: #091c45;
-                text-align: left;
-                margin-bottom: 8px;
-            }
-
-            &__msg {
-                font-size: 12px;
-                line-height: 18px;
-                color: #091c45;
-                text-align: left;
-            }
-        }
-
-        &:hover {
-            background-color: #fff;
-            border-color: #0149ff;
-        }
+        flex-direction: column;
+        row-gap: 16px;
     }
-}
-
-.selected {
-    background-color: #fff;
-    border-color: #929fb1;
-
-    &:hover {
-        border-color: #929fb1;
-    }
-}
-
-.selected-check {
-    border-color: #00ac26;
-    background-color: #00ac26;
 }
 </style>

@@ -38,8 +38,6 @@ import (
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/inspector"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
@@ -50,7 +48,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -111,10 +109,6 @@ type API struct {
 		Endpoint *userinfo.Endpoint
 	}
 
-	Inspector struct {
-		Endpoint *inspector.Endpoint
-	}
-
 	Accounting struct {
 		ProjectUsage *accounting.Service
 	}
@@ -138,8 +132,8 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		StripeService *stripecoinpayments.Service
-		StripeClient  stripecoinpayments.StripeClient
+		StripeService *stripe.Service
+		StripeClient  stripe.Client
 	}
 
 	REST struct {
@@ -289,7 +283,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -458,6 +452,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
+			peer.ProjectLimits.Cache,
 			peer.DB.Console().Projects(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
@@ -504,31 +499,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup inspector
-		peer.Inspector.Endpoint = inspector.NewEndpoint(
-			peer.Log.Named("inspector"),
-			peer.Overlay.Service,
-			peer.Metainfo.Metabase,
-		)
-		if err := internalpb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup payments
 		pc := config.Payments
 
-		var stripeClient stripecoinpayments.StripeClient
+		var stripeClient stripe.Client
 		switch pc.Provider {
 		case "": // just new mock, only used in testing binaries
-			stripeClient = stripecoinpayments.NewStripeMock(
+			stripeClient = stripe.NewStripeMock(
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
 		case "mock":
 			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+			stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
 		default:
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
@@ -543,7 +527,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Payments.StripeService, err = stripecoinpayments.NewService(
+		peer.Payments.StripeService, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
@@ -556,7 +540,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -622,7 +608,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		accountFreezeService := console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
+		accountFreezeService := console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), peer.Analytics.Service)
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),

@@ -32,7 +32,7 @@ func TestReverifyPiece(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		segment := uploadSomeData(t, ctx, planet)
 
@@ -62,7 +62,7 @@ func TestReverifyPieceSucceeds(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		segment := uploadSomeData(t, ctx, planet)
 
@@ -92,7 +92,7 @@ func TestReverifyPieceWithNodeOffline(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		segment := uploadSomeData(t, ctx, planet)
 
@@ -125,7 +125,7 @@ func TestReverifyPieceWithPieceMissing(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		segment := uploadSomeData(t, ctx, planet)
 
@@ -161,7 +161,7 @@ func testReverifyRewrittenPiece(t *testing.T, mutator func(content []byte, heade
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 
 		segment := uploadSomeData(t, ctx, planet)
 

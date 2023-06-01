@@ -29,36 +29,30 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-    },
-})
-export default class MFARecoveryCodesModal extends Vue {
-    /**
-     * Closes modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
-    }
+const usersStore = useUsersStore();
+const appStore = useAppStore();
 
-    /**
-     * Returns MFA recovery codes from store.
-     */
-    public get userMFARecoveryCodes(): string[] {
-        return this.$store.state.usersModule.userMFARecoveryCodes;
-    }
+/**
+ * Returns MFA recovery codes from store.
+ */
+const userMFARecoveryCodes = computed((): string[] => {
+    return usersStore.state.userMFARecoveryCodes;
+});
+
+/**
+ * Closes modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -72,7 +66,7 @@ export default class MFARecoveryCodesModal extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 48px 24px;
         }
 
@@ -84,7 +78,7 @@ export default class MFARecoveryCodesModal extends Vue {
             color: #000;
             margin: 0 0 30px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 24px;
                 line-height: 28px;
                 margin-bottom: 15px;
@@ -108,7 +102,7 @@ export default class MFARecoveryCodesModal extends Vue {
                 margin: 0 0 30px;
                 max-width: 485px;
 
-                @media screen and (max-width: 550px) {
+                @media screen and (width <= 550px) {
                     font-size: 14px;
                     line-height: 18px;
                     margin-bottom: 15px;

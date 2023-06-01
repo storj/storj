@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
 func TestReservoir(t *testing.T) {
@@ -25,7 +25,7 @@ func TestReservoir(t *testing.T) {
 
 	for size := 0; size < maxReservoirSize; size++ {
 		t.Run(fmt.Sprintf("size %d", size), func(t *testing.T) {
-			samples := []segmentloop.Segment{}
+			samples := []rangedloop.Segment{}
 			for i := 0; i < size; i++ {
 				samples = append(samples, makeSegment(i))
 			}
@@ -33,7 +33,7 @@ func TestReservoir(t *testing.T) {
 			// If we sample N segments, less than the max, we should record all N
 			r := NewReservoir(size)
 			for _, sample := range samples {
-				r.Sample(rng, &sample)
+				r.Sample(rng, sample)
 			}
 			require.Equal(t, samples, r.Segments())
 			require.Len(t, r.Keys(), len(samples))
@@ -44,20 +44,20 @@ func TestReservoir(t *testing.T) {
 func TestReservoirMerge(t *testing.T) {
 	t.Run("merge successful", func(t *testing.T) {
 		// Use a fixed rng so we get deterministic sampling results.
-		segments := []segmentloop.Segment{
+		segments := []rangedloop.Segment{
 			makeSegment(0), makeSegment(1), makeSegment(2),
 			makeSegment(3), makeSegment(4), makeSegment(5),
 		}
 		rng := rand.New(rand.NewSource(999))
 		r1 := NewReservoir(3)
-		r1.Sample(rng, &segments[0])
-		r1.Sample(rng, &segments[1])
-		r1.Sample(rng, &segments[2])
+		r1.Sample(rng, segments[0])
+		r1.Sample(rng, segments[1])
+		r1.Sample(rng, segments[2])
 
 		r2 := NewReservoir(3)
-		r2.Sample(rng, &segments[3])
-		r2.Sample(rng, &segments[4])
-		r2.Sample(rng, &segments[5])
+		r2.Sample(rng, segments[3])
+		r2.Sample(rng, segments[4])
+		r2.Sample(rng, segments[5])
 
 		err := r1.Merge(r2)
 		require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestReservoirMerge(t *testing.T) {
 		// Segments should contain a cross section from r1 and r2. If the rng
 		// changes, this result will likely change too since that will affect
 		// the keys. and therefore how they are merged.
-		require.Equal(t, []segmentloop.Segment{
+		require.Equal(t, []rangedloop.Segment{
 			segments[5],
 			segments[1],
 			segments[2],
@@ -93,7 +93,7 @@ func TestReservoirWeights(t *testing.T) {
 		weight1StreamID:  0,
 	}
 
-	segments := []*segmentloop.Segment{
+	segments := []rangedloop.Segment{
 		{
 			StreamID:      weight10StreamID,
 			Position:      metabase.SegmentPosition{},
@@ -163,11 +163,11 @@ func TestReservoirBias(t *testing.T) {
 	for r := 0; r < numRounds; r++ {
 		res := NewReservoir(reservoirSize)
 		for n := 0; n < numSegments; n++ {
-			seg := segmentloop.Segment{
+			seg := rangedloop.Segment{
 				EncryptedSize: weight,
 			}
 			binary.BigEndian.PutUint64(seg.StreamID[0:8], uint64(n)<<(64-useBits))
-			res.Sample(rng, &seg)
+			res.Sample(rng, seg)
 		}
 		for i, seg := range res.Segments() {
 			num := binary.BigEndian.Uint64(seg.StreamID[0:8]) >> (64 - useBits)
@@ -198,8 +198,8 @@ func (us uint64Slice) Len() int           { return len(us) }
 func (us uint64Slice) Swap(i, j int)      { us[i], us[j] = us[j], us[i] }
 func (us uint64Slice) Less(i, j int) bool { return us[i] < us[j] }
 
-func makeSegment(n int) segmentloop.Segment {
-	return segmentloop.Segment{
+func makeSegment(n int) rangedloop.Segment {
+	return rangedloop.Segment{
 		StreamID:      uuid.UUID{0: byte(n)},
 		EncryptedSize: int32(n * 1000),
 	}

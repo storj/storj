@@ -19,6 +19,8 @@ type DB interface {
 	Projects() Projects
 	// ProjectMembers is a getter for ProjectMembers repository.
 	ProjectMembers() ProjectMembers
+	// ProjectInvitations is a getter for ProjectInvitations repository.
+	ProjectInvitations() ProjectInvitations
 	// APIKeys is a getter for APIKeys repository.
 	APIKeys() APIKeys
 	// RegistrationTokens is a getter for RegistrationTokens repository.

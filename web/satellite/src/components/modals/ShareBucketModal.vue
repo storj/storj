@@ -39,17 +39,17 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -63,142 +63,142 @@ enum ButtonStates {
     Copied,
 }
 
-// @vue/component
-@Component({
-    components: {
-        CheckIcon,
-        VModal,
-        VButton,
-        VLoader,
-        ShareContainer,
-    },
-})
-export default class ShareBucketModal extends Vue {
-    private worker: Worker;
-    private readonly ButtonStates = ButtonStates;
+const configStore = useConfigStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
 
-    public isLoading = true;
-    public link = '';
-    public copyButtonState = ButtonStates.Copy;
+const worker = ref<Worker | null>(null);
+const isLoading = ref<boolean>(true);
+const link = ref<string>('');
+const copyButtonState = ref<ButtonStates>(ButtonStates.Copy);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets local worker.
-     */
-    public async mounted(): Promise<void> {
-        this.setWorker();
-        await this.setShareLink();
+/**
+ * Returns chosen bucket name from store.
+ */
+const bucketName = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
+});
+
+/**
+ * Returns passphrase from store.
+ */
+const passphrase = computed((): string => {
+    return bucketsStore.state.passphrase;
+});
+
+/**
+ * Copies link to users clipboard.
+ */
+async function onCopy(): Promise<void> {
+    await navigator.clipboard.writeText(link.value);
+    copyButtonState.value = ButtonStates.Copied;
+
+    setTimeout(() => {
+        copyButtonState.value = ButtonStates.Copy;
+    }, 2000);
+
+    await notify.success('Link copied successfully.');
+}
+
+/**
+ * Sets share bucket link.
+ */
+async function setShareLink(): Promise<void> {
+    if (!worker.value) {
+        return;
     }
 
-    /**
-     * Copies link to users clipboard.
-     */
-    public async onCopy(): Promise<void> {
-        await this.$copyText(this.link);
-        this.copyButtonState = ButtonStates.Copied;
+    try {
+        let path = `${bucketName.value}`;
+        const now = new Date();
+        const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
+        const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, projectsStore.state.selectedProject.id);
 
-        setTimeout(() => {
-            this.copyButtonState = ButtonStates.Copy;
-        }, 2000);
+        const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
+        const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
 
-        await this.$notify.success('Link copied successfully.');
-    }
+        worker.value.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': cleanAPIKey.secret,
+            'passphrase': passphrase.value,
+            'salt': salt,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
 
-    /**
-     * Sets share bucket link.
-     */
-    private async setShareLink(): Promise<void> {
-        try {
-            let path = `${this.bucketName}`;
-            const now = new Date();
-            const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
-            const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
-
-            const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
-            const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
-
-            this.worker.postMessage({
-                'type': 'GenerateAccess',
-                'apiKey': cleanAPIKey.secret,
-                'passphrase': this.passphrase,
-                'salt': salt,
-                'satelliteNodeURL': satelliteNodeURL,
-            });
-
-            const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-            const grantData = grantEvent.data;
-            if (grantData.error) {
-                await this.$notify.error(grantData.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
-
-                return;
+        const grantEvent: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
             }
-
-            this.worker.postMessage({
-                'type': 'RestrictGrant',
-                'isDownload': true,
-                'isUpload': false,
-                'isList': true,
-                'isDelete': false,
-                'paths': [path],
-                'grant': grantData.value,
-            });
-
-            const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-            const data = event.data;
-            if (data.error) {
-                await this.$notify.error(data.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
-
-                return;
-            }
-
-            const credentials: EdgeCredentials =
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
-
-            path = encodeURIComponent(path.trim());
-
-            const linksharingURL = MetaUtils.getMetaContent('linksharing-url');
-
-            this.link = `${linksharingURL}/${credentials.accessKeyId}/${path}`;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
-        } finally {
-            this.isLoading = false;
+        });
+        const grantData = grantEvent.data;
+        if (grantData.error) {
+            await notify.error(grantData.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
+            return;
         }
-    }
 
-    /**
-     * Sets local worker with worker instantiated in store.
-     */
-    public setWorker(): void {
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
-        };
-    }
+        worker.value.postMessage({
+            'type': 'RestrictGrant',
+            'isDownload': true,
+            'isUpload': false,
+            'isList': true,
+            'isDelete': false,
+            'paths': [path],
+            'grant': grantData.value,
+        });
 
-    /**
-     * Closes open bucket modal.
-     */
-    public closeModal(): void {
-        if (this.isLoading) return;
+        const event: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
+            }
+        });
+        const data = event.data;
+        if (data.error) {
+            await notify.error(data.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
+            return;
+        }
 
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareBucket);
-    }
+        const credentials: EdgeCredentials = await agStore.getEdgeCredentials(data.value, undefined, true);
 
-    /**
-     * Returns chosen bucket name from store.
-     */
-    private get bucketName(): string {
-        return this.$store.state.objectsModule.fileComponentBucketName;
-    }
+        path = encodeURIComponent(path.trim());
 
-    /**
-     * Returns passphrase from store.
-     */
-    private get passphrase(): string {
-        return this.$store.state.objectsModule.passphrase;
+        const publicLinksharingURL = configStore.state.config.publicLinksharingURL;
+
+        link.value = `${publicLinksharingURL}/${credentials.accessKeyId}/${path}`;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
+    } finally {
+        isLoading.value = false;
     }
 }
+
+/**
+ * Sets local worker with worker instantiated in store.
+ */
+function setWorker(): void {
+    worker.value = agStore.state.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
+        };
+    }
+}
+
+/**
+ * Closes open bucket modal.
+ */
+function closeModal(): void {
+    if (isLoading.value) return;
+
+    appStore.removeActiveModal();
+}
+
+onMounted(async () => {
+    setWorker();
+    await setShareLink();
+});
 </script>
 
 <style scoped lang="scss">
@@ -210,7 +210,7 @@ export default class ShareBucketModal extends Vue {
         padding: 50px;
         max-width: 470px;
 
-        @media screen and (max-width: 430px) {
+        @media screen and (width <= 430px) {
             padding: 20px;
         }
 
@@ -246,7 +246,7 @@ export default class ShareBucketModal extends Vue {
             margin-top: 32px;
             width: 100%;
 
-            @media screen and (max-width: 430px) {
+            @media screen and (width <= 430px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 15px;
@@ -273,7 +273,7 @@ export default class ShareBucketModal extends Vue {
             max-width: 340px;
             width: 100%;
 
-            @media screen and (max-width: 430px) {
+            @media screen and (width <= 430px) {
                 max-width: 210px;
             }
         }

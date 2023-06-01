@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/base58"
@@ -23,8 +24,9 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/testuplink"
 )
@@ -58,7 +60,6 @@ func TestGarbageCollection(t *testing.T) {
 		// configure filter uploader
 		config := planet.Satellites[0].Config.GarbageCollectionBF
 		config.AccessGrant = accessString
-		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
 
 		satellite := planet.Satellites[0]
 		upl := planet.Uplinks[0]
@@ -102,7 +103,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
-		pieceAccess, err := targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err := targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       deletedPieceID.Bytes(),
 		})
@@ -116,8 +117,15 @@ func TestGarbageCollection(t *testing.T) {
 		// for a second.
 		time.Sleep(1 * time.Second)
 
-		// Wait for next iteration of garbage collection to finish
-		err = bloomFilterService.RunOnce(ctx)
+		// Wait for bloom filter observer to finish
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		// send to storagenode
@@ -128,7 +136,7 @@ func TestGarbageCollection(t *testing.T) {
 		targetNode.Storage2.RetainService.TestWaitUntilEmpty()
 
 		// Check that piece of the deleted object is not on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       deletedPieceID.Bytes(),
 		})
@@ -136,7 +144,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.Nil(t, pieceAccess)
 
 		// Check that piece of the kept object is on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 			Namespace: satellite.ID().Bytes(),
 			Key:       keptPieceID.Bytes(),
 		})
@@ -166,7 +174,6 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		// configure filter uploader
 		config := planet.Satellites[0].Config.GarbageCollectionBF
 		config.AccessGrant = accessString
-		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
 
 		project, err := planet.Uplinks[0].OpenProject(ctx, satellite)
 		require.NoError(t, err)
@@ -211,8 +218,15 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		afterTotalUsedByNodes := allSpaceUsedForPieces()
 		require.Equal(t, totalUsedByNodes, afterTotalUsedByNodes)
 
-		// Wait for next iteration of garbage collection to finish
-		err = bloomFilterService.RunOnce(ctx)
+		// Wait for bloom filter observer to finish
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		// send to storagenode
@@ -241,7 +255,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		planet.WaitForStorageNodeDeleters(ctx)
 
 		// run GC
-		err = bloomFilterService.RunOnce(ctx)
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		// send to storagenode
@@ -268,7 +282,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		planet.WaitForStorageNodeDeleters(ctx)
 
 		// run GC
-		err = bloomFilterService.RunOnce(ctx)
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		// send to storagenode
@@ -341,6 +355,10 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		accessString, err := access.Serialize()
+		require.NoError(t, err)
+
 		satellite := planet.Satellites[0]
 		upl := planet.Uplinks[0]
 
@@ -350,19 +368,25 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
-		require.Len(t, segments[0].Pieces, 1)
 
-		lastPieceCounts := map[storj.NodeID]int64{}
-		pieceTracker := bloomfilter.NewPieceTracker(satellite.Log.Named("gc observer"), bloomfilter.Config{
-			FalsePositiveRate: 0.000000001,
-			InitialPieces:     10,
-		}, lastPieceCounts)
+		config := planet.Satellites[0].Config.GarbageCollectionBF
+		config.AccessGrant = accessString
+		config.Bucket = "bucket"
+		config.FalsePositiveRate = 0.000000001
+		config.InitialPieces = 10
 
-		err = satellite.Metabase.SegmentLoop.Join(ctx, pieceTracker)
+		observer := bloomfilter.NewObserver(satellite.Log.Named("gc observer"), config, satellite.Overlay.DB)
+
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+		provider := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, provider,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
-		require.NotEmpty(t, pieceTracker.RetainInfos)
-		info := pieceTracker.RetainInfos[planet.StorageNodes[0].ID()]
+		require.NotEmpty(t, observer.TestingRetainInfos())
+		info := observer.TestingRetainInfos()[planet.StorageNodes[0].ID()]
 		require.NotNil(t, info)
 		require.Equal(t, 1, info.Count)
 

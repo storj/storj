@@ -7,8 +7,26 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase"
 )
+
+// Segment contains information about segment metadata which will be received by observers.
+type Segment metabase.LoopSegmentEntry
+
+// Inline returns true if segment is inline.
+func (s Segment) Inline() bool {
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment expired relative to now.
+func (s *Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s Segment) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
 
 // Observer subscribes to the parallel segment loop.
 // It is intended that a naïve implementation is threadsafe.
@@ -33,5 +51,5 @@ type Observer interface {
 type Partial interface {
 	// Process is called repeatedly with batches of segments.
 	// It is not called concurrently on the same instance.
-	Process(context.Context, []segmentloop.Segment) error
+	Process(context.Context, []Segment) error
 }

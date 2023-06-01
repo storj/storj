@@ -19,6 +19,12 @@ type ListSegments struct {
 	StreamID uuid.UUID
 	Cursor   SegmentPosition
 	Limit    int
+
+	Range *StreamRange
+
+	// This causes ListSegments to update the first Segment in the response
+	// with the ancestor info if it exists and server side copy is enabled.
+	UpdateFirstWithAncestor bool
 }
 
 // ListSegmentsResult result of listing segments.
@@ -41,23 +47,46 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 
 	ListLimit.Ensure(&opts.Limit)
 
-	err = withRows(db.db.QueryContext(ctx, `
-		SELECT
-			position,
-			created_at,
-			expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
-			encrypted_etag,
-			redundancy,
-			inline_data, remote_alias_pieces
-		FROM segments
-		WHERE
-			stream_id = $1 AND
-			($2 = 0::INT8 OR position > $2)
-		ORDER BY stream_id, position ASC
-		LIMIT $3
-	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
+	if opts.Range != nil {
+		if opts.Range.PlainStart > opts.Range.PlainLimit {
+			return ListSegmentsResult{}, ErrInvalidRequest.New("invalid range: %d:%d", opts.Range.PlainStart, opts.Range.PlainLimit)
+		}
+	}
+
+	var rows tagsql.Rows
+	var rowsErr error
+	if opts.Range == nil {
+		rows, rowsErr = db.db.QueryContext(ctx, `
+			SELECT
+				position, created_at, expires_at, root_piece_id,
+				encrypted_key_nonce, encrypted_key, encrypted_size,
+				plain_offset, plain_size, encrypted_etag, redundancy,
+				inline_data, remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id = $1 AND
+				($2 = 0::INT8 OR position > $2)
+			ORDER BY stream_id, position ASC
+			LIMIT $3
+		`, opts.StreamID, opts.Cursor, opts.Limit+1)
+	} else {
+		rows, rowsErr = db.db.QueryContext(ctx, `
+			SELECT
+				position, created_at, expires_at, root_piece_id,
+				encrypted_key_nonce, encrypted_key, encrypted_size,
+				plain_offset, plain_size, encrypted_etag, redundancy,
+				inline_data, remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id = $1 AND
+				($2 = 0::INT8 OR position > $2) AND
+				$4 < plain_offset + plain_size AND plain_offset < $5
+			ORDER BY stream_id, position ASC
+			LIMIT $3
+		`, opts.StreamID, opts.Cursor, opts.Limit+1, opts.Range.PlainStart, opts.Range.PlainLimit)
+	}
+
+	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var segment Segment
 			var aliasPieces AliasPieces
@@ -140,6 +169,16 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			if index != len(copies) {
 				return ListSegmentsResult{}, Error.New("number of ancestor segments is different than copies: want %d got %d",
 					len(copies), index)
+			}
+		}
+
+		// we have to update the first segment because DownloadObject uses this call
+		// and we only need to do the first segment because it only uses the extra
+		// information for the first segment.
+		if len(result.Segments) > 0 && opts.UpdateFirstWithAncestor {
+			err = db.updateWithAncestorSegment(ctx, &result.Segments[0])
+			if err != nil {
+				return ListSegmentsResult{}, err
 			}
 		}
 	}

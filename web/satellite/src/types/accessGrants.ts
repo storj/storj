@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
 
@@ -55,7 +56,7 @@ export interface AccessGrantsApi {
      * @returns EdgeCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials>;
+    getGatewayCredentials(accessGrant: string, requestURL: string, isPublic?: boolean): Promise<EdgeCredentials>;
 }
 
 /**
@@ -72,7 +73,7 @@ export enum AccessGrantsOrderBy {
 export class AccessGrantCursor {
     public constructor(
         public search: string = '',
-        public limit: number = 6,
+        public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
         public order: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME,
         public orderDirection: SortDirection = SortDirection.ASCENDING,

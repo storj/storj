@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // SleepObserver is a subscriber to the segment loop which sleeps for every batch.
@@ -38,7 +37,7 @@ func (c *SleepObserver) Finish(ctx context.Context) error {
 }
 
 // Process sleeps for every batch of segments to simulate execution time.
-func (c *SleepObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (c *SleepObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	sleepTime := time.Duration(c.Duration.Nanoseconds() * int64(len(segments)))
 	time.Sleep(sleepTime)
 	return nil

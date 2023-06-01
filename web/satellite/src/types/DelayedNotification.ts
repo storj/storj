@@ -1,15 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VueConstructor } from 'vue';
-
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { getId } from '@/utils/idGenerator';
 
 import SuccessIcon from '@/../static/images/notifications/success.svg';
 import NotificationIcon from '@/../static/images/notifications/notification.svg';
 import ErrorIcon from '@/../static/images/notifications/error.svg';
 import WarningIcon from '@/../static/images/notifications/warning.svg';
+
+export const NOTIFICATION_TYPES = {
+    SUCCESS: 'SUCCESS',
+    NOTIFICATION: 'NOTIFICATION',
+    ERROR: 'ERROR',
+    WARNING: 'WARNING',
+};
 
 export class DelayedNotification {
     private readonly successColor: string = '#DBF1D3';
@@ -26,7 +30,7 @@ export class DelayedNotification {
     public readonly type: string;
     public readonly message: string;
     public readonly style: { backgroundColor: string };
-    public readonly icon: VueConstructor<Vue>;
+    public readonly icon: string;
 
     constructor(callback: () => void, type: string, message: string) {
         this.callback = callback;

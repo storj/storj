@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/uplink/private/eestream"
 )
@@ -112,6 +111,14 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
+// UploadLimiterConfig is a configuration struct for endpoint upload limiting.
+type UploadLimiterConfig struct {
+	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
+	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1s" devDefault:"1ms"`
+
+	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
+}
+
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
@@ -124,7 +131,7 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
 	// has encryption overhead 16 bytes. So overall size is 1024 + 16 * 16.
-	MaxEncryptedObjectKeyLength int                  `default:"1280" help:"maximum encrypted object key length"`
+	MaxEncryptedObjectKeyLength int                  `default:"1750" help:"maximum encrypted object key length"`
 	MaxSegmentSize              memory.Size          `default:"64MiB" help:"maximum segment size"`
 	MaxMetadataSize             memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
 	MaxCommitInterval           time.Duration        `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
@@ -132,14 +139,13 @@ type Config struct {
 	MaxNumberOfParts            int                  `default:"10000" help:"maximum number of parts object can contain"`
 	Overlay                     bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                          RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	SegmentLoop                 segmentloop.Config   `help:"segment loop configuration"`
 	RateLimiter                 RateLimiterConfig    `help:"rate limiter configuration"`
+	UploadLimiter               UploadLimiterConfig  `help:"object upload limiter configuration"`
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
-	MultipleVersions       bool `help:"feature flag to enable using multple objects versions in the system internally" default:"true"`
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
 }
@@ -151,6 +157,5 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MinPartSize:      c.MinPartSize,
 		MaxNumberOfParts: c.MaxNumberOfParts,
 		ServerSideCopy:   c.ServerSideCopy,
-		MultipleVersions: c.MultipleVersions,
 	}
 }

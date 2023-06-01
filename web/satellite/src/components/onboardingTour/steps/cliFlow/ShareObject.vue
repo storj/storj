@@ -39,8 +39,8 @@
     </CLIFlowContainer>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -49,33 +49,24 @@ import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowCo
 import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
 import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
-// @vue/component
-@Component({
-    components: {
-        CLIFlowContainer,
-        OSContainer,
-        TabWithCopy,
-    },
-})
-export default class ShareObject extends Vue {
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Holds on back button click logic.
-     */
-    public async onBackClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
-    }
+/**
+ * Holds on back button click logic.
+ */
+async function onBackClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
+}
 
-    /**
-     * Holds on next button click logic.
-     */
-    public async onNextClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
-    }
+/**
+ * Holds on next button click logic.
+ */
+async function onNextClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
 }
 </script>
 

@@ -12,33 +12,27 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import PlusIcon from '@/../static/images/common/plus.svg';
 import MinusIcon from '@/../static/images/common/minus.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PlusIcon,
-        MinusIcon,
-    },
-})
-export default class FAQBullet extends Vue {
-    @Prop({ default: '' })
-    public readonly title: string;
-    @Prop({ default: '' })
-    public readonly text: string;
+const props = withDefaults(defineProps<{
+    title: string;
+    text: string;
+}>(), {
+    title: '',
+    text: '',
+});
 
-    public isExpanded = false;
+const isExpanded = ref<boolean>(false);
 
-    /**
-     * Toggles bullet text visibility.
-     */
-    public toggle(): void {
-        this.isExpanded = !this.isExpanded;
-    }
+/**
+ * Toggles bullet text visibility.
+ */
+function toggle(): void {
+    isExpanded.value = !isExpanded.value;
 }
 </script>
 

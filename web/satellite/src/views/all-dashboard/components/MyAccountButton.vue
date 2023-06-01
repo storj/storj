@@ -50,29 +50,28 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { useNotify } from '@/utils/hooks';
 import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -83,10 +82,23 @@ import BillingIcon from '@/../static/images/navigation/billing.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
 const router = useRouter();
-const store = useStore();
+const route = useRoute();
 const notify = useNotify();
+
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
+
+const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
+const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
 
 const isHoveredOver = ref(false);
 
@@ -94,29 +106,22 @@ const isHoveredOver = ref(false);
  * Indicates if account dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
-});
-
-/**
- * Indicates if new billing screen should be used.
- */
-const isNewBillingScreen = computed((): boolean => {
-    return MetaUtils.getMetaContent('new-billing-screen') === 'true';
+    return appStore.state.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
 });
 
 /**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 function openDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT);
 }
 
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**
@@ -126,11 +131,11 @@ function navigateToBilling(): void {
     closeDropdown();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
-    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
+    const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
 }
@@ -141,7 +146,7 @@ function navigateToBilling(): void {
 function navigateToSettings(): void {
     closeDropdown();
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 
@@ -157,18 +162,17 @@ async function onLogout(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLEAR),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
-        store.dispatch('files/clear'),
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        abTestingStore.reset(),
+        obStore.clear(),
     ]);
 
     try {

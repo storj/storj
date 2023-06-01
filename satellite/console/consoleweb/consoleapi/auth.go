@@ -125,6 +125,48 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TokenByAPIKey authenticates user by API key and returns auth token.
+func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	authToken := r.Header.Get("Authorization")
+	if !(strings.HasPrefix(authToken, "Bearer ")) {
+		a.log.Info("authorization key format is incorrect. Should be 'Bearer <key>'")
+		a.serveJSONError(w, err)
+		return
+	}
+
+	apiKey := strings.TrimPrefix(authToken, "Bearer ")
+
+	userAgent := r.UserAgent()
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.TokenByAPIKey(ctx, userAgent, ip, apiKey)
+	if err != nil {
+		a.log.Info("Error authenticating token request", zap.Error(ErrAuthAPI.Wrap(err)))
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
+	if err != nil {
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // getSessionID gets the session ID from the request.
 func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
 
@@ -203,6 +245,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		IsProfessional   bool   `json:"isProfessional"`
 		Position         string `json:"position"`
 		CompanyName      string `json:"companyName"`
+		StorageNeeds     string `json:"storageNeeds"`
 		EmployeeCount    string `json:"employeeCount"`
 		HaveSalesContact bool   `json:"haveSalesContact"`
 		CaptchaResponse  string `json:"captchaResponse"`
@@ -336,6 +379,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.Type = analytics.Professional
 			trackCreateUserFields.EmployeeCount = user.EmployeeCount
 			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}
@@ -370,10 +414,11 @@ func loadSession(req *http.Request) string {
 	return sessionCookie.Value
 }
 
-// IsAccountFrozen checks to see if an account is frozen.
-func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
+// GetFreezeStatus checks to see if an account is frozen or warned.
+func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
 		Frozen bool `json:"frozen"`
+		Warned bool `json:"warned"`
 	}
 
 	ctx := r.Context()
@@ -386,7 +431,7 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	frozenBool, err := a.accountFreezeService.IsUserFrozen(ctx, userID)
+	freeze, warning, err := a.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -394,7 +439,8 @@ func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(FrozenResult{
-		Frozen: frozenBool,
+		Frozen: freeze != nil,
+		Warned: warning != nil,
 	})
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
@@ -841,8 +887,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
 
 	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -857,8 +903,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if console.ErrTokenExpiration.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -908,6 +954,102 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GetUserSettings gets a user's settings.
+func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	settings, err := a.service.GetUserSettings(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// SetOnboardingStatus updates a user's onboarding status.
+func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart *bool   `json:"onboardingStart"`
+		OnboardingEnd   *bool   `json:"onboardingEnd"`
+		OnboardingStep  *string `json:"onboardingStep"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	_, err = a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart: updateInfo.OnboardingStart,
+		OnboardingEnd:   updateInfo.OnboardingEnd,
+		OnboardingStep:  updateInfo.OnboardingStep,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// SetUserSettings updates a user's settings.
+func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart  *bool   `json:"onboardingStart"`
+		OnboardingEnd    *bool   `json:"onboardingEnd"`
+		PassphrasePrompt *bool   `json:"passphrasePrompt"`
+		OnboardingStep   *string `json:"onboardingStep"`
+		SessionDuration  *int64  `json:"sessionDuration"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	var newDuration **time.Duration
+	if updateInfo.SessionDuration != nil {
+		newDuration = new(*time.Duration)
+		if *updateInfo.SessionDuration != 0 {
+			duration := time.Duration(*updateInfo.SessionDuration)
+			*newDuration = &duration
+		}
+	}
+
+	settings, err := a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart:  updateInfo.OnboardingStart,
+		OnboardingEnd:    updateInfo.OnboardingEnd,
+		OnboardingStep:   updateInfo.OnboardingStep,
+		PassphrasePrompt: updateInfo.PassphrasePrompt,
+		SessionDuration:  newDuration,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }

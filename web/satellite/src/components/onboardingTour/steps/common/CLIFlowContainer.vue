@@ -24,27 +24,20 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-    },
-})
-export default class CLIFlowContainer extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly onNextClick: () => unknown;
-    @Prop({ default: () => () => {} })
-    public readonly onBackClick: () => unknown;
-    @Prop({ default: '' })
-    public readonly title: string;
-    @Prop({ default: false })
-    public readonly isLoading: boolean;
-}
+const props = withDefaults(defineProps<{
+    onNextClick: () => unknown;
+    onBackClick: () => unknown;
+    title: string;
+    isLoading: boolean;
+}>(), {
+    onNextClick: () => {},
+    onBackClick: () => {},
+    title: '',
+    isLoading: false,
+});
 </script>
 
 <style scoped lang="scss">

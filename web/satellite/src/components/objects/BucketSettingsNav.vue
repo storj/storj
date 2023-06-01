@@ -28,21 +28,22 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { useRoute, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
 
+const obStore = useObjectBrowserStore();
+const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
-const store = useStore();
 
 const props = defineProps<{
     bucketName: string,
@@ -55,11 +56,11 @@ const isHoveredOver = ref(false);
  * Returns files amount from store.
  */
 const filesCount = computed((): number => {
-    return store.getters['files/sortedFiles'].length;
+    return obStore.sortedFiles.length;
 });
 
 function closeDropdown(): void {
-    if (!isDropdownOpen) return;
+    if (!isDropdownOpen.value) return;
 
     isDropdownOpen.value = false;
 }
@@ -70,9 +71,9 @@ function closeDropdown(): void {
 function onDetailsClick(): void {
     router.push({
         name: RouteConfig.BucketsDetails.name,
-        params: {
+        query: {
             bucketName: props.bucketName,
-            backRoute: route?.name || '',
+            backRoute: route.name as string || '',
         },
     });
 
@@ -83,7 +84,7 @@ function onDetailsClick(): void {
  * Toggles share bucket modal.
  */
 function onShareBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareBucket);
+    appStore.updateActiveModal(MODALS.shareBucket);
     isDropdownOpen.value = false;
 }
 </script>

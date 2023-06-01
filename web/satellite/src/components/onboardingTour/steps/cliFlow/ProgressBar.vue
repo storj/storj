@@ -11,46 +11,45 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 
-// @vue/component
-@Component
-export default class ProgressBar extends Vue {
-    /**
-     * Returns fill bar width depending on current route name.
-     */
-    public get fill(): string {
-        switch (this.$route.name) {
-        case RouteConfig.AGName.name:
-            return '9%';
-        case RouteConfig.AGPermissions.name:
-            return '18%';
-        case RouteConfig.APIKey.name:
-            return '27%';
-        case RouteConfig.CLIInstall.name:
-            return '36%';
-        case RouteConfig.CLISetup.name:
-            return '45%';
-        case RouteConfig.CreateBucket.name:
-            return '54%';
-        case RouteConfig.UploadObject.name:
-            return '63%';
-        case RouteConfig.ListObject.name:
-            return '72%';
-        case RouteConfig.DownloadObject.name:
-            return '81%';
-        case RouteConfig.ShareObject.name:
-            return '90%';
-        case RouteConfig.SuccessScreen.name:
-            return '100%';
-        default:
-            return '0%';
-        }
+const route = useRoute();
+
+/**
+ * Returns fill bar width depending on current route name.
+ */
+const fill = computed((): string => {
+    switch (route.name) {
+    case RouteConfig.AGName.name:
+        return '9%';
+    case RouteConfig.AGPermissions.name:
+        return '18%';
+    case RouteConfig.APIKey.name:
+        return '27%';
+    case RouteConfig.CLIInstall.name:
+        return '36%';
+    case RouteConfig.CLISetup.name:
+        return '45%';
+    case RouteConfig.CreateBucket.name:
+        return '54%';
+    case RouteConfig.UploadObject.name:
+        return '63%';
+    case RouteConfig.ListObject.name:
+        return '72%';
+    case RouteConfig.DownloadObject.name:
+        return '81%';
+    case RouteConfig.ShareObject.name:
+        return '90%';
+    case RouteConfig.SuccessScreen.name:
+        return '100%';
+    default:
+        return '0%';
     }
-}
+});
 </script>
 
 <style scoped lang="scss">

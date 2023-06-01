@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/txutil"
@@ -123,7 +122,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 			}
 			return Error.New("failed to update object: %w", err)
 		}

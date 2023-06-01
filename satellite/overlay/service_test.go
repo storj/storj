@@ -18,6 +18,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -37,11 +38,10 @@ func TestCache_Database(t *testing.T) {
 }
 
 // returns a NodeSelectionConfig with sensible test values.
-func testNodeSelectionConfig(newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
+func testNodeSelectionConfig(newNodeFraction float64) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
 		NewNodeFraction: newNodeFraction,
 		OnlineWindow:    time.Hour,
-		DistinctIP:      distinctIP,
 	}
 }
 
@@ -63,7 +63,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 	lastNet := "127.0.0"
 
-	nodeSelectionConfig := testNodeSelectionConfig(0, false)
+	nodeSelectionConfig := testNodeSelectionConfig(0)
 	serviceConfig := overlay.Config{
 		Node: nodeSelectionConfig,
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
@@ -74,7 +74,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nil, "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -283,7 +283,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
 			address := fmt.Sprintf("127.0.%d.0:8080", i)
-			lastNet := fmt.Sprintf("127.0.%d", i)
+			lastNet := address
 
 			n := overlay.NodeCheckInInfo{
 				NodeID: newID,
@@ -393,8 +393,7 @@ func TestGetOnlineNodesForGetDelete(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// pause chores that might update node data
-		planet.Satellites[0].Audit.Chore.Loop.Pause()
-		planet.Satellites[0].Repair.Checker.Loop.Pause()
+		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Stop()
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 		for _, node := range planet.StorageNodes {
 			node.Contact.Chore.Pause(ctx)
@@ -1089,5 +1088,49 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		ne2 := getNE()
 		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
+	})
+}
+
+func TestService_GetNodesOutOfPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.AsOfSystemTime.Enabled = false
+				config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+
+		placement := storj.EU
+
+		nodeIDs := []storj.NodeID{}
+		for _, node := range planet.StorageNodes {
+			nodeIDs = append(nodeIDs, node.ID())
+
+			err := service.TestNodeCountryCode(ctx, node.ID(), location.Poland.String())
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
+
+		offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
+		require.NoError(t, err)
+		require.Empty(t, offNodes)
+
+		expectedNodeIDs := []storj.NodeID{}
+		for _, node := range planet.StorageNodes {
+			expectedNodeIDs = append(expectedNodeIDs, node.ID())
+			err := service.TestNodeCountryCode(ctx, node.ID(), location.Brazil.String())
+			require.NoError(t, err)
+
+			// we need to refresh cache because node country code was changed
+			require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
+
+			offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
+			require.NoError(t, err)
+			require.ElementsMatch(t, expectedNodeIDs, offNodes)
+		}
 	})
 }

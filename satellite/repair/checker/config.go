@@ -23,6 +23,7 @@ type Config struct {
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
 	NodeFailureRate            float64 `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
 	RepairQueueInsertBatchSize int     `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
+	DoDeclumping               bool    `help:"Treat pieces on the same network as in need of repair" default:"false"`
 }
 
 // RepairOverride is a configuration struct that contains an override repair

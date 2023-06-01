@@ -5,24 +5,33 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <img
-                    class="modal__icon"
-                    src="@/../static/images/account/billing/paidTier/prompt.png"
-                    alt="Prompt Image"
-                >
-                <h1 class="modal__title" aria-roledescription="modal-title">
-                    Get more projects<br>when you upgrade
-                </h1>
-                <p class="modal__info">
-                    Upgrade your Free Account to create<br>more projects and gain access to higher limits.
+                <div class="modal__header">
+                    <ProjectIcon />
+                    <h1 class="modal__header__title">Get more projects</h1>
+                </div>
+                <p v-if="!user.paidTier" class="modal__info">
+                    Upgrade to Pro Account to create more projects and gain access to higher limits.
                 </p>
-                <div class="modal__btn">
+                <p v-else class="modal__info">
+                    Request project limits increase.
+                </p>
+                <div class="modal__buttons">
                     <VButton
+                        label="Cancel"
+                        :on-press="closeModal"
                         width="100%"
-                        height="56px"
-                        border-radius="8px"
-                        label="Upgrade to Pro Account ->"
+                        height="48px"
+                        font-size="14px"
+                        border-radius="10px"
+                        is-white
+                    />
+                    <VButton
+                        :label="buttonLabel()"
                         :on-press="onClick"
+                        width="100%"
+                        height="48px"
+                        font-size="14px"
+                        border-radius="10px"
                     />
                 </div>
             </div>
@@ -30,107 +39,98 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-    },
-})
-export default class CreateProjectPromptModal extends Vue {
-    /**
-     * Holds on button click logic.
-     * Closes this modal and opens upgrade account modal.
-     */
-    public onClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+import ProjectIcon from '@/../static/images/common/blueBox.svg';
+
+const appStore = useAppStore();
+const userStore = useUsersStore();
+const user = userStore.state.user;
+
+/**
+ * Button text logic depending on if the user is in the free or paid tier.
+ */
+function buttonLabel(): string {
+    let label = 'Upgrade -->';
+
+    if (user.paidTier) {
+        label = 'Request -->';
     }
 
-    /**
-     * Closes create project prompt modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+    return label;
+}
+
+/**
+ * Holds on button click logic.
+ * Closes this modal
+ * Redirects to upgrade modal or opens new tab to request increase project limits .
+ */
+function onClick(): void {
+    if (!user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    } else {
+        appStore.removeActiveModal();
+        window.open('https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212', '_blank', 'noopener');
     }
+}
+
+/**
+ * Closes create project prompt modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
 }
 </script>
 
 <style scoped lang="scss">
-    .modal {
-        width: 600px;
-        padding: 54px 0 65px;
+.modal {
+    width: 414px;
+    padding: 32px;
+    font-family: 'font_regular', sans-serif;
+
+    @media screen and (max-width <= 375px) {
+        width: unset;
+        padding: 32px 16px;
+    }
+
+    &__header {
         display: flex;
         align-items: center;
-        flex-direction: column;
-        font-family: 'font_regular', sans-serif;
-
-        @media screen and (max-width: 768px) {
-            width: unset;
-            padding: 54px 24px 65px;
-        }
-
-        @media screen and (max-width: 450px) {
-            padding: 54px 12px 32px;
-        }
-
-        &__icon {
-            max-height: 154px;
-            max-width: 118px;
-
-            @media screen and (max-width: 450px) {
-                max-height: 127px;
-                max-width: 97px;
-            }
-        }
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 34px;
-            color: #1b2533;
-            margin-top: 40px;
-            text-align: center;
-
-            @media screen and (max-width: 450px) {
-                margin-top: 24px;
-                font-size: 24px;
-                line-height: 31px;
-            }
-        }
-
-        &__info {
-            font-family: 'font_regular', sans-serif;
-            font-size: 16px;
-            line-height: 21px;
-            text-align: center;
-            color: #354049;
-            margin: 15px 0 45px;
-
-            @media screen and (max-width: 450px) {
-                margin: 10px 0 24px;
-                font-size: 14px;
-                line-height: 20px;
-            }
-        }
-
-        &__btn {
-            display: flex;
-            justify-content: center;
-            width: 256px;
-
-            @media screen and (max-width: 768px) {
-                width: 224px;
-            }
+            font-weight: 800;
+            font-size: 24px;
+            line-height: 31px;
+            color: var(--c-black);
+            margin-left: 16px;
         }
     }
+
+    &__info {
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 20px;
+        margin-top: 16px;
+        text-align: left;
+    }
+
+    &__buttons {
+        border-top: 1px solid var(--c-grey-2);
+        margin-top: 16px;
+        padding-top: 24px;
+        display: flex;
+        align-items: center;
+        column-gap: 16px;
+    }
+}
 </style>

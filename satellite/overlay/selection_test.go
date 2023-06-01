@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"runtime"
 	"strings"
@@ -170,8 +171,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		// pause chores that might update node data
-		satellite.Audit.Chore.Loop.Pause()
-		satellite.Repair.Checker.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satellite.Repair.Repairer.Loop.Pause()
 		for _, node := range planet.StorageNodes {
 			node.Contact.Chore.Pause(ctx)
@@ -204,7 +204,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		t.Run("request 5, where 1 new", func(t *testing.T) {
 			requestedCount, newCount := 5, 1
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -217,7 +217,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		t.Run("request 5, all new", func(t *testing.T) {
 			requestedCount, newCount := 5, 5
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -242,8 +242,8 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		t.Run("no new nodes", func(t *testing.T) {
 			requestedCount, newCount := 5, 1.0
 			newNodeFraction := newCount / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
-			satellite.Config.Overlay.Node = testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
+			satellite.Config.Overlay.Node = testNodeSelectionConfig(newNodeFraction)
 
 			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
@@ -360,7 +360,7 @@ func TestNodeSelection(t *testing.T) {
 					require.NoError(t, err)
 				}
 			}
-			config := testNodeSelectionConfig(tt.newNodeFraction, false)
+			config := testNodeSelectionConfig(tt.newNodeFraction)
 			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{RequestedCount: tt.requestCount, ExcludedIDs: excludedNodes}, &config)
 			if tt.shouldFailWith != nil {
 				require.Error(t, err)
@@ -434,34 +434,34 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 
 		for i, tt := range []test{
 			{ // reputable and new nodes, happy path
-				Preferences:   testNodeSelectionConfig(0.5, false),
+				Preferences:   testNodeSelectionConfig(0.5),
 				RequestCount:  5,
 				ExpectedCount: 5, // 2 new + 3 vetted
 			},
 			{ // all reputable nodes, happy path
-				Preferences:   testNodeSelectionConfig(0, false),
+				Preferences:   testNodeSelectionConfig(0),
 				RequestCount:  3,
 				ExpectedCount: 3,
 			},
 			{ // all new nodes, happy path
-				Preferences:   testNodeSelectionConfig(1, false),
+				Preferences:   testNodeSelectionConfig(1),
 				RequestCount:  2,
 				ExpectedCount: 2,
 			},
 			{ // reputable and new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(0.5, false),
+				Preferences:    testNodeSelectionConfig(0.5),
 				RequestCount:   10,
 				ExpectedCount:  5, // 2 new + 3 vetted
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all reputable nodes, requested too many
-				Preferences:    testNodeSelectionConfig(0, false),
+				Preferences:    testNodeSelectionConfig(0),
 				RequestCount:   10,
 				ExpectedCount:  3,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(1, false),
+				Preferences:    testNodeSelectionConfig(1),
 				RequestCount:   10,
 				ExpectedCount:  2,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
@@ -640,6 +640,7 @@ func TestDistinctIPs(t *testing.T) {
 				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 				config.Reputation.AuditCount = 1
+				config.Overlay.Node.DistinctIP = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -671,6 +672,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 				config.Reputation.AuditCount = 1
+				config.Overlay.Node.DistinctIP = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -696,16 +698,12 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		{ // test only distinct IPs with half new nodes
 			// expect 2 new and 2 vetted
 			requestCount: 4,
-			preferences:  testNodeSelectionConfig(0.5, true),
+			preferences:  testNodeSelectionConfig(0.5),
 		},
 		{ // test not enough distinct IPs
 			requestCount:   5, // expect 3 new, 2 old but fails because only 4 distinct IPs, not 5
-			preferences:    testNodeSelectionConfig(0.6, true),
+			preferences:    testNodeSelectionConfig(0.6),
 			shouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-		{ // test distinct flag false allows duplicate IP addresses
-			requestCount: 5, // expect 3 new, 2 old
-			preferences:  testNodeSelectionConfig(0.6, false),
 		},
 	}
 
@@ -740,17 +738,28 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ip := "8.8.8.8:28967"
-	resolvedIP, port, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
-	require.Equal(t, "8.8.8.0", network)
-	require.Equal(t, ip, net.JoinHostPort(resolvedIP.String(), port))
-	require.NoError(t, err)
+	runTest := func(t *testing.T, ipAddr, port string, distinctIPEnabled bool, ipv4Mask, ipv6Mask int, expectedNetwork string) {
+		t.Run(fmt.Sprintf("%s-%s-%v-%d-%d", ipAddr, port, distinctIPEnabled, ipv4Mask, ipv6Mask), func(t *testing.T) {
+			ipAndPort := net.JoinHostPort(ipAddr, port)
+			config := overlay.NodeSelectionConfig{
+				DistinctIP:        distinctIPEnabled,
+				NetworkPrefixIPv4: ipv4Mask,
+				NetworkPrefixIPv6: ipv6Mask,
+			}
+			resolvedIP, resolvedPort, network, err := overlay.ResolveIPAndNetwork(ctx, ipAndPort, config, overlay.MaskOffLastNet)
+			require.NoError(t, err)
+			assert.Equal(t, expectedNetwork, network)
+			assert.Equal(t, ipAddr, resolvedIP.String())
+			assert.Equal(t, port, resolvedPort)
+		})
+	}
 
-	ipv6 := "[fc00::1:200]:28967"
-	resolvedIP, port, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
-	require.Equal(t, "fc00::", network)
-	require.Equal(t, ipv6, net.JoinHostPort(resolvedIP.String(), port))
-	require.NoError(t, err)
+	runTest(t, "8.8.255.8", "28967", true, 17, 128, "8.8.128.0")
+	runTest(t, "8.8.255.8", "28967", false, 0, 0, "8.8.255.8:28967")
+
+	runTest(t, "fc00::1:200", "28967", true, 0, 64, "fc00::")
+	runTest(t, "fc00::1:200", "28967", true, 0, 128-16, "fc00::1:0")
+	runTest(t, "fc00::1:200", "28967", false, 0, 0, "[fc00::1:200]:28967")
 }
 
 func TestCacheSelectionVsDBSelection(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -57,7 +57,7 @@ func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error)
 	return ErrPieceInfo.Wrap(err)
 }
 
-func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
+func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
@@ -90,7 +90,7 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore stor
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore blobstore.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -206,13 +206,13 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, li
 }
 
 type v0StoredPieceAccess struct {
-	blobStore      storage.Blobs
+	blobStore      blobstore.Blobs
 	satellite      storj.NodeID
 	pieceID        storj.PieceID
 	pieceSize      int64
 	creationTime   time.Time
 	expirationTime *time.Time
-	blobInfo       storage.BlobInfo
+	blobInfo       blobstore.BlobInfo
 }
 
 // PieceID returns the piece ID for the piece.
@@ -225,9 +225,9 @@ func (v0Access *v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
 	return v0Access.satellite, nil
 }
 
-// BlobRef returns the relevant storage.BlobRef locator for the piece.
-func (v0Access *v0StoredPieceAccess) BlobRef() storage.BlobRef {
-	return storage.BlobRef{
+// BlobRef returns the relevant blobstore.BlobRef locator for the piece.
+func (v0Access *v0StoredPieceAccess) BlobRef() blobstore.BlobRef {
+	return blobstore.BlobRef{
 		Namespace: v0Access.satellite.Bytes(),
 		Key:       v0Access.pieceID.Bytes(),
 	}
@@ -274,7 +274,7 @@ func (v0Access *v0StoredPieceAccess) FullPath(ctx context.Context) (string, erro
 }
 
 // StorageFormatVersion indicates the storage format version used to store the piece.
-func (v0Access *v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
+func (v0Access *v0StoredPieceAccess) StorageFormatVersion() blobstore.FormatVersion {
 	return filestore.FormatV0
 }
 

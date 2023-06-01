@@ -21,12 +21,13 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // Admin is the satellite core process that runs chores.
@@ -52,10 +53,14 @@ type Admin struct {
 		Service *checker.Service
 	}
 
+	Analytics struct {
+		Service *analytics.Service
+	}
+
 	Payments struct {
 		Accounts payments.Accounts
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
+		Service  *stripe.Service
+		Stripe   stripe.Client
 	}
 
 	Admin struct {
@@ -134,20 +139,30 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		})
 	}
 
+	{ // setup analytics
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup payments
 		pc := config.Payments
 
-		var stripeClient stripecoinpayments.StripeClient
+		var stripeClient stripe.Client
 		switch pc.Provider {
 		case "": // just new mock, only used in testing binaries
-			stripeClient = stripecoinpayments.NewStripeMock(
+			stripeClient = stripe.NewStripeMock(
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
 		case "mock":
 			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+			stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
 		default:
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
@@ -162,7 +177,14 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Payments.Service, err = stripecoinpayments.NewService(
+		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
+			db.Console().AccountFreezeEvents(),
+			db.Console().Users(),
+			db.Console().Projects(),
+			peer.Analytics.Service,
+		)
+
+		peer.Payments.Service, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
@@ -175,7 +197,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -183,7 +207,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.FreezeAccounts.Service = console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
 	}
 
 	{ // setup admin endpoint

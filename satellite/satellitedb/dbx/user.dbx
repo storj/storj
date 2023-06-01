@@ -4,6 +4,11 @@
 model user (
     key id
 
+    index (
+        name users_email_status_index
+        fields normalized_email status
+    )
+
     // id is an uuid for the user.
     field id                 blob
     // email is the user specified email.
@@ -20,10 +25,6 @@ model user (
 
     // status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
     field status                   int       ( updatable, autoinsert )
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    // note: this field is duplicated in value_attribution.project_id.
-    field partner_id               blob      ( nullable )
     // user_agent contains the partner parameter from registration.
     field user_agent               blob      ( nullable )
     // created_at indicates when the user was created.
@@ -220,6 +221,11 @@ update account_freeze_event (
 
 delete account_freeze_event ( where account_freeze_event.user_id = ? )
 
+delete account_freeze_event (
+    where account_freeze_event.user_id = ?
+    where account_freeze_event.event = ?
+)
+
 // user_settings table is used to persist user preferences.
 model user_settings (
     key user_id
@@ -230,6 +236,12 @@ model user_settings (
     field session_minutes uint ( nullable, updatable )
     // passphrase_prompt indicates whether the user would like to be prompted for a passphrase when entering or switching projects.
     field passphrase_prompt bool ( nullable, updatable )
+    // onboarding_start indicates whether the user has started the onboarding flow.
+    field onboarding_start bool ( updatable, default true )
+    // onboarding_end indicates whether the user has finished/skipped the onboarding flow.
+    field onboarding_end bool ( updatable, default true )
+    // onboarding_step indicates the step where a user exited onboarding without finishing.
+    field onboarding_step text ( nullable, updatable )
 )
 
 create user_settings ( noreturn )

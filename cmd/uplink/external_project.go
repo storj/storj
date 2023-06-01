@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
+	"storj.io/uplink/private/testuplink"
 	"storj.io/uplink/private/transport"
 )
 
@@ -46,6 +47,10 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 		if err := transport.SetConnectionPool(ctx, &config, rpcpool.New(opts.ConnectionPoolOptions)); err != nil {
 			return nil, err
 		}
+	}
+
+	if opts.ConcurrentSegmentUploadsConfig != (testuplink.ConcurrentSegmentUploadsConfig{}) {
+		ctx = testuplink.WithConcurrentSegmentUploadsConfig(ctx, opts.ConcurrentSegmentUploadsConfig)
 	}
 
 	return config.OpenProject(ctx, access)

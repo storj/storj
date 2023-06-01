@@ -92,30 +92,26 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
-import {
-    AnalyticsErrorEventSource,
-    AnalyticsEvent,
-} from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AuthHttpApi } from '@/api/auth';
-import { MetaUtils } from '@/utils/meta';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -134,10 +130,23 @@ import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 
 const router = useRouter();
-const store = useStore();
+const route = useRoute();
+const notify = useNotify();
+
+const configStore = useConfigStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const pmStore = useProjectMembersStore();
+const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
+const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
+const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
+
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
-const notify = useNotify();
 
 const link = 'https://docs.storj.io/';
 
@@ -148,21 +157,14 @@ const isNavOpened = ref(false);
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
  * Returns user from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
-});
-
-/**
- * Indicates if new billing screen should be used.
- */
-const isNewBillingScreen = computed((): boolean => {
-    return MetaUtils.getMetaContent('new-billing-screen') === 'true';
+    return usersStore.state.user;
 });
 
 /**
@@ -185,10 +187,10 @@ function toggleNavigation(): void {
 function goToProjects(): void {
     toggleNavigation();
     // this will close MyAccountButton.vue if it's open.
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 
     const projects = RouteConfig.AllProjectsDashboard.path;
-    if (router.currentRoute.path.includes(projects)) {
+    if (route.path.includes(projects)) {
         return;
     }
 
@@ -200,11 +202,11 @@ function navigateToBilling(): void {
     toggleNavigation();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
-    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
+    const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
 }
@@ -216,7 +218,7 @@ function navigateToSettings(): void {
     toggleNavigation();
 
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 
@@ -232,25 +234,24 @@ async function onLogout(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
-        store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLEAR),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
-        store.dispatch('files/clear'),
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        abTestingStore.reset(),
+        obStore.clear(),
     ]);
 
     try {
         analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -374,7 +375,7 @@ function sendDocsEvent(): void {
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         &__content {
             display: none;

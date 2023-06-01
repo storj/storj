@@ -5,6 +5,7 @@ package billing
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -51,8 +52,11 @@ const (
 //
 // architecture: Database
 type TransactionsDB interface {
-	// Insert inserts the provided transaction.
-	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
+	// Insert inserts the provided primary transaction along with zero or more
+	// supplemental transactions that. This is NOT intended for bulk insertion,
+	// but rather to provide an atomic commit of one or more _related_
+	// transactions.
+	Insert(ctx context.Context, primaryTx Transaction, supplementalTx ...Transaction) (txIDs []int64, err error)
 	// UpdateStatus updates the status of the transaction.
 	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
 	// UpdateMetadata updates the metadata of the transaction.
@@ -61,6 +65,8 @@ type TransactionsDB interface {
 	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, []byte, error)
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
+	// ListSource returns all transactions for the specified user and source.
+	ListSource(ctx context.Context, userID uuid.UUID, txSource string) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
 	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 }
@@ -78,6 +84,13 @@ type PaymentType interface {
 	GetNewTransactions(ctx context.Context, lastTransactionTime time.Time, metadata []byte) ([]Transaction, error)
 }
 
+// Well-known PaymentType sources.
+const (
+	StripeSource         = "stripe"
+	StorjScanSource      = "storjscan"
+	StorjScanBonusSource = "storjscanbonus"
+)
+
 // Transaction defines billing related transaction info that is stored in the DB.
 type Transaction struct {
 	ID          int64
@@ -90,4 +103,34 @@ type Transaction struct {
 	Metadata    []byte
 	Timestamp   time.Time
 	CreatedAt   time.Time
+}
+
+func prepareBonusTransaction(bonusRate int64, source string, transaction Transaction) (Transaction, bool) {
+	// Bonus transactions only apply when enabled (i.e. positive rate) and
+	// for StorjScan transactions.
+	switch {
+	case bonusRate <= 0:
+		return Transaction{}, false
+	case source != StorjScanSource:
+		return Transaction{}, false
+	case transaction.Type != TransactionTypeCredit:
+		// This is defensive. Storjscan shouldn't provide "debit" transactions.
+		return Transaction{}, false
+	}
+
+	return Transaction{
+		UserID:      transaction.UserID,
+		Amount:      calculateBonusAmount(transaction.Amount, bonusRate),
+		Description: fmt.Sprintf("STORJ Token Bonus (%d%%)", bonusRate),
+		Source:      StorjScanBonusSource,
+		Status:      TransactionStatusCompleted,
+		Type:        TransactionTypeCredit,
+		Timestamp:   transaction.Timestamp,
+		Metadata:    append([]byte(nil), transaction.Metadata...),
+	}, true
+}
+
+func calculateBonusAmount(amount currency.Amount, bonusRate int64) currency.Amount {
+	bonusUnits := amount.BaseUnits() * bonusRate / 100
+	return currency.AmountFromBaseUnits(bonusUnits, amount.Currency())
 }

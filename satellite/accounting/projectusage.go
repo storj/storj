@@ -67,7 +67,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 	group.Go(func() error {
 		var err error
-		limit, err = usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
+		limit, err = usage.projectLimitCache.GetBandwidthLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
@@ -128,7 +128,7 @@ func (usage *Service) ExceedsUploadLimits(
 
 	group.Go(func() error {
 		var err error
-		limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+		limits, err := usage.projectLimitCache.GetLimits(ctx, projectID)
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func (usage *Service) ExceedsUploadLimits(
 func (usage *Service) AddProjectUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	limits, err := usage.projectLimitCache.GetLimits(ctx, projectID)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UU
 // GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	limits, err := usage.projectLimitCache.GetLimits(ctx, projectID)
 	if err != nil {
 		return 0, ErrProjectUsage.Wrap(err)
 	}
@@ -252,18 +252,13 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 // GetProjectBandwidthLimit returns current project bandwidth limit.
 func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
+	return usage.projectLimitCache.GetBandwidthLimit(ctx, projectID)
 }
 
 // GetProjectSegmentLimit returns current project segment limit.
 func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
-	if err != nil {
-		return 0, ErrProjectUsage.Wrap(err)
-	}
-
-	return memory.Size(*limits.Usage), nil
+	return usage.projectLimitCache.GetSegmentLimit(ctx, projectID)
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

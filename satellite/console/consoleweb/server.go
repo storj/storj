@@ -6,10 +6,12 @@ package consoleweb
 import (
 	"context"
 	"crypto/subtle"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"mime"
 	"net"
 	"net/http"
@@ -30,9 +32,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
@@ -80,7 +80,7 @@ type Config struct {
 	PartneredSatellites             Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
 	GeneralRequestURL               string     `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string     `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
+	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool       `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string     `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string     `help:"url link for for beta satellite support" default:""`
@@ -89,17 +89,17 @@ type Config struct {
 	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool       `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string     `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
+	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool       `help:"indicates if new project dashboard should be used" default:"true"`
 	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"false"`
-	NewBillingScreen                bool       `help:"indicates if new billing screens should be used" default:"true"`
-	NewAccessGrantFlow              bool       `help:"indicates if new access grant flow should be used" default:"false"`
+	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"false"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -138,14 +138,7 @@ type Server struct {
 
 	schema graphql.Schema
 
-	templatesCache *templates
-}
-
-type templates struct {
-	index               *template.Template
-	notFound            *template.Template
-	internalServerError *template.Template
-	usageReport         *template.Template
+	errorTemplate *template.Template
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -257,7 +250,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
 	).Methods(http.MethodGet)
 
-	router.HandleFunc("/config", server.frontendConfigHandler)
+	router.HandleFunc("/api/v0/config", server.frontendConfigHandler)
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
@@ -283,7 +277,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost)
-	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.IsAccountFrozen))).Methods(http.MethodGet)
+	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet)
+	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet)
+	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch)
+	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
@@ -291,6 +288,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
@@ -364,7 +362,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
 		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
-		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -385,9 +382,8 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	_, err = server.loadTemplates()
+	_, err = server.loadErrorTemplate()
 	if err != nil {
-		// TODO: should it return error if some template can not be initialized or just log about it?
 		return Error.Wrap(err)
 	}
 
@@ -431,7 +427,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
 			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com *.hcaptcha.com",
+			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self' https://hcaptcha.com *.hcaptcha.com",
 			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
 		}
 
@@ -442,105 +438,31 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
-	var data struct {
-		ExternalAddress                 string
-		SatelliteName                   string
-		SatelliteNodeURL                string
-		StripePublicKey                 string
-		PartneredSatellites             string
-		DefaultProjectLimit             int
-		GeneralRequestURL               string
-		ProjectLimitsIncreaseRequestURL string
-		GatewayCredentialsRequestURL    string
-		IsBetaSatellite                 bool
-		BetaSatelliteFeedbackURL        string
-		BetaSatelliteSupportURL         string
-		DocumentationURL                string
-		CouponCodeBillingUIEnabled      bool
-		CouponCodeSignupUIEnabled       bool
-		FileBrowserFlowDisabled         bool
-		LinksharingURL                  string
-		PathwayOverviewEnabled          bool
-		RegistrationRecaptchaEnabled    bool
-		RegistrationRecaptchaSiteKey    string
-		RegistrationHcaptchaEnabled     bool
-		RegistrationHcaptchaSiteKey     string
-		LoginRecaptchaEnabled           bool
-		LoginRecaptchaSiteKey           string
-		LoginHcaptchaEnabled            bool
-		LoginHcaptchaSiteKey            string
-		NewProjectDashboard             bool
-		AllProjectsDashboard            bool
-		DefaultPaidStorageLimit         memory.Size
-		DefaultPaidBandwidthLimit       memory.Size
-		NewBillingScreen                bool
-		NewAccessGrantFlow              bool
-		InactivityTimerEnabled          bool
-		InactivityTimerDuration         int
-		InactivityTimerViewerEnabled    bool
-		OptionalSignupSuccessURL        string
-		HomepageURL                     string
-		NativeTokenPaymentsEnabled      bool
-		PasswordMinimumLength           int
-		PasswordMaximumLength           int
-		ABTestingEnabled                bool
-		PricingPackagesEnabled          bool
-	}
-
-	data.ExternalAddress = server.config.ExternalAddress
-	data.SatelliteName = server.config.SatelliteName
-	data.SatelliteNodeURL = server.nodeURL.String()
-	data.StripePublicKey = server.stripePublicKey
-	data.PartneredSatellites = server.config.PartneredSatellites.String()
-	data.DefaultProjectLimit = server.config.DefaultProjectLimit
-	data.GeneralRequestURL = server.config.GeneralRequestURL
-	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
-	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
-	data.IsBetaSatellite = server.config.IsBetaSatellite
-	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
-	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
-	data.DocumentationURL = server.config.DocumentationURL
-	data.CouponCodeBillingUIEnabled = server.config.CouponCodeBillingUIEnabled
-	data.CouponCodeSignupUIEnabled = server.config.CouponCodeSignupUIEnabled
-	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
-	data.LinksharingURL = server.config.LinksharingURL
-	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
-	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
-	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
-	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
-	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
-	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled
-	data.RegistrationHcaptchaSiteKey = server.config.Captcha.Registration.Hcaptcha.SiteKey
-	data.LoginRecaptchaEnabled = server.config.Captcha.Login.Recaptcha.Enabled
-	data.LoginRecaptchaSiteKey = server.config.Captcha.Login.Recaptcha.SiteKey
-	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
-	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
-	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.AllProjectsDashboard = server.config.AllProjectsDashboard
-	data.NewBillingScreen = server.config.NewBillingScreen
-	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
-	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration
-	data.InactivityTimerViewerEnabled = server.config.Session.InactivityTimerViewerEnabled
-	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
-	data.HomepageURL = server.config.HomepageURL
-	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
-	data.PasswordMinimumLength = console.PasswordMinimumLength
-	data.PasswordMaximumLength = console.PasswordMaximumLength
-	data.ABTestingEnabled = server.config.ABTesting.Enabled
-	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
-	data.PricingPackagesEnabled = server.config.PricingPackagesEnabled
-
-	templates, err := server.loadTemplates()
-	if err != nil || templates.index == nil {
-		server.log.Error("unable to load templates", zap.Error(err))
-		fmt.Fprintf(w, "Unable to load templates. See whether satellite UI has been built.")
+	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index.html", zap.String("path", path), zap.Error(err))
+		}
+		// Loading index is optional.
 		return
 	}
 
-	if err := templates.index.Execute(w, data); err != nil {
-		server.log.Error("index template could not be executed", zap.Error(err))
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index.html", zap.String("path", path), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
 		return
 	}
+
+	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
 // withAuth performs initial authorization before every request.
@@ -580,83 +502,6 @@ func (server *Server) withRequest(handler http.Handler) http.Handler {
 	})
 }
 
-// bucketUsageReportHandler generate bucket usage report page for project.
-func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenInfo, err := server.cookieAuth.GetToken(r)
-	if err != nil {
-		server.serveError(w, http.StatusUnauthorized)
-		return
-	}
-
-	ctx, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
-	if err != nil {
-		server.serveError(w, http.StatusUnauthorized)
-		return
-	}
-
-	// parse query params
-	projectIDString := r.URL.Query().Get("projectID")
-	publicIDString := r.URL.Query().Get("publicID")
-
-	var projectID uuid.UUID
-	if projectIDString != "" {
-		projectID, err = uuid.FromString(projectIDString)
-		if err != nil {
-			server.serveError(w, http.StatusBadRequest)
-			return
-		}
-	} else if publicIDString != "" {
-		projectID, err = uuid.FromString(publicIDString)
-		if err != nil {
-			server.serveError(w, http.StatusBadRequest)
-			return
-		}
-	} else {
-		server.log.Error("bucket usage report error", zap.Error(errs.New("Project ID was not provided.")))
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
-	if err != nil {
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
-	if err != nil {
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
-
-	server.log.Debug("querying bucket usage report",
-		zap.Stringer("projectID", projectID),
-		zap.Stringer("since", since),
-		zap.Stringer("before", before))
-
-	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, projectID, since, before)
-	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
-		return
-	}
-
-	templates, err := server.loadTemplates()
-	if err != nil {
-		server.log.Error("unable to load templates", zap.Error(err))
-		return
-	}
-	if err = templates.usageReport.Execute(w, bucketRollups); err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-	}
-}
-
 // frontendConfigHandler handles sending the frontend config to the client.
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -681,13 +526,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CouponCodeSignupUIEnabled:       server.config.CouponCodeSignupUIEnabled,
 		FileBrowserFlowDisabled:         server.config.FileBrowserFlowDisabled,
 		LinksharingURL:                  server.config.LinksharingURL,
+		PublicLinksharingURL:            server.config.PublicLinksharingURL,
 		PathwayOverviewEnabled:          server.config.PathwayOverviewEnabled,
 		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
-		NewProjectDashboard:             server.config.NewProjectDashboard,
 		AllProjectsDashboard:            server.config.AllProjectsDashboard,
-		NewBillingScreen:                server.config.NewBillingScreen,
+		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
@@ -697,7 +542,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMinimumLength:           console.PasswordMinimumLength,
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
-		NewAccessGrantFlow:              server.config.NewAccessGrantFlow,
+		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
+		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
@@ -943,31 +789,20 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
-// serveError serves error static pages.
+// serveError serves a static error page.
 func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
-	switch status {
-	case http.StatusInternalServerError:
-		templates, err := server.loadTemplates()
-		if err != nil {
-			server.log.Error("unable to load templates", zap.Error(err))
-			return
-		}
-		err = templates.internalServerError.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse internalServerError template", zap.Error(err))
-		}
-	case http.StatusNotFound:
-		templates, err := server.loadTemplates()
-		if err != nil {
-			server.log.Error("unable to load templates", zap.Error(err))
-			return
-		}
-		err = templates.notFound.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse pageNotFound template", zap.Error(err))
-		}
+	template, err := server.loadErrorTemplate()
+	if err != nil {
+		server.log.Error("unable to load error template", zap.Error(err))
+		return
+	}
+
+	data := struct{ StatusCode int }{StatusCode: status}
+	err = template.Execute(w, data)
+	if err != nil {
+		server.log.Error("cannot parse error template", zap.Error(err))
 	}
 }
 
@@ -1016,50 +851,23 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// loadTemplates is used to initialize all templates.
-func (server *Server) loadTemplates() (_ *templates, err error) {
-	if server.config.Watch {
-		return server.parseTemplates()
+//go:embed error_fallback.html
+var errorTemplateFallback string
+
+// loadTemplates is used to initialize the error page template.
+func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
+	if server.errorTemplate == nil || server.config.Watch {
+		server.errorTemplate, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
+		if err != nil {
+			server.log.Error("failed to load error.html template, falling back to error_fallback.html", zap.Error(err))
+			server.errorTemplate, err = template.New("").Parse(errorTemplateFallback)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
 	}
 
-	if server.templatesCache != nil {
-		return server.templatesCache, nil
-	}
-
-	templates, err := server.parseTemplates()
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	server.templatesCache = templates
-	return server.templatesCache, nil
-}
-
-func (server *Server) parseTemplates() (_ *templates, err error) {
-	var t templates
-
-	t.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
-	if err != nil {
-		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
-		// Loading index is optional.
-	}
-
-	t.usageReport, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
-	}
-
-	t.notFound, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
-	}
-
-	t.internalServerError, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "500.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
-	}
-
-	return &t, nil
+	return server.errorTemplate, nil
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.

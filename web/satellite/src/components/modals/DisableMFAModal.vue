@@ -40,15 +40,14 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -58,71 +57,62 @@ interface ClearInput {
     clearInput(): void;
 }
 
-// @vue/component
-@Component({
-    components: {
-        ConfirmMFAInput,
-        VButton,
-        VModal,
-    },
-})
-export default class DisableMFAModal extends Vue {
-    public isError = false;
-    public isLoading = false;
-    public request = new DisableMFARequest();
-    public isRecoveryCodeState = false;
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const notify = useNotify();
 
-    public $refs!: {
-        mfaInput: ConfirmMFAInput & ClearInput;
-    };
+const isError = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+const isRecoveryCodeState = ref<boolean>(false);
+const request = ref<DisableMFARequest>(new DisableMFARequest());
+const mfaInput = ref<ConfirmMFAInput & ClearInput>();
 
-    /**
-     * Closes disable MFA modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
+/**
+ * Closes disable MFA modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
+}
+
+/**
+ * Sets confirmation passcode value from input.
+ */
+function onConfirmInput(value: string): void {
+    isError.value = false;
+    isRecoveryCodeState.value ? request.value.recoveryCode = value : request.value.passcode = value;
+}
+
+/**
+ * Toggles whether the MFA recovery code page is shown.
+ */
+function toggleRecoveryCodeState(): void {
+    isError.value = false;
+    request.value.recoveryCode = request.value.passcode = '';
+    mfaInput.value?.clearInput();
+    isRecoveryCodeState.value = !isRecoveryCodeState.value;
+}
+
+/**
+ * Disables user MFA.
+ */
+async function disable(): Promise<void> {
+    if (!(request.value.recoveryCode || request.value.passcode) || isLoading.value || isError.value) return;
+
+    isLoading.value = true;
+
+    try {
+        await usersStore.disableUserMFA(request.value);
+        await usersStore.getUser();
+
+        await notify.success('MFA was disabled successfully');
+
+        closeModal();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.DISABLE_MFA_MODAL);
+        isError.value = true;
     }
 
-    /**
-     * Sets confirmation passcode value from input.
-     */
-    public onConfirmInput(value: string): void {
-        this.isError = false;
-        this.isRecoveryCodeState ? this.request.recoveryCode = value : this.request.passcode = value;
-    }
-
-    /**
-     * Toggles whether the MFA recovery code page is shown.
-     */
-    public toggleRecoveryCodeState(): void {
-        this.isError = false;
-        this.request.recoveryCode = this.request.passcode = '';
-        this.$refs.mfaInput.clearInput();
-        this.isRecoveryCodeState = !this.isRecoveryCodeState;
-    }
-
-    /**
-     * Disables user MFA.
-     */
-    public async disable(): Promise<void> {
-        if (!(this.request.recoveryCode || this.request.passcode) || this.isLoading || this.isError) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, this.request);
-            await this.$store.dispatch(USER_ACTIONS.GET);
-
-            await this.$notify.success('MFA was disabled successfully');
-
-            this.closeModal();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.DISABLE_MFA_MODAL);
-            this.isError = true;
-        }
-
-        this.isLoading = false;
-    }
+    isLoading.value = false;
 }
 </script>
 
@@ -136,7 +126,7 @@ export default class DisableMFAModal extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 48px 24px;
         }
 
@@ -148,7 +138,7 @@ export default class DisableMFAModal extends Vue {
             color: #000;
             margin: 0 0 30px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 24px;
                 line-height: 28px;
                 margin-bottom: 15px;
@@ -162,7 +152,7 @@ export default class DisableMFAModal extends Vue {
             color: #000;
             margin: 0 0 45px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 font-size: 14px;
                 line-height: 18px;
                 margin-bottom: 20px;
@@ -211,7 +201,7 @@ export default class DisableMFAModal extends Vue {
             margin-top: 30px;
             column-gap: 15px;
 
-            @media screen and (max-width: 550px) {
+            @media screen and (width <= 550px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;

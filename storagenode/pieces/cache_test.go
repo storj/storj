@@ -17,11 +17,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -113,7 +115,7 @@ func TestCacheInit(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -152,7 +154,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -163,7 +165,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -190,18 +192,18 @@ func TestCacheInit(t *testing.T) {
 
 }
 
-func TestCachServiceRun(t *testing.T) {
+func TestCacheServiceRun(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 
-		blobstore, err := filestore.NewAt(log, ctx.Dir(), filestore.DefaultConfig)
+		store, err := filestore.NewAt(log, db.Config().Pieces, filestore.DefaultConfig)
 		require.NoError(t, err)
 
 		// Prior to initializing the cache service (which should walk the files),
 		// write a single file so something exists to be counted
 		expBlobSize := memory.KB
-		w, err := blobstore.Create(ctx, storage.BlobRef{
+		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}, -1)
@@ -212,22 +214,110 @@ func TestCachServiceRun(t *testing.T) {
 
 		// Now write a piece that we are going to trash
 		expTrashSize := 2 * memory.KB
-		trashRef := storage.BlobRef{
+		trashRef := blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = blobstore.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef, -1)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
 		require.NoError(t, w.Commit(ctx))
-		require.NoError(t, blobstore.Trash(ctx, trashRef)) // trash it
+		require.NoError(t, store.Trash(ctx, trashRef)) // trash it
 
 		// Now instantiate the cache
-		cache := pieces.NewBlobsUsageCache(log, blobstore)
+		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			1*time.Hour,
+			true,
+		)
+
+		// Init the cache service, to read the values from the db (should all be 0)
+		require.NoError(t, cacheService.Init(ctx))
+		piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		trashTotal, err := cache.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+
+		// Assert that all the values start as 0, since we have not walked the files
+		assert.Equal(t, int64(0), piecesTotal)
+		assert.Equal(t, int64(0), piecesContentSize)
+		assert.Equal(t, int64(0), trashTotal)
+
+		// Run the cache service, which will walk all the pieces
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return cacheService.Run(ctx)
+		})
+
+		// Wait for the cache service init to finish
+		cacheService.InitFence.Wait(ctx)
+
+		// Check and verify that the reported sizes match expected values
+		piecesTotal, piecesContentSize, err = cache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		trashTotal, err = cache.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(expBlobSize), piecesTotal)
+		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= int64(expTrashSize))
+
+		require.NoError(t, cacheService.Close())
+		require.NoError(t, eg.Wait())
+	})
+}
+
+func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		spaceUsedDB := db.PieceSpaceUsedDB()
+
+		dbConfig := db.Config()
+
+		store, err := filestore.NewAt(log, dbConfig.Pieces, dbConfig.Filestore)
+		require.NoError(t, err)
+
+		// Prior to initializing the cache service (which should walk the files),
+		// write a single file so something exists to be counted
+		expBlobSize := memory.KB
+		w, err := store.Create(ctx, blobstore.BlobRef{
+			Namespace: testrand.NodeID().Bytes(),
+			Key:       testrand.PieceID().Bytes(),
+		}, -1)
+		require.NoError(t, err)
+		_, err = w.Write(testrand.Bytes(expBlobSize))
+		require.NoError(t, err)
+		require.NoError(t, w.Commit(ctx))
+
+		// Now write a piece that we are going to trash
+		expTrashSize := 2 * memory.KB
+		trashRef := blobstore.BlobRef{
+			Namespace: testrand.NodeID().Bytes(),
+			Key:       testrand.PieceID().Bytes(),
+		}
+		w, err = store.Create(ctx, trashRef, -1)
+		require.NoError(t, err)
+		_, err = w.Write(testrand.Bytes(expTrashSize))
+		require.NoError(t, err)
+		require.NoError(t, w.Commit(ctx))
+		require.NoError(t, store.Trash(ctx, trashRef)) // trash it
+
+		// Set up the lazy filewalker
+		cfg := pieces.DefaultConfig
+		cfg.EnableLazyFilewalker = true
+		lazyFwCfg := dbConfig.LazyFilewalkerConfig()
+		lazyFwCfg.LowerIOPriority = false
+		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
+		lazyFw.TestingSetUsedSpaceCmd(internalcmd.NewUsedSpaceLazyFilewalker(ctx, log.Named("used-space-filewalker.subprocess"), lazyFwCfg))
+
+		// Now instantiate the cache
+		cache := pieces.NewBlobsUsageCache(log, store)
+		cacheService := pieces.NewService(log,
+			cache,
+			pieces.NewStore(log, nil, lazyFw, cache, nil, nil, spaceUsedDB, cfg),
 			1*time.Hour,
 			true,
 		)
@@ -314,7 +404,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -591,7 +681,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(zaptest.NewLogger(t), db.Pieces())
 		pieceContent := []byte("stuff")
 		satelliteID := testrand.NodeID()
-		refs := []storage.BlobRef{
+		refs := []blobstore.BlobRef{
 			{
 				Namespace: satelliteID.Bytes(),
 				Key:       testrand.Bytes(32),

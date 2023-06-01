@@ -29,7 +29,11 @@ type Deprecated struct {
 }
 
 // maps deprecated config values to new values if applicable.
-func mapDeprecatedConfigs(log *zap.Logger) {
+func mapDeprecatedConfigs(log *zap.Logger, cfg *StorageNodeFlags) {
+	if cfg == nil {
+		return
+	}
+
 	type migration struct {
 		newValue        interface{}
 		newConfigString string
@@ -38,27 +42,27 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 	}
 	migrations := []migration{
 		{
-			newValue:        &runCfg.Contact.ExternalAddress,
+			newValue:        &cfg.Contact.ExternalAddress,
 			newConfigString: "contact.external-address",
-			oldValue:        runCfg.Deprecated.Kademlia.ExternalAddress,
+			oldValue:        cfg.Deprecated.Kademlia.ExternalAddress,
 			oldConfigString: "kademlia.external-address",
 		},
 		{
-			newValue:        &runCfg.Operator.Wallet,
+			newValue:        &cfg.Operator.Wallet,
 			newConfigString: "operator.wallet",
-			oldValue:        runCfg.Deprecated.Kademlia.Operator.Wallet,
+			oldValue:        cfg.Deprecated.Kademlia.Operator.Wallet,
 			oldConfigString: "kademlia.operator.wallet",
 		},
 		{
-			newValue:        &runCfg.Operator.Email,
+			newValue:        &cfg.Operator.Email,
 			newConfigString: "operator.email",
-			oldValue:        runCfg.Deprecated.Kademlia.Operator.Email,
+			oldValue:        cfg.Deprecated.Kademlia.Operator.Email,
 			oldConfigString: "kademlia.operator.email",
 		},
 		{
-			newValue:        &runCfg.Config.Storage2.Monitor.VerifyDirReadableInterval,
+			newValue:        &cfg.Config.Storage2.Monitor.VerifyDirReadableInterval,
 			newConfigString: "storage2.monitor.verify-dir-readable-interval",
-			oldValue:        runCfg.Deprecated.Storage2.Monitor.VerifyDirInterval,
+			oldValue:        cfg.Deprecated.Storage2.Monitor.VerifyDirInterval,
 			oldConfigString: "storage2.monitor.verify-dir-interval",
 		},
 	}

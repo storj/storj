@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<{
 
 const isShown = ref<boolean>(true);
 const bannerWidth = ref<number>(0);
-let resizeObserver = reactive<ResizeObserver>();
+const resizeObserver = ref<ResizeObserver>();
 
 function closeClicked(): void {
     isShown.value = false;
@@ -49,11 +49,11 @@ function onBannerResize(): void {
 }
 
 function setResizable(): void {
-    resizeObserver?.observe(props.dashboardRef);
+    resizeObserver.value?.observe(props.dashboardRef);
 }
 
 onMounted((): void => {
-    resizeObserver = new ResizeObserver(onBannerResize);
+    resizeObserver.value = new ResizeObserver(onBannerResize);
 
     if (props.dashboardRef) {
         setResizable();
@@ -62,7 +62,7 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
-    resizeObserver?.unobserve(props.dashboardRef);
+    resizeObserver.value?.unobserve(props.dashboardRef);
 });
 
 watch(() => props.dashboardRef, () => {
@@ -77,15 +77,17 @@ watch(() => props.dashboardRef, () => {
     justify-content: space-between;
     align-items: center;
     padding: 1.375rem;
-    margin: 0 3rem;
     font-family: 'font_regular', sans-serif;
     background-color: var(--c-light-blue-1);
     border: 1px solid var(--c-light-blue-2);
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-    @media screen and (max-width: 800px) {
-        margin: 0 1.5rem;
+    @media screen and (width <= 450px) {
+        flex-direction: column;
+        align-items: flex-start;
+        row-gap: 10px;
+        position: relative;
     }
 
     &__icon {
@@ -124,6 +126,7 @@ watch(() => props.dashboardRef, () => {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        column-gap: 10px;
     }
 
     &__close {
@@ -131,6 +134,13 @@ watch(() => props.dashboardRef, () => {
         height: 15px;
         margin-left: 2.375rem;
         cursor: pointer;
+        flex-shrink: 0;
+
+        @media screen and (width <= 450px) {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+        }
     }
 }
 
@@ -146,12 +156,5 @@ watch(() => props.dashboardRef, () => {
     color: black;
     text-decoration: underline !important;
     cursor: pointer;
-}
-
-@media screen and (max-width: 500px) {
-
-    .notification-wrap {
-        right: 15px;
-    }
 }
 </style>

@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -44,13 +43,8 @@ type GarbageCollectionBF struct {
 		DB overlay.DB
 	}
 
-	Metainfo struct {
-		SegmentLoop *segmentloop.Service
-	}
-
 	GarbageCollection struct {
-		Config  bloomfilter.Config
-		Service *bloomfilter.Service
+		Config bloomfilter.Config
 	}
 
 	RangedLoop struct {
@@ -95,57 +89,31 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 	{ // setup garbage collection bloom filters
 		log := peer.Log.Named("garbage-collection-bf")
 		peer.GarbageCollection.Config = config.GarbageCollectionBF
-		if config.GarbageCollectionBF.UseRangedLoop {
-			log.Info("using ranged loop")
 
-			provider := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
-			peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{
-				bloomfilter.NewObserver(log.Named("gc-bf"),
-					config.GarbageCollectionBF,
-					peer.Overlay.DB,
-				),
-			})
-
-			if !config.GarbageCollectionBF.RunOnce {
-				peer.Services.Add(lifecycle.Item{
-					Name:  "garbage-collection-bf",
-					Run:   peer.RangedLoop.Service.Run,
-					Close: peer.RangedLoop.Service.Close,
-				})
-				peer.Debug.Server.Panel.Add(
-					debug.Cycle("Garbage Collection Bloom Filters", peer.RangedLoop.Service.Loop))
-			}
-		} else {
-			log.Info("using segments loop")
-
-			{ // setup metainfo
-				peer.Metainfo.SegmentLoop = segmentloop.New(
-					log.Named("segmentloop"),
-					config.Metainfo.SegmentLoop,
-					metabaseDB,
-				)
-				peer.Services.Add(lifecycle.Item{
-					Name:  "metainfo:segmentloop",
-					Run:   peer.Metainfo.SegmentLoop.Run,
-					Close: peer.Metainfo.SegmentLoop.Close,
-				})
-			}
-
-			peer.GarbageCollection.Service = bloomfilter.NewService(
-				log,
+		var observer rangedloop.Observer
+		if config.GarbageCollectionBF.UseSyncObserver {
+			observer = bloomfilter.NewSyncObserver(log.Named("gc-bf"),
 				config.GarbageCollectionBF,
 				peer.Overlay.DB,
-				peer.Metainfo.SegmentLoop,
 			)
+		} else {
+			observer = bloomfilter.NewObserver(log.Named("gc-bf"),
+				config.GarbageCollectionBF,
+				peer.Overlay.DB,
+			)
+		}
 
-			if !config.GarbageCollectionBF.RunOnce {
-				peer.Services.Add(lifecycle.Item{
-					Name: "garbage-collection-bf",
-					Run:  peer.GarbageCollection.Service.Run,
-				})
-				peer.Debug.Server.Panel.Add(
-					debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
-			}
+		provider := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{observer})
+
+		if !config.GarbageCollectionBF.RunOnce {
+			peer.Services.Add(lifecycle.Item{
+				Name:  "garbage-collection-bf",
+				Run:   peer.RangedLoop.Service.Run,
+				Close: peer.RangedLoop.Service.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Garbage Collection Bloom Filters", peer.RangedLoop.Service.Loop))
 		}
 	}
 
@@ -167,11 +135,7 @@ func (peer *GarbageCollectionBF) Run(ctx context.Context) (err error) {
 
 		if peer.GarbageCollection.Config.RunOnce {
 			group.Go(func() error {
-				if peer.GarbageCollection.Config.UseRangedLoop {
-					_, err = peer.RangedLoop.Service.RunOnce(ctx)
-				} else {
-					err = peer.GarbageCollection.Service.RunOnce(ctx)
-				}
+				_, err = peer.RangedLoop.Service.RunOnce(ctx)
 				cancel()
 				return err
 			})

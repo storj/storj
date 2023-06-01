@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var _ rangedloop.Observer = (*CallbackObserver)(nil)
@@ -17,7 +16,7 @@ var _ rangedloop.Partial = (*CallbackObserver)(nil)
 
 // CallbackObserver can be used to easily attach logic to the ranged segment loop during tests.
 type CallbackObserver struct {
-	OnProcess func(context.Context, []segmentloop.Segment) error
+	OnProcess func(context.Context, []rangedloop.Segment) error
 	OnStart   func(context.Context, time.Time) error
 	OnFork    func(context.Context) (rangedloop.Partial, error)
 	OnJoin    func(context.Context, rangedloop.Partial) error
@@ -85,7 +84,7 @@ func (c *CallbackObserver) Finish(ctx context.Context) error {
 }
 
 // Process executes a callback for every batch of segment in the ranged segment loop.
-func (c *CallbackObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (c *CallbackObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	delay()
 	if c.OnProcess == nil {
 		return nil

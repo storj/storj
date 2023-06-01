@@ -20,7 +20,7 @@ import (
 )
 
 func TestChoreAndWorkerIntegration(t *testing.T) {
-	testWithChoreAndObserver(t, testplanet.Config{
+	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {

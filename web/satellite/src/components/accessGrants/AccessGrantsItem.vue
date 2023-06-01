@@ -6,71 +6,70 @@
         :item="itemToRender"
         :on-click="onClick"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
-            <dots-icon />
-            <div v-if="isDropdownOpen" class="grant-item__functional__dropdown">
-                <div class="grant-item__functional__dropdown__item" @click.stop="onDeleteClick">
-                    <delete-icon />
-                    <p class="grant-item__functional__dropdown__item__label">Delete Access</p>
+        <template #options>
+            <th v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
+                <dots-icon />
+                <div v-if="isDropdownOpen" class="grant-item__functional__dropdown">
+                    <div class="grant-item__functional__dropdown__item" @click.stop="onDeleteClick">
+                        <delete-icon />
+                        <p class="grant-item__functional__dropdown__item__label">Delete Access</p>
+                    </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import DeleteIcon from '../../../static/images/objects/delete.svg';
 import DotsIcon from '../../../static/images/objects/dots.svg';
 
 import { AccessGrant } from '@/types/accessGrants';
+import { useResize } from '@/composables/resize';
 
-import Resizable from '@/components/common/Resizable.vue';
 import TableItem from '@/components/common/TableItem.vue';
 
-// @vue/component
-@Component({
-    components: {
-        TableItem,
-        DeleteIcon,
-        DotsIcon,
-    },
-})
-export default class AccessGrantsItem extends Resizable {
-    @Prop({ default: new AccessGrant('', '', new Date(), '') })
-    private readonly itemData: AccessGrant;
-    @Prop({ default: () => () => {} })
-    public readonly onClick: () => void;
-    @Prop({ default: false })
-    public readonly isDropdownOpen: boolean;
-    @Prop({ default: -1 })
-    public readonly dropdownKey: number;
+const props = withDefaults(defineProps<{
+    itemData: AccessGrant,
+    onClick?: () => void,
+    isDropdownOpen: boolean,
+    dropdownKey: number,
+}>(), {
+    itemData: () => new AccessGrant('', '', new Date(), ''),
+    onClick: () => {},
+    isDropdownOpen: false,
+    dropdownKey: -1,
+});
 
-    public get itemToRender(): { [key: string]: string | string[] } {
-        if (!this.isMobile) return { name: this.itemData.name, date: this.itemData.localDate() };
+const emit = defineEmits(['openDropdown', 'deleteClick']);
 
-        return { info: [ this.itemData.name, `Created ${this.itemData.localDate()}` ] };
-    }
+const { isMobile } = useResize();
 
-    /**
-     * Closes dropdown.
-     */
-    public closeDropdown(): void {
-        this.$emit('openDropdown', -1);
-    }
+const itemToRender = computed((): { [key: string]: string | string[] } => {
+    if (!isMobile.value) return { name: props.itemData.name, date: props.itemData.localDate() };
 
-    /**
-     * Opens dropdown.
-     */
-    public openDropdown(): void {
-        this.$emit('openDropdown', this.dropdownKey);
-    }
+    return { info: [ props.itemData.name, `Created ${props.itemData.localDate()}` ] };
+});
 
-    public async onDeleteClick(): Promise<void> {
-        this.$emit('deleteClick', this.itemData);
-        this.closeDropdown();
-    }
+/**
+ * Closes dropdown.
+ */
+function closeDropdown(): void {
+    emit('openDropdown', -1);
+}
+
+/**
+ * Opens dropdown.
+ */
+function openDropdown(): void {
+    emit('openDropdown', props.dropdownKey);
+}
+
+async function onDeleteClick(): Promise<void> {
+    emit('deleteClick', props.itemData);
+    closeDropdown();
 }
 </script>
 
@@ -114,6 +113,23 @@ export default class AccessGrantsItem extends Resizable {
                     }
                 }
             }
+        }
+    }
+
+    :deep(.primary) {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    :deep(th) {
+        max-width: 25rem;
+    }
+
+    @media screen and (width <= 940px) {
+
+        :deep(th) {
+            max-width: 10rem;
         }
     }
 </style>

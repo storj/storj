@@ -20,80 +20,81 @@
     </CLIFlowContainer>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import ValueWithCopy from '@/components/onboardingTour/steps/common/ValueWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 
-// @vue/component
-@Component({
-    components: {
-        Icon,
-        CLIFlowContainer,
-        ValueWithCopy,
-    },
-})
-export default class APIKey extends Vue {
-    public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
+const configStore = useConfigStore();
+const appStore = useAppStore();
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Checks if api key was generated during previous step.
-     */
-    public mounted(): void {
-        if (!this.storedAPIKey) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-            this.$router.push({ name: RouteConfig.AGName.name });
-        }
+/**
+ * Returns the web address of this satellite from the store.
+ */
+const satelliteAddress = computed((): string => {
+    return configStore.state.config.satelliteNodeURL;
+});
+
+/**
+ * Returns API key from store.
+ */
+const storedAPIKey = computed((): string => {
+    return appStore.state.onbApiKey;
+});
+
+/**
+ * Returns back route from store.
+ */
+const backRoute = computed((): string => {
+    return appStore.state.onbAPIKeyStepBackRoute;
+});
+
+/**
+ * Holds on back button click logic.
+ * Navigates to previous screen.
+ */
+async function onBackClick(): Promise<void> {
+    if (backRoute.value) {
+        analytics.pageVisit(backRoute.value);
+        await router.push(backRoute.value).catch(() => {return; });
+
+        return;
     }
 
-    /**
-     * Holds on back button click logic.
-     * Navigates to previous screen.
-     */
-    public async onBackClick(): Promise<void> {
-        if (this.backRoute) {
-            this.analytics.pageVisit(this.backRoute);
-            await this.$router.push(this.backRoute).catch(() => {return; });
-
-            return;
-        }
-
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.path);
-        await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; });
-    }
-
-    /**
-     * Holds on next button click logic.
-     */
-    public async onNextClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
-    }
-
-    /**
-     * Returns API key from store.
-     */
-    public get storedAPIKey(): string {
-        return this.$store.state.appStateModule.appState.onbApiKey;
-    }
-
-    /**
-     * Returns back route from store.
-     */
-    private get backRoute(): string {
-        return this.$store.state.appStateModule.appState.onbAPIKeyStepBackRoute;
-    }
+    analytics.pageVisit(RouteConfig.OnboardingTour.path);
+    await router.push(RouteConfig.OnboardingTour.path).catch(() => {return; });
 }
+
+/**
+ * Holds on next button click logic.
+ */
+async function onNextClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Checks if api key was generated during previous step.
+ */
+onMounted((): void => {
+    if (!storedAPIKey.value) {
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+        router.push({ name: RouteConfig.AGName.name });
+    }
+});
 </script>
 
 <style scoped lang="scss">

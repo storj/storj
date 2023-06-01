@@ -18,9 +18,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
@@ -51,28 +49,20 @@ type RangedLoop struct {
 		Observer rangedloop.Observer
 	}
 
-	Mail struct {
-		Service *mailservice.Service
-	}
-
 	Overlay struct {
 		Service *overlay.Service
 	}
 
 	Repair struct {
-		Observer rangedloop.Observer
+		Observer *checker.Observer
 	}
 
 	GracefulExit struct {
 		Observer rangedloop.Observer
 	}
 
-	GarbageCollectionBF struct {
-		Observer rangedloop.Observer
-	}
-
 	Accounting struct {
-		NodeTallyObserver *nodetally.RangedLoopObserver
+		NodeTallyObserver *nodetally.Observer
 	}
 
 	RangedLoop struct {
@@ -122,30 +112,20 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.Log.Named("gracefulexit:observer"),
 			peer.DB.GracefulExit(),
 			peer.DB.OverlayCache(),
+			metabaseDB,
 			config.GracefulExit,
 		)
 	}
 
 	{ // setup node tally observer
-		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
+		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
-			db.StoragenodeAccounting())
-	}
-
-	{ // setup mail service
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
+			db.StoragenodeAccounting(),
+			metabaseDB)
 	}
 
 	{ // setup overlay
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -157,7 +137,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
-		peer.Repair.Observer = checker.NewRangedLoopObserver(
+		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
@@ -165,21 +145,14 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
-	{ // setup garbage collection bloom filter observer
-		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
-	}
-
 	{ // setup ranged loop
 		observers := []rangedloop.Observer{
-			rangedloop.NewLiveCountObserver(),
+			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
+			peer.Metrics.Observer,
 		}
 
 		if config.Audit.UseRangedLoop {
 			observers = append(observers, peer.Audit.Observer)
-		}
-
-		if config.Metrics.UseRangedLoop {
-			observers = append(observers, peer.Metrics.Observer)
 		}
 
 		if config.Tally.UseRangedLoop {
@@ -188,10 +161,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
 			observers = append(observers, peer.GracefulExit.Observer)
-		}
-
-		if config.GarbageCollectionBF.Enabled && config.GarbageCollectionBF.UseRangedLoop {
-			observers = append(observers, peer.GarbageCollectionBF.Observer)
 		}
 
 		if config.Repairer.UseRangedLoop {

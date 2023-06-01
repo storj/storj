@@ -41,8 +41,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -50,7 +50,9 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -58,116 +60,88 @@ import S3Icon from '@/../static/images/navigation/s3.svg';
 import UploadInCLIIcon from '@/../static/images/navigation/uploadInCLI.svg';
 import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
-// @vue/component
-@Component({
-    components: {
-        NewProjectIcon,
-        CreateAGIcon,
-        S3Icon,
-        UploadInCLIIcon,
-        UploadInWebIcon,
-    },
-})
-export default class QuickStartLinks extends Vue {
-    @Prop({ default: () => () => { return; } })
-    public closeDropdowns: () => void;
+const appStore = useAppStore();
+const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
+const router = useRouter();
+const route = useRoute();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const props = withDefaults(defineProps<{
+    closeDropdowns?: () => void;
+}>(), {
+    closeDropdowns: () => {},
+});
 
-    /**
-     * Redirects to create project screen.
-     */
-    public navigateToCreateAG(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
-        this.closeDropdowns();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-        if (this.isNewAccessGrantFlow) {
-            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.AccessGrant },
-            }).catch(() => {return;});
-            return;
+/**
+ * Redirects to create project screen.
+ */
+function navigateToCreateAG(): void {
+    analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
+    props.closeDropdowns();
+
+    analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+    router.push({
+        name: RouteConfig.CreateAccessModal.name,
+        query: { accessType: AccessType.AccessGrant },
+    }).catch(() => {return;});
+}
+
+/**
+ * Redirects to Create Access Modal with "s3" access type preselected
+ */
+function navigateToAccessGrantS3(): void {
+    analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+    props.closeDropdowns();
+
+    analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+    router.push({
+        name: RouteConfig.CreateAccessModal.name,
+        query: { accessType: AccessType.S3 },
+    }).catch(() => {return;});
+}
+
+/**
+ * Redirects to objects screen.
+ */
+function navigateToBuckets(): void {
+    analytics.eventTriggered(AnalyticsEvent.UPLOAD_IN_WEB_CLICKED);
+    props.closeDropdowns();
+    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+    router.push(RouteConfig.Buckets.path).catch(() => {return;});
+}
+
+/**
+ * Redirects to onboarding CLI flow screen.
+ */
+function navigateToCLIFlow(): void {
+    analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
+    props.closeDropdowns();
+    appStore.setOnboardingBackRoute(route.path);
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+    router.push({ name: RouteConfig.AGName.name });
+}
+
+/**
+ * Redirects to create access grant screen.
+ */
+function navigateToNewProject(): void {
+    if (route.name !== RouteConfig.CreateProject.name) {
+        analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+
+        const user: User = usersStore.state.user;
+        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
+
+        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
+            appStore.updateActiveModal(MODALS.createProjectPrompt);
+        } else {
+            analytics.pageVisit(RouteConfig.CreateProject.path);
+            appStore.updateActiveModal(MODALS.newCreateProject);
         }
-
-        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 'access' },
-        }).catch(() => {return;});
     }
 
-    /**
-     * Redirects to Create Access Modal with "s3" access type preselected
-     */
-    public navigateToAccessGrantS3(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
-        this.closeDropdowns();
-
-        if (this.isNewAccessGrantFlow) {
-            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.S3 },
-            }).catch(() => {return;});
-            return;
-        }
-
-        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 's3' },
-        }).catch(() => {return;});
-    }
-
-    /**
-     * Redirects to objects screen.
-     */
-    public navigateToBuckets(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_IN_WEB_CLICKED);
-        this.closeDropdowns();
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
-    }
-
-    /**
-     * Redirects to onboarding CLI flow screen.
-     */
-    public navigateToCLIFlow(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
-        this.closeDropdowns();
-        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        this.$router.push({ name: RouteConfig.AGName.name });
-    }
-
-    /**
-     * Redirects to create access grant screen.
-     */
-    public navigateToNewProject(): void {
-        if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-
-            const user: User = this.$store.getters.user;
-            const ownProjectsCount: number = this.$store.getters.projectsCount;
-
-            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-            } else {
-                this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
-            }
-        }
-
-        this.closeDropdowns();
-    }
-
-    /**
-     * Indicates if new access grant flow should be used.
-     */
-    private get isNewAccessGrantFlow(): boolean {
-        return this.$store.state.appStateModule.isNewAccessGrantFlow;
-    }
+    props.closeDropdowns();
 }
 </script>
 

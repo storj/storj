@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
 )
 
 func TestUntilEmpty(t *testing.T) {
@@ -45,7 +44,7 @@ func TestUntilEmpty(t *testing.T) {
 		for {
 			injuredSeg, err := repairQueue.Select(ctx)
 			if err != nil {
-				require.True(t, storage.ErrEmptyQueue.Has(err))
+				require.True(t, queue.ErrEmpty.Has(err))
 				break
 			}
 			idsMap[injuredSeg.StreamID]++
@@ -108,7 +107,7 @@ func TestOrder(t *testing.T) {
 
 		// segment should be considered "empty" now
 		injuredSeg, err = repairQueue.Select(ctx)
-		assert.True(t, storage.ErrEmptyQueue.Has(err))
+		assert.True(t, queue.ErrEmpty.Has(err))
 		assert.Nil(t, injuredSeg)
 	})
 }
@@ -205,7 +204,7 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 
 	// queue should be considered "empty" now
 	injuredSeg, err := repairQueue.Select(ctx)
-	assert.True(t, storage.ErrEmptyQueue.Has(err))
+	assert.True(t, queue.ErrEmpty.Has(err))
 	assert.Nil(t, injuredSeg)
 }
 
@@ -255,7 +254,7 @@ func TestOrderOverwrite(t *testing.T) {
 
 		// queue should be considered "empty" now
 		injuredSeg, err := repairQueue.Select(ctx)
-		assert.True(t, storage.ErrEmptyQueue.Has(err))
+		assert.True(t, queue.ErrEmpty.Has(err))
 		assert.Nil(t, injuredSeg)
 	})
 }

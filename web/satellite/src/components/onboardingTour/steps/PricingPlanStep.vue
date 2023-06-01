@@ -20,18 +20,22 @@
 
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import { MetaUtils } from '@/utils/meta';
+import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-const store = useStore();
+const configStore = useConfigStore();
+const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
@@ -42,24 +46,26 @@ const plans = ref<PricingPlanInfo[]>([
     new PricingPlanInfo(
         PricingPlanType.PRO,
         'Pro Account',
-        '150 GB Free',
-        'Only pay for what you need at $4/TB storage per month and $7/TB download bandwidth per month.',
+        '25 GB Free',
+        'Only pay for what you need. $4/TB stored per month* $7/TB for egress bandwidth.',
+        '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        null,
-        'Just add a card to activate Pro Account',
-        '150GB Free',
+        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and egress. Only pay for what you use beyond that.',
+        'No charge today',
+        '25GB Free',
     ),
     new PricingPlanInfo(
         PricingPlanType.FREE,
-        'Starter Package',
+        'Free Account',
         'Limited',
-        'Free usage of 150GB storage and 150GB download bandwidth per month.',
+        'Free usage up to 25GB storage and 25GB egress bandwidth per month.',
         null,
         null,
         null,
         'Start for free to try Storj and upgrade later.',
-        'Limited 150',
+        null,
+        'Limited 25',
     ),
 ]);
 
@@ -67,10 +73,13 @@ const plans = ref<PricingPlanInfo[]>([
  * Loads pricing plan config.
  */
 onBeforeMount(async () => {
-    const user: User = store.getters.user;
-    const nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    const user: User = usersStore.state.user;
+    let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    if (configStore.state.config.allProjectsDashboard) {
+        nextPath = RouteConfig.AllProjectsDashboard.path;
+    }
 
-    const pricingPkgsEnabled = Boolean(MetaUtils.getMetaContent('pricing-packages-enabled'));
+    const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
         return;
@@ -96,24 +105,22 @@ onBeforeMount(async () => {
         return;
     }
 
-    const plan = config[user.partner];
+    const plan = config[user.partner] as PricingPlanInfo;
     if (!plan) {
         notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
         router.push(nextPath);
         return;
     }
+    plan.type = PricingPlanType.PARTNER;
+    plans.value.unshift(plan);
 
-    plans.value.unshift(new PricingPlanInfo(
-        PricingPlanType.PARTNER,
-        plan.title,
-        plan.containerSubtitle,
-        plan.containerDescription,
-        plan.price,
-        plan.oldPrice,
-        plan.activationSubtitle,
-        plan.activationDescription,
-        plan.successSubtitle,
-    ));
+    if (!usersStore.state.settings.onboardingStart) {
+        try {
+            await usersStore.updateSettings({ onboardingStart: true });
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
+        }
+    }
 
     isLoading.value = false;
 });
@@ -124,10 +131,7 @@ onBeforeMount(async () => {
 
     &__loader {
         position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        inset: 0;
         align-items: center;
     }
 
@@ -156,7 +160,7 @@ onBeforeMount(async () => {
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-area__plans {
         max-width: 444px;

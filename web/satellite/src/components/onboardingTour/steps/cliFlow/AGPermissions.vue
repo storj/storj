@@ -38,202 +38,215 @@
     </CLIFlowContainer>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
-import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
-import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import BucketNameBullet from '@/components/onboardingTour/steps/cliFlow/permissions/BucketNameBullet.vue';
+import BucketsSelection from '@/components/onboardingTour/steps/cliFlow/permissions/BucketsSelection.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
+import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permissions/DurationSelection.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CLIFlowContainer,
-        PermissionsSelect,
-        BucketNameBullet,
-        BucketsSelection,
-        VLoader,
-        DurationSelection,
-        Icon,
-    },
-})
-export default class AGPermissions extends Vue {
-    private worker: Worker;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
+const router = useRouter();
+const route = useRoute();
 
-    public areBucketNamesFetching = true;
-    public isLoading = true;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Checks if clean api key was generated during previous step.
-     * Fetches all existing bucket names.
-     * Initializes web worker's onmessage functionality.
-     */
-    public async mounted(): Promise<void> {
-        if (!this.cleanAPIKey) {
-            this.isLoading = false;
-            await this.onBackClick();
+const worker = ref<Worker| null>(null);
+const areBucketNamesFetching = ref<boolean>(true);
+const isLoading = ref<boolean>(true);
 
-            return;
-        }
+/**
+ * Returns selected bucket names.
+ */
+const selectedBucketNames = computed((): string[] => {
+    return agStore.state.selectedBucketNames;
+});
 
-        this.setWorker();
+/**
+ * Returns clean API key from store.
+ */
+const cleanAPIKey = computed((): string => {
+    return appStore.state.onbCleanApiKey;
+});
 
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+/**
+ * Returns download permission from store.
+ */
+const storedIsDownload = computed((): boolean => {
+    return agStore.state.isDownload;
+});
 
-            this.areBucketNamesFetching = false;
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
-        }
+/**
+ * Returns upload permission from store.
+ */
+const storedIsUpload = computed((): boolean => {
+    return agStore.state.isUpload;
+});
 
-        this.isLoading = false;
-    }
+/**
+ * Returns list permission from store.
+ */
+const storedIsList = computed((): boolean => {
+    return agStore.state.isList;
+});
 
-    /**
-     * Sets local worker with worker instantiated in store.
-     * Also sets worker's onmessage and onerror logic.
-     */
-    public setWorker(): void {
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
+/**
+ * Returns delete permission from store.
+ */
+const storedIsDelete = computed((): boolean => {
+    return agStore.state.isDelete;
+});
+
+/**
+ * Returns not before date permission from store.
+ */
+const notBeforePermission = computed((): Date | null => {
+    return agStore.state.permissionNotBefore;
+});
+
+/**
+ * Returns not after date permission from store.
+ */
+const notAfterPermission = computed((): Date | null => {
+    return agStore.state.permissionNotAfter;
+});
+
+/**
+ * Sets local worker with worker instantiated in store.
+ * Also sets worker's onmessage and onerror logic.
+ */
+function setWorker(): void {
+    worker.value = agStore.state.accessGrantsWebWorker;
+
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
         };
-    }
-
-    /**
-     * Holds on back button click logic.
-     * Navigates to previous screen.
-     */
-    public async onBackClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        await this.$router.push({ name: RouteConfig.AGName.name });
-    }
-
-    /**
-     * Holds on next button click logic.
-     */
-    public async onNextClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            const restrictedKey = await this.generateRestrictedKey();
-            this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, restrictedKey);
-
-            await this.$notify.success('Restrictions were set successfully.');
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
-            return;
-        } finally {
-            this.isLoading = false;
-        }
-
-        await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, this.$route.path);
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
-        await this.$router.push({ name: RouteConfig.APIKey.name });
-    }
-
-    /**
-     * Generates and returns restricted key from clean API key.
-     */
-    private async generateRestrictedKey(): Promise<string> {
-        let permissionsMsg = {
-            'type': 'SetPermission',
-            'isDownload': this.storedIsDownload,
-            'isUpload': this.storedIsUpload,
-            'isList': this.storedIsList,
-            'isDelete': this.storedIsDelete,
-            'buckets': this.selectedBucketNames,
-            'apiKey': this.cleanAPIKey,
-        };
-
-        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, { 'notBefore': this.notBeforePermission.toISOString() });
-        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': this.notAfterPermission.toISOString() });
-
-        await this.worker.postMessage(permissionsMsg);
-
-        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error);
-        }
-
-        this.analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
-
-        return grantEvent.data.value;
-    }
-
-    /**
-     * Returns selected bucket names.
-     */
-    public get selectedBucketNames(): string[] {
-        return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * Returns clean API key from store.
-     */
-    private get cleanAPIKey(): string {
-        return this.$store.state.appStateModule.appState.onbCleanApiKey;
-    }
-
-    /**
-     * Returns download permission from store.
-     */
-    private get storedIsDownload(): boolean {
-        return this.$store.state.accessGrantsModule.isDownload;
-    }
-
-    /**
-     * Returns upload permission from store.
-     */
-    private get storedIsUpload(): boolean {
-        return this.$store.state.accessGrantsModule.isUpload;
-    }
-
-    /**
-     * Returns list permission from store.
-     */
-    private get storedIsList(): boolean {
-        return this.$store.state.accessGrantsModule.isList;
-    }
-
-    /**
-     * Returns delete permission from store.
-     */
-    private get storedIsDelete(): boolean {
-        return this.$store.state.accessGrantsModule.isDelete;
-    }
-
-    /**
-     * Returns not before date permission from store.
-     */
-    private get notBeforePermission(): Date | null {
-        return this.$store.state.accessGrantsModule.permissionNotBefore;
-    }
-
-    /**
-     * Returns not after date permission from store.
-     */
-    private get notAfterPermission(): Date | null {
-        return this.$store.state.accessGrantsModule.permissionNotAfter;
     }
 }
+
+/**
+ * Holds on back button click logic.
+ * Navigates to previous screen.
+ */
+async function onBackClick(): Promise<void> {
+    if (isLoading.value) return;
+
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+    await router.push({ name: RouteConfig.AGName.name });
+}
+
+/**
+ * Holds on next button click logic.
+ */
+async function onNextClick(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    try {
+        const restrictedKey = await generateRestrictedKey();
+        appStore.setOnboardingAPIKey(restrictedKey);
+
+        notify.success('Restrictions were set successfully.');
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
+        return;
+    } finally {
+        isLoading.value = false;
+    }
+
+    appStore.setOnboardingAPIKeyStepBackRoute(route.path);
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
+    await router.push({ name: RouteConfig.APIKey.name });
+}
+
+/**
+ * Generates and returns restricted key from clean API key.
+ */
+async function generateRestrictedKey(): Promise<string> {
+    if (!worker.value) {
+        throw new Error('Worker is not defined');
+    }
+
+    let permissionsMsg = {
+        'type': 'SetPermission',
+        'isDownload': storedIsDownload.value,
+        'isUpload': storedIsUpload.value,
+        'isList': storedIsList.value,
+        'isDelete': storedIsDelete.value,
+        'buckets': JSON.stringify(selectedBucketNames.value),
+        'apiKey': cleanAPIKey.value,
+    };
+
+    if (notBeforePermission.value) permissionsMsg = Object.assign(
+        permissionsMsg, { 'notBefore': notBeforePermission.value.toISOString() },
+    );
+    if (notAfterPermission.value) permissionsMsg = Object.assign(
+        permissionsMsg, { 'notAfter': notAfterPermission.value.toISOString() },
+    );
+
+    await worker.value.postMessage(permissionsMsg);
+
+    const grantEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
+        }
+    });
+    if (grantEvent.data.error) {
+        throw new Error(grantEvent.data.error);
+    }
+
+    analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
+
+    return grantEvent.data.value;
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Checks if clean api key was generated during previous step.
+ * Fetches all existing bucket names.
+ * Initializes web worker's onmessage functionality.
+ */
+onMounted(async (): Promise<void> => {
+    if (!cleanAPIKey.value) {
+        isLoading.value = false;
+        await onBackClick();
+
+        return;
+    }
+
+    setWorker();
+
+    try {
+        await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
+
+        areBucketNamesFetching.value = false;
+    } catch (error) {
+        await notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
+    }
+
+    isLoading.value = false;
+});
 </script>
 
 <style scoped lang="scss">

@@ -34,10 +34,11 @@
 import { computed } from 'vue';
 
 import { Bucket } from '@/types/buckets';
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
@@ -48,7 +49,9 @@ const props = withDefaults(defineProps<{
     onClose: () => {},
 });
 
-const store = useStore();
+const appStore = useAppStore();
+const bucketsStore = useBucketsStore();
+const obStore = useObjectBrowserStore();
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 
@@ -56,7 +59,7 @@ const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
  * Returns locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjectsCount = store.state.files.objectsCount;
+    const ownObjectsCount = obStore.state.objectsCount;
 
     return objectsCount.value - ownObjectsCount;
 });
@@ -65,8 +68,8 @@ const lockedFilesNumber = computed((): number => {
  * Returns bucket objects count from store.
  */
 const objectsCount = computed((): number => {
-    const name: string = store.state.files.bucket;
-    const data: Bucket = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const name: string = obStore.state.bucket;
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });
@@ -75,8 +78,8 @@ const objectsCount = computed((): number => {
  * Opens switch passphrase modal.
  */
 function openManageModal(): void {
-    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, ManageProjectPassphraseStep.Switch);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.setManagePassphraseStep(ManageProjectPassphraseStep.Switch);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 }
 </script>
 
@@ -93,7 +96,7 @@ function openManageModal(): void {
     font-family: 'font_regular', sans-serif;
     margin-bottom: 21px;
 
-    @media screen and (max-width: 400px) {
+    @media screen and (width <= 400px) {
         flex-direction: column-reverse;
     }
 
@@ -102,7 +105,7 @@ function openManageModal(): void {
         align-items: center;
         margin-right: 15px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             flex-direction: column;
             align-items: flex-start;
         }
@@ -114,7 +117,7 @@ function openManageModal(): void {
         &__labels {
             margin-left: 16px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
                 margin: 10px 0 0;
             }
 
@@ -137,7 +140,7 @@ function openManageModal(): void {
         display: flex;
         align-items: center;
 
-        @media screen and (max-width: 400px) {
+        @media screen and (width <= 400px) {
             width: 100%;
             justify-content: space-between;
             margin-bottom: 10px;

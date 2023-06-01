@@ -60,8 +60,7 @@ func TestTransactionsDBList(t *testing.T) {
 			Status:      txStatus,
 			Type:        txType,
 			Metadata:    metadata,
-			Timestamp:   time.Now(),
-			CreatedAt:   time.Now(),
+			Timestamp:   makeTimestamp(),
 		}
 
 		txs = append(txs, createTX)
@@ -73,16 +72,16 @@ func TestTransactionsDBList(t *testing.T) {
 				_, err := db.Billing().Insert(ctx, tx)
 				require.NoError(t, err)
 			}
-			storjscanTXs, err := db.Billing().List(ctx, userID)
+
+			actual, err := db.Billing().List(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, 12, len(storjscanTXs))
-			for _, act := range storjscanTXs {
-				for _, exp := range txs {
-					if act.ID == exp.ID {
-						compareTransactions(t, exp, act)
-						break
-					}
-				}
+			require.Equal(t, len(txs), len(actual))
+
+			// The listing is in descending insertion order so compare
+			// accordingly (first listed compared with last inserted, etc.)
+			for i, act := range actual {
+				exp := txs[len(txs)-i-1]
+				compareTransactions(t, exp, act)
 			}
 		})
 	})
@@ -115,8 +114,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second),
 	}
 
 	credit30TX := billing.Transaction{
@@ -127,8 +125,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second * 2),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second * 2),
 	}
 
 	charge20TX := billing.Transaction{
@@ -139,8 +136,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeDebit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second * 3),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second * 3),
 	}
 
 	t.Run("add 10 USD to account", func(t *testing.T) {
@@ -215,13 +211,12 @@ func TestUpdateTransactions(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second),
 	}
 
 	t.Run("update metadata", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			txID, err := db.Billing().Insert(ctx, credit10TX)
+			txIDs, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			newAddress, err := blockchain.BytesToAddress(testrand.Bytes(20))
 			require.NoError(t, err)
@@ -229,7 +224,7 @@ func TestUpdateTransactions(t *testing.T) {
 				"Wallet": newAddress.Hex(),
 			})
 			require.NoError(t, err)
-			err = db.Billing().UpdateMetadata(ctx, txID, metadata)
+			err = db.Billing().UpdateMetadata(ctx, txIDs[0], metadata)
 			require.NoError(t, err)
 			expMetadata, err := json.Marshal(map[string]interface{}{
 				"ReferenceID": "some stripe invoice ID",
@@ -245,9 +240,9 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("update status", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			txID, err := db.Billing().Insert(ctx, credit10TX)
+			txIDs, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
-			err = db.Billing().UpdateStatus(ctx, txID, billing.TransactionStatusCancelled)
+			err = db.Billing().UpdateStatus(ctx, txIDs[0], billing.TransactionStatusCancelled)
 			require.NoError(t, err)
 			credit10TX.Status = billing.TransactionStatusCancelled
 			tx, err := db.Billing().List(ctx, userID)
@@ -255,10 +250,6 @@ func TestUpdateTransactions(t *testing.T) {
 			compareTransactions(t, credit10TX, tx[0])
 		})
 	})
-}
-
-func TestUpdateMetadata(t *testing.T) {
-
 }
 
 // compareTransactions is a helper method to compare tx used to create db entry,
@@ -271,14 +262,20 @@ func compareTransactions(t *testing.T, exp, act billing.Transaction) {
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Source, act.Source)
 	assert.Equal(t, exp.Type, act.Type)
-	var expUpdatedMetadata map[string]string
-	var actUpdatedMetadata map[string]string
+	var expUpdatedMetadata map[string]interface{}
+	var actUpdatedMetadata map[string]interface{}
 	err := json.Unmarshal(exp.Metadata, &expUpdatedMetadata)
 	require.NoError(t, err)
 	err = json.Unmarshal(act.Metadata, &actUpdatedMetadata)
 	require.NoError(t, err)
 	assert.Equal(t, expUpdatedMetadata["ReferenceID"], actUpdatedMetadata["ReferenceID"])
 	assert.Equal(t, expUpdatedMetadata["Wallet"], actUpdatedMetadata["Wallet"])
-	assert.WithinDuration(t, exp.Timestamp, act.Timestamp, time.Microsecond) // database timestamps use microsecond precision
-	assert.False(t, act.CreatedAt.IsZero())
+	assert.Equal(t, exp.Timestamp, act.Timestamp)
+	assert.NotEqual(t, time.Time{}, act.CreatedAt)
+}
+
+func makeTimestamp() time.Time {
+	// Truncate to microseconds to paper over a loss of nanosecond precision
+	// going in and out of the database due to timestamp column resolution.
+	return time.Now().Truncate(time.Microsecond)
 }

@@ -26,6 +26,8 @@ const validatePlainSize = false
 const defaultZombieDeletionPeriod = 24 * time.Hour
 
 var (
+	// ErrObjectNotFound is used to indicate that the object does not exist.
+	ErrObjectNotFound = errs.Class("object not found")
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
 	// ErrConflict is used to indicate conflict with the request.
@@ -653,7 +655,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 			} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 				// TODO maybe we should check message if 'encryption' label is there
 				return ErrInvalidRequest.New("Encryption is missing")

@@ -21,7 +21,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
-	lru     *lrucache.ExpiringLRU
+	lru     *lrucache.ExpiringLRUOf[*dbx.ApiKey_Project_PublicId_Row]
 	db      *satelliteDB
 }
 
@@ -74,9 +74,10 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at
-		FROM api_keys ak
+		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at, p.public_id
+		FROM api_keys ak, projects p
 		WHERE ak.project_id = ?
+		AND ak.project_id = p.id
 		AND lower(ak.name) LIKE ?
 		ORDER BY ` + sanitizedAPIKeyOrderColumnName(cursor.Order) + `
 		` + sanitizeOrderDirectionName(page.OrderDirection) + `
@@ -98,7 +99,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt, &ak.ProjectPublicID)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +128,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 // Get implements satellite.APIKeys.
 func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKey, err := keys.methods.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
+	dbKey, err := keys.methods.Get_ApiKey_Project_PublicId_By_ApiKey_Id(ctx, dbx.ApiKey_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -139,15 +140,11 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbKeyI, err := keys.lru.Get(string(head), func() (interface{}, error) {
-		return keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
+	dbKey, err := keys.lru.Get(ctx, string(head), func() (*dbx.ApiKey_Project_PublicId_Row, error) {
+		return keys.methods.Get_ApiKey_Project_PublicId_By_ApiKey_Head(ctx, dbx.ApiKey_Head(head))
 	})
 	if err != nil {
 		return nil, err
-	}
-	dbKey, ok := dbKeyI.(*dbx.ApiKey)
-	if !ok {
-		return nil, Error.New("invalid key type: %T", dbKeyI)
 	}
 	return fromDBXAPIKey(ctx, dbKey)
 }
@@ -155,7 +152,7 @@ func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.API
 // GetByNameAndProjectID implements satellite.APIKeys.
 func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKey, err := keys.methods.Get_ApiKey_By_Name_And_ProjectId(ctx,
+	dbKey, err := keys.methods.Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_ProjectId(ctx,
 		dbx.ApiKey_Name(name),
 		dbx.ApiKey_ProjectId(projectID[:]))
 	if err != nil {
@@ -178,7 +175,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
 	}
 
-	dbKey, err := keys.methods.Create_ApiKey(
+	_, err = keys.methods.Create_ApiKey(
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(info.ProjectID[:]),
@@ -192,7 +189,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		return nil, err
 	}
 
-	return fromDBXAPIKey(ctx, dbKey)
+	return keys.Get(ctx, id)
 }
 
 // Update implements satellite.APIKeys.
@@ -215,8 +212,9 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 }
 
 // fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo.
-func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
+func fromDBXAPIKey(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Row) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+	key := &row.ApiKey
 	id, err := uuid.FromBytes(key.Id)
 	if err != nil {
 		return nil, err
@@ -226,14 +224,19 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 	if err != nil {
 		return nil, err
 	}
+	projectPublicID, err := uuid.FromBytes(row.Project_PublicId)
+	if err != nil {
+		return nil, err
+	}
 
 	result := &console.APIKeyInfo{
-		ID:        id,
-		ProjectID: projectID,
-		Name:      key.Name,
-		CreatedAt: key.CreatedAt,
-		Head:      key.Head,
-		Secret:    key.Secret,
+		ID:              id,
+		ProjectID:       projectID,
+		ProjectPublicID: projectPublicID,
+		Name:            key.Name,
+		CreatedAt:       key.CreatedAt,
+		Head:            key.Head,
+		Secret:          key.Secret,
 	}
 
 	if key.UserAgent != nil {
@@ -249,5 +252,5 @@ func sanitizedAPIKeyOrderColumnName(pmo console.APIKeyOrder) string {
 		return "ak.created_at"
 	}
 
-	return "ak.name"
+	return "lower(ak.name)"
 }

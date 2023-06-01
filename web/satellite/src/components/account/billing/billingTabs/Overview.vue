@@ -11,7 +11,7 @@
             <div class="total-cost__card-container">
                 <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
+                    <p class="total-cost__card__money-text">{{ centsToDollars(priceSummary) }}</p>
                     <p class="total-cost__card__label-text">
                         Total Estimated Charges
                         <img
@@ -25,7 +25,7 @@
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
-                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
+                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Egress remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
                     </div>
                     <p
                         class="total-cost__card__link-text"
@@ -36,7 +36,7 @@
                 </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">${{ balance.coins }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.formattedCoins }}</p>
                     <p class="total-cost__card__label-text">STORJ Token Balance</p>
                     <p
                         class="total-cost__card__link-text"
@@ -44,6 +44,12 @@
                     >
                         {{ hasZeroCoins ? "Add Funds" : "See Balance" }} →
                     </p>
+                </div>
+
+                <div v-if="balance.hasCredits()" class="total-cost__card">
+                    <AvailableBalanceIcon class="total-cost__card__main-icon" />
+                    <p class="total-cost__card__money-text">{{ balance.formattedCredits }}</p>
+                    <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
                 </div>
             </div>
         </div>
@@ -71,14 +77,12 @@
                     :on-press="routeToBillingHistory"
                 />
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                <UsageAndChargesItem2
-                    v-for="usageAndCharges in projectUsageAndCharges"
-                    :key="usageAndCharges.projectId"
-                    :item="usageAndCharges"
-                    class="cost-by-project__item"
-                />
-            </div>
+            <UsageAndChargesItem
+                v-for="id in projectIDs"
+                :key="id"
+                :project-id="id"
+                class="cost-by-project__item"
+            />
             <router-view />
         </div>
     </div>
@@ -86,17 +90,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
+import { centsToDollars } from '@/utils/strings';
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance, ProjectUsageAndCharges } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AccountBalance } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
-import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
+import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
@@ -105,7 +111,8 @@ import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const store = useStore();
+const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -117,7 +124,7 @@ const currentDate = ref<string>('');
  * Returns account balance from store.
  */
 const balance = computed((): AccountBalance => {
-    return store.state.paymentsModule.balance;
+    return billingStore.state.balance as AccountBalance;
 });
 
 /**
@@ -128,22 +135,25 @@ const hasZeroCoins = computed((): boolean => {
 });
 
 /**
- * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+ * projectIDs is an array of all of the project IDs for which there exist project usage charges.
  */
-const projectUsageAndCharges = computed((): ProjectUsageAndCharges[] => {
-    return store.state.paymentsModule.usageAndCharges;
+const projectIDs = computed((): string[] => {
+    return projectsStore.state.projects
+        .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
+        .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
+        .map(proj => proj.id);
 });
 
 /**
  * priceSummary returns price summary of usages for all the projects.
  */
 const priceSummary = computed((): number => {
-    return store.state.paymentsModule.priceSummary;
+    return billingStore.state.projectCharges.getPrice();
 });
 
 function routeToBillingHistory(): void {
     analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
-    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path);
 }
 
 function routeToPaymentMethods(): void {
@@ -154,7 +164,7 @@ function routeToPaymentMethods(): void {
 function balanceClicked(): void {
     router.push({
         name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
-        params: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
+        query: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
     });
 }
 
@@ -164,7 +174,7 @@ function balanceClicked(): void {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await projectsStore.getProjects();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
         isDataFetching.value = false;
@@ -172,8 +182,8 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        await billingStore.getProjectUsagePriceModel();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
     }
@@ -181,14 +191,14 @@ onMounted(async () => {
     isDataFetching.value = false;
 
     const rawDate = new Date();
-    let currentYear = rawDate.getFullYear();
+    const currentYear = rawDate.getFullYear();
     currentDate.value = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
 });
 </script>
 
 <style scoped lang="scss">
     .total-cost {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         margin: 20px 0;
 
         &__header-container {
@@ -199,10 +209,9 @@ onMounted(async () => {
             &__date {
                 display: flex;
                 justify-content: space-between;
-                align-items: bottom;
+                align-items: flex-end;
                 color: var(--c-grey-6);
-                font-weight: 700;
-                font-family: sans-serif;
+                font-family: 'font_bold', sans-serif;
                 border-radius: 5px;
                 height: 15px;
                 width: auto;
@@ -211,19 +220,26 @@ onMounted(async () => {
         }
 
         &__card-container {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+
+            @media screen and (width <= 786px) {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            @media screen and (width <= 425px) {
+                grid-template-columns: auto;
+            }
         }
 
         &__card {
-            width: calc(50% - 50px);
-            min-width: 188px;
+            overflow: hidden;
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;
             background-color: #fff;
             padding: 20px;
-            margin-top: 20px;
             display: flex;
             flex-direction: column;
             justify-content: left;
@@ -242,7 +258,7 @@ onMounted(async () => {
             }
 
             &__link-text {
-                font-weight: medium;
+                font-weight: 500;
                 text-decoration: underline;
                 margin-top: 10px;
                 cursor: pointer;
@@ -259,7 +275,7 @@ onMounted(async () => {
                 top: 5px;
                 left: 86px;
 
-                @media screen and (max-width: 635px) {
+                @media screen and (width <= 635px) {
                     top: 5px;
                     left: -21px;
                 }
@@ -279,7 +295,7 @@ onMounted(async () => {
                 &:after {
                     left: 50%;
 
-                    @media screen and (max-width: 635px) {
+                    @media screen and (width <= 635px) {
                         left: 90%;
                     }
 
@@ -305,7 +321,7 @@ onMounted(async () => {
     }
 
     .cost-by-project {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
 
         &__title {
             padding-bottom: 10px;

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal class="modal" :on-close="onClose">
+    <VModal v-if="plan" class="modal" :on-close="onClose">
         <template #content>
             <div v-if="!isSuccess" class="content">
                 <div class="content__top">
@@ -17,14 +17,11 @@
                             {{ plan.title }}
                             <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span>
                         </p>
-                        <p>{{ plan.activationDescription }}</p>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <p class="content__middle__description" v-html="plan.activationDescriptionHTML" />
                     </div>
-                    <p class="content__middle__price">
-                        <template v-if="plan.price">
-                            <s v-if="plan.oldPrice">{{ plan.oldPrice }}</s>&nbsp;{{ plan.price }}
-                        </template>
-                        <template v-else>No charge</template>
-                    </p>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <p v-if="plan.activationPriceHTML" class="content__middle__price" v-html="plan.activationPriceHTML" />
                 </div>
                 <div class="content__bottom">
                     <div v-if="!isFree" class="content__bottom__card-area">
@@ -37,11 +34,11 @@
                     </div>
                     <VButton
                         class="content__bottom__button"
-                        :label="'Activate ' + plan.title"
+                        :label="plan.activationButtonText || ('Activate ' + plan.title)"
                         width="100%"
                         font-size="13px"
                         icon="lock"
-                        :is-green="plan.type == 'partner'"
+                        :is-green="plan.type === 'partner'"
                         :is-disabled="isLoading"
                         :on-press="onActivateClick"
                     />
@@ -50,7 +47,7 @@
                         label="Cancel"
                         width="100%"
                         font-size="13px"
-                        :is-transparent="true"
+                        :is-white="true"
                         :on-press="onClose"
                     />
                 </div>
@@ -81,14 +78,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -102,35 +101,49 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-const store = useStore();
+const configStore = useConfigStore();
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
 
 /**
  * Returns the pricing plan selected from the onboarding tour.
  */
-const plan = computed((): PricingPlanInfo => {
-    return store.state.appStateModule.appState.selectedPricingPlan;
+const plan = computed((): PricingPlanInfo | null => {
+    return appStore.state.selectedPricingPlan;
+});
+
+watch(plan, () => {
+    if (!plan.value) {
+        appStore.removeActiveModal();
+        notify.error('No pricing plan has been selected.', null);
+    }
 });
 
 /**
  * Returns whether this modal corresponds to a free pricing plan.
  */
 const isFree = computed((): boolean => {
-    return plan.value.type === PricingPlanType.FREE;
+    return plan.value?.type === PricingPlanType.FREE;
 });
 
 /**
  * Closes the modal and advances to the next step in the onboarding tour.
  */
 function onClose(): void {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
     if (isSuccess.value) {
+        if (configStore.state.config.allProjectsDashboard) {
+            router.push(RouteConfig.AllProjectsDashboard.path);
+            return;
+        }
         router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
     }
 }
@@ -139,7 +152,7 @@ function onClose(): void {
  * Applies the selected pricing plan to the user.
  */
 function onActivateClick(): void {
-    if (isLoading.value) return;
+    if (isLoading.value || !plan.value) return;
     isLoading.value = true;
 
     if (isFree.value) {
@@ -154,19 +167,21 @@ function onActivateClick(): void {
  * Adds card after Stripe confirmation.
  */
 async function onCardAdded(token: string): Promise<void> {
-    let action = PAYMENTS_ACTIONS.ADD_CREDIT_CARD;
+    if (!plan.value) return;
+
+    let action = billingStore.addCreditCard;
     if (plan.value.type === PricingPlanType.PARTNER) {
-        action = PAYMENTS_ACTIONS.PURCHASE_PACKAGE;
+        action = billingStore.purchasePricingPackage;
     }
 
     try {
-        await store.dispatch(action, token);
+        await action(token);
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
         // Fetch cards to hide paid tier banner
-        await store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(error.message, null);
     }
@@ -235,21 +250,28 @@ async function onCardAdded(token: string): Promise<void> {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 16px;
         background-color: #fff;
 
         &__name {
             font-family: 'font_bold', sans-serif;
         }
 
+        &__description :deep(a) {
+            color: var(--c-blue-3);
+            text-decoration: underline;
+        }
+
         &__price {
-            display: flex;
-            font-family: 'font_bold', sans-serif;
+            font-family: 'font_medium', sans-serif;
             line-height: 22px;
 
-            s {
+            :deep(s) {
                 font-family: 'font_regular', sans-serif;
-                color: var(--c-grey-6);
+            }
+
+            :deep(b) {
+                font-family: 'font_bold', sans-serif;
             }
         }
     }

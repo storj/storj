@@ -14,11 +14,12 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
 
-func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoinpayments.Service, satellite.DB) error) error {
+func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripe.Service, satellite.DB) error) error {
 	// Open SatelliteDB for the Payment Service
 	logger := zap.L()
 	db, err := satellitedb.Open(ctx, logger.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-billing"})
@@ -37,18 +38,18 @@ func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoi
 	return cmdFunc(ctx, payments, db)
 }
 
-func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Service, error) {
+func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 	pc := runCfg.Payments
 
-	var stripeClient stripecoinpayments.StripeClient
+	var stripeClient stripe.Client
 	switch pc.Provider {
 	case "": // just new mock, only used in testing binaries
-		stripeClient = stripecoinpayments.NewStripeMock(
+		stripeClient = stripe.NewStripeMock(
 			db.StripeCoinPayments().Customers(),
 			db.Console().Users(),
 		)
 	case "stripecoinpayments":
-		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
 	default:
 		return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 	}
@@ -63,7 +64,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		return nil, err
 	}
 
-	return stripecoinpayments.NewService(
+	return stripe.NewService(
 		log.Named("payments.stripe:service"),
 		stripeClient,
 		pc.StripeCoinPayments,
@@ -76,7 +77,9 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		prices,
 		priceOverrides,
 		pc.PackagePlans.Packages,
-		pc.BonusRate)
+		pc.BonusRate,
+		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
+	)
 }
 
 // parseYearMonth parses year and month from the provided string and returns a corresponding time.Time for the first day
@@ -99,7 +102,7 @@ type userData struct {
 
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, db satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, db satellite.DB) error {
 		accounts := payments.Accounts()
 
 		cusDB := db.StripeCoinPayments().Customers().Raw()
@@ -137,7 +140,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 func cmdApplyFreeTierCoupons(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.ApplyFreeTierCoupons(ctx)
 	})
 }

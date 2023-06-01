@@ -3,7 +3,6 @@
 
 <template>
     <div class="clear-step">
-        <h1 class="clear-step__title">Clear my passphrase</h1>
         <p class="clear-step__info">
             By choosing to clear your passphrase for this session, your data will become locked while you can use the
             rest of the dashboard.
@@ -12,14 +11,18 @@
             <VButton
                 label="Back"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :is-white="true"
                 :on-press="onCancel"
             />
             <VButton
-                label="Clear my passphrase"
+                label="Continue ->"
                 width="100%"
-                height="48px"
+                height="52px"
+                font-size="14px"
+                border-radius="10px"
                 :on-press="onClear"
             />
         </div>
@@ -27,11 +30,9 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -41,14 +42,17 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const notify = useNotify();
 
 /**
  * Clears passphrase and edge credentials.
  */
 function onClear(): void {
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    bucketsStore.clearS3Data();
+    appStore.removeActiveModal();
+    notify.success('Passphrase was cleared successfully');
 }
 </script>
 
@@ -56,33 +60,27 @@ function onClear(): void {
 .clear-step {
     display: flex;
     flex-direction: column;
-    align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
-    }
+    max-width: 350px;
 
     &__info {
         font-size: 14px;
         line-height: 19px;
         color: #354049;
-        margin-bottom: 24px;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+        text-align: left;
     }
 
     &__buttons {
         display: flex;
         align-items: center;
         justify-content: center;
-        column-gap: 33px;
+        column-gap: 16px;
         width: 100%;
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             column-gap: unset;
             flex-direction: column-reverse;
             row-gap: 15px;

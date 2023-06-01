@@ -103,6 +103,18 @@ func (events *accountFreezeEvents) DeleteAllByUserID(ctx context.Context, userID
 	return err
 }
 
+// DeleteByUserIDAndEvent is a method for deleting all account `eventType` events from the database by user ID.
+func (events *accountFreezeEvents) DeleteByUserIDAndEvent(ctx context.Context, userID uuid.UUID, eventType console.AccountFreezeEventType) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = events.db.Delete_AccountFreezeEvent_By_UserId_And_Event(ctx,
+		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
+		dbx.AccountFreezeEvent_Event(int(eventType)),
+	)
+
+	return err
+}
+
 // fromDBXAccountFreezeEvent converts *dbx.AccountFreezeEvent to *console.AccountFreezeEvent.
 func fromDBXAccountFreezeEvent(dbxEvent *dbx.AccountFreezeEvent) (_ *console.AccountFreezeEvent, err error) {
 	if dbxEvent == nil {

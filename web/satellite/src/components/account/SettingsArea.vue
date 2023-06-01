@@ -85,14 +85,13 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -100,7 +99,8 @@ import ChangePasswordIcon from '@/../static/images/account/profile/changePasswor
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const usersStore = useUsersStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -108,49 +108,49 @@ const { isLoading, withLoading } = useLoading();
  * Returns user info from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
  * Returns first letter of user name.
  */
 const avatarLetter = computed((): string => {
-    return store.getters.userName.slice(0, 1).toUpperCase();
+    return usersStore.userName.slice(0, 1).toUpperCase();
 });
 
 /**
  * Toggles enable MFA modal visibility.
  */
 function toggleEnableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
+    appStore.updateActiveModal(MODALS.enableMFA);
 }
 
 /**
  * Toggles disable MFA modal visibility.
  */
 function toggleDisableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
+    appStore.updateActiveModal(MODALS.disableMFA);
 }
 
 /**
  * Toggles MFA recovery codes modal visibility.
  */
 function toggleMFACodesModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
  * Opens change password popup.
  */
 function toggleChangePasswordModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
+    appStore.updateActiveModal(MODALS.changePassword);
 }
 
 /**
  * Opens edit account info modal.
  */
 function toggleEditProfileModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editProfile);
+    appStore.updateActiveModal(MODALS.editProfile);
 }
 
 /**
@@ -159,7 +159,7 @@ function toggleEditProfileModal(): void {
 async function enableMFA(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -173,7 +173,7 @@ async function enableMFA(): Promise<void> {
 async function generateNewMFARecoveryCodes(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            await usersStore.generateUserMFARecoveryCodes();
             toggleMFACodesModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -185,7 +185,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Lifecycle hook after initial render where user info is fetching.
  */
 onMounted(() => {
-    store.dispatch(USER_ACTIONS.GET);
+    usersStore.getUser();
 });
 </script>
 
@@ -355,7 +355,7 @@ onMounted(() => {
         word-break: break-all;
     }
 
-    @media screen and (max-width: 1300px) {
+    @media screen and (width <= 1300px) {
 
         .settings {
 
@@ -376,7 +376,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-height: 825px) {
+    @media screen and (height <= 825px) {
 
         .settings {
             height: 535px;
@@ -396,7 +396,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 650px) {
+    @media screen and (width <= 650px) {
 
         .settings__secondary-container__change-password__text-container {
             margin: 0;
@@ -408,7 +408,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
 
         .settings__edit-profile,
         .settings__secondary-container__change-password,

@@ -7,9 +7,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
+)
+
+var (
+	// Error defines the metrics chore errors class.
+	Error = errs.Class("metrics")
+	mon   = monkit.Package()
 )
 
 // Observer implements the ranged segment loop observer interface for data
@@ -80,7 +88,7 @@ type observerFork struct {
 
 // Process aggregates metrics about a range of metrics provided by the
 // segment ranged loop.
-func (fork *observerFork) Process(ctx context.Context, segments []segmentloop.Segment) error {
+func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	for _, segment := range segments {
 		if fork.streamID != segment.StreamID {
 			// Stream ID has changed. Flush what we have so far.

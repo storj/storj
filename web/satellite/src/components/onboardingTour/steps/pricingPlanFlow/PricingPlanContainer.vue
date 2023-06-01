@@ -18,19 +18,17 @@
                     </div>
                 </div>
                 <p class="pricing-container__inner__section__description">{{ plan.containerDescription }}</p>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <p v-if="plan.containerFooterHTML" class="pricing-container__inner__section__footer" v-html="plan.containerFooterHTML" />
             </div>
             <div class="pricing-container__inner__section">
-                <p v-if="plan.price" class="pricing-container__inner__section__price">
-                    <span v-if="plan.oldPrice"><s>{{ plan.oldPrice }}</s>&nbsp;</span>
-                    {{ plan.price }}
-                </p>
                 <VButton
                     class="pricing-container__inner__section__button"
-                    :label="'Activate ' + plan.title"
+                    :label="plan.activationButtonText || ('Activate ' + plan.title)"
                     font-size="13px"
                     :on-press="onActivateClick"
                     :is-green="isPartner"
-                    :is-transparent="isFree"
+                    :is-white="isFree"
                 >
                     <template #icon-right>
                         <ArrowIcon :class="{'arrow-dark': isFree}" />
@@ -42,12 +40,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -60,14 +57,14 @@ const props = defineProps<{
     plan: PricingPlanInfo;
 }>();
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Sets the selected pricing plan and displays the pricing plan modal.
  */
 function onActivateClick(): void {
-    store.commit(APP_STATE_MUTATIONS.SET_PRICING_PLAN, props.plan);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.pricingPlan);
+    appStore.setPricingPlan(props.plan);
+    appStore.updateActiveModal(MODALS.pricingPlan);
 }
 
 const isPartner = computed((): boolean => props.plan.type === PricingPlanType.PARTNER);
@@ -150,12 +147,15 @@ const isFree = computed((): boolean => props.plan.type === PricingPlanType.FREE)
                 }
             }
 
-            &__price {
-                font-family: 'font_bold', sans-serif;
+            &__description {
+                margin-bottom: 20px;
+            }
+
+            &__footer {
                 line-height: 22px;
 
-                s {
-                    font-family: 'font_regular', sans-serif;
+                :deep(b) {
+                    font-family: 'font_bold', sans-serif;
                 }
             }
 
@@ -181,7 +181,7 @@ const isFree = computed((): boolean => props.plan.type === PricingPlanType.FREE)
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-container {
         width: 100%;

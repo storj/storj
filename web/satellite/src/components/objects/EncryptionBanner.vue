@@ -18,23 +18,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import SunIcon from '@/../static/images/objects/sun.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 
-// @vue/component
-@Component({
-    components: {
-        SunIcon,
-        CloseIcon,
-    },
-})
-export default class EncryptionBanner extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly hide: () => void;
-}
+const props = withDefaults(defineProps<{
+    hide: () => void;
+}>(), {
+    hide: () => {},
+});
 </script>
 
 <style scoped lang="scss">
@@ -55,7 +47,7 @@ export default class EncryptionBanner extends Vue {
             display: flex;
             align-items: center;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -70,7 +62,7 @@ export default class EncryptionBanner extends Vue {
                 color: #000;
                 margin-left: 16px;
 
-                @media screen and (max-width: 500px) {
+                @media screen and (width <= 500px) {
                     margin: 10px 0 0;
                 }
 
@@ -99,7 +91,7 @@ export default class EncryptionBanner extends Vue {
                 color: #000;
                 margin-right: 16px;
 
-                @media screen and (max-width: 860px) {
+                @media screen and (width <= 860px) {
                     display: none;
                 }
             }

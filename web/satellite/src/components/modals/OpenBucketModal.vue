@@ -5,10 +5,13 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <OpenBucketIcon />
-                <h1 class="modal__title">Enter your encryption passphrase</h1>
+                <div class="modal__header">
+                    <AccessEncryptionIcon />
+                    <h1 class="modal__header__title">Enter passphrase</h1>
+                </div>
                 <p class="modal__info">
-                    To open a bucket and view your encrypted files, <br>please enter your encryption passphrase.
+                    Enter your encryption passphrase to view and manage your data in the browser. This passphrase will
+                    be used to unlock all buckets in this project.
                 </p>
                 <VInput
                     :class="{'orange-border': isWarningState}"
@@ -32,17 +35,21 @@
                 <div class="modal__buttons">
                     <VButton
                         label="Cancel"
-                        height="48px"
+                        height="52px"
+                        font-size="14px"
+                        border-radius="10px"
                         :is-transparent="true"
                         :on-press="closeModal"
                         :is-disabled="isLoading"
                     />
                     <VButton
-                        :label="isWarningState ? 'Continue Anyway ->' : 'Continue ->'"
-                        height="48px"
+                        label="Continue ->"
+                        height="52px"
+                        font-size="14px"
+                        border-radius="10px"
                         :on-press="onContinue"
-                        :is-disabled="isLoading"
-                        :is-orange="isWarningState"
+                        :is-disabled="isLoading || !passphrase"
+                        :is-transparent="isWarningState"
                     />
                 </div>
             </div>
@@ -50,123 +57,121 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/router';
-import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
+import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VModal,
-        VButton,
-        OpenBucketIcon,
-        OpenWarningIcon,
-    },
-})
-export default class OpenBucketModal extends Vue {
-    private readonly NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const projectsStore = useProjectsStore();
+const router = useRouter();
+const notify = useNotify();
 
-    public enterError = '';
-    public passphrase = '';
-    public isLoading = false;
-    public isWarningState = false;
+const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Sets access and navigates to object browser.
-     */
-    public async onContinue(): Promise<void> {
-        if (this.isLoading) return;
+const enterError = ref<string>('');
+const passphrase = ref<string>('');
+const isLoading = ref<boolean>(false);
+const isWarningState = ref<boolean>(false);
 
-        if (this.isWarningState) {
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+/**
+ * Returns chosen bucket name from store.
+ */
+const bucketName = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
+});
 
-            this.closeModal();
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+/**
+ * Returns selected bucket name object count.
+ */
+const bucketObjectCount = computed((): number => {
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find(
+        (bucket: Bucket) => bucket.name === bucketName.value,
+    );
 
+    return data?.objectCount || 0;
+});
+
+/**
+ * Sets access and navigates to object browser.
+ */
+async function onContinue(): Promise<void> {
+    if (isLoading.value) return;
+
+    if (isWarningState.value) {
+        bucketsStore.setPromptForPassphrase(false);
+
+        closeModal();
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+
+        return;
+    }
+
+    if (!passphrase.value) {
+        enterError.value = 'Passphrase can\'t be empty';
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+
+        return;
+    }
+
+    isLoading.value = true;
+
+    try {
+        bucketsStore.setPassphrase(passphrase.value);
+        await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+        const count: number = await bucketsStore.getObjectsCount(bucketName.value);
+        if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
+            isWarningState.value = true;
+            isLoading.value = false;
             return;
         }
+        bucketsStore.setPromptForPassphrase(false);
+        isLoading.value = false;
 
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-            const count: number = await this.$store.dispatch(OBJECTS_ACTIONS.GET_OBJECTS_COUNT, this.bucketName);
-            if (this.bucketObjectCount > count && this.bucketObjectCount <= this.NUMBER_OF_DISPLAYED_OBJECTS) {
-                this.isWarningState = true;
-                this.isLoading = false;
-                return;
-            }
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-            this.isLoading = false;
-
-            this.closeModal();
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-            this.isLoading = false;
-        }
+        closeModal();
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        isLoading.value = false;
     }
+}
 
-    /**
-     * Closes open bucket modal.
-     */
-    public closeModal(): void {
-        if (this.isLoading) return;
+/**
+ * Closes open bucket modal.
+ */
+function closeModal(): void {
+    if (isLoading.value) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
-    }
+    appStore.removeActiveModal();
+}
 
-    /**
-     * Sets passphrase from child component.
-     */
-    public setPassphrase(passphrase: string): void {
-        if (this.enterError) this.enterError = '';
-        if (this.isWarningState) this.isWarningState = false;
+/**
+ * Sets passphrase from child component.
+ */
+function setPassphrase(value: string): void {
+    if (enterError.value) enterError.value = '';
+    if (isWarningState.value) isWarningState.value = false;
 
-        this.passphrase = passphrase;
-    }
-
-    /**
-     * Returns chosen bucket name from store.
-     */
-    public get bucketName(): string {
-        return this.$store.state.objectsModule.fileComponentBucketName;
-    }
-
-    /**
-     * Returns selected bucket name object count.
-     */
-    private get bucketObjectCount(): number {
-        const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === this.bucketName);
-
-        return data?.objectCount || 0;
-    }
+    passphrase.value = value;
 }
 </script>
 
@@ -175,28 +180,34 @@ export default class OpenBucketModal extends Vue {
         font-family: 'font_regular', sans-serif;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        padding: 62px 62px 54px;
-        max-width: 500px;
+        padding: 32px;
+        max-width: 350px;
 
-        @media screen and (max-width: 600px) {
-            padding: 62px 24px 54px;
-        }
+        &__header {
+            display: flex;
+            align-items: center;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--c-grey-2);
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 26px;
-            line-height: 31px;
-            color: #131621;
-            margin: 30px 0 15px;
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 24px;
+                line-height: 31px;
+                color: var(--c-grey-8);
+                margin-left: 16px;
+                text-align: left;
+            }
         }
 
         &__info {
-            font-size: 16px;
-            line-height: 21px;
-            text-align: center;
+            font-size: 14px;
+            line-height: 19px;
             color: #354049;
-            margin-bottom: 32px;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--c-grey-2);
+            text-align: left;
         }
 
         &__warning {
@@ -218,7 +229,7 @@ export default class OpenBucketModal extends Vue {
                 margin-left: 16px;
 
                 &__title {
-                    font-family: 'font_medium', sans-serif;
+                    font-weight: 500;
                     font-size: 14px;
                     line-height: 20px;
                     color: #000;
@@ -233,7 +244,7 @@ export default class OpenBucketModal extends Vue {
             margin-top: 31px;
             width: 100%;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 20px;
@@ -243,8 +254,12 @@ export default class OpenBucketModal extends Vue {
 
     .orange-border {
 
+        :deep(h3) {
+            color: var(--c-yellow-5);
+        }
+
         :deep(input) {
-            border-color: #ff8a00;
+            border-color: var(--c-yellow-5);
         }
     }
 </style>

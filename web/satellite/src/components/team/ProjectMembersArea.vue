@@ -25,12 +25,13 @@
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
             :total-items-count="projectMembersTotalCount"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
+                <th class="align-left">Role</th>
+                <th class="align-left date-added">Date Added</th>
             </template>
             <template #body>
                 <ProjectMemberListItem
@@ -38,24 +39,27 @@
                     :key="key"
                     :item-data="member"
                     @memberClick="onMemberCheckChange"
-                    @selectChange="(_) => onMemberCheckChange(member)"
+                    @selectClicked="(_) => onMemberCheckChange(member)"
                 />
             </template>
         </v-table>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { SortDirection } from '@/types/common';
 import {
     ProjectMember,
     ProjectMemberHeaderState,
-    ProjectMemberOrderBy,
 } from '@/types/projectMembers';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { RouteConfig } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -64,131 +68,109 @@ import VTable from '@/components/common/VTable.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
-const {
-    FETCH,
-    TOGGLE_SELECTION,
-    SET_SORT_BY,
-    SET_SORT_DIRECTION,
-} = PM_ACTIONS;
+const pmStore = useProjectMembersStore();
+const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
+const notify = useNotify();
+const router = useRouter();
 
-// @vue/component
-@Component({
-    components: {
-        ProjectMemberListItem,
-        HeaderArea,
-        VLoader,
-        VTable,
-        EmptySearchResultIcon,
-    },
-})
-export default class ProjectMembersArea extends Vue {
-    private FIRST_PAGE = 1;
+const FIRST_PAGE = 1;
 
-    public areMembersFetching = true;
+const areMembersFetching = ref<boolean>(true);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches first page of team members list of current project.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+/**
+ * Returns team members of current page from store.
+ * With project owner pinned to top
+ */
+const projectMembers = computed((): ProjectMember[] => {
+    const projectMembers = pmStore.state.page.projectMembers;
+    const projectOwner = projectMembers.find((member) => member.user.id === projectsStore.state.selectedProject.ownerId);
+    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== projectsStore.state.selectedProject.ownerId);
 
-            this.areMembersFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
-    }
+    // if the project owner exists, place at the front of the members list
+    projectOwner && projectMembersToReturn.unshift(projectOwner);
 
-    /**
-     * Selects team member if this user has no owner status.
-     * @param member
-     */
-    public async onMemberCheckChange(member: ProjectMember) {
-        if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
-            await this.$store.dispatch(TOGGLE_SELECTION, member);
-        }
-    }
+    return projectMembersToReturn;
+});
 
-    /**
-     * Returns team members of current page from store.
-     * With project owner pinned to top
-     */
-    public get projectMembers(): ProjectMember[] {
-        const projectMembers = this.$store.state.projectMembersModule.page.projectMembers;
-        const projectOwner = projectMembers.find((member) => member.user.id === this.$store.getters.selectedProject.ownerId);
-        const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== this.$store.getters.selectedProject.ownerId);
+/**
+ * Returns team members total page count from store.
+ */
+const projectMembersTotalCount = computed((): number => {
+    return pmStore.state.page.totalCount;
+});
 
-        // if the project owner exists, place at the front of the members list
-        projectOwner && projectMembersToReturn.unshift(projectOwner);
+/**
+ * Returns team members limit from store.
+ */
+const projectMemberLimit = computed((): number => {
+    return pmStore.state.page.limit;
+});
 
-        return projectMembersToReturn;
-    }
+/**
+ * Returns team members count of current page from store.
+ */
+const projectMembersCount = computed((): number => {
+    return pmStore.state.page.projectMembers.length;
+});
 
-    /**
-     * Returns team members total page count from store.
-     */
-    public get projectMembersTotalCount(): number {
-        return this.$store.state.projectMembersModule.page.totalCount;
-    }
+const totalPageCount = computed((): number => {
+    return pmStore.state.page.pageCount;
+});
 
-    /**
-     * Returns team members limit from store.
-     */
-    public get projectMemberLimit(): number {
-        return this.$store.state.projectMembersModule.page.limit;
-    }
+const selectedProjectMembersLength = computed((): number => {
+    return pmStore.state.selectedProjectMembersEmails.length;
+});
 
-    /**
-     * Returns team members count of current page from store.
-     */
-    public get projectMembersCount(): number {
-        return this.$store.state.projectMembersModule.page.projectMembers.length;
-    }
+const headerState = computed((): number => {
+    return selectedProjectMembersLength.value > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
+});
 
-    public get totalPageCount(): number {
-        return this.$store.state.projectMembersModule.page.pageCount;
-    }
+const isEmptySearchResultShown = computed((): boolean => {
+    return projectMembersCount.value === 0 && projectMembersTotalCount.value === 0;
+});
 
-    public get selectedProjectMembersLength(): number {
-        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
-    }
-
-    public get headerState(): number {
-        return this.selectedProjectMembersLength > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
-    }
-
-    public get isEmptySearchResultShown(): boolean {
-        return this.projectMembersCount === 0 && this.projectMembersTotalCount === 0;
-    }
-
-    /**
-     * Fetches team member of selected page.
-     * @param index
-     */
-    public async onPageClick(index: number): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, index);
-        } catch (error) {
-            this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
-    }
-
-    /**
-     * Changes sorting parameters and fetches team members.
-     * @param sortBy
-     * @param sortDirection
-     */
-    public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-        await this.$store.dispatch(SET_SORT_BY, sortBy);
-        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
+/**
+ * Selects team member if this user has no owner status.
+ * @param member
+ */
+function onMemberCheckChange(member: ProjectMember): void {
+    if (projectsStore.state.selectedProject.ownerId !== member.user.id) {
+        pmStore.toggleProjectMemberSelection(member);
     }
 }
+
+/**
+ * Fetches team member of selected page.
+ * @param index
+ * @param limit
+ */
+async function onPageChange(index: number, limit: number): Promise<void> {
+    try {
+        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id, limit);
+    } catch (error) {
+        notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+    }
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches first page of team members list of current project.
+ */
+onMounted(async (): Promise<void> => {
+    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
+    try {
+        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+
+        areMembersFetching.value = false;
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+    }
+});
 </script>
 
 <style scoped lang="scss">
@@ -223,7 +205,7 @@ export default class ProjectMembersArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 800px) and (min-width: 500px) {
+    @media screen and (width <= 800px) and (width >= 500px) {
 
         .date-added {
             display: none;

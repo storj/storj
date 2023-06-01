@@ -13,9 +13,9 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/private/dbutil"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
+	"storj.io/storj/private/kvstore"
+	"storj.io/storj/private/kvstore/boltdb"
+	"storj.io/storj/private/kvstore/redis"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 // DB stores authorizations which may be claimed in exchange for a
 // certificate signature.
 type DB struct {
-	db storage.KeyValueStore
+	db kvstore.Store
 }
 
 // DBConfig is the authorization db config.
@@ -127,8 +127,8 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 // Get retrieves authorizations by user ID.
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
-	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
-	if storage.ErrKeyNotFound.Has(err) {
+	authsBytes, err := authDB.db.Get(ctx, kvstore.Key(userID))
+	if kvstore.ErrKeyNotFound.Has(err) {
 		return nil, ErrNotFound.New("userID: %s", userID)
 	}
 	if err != nil {
@@ -148,36 +148,33 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 // UserIDs returns a list of all userIDs present in the authorization database.
 func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.db.Iterate(ctx, storage.IterateOptions{
-		Recurse: true,
-	}, func(ctx context.Context, iterator storage.Iterator) error {
-		var listItem storage.ListItem
-		for iterator.Next(ctx, &listItem) {
-			userIDs = append(userIDs, listItem.Key.String())
-		}
-		return nil
-	})
+
+	err = authDB.db.Range(ctx,
+		func(ctx context.Context, key kvstore.Key, _ kvstore.Value) error {
+			userIDs = append(userIDs, key.String())
+			return nil
+		})
 	return userIDs, ErrDBInternal.Wrap(err)
 }
 
 // List returns all authorizations in the database.
 func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.db.Iterate(ctx, storage.IterateOptions{
-		Recurse: true,
-	}, func(ctx context.Context, iterator storage.Iterator) error {
-		var listErrs errs.Group
-		var listItem storage.ListItem
-		for iterator.Next(ctx, &listItem) {
-			var nextAuths Group
-			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
-				listErrs.Add(err)
+
+	var errs errs.Group
+	err = authDB.db.Range(ctx,
+		func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
+			var group Group
+			err := group.Unmarshal(value)
+			if err != nil {
+				errs.Add(err)
+				return nil
 			}
-			auths = append(auths, nextAuths...)
-		}
-		return ErrDBInternal.Wrap(listErrs.Err())
-	})
-	return auths, ErrDBInternal.Wrap(err)
+			auths = append(auths, group...)
+			return nil
+		})
+	errs.Add(err)
+	return auths, ErrDBInternal.Wrap(errs.Err())
 }
 
 // Claim marks an authorization as claimed and records claim information.
@@ -291,7 +288,7 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 		return ErrDBInternal.Wrap(err)
 	}
 
-	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.db.Put(ctx, kvstore.Key(userID), authsBytes); err != nil {
 		return ErrDBInternal.Wrap(err)
 	}
 	return nil

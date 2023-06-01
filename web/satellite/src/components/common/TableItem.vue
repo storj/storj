@@ -7,11 +7,11 @@
         :class="{ 'selected': selected }"
         @click="onClick"
     >
-        <th v-if="selectable" class="icon select">
-            <v-table-checkbox :disabled="selectDisabled" :value="selected" @checkChange="onChange" />
+        <th v-if="selectable" class="icon select" @click.stop="selectClicked">
+            <v-table-checkbox v-if="!selectHidden" :disabled="selectDisabled || selectHidden" :value="selected" @selectClicked="selectClicked" />
         </th>
         <th
-            v-for="(val, _, index) in item" :key="index" class="align-left data"
+            v-for="(val, keyVal, index) in item" :key="index" class="align-left data"
             :class="{'overflow-visible': showBucketGuide(index)}"
         >
             <div v-if="Array.isArray(val)" class="few-items">
@@ -21,8 +21,9 @@
                 <div v-if="icon && index === 0" class="item-icon file-background">
                     <component :is="icon" />
                 </div>
-                <p :class="{primary: index === 0}" @click.stop="(e) => cellContentClicked(index, e)">
-                    <middle-truncate v-if="(itemType.toLowerCase() === 'file')" :text="val" />
+                <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
+                    <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'owner'" no-icon :is-owner="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -36,11 +37,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed } from 'vue';
 
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
 import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
+import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 
 import TableLockedIcon from '@/../static/images/browser/tableLocked.svg';
 import ColorFolderIcon from '@/../static/images/objects/colorFolder.svg';
@@ -57,6 +59,7 @@ import ZipIcon from '@/../static/images/objects/zip.svg';
 
 const props = withDefaults(defineProps<{
     selectDisabled?: boolean;
+    selectHidden?: boolean;
     selected?: boolean;
     selectable?: boolean;
     showGuide?: boolean;
@@ -68,6 +71,7 @@ const props = withDefaults(defineProps<{
     onPrimaryClick?: (data?: unknown) => void;
 }>(), {
     selectDisabled: false,
+    selectHidden: false,
     selected: false,
     selectable: false,
     showGuide: false,
@@ -75,12 +79,12 @@ const props = withDefaults(defineProps<{
     item: () => ({}),
     onClick: () => {},
     hideGuide: () => {},
-    onPrimaryClick: (_) => {},
+    onPrimaryClick: undefined,
 });
 
-const emit = defineEmits(['selectChange']);
+const emit = defineEmits(['selectClicked']);
 
-const icons = new Map<string, VueConstructor>([
+const icons = new Map<string, string>([
     ['locked', TableLockedIcon],
     ['bucket', ColorBucketIcon],
     ['folder', ColorFolderIcon],
@@ -97,12 +101,12 @@ const icons = new Map<string, VueConstructor>([
 
 const icon = computed(() => icons.get(props.itemType.toLowerCase()));
 
-function onChange(value: boolean): void {
-    emit('selectChange', value);
+function selectClicked(event: Event): void {
+    emit('selectClicked', event);
 }
 
 function showBucketGuide(index: number): boolean {
-    return (props.itemType?.toLowerCase() === 'bucket') && (index === 0) && !!props.showGuide;
+    return (props.itemType?.toLowerCase() === 'bucket') && (index === 0) && props.showGuide;
 }
 
 function cellContentClicked(cellIndex: number, event: Event) {
@@ -185,15 +189,15 @@ function cellContentClicked(cellIndex: number, event: Event) {
                 .primary {
                     color: var(--c-blue-3);
                 }
-
-                svg :deep(path) {
-                    fill: var(--c-blue-3);
-                }
             }
         }
 
         &.selected {
             background: var(--c-yellow-1);
+
+            :deep(.select) {
+                background: var(--c-yellow-1);
+            }
         }
     }
 
@@ -235,7 +239,7 @@ function cellContentClicked(cellIndex: number, event: Event) {
         padding: 2px;
         border-radius: 8px;
         height: 32px;
-        width: 32px;
+        min-width: 32px;
         display: flex;
         align-items: center;
         justify-content: center;

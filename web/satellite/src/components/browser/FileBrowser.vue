@@ -95,58 +95,62 @@
                         :on-close="closeBanner"
                     />
 
-                    <v-table class="file-browser-table">
+                    <v-table items-label="objects" :total-items-count="files.length" selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
                         <template #head>
                             <file-browser-header />
                         </template>
                         <template #body>
-                            <tr
-                                v-for="file in formattedFilesUploading"
-                                :key="file.ETag"
-                            >
-                                <!-- using <th> to comply with common Vtable.vue-->
-                                <th
-                                    class="align-left data"
-                                    aria-roledescription="file-uploading"
+                            <template v-if="!isNewUploadingModal">
+                                <tr
+                                    v-for="(file, index) in formattedFilesUploading"
+                                    :key="index"
                                 >
-                                    <p class="file-name">
-                                        <file-icon />
-                                        <span>{{ filename(file) }}</span>
-                                    </p>
-                                </th>
-                                <th class="align-left data" aria-roledescription="progress-bar">
-                                    <div class="progress">
-                                        <div
-                                            class="progress-bar"
-                                            role="progressbar"
-                                            :style="{
-                                                width: `${file.progress}%`
-                                            }"
-                                        >
-                                            {{ file.progress }}%
+                                    <!-- using <th> to comply with common Vtable.vue-->
+                                    <th class="hide-mobile icon" />
+                                    <th
+                                        class="align-left"
+                                        aria-roledescription="file-uploading"
+                                    >
+                                        <p class="file-name">
+                                            <file-icon />
+                                            <span>{{ filename(file) }}</span>
+                                        </p>
+                                    </th>
+                                    <th aria-roledescription="progress-bar">
+                                        <div class="progress">
+                                            <div
+                                                class="progress-bar"
+                                                role="progressbar"
+                                                :style="{
+                                                    width: `${file.progress}%`
+                                                }"
+                                            >
+                                                {{ file.progress }}%
+                                            </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th class="align-left data">
-                                    <v-button
-                                        width="60px"
-                                        font-size="14px"
-                                        label="Cancel" :is-deletion="true"
-                                        :on-press="() => cancelUpload(file.Key)"
-                                    />
-                                </th>
-                                <th />
-                            </tr>
+                                    </th>
+                                    <th>
+                                        <v-button
+                                            width="60px"
+                                            font-size="14px"
+                                            label="Cancel" :is-deletion="true"
+                                            :on-press="() => cancelUpload(file.Key)"
+                                        />
+                                    </th>
+                                    <th class="hide-mobile" />
+                                </tr>
 
-                            <tr v-if="filesUploading.length" class="files-uploading-count">
-                                <th class="align-left data files-uploading-count__content" aria-roledescription="files-uploading-count">
-                                    {{ formattedFilesWaitingToBeUploaded }}
-                                    waiting to be uploaded...
-                                </th>
-                                <th class="files-uploading-count__content" />
-                                <th class="files-uploading-count__content" />
-                                <th class="files-uploading-count__content" />
-                            </tr>
+                                <tr v-if="filesUploading.length" class="files-uploading-count">
+                                    <th class="hide-mobile files-uploading-count__content icon" />
+                                    <th class="align-left files-uploading-count__content" aria-roledescription="files-uploading-count">
+                                        {{ formattedFilesWaitingToBeUploaded }}
+                                        waiting to be uploaded...
+                                    </th>
+                                    <th class="hide-mobile files-uploading-count__content" />
+                                    <th class="hide-mobile files-uploading-count__content" />
+                                    <th class="files-uploading-count__content" />
+                                </tr>
+                            </template>
 
                             <up-entry v-if="path.length > 0" :on-back="onBack" />
 
@@ -192,6 +196,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
@@ -199,14 +204,15 @@ import LockedFilesEntry from './LockedFilesEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import eventBus from '@/utils/eventBus';
+import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -218,16 +224,25 @@ import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const obStore = useObjectBrowserStore();
+const configStore = useConfigStore();
+
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
-const folderInput = ref<HTMLInputElement>(null);
-const fileInput = ref<HTMLInputElement>(null);
+const folderInput = ref<HTMLInputElement>();
+const fileInput = ref<HTMLInputElement>();
 
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
 const isBannerShown = ref<boolean>(true);
+/**
+ * Retrieve the pathMatch from the current route.
+ */
+const routePath = ref(calculateRoutePath());
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -236,35 +251,42 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Check if the s3 client has been initialized in the store.
  */
 const isInitialized = computed((): boolean => {
-    return store.getters['files/isInitialized'];
+    return obStore.isInitialized;
+});
+
+/**
+ * Indicates if new objects uploading flow should be working.
+ */
+const isNewUploadingModal = computed((): boolean => {
+    return configStore.state.config.newUploadModalEnabled;
 });
 
 /**
  * Retrieve the current path from the store.
  */
 const path = computed((): string => {
-    return store.state.files.path;
+    return obStore.state.path;
 });
 
 /**
  * Return files that are currently being uploaded from the store.
  */
-const filesUploading = computed((): string => {
-    return store.state.files.uploading;
+const filesUploading = computed((): BrowserObject[] => {
+    return obStore.state.uploading;
 });
 
 /**
  * Return file browser path from store.
  */
 const currentPath = computed((): string => {
-    return store.state.files.path;
+    return obStore.state.path;
 });
 
 /**
  * Return locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjectsCount = store.state.files.objectsCount;
+    const ownObjectsCount = obStore.state.objectsCount;
 
     return objectsCount.value - ownObjectsCount;
 });
@@ -273,8 +295,8 @@ const lockedFilesNumber = computed((): number => {
  * Returns bucket objects count from store.
  */
 const objectsCount = computed((): number => {
-    const name: string = store.state.files.bucket;
-    const data: Bucket = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const name: string = obStore.state.bucket;
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });
@@ -292,7 +314,7 @@ const lockedFilesEntryDisplayed = computed((): boolean => {
 /**
  * Return up to five files currently being uploaded for display purposes.
  */
-const formattedFilesUploading = computed((): string => {
+const formattedFilesUploading = computed((): BrowserObject[] => {
     if (filesUploading.value.length > 5) {
         return filesUploading.value.slice(0, 5);
     }
@@ -314,37 +336,53 @@ const formattedFilesWaitingToBeUploaded = computed((): string => {
 });
 
 const bucketName = computed((): string => {
-    return store.state.files.bucket;
+    return obStore.state.bucket;
 });
 
-const files = computed((): BrowserFile[] => {
-    return store.getters['files/sortedFiles'];
+/**
+ * Whether all files are selected.
+ * */
+const allFilesSelected = computed((): boolean => {
+    if (files.value.length === 0) {
+        return false;
+    }
+    const shiftSelectedFiles = obStore.state.shiftSelectedFiles;
+    const selectedFiles = obStore.state.selectedFiles;
+    const selectedAnchorFile = obStore.state.selectedAnchorFile;
+    const allSelectedFiles = [
+        ...selectedFiles,
+        ...shiftSelectedFiles,
+    ];
+
+    if (selectedAnchorFile && !allSelectedFiles.includes(selectedAnchorFile)) {
+        allSelectedFiles.push(selectedAnchorFile);
+    }
+    return allSelectedFiles.length === files.value.length;
+});
+
+const files = computed((): BrowserObject[] => {
+    return obStore.sortedFiles;
 });
 
 /**
  * Return an array of BrowserFile type that are files and not folders.
  */
-const singleFiles = computed((): BrowserFile[] => {
+const singleFiles = computed((): BrowserObject[] => {
     return files.value.filter((f) => f.type === 'file');
 });
 
 /**
  * Return an array of BrowserFile type that are folders and not files.
  */
-const folders = computed((): BrowserFile[] => {
+const folders = computed((): BrowserObject[] => {
     return files.value.filter((f) => f.type === 'folder');
 });
-
-/**
- * Retrieve the pathMatch from the current route.
- */
-const routePath = ref(calculateRoutePath());
 
 /**
  * Returns bucket name from store.
  */
 const bucket = computed((): string => {
-    return store.state.objectsModule.fileComponentBucketName;
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**
@@ -355,11 +393,11 @@ function closeBanner(): void {
 }
 
 function calculateRoutePath(): string {
-    let pathMatch = router.history.current.params.pathMatch;
+    let pathMatch = route.params.pathMatch;
     pathMatch = Array.isArray(pathMatch)
         ? pathMatch.join('/') + '/'
         : pathMatch;
-    return pathMatch;
+    return pathMatch || '';
 }
 
 async function onBack(): Promise<void> {
@@ -369,67 +407,32 @@ async function onBack(): Promise<void> {
 
 async function onRouteChange(): Promise<void> {
     routePath.value = calculateRoutePath();
-    await store.dispatch('files/closeDropdown');
+    obStore.closeDropdown();
     await list(routePath.value);
 }
-
-/**
- * Set spinner state. If routePath is not present navigate away.
- * If there's some error then re-render the page with a call to list.
- */
-onBeforeMount(async () => {
-    if (!bucket.value) {
-        const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
-
-        analytics.pageVisit(path);
-        await router.push(path);
-
-        return;
-    }
-
-    // display the spinner while files are being fetched
-    fetchingFilesSpinner.value = true;
-
-    if (!routePath.value) {
-        try {
-            await router.push({
-                path: `${store.state.files.browserRoot}${path.value}`,
-            });
-            analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
-        } catch (err) {
-            await list('');
-            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER_CHANGE_ROUTE);
-        }
-    }
-
-    // remove the spinner after files have been fetched
-    fetchingFilesSpinner.value = false;
-});
 
 /**
  * Close modal, file share modal, dropdown, and remove all selected files from the store.
  */
 function closeModalDropdown(): void {
-    if (store.state.files.openedDropdown) {
-        store.dispatch('files/closeDropdown');
+    if (obStore.state.openedDropdown) {
+        obStore.closeDropdown();
     }
 
-    if (store.state.files.selectedFile) {
-        store.dispatch('files/clearAllSelectedFiles');
-    }
+    obStore.clearAllSelectedFiles();
 }
 
 /**
  * Toggle the folder creation modal in the store.
  */
 function toggleFolderCreationModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
+    appStore.updateActiveModal(MODALS.newFolder);
 }
 
 /**
  * Return the file name of the passed in file argument formatted.
  */
-function filename(file: BrowserFile): string {
+function filename(file: BrowserObject): string {
     return file.Key.length > 25
         ? file.Key.slice(0, 25) + '...'
         : file.Key;
@@ -439,10 +442,7 @@ function filename(file: BrowserFile): string {
  * Upload the current selected or dragged-and-dropped file.
  */
 async function upload(e: Event): Promise<void> {
-    const callback = () => {
-        eventBus.$emit('upload_progress');
-    };
-    await store.dispatch('files/upload', { e, callback });
+    await obStore.upload({ e });
     await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
@@ -452,7 +452,7 @@ async function upload(e: Event): Promise<void> {
  * Cancel the upload of the current file that's passed in as an argument.
  */
 function cancelUpload(fileName: string): void {
-    store.dispatch('files/cancelUpload', fileName);
+    obStore.cancelUpload(fileName);
 }
 
 /**
@@ -460,9 +460,7 @@ function cancelUpload(fileName: string): void {
  */
 async function list(path: string): Promise<void> {
     try {
-        await store.dispatch('files/list', path, {
-            root: true,
-        });
+        await obStore.list(path);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
@@ -511,11 +509,75 @@ async function goToBuckets(): Promise<void> {
     analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     await onRouteChange();
 }
+
+/**
+ * Toggles the selection of all files.
+ * */
+function toggleSelectAllFiles(): void {
+    if (files.value.length === 0) {
+        return;
+    }
+
+    if (allFilesSelected.value) {
+        obStore.clearAllSelectedFiles();
+    } else {
+        obStore.clearAllSelectedFiles();
+        obStore.setSelectedAnchorFile(files.value[0]);
+        obStore.updateSelectedFiles(files.value.slice(1, files.value.length));
+    }
+}
+
+/**
+ * Set spinner state. If routePath is not present navigate away.
+ * If there's some error then re-render the page with a call to list.
+ */
+onBeforeMount(async () => {
+    if (!bucket.value) {
+        const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
+
+        analytics.pageVisit(path);
+        await router.push(path);
+
+        return;
+    }
+
+    // clear previous file selections.
+    obStore.clearAllSelectedFiles();
+
+    // display the spinner while files are being fetched
+    fetchingFilesSpinner.value = true;
+
+    try {
+        await Promise.all([
+            list(''),
+            obStore.getObjectCount(),
+        ]);
+    } catch (err) {
+        notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+    }
+
+    // remove the spinner after files have been fetched
+    fetchingFilesSpinner.value = false;
+});
 </script>
 
 <style scoped lang="scss">
 .file-browser {
     min-height: 500px;
+}
+
+.hide-mobile {
+    @media screen and (width <= 550px) {
+        display: none;
+    }
+}
+
+@media screen and (width <= 550px) {
+    // hide size, upload date columns on mobile screens
+
+    :deep(.data:not(:nth-child(2))) {
+        display: none;
+    }
 }
 
 .position-relative {
@@ -538,7 +600,6 @@ async function goToBuckets(): Promise<void> {
 }
 
 .file-browser-table {
-    border: 1px solid var(--c-grey-3);
     box-shadow: none;
 }
 
@@ -556,7 +617,7 @@ async function goToBuckets(): Promise<void> {
     svg {
         width: 300px;
 
-        @media screen and (max-width: 425px) {
+        @media screen and (width <= 425px) {
             width: unset;
         }
     }
@@ -746,10 +807,10 @@ async function goToBuckets(): Promise<void> {
     align-items: center;
     margin: 1.5em 0;
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
         flex-direction: column;
-        justify-content: start;
-        align-items: start;
+        justify-content: flex-start;
+        align-items: flex-start;
     }
 
     &__title {
@@ -759,14 +820,14 @@ async function goToBuckets(): Promise<void> {
         line-height: 1.2;
         word-break: break-all;
 
-        @media screen and (max-width: 768px) {
+        @media screen and (width <= 768px) {
             margin-bottom: 0.5rem;
         }
     }
 
     &__actions {
         display: flex;
-        justify-content: start;
+        justify-content: flex-start;
         flex-wrap: wrap;
         gap: 5px;
     }

@@ -29,44 +29,47 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			configValue:   "",
 			expectedModel: Prices{},
 		}, {
-			testID:      "missing prices",
+			testID:      "missing values",
 			configValue: "partner",
 		}, {
 			testID:      "missing partner",
-			configValue: ":1,2,3",
+			configValue: ":1,2,3,4",
 		}, {
-			testID:      "too few prices",
+			testID:      "too few values",
 			configValue: "partner:1",
 		}, {
 			testID:      "single price override",
-			configValue: "partner:1,2,3",
+			configValue: "partner:1,2,3,4",
 			expectedModel: Prices{
 				// Shift is to change the precision from TB dollars to MB cents
 				"partner": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
+					EgressDiscountRatio: 4,
 				},
 			},
 		}, {
-			testID:      "too many prices",
-			configValue: "partner:1,2,3,4",
+			testID:      "too many values",
+			configValue: "partner:1,2,3,4,5",
 		}, {
-			testID:      "invalid decimal",
-			configValue: "partner:0.0.1,2,3",
+			testID:      "invalid price",
+			configValue: "partner:0.0.1,2,3,4",
 		}, {
 			testID:      "multiple price overrides",
-			configValue: "partner1:1,2,3;partner2:4,5,6",
+			configValue: "partner1:1,2,3,4;partner2:5,6,7,8",
 			expectedModel: Prices{
 				"partner1": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
+					EgressDiscountRatio: 4,
 				},
 				"partner2": payments.ProjectUsagePriceModel{
-					StorageMBMonthCents: decimal.NewFromInt(4).Shift(-4),
-					EgressMBCents:       decimal.NewFromInt(5).Shift(-4),
-					SegmentMonthCents:   decimal.NewFromInt(6).Shift(2),
+					StorageMBMonthCents: decimal.NewFromInt(5).Shift(-4),
+					EgressMBCents:       decimal.NewFromInt(6).Shift(-4),
+					SegmentMonthCents:   decimal.NewFromInt(7).Shift(2),
+					EgressDiscountRatio: 8,
 				},
 			},
 		},
@@ -96,6 +99,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 				require.Equal(t, price.StorageMBMonthCents, model.StorageMBMonthCents)
 				require.Equal(t, price.EgressMBCents, model.EgressMBCents)
 				require.Equal(t, price.SegmentMonthCents, model.SegmentMonthCents)
+				require.Equal(t, price.EgressDiscountRatio, model.EgressDiscountRatio)
 			}
 		})
 	}
@@ -120,43 +124,43 @@ func TestPackagePlans(t *testing.T) {
 		},
 		{
 			testID:      "missing partner",
-			configValue: ":abc123,100",
-		}, {
-			testID:      "empty coupon ID",
-			configValue: "partner:,1",
+			configValue: ":100,100",
 		}, {
 			testID:      "empty price",
-			configValue: "partner:abc123,",
+			configValue: "partner:,100",
+		}, {
+			testID:      "empty credit",
+			configValue: "partner:100,",
 		},
 		{
 			testID:      "too few values",
-			configValue: "partner:abc123",
+			configValue: "partner:100",
 		},
 		{
 			testID:      "too many values",
-			configValue: "partner:abc123,100,200",
+			configValue: "partner:100,100,200",
 		},
 		{
 			testID:      "single package plan",
-			configValue: "partner1:abc123,100",
+			configValue: "partner1:100,200",
 			expectedPackagePlans: packages{
 				"partner1": payments.PackagePlan{
-					CouponID: "abc123",
-					Price:    100,
+					Price:  100,
+					Credit: 200,
 				},
 			},
 		},
 		{
 			testID:      "multiple package plans",
-			configValue: "partner1:abc123,100;partner2:321bca,200",
+			configValue: "partner1:100,200;partner2:200,300",
 			expectedPackagePlans: packages{
 				"partner1": payments.PackagePlan{
-					CouponID: "abc123",
-					Price:    100,
+					Price:  100,
+					Credit: 200,
 				},
 				"partner2": payments.PackagePlan{
-					CouponID: "321bca",
-					Price:    200,
+					Price:  200,
+					Credit: 300,
 				},
 			},
 		},
@@ -188,9 +192,9 @@ func TestPackagePlans(t *testing.T) {
 
 func TestPackagePlansGet(t *testing.T) {
 	partner := "partnerName1"
-	coupon := "abc123"
+	credit := int64(200)
 	price := int64(100)
-	configStr := fmt.Sprintf("%s:%s,%d", partner, coupon, price)
+	configStr := fmt.Sprintf("%s:%d,%d", partner, price, credit)
 
 	packagePlans := paymentsconfig.PackagePlans{}
 	require.NoError(t, packagePlans.Set(configStr))
@@ -231,7 +235,7 @@ func TestPackagePlansGet(t *testing.T) {
 			p, err := packagePlans.Get(c.userAgent)
 			if c.shouldPass {
 				require.NoError(t, err)
-				require.Equal(t, coupon, p.CouponID)
+				require.Equal(t, credit, p.Credit)
 				require.Equal(t, price, p.Price)
 			} else {
 				require.Error(t, err)

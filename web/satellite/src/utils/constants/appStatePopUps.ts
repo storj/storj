@@ -1,11 +1,14 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Component } from 'vue';
+
 import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
+import RemoveTeamMemberModal from '@/components/modals/RemoveProjectMemberModal.vue';
 import EditProfileModal from '@/components/modals/EditProfileModal.vue';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
+import ChangeProjectLimitModal from '@/components/modals/ChangeProjectLimitModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
-import AddPaymentMethodModal from '@/components/modals/AddPaymentMethodModal.vue';
 import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
 import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
 import EnableMFAModal from '@/components/modals/EnableMFAModal.vue';
@@ -28,6 +31,11 @@ import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
 import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
 import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
+import NewCreateProjectModal from '@/components/modals/NewCreateProjectModal.vue';
+import EditSessionTimeoutModal from '@/components/modals/EditSessionTimeoutModal.vue';
+import UpgradeAccountModal from '@/components/modals/upgradeAccountFlow/UpgradeAccountModal.vue';
+import DeleteAccessGrantModal from '@/components/modals/DeleteAccessGrantModal.vue';
+import SkipPassphraseModal from '@/components/modals/SkipPassphraseModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -43,14 +51,16 @@ export const APP_STATE_DROPDOWNS = {
     CHART_DATE_PICKER: 'isChartsDatePickerShown',
     PERMISSIONS: 'isPermissionsDropdownShown',
     PAYMENT_SELECTION: 'isPaymentSelectionShown',
+    TIMEOUT_SELECTOR: 'timeoutSelector',
+    PAGE_SIZE_SELECTOR: 'pageSizeSelector',
 };
 
 enum Modals {
     ADD_TEAM_MEMBER = 'addTeamMember',
+    REMOVE_TEAM_MEMBER = 'removeTeamMember',
     EDIT_PROFILE = 'editProfile',
     CHANGE_PASSWORD = 'changePassword',
     CREATE_PROJECT = 'createProject',
-    ADD_PAYMENT_METHOD = 'addPaymentMethod',
     OPEN_BUCKET = 'openBucket',
     MFA_RECOVERY = 'mfaRecovery',
     ENABLE_MFA = 'enableMFA',
@@ -70,15 +80,20 @@ enum Modals {
     OBJECT_DETAILS = 'objectDetails',
     ENTER_PASSPHRASE = 'enterPassphrase',
     PRICING_PLAN = 'pricingPlan',
+    NEW_CREATE_PROJECT = 'newCreateProject',
+    EDIT_SESSION_TIMEOUT = 'editSessionTimeout',
+    UPGRADE_ACCOUNT = 'upgradeAccount',
+    DELETE_ACCESS_GRANT = 'deleteAccessGrant',
+    SKIP_PASSPHRASE = 'skipPassphrase',
+    CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
 }
 
-// modals could be of VueConstructor type or Object (for composition api components).
-export const MODALS: Record<Modals, unknown> = {
+export const MODALS: Record<Modals, Component> = {
     [Modals.ADD_TEAM_MEMBER]: AddTeamMemberModal,
+    [Modals.REMOVE_TEAM_MEMBER]: RemoveTeamMemberModal,
     [Modals.EDIT_PROFILE]: EditProfileModal,
     [Modals.CHANGE_PASSWORD]: ChangePasswordModal,
     [Modals.CREATE_PROJECT]: CreateProjectModal,
-    [Modals.ADD_PAYMENT_METHOD]: AddPaymentMethodModal,
     [Modals.OPEN_BUCKET]: OpenBucketModal,
     [Modals.MFA_RECOVERY]: MFARecoveryCodesModal,
     [Modals.ENABLE_MFA]: EnableMFAModal,
@@ -98,4 +113,10 @@ export const MODALS: Record<Modals, unknown> = {
     [Modals.OBJECT_DETAILS]: ObjectDetailsModal,
     [Modals.ENTER_PASSPHRASE]: EnterPassphraseModal,
     [Modals.PRICING_PLAN]: PricingPlanModal,
+    [Modals.NEW_CREATE_PROJECT]: NewCreateProjectModal,
+    [Modals.EDIT_SESSION_TIMEOUT]: EditSessionTimeoutModal,
+    [Modals.UPGRADE_ACCOUNT]: UpgradeAccountModal,
+    [Modals.DELETE_ACCESS_GRANT]: DeleteAccessGrantModal,
+    [Modals.SKIP_PASSPHRASE]: SkipPassphraseModal,
+    [Modals.CHANGE_PROJECT_LIMIT]: ChangeProjectLimitModal,
 };

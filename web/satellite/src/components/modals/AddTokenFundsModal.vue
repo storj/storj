@@ -71,15 +71,15 @@
     </VModal>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 import QRCode from 'qrcode';
-import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -87,57 +87,49 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-        VInfo,
-        InfoIcon,
-    },
-})
-export default class AddTokenFundsModal extends Vue {
-    public $refs!: {
-        canvas: HTMLCanvasElement;
-    };
+const appStore = useAppStore();
+const billingStore = useBillingStore();
+const notify = useNotify();
 
-    /**
-     * Mounted lifecycle hook after initial render.
-     * Fetches wallet if necessary and renders QR code.
-     */
-    public async mounted(): Promise<void> {
-        if (!this.$refs.canvas) {
-            return;
-        }
-        try {
-            await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
-        }
-    }
+const canvas = ref<HTMLCanvasElement>();
 
-    /**
-     * Closes create project prompt modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTokenFunds);
-    }
+/**
+ * Returns wallet from store.
+ */
+const wallet = computed((): Wallet => {
+    return billingStore.state.wallet as Wallet;
+});
 
-    /**
-     * Copies address to user's clipboard.
-     */
-    public onCopyAddressClick(): void {
-        this.$copyText(this.wallet.address);
-        this.$notify.success('Address copied to your clipboard');
-    }
-
-    /**
-     * Returns wallet from store.
-     */
-    private get wallet(): Wallet {
-        return this.$store.state.paymentsModule.wallet;
-    }
+/**
+ * Closes create project prompt modal.
+ */
+function closeModal(): void {
+    appStore.removeActiveModal();
 }
+
+/**
+ * Copies address to user's clipboard.
+ */
+function onCopyAddressClick(): void {
+    navigator.clipboard.writeText(wallet.value.address);
+    notify.success('Address copied to your clipboard');
+}
+
+/**
+ * Mounted lifecycle hook after initial render.
+ * Fetches wallet if necessary and renders QR code.
+ */
+onMounted(async (): Promise<void> => {
+    if (!canvas.value) {
+        return;
+    }
+
+    try {
+        await QRCode.toCanvas(canvas.value, wallet.value.address);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
+    }
+});
 </script>
 
 <style scoped lang="scss">

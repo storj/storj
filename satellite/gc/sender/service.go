@@ -42,7 +42,7 @@ type Config struct {
 
 	AccessGrant string        `help:"Access to download the bloom filters. Needs read and write permission."`
 	Bucket      string        `help:"bucket where retain info is stored" default:"" testDefault:"gc-queue"`
-	ExpireIn    time.Duration `help:"Expiration of newly created objects. These objects store error messages." default:"336h"`
+	ExpireIn    time.Duration `help:"Expiration of newly created objects in the bucket. These objects are under the prefix error-[timestamp] and store error messages." default:"336h"`
 }
 
 // NewService creates a new instance of the gc sender service.
@@ -58,7 +58,8 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overl
 }
 
 // Service reads bloom filters of piece IDs to retain from a Storj bucket
-// and sends them out to the storage nodes.
+// and sends them out to the storage nodes. This is intended to run on a live satellite,
+// not on a backup database.
 //
 // The split between creating retain info and sending it out to storagenodes
 // is made so that the bloom filter can be created from a backup database.
@@ -87,8 +88,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 // RunOnce opens the bucket and sends out all the retain filters located in it to the storage nodes.
 func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	loopStartTime := time.Now()
 
 	switch {
 	case service.Config.AccessGrant == "":
@@ -149,10 +148,10 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 
 		if err != nil {
 			// We store the error in the bucket and then continue with the next zip file.
-			return service.moveToErrorPrefix(ctx, project, objectKey, err, loopStartTime)
+			return service.moveToErrorPrefix(ctx, project, objectKey, err)
 		}
 
-		return service.moveToSentPrefix(ctx, project, objectKey, loopStartTime)
+		return service.moveToSentPrefix(ctx, project, objectKey)
 	})
 }
 
@@ -197,7 +196,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 
 // moveToErrorPrefix moves an object to prefix "error" and attaches the error to the metadata.
 func (service *Service) moveToErrorPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, previousErr error, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string, previousErr error,
 ) error {
 	newObjectKey := "error-" + objectKey
 
@@ -234,9 +233,9 @@ func (service *Service) uploadError(
 	return upload.Commit()
 }
 
-// moveToErrorPrefix moves an object to prefix "sent-[timestamp]".
+// moveToSentPrefix moves an object to prefix "sent".
 func (service *Service) moveToSentPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string,
 ) error {
 	newObjectKey := "sent-" + objectKey
 

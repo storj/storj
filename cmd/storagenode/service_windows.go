@@ -15,6 +15,7 @@ package main
 import (
 	"os"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
@@ -22,7 +23,7 @@ import (
 	"storj.io/private/process"
 )
 
-func startAsService() bool {
+func startAsService(cmd *cobra.Command) bool {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		zap.L().Fatal("Failed to determine if session is a service.", zap.Error(err))
@@ -41,7 +42,9 @@ func startAsService() bool {
 	}
 
 	// Initialize the Windows Service handler
-	err = svc.Run("storagenode", &service{})
+	err = svc.Run("storagenode", &service{
+		rootCmd: cmd,
+	})
 	if err != nil {
 		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
@@ -49,16 +52,29 @@ func startAsService() bool {
 	return true
 }
 
-type service struct{}
+type service struct {
+	rootCmd *cobra.Command
+}
 
 func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+
+	var runCmd *cobra.Command
+	for _, c := range m.rootCmd.Commands() {
+		if c.Use == "run" {
+			runCmd = c
+		}
+	}
+
+	if runCmd == nil {
+		panic("Assertion is failed: 'run' sub-command is not found.")
+	}
 
 	changes <- svc.Status{State: svc.StartPending}
 
 	var group errgroup.Group
 	group.Go(func() error {
-		process.Exec(rootCmd)
+		process.Exec(m.rootCmd)
 		return nil
 	})
 	defer func() { _ = group.Wait() }()

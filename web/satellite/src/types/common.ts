@@ -12,13 +12,6 @@ export enum OnboardingOS {
     LINUX = 'linux',
 }
 
-export class PartneredSatellite {
-    constructor(
-        public name: string = '',
-        public address: string = '',
-    ) {}
-}
-
 export class PricingPlanInfo {
     constructor(
         public type: PricingPlanType = PricingPlanType.FREE,
@@ -26,11 +19,12 @@ export class PricingPlanInfo {
         public title: string = '',
         public containerSubtitle: string = '',
         public containerDescription: string = '',
-        public price: string | null = null,
-        public oldPrice: string | null = null,
+        public containerFooterHTML: string | null = null,
+        public activationButtonText: string | null = null,
         // Info for the pricing plan modal (pre-activation)
         public activationSubtitle: string | null = null,
-        public activationDescription: string = '',
+        public activationDescriptionHTML: string = '',
+        public activationPriceHTML: string | null = null,
         // Info for the pricing plan modal (post-activation)
         public successSubtitle: string = '',
     ) {}
@@ -41,3 +35,8 @@ export enum PricingPlanType {
     PARTNER = 'partner',
     PRO = 'pro',
 }
+
+// TODO: fully implement these types and their methods according to their Go counterparts
+export type UUID = string
+export type MemorySize = string
+export type Time = string

@@ -26,10 +26,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -94,8 +94,8 @@ func TestUploadAndPartialDownload(t *testing.T) {
 }
 
 func calcUploadOrderMax(size int64) (ordered int64) {
-	initialStep := 64 * memory.KiB.Int64()
-	maxStep := 256 * memory.KiB.Int64()
+	initialStep := piecestore.DefaultConfig.InitialStep * memory.KiB.Int64()
+	maxStep := piecestore.DefaultConfig.MaximumStep * memory.KiB.Int64()
 	currentStep := initialStep
 	ordered = 0
 	for ordered < size {

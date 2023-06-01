@@ -8,7 +8,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -83,7 +82,7 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 	}
 
 	if affected == 0 {
-		return storj.ErrObjectNotFound.New("object with specified version and committed status is missing")
+		return ErrObjectNotFound.New("object with specified version and committed status is missing")
 	}
 
 	if affected > 1 {

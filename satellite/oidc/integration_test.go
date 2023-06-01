@@ -28,6 +28,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/uplink"
@@ -138,7 +139,7 @@ func TestOIDC(t *testing.T) {
 		bucketID, err := uuid.New()
 		require.NoError(t, err)
 
-		bucket, err := sat.API.Buckets.Service.CreateBucket(authed, storj.Bucket{
+		bucket, err := sat.API.Buckets.Service.CreateBucket(authed, buckets.Bucket{
 			ID:        bucketID,
 			Name:      "test",
 			ProjectID: project.ID,

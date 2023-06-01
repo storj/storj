@@ -3,12 +3,15 @@
 
 <template>
     <table-item
+        selectable
+        select-hidden
         :on-click="onBack"
-        :on-primary-click="onBack"
         :item="{'name': 'Back', 'size': '', 'date': ''}"
         item-type="back"
     >
-        <th slot="options" />
+        <template #options>
+            <th />
+        </template>
     </table-item>
 </template>
 

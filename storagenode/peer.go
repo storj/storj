@@ -30,10 +30,10 @@ import (
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/piecetransfer"
@@ -74,13 +75,16 @@ var (
 //
 // architecture: Master Database
 type DB interface {
+	// Config returns the configuration used to initialize the database.
+	Config() storagenodedb.Config
+
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
 
 	// Close closes the database
 	Close() error
 
-	Pieces() storage.Blobs
+	Pieces() blobstore.Blobs
 
 	Orders() orders.DB
 	V0PieceInfo() pieces.V0PieceInfoDB
@@ -242,17 +246,19 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust         *trust.Pool
-		Store         *pieces.Store
-		TrashChore    *pieces.TrashChore
-		BlobsCache    *pieces.BlobsUsageCache
-		CacheService  *pieces.CacheService
-		RetainService *retain.Service
-		PieceDeleter  *pieces.Deleter
-		Endpoint      *piecestore.Endpoint
-		Inspector     *inspector.Endpoint
-		Monitor       *monitor.Service
-		Orders        *orders.Service
+		Trust          *trust.Pool
+		Store          *pieces.Store
+		TrashChore     *pieces.TrashChore
+		BlobsCache     *pieces.BlobsUsageCache
+		CacheService   *pieces.CacheService
+		RetainService  *retain.Service
+		PieceDeleter   *pieces.Deleter
+		Endpoint       *piecestore.Endpoint
+		Inspector      *inspector.Endpoint
+		Monitor        *monitor.Service
+		Orders         *orders.Service
+		FileWalker     *pieces.FileWalker
+		LazyFileWalker *lazyfilewalker.Supervisor
 	}
 
 	Collector *collector.Service
@@ -365,6 +371,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup listener and server
 		sc := config.Server
 
+		sc.Config.UsePeerCAWhitelist = false
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -433,6 +440,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Version:             *pbVersion,
 			NoiseKeyAttestation: noiseKeyAttestation,
+			DebounceLimit:       peer.Server.DebounceLimit(),
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
@@ -453,8 +461,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.Log.Named("blobscache"), peer.DB.Pieces())
+		peer.Storage2.FileWalker = pieces.NewFileWalker(peer.Log.Named("filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo())
+
+		if config.Pieces.EnableLazyFilewalker {
+			executable, err := os.Executable()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(peer.Log.Named("lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
+		}
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
+			peer.Storage2.FileWalker,
+			peer.Storage2.LazyFileWalker,
 			peer.Storage2.BlobsCache,
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),

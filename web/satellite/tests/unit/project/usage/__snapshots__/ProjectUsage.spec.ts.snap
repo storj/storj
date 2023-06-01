@@ -1,8 +1,0 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`ProjectUsage.vue renders correctly 1`] = `
-<div class="project-usage">
-  <usagearea-stub title="Storage" used="100" limit="1000" isdatafetching="true" class="project-usage__storage-used"></usagearea-stub>
-  <usagearea-stub title="Bandwidth" used="100" limit="1000" isdatafetching="true" class="project-usage__bandwidth-used"></usagearea-stub>
-</div>
-`;

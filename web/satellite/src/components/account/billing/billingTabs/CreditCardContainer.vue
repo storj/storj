@@ -32,11 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { useStore } from '@/utils/hooks';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
 import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
@@ -63,8 +61,6 @@ const props = withDefaults(defineProps<{
     creditCard: () => new CreditCard(),
 });
 
-const store = useStore();
-
 const emit = defineEmits(['edit', 'remove']);
 
 const cardIcon = computed(() => {
@@ -77,13 +73,6 @@ function edit(): void {
 
 function remove(): void {
     emit('remove', props.creditCard);
-}
-
-/**
- * Toggle card selection dialog.
- */
-function toggleSelection(): void {
-    store.dispatch(PAYMENTS_ACTIONS.TOGGLE_CARD_SELECTION, props.creditCard.id);
 }
 </script>
 
@@ -167,6 +156,7 @@ function toggleSelection(): void {
     grid-template-columns: 4fr 2fr;
     grid-template-rows: 1fr 0fr 1fr 1fr;
     height: 100%;
+    font-family: 'font_regular', sans-serif;
 
     &__function-buttons {
         grid-column: 1;
@@ -188,9 +178,7 @@ function toggleSelection(): void {
         &__card-text {
             grid-column: 1;
             grid-row: 2;
-            font-family: sans-serif;
-            font-style: normal;
-            font-weight: 700;
+            font-family: 'font_bold', sans-serif;
             font-size: 12px;
             line-height: 18px;
             color: var(--c-grey-6);
@@ -199,9 +187,7 @@ function toggleSelection(): void {
         &__expiration-text {
             grid-column: 2;
             grid-row: 2;
-            font-family: sans-serif;
-            font-style: normal;
-            font-weight: 700;
+            font-family: 'font_bold', sans-serif;
             font-size: 12px;
             line-height: 18px;
             color: var(--c-grey-6);
@@ -215,9 +201,7 @@ function toggleSelection(): void {
         &__info-container {
             grid-row: 3;
             grid-column: 1;
-            font-family: sans-serif;
-            font-style: normal;
-            font-weight: 700;
+            font-family: 'font_bold', sans-serif;
             font-size: 16px;
             line-height: 24px;
             color: #000;
@@ -230,9 +214,7 @@ function toggleSelection(): void {
         &__expire-container {
             grid-row: 3;
             grid-column: 2;
-            font-family: sans-serif;
-            font-style: normal;
-            font-weight: 700;
+            font-family: 'font_bold', sans-serif;
             font-size: 16px;
             line-height: 24px;
             color: #000;
@@ -252,9 +234,7 @@ function toggleSelection(): void {
     }
 
     &__default-text {
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 700;
+        font-family: 'font_bold', sans-serif;
         font-size: 12px;
         line-height: 20px;
         color: var(--c-blue-4);

@@ -1,192 +1,174 @@
-// Copyright (C) 2021 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<script lang="ts">
-import { Line } from 'vue-chartjs';
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+<template>
+    <canvas :id="chartId" :width="width" :height="height" />
+</template>
 
-import { ChartData, RenderChart } from '@/types/chart';
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import {
+    CategoryScale,
+    Chart as ChartJS,
+    LinearScale,
+    Tooltip as VTooltip,
+    LineController,
+    LineElement,
+    Filler,
+    PointElement,
+    TooltipModel,
+    ChartType,
+    ChartOptions,
+    ChartData,
+    Plugin,
+} from 'chart.js';
+
+ChartJS.register(LineElement, PointElement, VTooltip, Filler, LineController, CategoryScale, LinearScale);
+
+const props = defineProps<{
+    chartId: string,
+    chartData: ChartData,
+    tooltipConstructor: (tooltipModel: TooltipModel<ChartType>) => void,
+    width: number,
+    height: number,
+}>();
+
+const chart = ref<ChartJS>();
 
 /**
- * Used to filter days displayed on x-axis.
+ * Returns a plugin which draws a dashed line under active datapoint.
  */
-class DayShowingConditions {
-    public constructor(
-        public day: string,
-        public daysArray: string[],
-    ) {}
-
-    public countMiddleDateValue(): number {
-        return this.daysArray.length / 2;
-    }
-
-    public isDayFirstOrLast(): boolean {
-        return this.day === this.daysArray[0] || this.day === this.daysArray[this.daysArray.length - 1];
-    }
-
-    public isDayAfterEighthDayOfTheMonth(): boolean {
-        return this.daysArray.length > 8 && this.daysArray.length <= 31;
-    }
-}
-
-// @vue/component
-@Component({
-    extends: Line,
-})
-export default class VChart extends Vue {
-    @Prop({ default: () => () => { console.error('Tooltip constructor is undefined'); } })
-    private tooltipConstructor: (tooltipModel) => void;
-    @Prop({ default: {} })
-    private readonly chartData: ChartData;
-
-    /**
-     * Mounted hook after initial render.
-     * Adds chart plugin to draw dashed line under data point.
-     * Renders chart.
-     */
-    public mounted(): void {
-        (this as unknown as RenderChart).addPlugin({
-            afterDatasetsDraw: (chart): void => {
-                if (chart.tooltip._active && chart.tooltip._active.length) {
-                    const activePoint = chart.tooltip._active[0];
+const afterDatasetsDrawPlugin = computed((): Plugin => {
+    return {
+        id: 'afterDatasetsDraw',
+        afterDatasetsDraw: (chart) => {
+            if (chart.tooltip) {
+                const activePoint = chart.tooltip.getActiveElements();
+                if (activePoint[0]) {
                     const ctx = chart.ctx;
-                    const y_axis = chart.scales['y-axis-0'];
-                    const tooltipPosition = activePoint.tooltipPosition();
+                    const yAxis = chart.scales['y'];
+                    const tooltipPosition = activePoint[0].element.tooltipPosition(true);
 
                     ctx.save();
                     ctx.beginPath();
                     ctx.setLineDash([8, 5]);
                     ctx.moveTo(tooltipPosition.x, tooltipPosition.y + 12);
-                    ctx.lineTo(tooltipPosition.x, y_axis.bottom);
+                    ctx.lineTo(tooltipPosition.x, yAxis.bottom);
                     ctx.lineWidth = 1;
                     ctx.strokeStyle = '#C8D3DE';
                     ctx.stroke();
                     ctx.restore();
                 }
+            }
+        },
+    };
+});
+
+/**
+ * Returns chart options.
+ */
+const chartOptions = computed((): ChartOptions => {
+    return {
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: false,
+        clip: false,
+        layout: {
+            padding: {
+                top: 20,
+                left: 10,
+                right: 10,
             },
-        });
-        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
-    }
-
-    @Watch('chartData')
-    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>) {
-        /**
-         * renderChart method is inherited from BaseChart which is extended by VChart.Line
-         */
-        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
-    }
-
-    /**
-     * Returns chart options.
-     */
-    public get chartOptions(): Record<string, unknown> {
-        const filterCallback = this.filterDaysDisplayed;
-
-        return {
-            responsive: false,
-            maintainAspectRatios: false,
-            animation: false,
-            hover: {
-                animationDuration: 0,
+        },
+        elements: {
+            line: {
+                tension: 0.3,
             },
-            responsiveAnimationDuration: 0,
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                border: {
+                    display: false,
+                },
+                grid: {
+                    display: false,
+                },
+                suggestedMin: 0,
+                suggestedMax: 150,
+                ticks: {
+                    font: {
+                        family: 'sans-serif',
+                    },
+                    maxTicksLimit: 5,
+                    callback: function(value, _, ticks) {
+                        const numDigits = ticks[ticks.length - 2].value.toString().length;
+
+                        const power = Math.floor((numDigits - 1) / 3);
+                        return (value as number) / Math.pow(1000, power);
+                    },
+                },
+            },
+            x: {
+                type: 'category',
+                display: true,
+                border: {
+                    display: false,
+                },
+                grid: {
+                    display: false,
+                },
+                ticks: {
+                    font: {
+                        family: 'sans-serif',
+                    },
+                    autoSkip: true,
+                    maxRotation: 0,
+                    minRotation: 0,
+                },
+            },
+        },
+        plugins: {
             legend: {
                 display: false,
             },
-            layout: {
-                padding: {
-                    top: 40,
-                },
-            },
-            elements: {
-                point: {
-                    radius: this.chartData.labels.length === 1 ? 10 : 0,
-                    hoverRadius: 10,
-                    hitRadius: 8,
-                },
-                line: {
-                    tension: 0,
-                },
-            },
-            scales: {
-                yAxes: [{
-                    display: true,
-                    ticks: {
-                        callback: function(value, _, ticks) {
-                            const numDigits = ticks[ticks.length - 2].toString().length;
-
-                            const power = Math.floor((numDigits - 1) / 3);
-                            const result = value / Math.pow(1000, power);
-                            return result;
-                        },
-                        suggestedMin: 0,
-                        suggestedMax: 150,
-                        maxTicksLimit: 7,
-                    },
-                    gridLines: {
-                        display: false,
-                    },
-                }],
-                xAxes: [{
-                    display: true,
-                    ticks: {
-                        fontFamily: 'font_regular',
-                        autoSkip: false,
-                        maxRotation: 0,
-                        minRotation: 0,
-                        callback: filterCallback,
-                    },
-                    gridLines: {
-                        display: false,
-                    },
-                }],
-            },
-            tooltips: {
+            tooltip: {
                 enabled: false,
-                axis: 'x',
-                custom: (tooltipModel) => {
-                    this.tooltipConstructor(tooltipModel);
+                external: (context) => {
+                    props.tooltipConstructor(context.tooltip);
                 },
             },
-        };
-    }
+        },
+    };
+});
 
-    /**
-     * Used as callback to filter days displayed on chart.
-     */
-    private filterDaysDisplayed(day: string, _dayIndex: string, labelArray: string[]): string | undefined {
-        const eighthDayOfTheMonth = 8;
-        const isBeforeEighthDayOfTheMonth = labelArray.length <= eighthDayOfTheMonth;
-        const dayShowingConditions = new DayShowingConditions(day, labelArray);
+onMounted(() => {
+    chart.value = new ChartJS(
+        document.getElementById(props.chartId) as HTMLCanvasElement,
+        {
+            type: 'line',
+            data: props.chartData,
+            options: chartOptions.value,
+            plugins: [afterDatasetsDrawPlugin.value],
+        },
+    );
+});
 
-        if (isBeforeEighthDayOfTheMonth || this.areDaysShownOnEvenDaysAmount(dayShowingConditions)
-            || this.areDaysShownOnNotEvenDaysAmount(dayShowingConditions)) {
-            return day;
-        }
-    }
+onUnmounted(() => {
+    chart.value?.destroy();
+});
 
-    /**
-     * Indicates if days are shown on even days amount.
-     */
-    private areDaysShownOnEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
-        const isDaysAmountEven = dayShowingConditions.daysArray.length % 2 === 0;
-        const isDateValueInMiddleInEvenAmount = dayShowingConditions.day ===
-            dayShowingConditions.daysArray[dayShowingConditions.countMiddleDateValue() - 1];
-
-        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInEvenAmount);
-    }
-
-    /**
-     * Indicates if days are shown on not even days amount.
-     */
-    private areDaysShownOnNotEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
-        const isDaysAmountNotEven = dayShowingConditions.daysArray.length % 2 !== 0;
-        const isDateValueInMiddleInNotEvenAmount = dayShowingConditions.day
-            === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.countMiddleDateValue())];
-
-        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountNotEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInNotEvenAmount);
-    }
-}
+watch(() => props.chartData, () => {
+    chart.value?.destroy();
+    chart.value = new ChartJS(
+        document.getElementById(props.chartId) as HTMLCanvasElement,
+        {
+            type: 'line',
+            data: props.chartData,
+            options: chartOptions.value,
+            plugins: [afterDatasetsDrawPlugin.value],
+        },
+    );
+});
 </script>

@@ -46,12 +46,19 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 	return &projectMembers{db.methods, db.db}
 }
 
+// ProjectInvitations is a getter for ProjectInvitations repository.
+func (db *ConsoleDB) ProjectInvitations() console.ProjectInvitations {
+	return &projectInvitations{db.db}
+}
+
 // APIKeys is a getter for APIKeys repository.
 func (db *ConsoleDB) APIKeys() console.APIKeys {
 	db.apikeysOnce.Do(func() {
+		options := db.apikeysLRUOptions
+		options.Name = "satellitedb-apikeys"
 		db.apikeys = &apikeys{
 			methods: db.methods,
-			lru:     lrucache.New(db.apikeysLRUOptions),
+			lru:     lrucache.NewOf[*dbx.ApiKey_Project_PublicId_Row](options),
 			db:      db.db,
 		}
 	})

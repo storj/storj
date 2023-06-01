@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+
 /**
  * Exposes all project-related functionality.
  */
@@ -186,8 +188,8 @@ export class ProjectsPage {
  */
 export class ProjectsCursor {
     public constructor(
-        public limit: number = 0,
-        public page: number = 0,
+        public limit: number = DEFAULT_PAGE_LIMIT,
+        public page: number = 1,
     ) {}
 }
 
@@ -227,4 +229,9 @@ export class ProjectsStorageBandwidthDaily {
 export interface ProjectUsageDateRange {
     since: Date;
     before: Date;
+}
+
+export enum LimitToChange {
+    Storage = 'Storage',
+    Bandwidth = 'Bandwidth',
 }

@@ -245,9 +245,10 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 				NodeID:          node,
 				ExitInitiatedAt: time.Now().UTC(),
 			})
+			require.NoError(t, err)
 
-			// trigger segments loop with GE
-			planet.Satellites[0].GracefulExit.Chore.Loop.TriggerWait()
+			// run the satellite ranged loop to build the transfer queue.
+			_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 			require.NoError(t, err)
 
 			// we should get only one item from GE queue as we have only one remote segments
