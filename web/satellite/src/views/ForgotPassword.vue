@@ -73,9 +73,7 @@
                     border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onSendConfigurations"
-                >
-                    Reset Password
-                </v-button>
+                />
                 <div class="forgot-area__content-area__container__login-container">
                     <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
                         Back to Login

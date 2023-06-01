@@ -41,6 +41,7 @@
         <span class="label" :class="{uppercase: isUppercase}">
             <component :is="iconComponent" v-if="iconComponent" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            <slot />
             {{ label }}
         </span>
         <div class="icon-wrapper-right">
@@ -86,7 +87,7 @@ const props = withDefaults(defineProps<{
     onPress?: () => void;
 }>(), {
     link: undefined,
-    label: 'Default',
+    label: '',
     width: 'inherit',
     height: 'inherit',
     fontSize: '16px',

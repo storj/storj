@@ -15,8 +15,9 @@
             />
         </div>
 
-        <div v-if="projects.length" class="my-projects__list">
+        <div v-if="projects.length || invites.length" class="my-projects__list">
             <project-item v-for="project in projects" :key="project.id" :project="project" />
+            <project-invitation-item v-for="invite in invites" :key="invite.projectID" :invitation="invite" />
         </div>
         <div v-else class="my-projects__empty-area">
             <empty-project-item class="my-projects__empty-area__item" />
@@ -28,7 +29,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { Project } from '@/types/projects';
+import { Project, ProjectInvitation } from '@/types/projects';
 import { RouteConfig } from '@/router';
 import {
     AnalyticsEvent,
@@ -38,6 +39,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
+import ProjectInvitationItem from '@/views/all-dashboard/components/ProjectInvitationItem.vue';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -57,6 +59,14 @@ const analytics = new AnalyticsHttpApi();
  */
 const projects = computed((): Project[] => {
     return projectsStore.projects;
+});
+
+/**
+ * Returns project member invitations list from store.
+ */
+const invites = computed((): ProjectInvitation[] => {
+    return projectsStore.state.invitations.slice()
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 });
 
 /**
@@ -111,18 +121,18 @@ function onCreateProjectClicked(): void {
         margin-top: 20px;
         display: grid;
         gap: 10px;
-        grid-template-columns: 1fr 1fr 1fr 1fr;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
 
         & :deep(.project-item) {
             overflow: hidden;
         }
 
         @media screen and (width <= 1024px) {
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         @media screen and (width <= 786px) {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         @media screen and (width <= 425px) {

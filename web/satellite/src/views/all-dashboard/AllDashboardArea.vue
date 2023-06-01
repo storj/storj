@@ -662,6 +662,12 @@ onMounted(async () => {
     }
 
     try {
+        await projectsStore.getUserInvitations();
+    } catch (error) {
+        notify.error(`Unable to get project invitations. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+    }
+
+    try {
         await projectsStore.getProjects();
     } catch (error) {
         return;

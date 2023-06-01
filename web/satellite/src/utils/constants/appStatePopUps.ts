@@ -36,6 +36,7 @@ import EditSessionTimeoutModal from '@/components/modals/EditSessionTimeoutModal
 import UpgradeAccountModal from '@/components/modals/upgradeAccountFlow/UpgradeAccountModal.vue';
 import DeleteAccessGrantModal from '@/components/modals/DeleteAccessGrantModal.vue';
 import SkipPassphraseModal from '@/components/modals/SkipPassphraseModal.vue';
+import JoinProjectModal from '@/components/modals/JoinProjectModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -86,6 +87,7 @@ enum Modals {
     DELETE_ACCESS_GRANT = 'deleteAccessGrant',
     SKIP_PASSPHRASE = 'skipPassphrase',
     CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
+    JOIN_PROJECT = 'joinProject',
 }
 
 export const MODALS: Record<Modals, Component> = {
@@ -119,4 +121,5 @@ export const MODALS: Record<Modals, Component> = {
     [Modals.DELETE_ACCESS_GRANT]: DeleteAccessGrantModal,
     [Modals.SKIP_PASSPHRASE]: SkipPassphraseModal,
     [Modals.CHANGE_PROJECT_LIMIT]: ChangeProjectLimitModal,
+    [Modals.JOIN_PROJECT]: JoinProjectModal,
 };

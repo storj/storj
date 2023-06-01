@@ -43,7 +43,7 @@ export interface ProjectsApi {
      * Get project limits.
      *
      * @param projectId- project ID
-     * throws Error
+     * @throws Error
      */
     getLimits(projectId: string): Promise<ProjectLimits>;
 
@@ -51,21 +51,21 @@ export interface ProjectsApi {
      * Get project salt
      *
      * @param projectID - project ID
-     * throws Error
+     * @throws Error
      */
     getSalt(projectID: string): Promise<string>;
 
     /**
      * Get project limits.
      *
-     * throws Error
+     * @throws Error
      */
     getTotalLimits(): Promise<ProjectLimits>;
 
     /**
      * Get project daily usage by specific date range.
      *
-     * throws Error
+     * @throws Error
      */
     getDailyUsage(projectID: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily>;
 
@@ -76,6 +76,20 @@ export interface ProjectsApi {
      * @throws Error
      */
     getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage>;
+
+    /**
+     * Returns a user's pending project member invitations.
+     *
+     * @throws Error
+     */
+    getUserInvitations(): Promise<ProjectInvitation[]>;
+
+    /**
+     * Handles accepting or declining a user's project member invitation.
+     *
+     * @throws Error
+     */
+    respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void>;
 }
 
 /**
@@ -221,6 +235,27 @@ export class ProjectsStorageBandwidthDaily {
         public allocatedBandwidth: DataStamp[] = [],
         public settledBandwidth: DataStamp[] = [],
     ) {}
+}
+
+/**
+ * ProjectInvitation represents a pending project member invitation.
+ */
+export class ProjectInvitation {
+    public constructor(
+        public projectID: string,
+        public projectName: string,
+        public projectDescription: string,
+        public inviterEmail: string,
+        public createdAt: Date,
+    ) {}
+}
+
+/**
+ * ProjectInvitationResponse represents a response to a project member invitation.
+ */
+export enum ProjectInvitationResponse {
+    Decline,
+    Accept,
 }
 
 /**

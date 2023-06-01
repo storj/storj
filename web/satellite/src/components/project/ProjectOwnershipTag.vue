@@ -2,22 +2,37 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="tag" :class="{member: !isOwner}">
-        <box-icon v-if="!noIcon" class="tag__icon" />
+    <div class="tag" :class="{owner: isOwner, invited: isInvited}">
+        <component :is="icon" v-if="!noIcon" class="tag__icon" />
 
-        <span class="tag__text"> {{ isOwner ? 'Owner': 'Member' }} </span>
+        <span class="tag__text">{{ label }}</span>
     </div>
 </template>
 
 <script setup lang="ts">
-import BoxIcon from '@/../static/images/allDashboard/box.svg';
+import { computed, Component } from 'vue';
+
+import BoxIcon from '@/../static/images/navigation/project.svg';
+import InviteIcon from '@/../static/images/navigation/quickStart.svg';
 
 const props = withDefaults(defineProps<{
     isOwner: boolean,
+    isInvited: boolean,
     noIcon?: boolean,
 }>(), {
     isOwner: false,
+    isInvited: false,
     noIcon: false,
+});
+
+const icon = computed((): string => {
+    return props.isInvited ? InviteIcon : BoxIcon;
+});
+
+const label = computed((): string => {
+    if (props.isOwner) return 'Owner';
+    if (props.isInvited) return 'Invited';
+    return 'Member';
 });
 
 </script>
@@ -29,21 +44,39 @@ const props = withDefaults(defineProps<{
     align-items: center;
     gap: 5px;
     padding: 4px 8px;
-    border: 1px solid var(--c-purple-2);
+    border: 1px solid var(--c-yellow-2);
     border-radius: 24px;
-    color: var(--c-purple-4);
+    color: var(--c-yellow-5);
+
+    :deep(path) {
+        fill: var(--c-yellow-5);
+    }
+
+    &__icon {
+        width: 12px;
+        height: 12px;
+    }
 
     &__text {
         font-size: 12px;
         font-family: 'font_regular', sans-serif;
     }
 
-    &.member {
-        color: var(--c-yellow-5);
-        border-color: var(--c-yellow-2);
+    &.owner {
+        color: var(--c-purple-4);
+        border-color: var(--c-purple-2);
 
         :deep(path) {
-            fill: var(--c-yellow-5);
+            fill: var(--c-purple-4);
+        }
+    }
+
+    &.invited {
+        color: var(--c-grey-6);
+        border-color: var(--c-grey-4);
+
+        :deep(path) {
+            fill: var(--c-yellow-3);
         }
     }
 }

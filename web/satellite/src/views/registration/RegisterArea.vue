@@ -257,9 +257,7 @@
                         border-radius="50px"
                         :is-disabled="isLoading"
                         :on-press="onCreateClick"
-                    >
-                        Sign In
-                    </v-button>
+                    />
                     <div class="register-area__input-area__login-container">
                         Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
                     </div>

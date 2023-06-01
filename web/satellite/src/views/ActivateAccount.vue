@@ -42,9 +42,7 @@
                     border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onActivateClick"
-                >
-                    Reset Password
-                </v-button>
+                />
                 <div class="activate-area__content-area__container__login-row">
                     <router-link :to="loginPath" class="activate-area__content-area__container__login-row__link">
                         Back to Login

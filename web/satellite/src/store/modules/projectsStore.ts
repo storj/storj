@@ -14,11 +14,14 @@ import {
     ProjectsPage,
     ProjectsStorageBandwidthDaily,
     ProjectUsageDateRange,
+    ProjectInvitation,
+    ProjectInvitationResponse,
 } from '@/types/projects';
 import { ProjectsApiGql } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
+const defaultSelectedInvitation = new ProjectInvitation('', '', '', '', new Date());
 
 export class ProjectsState {
     public projects: Project[] = [];
@@ -32,6 +35,8 @@ export class ProjectsState {
     public storageChartData: DataStamp[] = [];
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
+    public invitations: ProjectInvitation[] = [];
+    public selectedInvitation: ProjectInvitation = defaultSelectedInvitation;
 }
 
 export const useProjectsStore = defineStore('projects', () => {
@@ -202,6 +207,22 @@ export const useProjectsStore = defineStore('projects', () => {
         return await api.getSalt(projectID);
     }
 
+    async function getUserInvitations(): Promise<ProjectInvitation[]> {
+        const invites = await api.getUserInvitations();
+
+        state.invitations = invites;
+
+        return invites;
+    }
+
+    async function respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void> {
+        await api.respondToInvitation(projectID, response);
+    }
+
+    function selectInvitation(invite: ProjectInvitation): void {
+        state.selectedInvitation = invite;
+    }
+
     function clear(): void {
         state.projects = [];
         state.selectedProject = defaultSelectedProject;
@@ -212,6 +233,8 @@ export const useProjectsStore = defineStore('projects', () => {
         state.settledBandwidthChartData = [];
         state.chartDataSince = new Date();
         state.chartDataBefore = new Date();
+        state.invitations = [];
+        state.selectedInvitation = defaultSelectedInvitation;
     }
 
     function projectsCount(userID: string): number {
@@ -257,6 +280,9 @@ export const useProjectsStore = defineStore('projects', () => {
         getProjectLimits,
         getTotalLimits,
         getProjectSalt,
+        getUserInvitations,
+        respondToInvitation,
+        selectInvitation,
         projectsCount,
         clear,
         projects,

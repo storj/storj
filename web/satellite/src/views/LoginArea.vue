@@ -123,9 +123,7 @@
                     border-radius="50px"
                     :is-disabled="isLoading"
                     :on-press="onLoginClick"
-                >
-                    Sign In
-                </v-button>
+                />
                 <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
                     Cancel
                 </span>

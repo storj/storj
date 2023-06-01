@@ -26,19 +26,16 @@
             </div>
         </div>
 
-        <p class="project-item__name">
-            {{ project.name }}
-        </p>
-
-        <p class="project-item__description">
-            {{ project.description }}
-        </p>
+        <div class="project-item__info">
+            <p class="project-item__info__name">{{ project.name }}</p>
+            <p class="project-item__info__description">{{ project.description }}</p>
+        </div>
 
         <VButton
             class="project-item__button"
             width="fit-content"
-            height="fit-content"
             border-radius="8px"
+            font-size="12px"
             :on-press="onOpenClicked"
             label="Open Project"
         />
@@ -50,7 +47,6 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Project } from '@/types/projects';
-import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -75,7 +71,6 @@ const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const notify = useNotify();
 const router = useRouter();
 
 const analytics = new AnalyticsHttpApi();
@@ -165,11 +160,11 @@ async function goToProjectEdit(): Promise<void> {
 
 <style scoped lang="scss">
 .project-item {
-    display: grid;
-    grid-template-rows: 1fr 1fr 1fr 1fr;
-    align-items: start;
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
     padding: 24px;
-    height: 200px;
     background: var(--c-white);
     box-shadow: 0 0 20px rgb(0 0 0 / 5%);
     border-radius: 8px;
@@ -231,30 +226,36 @@ async function goToProjectEdit(): Promise<void> {
         }
     }
 
-    &__name {
-        font-family: 'font_bold', sans-serif;
-        font-size: 24px;
-        line-height: 31px;
-        width: 100%;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        text-align: start;
-    }
+    &__info {
+        display: flex;
+        gap: 4px;
+        flex-direction: column;
 
-    &__description {
-        font-family: 'font_regular', sans-serif;
-        font-size: 14px;
-        color: var(--c-grey-6);
-        line-height: 20px;
-        width: 100%;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
+        &__name {
+            font-family: 'font_bold', sans-serif;
+            font-size: 24px;
+            line-height: 31px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            text-align: start;
+        }
+
+        &__description {
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            min-height: 20px;
+            color: var(--c-grey-6);
+            line-height: 20px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
     }
 
     &__button {
         padding: 10px 16px;
+        line-height: 20px;
     }
 }
 </style>
