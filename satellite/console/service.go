@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -70,10 +69,13 @@ const (
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
-	activationTokenExpiredErrMsg = "This activation token has expired, please request another one"
-	usedRegTokenErrMsg           = "This registration token has already been used"
-	projLimitErrMsg              = "Sorry, project creation is limited for your account. Please contact support!"
-	projNameErrMsg               = "The new project must have a name you haven't used before!"
+	activationTokenExpiredErrMsg    = "This activation token has expired, please request another one"
+	usedRegTokenErrMsg              = "This registration token has already been used"
+	projLimitErrMsg                 = "Sorry, project creation is limited for your account. Please contact support!"
+	projNameErrMsg                  = "The new project must have a name you haven't used before!"
+	projInviteInvalidErrMsg         = "The invitation has expired or is invalid"
+	projInviteAlreadyMemberErrMsg   = "You are already a member of the project"
+	projInviteResponseInvalidErrMsg = "Invalid project member invitation response"
 )
 
 var (
@@ -133,6 +135,13 @@ var (
 
 	// ErrAlreadyHasPackage is error that occurs when a user tries to update package, but already has one.
 	ErrAlreadyHasPackage = errs.Class("user already has package")
+
+	// ErrAlreadyMember occurs when a user tries to reject an invitation to a project they're already a member of.
+	ErrAlreadyMember = errs.Class("already a member")
+
+	// ErrProjectInviteInvalid occurs when a user tries to respond to an invitation that doesn't exist
+	// or has expired.
+	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 )
 
 // Service is handling accounts related logic.
@@ -179,6 +188,7 @@ type Config struct {
 	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
 	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
+	ProjectInvitationExpiration time.Duration `help:"duration that project member invitations are valid for" default:"168h"`
 	UsageLimits                 UsageLimitsConfig
 	Captcha                     CaptchaConfig
 	Session                     SessionConfig
@@ -1464,8 +1474,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 	return nil
 }
 
-// GetProject is a method for querying project by id.
-// projectID here may be project.PublicID or project.ID.
+// GetProject is a method for querying project by internal or public ID.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project", zap.String("projectID", projectID.String()))
@@ -1481,6 +1490,27 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 	p = isMember.project
 
 	return
+}
+
+// GetProjectNoAuth is a method for querying project by ID or public ID.
+// This is for internal use only as it ignores whether a user is authorized to perform this action.
+// If authorization checking is required, use GetProject.
+func (s *Service) GetProjectNoAuth(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	p, err = s.store.Projects().GetByPublicID(ctx, projectID)
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			p, err = s.store.Projects().Get(ctx, projectID)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		} else {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	return p, nil
 }
 
 // GetSalt is a method for querying project salt by id.
@@ -2938,16 +2968,9 @@ type isProjectMember struct {
 func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	project, err = s.store.Projects().GetByPublicID(ctx, projectID)
+	project, err = s.GetProjectNoAuth(ctx, projectID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			project, err = s.store.Projects().Get(ctx, projectID)
-			if err != nil {
-				return false, nil, Error.Wrap(err)
-			}
-		} else {
-			return false, nil, Error.Wrap(err)
-		}
+		return false, nil, err
 	}
 
 	if project.OwnerID != userID {
@@ -2961,14 +2984,10 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 // projectID can be either private ID or public ID (project.ID/project.PublicID).
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (_ isProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var project *Project
-	project, err = s.store.Projects().GetByPublicID(ctx, projectID)
+
+	project, err := s.GetProjectNoAuth(ctx, projectID)
 	if err != nil {
-		tempError := err
-		project, err = s.store.Projects().Get(ctx, projectID)
-		if err != nil {
-			return isProjectMember{}, Error.Wrap(errs.Combine(tempError, err))
-		}
+		return isProjectMember{}, err
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
@@ -3392,4 +3411,105 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 	}
 
 	return settings, nil
+}
+
+// GetUserProjectInvitations returns a user's pending project member invitations.
+func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get project member invitations")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	invites, err := s.store.ProjectInvitations().GetByEmail(ctx, user.Email)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return invites, nil
+}
+
+// ProjectInvitationResponse represents a response to a project member invitation.
+type ProjectInvitationResponse int
+
+const (
+	// ProjectInvitationDecline represents rejection of a project member invitation.
+	ProjectInvitationDecline ProjectInvitationResponse = iota
+	// ProjectInvitationAccept represents acceptance of a project member invitation.
+	ProjectInvitationAccept
+)
+
+// RespondToProjectInvitation handles accepting or declining a user's project member invitation.
+// The given project ID may be the internal or public ID.
+func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid.UUID, response ProjectInvitationResponse) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "project member invitation response",
+		zap.String("projectID", projectID.String()),
+		zap.Any("response", response),
+	)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if response != ProjectInvitationAccept && response != ProjectInvitationDecline {
+		return ErrValidation.New(projInviteResponseInvalidErrMsg)
+	}
+
+	proj, err := s.GetProjectNoAuth(ctx, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	projectID = proj.ID
+
+	// log deletion errors that don't affect the outcome
+	deleteWithLog := func() {
+		err := s.store.ProjectInvitations().Delete(ctx, projectID, user.Email)
+		if err != nil {
+			s.log.Warn("error deleting project invitation",
+				zap.Error(err),
+				zap.String("email", user.Email),
+				zap.String("projectID", projectID.String()),
+			)
+		}
+	}
+
+	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	if err == nil {
+		deleteWithLog()
+		if response == ProjectInvitationDecline {
+			return ErrAlreadyMember.New(projInviteAlreadyMemberErrMsg)
+		}
+		return nil
+	}
+
+	invite, err := s.store.ProjectInvitations().Get(ctx, projectID, user.Email)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+		if response == ProjectInvitationDecline {
+			return nil
+		}
+		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+		deleteWithLog()
+		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	if response == ProjectInvitationDecline {
+		return Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
+	}
+
+	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	deleteWithLog()
+
+	return nil
 }

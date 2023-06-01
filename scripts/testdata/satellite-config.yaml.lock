@@ -325,6 +325,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: false
 
+# duration that project member invitations are valid for
+# console.project-invitation-expiration: 168h0m0s
+
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
 

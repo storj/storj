@@ -251,32 +251,23 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
-	projectsController := consoleapi.NewProjects(logger, service)
-	router.Handle(
-		"/api/v0/projects/{id}/salt",
-		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
-	).Methods(http.MethodGet)
-
 	router.HandleFunc("/api/v0/config", server.frontendConfigHandler)
+
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
+	projectsController := consoleapi.NewProjects(logger, service)
+	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
+	projectsRouter.Handle("/{id}/salt", server.withAuth(http.HandlerFunc(projectsController.GetSalt))).Methods(http.MethodGet)
+	projectsRouter.Handle("/invitations", server.withAuth(http.HandlerFunc(projectsController.GetUserInvitations))).Methods(http.MethodGet)
+	projectsRouter.Handle("/invitations/{id}/respond", server.withAuth(http.HandlerFunc(projectsController.RespondToInvitation))).Methods(http.MethodPost)
 
 	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
-	router.Handle(
-		"/api/v0/projects/{id}/usage-limits",
-		server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits)),
-	).Methods(http.MethodGet)
-	router.Handle(
-		"/api/v0/projects/usage-limits",
-		server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits)),
-	).Methods(http.MethodGet)
-	router.Handle(
-		"/api/v0/projects/{id}/daily-usage",
-		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
-	).Methods(http.MethodGet)
+	projectsRouter.Handle("/{id}/usage-limits", server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits))).Methods(http.MethodGet)
+	projectsRouter.Handle("/usage-limits", server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits))).Methods(http.MethodGet)
+	projectsRouter.Handle("/{id}/daily-usage", server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()

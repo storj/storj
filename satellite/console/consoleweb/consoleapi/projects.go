@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -61,6 +62,106 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(b64SaltString)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+}
+
+// GetUserInvitations returns the user's pending project member invitations.
+func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	invites, err := p.service.GetUserProjectInvitations(ctx)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	type jsonInvite struct {
+		ProjectID          uuid.UUID `json:"projectID"`
+		ProjectName        string    `json:"projectName"`
+		ProjectDescription string    `json:"projectDescription"`
+		InviterEmail       string    `json:"inviterEmail"`
+		CreatedAt          time.Time `json:"createdAt"`
+	}
+
+	response := make([]jsonInvite, 0)
+
+	for _, invite := range invites {
+		proj, err := p.service.GetProjectNoAuth(ctx, invite.ProjectID)
+		if err != nil {
+			p.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		respInvite := jsonInvite{
+			ProjectID:          proj.PublicID,
+			ProjectName:        proj.Name,
+			ProjectDescription: proj.Description,
+			CreatedAt:          invite.CreatedAt,
+		}
+
+		if invite.InviterID != nil {
+			inviter, err := p.service.GetUser(ctx, *invite.InviterID)
+			if err != nil {
+				p.serveJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			respInvite.InviterEmail = inviter.Email
+		}
+
+		response = append(response, respInvite)
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+}
+
+// RespondToInvitation handles accepting or declining a user's project member invitation.
+func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+	}
+
+	var payload struct {
+		Response console.ProjectInvitationResponse `json:"response"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.RespondToProjectInvitation(ctx, id, payload.Response)
+	if err != nil {
+		status := http.StatusInternalServerError
+		switch {
+		case console.ErrAlreadyMember.Has(err):
+			status = http.StatusConflict
+		case console.ErrProjectInviteInvalid.Has(err):
+			status = http.StatusNotFound
+		case console.ErrValidation.Has(err):
+			status = http.StatusBadRequest
+		}
+		p.serveJSONError(w, status, err)
 	}
 }
 

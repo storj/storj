@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -1885,5 +1886,127 @@ func TestServiceGenMethods(t *testing.T) {
 				require.Nil(t, p)
 			})
 		}
+	})
+}
+
+func TestProjectInvitations(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		addUser := func(t *testing.T, ctx context.Context) *console.User {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    fmt.Sprintf("%s@mail.test", testrand.RandAlphaNumeric(16)),
+			}, 1)
+			require.NoError(t, err)
+			return user
+		}
+
+		getUserAndCtx := func(t *testing.T) (*console.User, context.Context) {
+			ctx := testcontext.New(t)
+			user := addUser(t, ctx)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			return user, userCtx
+		}
+
+		addProject := func(t *testing.T, ctx context.Context) *console.Project {
+			owner := addUser(t, ctx)
+			project, err := sat.AddProject(ctx, owner.ID, "Test Project")
+			require.NoError(t, err)
+			return project
+		}
+
+		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string, createdAt time.Time) *console.ProjectInvitation {
+			invite, err := sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     email,
+				InviterID: &project.OwnerID,
+			})
+			require.NoError(t, err)
+
+			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
+				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
+				createdAt, invite.ProjectID, strings.ToUpper(invite.Email),
+			)
+			require.NoError(t, err)
+
+			count, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, count)
+
+			return invite
+		}
+
+		t.Run("get invitation", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+
+			invites, err := service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			invite := addInvite(t, ctx, addProject(t, ctx), user.Email, time.Now())
+			invites, err = service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, invite.ProjectID, invites[0].ProjectID)
+			require.Equal(t, invite.Email, invites[0].Email)
+			require.Equal(t, invite.InviterID, invites[0].InviterID)
+			require.WithinDuration(t, invite.CreatedAt, invites[0].CreatedAt, time.Second)
+		})
+
+		t.Run("accept invitation", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+			proj := addProject(t, ctx)
+
+			addInvite(t, ctx, proj, user.Email, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			addInvite(t, ctx, proj, user.Email, time.Now())
+			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept))
+
+			invites, err := service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
+			require.NoError(t, err)
+			require.Len(t, memberships, 1)
+			require.Equal(t, proj.ID, memberships[0].ProjectID)
+
+			// Ensure that accepting an invitation for a project you are already a member of doesn't return an error.
+			// This is because the outcome of the operation is the same as if you weren't a member.
+			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept))
+			// Ensure that an error is returned if you're a member of a project whose invitation you decline.
+			err = service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline)
+			require.True(t, console.ErrAlreadyMember.Has(err))
+		})
+
+		t.Run("reject invitation", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+			proj := addProject(t, ctx)
+
+			addInvite(t, ctx, proj, user.Email, time.Now())
+			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline))
+
+			invites, err := service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
+			require.NoError(t, err)
+			require.Empty(t, memberships)
+
+			// Ensure that declining an invitation for a project you are not a member of doesn't return an error.
+			// This is because the outcome of the operation is the same as if you were a member.
+			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline))
+			// Ensure that an error is returned if you try to accept an invitation that you have already declined or doesn't exist.
+			err = service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+		})
 	})
 }
