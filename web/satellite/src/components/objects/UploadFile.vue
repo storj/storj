@@ -113,8 +113,7 @@ async function generateObjectPreviewAndMapUrl(path: string): Promise<string> {
 
         return `${linksharingURL.value}/s/${creds.accessKeyId}/${path}`;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
-
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return '';
     }
 }

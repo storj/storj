@@ -256,6 +256,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
 
+# whether to show new gallery view
+# console.gallery-view-enabled: false
+
 # url link for gateway credentials requests
 # console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
 

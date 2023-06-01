@@ -6,7 +6,7 @@
     "preview": "vite preview",
     "dev": "vite",
     "build": "vite build",
-    "build-watch": "vite build --watch",
+    "build-watch": "NODE_ENV=development vite build --watch",
     "lint": "eslint --ext .js,.ts,.vue src --fix && stylelint . --max-warnings 0 --fix",
     "lint-ci": "eslint --ext .js,.ts,.vue src --no-fix && stylelint . --max-warnings 0 --no-fix",
     "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",

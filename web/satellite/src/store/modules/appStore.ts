@@ -27,6 +27,7 @@ class AppState {
     public activeDropdown = 'none';
     public activeModal: Component | null = null;
     public isUploadingModal = false;
+    public isGalleryView = false;
     // this field is mainly used on the all projects dashboard as an exit condition
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
@@ -136,6 +137,10 @@ export const useAppStore = defineStore('app', () => {
         state.isLargeUploadNotificationShown = value;
     }
 
+    function setGalleryView(value: boolean): void {
+        state.isGalleryView = value;
+    }
+
     function closeUpdateSessionTimeoutBanner(): void {
         LocalData.setSessionTimeoutBannerAcknowledged();
 
@@ -171,6 +176,7 @@ export const useAppStore = defineStore('app', () => {
         state.activeDropdown = '';
         state.isUploadingModal = false;
         state.error.visible = false;
+        state.isGalleryView = false;
     }
 
     return {
@@ -188,6 +194,7 @@ export const useAppStore = defineStore('app', () => {
         setOnboardingOS,
         setActiveChangeLimit,
         setPricingPlan,
+        setGalleryView,
         setManagePassphraseStep,
         setHasShownPricingPlan,
         setUploadingModal,

@@ -122,6 +122,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -134,6 +135,7 @@ import CloseIcon from '@/../static/images/common/closeCross.svg';
 
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const config = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -252,7 +254,13 @@ const loadingSpinner = computed((): boolean => {
  */
 function openModal(): void {
     obStore.setObjectPathForModal(props.path + props.file.Key);
-    appStore.updateActiveModal(MODALS.objectDetails);
+
+    if (config.state.config.galleryViewEnabled) {
+        appStore.setGalleryView(true);
+    } else {
+        appStore.updateActiveModal(MODALS.objectDetails);
+    }
+
     obStore.closeDropdown();
 }
 

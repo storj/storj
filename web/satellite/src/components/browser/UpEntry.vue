@@ -21,5 +21,4 @@ import TableItem from '@/components/common/TableItem.vue';
 const props = defineProps<{
     onBack: () => void;
 }>();
-
 </script>

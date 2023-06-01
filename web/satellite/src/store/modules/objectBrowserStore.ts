@@ -499,7 +499,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 const uploadedFiles = state.files.filter(f => f.type === 'file');
                 if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
                     state.objectPathForModal = params.Key;
-                    appStore.updateActiveModal(MODALS.objectDetails);
+
+                    if (config.state.config.galleryViewEnabled) {
+                        appStore.setGalleryView(true);
+                    } else {
+                        appStore.updateActiveModal(MODALS.objectDetails);
+                    }
                 }
 
                 if (!config.state.config.newUploadModalEnabled) {

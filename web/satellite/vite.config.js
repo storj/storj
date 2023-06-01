@@ -14,12 +14,6 @@ const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 
 const plugins = [
     vue(),
-    viteCompression({
-        algorithm: 'brotliCompress',
-        threshold: 1024,
-        ext: '.br',
-        filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
-    }),
     svgLoader({
         svgoConfig: {
             plugins: [{ name: 'removeViewBox', fn: () => {} }],
@@ -27,6 +21,15 @@ const plugins = [
     }),
     vitePluginRequire(),
 ];
+
+if (process.env.NODE_ENV === 'production') {
+    plugins.push(viteCompression({
+        algorithm: 'brotliCompress',
+        threshold: 1024,
+        ext: '.br',
+        filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
+    }));
+}
 
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
     plugins.push(visualizer({
@@ -57,6 +60,7 @@ export default defineConfig(({ mode }) => {
                     experimentalMinChunkSize: 50*1024,
                 },
             },
+            chunkSizeWarningLimit: 3000,
         },
         define: {
             'process.env': {},
