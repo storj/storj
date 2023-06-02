@@ -441,6 +441,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Version:             *pbVersion,
 			NoiseKeyAttestation: noiseKeyAttestation,
 			DebounceLimit:       peer.Server.DebounceLimit(),
+			FastOpen:            peer.Server.FastOpen(),
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())

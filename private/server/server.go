@@ -72,6 +72,7 @@ type Server struct {
 	tlsOptions *tlsopts.Options
 	noiseConf  noise.Config
 	config     Config
+	fastOpen   bool
 
 	publicTCPListener  net.Listener
 	publicUDPConn      *net.UDPConn
@@ -115,14 +116,16 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 
 	listenConfig := net.ListenConfig{}
 	if config.TCPFastOpen {
-		tryInitFastOpen(log)
-		listenConfig.Control = func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				err := setTCPFastOpen(fd, config.TCPFastOpenQueue)
-				if err != nil {
-					log.Sugar().Infof("failed to set tcp fast open for this socket: %v", err)
-				}
-			})
+		server.fastOpen = tryInitFastOpen(log)
+		if server.fastOpen {
+			listenConfig.Control = func(network, address string, c syscall.RawConn) error {
+				return c.Control(func(fd uintptr) {
+					err := setTCPFastOpen(fd, config.TCPFastOpenQueue)
+					if err != nil {
+						log.Sugar().Infof("failed to set tcp fast open for this socket: %v", err)
+					}
+				})
+			}
 		}
 	}
 
@@ -230,6 +233,12 @@ func (p *Server) DebounceLimit() int {
 		return 0
 	}
 	return debounceLimit
+}
+
+// FastOpen returns true if FastOpen is possibly open. false means we
+// know FastOpen is off.
+func (p *Server) FastOpen() bool {
+	return p.fastOpen
 }
 
 // Close shuts down the server.
