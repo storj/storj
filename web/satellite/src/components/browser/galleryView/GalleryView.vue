@@ -3,7 +3,7 @@
 
 <template>
     <Teleport to="#app">
-        <div class="gallery">
+        <div ref="viewContainer" class="gallery" tabindex="0" @keydown.esc="closeModal">
             <div class="gallery__header">
                 <LogoIcon class="gallery__header__logo" />
                 <SmallLogoIcon class="gallery__header__small-logo" />
@@ -14,11 +14,23 @@
                     <p class="gallery__header__name__label" :title="file.Key">{{ file.Key }}</p>
                 </div>
                 <div class="gallery__header__functional">
-                    <ButtonIcon :icon="DotsIcon" :on-press="() => {}" />
+                    <ButtonIcon
+                        v-click-outside="closeDropdown"
+                        :icon="DotsIcon"
+                        :on-press="toggleDropdown"
+                        :is-active="isOptionsDropdown === true"
+                    />
                     <ButtonIcon :icon="MapIcon" :on-press="() => {}" />
                     <ButtonIcon class="gallery__header__functional__item" :icon="DownloadIcon" :on-press="download" />
                     <ButtonIcon class="gallery__header__functional__item" :icon="ShareIcon" :on-press="() => {}" />
                     <ButtonIcon :icon="CloseIcon" :on-press="closeModal" />
+                    <OptionsDropdown
+                        v-if="isOptionsDropdown"
+                        :on-view-details="() => setActiveModal(DetailsModal)"
+                        :on-download="download"
+                        :on-share="() => {}"
+                        :on-delete="() => {}"
+                    />
                 </div>
             </div>
             <div class="gallery__main">
@@ -67,11 +79,18 @@
                 <ArrowIcon class="gallery__main__right-arrow" @click="onNext" />
             </div>
         </div>
+        <div v-if="activeModal">
+            <component
+                :is="activeModal"
+                :on-close="() => setActiveModal(undefined)"
+                :object="file"
+            />
+        </div>
     </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, Teleport, watch } from 'vue';
+import { Component, computed, onBeforeMount, onMounted, ref, Teleport, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
@@ -82,6 +101,8 @@ import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
+import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';
+import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -103,8 +124,11 @@ const notify = useNotify();
 
 const route = useRoute();
 
+const viewContainer = ref<HTMLElement>();
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
+const isOptionsDropdown = ref<boolean>(false);
+const activeModal = ref<Component>();
 const objectMapUrl = ref<string>('');
 const objectPreviewUrl = ref<string>('');
 
@@ -232,6 +256,31 @@ function closeModal(): void {
 }
 
 /**
+ * Toggles options dropdown.
+ */
+function toggleDropdown(): void {
+    isOptionsDropdown.value = !isOptionsDropdown.value;
+}
+
+/**
+ * Closes options dropdown.
+ */
+function closeDropdown(): void {
+    isOptionsDropdown.value = false;
+}
+
+/**
+ * Sets active modal.
+ */
+function setActiveModal(value: Component | undefined): void {
+    activeModal.value = value;
+
+    if (!value) {
+        viewContainer.value?.focus();
+    }
+}
+
+/**
  * Handles on previous click logic.
  */
 function onPrevious(): void {
@@ -279,6 +328,10 @@ function setNewObjectPath(objectKey: string): void {
  */
 onBeforeMount((): void => {
     fetchPreviewAndMapUrl();
+});
+
+onMounted((): void => {
+    viewContainer.value?.focus();
 });
 
 /**
@@ -364,6 +417,7 @@ watch(filePath, () => {
 
         &__functional {
             column-gap: 16px;
+            position: relative;
 
             @media screen and (width <= 1100px) {
                 column-gap: 8px;
