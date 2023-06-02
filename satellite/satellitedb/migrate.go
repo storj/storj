@@ -2383,6 +2383,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE value_attributions ADD COLUMN partner_id bytea DEFAULT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add node features",
+				Version:     238,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN features integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

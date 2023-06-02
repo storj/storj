@@ -135,6 +135,9 @@ model node (
     // node can defend against. this is not the limit of messages, just the
     // limit of how many of the same message can be debounced.
     field debounce_limit int ( updatable, default 0 )
+
+    // features is a bitmask of pb.NodeAddress_Feature values.
+    field features int ( updatable, default 0 )
 )
 
 update node ( where node.id = ? )

@@ -121,6 +121,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			Address:       req.Address,
 			NoiseInfo:     noiseInfo,
 			DebounceLimit: req.DebounceLimit,
+			Features:      req.Features,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),

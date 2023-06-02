@@ -38,10 +38,12 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		}
 		peerCtx := rpcpeer.NewContext(ctx, &peer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address:  nodeInfo.Address,
-			Version:  &nodeInfo.Version,
-			Capacity: &nodeInfo.Capacity,
-			Operator: &nodeInfo.Operator,
+			Address:       nodeInfo.Address,
+			Version:       &nodeInfo.Version,
+			Capacity:      &nodeInfo.Capacity,
+			Operator:      &nodeInfo.Operator,
+			DebounceLimit: 3,
+			Features:      0xf,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -51,6 +53,12 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeInfo.ID)
 		require.NoError(t, err)
 		require.Equal(t, ident.PeerIdentity(), peerID)
+
+		node, err := planet.Satellites[0].DB.OverlayCache().Get(ctx, nodeInfo.ID)
+		require.NoError(t, err)
+		require.Equal(t, node.Address.Address, nodeInfo.Address)
+		require.Equal(t, node.Address.DebounceLimit, int32(3))
+		require.Equal(t, node.Address.Features, uint64(0xf))
 	})
 }
 
