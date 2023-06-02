@@ -20,7 +20,7 @@
                         :on-press="toggleDropdown"
                         :is-active="isOptionsDropdown === true"
                     />
-                    <ButtonIcon :icon="MapIcon" :on-press="() => {}" />
+                    <ButtonIcon :icon="MapIcon" :on-press="() => setActiveModal(DistributionModal)" />
                     <ButtonIcon class="gallery__header__functional__item" :icon="DownloadIcon" :on-press="download" />
                     <ButtonIcon class="gallery__header__functional__item" :icon="ShareIcon" :on-press="() => {}" />
                     <ButtonIcon :icon="CloseIcon" :on-press="closeModal" />
@@ -84,6 +84,7 @@
                 :is="activeModal"
                 :on-close="() => setActiveModal(undefined)"
                 :object="file"
+                :map-url="objectMapUrl"
             />
         </div>
     </Teleport>
@@ -103,6 +104,7 @@ import { RouteConfig } from '@/router';
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
 import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';
 import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
+import DistributionModal from '@/components/browser/galleryView/modals/Distribution.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 
