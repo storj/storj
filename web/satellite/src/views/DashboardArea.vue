@@ -15,7 +15,9 @@
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <BetaSatBar v-if="isBetaSatellite" />
                         <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <div class="banner-container dashboard__wrap__main-area__content-wrap__container__content">
+                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
+                            <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
+
                             <UpdateSessionTimeoutBanner
                                 v-if="isUpdateSessionTimeoutBanner && dashboardContent"
                                 :dashboard-ref="dashboardContent"
@@ -78,7 +80,7 @@
                             </v-banner>
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
-                        <div class="banner-container__bottom dashboard__wrap__main-area__content-wrap__container__content">
+                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
                             <UploadNotification
                                 v-if="isLargeUploadNotificationShown && !isLargeUploadWarningNotificationShown && isBucketsView"
                                 wording-bold="The web browser is best for uploads up to 1GB."
@@ -173,6 +175,7 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
@@ -432,6 +435,13 @@ const isLargeUploadNotificationShown = computed((): boolean => {
  */
 const isLargeUploadWarningNotificationShown = computed((): boolean => {
     return appStore.state.isLargeUploadWarningNotificationShown;
+});
+
+/**
+ * Indicates whether the project member invitation banner should be shown.
+ */
+const isProjectInvitationBannerShown = computed((): boolean => {
+    return !configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -783,6 +793,12 @@ onMounted(async () => {
         notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
+    try {
+        await projectsStore.getUserInvitations();
+    } catch (error) {
+        notify.error(`Unable to get project invitations. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
     let projects: Project[] = [];
 
     try {
@@ -824,25 +840,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-    :deep(.notification-wrap) {
-        margin-top: 1rem;
-    }
-
-    .banner-container {
-        padding-top: 0 !important;
-
-        &:empty {
-            display: none;
-        }
-
-        &__bottom {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-    }
-
     .dashboard {
         height: 100%;
         background-color: #f5f6fa;
@@ -881,6 +878,30 @@ onBeforeUnmount(() => {
                             padding: 48px 48px 0;
                             box-sizing: border-box;
                             width: 100%;
+
+                            &.banners {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 16px;
+
+                                &:empty {
+                                    display: none;
+                                }
+                            }
+
+                            &.banners-bottom {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 16px;
+                                padding-top: 16px;
+                                padding-bottom: 48px;
+                                flex-grow: 1;
+                                justify-content: flex-end;
+
+                                &:empty {
+                                    padding-top: 0;
+                                }
+                            }
                         }
                     }
                 }
@@ -926,11 +947,7 @@ onBeforeUnmount(() => {
     @media screen and (width <= 800px) {
 
         .dashboard__wrap__main-area__content-wrap__container__content {
-            padding: 32px 24px 50px;
-        }
-
-        .banner-container {
-            padding-bottom: 0;
+            padding: 32px 24px 0;
         }
     }
 
