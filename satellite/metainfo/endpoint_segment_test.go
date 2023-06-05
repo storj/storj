@@ -836,6 +836,50 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 	})
 }
 
+func TestSegmentPlacementConstraints(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		expectedBucketName := "some-bucket"
+		err := uplink.Upload(ctx, satellite, expectedBucketName, "file-object", testrand.Bytes(50*memory.KiB))
+		require.NoError(t, err)
+
+		metainfoClient, err := uplink.DialMetainfo(ctx, satellite, apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		items, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
+			Bucket: []byte(expectedBucketName),
+		})
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+
+		{ // download should succeed because placement allows any node
+			_, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedObjectKey,
+			})
+			require.NoError(t, err)
+		}
+
+		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
+			`UPDATE segments SET placement = 1`).Err()
+		require.NoError(t, err)
+
+		{ // download should fail because non-zero placement and nodes have no country codes
+			_, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedObjectKey,
+			})
+			require.Error(t, err)
+		}
+	})
+}
+
 func createTestBucket(ctx context.Context, tb testing.TB, planet *testplanet.Planet) buckets.Bucket {
 	bucket, err := planet.Satellites[0].API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
 		Name:      "test",
