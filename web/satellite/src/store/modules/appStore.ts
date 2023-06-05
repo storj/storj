@@ -13,7 +13,6 @@ import { LimitToChange } from '@/types/projects';
 class AppState {
     public fetchState = FetchState.LOADING;
     public isSuccessfulPasswordResetShown = false;
-    public isUpdateSessionTimeoutBanner = !LocalData.getSessionTimeoutBannerAcknowledged();
     public hasJustLoggedIn = false;
     public onbAGStepBackRoute = '';
     public onbAPIKeyStepBackRoute = '';
@@ -35,6 +34,7 @@ class AppState {
     public isLargeUploadNotificationShown = true;
     public isLargeUploadWarningNotificationShown = false;
     public activeChangeLimit: LimitToChange = LimitToChange.Storage;
+    public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
 }
 
 class ErrorPageState {
@@ -83,6 +83,19 @@ export const useAppStore = defineStore('app', () => {
             return;
         }
         state.hasJustLoggedIn = hasJustLoggedIn;
+    }
+
+    function hasProjectTableViewConfigured(): boolean {
+        return LocalData.hasProjectTableViewConfigured();
+    }
+
+    function toggleProjectTableViewEnabled(isProjectTableViewEnabled: boolean | null = null): void {
+        if (isProjectTableViewEnabled === null) {
+            state.isProjectTableViewEnabled = !state.isProjectTableViewEnabled;
+        } else {
+            state.isProjectTableViewEnabled = isProjectTableViewEnabled;
+        }
+        LocalData.setProjectTableViewEnabled(state.isProjectTableViewEnabled);
     }
 
     function changeState(newFetchState: FetchState): void {
@@ -141,12 +154,6 @@ export const useAppStore = defineStore('app', () => {
         state.isGalleryView = value;
     }
 
-    function closeUpdateSessionTimeoutBanner(): void {
-        LocalData.setSessionTimeoutBannerAcknowledged();
-
-        state.isUpdateSessionTimeoutBanner = false;
-    }
-
     function closeDropdowns(): void {
         state.activeDropdown = '';
     }
@@ -177,12 +184,16 @@ export const useAppStore = defineStore('app', () => {
         state.isUploadingModal = false;
         state.error.visible = false;
         state.isGalleryView = false;
+        state.isProjectTableViewEnabled = false;
+        LocalData.removeProjectTableViewConfig();
     }
 
     return {
         state,
         toggleActiveDropdown,
         toggleSuccessfulPasswordReset,
+        toggleProjectTableViewEnabled,
+        hasProjectTableViewConfigured,
         updateActiveModal,
         removeActiveModal,
         toggleHasJustLoggedIn,
@@ -201,7 +212,6 @@ export const useAppStore = defineStore('app', () => {
         setLargeUploadWarningNotification,
         setLargeUploadNotification,
         closeDropdowns,
-        closeUpdateSessionTimeoutBanner,
         setErrorPage,
         removeErrorPage,
         clear,

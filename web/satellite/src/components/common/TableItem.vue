@@ -18,12 +18,16 @@
                 <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
             </div>
             <div v-else class="table-item">
-                <div v-if="icon && index === 0" class="item-icon file-background">
+                <div v-if="icon && index === 0" class="item-icon file-background" :class="customIconClasses">
                     <component :is="icon" />
                 </div>
-                <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
+                <p v-if="keyVal === 'multi'" class="multi" :class="{primary: index === 0}" :title="val['title']" @click.stop="(e) => cellContentClicked(index, e)">
+                    <span class="multi__title">{{ val['title'] }}</span>
+                    <span class="multi__subtitle">{{ val['subtitle'] }}</span>
+                </p>
+                <p v-else :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
                     <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
-                    <project-ownership-tag v-else-if="keyVal === 'owner'" no-icon :is-owner="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'owner'" :no-icon="itemType !== 'project'" :is-owner="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -56,6 +60,7 @@ import PdfIcon from '@/../static/images/objects/pdf.svg';
 import PictureIcon from '@/../static/images/objects/picture.svg';
 import TxtIcon from '@/../static/images/objects/txt.svg';
 import ZipIcon from '@/../static/images/objects/zip.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
 
 const props = withDefaults(defineProps<{
     selectDisabled?: boolean;
@@ -97,9 +102,22 @@ const icons = new Map<string, string>([
     ['image', PictureIcon],
     ['text', TxtIcon],
     ['archive', ZipIcon],
+    ['project', ProjectIcon],
 ]);
 
 const icon = computed(() => icons.get(props.itemType.toLowerCase()));
+
+const customIconClasses = computed(() => {
+    const classes = {};
+    if (props.itemType === 'project') {
+        if (props.item['owner']) {
+            classes['project-owner'] = true;
+        } else {
+            classes['project-member'] = true;
+        }
+    }
+    return classes;
+});
 
 function selectClicked(event: Event): void {
     emit('selectClicked', event);
@@ -188,6 +206,10 @@ function cellContentClicked(cellIndex: number, event: Event) {
 
                 .primary {
                     color: var(--c-blue-3);
+
+                    & > .multi__subtitle {
+                        color: var(--c-blue-3);
+                    }
                 }
             }
         }
@@ -198,6 +220,18 @@ function cellContentClicked(cellIndex: number, event: Event) {
             :deep(.select) {
                 background: var(--c-yellow-1);
             }
+        }
+    }
+
+    .multi {
+        display: flex;
+        flex-direction: column;
+
+        &__subtitle {
+            font-family: 'font_regular', sans-serif;
+            font-size: 12px;
+            line-height: 20px;
+            color: var(--c-grey-6);
         }
     }
 
@@ -243,5 +277,19 @@ function cellContentClicked(cellIndex: number, event: Event) {
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    .project-owner {
+
+        :deep(path) {
+            fill: var(--c-purple-4);
+        }
+    }
+
+    .project-member {
+
+        :deep(path) {
+            fill: var(--c-yellow-5);
+        }
     }
 </style>

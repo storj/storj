@@ -15,6 +15,7 @@ export class LocalData {
     private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
+    private static projectTableViewEnabled = 'projectTableViewEnabled';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -60,14 +61,6 @@ export class LocalData {
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
         return value === 'true';
-    }
-
-    public static getSessionTimeoutBannerAcknowledged(): boolean {
-        return Boolean(localStorage.getItem(LocalData.sessionTimeoutBannerAcknowledged));
-    }
-
-    public static setSessionTimeoutBannerAcknowledged(): void {
-        localStorage.setItem(LocalData.sessionTimeoutBannerAcknowledged, 'true');
     }
 
     /**
@@ -122,8 +115,26 @@ export class LocalData {
         localStorage.setItem(LocalData.projectLimitBannerHidden, 'true');
     }
 
-    public static getProjectLimitBannerHidden(): boolean {
-        const value = localStorage.getItem(LocalData.projectLimitBannerHidden);
+    public static getProjectTableViewEnabled(): boolean {
+        const value = localStorage.getItem(LocalData.projectTableViewEnabled);
         return value === 'true';
+    }
+
+    public static setProjectTableViewEnabled(enabled: boolean): void {
+        localStorage.setItem(LocalData.projectTableViewEnabled, enabled.toString());
+    }
+
+    /*
+    * Whether a user defined setting has been made for the projects table
+    * */
+    public static hasProjectTableViewConfigured(): boolean {
+        return localStorage.getItem(LocalData.projectTableViewEnabled) !== null;
+    }
+
+    /*
+    * Remove the user defined setting for the projects table;
+    * */
+    public static removeProjectTableViewConfig() {
+        return localStorage.removeItem(LocalData.projectTableViewEnabled);
     }
 }

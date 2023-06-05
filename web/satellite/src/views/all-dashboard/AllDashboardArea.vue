@@ -18,22 +18,10 @@
             <div class="all-dashboard__content__divider" />
 
             <div class="all-dashboard__banners">
-                <UpdateSessionTimeoutBanner
-                    v-if="isUpdateSessionTimeoutBanner && dashboardContent"
-                    :dashboard-ref="dashboardContent"
-                />
-
                 <UpgradeNotification
                     v-if="isPaidTierBannerShown"
                     class="all-dashboard__banners__upgrade"
                     :open-add-p-m-modal="togglePMModal"
-                />
-
-                <ProjectLimitBanner
-                    v-if="isProjectLimitBannerShown"
-                    class="all-dashboard__banners__project-limit"
-                    :dashboard-ref="dashboardContent"
-                    :on-upgrade-clicked="togglePMModal"
                 />
 
                 <v-banner
@@ -156,8 +144,6 @@ import AllModals from '@/components/modals/AllModals.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
-import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
-import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -214,13 +200,6 @@ const sessionDuration = computed((): number => {
  */
 const sessionRefreshInterval = computed((): number => {
     return sessionDuration.value / 2;
-});
-
-/**
- * Indicates whether the update session timeout notification should be shown.
- */
-const isUpdateSessionTimeoutBanner = computed((): boolean => {
-    return route.name !== RouteConfig.Settings2.name && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -345,13 +324,6 @@ const isLoading = computed((): boolean => {
 const showMFARecoveryCodeBar = computed((): boolean => {
     const user: User = usersStore.state.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
-});
-
-/* whether the project limit banner should be shown. */
-const isProjectLimitBannerShown = computed((): boolean => {
-    return !LocalData.getProjectLimitBannerHidden()
-        && !isBillingPage.value
-        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
 });
 
 /**
@@ -619,10 +591,6 @@ onMounted(async () => {
             usersStore.getSettings(),
         ]);
 
-        if (usersStore.state.settings.sessionDuration && appStore.state.isUpdateSessionTimeoutBanner) {
-            appStore.closeUpdateSessionTimeoutBanner();
-        }
-
         setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -709,6 +677,7 @@ onBeforeUnmount(() => {
     overflow-y: auto;
     width: 100%;
     height: 100%;
+    background: var(--c-grey-1);
 
     &__bars {
         display: contents;

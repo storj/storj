@@ -18,20 +18,9 @@
                         <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
                             <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
 
-                            <UpdateSessionTimeoutBanner
-                                v-if="isUpdateSessionTimeoutBanner && dashboardContent"
-                                :dashboard-ref="dashboardContent"
-                            />
-
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
-                            />
-
-                            <ProjectLimitBanner
-                                v-if="isProjectLimitBannerShown"
-                                :dashboard-ref="dashboardContent"
-                                :on-upgrade-clicked="togglePMModal"
                             />
 
                             <v-banner
@@ -177,7 +166,6 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
-import UpdateSessionTimeoutBanner from '@/components/notifications/UpdateSessionTimeoutBanner.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
 
 import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
@@ -243,13 +231,6 @@ const sessionRefreshInterval = computed((): number => {
  */
 const isObjectsUploadModal = computed((): boolean => {
     return configStore.state.config.newUploadModalEnabled && appStore.state.isUploadingModal;
-});
-
-/**
- * Indicates whether the update session timeout notification should be shown.
- */
-const isUpdateSessionTimeoutBanner = computed((): boolean => {
-    return (route.name !== RouteConfig.Settings.name && !isOnboardingTour.value) && appStore.state.isUpdateSessionTimeoutBanner;
 });
 
 /**
@@ -352,13 +333,6 @@ const limitState = computed((): LimitedState => {
  */
 const isNavigationHidden = computed((): boolean => {
     return isOnboardingTour.value || isCreateProjectPage.value;
-});
-
-/* whether the project limit banner should be shown. */
-const isProjectLimitBannerShown = computed((): boolean => {
-    return !LocalData.getProjectLimitBannerHidden()
-        && isProjectListPage.value
-        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
 });
 
 /**
@@ -750,10 +724,6 @@ onMounted(async () => {
             abTestingStore.fetchValues(),
             usersStore.getSettings(),
         ]);
-
-        if (usersStore.state.settings.sessionDuration && appStore.state.isUpdateSessionTimeoutBanner) {
-            appStore.closeUpdateSessionTimeoutBanner();
-        }
 
         setupSessionTimers();
     } catch (error) {

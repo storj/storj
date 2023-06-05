@@ -61,6 +61,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 publicId
                 description
                 createdAt
+                memberCount
                 ownerId
             }
         }`;
@@ -74,6 +75,8 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 project.description,
                 project.createdAt,
                 project.ownerId,
+                false,
+                project.memberCount,
             );
         });
     }

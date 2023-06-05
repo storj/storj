@@ -2,44 +2,35 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="project.id" class="project-item">
-        <div class="project-item__header">
-            <project-ownership-tag :is-owner="isOwner" />
-
-            <a
-                v-click-outside="closeDropDown" href="" class="project-item__header__menu"
-                :class="{open: isDropdownOpen}" @click.stop.prevent="toggleDropDown"
-            >
-                <menu-icon />
-            </a>
-
-            <div v-if="isDropdownOpen" class="project-item__header__dropdown">
-                <div v-if="isOwner" class="project-item__header__dropdown__item" @click.stop.prevent="goToProjectEdit">
-                    <gear-icon />
-                    <p class="project-item__header__dropdown__item__label">Project settings</p>
+    <table-item
+        item-type="project"
+        :item="itemToRender"
+        :on-click="onOpenClicked"
+        class="project-item"
+    >
+        <template #options>
+            <th class="project-item__menu options overflow-visible" @click.stop="toggleDropDown">
+                <div class="project-item__menu__icon">
+                    <div class="project-item__menu__icon__content" :class="{open: isDropdownOpen}">
+                        <menu-icon />
+                    </div>
                 </div>
 
-                <div class="project-item__header__dropdown__item" @click.stop.prevent="goToProjectMembers">
-                    <users-icon />
-                    <p class="project-item__header__dropdown__item__label">Invite members</p>
+                <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="project-item__menu__dropdown">
+                    <div class="project-item__menu__dropdown__item" @click.stop="goToProjectEdit">
+                        <gear-icon />
+                        <p class="project-item__menu__dropdown__item__label">Project settings</p>
+                    </div>
+
+                    <div class="project-item__menu__dropdown__item" @click.stop="goToProjectMembers">
+                        <users-icon />
+                        <p class="project-item__menu__dropdown__item__label">Invite members</p>
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="project-item__info">
-            <p class="project-item__info__name">{{ project.name }}</p>
-            <p class="project-item__info__description">{{ project.description }}</p>
-        </div>
-
-        <VButton
-            class="project-item__button"
-            width="fit-content"
-            border-radius="8px"
-            font-size="12px"
-            :on-press="onOpenClicked"
-            label="Open Project"
-        />
-    </div>
+            </th>
+        </template>
+        <menu-icon />
+    </table-item>
 </template>
 
 <script setup lang="ts">
@@ -47,6 +38,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Project } from '@/types/projects';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -58,27 +50,41 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useResize } from '@/composables/resize';
 
-import VButton from '@/components/common/VButton.vue';
-import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
+import TableItem from '@/components/common/TableItem.vue';
 
-import GearIcon from '@/../static/images/common/gearIcon.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
-import MenuIcon from '@/../static/images/allDashboard/menu.svg';
+import GearIcon from '@/../static/images/common/gearIcon.svg';
+import MenuIcon from '@/../static/images/common/horizontalDots.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const notify = useNotify();
 const router = useRouter();
 
 const analytics = new AnalyticsHttpApi();
 
-const props = withDefaults(defineProps<{
-    project?: Project,
-}>(), {
-    project: () => new Project(),
+const props = defineProps<{
+    project: Project,
+}>();
+
+const { isMobile } = useResize();
+
+const itemToRender = computed((): { [key: string]: unknown | string[] } => {
+    if (!isMobile.value) {
+        return {
+            multi: { title: props.project.name, subtitle: props.project.description },
+            date: props.project.createdDate(),
+            memberCount: props.project.memberCount.toString(),
+            owner: isOwner.value,
+        };
+    }
+
+    return { info: [ props.project.name, `Created ${props.project.createdDate()}` ] };
 });
 
 /**
@@ -160,47 +166,42 @@ async function goToProjectEdit(): Promise<void> {
 
 <style scoped lang="scss">
 .project-item {
-    display: flex;
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-    padding: 24px;
-    background: var(--c-white);
-    box-shadow: 0 0 20px rgb(0 0 0 / 5%);
-    border-radius: 8px;
 
-    &__header {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    &__menu {
+        padding: 0 10px;
         position: relative;
+        cursor: pointer;
 
-        &__menu {
-            width: 24px;
-            height: 24px;
-            align-content: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            position: relative;
+        &__icon {
 
-            &.open {
-                background: var(--c-grey-3);
+            &__content {
+                height: 32px;
+                width: 32px;
+                margin-left: auto;
+                margin-right: 0;
+                padding: 12px 5px;
+                border-radius: 5px;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                &.open {
+                    background: var(--c-grey-3);
+                }
             }
         }
 
         &__dropdown {
             position: absolute;
-            top: 30px;
-            right: 0;
-            background: #fff;
+            top: 55px;
+            right: 10px;
+            background: var(--c-white);
             box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
             border: 1px solid var(--c-grey-2);
             border-radius: 8px;
-            width: 100%;
             z-index: 100;
+            overflow: hidden;
 
             &__item {
                 display: flex;
@@ -215,9 +216,9 @@ async function goToProjectEdit(): Promise<void> {
                 }
 
                 &:hover {
-                    background-color: var(--c-grey-1);
                     font-family: 'font_medium', sans-serif;
                     color: var(--c-blue-3);
+                    background-color: var(--c-grey-1);
 
                     svg :deep(path) {
                         fill: var(--c-blue-3);
@@ -225,38 +226,6 @@ async function goToProjectEdit(): Promise<void> {
                 }
             }
         }
-    }
-
-    &__info {
-        display: flex;
-        gap: 4px;
-        flex-direction: column;
-
-        &__name {
-            font-family: 'font_bold', sans-serif;
-            font-size: 24px;
-            line-height: 31px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            text-align: start;
-        }
-
-        &__description {
-            font-family: 'font_regular', sans-serif;
-            font-size: 14px;
-            min-height: 20px;
-            color: var(--c-grey-6);
-            line-height: 20px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-    }
-
-    &__button {
-        padding: 10px 16px;
-        line-height: 20px;
     }
 }
 </style>
