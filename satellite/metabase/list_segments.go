@@ -61,7 +61,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key, encrypted_size,
 				plain_offset, plain_size, encrypted_etag, redundancy,
-				inline_data, remote_alias_pieces
+				inline_data, remote_alias_pieces, placement
 			FROM segments
 			WHERE
 				stream_id = $1 AND
@@ -75,7 +75,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key, encrypted_size,
 				plain_offset, plain_size, encrypted_etag, redundancy,
-				inline_data, remote_alias_pieces
+				inline_data, remote_alias_pieces, placement
 			FROM segments
 			WHERE
 				stream_id = $1 AND
@@ -98,6 +98,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 				&segment.EncryptedETag,
 				redundancyScheme{&segment.Redundancy},
 				&segment.InlineData, &aliasPieces,
+				&segment.Placement,
 			)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
