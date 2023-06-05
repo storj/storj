@@ -11,7 +11,7 @@
                     <ImageIcon v-if="previewIsImage" />
                     <VideoIcon v-else-if="previewIsAudio || previewIsVideo" />
                     <EmptyIcon v-else />
-                    <p class="gallery__header__name__label" :title="file.Key">{{ file.Key }}</p>
+                    <p class="gallery__header__name__label" :title="file?.Key || ''">{{ file?.Key || '' }}</p>
                 </div>
                 <div class="gallery__header__functional">
                     <ButtonIcon
@@ -22,14 +22,14 @@
                     />
                     <ButtonIcon :icon="MapIcon" :on-press="() => setActiveModal(DistributionModal)" />
                     <ButtonIcon class="gallery__header__functional__item" :icon="DownloadIcon" :on-press="download" />
-                    <ButtonIcon class="gallery__header__functional__item" :icon="ShareIcon" :on-press="() => {}" />
+                    <ButtonIcon class="gallery__header__functional__item" :icon="ShareIcon" :on-press="() => setActiveModal(ShareModal)" />
                     <ButtonIcon :icon="CloseIcon" :on-press="closeModal" />
                     <OptionsDropdown
                         v-if="isOptionsDropdown"
                         :on-view-details="() => setActiveModal(DetailsModal)"
                         :on-download="download"
-                        :on-share="() => {}"
-                        :on-delete="() => {}"
+                        :on-share="() => setActiveModal(ShareModal)"
+                        :on-delete="() => setActiveModal(DeleteModal)"
                     />
                 </div>
             </div>
@@ -59,11 +59,11 @@
                         aria-roledescription="audio-preview"
                     />
                     <div v-if="placeHolderDisplayable || previewAndMapFailed" class="gallery__main__preview__empty">
-                        <p class="gallery__main__preview__empty__key">{{ file.Key }}</p>
+                        <p class="gallery__main__preview__empty__key">{{ file?.Key || '' }}</p>
                         <p class="gallery__main__preview__empty__label">No preview available</p>
                         <VButton
                             icon="download"
-                            :label="`Download (${prettyBytes(file.Size)})`"
+                            :label="`Download (${prettyBytes(file?.Size || 0)})`"
                             :on-press="download"
                             width="188px"
                             height="52px"
@@ -85,6 +85,7 @@
                 :on-close="() => setActiveModal(undefined)"
                 :object="file"
                 :map-url="objectMapUrl"
+                :on-delete="onDelete"
             />
         </div>
     </Teleport>
@@ -103,6 +104,8 @@ import { RouteConfig } from '@/router';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
 import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';
+import DeleteModal from '@/components/browser/galleryView/modals/Delete.vue';
+import ShareModal from '@/components/browser/galleryView/modals/Share.vue';
 import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
 import DistributionModal from '@/components/browser/galleryView/modals/Distribution.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -220,6 +223,13 @@ const placeHolderDisplayable = computed((): boolean => {
 });
 
 /**
+ * Returns current path without object key.
+ */
+const currentPath = computed((): string => {
+    return route.path.replace(RouteConfig.Buckets.with(RouteConfig.UploadFile).path, '');
+});
+
+/**
  * Get the object map url for the file being displayed.
  */
 async function fetchPreviewAndMapUrl(): Promise<void> {
@@ -236,6 +246,34 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
     objectMapUrl.value = `${url}?map=1`;
     objectPreviewUrl.value = `${url}?view=1`;
     isLoading.value = false;
+}
+
+/**
+ * Deletes active object.
+ */
+async function onDelete(): Promise<void> {
+    try {
+        const objectsCount = obStore.sortedFiles.length;
+        let newFile: BrowserObject | undefined = obStore.sortedFiles[fileIndex.value + 1];
+        if (!newFile || newFile.type === folderType) {
+            newFile = obStore.sortedFiles.find(f => f.type !== folderType && f.Key !== file.value.Key);
+        }
+
+        await obStore.deleteObject(
+            currentPath.value,
+            file.value,
+        );
+        setActiveModal(undefined);
+
+        if (!newFile) {
+            closeModal();
+            return;
+        }
+
+        setNewObjectPath(newFile.Key);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.GALLERY_VIEW);
+    }
 }
 
 /**
@@ -320,9 +358,7 @@ function onNext(): void {
  * Sets new object path.
  */
 function setNewObjectPath(objectKey: string): void {
-    obStore.setObjectPathForModal(
-        `${route.path.replace(RouteConfig.Buckets.with(RouteConfig.UploadFile).path, '')}${objectKey}`,
-    );
+    obStore.setObjectPathForModal(`${currentPath.value}${objectKey}`);
 }
 
 /**
@@ -340,6 +376,8 @@ onMounted((): void => {
  * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
  */
 watch(filePath, () => {
+    if (!filePath.value) return;
+
     fetchPreviewAndMapUrl();
 });
 </script>

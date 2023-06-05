@@ -6,34 +6,30 @@
         <template #content>
             <div class="modal">
                 <ModalHeader
-                    :icon="GlobeIcon"
-                    title="Geographic Distribution"
+                    :icon="DeleteIcon"
+                    title="Delete File"
                 />
-                <img :src="mapUrl" class="modal__map" alt="map">
-                <h1 class="modal__title">You’re getting this file from all over the world on the Storj network.</h1>
-                <p class="modal__info">
-                    Storj Decentralized Cloud Storage splits files into smaller pieces, then distributes those pieces
-                    over a global network of Nodes and recompiles them securely on download. This map shows the
-                    real-time locations of this file’s pieces.
-                </p>
+                <p class="modal__info">The following file will be deleted.</p>
+                <p class="modal__name">{{ object?.Key || '' }}</p>
                 <div class="modal__buttons">
                     <VButton
-                        link="https://docs.storj.io/dcs/concepts/overview#t1eR9"
-                        label="Learn More"
-                        height="52px"
-                        width="100%"
-                        border-radius="10px"
-                        font-size="14px"
-                        :on-press="() => {}"
-                        is-white
-                    />
-                    <VButton
-                        label="Close"
+                        label="Cancel"
                         height="52px"
                         width="100%"
                         border-radius="10px"
                         font-size="14px"
                         :on-press="onClose"
+                        is-white
+                    />
+                    <VButton
+                        label="Delete"
+                        height="52px"
+                        width="100%"
+                        border-radius="10px"
+                        font-size="14px"
+                        :on-press="onDelete"
+                        :is-disabled="loading"
+                        is-solid-delete
                     />
                 </div>
             </div>
@@ -42,16 +38,25 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import ModalHeader from '@/components/browser/galleryView/modals/ModalHeader.vue';
 
-import GlobeIcon from '@/../static/images/browser/galleryView/modals/globe.svg';
+import DeleteIcon from '@/../static/images/browser/galleryView/modals/delete.svg';
+
+const obStore = useObjectBrowserStore();
 
 const props = defineProps<{
-    mapUrl: string
+    object: BrowserObject | undefined
+    onDelete: () => Promise<void>
     onClose: () => void
 }>();
+
+const loading = ref<boolean>(false);
 </script>
 
 <style scoped lang="scss">
@@ -68,24 +73,19 @@ const props = defineProps<{
         width: unset;
     }
 
-    &__map {
-        width: 100%;
-    }
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 18px;
-        line-height: 24px;
-        letter-spacing: -0.02em;
-        color: var(--c-blue-6);
-        margin-bottom: 16px;
+    &__info {
+        font-size: 14px;
+        line-height: 20px;
+        color: var(--c-black);
+        margin-bottom: 30px;
         text-align: left;
     }
 
-    &__info {
+    &__name {
+        font-family: 'font_bold', sans-serif;
         font-size: 14px;
-        line-height: 21px;
-        color: var(--c-blue-6);
+        line-height: 20px;
+        color: var(--c-black);
         text-align: left;
     }
 

@@ -118,11 +118,12 @@ import { useRouter } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -138,6 +139,8 @@ const obStore = useObjectBrowserStore();
 const config = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const props = defineProps<{
   path: string,
@@ -257,6 +260,7 @@ function openModal(): void {
 
     if (config.state.config.galleryViewEnabled) {
         appStore.setGalleryView(true);
+        analytics.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
     } else {
         appStore.updateActiveModal(MODALS.objectDetails);
     }

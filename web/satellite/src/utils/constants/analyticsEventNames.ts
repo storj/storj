@@ -51,6 +51,7 @@ export enum AnalyticsEvent {
     PROJECT_DESCRIPTION_UPDATED = 'Project Description Updated',
     PROJECT_STORAGE_LIMIT_UPDATED = 'Project Storage Limit Updated',
     PROJECT_BANDWIDTH_LIMIT_UPDATED = 'Project Bandwidth Limit Updated',
+    GALLERY_VIEW_CLICKED = 'Gallery View Clicked',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -94,6 +95,7 @@ export enum AnalyticsErrorEventSource {
     BUCKET_PAGE = 'Bucket page',
     BUCKET_DETAILS_PAGE = 'Bucket details page',
     UPLOAD_FILE_VIEW = 'Upload file view',
+    GALLERY_VIEW = 'Gallery view',
     OBJECT_UPLOAD_ERROR = 'Object upload error',
     ONBOARDING_NAME_STEP = 'Onboarding name step',
     ONBOARDING_PERMISSIONS_STEP = 'Onboarding permissions step',
