@@ -206,7 +206,8 @@ async function goToProjectEdit(): Promise<void> {
             &__item {
                 display: flex;
                 align-items: center;
-                padding: 15px 25px;
+                width: 200px;
+                padding: 15px;
                 color: var(--c-grey-6);
                 cursor: pointer;
 

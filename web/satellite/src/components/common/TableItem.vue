@@ -28,6 +28,7 @@
                 <p v-else :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
                     <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
                     <project-ownership-tag v-else-if="keyVal === 'owner'" :no-icon="itemType !== 'project'" :is-owner="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'invited'" :is-invited="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">

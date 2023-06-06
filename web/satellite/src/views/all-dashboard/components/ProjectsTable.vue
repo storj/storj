@@ -3,7 +3,7 @@
 
 <template>
     <v-table
-        :total-items-count="projects.length"
+        :total-items-count="projects.length + invites?.length || 0"
         class="projects-table"
         items-label="projects"
     >
@@ -14,6 +14,11 @@
             <th class="sort-header-container__date-item align-left">Role</th>
         </template>
         <template #body>
+            <project-table-invitation-item
+                v-for="(invite, key) in invites"
+                :key="key"
+                :invitation="invite"
+            />
             <project-table-item
                 v-for="(project, key) in projects"
                 :key="key"
@@ -26,13 +31,20 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { Project } from '@/types/projects';
+import { Project, ProjectInvitation } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import ProjectTableItem from '@/views/all-dashboard/components/ProjectTableItem.vue';
+import ProjectTableInvitationItem from '@/views/all-dashboard/components/ProjectTableInvitationItem.vue';
 
 import VTable from '@/components/common/VTable.vue';
 
 const projectsStore = useProjectsStore();
+
+const props = withDefaults(defineProps<{
+  invites?: ProjectInvitation[],
+}>(), {
+    invites: () => [],
+});
 
 /**
  * Returns projects list from store.

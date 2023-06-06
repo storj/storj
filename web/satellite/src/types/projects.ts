@@ -248,6 +248,14 @@ export class ProjectInvitation {
         public inviterEmail: string,
         public createdAt: Date,
     ) {}
+
+    /**
+     * Returns created date as a local string.
+     */
+    public get invitedDate(): string {
+        const createdAt = new Date(this.createdAt);
+        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
+    }
 }
 
 /**
