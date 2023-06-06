@@ -307,10 +307,11 @@ export class SatellitePayoutForPeriod {
         {
             const zkScanUrl = 'https://zkscan.io/explorer/transactions';
 
-            if (this.receipt.indexOf('zksync') !== -1) {
+            if (this.receipt.indexOf('zksync-era') !== -1) {
+                return `https://explorer.zksync.io/tx/${prefixed(this.receipt.slice(11))}`;
+            } else if (this.receipt.indexOf('zksync') !== -1) {
                 return `${zkScanUrl}/${prefixed(this.receipt.slice(7))}`;
-            }
-            if (this.receipt.indexOf('zkwithdraw') !== -1) {
+            } else if (this.receipt.indexOf('zkwithdraw') !== -1) {
                 return `${zkScanUrl}/${prefixed(this.receipt.slice(11))}`;
             }
         }
