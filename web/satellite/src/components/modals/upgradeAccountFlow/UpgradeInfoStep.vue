@@ -34,6 +34,7 @@
                         height="48px"
                         :is-green="true"
                         :on-press="onUpgrade"
+                        :is-disabled="loading"
                     />
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" is-pro title="Projects" info="3 projects + more on request" />
@@ -77,6 +78,7 @@ const usersStore = useUsersStore();
 const notify = useNotify();
 
 const props = defineProps<{
+    loading: boolean;
     onUpgrade: () => void;
 }>();
 
