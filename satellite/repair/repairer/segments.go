@@ -99,8 +99,6 @@ type SegmentRepairer struct {
 	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
 	repairOverrides checker.RepairOverridesMap
 
-	allNodeIDs []storj.NodeID
-
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
@@ -199,18 +197,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 	pieces := segment.Pieces
 
-	// reuse allNodeIDs slice if its large enough
-	if cap(repairer.allNodeIDs) < len(pieces) {
-		repairer.allNodeIDs = make([]storj.NodeID, len(pieces))
-	} else {
-		repairer.allNodeIDs = repairer.allNodeIDs[:len(pieces)]
-	}
-
+	allNodeIDs := make([]storj.NodeID, len(pieces))
 	for i, p := range pieces {
-		repairer.allNodeIDs[i] = p.StorageNode
+		allNodeIDs[i] = p.StorageNode
 	}
 
-	excludeNodeIDs := repairer.allNodeIDs
+	excludeNodeIDs := allNodeIDs
 
 	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
@@ -222,7 +214,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	if repairer.doDeclumping {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
-		lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, repairer.allNodeIDs)
+		lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, allNodeIDs)
 		if err != nil {
 			return false, metainfoGetError.Wrap(err)
 		}
@@ -237,7 +229,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	var outOfPlacementPiecesSet map[uint16]bool
 	if repairer.doPlacementCheck && segment.Placement != storj.EveryCountry {
 		var err error
-		outOfPlacementNodes, err := repairer.overlay.GetNodesOutOfPlacement(ctx, repairer.allNodeIDs, segment.Placement)
+		outOfPlacementNodes, err := repairer.overlay.GetNodesOutOfPlacement(ctx, allNodeIDs, segment.Placement)
 		if err != nil {
 			return false, metainfoGetError.Wrap(err)
 		}
