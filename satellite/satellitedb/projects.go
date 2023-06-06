@@ -66,12 +66,40 @@ func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time
 // GetByUserID is a method for querying all projects from the database by userID.
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	projectsDbx, err := projects.db.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, dbx.ProjectMember_MemberId(userID[:]))
+
+	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
+		SELECT projects.id, projects.public_id, projects.name, projects.description, projects.owner_id, projects.rate_limit, projects.max_buckets, projects.created_at,
+			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
+			FROM projects
+			JOIN project_members ON projects.id = project_members.project_id
+			WHERE project_members.member_id = ?
+			ORDER BY name ASC
+		`), userID)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	return projectsFromDbxSlice(ctx, projectsDbx)
+	nextProject := &console.Project{}
+	var rateLimit, maxBuckets sql.NullInt32
+	projectsToSend := make([]console.Project, 0)
+	for rows.Next() {
+		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		if err != nil {
+			return nil, err
+		}
+		if rateLimit.Valid {
+			nextProject.RateLimit = new(int)
+			*nextProject.RateLimit = int(rateLimit.Int32)
+		}
+		if maxBuckets.Valid {
+			nextProject.MaxBuckets = new(int)
+			*nextProject.MaxBuckets = int(maxBuckets.Int32)
+		}
+		projectsToSend = append(projectsToSend, *nextProject)
+	}
+
+	return projectsToSend, rows.Err()
 }
 
 // Get is a method for querying project from the database by id.
