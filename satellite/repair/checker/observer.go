@@ -234,7 +234,6 @@ type observerFork struct {
 	doPlacementCheck bool
 	lastStreamID     uuid.UUID
 	totalStats       aggregateStats
-	allNodeIDs       []storj.NodeID
 
 	getObserverStats func(string) *observerRSStats
 }
@@ -341,15 +340,9 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("error getting missing pieces: %w", err)
 	}
 
-	// reuse allNodeIDs slice if its large enough
-	if cap(fork.allNodeIDs) < len(pieces) {
-		fork.allNodeIDs = make([]storj.NodeID, len(pieces))
-	} else {
-		fork.allNodeIDs = fork.allNodeIDs[:len(pieces)]
-	}
-
+	allNodeIDs := make([]storj.NodeID, len(pieces))
 	for i, p := range pieces {
-		fork.allNodeIDs[i] = p.StorageNode
+		allNodeIDs[i] = p.StorageNode
 	}
 
 	var clumpedPieces metabase.Pieces
@@ -357,7 +350,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	if fork.doDeclumping {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
-		lastNets, err = fork.overlayService.GetNodesNetworkInOrder(ctx, fork.allNodeIDs)
+		lastNets, err = fork.overlayService.GetNodesNetworkInOrder(ctx, allNodeIDs)
 		if err != nil {
 			fork.totalStats.remoteSegmentsFailedToCheck++
 			stats.iterationAggregates.remoteSegmentsFailedToCheck++
@@ -368,7 +361,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	numPiecesOutOfPlacement := 0
 	if fork.doPlacementCheck && segment.Placement != storj.EveryCountry {
-		outOfPlacementNodes, err := fork.overlayService.GetNodesOutOfPlacement(ctx, fork.allNodeIDs, segment.Placement)
+		outOfPlacementNodes, err := fork.overlayService.GetNodesOutOfPlacement(ctx, allNodeIDs, segment.Placement)
 		if err != nil {
 			fork.totalStats.remoteSegmentsFailedToCheck++
 			stats.iterationAggregates.remoteSegmentsFailedToCheck++
