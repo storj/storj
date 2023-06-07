@@ -9,6 +9,8 @@
                 <VButton
                     class="header__content__actions__docs"
                     icon="resources"
+                    border-radius="8px"
+                    font-size="12px"
                     is-white
                     :link="link"
                     :on-press="sendDocsEvent"
@@ -285,7 +287,19 @@ function sendDocsEvent(): void {
 
             &__docs {
                 padding: 10px 16px;
-                border-radius: 8px;
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+
+                :deep(.label) {
+
+                    & > svg {
+                        height: 14px;
+                        width: 14px;
+                    }
+
+                    color: var(--c-black) !important;
+                    font-weight: 700;
+                    line-height: 20px;
+                }
             }
         }
     }

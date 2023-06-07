@@ -84,7 +84,7 @@ const itemToRender = computed((): { [key: string]: unknown | string[] } => {
         };
     }
 
-    return { info: [ props.project.name, `Created ${props.project.createdDate()}` ] };
+    return { info: [ props.project.name, props.project.description ] };
 });
 
 /**

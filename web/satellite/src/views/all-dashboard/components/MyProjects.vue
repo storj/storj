@@ -2,13 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="my-projects">
+    <div ref="content" class="my-projects">
         <div class="my-projects__header">
-            <span class="my-projects__header__title">My Projects</span>
+            <div class="my-projects__header__title">
+                <span>My Projects</span>
+                <span class="my-projects__header__title__views">
+                    <span
+                        class="my-projects__header__title__views__icon"
+                        @click="() => onViewChangeClicked('table')"
+                    >
+                        <table-icon />
+                    </span>
+                    <span
+                        class="my-projects__header__title__views__icon"
+                        @click="() => onViewChangeClicked('cards')"
+                    >
+                        <cards-icon />
+                    </span>
+                </span>
+            </div>
 
             <span class="my-projects__header__right">
                 <span class="my-projects__header__right__text">View</span>
                 <v-chip
+                    class="my-projects__header__right__table-chip"
                     label="Table"
                     :is-selected="isTableViewSelected"
                     :icon="TableIcon"
@@ -16,6 +33,7 @@
                 />
 
                 <v-chip
+                    class="my-projects__header__right__card-chip"
                     label="Cards"
                     :is-selected="!isTableViewSelected"
                     :icon="CardsIcon"
@@ -23,14 +41,29 @@
                 />
 
                 <VButton
+                    class="my-projects__header__right__mobile-button"
+                    icon="addcircle"
+                    border-radius="8px"
+                    font-size="12px"
+                    is-white
+                    :on-press="onCreateProjectClicked"
+                    label="Create New Project"
+                />
+
+                <VButton
                     class="my-projects__header__right__button"
                     icon="addcircle"
+                    border-radius="8px"
+                    font-size="12px"
                     is-white
                     :on-press="onCreateProjectClicked"
                     label="Create a Project"
                 />
             </span>
         </div>
+
+        <all-projects-dashboard-banners v-if="content" :parent-ref="content" />
+
         <div v-if="projects.length || invites.length" class="my-projects__list">
             <projects-table v-if="isTableViewSelected" :invites="invites" class="my-projects__list__table" />
             <div v-else-if="!isTableViewSelected" class="my-projects__list__cards">
@@ -64,6 +97,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import ProjectsTable from '@/views/all-dashboard/components/ProjectsTable.vue';
+import AllProjectsDashboardBanners from '@/views/all-dashboard/components/AllProjectsDashboardBanners.vue';
 
 import VButton from '@/components/common/VButton.vue';
 import VChip from '@/components/common/VChip.vue';
@@ -78,6 +112,8 @@ const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 
 const analytics = new AnalyticsHttpApi();
+
+const content = ref<HTMLElement | null>(null);
 
 const hasProjectTableViewConfigured = ref(appStore.hasProjectTableViewConfigured());
 
@@ -138,20 +174,51 @@ function onCreateProjectClicked(): void {
         justify-content: space-between;
         align-items: center;
 
-        @media screen and (width <= 425px) {
+        @media screen and (width <= 500px) {
+            margin-top: 20px;
             flex-direction: column;
             align-items: start;
             gap: 20px;
 
-            &__button {
-                width: 100% !important;
+            &__title {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+
+                &__views {
+                    display: flex !important;
+                    align-items: center;
+                    justify-content: flex-end;
+                    column-gap: 5px;
+
+                    &__icon {
+                        height: 24px;
+                        width: 24px;
+
+                        :deep(path),
+                        :deep(rect){
+                            fill: var(--c-black);
+                        }
+                    }
+                }
             }
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
+            font-weight: 700;
             font-size: 24px;
             line-height: 31px;
+
+            @media screen and (width <= 500px) {
+                font-size: 18px;
+                line-height: 27px;
+            }
+
+            &__views {
+                display: none;
+            }
         }
 
         &__right {
@@ -161,15 +228,42 @@ function onCreateProjectClicked(): void {
             justify-content: flex-end;
             column-gap: 12px;
 
+            @media screen and (width <= 500px) {
+                width: 100%;
+
+                &__text,
+                &__button,
+                &__table-chip,
+                &__card-chip {
+                    display: none;
+                }
+
+                &__mobile-button {
+                    display: flex !important;
+                }
+            }
+
             &__text {
                 font-size: 12px;
                 line-height: 18px;
                 color: var(--c-grey-6);
+
             }
 
-            &__button {
+            &__button,
+            &__mobile-button {
                 padding: 10px 16px;
-                border-radius: 8px;
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+
+                :deep(.label) {
+                    color: var(--c-black) !important;
+                    font-weight: 700;
+                    line-height: 20px;
+                }
+            }
+
+            &__mobile-button {
+                display: none;
             }
         }
     }

@@ -6,7 +6,7 @@
         <div class="load" />
         <LoaderImage class="loading-icon" />
     </div>
-    <div v-else ref="dashboardContent" class="all-dashboard">
+    <div v-else class="all-dashboard">
         <div class="all-dashboard__bars">
             <BetaSatBar v-if="isBetaSatellite" />
             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
@@ -16,64 +16,6 @@
 
         <div class="all-dashboard__content">
             <div class="all-dashboard__content__divider" />
-
-            <div class="all-dashboard__banners">
-                <UpgradeNotification
-                    v-if="isPaidTierBannerShown"
-                    class="all-dashboard__banners__upgrade"
-                    :open-add-p-m-modal="togglePMModal"
-                />
-
-                <v-banner
-                    v-if="isAccountFrozen && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__freeze"
-                    severity="critical"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
-                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="isAccountWarned && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__warning"
-                    severity="warning"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
-                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__hundred-limit"
-                    severity="critical"
-                    :on-click="() => setIsHundredLimitModalShown(true)"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">{{ limitState.hundredLabel }}</p>
-                        <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__eighty-limit"
-                    severity="warning"
-                    :on-click="() => setIsEightyLimitModalShown(true)"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">{{ limitState.eightyLabel }}</p>
-                        <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                    </template>
-                </v-banner>
-            </div>
 
             <router-view />
 
@@ -142,8 +84,6 @@ import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
-import VBanner from '@/components/common/VBanner.vue';
-import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -181,7 +121,6 @@ const isSessionActive = ref<boolean>(false);
 const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
 const isEightyLimitModalShown = ref<boolean>(false);
-const dashboardContent = ref<HTMLElement | null>(null);
 
 /**
  * Returns the session duration from the store.
@@ -217,14 +156,7 @@ const isAccountFrozen = computed((): boolean => {
 });
 
 /**
- * Indicates if account was warned due to billing issues.
- */
-const isAccountWarned = computed((): boolean => {
-    return usersStore.state.user.freezeStatus.warned;
-});
-
-/**
- * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+ * Returns all needed information for limit modal when bandwidth or storage close to limits.
  */
  type LimitedState = {
     eightyIsShown: boolean;
@@ -298,13 +230,6 @@ const limitState = computed((): LimitedState => {
 });
 
 /**
- * Whether the current route is the billing page.
- */
-const isBillingPage = computed(() => {
-    return route.path.includes(RouteConfig.Billing2.path);
-});
-
-/**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
@@ -326,44 +251,12 @@ const showMFARecoveryCodeBar = computed((): boolean => {
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
-/**
- * Returns whether the user has reached project limits.
- */
-const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = usersStore.state.user.projectLimit;
-    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
-
-    return projectsCount === projectLimit;
-});
-
-/* whether the paid tier banner should be shown */
-const isPaidTierBannerShown = computed((): boolean => {
-    return !usersStore.state.user.paidTier
-        && !isBillingPage.value
-        && joinedWhileAgo.value;
-});
-
-/* whether the user joined more than 7 days ago */
-const joinedWhileAgo = computed((): boolean => {
-    const createdAt = usersStore.state.user.createdAt as Date | null;
-    if (!createdAt) return true; // true so we can show the banner regardless
-    const millisPerDay = 24 * 60 * 60 * 1000;
-    return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
-});
-
 function setIsEightyLimitModalShown(value: boolean): void {
     isEightyLimitModalShown.value = value;
 }
 
 function setIsHundredLimitModalShown(value: boolean): void {
     isHundredLimitModalShown.value = value;
-}
-
-/**
- * Redirects to Billing Page.
- */
-async function redirectToBillingPage(): Promise<void> {
-    await router.push(RouteConfig.AccountSettings.with(RouteConfig.Billing2.with(RouteConfig.BillingPaymentMethods2)).path);
 }
 
 /**
@@ -712,19 +605,6 @@ onBeforeUnmount(() => {
             @media screen and (width <= 500px) {
                 display: none;
             }
-        }
-    }
-
-    &__banners {
-        margin-bottom: 20px;
-
-        &__upgrade,
-        &__project-limit,
-        &__freeze,
-        &__warning,
-        &__hundred-limit,
-        &__eighty-limit {
-            margin: 20px 0 0;
         }
     }
 }

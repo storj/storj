@@ -18,6 +18,15 @@
                     label="Join Project"
                     class="invitation-item__menu__button"
                 />
+                <v-button
+                    :loading="isLoading"
+                    :disabled="isLoading"
+                    :on-press="onJoinClicked"
+                    border-radius="8px"
+                    font-size="12px"
+                    label="Join"
+                    class="invitation-item__menu__mobile-button"
+                />
                 <div class="invitation-item__menu">
                     <div class="invitation-item__menu__icon" @click.stop="toggleDropDown">
                         <div class="invitation-item__menu__icon__content" :class="{open: isDropdownOpen}">
@@ -80,7 +89,7 @@ const itemToRender = computed((): { [key: string]: unknown | string[] } => {
         };
     }
 
-    return { info: [ props.invitation.projectName, `Created ${props.invitation.invitedDate}` ] };
+    return { info: [ props.invitation.projectName, props.invitation.projectDescription ] };
 });
 
 /**
@@ -149,6 +158,19 @@ function closeDropDown() {
 
         &__button {
             padding: 10px 16px;
+
+            @media screen and (width <= 500px) {
+                display: none;
+            }
+        }
+
+        &__mobile-button {
+            display: none;
+            padding: 10px 16px;
+
+            @media screen and (width <= 500px) {
+                display: flex;
+            }
         }
 
         &__icon {

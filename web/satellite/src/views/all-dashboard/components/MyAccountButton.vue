@@ -189,14 +189,15 @@ async function onLogout(): Promise<void> {
     position: relative;
     display: flex;
     align-items: center;
-    padding: 14px 18px;
+    padding: 10px 16px;
     box-sizing: border-box;
-    color: var(--c-grey-6);
     cursor: pointer;
     background: var(--c-white);
     border: 1px solid var(--c-grey-3);
     border-radius: 8px;
     height: 44px;
+    color: var(--c-black);
+    box-shadow: 0 0 20px rgb(0 0 0 / 4%);
 
     &:hover,
     &:active,
@@ -213,13 +214,20 @@ async function onLogout(): Promise<void> {
         &__icon {
             transition-duration: 0.5s;
             margin-right: 10px;
+            height: 16px;
+            width: 16px;
+
+            :deep(path) {
+                fill: var(--c-black);
+            }
         }
 
         &__label {
             font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: var(--c-grey-6);
+            line-height: 20px;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--c-black);
             margin-right: 10px;
             white-space: nowrap;
         }
