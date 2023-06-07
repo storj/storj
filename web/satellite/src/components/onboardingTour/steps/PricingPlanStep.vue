@@ -31,7 +31,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
+import PricingPlanContainer from '@/components/account/billing/pricingPlans/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 const configStore = useConfigStore();
@@ -98,7 +98,7 @@ onBeforeMount(async () => {
 
     let config;
     try {
-        config = require('@/components/onboardingTour/steps/pricingPlanFlow/pricingPlanConfig.json');
+        config = require('@/components/account/billing/pricingPlans/pricingPlanConfig.json');
     } catch {
         notify.error('No pricing plan configuration file.', null);
         router.push(nextPath);
