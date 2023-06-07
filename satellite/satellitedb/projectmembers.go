@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -35,6 +36,7 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 }
 
 // GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
+// TODO: Remove once all uses have been replaced by GetPagedWithInvitationsByProjectID.
 func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -58,12 +60,12 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 
 	countQuery := pm.db.Rebind(`
 		SELECT COUNT(*)
-		FROM project_members pm 
+		FROM project_members pm
 		INNER JOIN users u ON pm.member_id = u.id
 		WHERE pm.project_id = ?
-		AND ( u.email LIKE ? OR 
+		AND ( u.email LIKE ? OR
 			  u.full_name LIKE ? OR
-			  u.short_name LIKE ? 
+			  u.short_name LIKE ?
 		)`)
 
 	countRow := pm.db.QueryRowContext(ctx,
@@ -93,7 +95,7 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 					u.full_name LIKE ? OR
 					u.short_name LIKE ? )
 					ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + `
-					` + sanitizeOrderDirectionName(page.OrderDirection) + `	
+					` + sanitizeOrderDirectionName(page.OrderDirection) + `
 					LIMIT ? OFFSET ?`)
 
 	rows, err := pm.db.QueryContext(ctx,
@@ -130,6 +132,155 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 
 	page.ProjectMembers = projectMembers
 	page.Order = cursor.Order
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, err
+}
+
+// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID, offset and limit.
+func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
+
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
+	}
+
+	if cursor.Limit == 0 {
+		return nil, errs.New("limit cannot be 0")
+	}
+
+	if cursor.Page == 0 {
+		return nil, errs.New("page cannot be 0")
+	}
+
+	page := &console.ProjectMembersPage{
+		Search:         cursor.Search,
+		Limit:          cursor.Limit,
+		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
+		Order:          cursor.Order,
+		OrderDirection: cursor.OrderDirection,
+	}
+
+	countQuery := `
+		SELECT (
+			SELECT COUNT(*)
+			FROM project_members pm
+			INNER JOIN users u ON pm.member_id = u.id
+			WHERE pm.project_id = $1
+			AND (
+				u.email ILIKE $2 OR
+				u.full_name ILIKE $2 OR
+				u.short_name ILIKE $2
+			)
+		) + (
+			SELECT COUNT(*)
+			FROM project_invitations
+			WHERE project_id = $1
+			AND email ILIKE $2
+		)`
+
+	countRow := pm.db.QueryRowContext(ctx,
+		countQuery,
+		projectID[:],
+		search)
+
+	err = countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, errs.New("page is out of range")
+	}
+
+	membersQuery := `
+		SELECT member_id, project_id, created_at, email, inviter_id FROM (
+			(
+				SELECT pm.member_id, pm.project_id, pm.created_at, u.email, u.full_name, NULL as inviter_id
+				FROM project_members pm
+				INNER JOIN users u ON pm.member_id = u.id
+				WHERE pm.project_id = $1
+				AND (
+					u.email ILIKE $2 OR
+					u.full_name ILIKE $2 OR
+					u.short_name ILIKE $2
+				)
+			) UNION ALL (
+				SELECT NULL as member_id, project_id, created_at, LOWER(email) as email, LOWER(SPLIT_PART(email, '@', 1)) as full_name, inviter_id
+				FROM project_invitations pi
+				WHERE project_id = $1
+				AND email ILIKE $2
+			)
+		) results
+		` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
+		LIMIT $3 OFFSET $4`
+
+	rows, err := pm.db.QueryContext(ctx,
+		membersQuery,
+		projectID[:],
+		search,
+		page.Limit,
+		page.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var (
+			memberID  NullUUID
+			projectID uuid.UUID
+			createdAt time.Time
+			email     string
+			inviterID NullUUID
+		)
+
+		err = rows.Scan(
+			&memberID,
+			&projectID,
+			&createdAt,
+			&email,
+			&inviterID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if memberID.Valid {
+			page.ProjectMembers = append(page.ProjectMembers, console.ProjectMember{
+				MemberID:  memberID.UUID,
+				ProjectID: projectID,
+				CreatedAt: createdAt,
+			})
+		} else {
+			invite := console.ProjectInvitation{
+				ProjectID: projectID,
+				Email:     email,
+				CreatedAt: createdAt,
+			}
+			if inviterID.Valid {
+				invite.InviterID = &inviterID.UUID
+			}
+			page.ProjectInvitations = append(page.ProjectInvitations, invite)
+		}
+
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
 	if page.TotalCount%uint64(cursor.Limit) != 0 {
@@ -208,6 +359,22 @@ func sanitizeOrderDirectionName(pmo console.OrderDirection) string {
 	}
 
 	return "ASC"
+}
+
+// projectMembersSortClause returns what ORDER BY clause should be used when sorting project member results.
+func projectMembersSortClause(order console.ProjectMemberOrder, direction console.OrderDirection) string {
+	dirStr := "ASC"
+	if direction == console.Descending {
+		dirStr = "DESC"
+	}
+
+	switch order {
+	case console.Email:
+		return "ORDER BY LOWER(email) " + dirStr
+	case console.Created:
+		return "ORDER BY created_at " + dirStr + ", LOWER(email)"
+	}
+	return "ORDER BY LOWER(full_name) " + dirStr + ", LOWER(email)"
 }
 
 // projectMembersFromDbxSlice is used for creating []ProjectMember entities from autogenerated []*dbx.ProjectMember struct.

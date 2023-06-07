@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/private/tagsql"
 )
 
@@ -59,4 +60,27 @@ func convertSliceWithErrors[In, Out any](xs []In, fn func(In) (Out, error)) ([]O
 		rs = append(rs, r)
 	}
 	return rs, errs
+}
+
+// NullUUID represents a nullable uuid.UUID that can be used as an SQL scan destination.
+type NullUUID struct {
+	UUID  uuid.UUID
+	Valid bool
+}
+
+// Scan implements the sql.Scanner interface.
+// It scans a value from the database into the NullUUID.
+func (nu *NullUUID) Scan(value interface{}) error {
+	if value == nil {
+		nu.UUID = uuid.UUID{}
+		nu.Valid = false
+		return nil
+	}
+	valueBytes, ok := value.([]byte)
+	if !ok {
+		return errs.New("invalid UUID type")
+	}
+	copy(nu.UUID[:], valueBytes)
+	nu.Valid = true
+	return nil
 }
