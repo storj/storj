@@ -416,10 +416,10 @@ func (service *Service) GetOnlineNodesForAuditRepair(ctx context.Context, nodeID
 	return service.db.GetOnlineNodesForAuditRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
-// GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
-func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+// GetNodeIPsFromPlacement returns a map of node ip:port for the supplied nodeIDs. Results are filtered out by placement.
+func (service *Service) GetNodeIPsFromPlacement(ctx context.Context, nodeIDs []storj.NodeID, placement storj.PlacementConstraint) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.DownloadSelectionCache.GetNodeIPs(ctx, nodeIDs)
+	return service.DownloadSelectionCache.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.

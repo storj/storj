@@ -75,7 +75,7 @@ func TestDownloadSelectionCacheState_GetNodeIPs(t *testing.T) {
 		ids := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 0)
 
 		// confirm nodes are in the cache once
-		nodeips, err := cache.GetNodeIPs(ctx, ids)
+		nodeips, err := cache.GetNodeIPsFromPlacement(ctx, ids, storj.EveryCountry)
 		require.NoError(t, err)
 		for _, id := range ids {
 			require.NotEmpty(t, nodeips[id])

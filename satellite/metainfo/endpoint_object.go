@@ -12,6 +12,7 @@ import (
 	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/context2"
 	"storj.io/common/encryption"
@@ -1167,10 +1168,24 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	pieceCountByNodeID, err := endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
-		metabase.GetStreamPieceCountByNodeID{
-			StreamID: object.StreamID,
-		})
+	var pieceCountByNodeID map[storj.NodeID]int64
+	var placement storj.PlacementConstraint
+
+	// TODO this is short term fix to easily filter out IPs out of bucket/object placement
+	// this request is not heavily used so it should be fine to add additional request to DB for now.
+	var group errgroup.Group
+	group.Go(func() error {
+		placement, err = endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
+		return err
+	})
+	group.Go(func() (err error) {
+		pieceCountByNodeID, err = endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
+			metabase.GetStreamPieceCountByNodeID{
+				StreamID: object.StreamID,
+			})
+		return err
+	})
+	err = group.Wait()
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -1180,7 +1195,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		nodeIDs = append(nodeIDs, nodeID)
 	}
 
-	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
+	nodeIPMap, err := endpoint.overlay.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
