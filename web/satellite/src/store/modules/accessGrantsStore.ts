@@ -44,8 +44,13 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     async function startWorker(): Promise<void> {
         // TODO(vitalii): create an issue here https://github.com/vitejs/vite
         // about worker chunk being auto removed after rebuild in watch mode if using new URL constructor.
-        // const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
-        const worker = new Worker('/static/src/utils/accessGrant.worker.js');
+        let worker: Worker;
+        if (process.env.NODE_ENV === 'development') {
+            worker = new Worker('/static/src/utils/accessGrant.worker.js');
+        } else {
+            worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
+        }
+
         worker.postMessage({ 'type': 'Setup' });
 
         const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
