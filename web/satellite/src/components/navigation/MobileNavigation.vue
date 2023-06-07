@@ -47,11 +47,19 @@
                                 <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                             </div>
                         </div>
+                        <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                            <InfoIcon />
+                            <p class="project-selection__dropdown__link-container__label">Project Details</p>
+                        </div>
+                        <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                            <ProjectIcon />
+                            <p class="project-selection__dropdown__link-container__label">All projects</p>
+                        </div>
                         <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                             <PassphraseIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
                         </div>
-                        <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
+                        <div v-if="!isAllProjectsDashboard" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
                             <ManageIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
                         </div>
@@ -355,6 +363,24 @@ function toggleAccountDropdown(): void {
  */
 function trackClickEvent(path: string): void {
     analytics.pageVisit(path);
+}
+
+/**
+ * Route to all projects page.
+ */
+function onAllProjectsClick(): void {
+    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
+    toggleProjectDropdown();
+}
+
+/**
+ * Route to project details page.
+ */
+function onProjectDetailsClick(): void {
+    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+    router.push(RouteConfig.EditProjectDetails.path);
+    toggleProjectDropdown();
 }
 
 /**

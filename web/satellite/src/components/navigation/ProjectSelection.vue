@@ -42,6 +42,10 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
+            <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                <InfoIcon />
+                <p class="project-selection__dropdown__link-container__label">Project Details</p>
+            </div>
             <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
                 <ProjectIcon />
                 <p class="project-selection__dropdown__link-container__label">All projects</p>
@@ -91,6 +95,7 @@ import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
+import InfoIcon from '@/../static/images/navigation/info.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -286,6 +291,15 @@ function onProjectsLinkClick(): void {
 function onAllProjectsClick(): void {
     analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
     router.push(RouteConfig.AllProjectsDashboard.path);
+    closeDropdown();
+}
+
+/**
+ * Route to project details page.
+ */
+function onProjectDetailsClick(): void {
+    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+    router.push(RouteConfig.EditProjectDetails.path);
     closeDropdown();
 }
 
