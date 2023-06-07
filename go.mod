@@ -22,7 +22,7 @@ require (
 	github.com/jackc/pgtype v1.10.0
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
+	github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.12
