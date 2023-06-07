@@ -206,6 +206,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		updateFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
 	}
 
+	if project.DefaultPlacement > 0 {
+		updateFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
+	}
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		updateFields)

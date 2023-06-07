@@ -110,6 +110,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
+	bucketReq.Placement = project.DefaultPlacement
 
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
