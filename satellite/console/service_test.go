@@ -2002,6 +2002,60 @@ func TestProjectInvitations(t *testing.T) {
 			return setInviteDate(ctx, invite, createdAt)
 		}
 
+		t.Run("invite users", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+			user2, ctx2 := getUserAndCtx(t)
+			user3, ctx3 := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ctx, user.ID, "Test Project")
+			require.NoError(t, err)
+
+			invites, err := service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+
+			invites, err = service.GetUserProjectInvitations(ctx2)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+
+			// adding in a non-existent user should not fail the invitation.
+			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email, "notauser@mail.com"})
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+
+			invites, err = service.GetUserProjectInvitations(ctx3)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			invite := invites[0]
+
+			// inviting the same user again should fail if existing invite hasn't expired.
+			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email})
+			require.Error(t, err)
+
+			// expire the invitation.
+			setInviteDate(ctx, &invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+
+			// inviting the same user again should succeed because the existing invite has expired.
+			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email})
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+
+			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
+			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
+			require.Error(t, err)
+			require.True(t, console.ErrNoMembership.Has(err))
+
+			require.NoError(t, service.RespondToProjectInvitation(ctx2, project.ID, console.ProjectInvitationAccept))
+
+			// now that user2 is a member, they can invite others.
+			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
+			require.NoError(t, err)
+
+			// inviting a project member should fail.
+			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
+			require.Error(t, err)
+		})
+
 		t.Run("get invitation", func(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 

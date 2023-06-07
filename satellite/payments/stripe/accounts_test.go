@@ -95,6 +95,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
 			nil,
 			"",
+			"",
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

@@ -65,6 +65,38 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// InviteUsers sends invites to a given project(id) to the given users (emails).
+func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+	}
+
+	var data struct {
+		Emails []string `json:"emails"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	_, err = p.service.InviteProjectMembers(ctx, id, data.Emails)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetUserInvitations returns the user's pending project member invitations.
 func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -602,6 +602,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
 			externalAddress,
+			consoleConfig.SatelliteName,
 			consoleConfig.Config,
 		)
 		if err != nil {

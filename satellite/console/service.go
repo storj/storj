@@ -75,6 +75,7 @@ const (
 	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
 	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
 	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
+	projInviteExistsErrMsg               = "User has already been invited"
 )
 
 var (
@@ -141,6 +142,9 @@ var (
 	// ErrProjectInviteInvalid occurs when a user tries to respond to an invitation that doesn't exist
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
+
+	// ErrProjectInviteExists occurs when a user is invited to a project they've already been invited to.
+	ErrProjectInviteExists = errs.Class("user already invited to project")
 )
 
 // Service is handling accounts related logic.
@@ -163,6 +167,7 @@ type Service struct {
 	mailService                *mailservice.Service
 
 	satelliteAddress string
+	satelliteName    string
 
 	config Config
 }
@@ -226,7 +231,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, satelliteName string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -271,6 +276,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		tokens:                     tokens,
 		mailService:                mailService,
 		satelliteAddress:           satelliteAddress,
+		satelliteName:              satelliteName,
 		config:                     config,
 	}, nil
 }
@@ -3575,4 +3581,100 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	deleteWithLog()
 
 	return nil
+}
+
+// InviteProjectMembers invites users by email to given project.
+// Email addresses not belonging to a user are ignored.
+// projectID here may be project.PublicID or project.ID.
+func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "invite project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	projectID = isMember.project.ID
+
+	// collect user querying errors
+	users := make([]*User, 0)
+	for _, email := range emails {
+		invitedUser, err := s.store.Users().GetByEmail(ctx, email)
+		if err == nil {
+			_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
+			if err != nil && !ErrNoMembership.Has(err) {
+				return nil, Error.Wrap(err)
+			} else if err == nil {
+				return nil, ErrAlreadyMember.New("%s is already a member", email)
+			}
+
+			invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+			if err != nil && !errs.Is(err, sql.ErrNoRows) {
+				return nil, Error.Wrap(err)
+			}
+			if invite != nil && time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+				// delete expired invite
+				err := s.store.ProjectInvitations().Delete(ctx, projectID, invitedUser.Email)
+				if err != nil {
+					s.log.Warn("error deleting project invitation",
+						zap.Error(err),
+						zap.String("email", invitedUser.Email),
+						zap.String("projectID", projectID.String()),
+					)
+				}
+			} else if invite != nil && !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+				return nil, ErrProjectInviteExists.New(projInviteExistsErrMsg)
+			}
+			users = append(users, invitedUser)
+		} else if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+
+	}
+
+	signIn := fmt.Sprintf("%s/login", s.satelliteAddress)
+
+	// add project invites in transaction scope
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		for _, invited := range users {
+			invite, err := tx.ProjectInvitations().Insert(ctx, &ProjectInvitation{
+				ProjectID: projectID,
+				Email:     invited.Email,
+				InviterID: &user.ID,
+			})
+			if err != nil {
+				if dbx.IsConstraintError(err) {
+					// should not happen, but just in case.
+					return errs.New("%s is already invited", invited.Email)
+				}
+				return err
+			}
+			invites = append(invites, *invite)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, invited := range users {
+		userName := invited.ShortName
+		if userName == "" {
+			userName = invited.FullName
+		}
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: invited.Email, Name: userName}},
+			&ExistingUserProjectInvitationEmail{
+				InviterEmail: user.Email,
+				Region:       s.satelliteName,
+				SignInLink:   fmt.Sprintf("%s?email=%s", signIn, invited.Email),
+			},
+		)
+	}
+
+	return invites, nil
 }
