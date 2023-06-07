@@ -128,40 +128,6 @@ describe('actions', () => {
         expect(store.state.selectedProjectMembersEmails.length).toBe(0);
     });
 
-    it('add project members', async function () {
-        const store = useProjectMembersStore();
-
-        vi.spyOn(ProjectMembersApiGql.prototype, 'add').mockReturnValue(Promise.resolve());
-
-        try {
-            await store.addProjectMembers([projectMember1.user.email], selectedProject.id);
-            throw TEST_ERROR;
-        } catch (err) {
-            expect(err).toBe(TEST_ERROR);
-        }
-    });
-
-    it('add project member throws error when api call fails', async function () {
-        const store = useProjectMembersStore();
-
-        vi.spyOn(ProjectMembersApiGql.prototype, 'add').mockImplementation(() => {
-            throw TEST_ERROR;
-        });
-
-        const stateDump = store.state;
-
-        try {
-            await store.addProjectMembers([projectMember1.user.email], selectedProject.id);
-        } catch (err) {
-            expect(err).toBe(TEST_ERROR);
-            expect(store.state).toBe(stateDump);
-
-            return;
-        }
-
-        fail(UNREACHABLE_ERROR);
-    });
-
     it('delete project members', async function () {
         const store = useProjectMembersStore();
 

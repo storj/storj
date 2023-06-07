@@ -24,6 +24,7 @@
                         placeholder="email@email.com"
                         role-description="email"
                         :error="formError"
+                        :max-symbols="72"
                         @setData="(str) => setInput(index, str)"
                     />
                 </div>
@@ -192,7 +193,7 @@ async function onAddUsersClick(): Promise<void> {
     }
 
     try {
-        await pmStore.addProjectMembers(emailArray, projectsStore.state.selectedProject.id);
+        await pmStore.inviteMembers(emailArray, projectsStore.state.selectedProject.id);
     } catch (_) {
         await notify.error(`Error during adding project members.`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;

@@ -109,6 +109,7 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
         projectsStore.selectProject(invite.value.projectID);
         LocalData.setSelectedProjectId(invite.value.projectID);
 
+        notify.success('Invite accepted!');
         analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         router.push(RouteConfig.ProjectDashboard.path);
     }

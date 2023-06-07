@@ -33,15 +33,16 @@ export enum ProjectMemberHeaderState {
  * Exposes all ProjectMembers-related functionality
  */
 export interface ProjectMembersApi {
+
     /**
-     * Add members to project by user emails.
+     * Invite members to project by user emails.
      *
      * @param projectId
      * @param emails list of project members email to add
      *
      * @throws Error
      */
-    add(projectId: string, emails: string[]): Promise<void>;
+    invite(projectId: string, emails: string[]): Promise<void>;
 
     /**
      * Deletes ProjectMembers from project by project member emails

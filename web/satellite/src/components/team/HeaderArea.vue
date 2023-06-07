@@ -148,7 +148,11 @@ async function processSearchQuery(search: string): Promise<void> {
         pmStore.setSearchQuery(search);
     }
     try {
-        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+        const id = projectsStore.state.selectedProject.id;
+        if (!id) {
+            return;
+        }
+        await pmStore.getProjectMembers(FIRST_PAGE, id);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
     }

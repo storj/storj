@@ -65,6 +65,8 @@
                         <VInput
                             label="Email Address"
                             placeholder="user@example.com"
+                            :init-value="email"
+                            :disabled="!!pathEmail"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"
@@ -194,10 +196,12 @@ const isRecoveryCodeState = ref(false);
 const isBadLoginMessageShown = ref(false);
 const isDropdownShown = ref(false);
 
+const pathEmail = ref<string | null>(null);
+
 const returnURL = ref(RouteConfig.ProjectDashboard.path);
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
-const mfaInput = ref<ConfirmMFAInput & ClearInput | null>(null);
+const mfaInput = ref<typeof ConfirmMFAInput & ClearInput | null>(null);
 
 const forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
 const registerPath: string = RouteConfig.Register.path;
@@ -238,6 +242,11 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
+    pathEmail.value = route.query.email as string ?? null;
+    if (pathEmail.value) {
+        setEmail(pathEmail.value);
+    }
+
     isActivatedBannerShown.value = !!route.query.activated;
     isActivatedError.value = route.query.activated === 'false';
 
@@ -320,6 +329,10 @@ function clickSatellite(address): void {
  * Toggles satellite selection dropdown visibility (Tardigrade).
  */
 function toggleDropdown(): void {
+    if (pathEmail.value) {
+        // this page was opened from an email link, so don't allow satellite selection.
+        return;
+    }
     isDropdownShown.value = !isDropdownShown.value;
 }
 

@@ -26,8 +26,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     const api: ProjectMembersApi = new ProjectMembersApiGql();
 
-    async function addProjectMembers(emails: string[], projectID: string): Promise<void> {
-        await api.add(projectID, emails);
+    async function inviteMembers(emails: string[], projectID: string): Promise<void> {
+        await api.invite(projectID, emails);
     }
 
     async function deleteProjectMembers(projectID: string): Promise<void> {
@@ -109,7 +109,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     return {
         state,
-        addProjectMembers,
+        inviteMembers,
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
