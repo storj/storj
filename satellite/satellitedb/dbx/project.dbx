@@ -48,6 +48,9 @@ model project (
 
     // created_at indicates when the project was created.
     field created_at                        timestamp ( autoinsert )
+
+    // placement to be used for every new bucket.
+    field default_placement int (nullable, updatable)
 )
 
 create project ( )

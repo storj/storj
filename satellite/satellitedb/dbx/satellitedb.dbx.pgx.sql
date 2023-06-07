@@ -232,6 +232,7 @@ CREATE TABLE projects (
 	owner_id bytea NOT NULL,
 	salt bytea,
 	created_at timestamp with time zone NOT NULL,
+	default_placement integer,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_bandwidth_daily_rollups (
@@ -459,6 +460,7 @@ CREATE TABLE users (
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
 	signup_captcha double precision,
+	default_placement integer,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

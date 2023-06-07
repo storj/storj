@@ -2391,6 +2391,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN features integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add default_placement to users/projects",
+				Version:     239,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN default_placement integer;`,
+					`ALTER TABLE projects ADD COLUMN default_placement integer;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

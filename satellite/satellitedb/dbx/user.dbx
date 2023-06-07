@@ -76,6 +76,9 @@ model user (
 
     // signup_captcha is the captcha score recorded during sign-up.
     field signup_captcha     float64    ( nullable )
+
+    // placement to be used for every new project as default for the buckets.
+    field default_placement int (nullable, updatable)
 )
 
 create user ( )
