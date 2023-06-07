@@ -23,6 +23,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -41,7 +42,7 @@ import (
 
 func TestService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -154,6 +155,29 @@ func TestService(t *testing.T) {
 				})
 				require.Error(t, err)
 				require.Nil(t, createdProject)
+			})
+
+			t.Run("CreateProject with placement", func(t *testing.T) {
+				uid := planet.Uplinks[2].Projects[0].Owner.ID
+				err := sat.API.DB.Console().Users().Update(ctx, uid, console.UpdateUserRequest{
+					DefaultPlacement: storj.EU,
+				})
+				require.NoError(t, err)
+
+				user, err := service.GetUser(ctx, uid)
+				require.NoError(t, err)
+
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				p, err := service.CreateProject(userCtx, console.ProjectInfo{
+					Name:        "eu-project",
+					Description: "project with eu1 default placement",
+					CreatedAt:   time.Now(),
+				})
+				require.NoError(t, err)
+				require.Equal(t, storj.EU, p.DefaultPlacement)
+
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {

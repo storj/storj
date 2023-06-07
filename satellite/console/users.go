@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console/consoleauth"
 )
@@ -184,6 +185,8 @@ type User struct {
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
 	SignupCaptcha          *float64  `json:"-"`
+
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -249,6 +252,8 @@ type UpdateUserRequest struct {
 	FailedLoginCount *int
 
 	LoginLockoutExpiration **time.Time
+
+	DefaultPlacement storj.PlacementConstraint
 }
 
 // UserSettings contains configurations for a user.

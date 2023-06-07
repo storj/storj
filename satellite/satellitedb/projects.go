@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -153,6 +154,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
 	createFields.Salt = dbx.Project_Salt(salt[:])
+	createFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -395,20 +397,26 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
+	var placement storj.PlacementConstraint
+	if project.DefaultPlacement != nil {
+		placement = storj.PlacementConstraint(*project.DefaultPlacement)
+	}
+
 	return &console.Project{
-		ID:             id,
-		PublicID:       publicID,
-		Name:           project.Name,
-		Description:    project.Description,
-		UserAgent:      userAgent,
-		OwnerID:        ownerID,
-		RateLimit:      project.RateLimit,
-		BurstLimit:     project.BurstLimit,
-		MaxBuckets:     project.MaxBuckets,
-		CreatedAt:      project.CreatedAt,
-		StorageLimit:   (*memory.Size)(project.UsageLimit),
-		BandwidthLimit: (*memory.Size)(project.BandwidthLimit),
-		SegmentLimit:   project.SegmentLimit,
+		ID:               id,
+		PublicID:         publicID,
+		Name:             project.Name,
+		Description:      project.Description,
+		UserAgent:        userAgent,
+		OwnerID:          ownerID,
+		RateLimit:        project.RateLimit,
+		BurstLimit:       project.BurstLimit,
+		MaxBuckets:       project.MaxBuckets,
+		CreatedAt:        project.CreatedAt,
+		StorageLimit:     (*memory.Size)(project.UsageLimit),
+		BandwidthLimit:   (*memory.Size)(project.BandwidthLimit),
+		SegmentLimit:     project.SegmentLimit,
+		DefaultPlacement: placement,
 	}, nil
 }
 

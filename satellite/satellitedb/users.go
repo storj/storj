@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -507,6 +508,7 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 			update.LoginLockoutExpiration = dbx.User_LoginLockoutExpiration(**request.LoginLockoutExpiration)
 		}
 	}
+	update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
 
 	return &update, nil
 }
@@ -548,6 +550,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
+	}
+
+	if user.DefaultPlacement != nil {
+		result.DefaultPlacement = storj.PlacementConstraint(*user.DefaultPlacement)
 	}
 
 	if user.UserAgent != nil {

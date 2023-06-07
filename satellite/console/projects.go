@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -93,20 +94,21 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string       `json:"name"`
-	Description                 string       `json:"description"`
-	UserAgent                   []byte       `json:"userAgent"`
-	OwnerID                     uuid.UUID    `json:"ownerId"`
-	RateLimit                   *int         `json:"rateLimit"`
-	BurstLimit                  *int         `json:"burstLimit"`
-	MaxBuckets                  *int         `json:"maxBuckets"`
-	CreatedAt                   time.Time    `json:"createdAt"`
-	MemberCount                 int          `json:"memberCount"`
-	StorageLimit                *memory.Size `json:"storageLimit"`
-	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
-	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
-	SegmentLimit                *int64       `json:"segmentLimit"`
+	Name                        string                    `json:"name"`
+	Description                 string                    `json:"description"`
+	UserAgent                   []byte                    `json:"userAgent"`
+	OwnerID                     uuid.UUID                 `json:"ownerId"`
+	RateLimit                   *int                      `json:"rateLimit"`
+	BurstLimit                  *int                      `json:"burstLimit"`
+	MaxBuckets                  *int                      `json:"maxBuckets"`
+	CreatedAt                   time.Time                 `json:"createdAt"`
+	MemberCount                 int                       `json:"memberCount"`
+	StorageLimit                *memory.Size              `json:"storageLimit"`
+	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
+	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64                    `json:"segmentLimit"`
+	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 }
 
 // ProjectInfo holds data needed to create/update Project.

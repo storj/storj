@@ -1616,13 +1616,14 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
-				Description:    projectInfo.Description,
-				Name:           projectInfo.Name,
-				OwnerID:        user.ID,
-				UserAgent:      user.UserAgent,
-				StorageLimit:   &storageLimit,
-				BandwidthLimit: &bandwidthLimit,
-				SegmentLimit:   &newProjectLimits.Segment,
+				Description:      projectInfo.Description,
+				Name:             projectInfo.Name,
+				OwnerID:          user.ID,
+				UserAgent:        user.UserAgent,
+				StorageLimit:     &storageLimit,
+				BandwidthLimit:   &bandwidthLimit,
+				SegmentLimit:     &newProjectLimits.Segment,
+				DefaultPlacement: user.DefaultPlacement,
 			},
 		)
 		if err != nil {
@@ -1683,13 +1684,14 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
-				Description:    projectInfo.Description,
-				Name:           projectInfo.Name,
-				OwnerID:        user.ID,
-				UserAgent:      user.UserAgent,
-				StorageLimit:   &storageLimit,
-				BandwidthLimit: &bandwidthLimit,
-				SegmentLimit:   &newProjectLimits.Segment,
+				Description:      projectInfo.Description,
+				Name:             projectInfo.Name,
+				OwnerID:          user.ID,
+				UserAgent:        user.UserAgent,
+				StorageLimit:     &storageLimit,
+				BandwidthLimit:   &bandwidthLimit,
+				SegmentLimit:     &newProjectLimits.Segment,
+				DefaultPlacement: user.DefaultPlacement,
 			},
 		)
 		if err != nil {

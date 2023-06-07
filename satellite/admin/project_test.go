@@ -47,7 +47,7 @@ func TestProjectGet(t *testing.T) {
 		t.Run("OK", func(t *testing.T) {
 			link := "http://" + address.String() + "/api/projects/" + project.ID.String()
 			expected := fmt.Sprintf(
-				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000}`,
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0}`,
 				project.ID.String(),
 				project.PublicID.String(),
 				project.Name,
