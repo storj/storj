@@ -200,9 +200,11 @@ func (mf *memFile) ReadAt(p []byte, off int64) (int, error) {
 	return copy(p, mf.buf[off:]), nil
 }
 
-func (mf *memFile) Write(p []byte) (int, error) {
-	mf.buf = append(mf.buf, p...)
-	return len(p), nil
+func (mf *memFile) WriteAt(p []byte, off int64) (int, error) {
+	if delta := (off + int64(len(p))) - int64(len(mf.buf)); delta > 0 {
+		mf.buf = append(mf.buf, make([]byte, delta)...)
+	}
+	return copy(mf.buf[off:], p), nil
 }
 
 func (mf *memFile) Stat() (os.FileInfo, error) {
@@ -254,7 +256,7 @@ func (md *memDir) ReadAt(p []byte, off int64) (int, error) {
 	return 0, errs.New("readat on directory")
 }
 
-func (md *memDir) Write(p []byte) (int, error) {
+func (md *memDir) WriteAt(p []byte, off int64) (int, error) {
 	return 0, errs.New("writeat on directory")
 }
 
