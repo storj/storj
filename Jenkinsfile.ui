@@ -22,10 +22,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // sh "chmod -R 777 ." // Del orphaned files
-                // sh "npm install @playwright/test"
-                // sh "npx playwright install"
-                sh 'npx browserslist@latest --update-db'
                 checkout scm
                 sh 'mkdir -p .build'
 
@@ -106,8 +102,6 @@ pipeline {
             steps {
                 dir("testsuite/playwright-ui") {
                     warnError('Script failed!') {
-                        sh 'npm ci'
-                        sh 'npm install -D @playwright/test@latest'
                         // sh 'npx playwright install'
                         // sh 'npx playwright install-deps'
                     }
