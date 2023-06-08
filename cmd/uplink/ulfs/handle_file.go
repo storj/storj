@@ -32,37 +32,22 @@ func newOSMultiReadHandle(fh LocalBackendFile) (MultiReadHandle, error) {
 //
 
 type fileGenericWriter struct {
-	fs   LocalBackend
-	raw  LocalBackendFile
-	done bool
+	fs  LocalBackend
+	raw LocalBackendFile
 }
 
-func (f *fileGenericWriter) Write(b []byte) (int, error) { return f.raw.Write(b) }
-
-func (f *fileGenericWriter) Commit() error {
-	if f.done {
-		return errs.New("already commit/aborted")
-	}
-	f.done = true
-
-	return f.raw.Close()
-}
-
+func (f *fileGenericWriter) WriteAt(b []byte, off int64) (int, error) { return f.raw.WriteAt(b, off) }
+func (f *fileGenericWriter) Commit() error                            { return f.raw.Close() }
 func (f *fileGenericWriter) Abort() error {
-	if f.done {
-		return errs.New("already commit/aborted")
-	}
-	f.done = true
-
 	return errs.Combine(
 		f.raw.Close(),
 		f.fs.Remove(f.raw.Name()),
 	)
 }
 
-func newOSWriteHandle(fs LocalBackend, fh LocalBackendFile) WriteHandle {
-	return &fileGenericWriter{
+func newOSMultiWriteHandle(fs LocalBackend, fh LocalBackendFile) MultiWriteHandle {
+	return NewGenericMultiWriteHandle(&fileGenericWriter{
 		fs:  fs,
 		raw: fh,
-	}
+	})
 }
