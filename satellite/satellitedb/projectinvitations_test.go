@@ -81,7 +81,11 @@ func TestProjectInvitations(t *testing.T) {
 		t.Run("get invitation", func(t *testing.T) {
 			ctx := testcontext.New(t)
 
-			other, err := invitesDB.Get(ctx, projID, email)
+			other, err := invitesDB.Get(ctx, projID, "nobody@mail.test")
+			require.ErrorIs(t, err, sql.ErrNoRows)
+			require.Nil(t, other)
+
+			other, err = invitesDB.Get(ctx, projID, email)
 			require.NoError(t, err)
 			require.Equal(t, invite, other)
 		})

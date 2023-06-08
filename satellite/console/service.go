@@ -67,15 +67,14 @@ const (
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
-	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
-									     Please add team members with active accounts`
-	activationTokenExpiredErrMsg    = "This activation token has expired, please request another one"
-	usedRegTokenErrMsg              = "This registration token has already been used"
-	projLimitErrMsg                 = "Sorry, project creation is limited for your account. Please contact support!"
-	projNameErrMsg                  = "The new project must have a name you haven't used before!"
-	projInviteInvalidErrMsg         = "The invitation has expired or is invalid"
-	projInviteAlreadyMemberErrMsg   = "You are already a member of the project"
-	projInviteResponseInvalidErrMsg = "Invalid project member invitation response"
+	teamMemberDoesNotExistErrMsg         = "There are no team members with the email '%s'. Please try again."
+	activationTokenExpiredErrMsg         = "This activation token has expired, please request another one"
+	usedRegTokenErrMsg                   = "This registration token has already been used"
+	projLimitErrMsg                      = "Sorry, project creation is limited for your account. Please contact support!"
+	projNameErrMsg                       = "The new project must have a name you haven't used before!"
+	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
+	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
+	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
 )
 
 var (
@@ -2042,9 +2041,9 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	return users, nil
 }
 
-// DeleteProjectMembers removes users by email from given project.
+// DeleteProjectMembersAndInvitations removes users and invitations by email from given project.
 // projectID here may be project.PublicID or project.ID.
-func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
@@ -2059,13 +2058,24 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	projectID = isMember.project.ID
 
 	var userIDs []uuid.UUID
-	var userErr errs.Group
+	var invitedEmails []string
 
-	// collect user querying errors
 	for _, email := range emails {
+		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+		if err == nil {
+			invitedEmails = append(invitedEmails, email)
+			continue
+		}
+		if !errs.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+
 		user, err := s.store.Users().GetByEmail(ctx, email)
 		if err != nil {
-			userErr.Add(err)
+			if invite == nil {
+				return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
+			}
+			invitedEmails = append(invitedEmails, email)
 			continue
 		}
 
@@ -2080,14 +2090,16 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		userIDs = append(userIDs, user.ID)
 	}
 
-	if err = userErr.Err(); err != nil {
-		return ErrValidation.New(teamMemberDoesNotExistErrMsg)
-	}
-
 	// delete project members in transaction scope
-	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) (err error) {
 		for _, uID := range userIDs {
 			err = tx.ProjectMembers().Delete(ctx, uID, projectID)
+			if err != nil {
+				return err
+			}
+		}
+		for _, email := range invitedEmails {
+			err = tx.ProjectInvitations().Delete(ctx, projectID, email)
 			if err != nil {
 				return err
 			}
