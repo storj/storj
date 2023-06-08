@@ -104,8 +104,8 @@ pipeline {
             steps {
                 dir("testsuite/playwright-ui") {
                     warnError('Script failed!') {
-                        // sh 'npx playwright install'
-                        // sh 'npx playwright install-deps'
+						sh 'npm ci'
+						sh 'npx playwright install --with-deps'
                     }
                 }
             }
