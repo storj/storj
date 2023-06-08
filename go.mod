@@ -63,8 +63,8 @@ require (
 	storj.io/common v0.0.0-20230602145716-d6ea82d58b3d
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
-	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
-	storj.io/uplink v1.10.1-0.20230602205250-0fac01fa40c8
+	storj.io/private v0.0.0-20230601151834-9393da068323
+	storj.io/uplink v1.10.1-0.20230607180240-72bcffbeac33
 )
 
 require (
@@ -124,7 +124,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
-	github.com/zeebo/structs v1.0.2 // indirect
+	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	go.opencensus.io v0.22.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
