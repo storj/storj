@@ -4,7 +4,7 @@
 <template>
     <div v-if="project.id" class="project-item">
         <div class="project-item__header">
-            <project-ownership-tag :is-owner="isOwner" />
+            <project-ownership-tag :role="isOwner ? ProjectRole.Owner : ProjectRole.Member" />
 
             <a
                 v-click-outside="closeDropDown" href="" class="project-item__header__menu"
@@ -47,6 +47,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Project } from '@/types/projects';
+import { ProjectRole } from '@/types/projectMembers';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';

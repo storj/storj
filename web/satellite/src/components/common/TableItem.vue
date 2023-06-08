@@ -27,8 +27,7 @@
                 </p>
                 <p v-else :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
                     <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
-                    <project-ownership-tag v-else-if="keyVal === 'owner'" :no-icon="itemType !== 'project'" :is-owner="val" />
-                    <project-ownership-tag v-else-if="keyVal === 'invited'" :is-invited="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'role'" :no-icon="itemType !== 'project' && val !== ProjectRole.Invited" :role="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -43,6 +42,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+
+import { ProjectRole } from '@/types/projectMembers';
 
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';

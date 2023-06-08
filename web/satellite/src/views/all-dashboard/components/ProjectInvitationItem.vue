@@ -3,7 +3,7 @@
 
 <template>
     <div class="invite-item">
-        <project-ownership-tag class="invite-item__tag" :is-invited="true" />
+        <project-ownership-tag class="invite-item__tag" :role="ProjectRole.Invited" />
 
         <div class="invite-item__info">
             <p class="invite-item__info__name">{{ invitation.projectName }}</p>
@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+import { ProjectRole } from '@/types/projectMembers';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsHttpApi } from '@/api/analytics';

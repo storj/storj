@@ -5,7 +5,7 @@
     <div class="project-dashboard">
         <div class="project-dashboard__heading">
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
-            <project-ownership-tag :is-owner="selectedProject.ownerId === user.id" />
+            <project-ownership-tag :role="(selectedProject.ownerId === user.id) ? ProjectRole.Owner : ProjectRole.Member" />
         </div>
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
@@ -191,6 +191,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { centsToDollars } from '@/utils/strings';
 import { User } from '@/types/users';
+import { ProjectRole } from '@/types/projectMembers';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';

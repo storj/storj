@@ -37,8 +37,8 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { ProjectRole } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -63,7 +63,6 @@ const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const notify = useNotify();
 const router = useRouter();
 
 const analytics = new AnalyticsHttpApi();
@@ -80,7 +79,7 @@ const itemToRender = computed((): { [key: string]: unknown | string[] } => {
             multi: { title: props.project.name, subtitle: props.project.description },
             date: props.project.createdDate(),
             memberCount: props.project.memberCount.toString(),
-            owner: isOwner.value,
+            role: isOwner.value ? ProjectRole.Owner : ProjectRole.Member,
         };
     }
 

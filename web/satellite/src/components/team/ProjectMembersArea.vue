@@ -37,7 +37,7 @@
                 <ProjectMemberListItem
                     v-for="(member, key) in projectMembers"
                     :key="key"
-                    :item-data="member"
+                    :model="member"
                     @memberClick="onMemberCheckChange"
                     @selectClicked="(_) => onMemberCheckChange(member)"
                 />
@@ -50,8 +50,8 @@
 import { computed, onMounted, ref } from 'vue';
 
 import {
-    ProjectMember,
     ProjectMemberHeaderState,
+    ProjectMemberItemModel,
 } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -77,10 +77,10 @@ const areMembersFetching = ref<boolean>(true);
  * Returns team members of current page from store.
  * With project owner pinned to top
  */
-const projectMembers = computed((): ProjectMember[] => {
-    const projectMembers = pmStore.state.page.projectMembers;
-    const projectOwner = projectMembers.find((member) => member.user.id === projectsStore.state.selectedProject.ownerId);
-    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== projectsStore.state.selectedProject.ownerId);
+const projectMembers = computed((): ProjectMemberItemModel[] => {
+    const projectMembers = pmStore.state.page.getAllItems();
+    const projectOwner = projectMembers.find((member) => member.getUserID() === projectsStore.state.selectedProject.ownerId);
+    const projectMembersToReturn = projectMembers.filter((member) => member.getUserID() !== projectsStore.state.selectedProject.ownerId);
 
     // if the project owner exists, place at the front of the members list
     projectOwner && projectMembersToReturn.unshift(projectOwner);
@@ -129,8 +129,8 @@ const isEmptySearchResultShown = computed((): boolean => {
  * Selects team member if this user has no owner status.
  * @param member
  */
-function onMemberCheckChange(member: ProjectMember): void {
-    if (projectsStore.state.selectedProject.ownerId !== member.user.id) {
+function onMemberCheckChange(member: ProjectMemberItemModel): void {
+    if (projectsStore.state.selectedProject.ownerId !== member.getUserID()) {
         pmStore.toggleProjectMemberSelection(member);
     }
 }

@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import { ProjectRole } from '@/types/projectMembers';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -85,7 +86,7 @@ const itemToRender = computed((): { [key: string]: unknown | string[] } => {
             multi: { title: props.invitation.projectName, subtitle: props.invitation.projectDescription },
             date: props.invitation.invitedDate,
             memberCount: '',
-            invited: true,
+            role: ProjectRole.Invited,
         };
     }
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
 import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
@@ -44,7 +44,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                 project (
                     publicId: $projectId,
                 ) {
-                    members (
+                    membersAndInvitations (
                         cursor: {
                             limit: $limit,
                             search: $search,
@@ -61,6 +61,10 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                                 email
                             },
                             joinedAt
+                        },
+                        projectInvitations {
+                            email,
+                            createdAt
                         },
                         search,
                         limit,
@@ -83,7 +87,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
 
         const response = await this.query(query, variables);
 
-        return this.getProjectMembersList(response.data.project.members);
+        return this.getProjectMembersList(response.data.project.membersAndInvitations);
     }
 
     /**
@@ -119,6 +123,10 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
             key.user.email,
             new Date(key.joinedAt),
             key.user.id,
+        ));
+        projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
+            key.email,
+            new Date(key.createdAt),
         ));
 
         projectMembersPage.search = projectMembers.search;

@@ -2,37 +2,31 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="tag" :class="{owner: isOwner, invited: isInvited}">
+    <div class="tag" :class="{[role.toLowerCase()]: true}">
         <component :is="icon" v-if="!noIcon" class="tag__icon" />
 
-        <span class="tag__text">{{ label }}</span>
+        <span class="tag__text">{{ role }}</span>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, Component } from 'vue';
 
+import { ProjectRole } from '@/types/projectMembers';
+
 import BoxIcon from '@/../static/images/navigation/project.svg';
 import InviteIcon from '@/../static/images/navigation/quickStart.svg';
 
 const props = withDefaults(defineProps<{
-    isOwner: boolean,
-    isInvited: boolean,
+    role: ProjectRole,
     noIcon?: boolean,
 }>(), {
-    isOwner: false,
-    isInvited: false,
+    role: ProjectRole.Member,
     noIcon: false,
 });
 
 const icon = computed((): string => {
-    return props.isInvited ? InviteIcon : BoxIcon;
-});
-
-const label = computed((): string => {
-    if (props.isOwner) return 'Owner';
-    if (props.isInvited) return 'Invited';
-    return 'Member';
+    return props.role === ProjectRole.Invited ? InviteIcon : BoxIcon;
 });
 
 </script>

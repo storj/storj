@@ -7,6 +7,7 @@ import { defineStore } from 'pinia';
 import {
     ProjectMember,
     ProjectMemberCursor,
+    ProjectMemberItemModel,
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
@@ -43,12 +44,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
         state.page = projectMembersPage;
-        state.page.projectMembers = state.page.projectMembers.map(member => {
-            if (state.selectedProjectMembersEmails.includes(member.user.email)) {
-                member.isSelected = true;
-            }
-
-            return member;
+        state.page.getAllItems().forEach(item => {
+            item.setSelected(state.selectedProjectMembersEmails.includes(item.getEmail()));
         });
 
         return projectMembersPage;
@@ -78,27 +75,25 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.orderDirection = direction;
     }
 
-    function toggleProjectMemberSelection(projectMember: ProjectMember) {
-        if (!state.selectedProjectMembersEmails.includes(projectMember.user.email)) {
-            projectMember.isSelected = true;
-            state.selectedProjectMembersEmails.push(projectMember.user.email);
+    function toggleProjectMemberSelection(projectMember: ProjectMemberItemModel) {
+        const email = projectMember.getEmail();
+
+        if (!state.selectedProjectMembersEmails.includes(email)) {
+            projectMember.setSelected(true);
+            state.selectedProjectMembersEmails.push(email);
 
             return;
         }
 
-        projectMember.isSelected = false;
+        projectMember.setSelected(false);
         state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
-            return projectMemberEmail !== projectMember.user.email;
+            return projectMemberEmail !== email;
         });
     }
 
     function clearProjectMemberSelection() {
         state.selectedProjectMembersEmails = [];
-        state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
-            projectMember.isSelected = false;
-
-            return projectMember;
-        });
+        state.page.getAllItems().forEach(member => member.setSelected(false));
     }
 
     function clear() {

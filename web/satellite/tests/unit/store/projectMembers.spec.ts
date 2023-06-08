@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { vi } from 'vitest';
+import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
@@ -15,7 +15,7 @@ selectedProject.id = '1';
 
 const FIRST_PAGE = 1;
 const TEST_ERROR = new Error('testError');
-const UNREACHABLE_ERROR = 'should be unreachable';
+const UNREACHABLE_ERROR = new Error('should be unreachable');
 
 const date = new Date(0);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
@@ -93,7 +93,7 @@ describe('actions', () => {
         store.setPage(testProjectMembersPage);
         store.toggleProjectMemberSelection(projectMember1);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(true);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(true);
         expect(store.state.selectedProjectMembersEmails.length).toBe(1);
 
         vi.spyOn(ProjectMembersApiGql.prototype, 'get')
@@ -105,7 +105,7 @@ describe('actions', () => {
 
         store.toggleProjectMemberSelection(projectMember1);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(false);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(false);
         expect(store.state.selectedProjectMembersEmails.length).toBe(0);
     });
 
@@ -122,7 +122,7 @@ describe('actions', () => {
         store.clearProjectMemberSelection();
 
         store.state.page.projectMembers.forEach((pm: ProjectMember) => {
-            expect(pm.isSelected).toBe(false);
+            expect(pm.isSelected()).toBe(false);
         });
 
         expect(store.state.selectedProjectMembersEmails.length).toBe(0);
@@ -159,7 +159,7 @@ describe('actions', () => {
             return;
         }
 
-        fail(UNREACHABLE_ERROR);
+        throw UNREACHABLE_ERROR;
     });
 
     it('fetch project members', async function () {
@@ -168,6 +168,7 @@ describe('actions', () => {
         vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
             Promise.resolve(new ProjectMembersPage(
                 [projectMember1],
+                [],
                 '',
                 ProjectMemberOrderBy.NAME,
                 SortDirection.ASCENDING,
@@ -179,7 +180,7 @@ describe('actions', () => {
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(false);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(false);
         expect(store.state.page.projectMembers[0].joinedAt).toBe(projectMember1.joinedAt);
         expect(store.state.page.projectMembers[0].user.email).toBe(projectMember1.user.email);
         expect(store.state.page.projectMembers[0].user.id).toBe(projectMember1.user.id);
@@ -205,6 +206,6 @@ describe('actions', () => {
             return;
         }
 
-        fail(UNREACHABLE_ERROR);
+        throw UNREACHABLE_ERROR;
     });
 });
