@@ -5,7 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 const routes = [
     {
-        path: '/',
+        path: '/vuetifypoc',
         redirect: { path: '/dashboard' },
         component: () => import('@poc/layouts/Default.vue'),
         children: [

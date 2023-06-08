@@ -363,6 +363,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
 		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
+		if server.config.UseVuetifyProject {
+			router.PathPrefix("/vuetifypoc").Handler(http.HandlerFunc(server.vuetifyAppHandler))
+		}
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -415,8 +418,8 @@ func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function.
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+// setAppHeaders sets the necessary headers for requests to the app.
+func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
@@ -438,14 +441,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
+}
 
-	var path string
-	if server.config.UseVuetifyProject {
-		path = filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
-	} else {
-		path = filepath.Join(server.config.StaticDir, "dist", "index.html")
-	}
+// appHandler is web app http handler function.
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	server.setAppHeaders(w, r)
 
+	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
 	file, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -453,7 +455,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			server.log.Error("error loading index.html", zap.String("path", path), zap.Error(err))
 		}
-		// Loading index is optional.
 		return
 	}
 
@@ -466,6 +467,36 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := file.Stat()
 	if err != nil {
 		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+		return
+	}
+
+	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// vuetifyAppHandler is web app http handler function.
+func (server *Server) vuetifyAppHandler(w http.ResponseWriter, r *http.Request) {
+	server.setAppHeaders(w, r)
+
+	path := filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index-vuetify.html was not generated. run 'npm run build-vuetify' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index-vuetify.html", zap.String("path", path), zap.Error(err))
+		}
+		return
+	}
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index-vuetify.html", zap.String("path", path), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve index-vuetify.html file info", zap.Error(err))
 		return
 	}
 
