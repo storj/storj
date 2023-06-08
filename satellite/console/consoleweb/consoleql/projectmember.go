@@ -14,6 +14,8 @@ import (
 const (
 	// ProjectMemberType is a graphql type name for project member.
 	ProjectMemberType = "projectMember"
+	// ProjectInvitationType is a graphql type name for project member invitation.
+	ProjectInvitationType = "projectInvitation"
 	// FieldJoinedAt is a field name for joined at timestamp.
 	FieldJoinedAt = "joinedAt"
 )
@@ -32,6 +34,21 @@ func graphqlProjectMember(service *console.Service, types *TypeCreator) *graphql
 				},
 			},
 			FieldJoinedAt: &graphql.Field{
+				Type: graphql.DateTime,
+			},
+		},
+	})
+}
+
+// graphqlProjectInvitation creates projectInvitation type.
+func graphqlProjectInvitation() *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectInvitationType,
+		Fields: graphql.Fields{
+			FieldEmail: &graphql.Field{
+				Type: graphql.String,
+			},
+			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
 		},
@@ -62,38 +79,65 @@ func graphqlProjectMembersCursor() *graphql.InputObject {
 }
 
 func graphqlProjectMembersPage(types *TypeCreator) *graphql.Object {
-	return graphql.NewObject(graphql.ObjectConfig{
-		Name: ProjectMembersPageType,
-		Fields: graphql.Fields{
-			FieldProjectMembers: &graphql.Field{
-				Type: graphql.NewList(types.projectMember),
-			},
-			SearchArg: &graphql.Field{
-				Type: graphql.String,
-			},
-			LimitArg: &graphql.Field{
-				Type: graphql.Int,
-			},
-			OrderArg: &graphql.Field{
-				Type: graphql.Int,
-			},
-			OrderDirectionArg: &graphql.Field{
-				Type: graphql.Int,
-			},
-			OffsetArg: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldPageCount: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldCurrentPage: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldTotalCount: &graphql.Field{
-				Type: graphql.Int,
-			},
+	fields := graphql.Fields{
+		FieldProjectMembers: &graphql.Field{
+			Type: graphql.NewList(types.projectMember),
 		},
+	}
+	for k, v := range commonProjectMembersPageFields() {
+		fields[k] = v
+	}
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name:   ProjectMembersPageType,
+		Fields: fields,
 	})
+}
+
+func graphqlProjectMembersAndInvitationsPage(types *TypeCreator) *graphql.Object {
+	fields := graphql.Fields{
+		FieldProjectMembers: &graphql.Field{
+			Type: graphql.NewList(types.projectMember),
+		},
+		FieldProjectInvitations: &graphql.Field{
+			Type: graphql.NewList(types.projectInvitation),
+		},
+	}
+	for k, v := range commonProjectMembersPageFields() {
+		fields[k] = v
+	}
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name:   ProjectMembersAndInvitationsPageType,
+		Fields: fields,
+	})
+}
+
+func commonProjectMembersPageFields() graphql.Fields {
+	return graphql.Fields{
+		SearchArg: &graphql.Field{
+			Type: graphql.String,
+		},
+		LimitArg: &graphql.Field{
+			Type: graphql.Int,
+		},
+		OrderArg: &graphql.Field{
+			Type: graphql.Int,
+		},
+		OrderDirectionArg: &graphql.Field{
+			Type: graphql.Int,
+		},
+		OffsetArg: &graphql.Field{
+			Type: graphql.Int,
+		},
+		FieldPageCount: &graphql.Field{
+			Type: graphql.Int,
+		},
+		FieldCurrentPage: &graphql.Field{
+			Type: graphql.Int,
+		},
+		FieldTotalCount: &graphql.Field{
+			Type: graphql.Int,
+		},
+	}
 }
 
 // projectMember encapsulates User and joinedAt.
@@ -103,7 +147,8 @@ type projectMember struct {
 }
 
 type projectMembersPage struct {
-	ProjectMembers []projectMember
+	ProjectMembers     []projectMember
+	ProjectInvitations []console.ProjectInvitation
 
 	Search         string
 	Limit          uint

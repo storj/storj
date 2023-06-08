@@ -2113,7 +2113,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 }
 
 // GetProjectMembers returns ProjectMembers for given Project.
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor, pagingType ProjectMembersPagingType) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "get project members", zap.String("projectID", projectID.String()))
@@ -2130,7 +2130,11 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 		cursor.Limit = maxLimit
 	}
 
-	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
+	if pagingType == MembersAndInvitations {
+		pmp, err = s.store.ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
+	} else {
+		pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

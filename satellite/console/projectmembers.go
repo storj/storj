@@ -62,6 +62,18 @@ type ProjectMembersPage struct {
 	TotalCount  uint64
 }
 
+// ProjectMembersPagingType determines what types of results should be returned
+// in a project members page.
+type ProjectMembersPagingType int
+
+const (
+	// Members indicates that only project members should be returned in a project members page.
+	Members ProjectMembersPagingType = iota
+	// MembersAndInvitations indicates that project members and project invitations should be
+	// returned in a project members page.
+	MembersAndInvitations
+)
+
 // ProjectMemberOrder is used for querying project members in specified order.
 type ProjectMemberOrder int8
 
