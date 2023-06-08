@@ -58,5 +58,16 @@ func TestInvoices(t *testing.T) {
 			require.Error(t, err)
 			require.Nil(t, confirmedPI)
 		})
+		t.Run("Create and Get success", func(t *testing.T) {
+			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, userID, price, desc)
+			require.NoError(t, err)
+			require.NotNil(t, pi)
+
+			pi2, err := satellite.API.Payments.Accounts.Invoices().Get(ctx, pi.ID)
+			require.NoError(t, err)
+			require.Equal(t, pi.ID, pi2.ID)
+			require.Equal(t, pi.Status, pi2.Status)
+			require.Equal(t, pi.Amount, pi2.Amount)
+		})
 	})
 }

@@ -63,6 +63,7 @@ type Invoices interface {
 	FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error)
 	Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error)
 	Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
+	Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
 }
 
 // InvoiceItems Stripe InvoiceItems interface.

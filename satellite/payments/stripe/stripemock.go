@@ -661,6 +661,34 @@ func (m *mockInvoices) Del(id string, params *stripe.InvoiceParams) (*stripe.Inv
 	return nil, nil
 }
 
+func (m *mockInvoices) Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, inv := range invoices {
+			if inv.ID == id {
+				items, ok := m.invoiceItems.items[inv.Customer.ID]
+				if ok {
+					amountDue := int64(0)
+					lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
+					for _, item := range items {
+						if item.Invoice != inv {
+							continue
+						}
+						lineData = append(lineData, &stripe.InvoiceLine{
+							InvoiceItem: item.ID,
+							Amount:      item.Amount,
+						})
+						amountDue += item.Amount
+					}
+					inv.Lines.Data = lineData
+					inv.Total = amountDue
+				}
+				return inv, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 type mockInvoiceItems struct {
 	root  *mockStripeState
 	items map[string][]*stripe.InvoiceItem
