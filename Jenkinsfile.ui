@@ -23,7 +23,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 sh "chmod -R 777 ."
-                ah 'bash -O extglob -c "rm -rf !(.git)"'
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
                 checkout scm
                 sh 'mkdir -p .build'
 
