@@ -78,66 +78,42 @@ func graphqlProjectMembersCursor() *graphql.InputObject {
 	})
 }
 
-func graphqlProjectMembersPage(types *TypeCreator) *graphql.Object {
-	fields := graphql.Fields{
-		FieldProjectMembers: &graphql.Field{
-			Type: graphql.NewList(types.projectMember),
-		},
-	}
-	for k, v := range commonProjectMembersPageFields() {
-		fields[k] = v
-	}
-	return graphql.NewObject(graphql.ObjectConfig{
-		Name:   ProjectMembersPageType,
-		Fields: fields,
-	})
-}
-
 func graphqlProjectMembersAndInvitationsPage(types *TypeCreator) *graphql.Object {
-	fields := graphql.Fields{
-		FieldProjectMembers: &graphql.Field{
-			Type: graphql.NewList(types.projectMember),
-		},
-		FieldProjectInvitations: &graphql.Field{
-			Type: graphql.NewList(types.projectInvitation),
-		},
-	}
-	for k, v := range commonProjectMembersPageFields() {
-		fields[k] = v
-	}
 	return graphql.NewObject(graphql.ObjectConfig{
-		Name:   ProjectMembersAndInvitationsPageType,
-		Fields: fields,
+		Name: ProjectMembersAndInvitationsPageType,
+		Fields: graphql.Fields{
+			FieldProjectMembers: &graphql.Field{
+				Type: graphql.NewList(types.projectMember),
+			},
+			FieldProjectInvitations: &graphql.Field{
+				Type: graphql.NewList(types.projectInvitation),
+			},
+			SearchArg: &graphql.Field{
+				Type: graphql.String,
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OrderArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OrderDirectionArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+		},
 	})
-}
-
-func commonProjectMembersPageFields() graphql.Fields {
-	return graphql.Fields{
-		SearchArg: &graphql.Field{
-			Type: graphql.String,
-		},
-		LimitArg: &graphql.Field{
-			Type: graphql.Int,
-		},
-		OrderArg: &graphql.Field{
-			Type: graphql.Int,
-		},
-		OrderDirectionArg: &graphql.Field{
-			Type: graphql.Int,
-		},
-		OffsetArg: &graphql.Field{
-			Type: graphql.Int,
-		},
-		FieldPageCount: &graphql.Field{
-			Type: graphql.Int,
-		},
-		FieldCurrentPage: &graphql.Field{
-			Type: graphql.Int,
-		},
-		FieldTotalCount: &graphql.Field{
-			Type: graphql.Int,
-		},
-	}
 }
 
 // projectMember encapsulates User and joinedAt.

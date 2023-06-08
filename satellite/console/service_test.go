@@ -287,19 +287,19 @@ func TestService(t *testing.T) {
 				require.Nil(t, addedUsers)
 			})
 
-			t.Run("GetProjectMembers", func(t *testing.T) {
+			t.Run("GetProjectMembersAndInvitations", func(t *testing.T) {
 				// Getting the project members of an own project that one is a part of should work
-				userPage, err := service.GetProjectMembers(userCtx1, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10}, console.Members)
+				userPage, err := service.GetProjectMembersAndInvitations(userCtx1, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is a part of should work
-				userPage, err = service.GetProjectMembers(userCtx2, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10}, console.Members)
+				userPage, err = service.GetProjectMembersAndInvitations(userCtx2, up1Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is not a part of should not work
-				userPage, err = service.GetProjectMembers(userCtx1, up2Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10}, console.Members)
+				userPage, err = service.GetProjectMembersAndInvitations(userCtx1, up2Proj.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.Error(t, err)
 				require.Nil(t, userPage)
 			})

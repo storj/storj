@@ -34,8 +34,6 @@ const (
 	BucketUsageType = "bucketUsage"
 	// BucketUsagePageType is a graphql type name for bucket usage page.
 	BucketUsagePageType = "bucketUsagePage"
-	// ProjectMembersPageType is a graphql type name for project members page.
-	ProjectMembersPageType = "projectMembersPage"
 	// ProjectMembersAndInvitationsPageType is a graphql type name for a page of project members and invitations.
 	ProjectMembersAndInvitationsPageType = "projectMembersAndInvitationsPage"
 	// ProjectMembersCursorInputType is a graphql type name for project members.
@@ -54,8 +52,6 @@ const (
 	FieldBucketName = "bucketName"
 	// FieldDescription is a field name for description.
 	FieldDescription = "description"
-	// FieldMembers is field name for members.
-	FieldMembers = "members"
 	// FieldMembersAndInvitations is field name for members and invitations.
 	FieldMembersAndInvitations = "membersAndInvitations"
 	// FieldAPIKeys is a field name for api keys.
@@ -112,48 +108,6 @@ const (
 
 // graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo.
 func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Object {
-	resolveMembersAndInvites := func(p graphql.ResolveParams, pagingType console.ProjectMembersPagingType) (interface{}, error) {
-		project, _ := p.Source.(*console.Project)
-
-		_, err := console.GetUser(p.Context)
-		if err != nil {
-			return nil, err
-		}
-
-		cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
-		page, err := service.GetProjectMembers(p.Context, project.ID, cursor, pagingType)
-		if err != nil {
-			return nil, err
-		}
-
-		var users []projectMember
-		for _, member := range page.ProjectMembers {
-			user, err := service.GetUser(p.Context, member.MemberID)
-			if err != nil {
-				return nil, err
-			}
-
-			users = append(users, projectMember{
-				User:     user,
-				JoinedAt: member.CreatedAt,
-			})
-		}
-
-		projectMembersPage := projectMembersPage{
-			ProjectMembers:     users,
-			ProjectInvitations: page.ProjectInvitations,
-			TotalCount:         page.TotalCount,
-			Offset:             page.Offset,
-			Limit:              page.Limit,
-			Order:              int(page.Order),
-			OrderDirection:     int(page.OrderDirection),
-			Search:             page.Search,
-			CurrentPage:        page.CurrentPage,
-			PageCount:          page.PageCount,
-		}
-		return projectMembersPage, nil
-	}
-
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectType,
 		Fields: graphql.Fields{
@@ -178,18 +132,6 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			FieldMemberCount: &graphql.Field{
 				Type: graphql.Int,
 			},
-			// TODO: Remove once the frontend has been updated to select membersAndInvitations.
-			FieldMembers: &graphql.Field{
-				Type: types.projectMemberPage,
-				Args: graphql.FieldConfigArgument{
-					CursorArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.projectMembersCursor),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return resolveMembersAndInvites(p, console.Members)
-				},
-			},
 			FieldMembersAndInvitations: &graphql.Field{
 				Type: types.projectMembersAndInvitationsPage,
 				Args: graphql.FieldConfigArgument{
@@ -198,7 +140,45 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return resolveMembersAndInvites(p, console.MembersAndInvitations)
+					project, _ := p.Source.(*console.Project)
+
+					_, err := console.GetUser(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
+					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetProjectMembersAndInvitations(p.Context, project.ID, cursor)
+					if err != nil {
+						return nil, err
+					}
+
+					var users []projectMember
+					for _, member := range page.ProjectMembers {
+						user, err := service.GetUser(p.Context, member.MemberID)
+						if err != nil {
+							return nil, err
+						}
+
+						users = append(users, projectMember{
+							User:     user,
+							JoinedAt: member.CreatedAt,
+						})
+					}
+
+					projectMembersPage := projectMembersPage{
+						ProjectMembers:     users,
+						ProjectInvitations: page.ProjectInvitations,
+						TotalCount:         page.TotalCount,
+						Offset:             page.Offset,
+						Limit:              page.Limit,
+						Order:              int(page.Order),
+						OrderDirection:     int(page.OrderDirection),
+						Search:             page.Search,
+						CurrentPage:        page.CurrentPage,
+						PageCount:          page.PageCount,
+					}
+					return projectMembersPage, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{

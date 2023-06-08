@@ -575,7 +575,7 @@ func TestProjects(t *testing.T) {
 					"query": `
 						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
 							project(id: $projectId) {
-								members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
+								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
 									projectMembers {
 										user {
 											id
@@ -598,7 +598,7 @@ func TestProjects(t *testing.T) {
 								__typename
 							}
 						}`}))
-			require.Contains(t, body, "projectMembersPage")
+			require.Contains(t, body, "projectMembersAndInvitationsPage")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -787,7 +787,7 @@ func TestWrongUser(t *testing.T) {
 					"query": `
 						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
 							project(id: $projectId) {
-								members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
+								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
 									projectMembers {
 										user {
 											id

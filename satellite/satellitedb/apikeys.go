@@ -79,8 +79,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		WHERE ak.project_id = ?
 		AND ak.project_id = p.id
 		AND lower(ak.name) LIKE ?
-		ORDER BY ` + sanitizedAPIKeyOrderColumnName(cursor.Order) + `
-		` + sanitizeOrderDirectionName(page.OrderDirection) + `
+		` + apikeySortClause(cursor.Order, page.OrderDirection) + `
 		LIMIT ? OFFSET ?`)
 
 	rows, err := keys.db.QueryContext(ctx,
@@ -171,8 +170,7 @@ func (keys *apikeys) GetAllNamesByProjectID(ctx context.Context, projectID uuid.
 		SELECT ak.name
 		FROM api_keys ak
 		WHERE ak.project_id = ?
-		ORDER BY ` + sanitizedAPIKeyOrderColumnName(console.KeyName) + `
-		` + sanitizeOrderDirectionName(console.Ascending),
+		` + apikeySortClause(console.KeyName, console.Ascending),
 	)
 
 	rows, err := keys.db.QueryContext(ctx, query, projectID[:])
@@ -285,11 +283,15 @@ func fromDBXAPIKey(ctx context.Context, row *dbx.ApiKey_Project_PublicId_Row) (_
 	return result, nil
 }
 
-// sanitizedAPIKeyOrderColumnName return valid order by column.
-func sanitizedAPIKeyOrderColumnName(pmo console.APIKeyOrder) string {
-	if pmo == 2 {
-		return "ak.created_at"
+// apikeySortClause returns what ORDER BY clause should be used when sorting API key results.
+func apikeySortClause(order console.APIKeyOrder, direction console.OrderDirection) string {
+	dirStr := "ASC"
+	if direction == console.Descending {
+		dirStr = "DESC"
 	}
 
-	return "lower(ak.name)"
+	if order == console.CreationDate {
+		return "ORDER BY ak.created_at " + dirStr + ", ak.name, ak.project_id"
+	}
+	return "ORDER BY LOWER(ak.name) " + dirStr + ", ak.name, ak.project_id"
 }

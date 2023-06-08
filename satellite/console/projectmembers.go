@@ -16,9 +16,6 @@ import (
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
-	// GetPagedByProjectID is a method for querying project members from the database by projectID and cursor.
-	// TODO: Remove once all uses have been replaced by GetPagedWithInvitationsByProjectID.
-	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
 	// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID and cursor.
 	GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
 	// Insert is a method for inserting project member into the database.
@@ -61,18 +58,6 @@ type ProjectMembersPage struct {
 	CurrentPage uint
 	TotalCount  uint64
 }
-
-// ProjectMembersPagingType determines what types of results should be returned
-// in a project members page.
-type ProjectMembersPagingType int
-
-const (
-	// Members indicates that only project members should be returned in a project members page.
-	Members ProjectMembersPagingType = iota
-	// MembersAndInvitations indicates that project members and project invitations should be
-	// returned in a project members page.
-	MembersAndInvitations
-)
 
 // ProjectMemberOrder is used for querying project members in specified order.
 type ProjectMemberOrder int8
