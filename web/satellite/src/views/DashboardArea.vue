@@ -129,7 +129,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
 import { FetchState } from '@/utils/constants/fetchStateEnum';

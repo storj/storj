@@ -205,7 +205,7 @@ import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';

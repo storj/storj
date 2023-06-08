@@ -82,7 +82,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 
 import VButton from '@/components/common/VButton.vue';

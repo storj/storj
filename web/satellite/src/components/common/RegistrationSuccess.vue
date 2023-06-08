@@ -53,7 +53,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';

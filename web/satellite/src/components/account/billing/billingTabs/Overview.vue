@@ -93,7 +93,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { centsToDollars } from '@/utils/strings';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';

@@ -52,7 +52,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import {
     AnalyticsErrorEventSource,

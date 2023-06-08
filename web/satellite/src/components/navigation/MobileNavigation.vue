@@ -176,7 +176,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';

@@ -284,7 +284,7 @@ import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { User } from '@/types/users';
 import { useNotify } from '@/utils/hooks';

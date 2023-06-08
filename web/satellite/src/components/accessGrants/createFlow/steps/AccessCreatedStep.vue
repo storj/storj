@@ -70,7 +70,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessType } from '@/types/createAccessGrant';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';

@@ -100,7 +100,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
 import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';

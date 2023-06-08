@@ -42,7 +42,7 @@ import { useRoute } from 'vue-router';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 

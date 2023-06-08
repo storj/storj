@@ -148,7 +148,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';

@@ -81,7 +81,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';

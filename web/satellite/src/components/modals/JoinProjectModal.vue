@@ -50,7 +50,7 @@ import { useNotify } from '@/utils/hooks';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';

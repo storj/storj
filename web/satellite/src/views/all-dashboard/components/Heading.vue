@@ -98,7 +98,7 @@ import { useNotify } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';

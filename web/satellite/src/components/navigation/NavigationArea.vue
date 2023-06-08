@@ -84,7 +84,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';

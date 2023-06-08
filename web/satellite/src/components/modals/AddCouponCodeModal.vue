@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAppStore } from '@/store/modules/appStore';
 

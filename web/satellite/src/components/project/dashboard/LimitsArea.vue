@@ -94,7 +94,7 @@ import { Size } from '@/utils/bytesSize';
 import { Coupon, ProjectCharges } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import LimitCard from '@/components/project/dashboard/LimitCard.vue';
 

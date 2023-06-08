@@ -102,6 +102,7 @@ type Config struct {
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"false"`
+	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -436,7 +437,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
-	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
+	var path string
+	if server.config.UseVuetifyProject {
+		path = filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
+	} else {
+		path = filepath.Join(server.config.StaticDir, "dist", "index.html")
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

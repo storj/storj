@@ -51,7 +51,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';

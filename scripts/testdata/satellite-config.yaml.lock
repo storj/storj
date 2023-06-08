@@ -394,6 +394,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
 
+# whether to use vuetify POC project
+# console.use-vuetify-project: false
+
 # whether to load templates on each request
 # console.watch: false
 

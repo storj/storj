@@ -111,7 +111,7 @@ import { generateMnemonic } from 'bip39-english';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useNotify } from '@/utils/hooks';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import {
     AccessType,
     CreateAccessStep,

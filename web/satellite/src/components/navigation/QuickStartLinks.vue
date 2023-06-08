@@ -46,7 +46,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';

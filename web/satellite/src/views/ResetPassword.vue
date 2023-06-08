@@ -80,7 +80,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { useNotify } from '@/utils/hooks';

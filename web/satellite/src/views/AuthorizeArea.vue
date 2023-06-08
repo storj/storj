@@ -92,7 +92,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Validator } from '@/utils/validation';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';

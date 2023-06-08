@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { useAppStore } from '@/store/modules/appStore';
 
 import VBanner from '@/components/common/VBanner.vue';

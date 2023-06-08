@@ -34,7 +34,7 @@ import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';

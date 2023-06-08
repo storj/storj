@@ -49,7 +49,7 @@
 import { computed, ref } from 'vue';
 
 import { Project, ProjectInvitation } from '@/types/projects';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import {
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';

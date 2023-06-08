@@ -117,7 +117,7 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';

@@ -3,7 +3,8 @@
 
 import { shallowMount } from '@vue/test-utils';
 
-import { RouteConfig, router } from '@/router';
+import { router } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import DashboardArea from '@/views/DashboardArea.vue';
 

@@ -66,7 +66,7 @@ import { useRouter } from 'vue-router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

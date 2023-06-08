@@ -40,7 +40,7 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
     }));
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
     return {
         base: '/static/dist',
         plugins,
@@ -59,6 +59,9 @@ export default defineConfig(({ mode }) => {
                 output: {
                     experimentalMinChunkSize: 50*1024,
                 },
+                external: [
+                    /vuetify-poc/,
+                ],
             },
             chunkSizeWarningLimit: 3000,
         },

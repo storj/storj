@@ -25,7 +25,7 @@ import { computed, onBeforeMount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Bucket } from '@/types/buckets';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';

@@ -67,7 +67,7 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';

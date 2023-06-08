@@ -161,7 +161,7 @@ import { useRouter } from 'vue-router';
 
 import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

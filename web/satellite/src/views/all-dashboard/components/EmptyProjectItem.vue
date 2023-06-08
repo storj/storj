@@ -32,7 +32,7 @@
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';

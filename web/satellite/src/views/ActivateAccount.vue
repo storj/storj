@@ -58,7 +58,7 @@ import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Validator } from '@/utils/validation';
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';

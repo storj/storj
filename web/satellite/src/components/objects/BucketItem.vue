@@ -32,7 +32,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Bucket } from '@/types/buckets';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';

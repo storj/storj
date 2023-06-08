@@ -5,8 +5,10 @@
   "scripts": {
     "preview": "vite preview",
     "dev": "vite",
-    "build": "vite build",
-    "build-watch": "NODE_ENV=development vite build --watch",
+    "build": "vite build -c vite.config.js",
+    "build-watch": "NODE_ENV=development vite build -c vite.config.js --watch",
+    "build-vuetify": "vite build -c vite.config-vuetify.js",
+    "build-vuetify-watch": "NODE_ENV=development vite build -c vite.config-vuetify.js --watch",
     "lint": "eslint --ext .js,.ts,.vue src --fix && stylelint . --max-warnings 0 --fix",
     "lint-ci": "eslint --ext .js,.ts,.vue src --no-fix && stylelint . --max-warnings 0 --no-fix",
     "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
@@ -20,6 +22,7 @@
     "@aws-sdk/s3-request-presigner": "3.338.0",
     "@aws-sdk/signature-v4": "3.338.0",
     "@hcaptcha/vue3-hcaptcha": "1.2.1",
+    "@mdi/font": "7.0.96",
     "bip39-english": "2.5.0",
     "chart.js": "4.2.1",
     "graphql": "15.3.0",
@@ -31,7 +34,8 @@
     "util": "0.12.5",
     "vue": "3.3.2",
     "vue-datepicker-next": "1.0.3",
-    "vue-router": "4.2.0"
+    "vue-router": "4.2.0",
+    "vuetify": "3.3.2"
   },
   "devDependencies": {
     "@types/filesystem": "0.0.32",
@@ -50,19 +54,21 @@
     "postcss-html": "1.5.0",
     "rollup-plugin-visualizer": "5.9.0",
     "sass": "1.62.1",
-    "stylelint": "15.6.1",
+    "stylelint": "15.7.0",
     "stylelint-config-standard": "33.0.0",
     "stylelint-config-standard-scss": "9.0.0",
     "stylelint-config-standard-vue": "1.0.0",
-    "stylelint-scss": "5.0.0",
+    "stylelint-scss": "5.0.1",
     "typescript": "4.9.5",
     "vite": "4.3.9",
     "vite-plugin-compression": "0.5.1",
     "vite-plugin-require": "1.1.10",
+    "vite-plugin-vuetify": "1.0.2",
     "vite-svg-loader": "4.0.0",
     "vitest": "0.31.1",
     "vitest-fetch-mock": "0.2.2",
-    "vue-eslint-parser": "9.3.0"
+    "vue-eslint-parser": "9.3.0",
+    "webfontloader": "1.6.28"
   },
   "browserslist": [
     "defaults"
