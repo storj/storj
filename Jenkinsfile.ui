@@ -11,7 +11,7 @@ pipeline {
     }
     options {
         timeout(time: 4, unit: 'HOURS')
-        skipDefaultCheckout(false)
+        skipDefaultCheckout(true)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
