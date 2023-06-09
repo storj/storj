@@ -639,6 +639,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Reputation.Service,
 			peer.DB.StoragenodeAccounting(),
 			config.Payments,
+			config.Compensation,
 		)
 		if err := pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())

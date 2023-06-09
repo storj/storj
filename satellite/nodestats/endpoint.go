@@ -6,6 +6,7 @@ package nodestats
 import (
 	"context"
 
+	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
@@ -13,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/reputation"
@@ -33,16 +35,18 @@ type Endpoint struct {
 	reputation *reputation.Service
 	accounting accounting.StoragenodeAccounting
 	config     paymentsconfig.Config
+	compConfig compensation.Config
 }
 
 // NewEndpoint creates new endpoint.
-func NewEndpoint(log *zap.Logger, overlay overlay.DB, reputation *reputation.Service, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, reputation *reputation.Service, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config, compConfig compensation.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		overlay:    overlay,
 		reputation: reputation,
 		accounting: accounting,
 		config:     config,
+		compConfig: compConfig,
 	}
 }
 
@@ -127,15 +131,24 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	}, nil
 }
 
+var dollarsToCents = decimal.NewFromInt(100)
+var dollarsPerGBHourTocentsPerTBMonth = decimal.NewFromInt(100 * 1000 * 720)
+
 // PricingModel returns pricing model for storagenode.
 func (e *Endpoint) PricingModel(ctx context.Context, req *pb.PricingModelRequest) (_ *pb.PricingModelResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// PricingModelResponse wants cents/TB and cents/TB-mo.
+	// e.compConfig values are in $/TB and $/GB-h.
+	// For converting monthly rates into hourly rates, months have been
+	// standardized as being a 720 hour interval. This pricing model response
+	// is purely for display and is okay to convert backwards.
+
 	return &pb.PricingModelResponse{
-		EgressBandwidthPrice: e.config.NodeEgressBandwidthPrice,
-		RepairBandwidthPrice: e.config.NodeRepairBandwidthPrice,
-		DiskSpacePrice:       e.config.NodeDiskSpacePrice,
-		AuditBandwidthPrice:  e.config.NodeAuditBandwidthPrice,
+		EgressBandwidthPrice: decimal.Decimal(e.compConfig.Rates.GetTB).Mul(dollarsToCents).IntPart(),
+		RepairBandwidthPrice: decimal.Decimal(e.compConfig.Rates.GetRepairTB).Mul(dollarsToCents).IntPart(),
+		AuditBandwidthPrice:  decimal.Decimal(e.compConfig.Rates.GetAuditTB).Mul(dollarsToCents).IntPart(),
+		DiskSpacePrice:       decimal.Decimal(e.compConfig.Rates.AtRestGBHours).Mul(dollarsPerGBHourTocentsPerTBMonth).IntPart(),
 	}, nil
 }
 

@@ -416,10 +416,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Tally.ReadRollupBatchSize = 0
 	config.Rollup.DeleteTallies = false
 	config.Payments.BonusRate = 0
-	config.Payments.NodeEgressBandwidthPrice = 0
-	config.Payments.NodeRepairBandwidthPrice = 0
-	config.Payments.NodeAuditBandwidthPrice = 0
-	config.Payments.NodeDiskSpacePrice = 0
 	config.Identity.CertPath = ""
 	config.Identity.KeyPath = ""
 	config.Metainfo.DatabaseURL = ""
