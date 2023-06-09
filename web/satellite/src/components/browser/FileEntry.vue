@@ -440,9 +440,9 @@ function openDropdown(): void {
 /**
  * Download the current file.
  */
-function download(): void {
+async function download(): Promise<void> {
     try {
-        obStore.download(props.file);
+        await obStore.download(props.file);
         notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
