@@ -52,6 +52,8 @@ export enum AnalyticsEvent {
     PROJECT_STORAGE_LIMIT_UPDATED = 'Project Storage Limit Updated',
     PROJECT_BANDWIDTH_LIMIT_UPDATED = 'Project Bandwidth Limit Updated',
     GALLERY_VIEW_CLICKED = 'Gallery View Clicked',
+    PROJECT_INVITATION_ACCEPTED = 'Project Invitation Accepted',
+    PROJECT_INVITATION_DECLINED = 'Project Invitation Declined',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -112,4 +114,6 @@ export enum AnalyticsErrorEventSource {
     PRICING_PLAN_STEP = 'Onboarding Pricing Plan step error',
     EDIT_TIMEOUT_MODAL = 'Edit session timeout error',
     SKIP_PASSPHRASE_MODAL = 'Remember skip passphrase error',
+    JOIN_PROJECT_MODAL = 'Join project modal',
+    PROJECT_INVITATION = 'Project invitation',
 }

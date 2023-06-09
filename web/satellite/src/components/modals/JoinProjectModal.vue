@@ -49,6 +49,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { RouteConfig } from '@/types/router';
 
@@ -80,20 +81,23 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
     if (isLoading.value) return;
     isLoading.value = true;
 
+    const accepted = response === ProjectInvitationResponse.Accept;
+
     let success = false;
     try {
         await projectsStore.respondToInvitation(invite.value.projectID, response);
+        analytics.eventTriggered(accepted ? AnalyticsEvent.PROJECT_INVITATION_ACCEPTED : AnalyticsEvent.PROJECT_INVITATION_DECLINED);
         success = true;
     } catch (error) {
-        const action = response === ProjectInvitationResponse.Accept ? 'accept' : 'decline';
-        notify.error(`Failed to ${action} project invitation. ${error.message}`, null);
+        const action = accepted ? 'accept' : 'decline';
+        notify.error(`Failed to ${action} project invitation. ${error.message}`, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
     }
 
     try {
         await projectsStore.getUserInvitations();
         await projectsStore.getProjects();
     } catch (error) {
-        notify.error(`Failed to reload projects and invitations list. ${error.message}`, null);
+        notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
     }
 
     if (!success) {
@@ -101,7 +105,7 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
         return;
     }
 
-    if (response === ProjectInvitationResponse.Accept) {
+    if (accepted) {
         projectsStore.selectProject(invite.value.projectID);
         LocalData.setSelectedProjectId(invite.value.projectID);
 

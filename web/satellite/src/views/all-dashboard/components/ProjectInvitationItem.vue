@@ -40,7 +40,8 @@ import { ref } from 'vue';
 
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -51,6 +52,8 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(false);
 
@@ -77,15 +80,16 @@ async function onDeclineClicked(): Promise<void> {
 
     try {
         await projectsStore.respondToInvitation(props.invitation.projectID, ProjectInvitationResponse.Decline);
+        analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
     } catch (error) {
-        notify.error(`Failed to decline project invitation. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Failed to decline project invitation. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
     }
 
     try {
         await projectsStore.getUserInvitations();
         await projectsStore.getProjects();
     } catch (error) {
-        notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
     }
 
     isLoading.value = false;
