@@ -42,7 +42,7 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+            <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
                 <InfoIcon />
                 <p class="project-selection__dropdown__link-container__label">Project Details</p>
             </div>
@@ -129,6 +129,13 @@ const style = computed((): Record<string, string> => {
  */
 const isOnboardingTour = computed((): boolean => {
     return route.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/*
+ * Whether the user is the owner of the selected project.
+ */
+const isProjectOwner = computed((): boolean => {
+    return userStore.state.user.id === projectsStore.state.selectedProject.ownerId;
 });
 
 /**

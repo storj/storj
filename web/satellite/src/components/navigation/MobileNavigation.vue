@@ -47,7 +47,7 @@
                                 <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                             </div>
                         </div>
-                        <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                        <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
                             <InfoIcon />
                             <p class="project-selection__dropdown__link-container__label">Project Details</p>
                         </div>
@@ -258,6 +258,13 @@ const isProjectDropdownShown = ref<boolean>(false);
 const isAccountDropdownShown = ref<boolean>(false);
 const isOpened = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
+
+/*
+ * Whether the user is the owner of the selected project.
+ */
+const isProjectOwner = computed((): boolean => {
+    return usersStore.state.user.id === projectsStore.state.selectedProject.ownerId;
+});
 
 /**
  * Indicates if all projects dashboard should be used.
