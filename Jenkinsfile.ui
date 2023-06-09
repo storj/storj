@@ -3,8 +3,6 @@ pipeline {
         docker {
             label 'main'
             image 'storjqa/ci-ui:latest'
-            // image 'mcr.microsoft.com/playwright:v1.33.0-jammy'
-
             alwaysPull true
             args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
         }
@@ -15,7 +13,7 @@ pipeline {
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
-        GOTRACEBACK = 'all'
+        aGOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
         PLAYWRIGHT_BROWSERS_PATH=0
     }
@@ -103,7 +101,7 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-					sh 'npx playwright install --with-deps'
+					//sh 'npx playwright install --with-deps'
                 }
             }
         }
