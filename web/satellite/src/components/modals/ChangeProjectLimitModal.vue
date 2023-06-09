@@ -60,7 +60,9 @@
                     <div class="modal__functional__range">
                         <div class="modal__functional__range__labels">
                             <p>0 {{ activeMeasurement }}</p>
-                            <p>{{ isBandwidthUpdating ? paidBandwidthLimit : paidStorageLimit }} {{ activeMeasurement }}</p>
+                            <p>
+                                {{ isBandwidthUpdating ? paidBandwidthLimit.toLocaleString() : paidStorageLimit.toLocaleString() }} {{ activeMeasurement }}
+                            </p>
                         </div>
                         <input
                             ref="rangeInput"

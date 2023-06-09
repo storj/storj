@@ -37,9 +37,9 @@
             <template v-else>
                 <p class="dashboard-header__subtitle" aria-roledescription="with-usage-title">
                     Your
-                    <span class="dashboard-header__subtitle__value">{{ limits.objectCount }} objects</span>
+                    <span class="dashboard-header__subtitle__value">{{ limits.objectCount.toLocaleString() }} objects</span>
                     are stored <br>in
-                    <span class="dashboard-header__subtitle__value">{{ limits.segmentCount }} segments</span>
+                    <span class="dashboard-header__subtitle__value">{{ limits.segmentCount.toLocaleString() }} segments</span>
                     around the world
                 </p>
                 <p class="dashboard-header__limits">

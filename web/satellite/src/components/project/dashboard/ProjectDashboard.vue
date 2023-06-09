@@ -108,7 +108,7 @@
                 :icon="BucketsIcon"
                 title="Buckets"
                 :subtitle="`Last update ${now}`"
-                :value="bucketsCount.toString()"
+                :value="bucketsCount.toLocaleString()"
                 :is-data-fetching="areBucketsFetching"
             >
                 <template #side-value>
@@ -121,7 +121,7 @@
                 :icon="GrantsIcon"
                 title="Access Grants"
                 :subtitle="`Last update ${now}`"
-                :value="accessGrantsCount.toString()"
+                :value="accessGrantsCount.toLocaleString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
@@ -134,7 +134,7 @@
                 :icon="TeamIcon"
                 title="Users"
                 :subtitle="`Last update ${now}`"
-                :value="teamSize.toString()"
+                :value="teamSize.toLocaleString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
