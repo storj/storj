@@ -261,9 +261,9 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 /**
  * Download the current opened file.
  */
-function download(): void {
+async function download(): Promise<void> {
     try {
-        obStore.download(file.value);
+        await obStore.download(file.value);
         notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);

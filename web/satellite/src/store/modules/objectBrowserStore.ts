@@ -689,14 +689,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         clearAllSelectedFiles();
     }
 
-    function download(file): void {
+    async function download(file): Promise<void> {
         assertIsInitialized(state);
 
-        const url = getSignedUrl(state.s3, new GetObjectCommand({
+        const url = await getSignedUrl(state.s3, new GetObjectCommand({
             Bucket: state.bucket,
             Key: state.path + file.Key,
         }));
-        const downloadURL = function(data, fileName) {
+        const downloadURL = function(data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;
             a.download = fileName;
