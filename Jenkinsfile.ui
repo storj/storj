@@ -103,10 +103,7 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-                    warnError('Script failed!') {
-						sh 'npm ci'
-						sh 'npx playwright install --with-deps'
-                    }
+					sh 'npx playwright install --with-deps'
                 }
             }
         }
@@ -130,7 +127,7 @@ pipeline {
                         --kv-backend badger:// > authservice.log 2>&1 &
                 '''
                 sh '''
-                    nohup gateway run \
+                    nohup gateway-mt run \
                         --auth.token my-test-auth-token \
                         --auth.base-url http://localhost:8000 \
                         --domain-name localhost \
@@ -159,7 +156,8 @@ pipeline {
                 stage('report') {
                     steps {
                         //execute the report
-                        sh 'npm run posttest'
+						//sh 'npm run posttest'
+						sh 'echo "Test complete"'
                     }
                 }
             }
