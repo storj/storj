@@ -27,7 +27,7 @@ import (
 func TestSegmentRepairPlacement(t *testing.T) {
 	piecesCount := 4
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, piecesCount, piecesCount),
 		},
