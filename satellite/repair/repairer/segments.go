@@ -400,6 +400,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: requestCount,
 		ExcludedIDs:    excludeNodeIDs,
+		Placement:      segment.Placement,
 	}
 	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
