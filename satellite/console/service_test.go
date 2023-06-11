@@ -1975,14 +1975,7 @@ func TestProjectInvitations(t *testing.T) {
 			return project
 		}
 
-		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string, createdAt time.Time) *console.ProjectInvitation {
-			invite, err := sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
-				ProjectID: project.ID,
-				Email:     email,
-				InviterID: &project.OwnerID,
-			})
-			require.NoError(t, err)
-
+		setInviteDate := func(ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) *console.ProjectInvitation {
 			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
 				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
 				createdAt, invite.ProjectID, strings.ToUpper(invite.Email),
@@ -1993,7 +1986,20 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, 1, count)
 
+			invite, err = sat.DB.Console().ProjectInvitations().Get(ctx, invite.ProjectID, invite.Email)
+			require.NoError(t, err)
 			return invite
+		}
+
+		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string, createdAt time.Time) *console.ProjectInvitation {
+			invite, err := sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     email,
+				InviterID: &project.OwnerID,
+			})
+			require.NoError(t, err)
+
+			return setInviteDate(ctx, invite, createdAt)
 		}
 
 		t.Run("get invitation", func(t *testing.T) {
@@ -2011,6 +2017,11 @@ func TestProjectInvitations(t *testing.T) {
 			require.Equal(t, invite.Email, invites[0].Email)
 			require.Equal(t, invite.InviterID, invites[0].InviterID)
 			require.WithinDuration(t, invite.CreatedAt, invites[0].CreatedAt, time.Second)
+
+			setInviteDate(ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			invites, err = service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Empty(t, invites)
 		})
 
 		t.Run("accept invitation", func(t *testing.T) {

@@ -3445,7 +3445,30 @@ func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInv
 		return nil, Error.Wrap(err)
 	}
 
-	return invites, nil
+	var active []ProjectInvitation
+	var deleteErrs []error
+	var expiredIDs []string
+	for _, invite := range invites {
+		if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+			err := s.store.ProjectInvitations().Delete(ctx, invite.ProjectID, invite.Email)
+			if err != nil {
+				deleteErrs = append(deleteErrs, err)
+				expiredIDs = append(expiredIDs, invite.ProjectID.String())
+			}
+			continue
+		}
+		active = append(active, invite)
+	}
+
+	if len(deleteErrs) != 0 {
+		s.log.Warn("error deleting expired project invitations",
+			zap.Errors("errors", deleteErrs),
+			zap.String("email", user.Email),
+			zap.Strings("projectIDs", expiredIDs),
+		)
+	}
+
+	return active, nil
 }
 
 // ProjectInvitationResponse represents a response to a project member invitation.
