@@ -2400,6 +2400,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN default_placement integer;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index on project_id column for project_members",
+				Version:     240,
+				Action: migrate.SQL{
+					`CREATE INDEX project_members_project_id_index ON project_members ( project_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
