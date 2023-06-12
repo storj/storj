@@ -1,7 +1,9 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import {BucketsPageObjects} from "@objects/BucketsPageObjects";
 import type {Page} from '@playwright/test';
 import {expect} from "@playwright/test";
-
 
 export class BucketsPage extends BucketsPageObjects {
     readonly page: Page;

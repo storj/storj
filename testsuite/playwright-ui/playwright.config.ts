@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 // @ts-ignore
 import os from 'node:os';
 import GenerateCustomLayoutSimpleMeta from '@config/slackReporter';

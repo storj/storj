@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 export class SignupPageObjects {
     // SIGNUP
     protected static INPUT_NAME_XPATH = `//input[@id='Full Name']`;
