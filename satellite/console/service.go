@@ -2409,6 +2409,28 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	return Error.Wrap(err)
 }
 
+// GetAllAPIKeyNamesByProjectID returns all api key names by project ID.
+func (s *Service) GetAllAPIKeyNamesByProjectID(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get all api key names by project ID", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	names, err = s.store.APIKeys().GetAllNamesByProjectID(ctx, isMember.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return names, nil
+}
+
 // DeleteAPIKeyByNameAndProjectID deletes api key by name and project ID.
 // ID here may be project.publicID or project.ID.
 func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (err error) {

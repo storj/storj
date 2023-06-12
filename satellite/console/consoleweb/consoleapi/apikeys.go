@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/zeebo/errs"
@@ -30,6 +31,41 @@ func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	return &APIKeys{
 		log:     log,
 		service: service,
+	}
+}
+
+// GetAllAPIKeyNames returns all api key names by project ID.
+func (keys *APIKeys) GetAllAPIKeyNames(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		keys.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		keys.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	apiKeyNames, err := keys.service.GetAllAPIKeyNamesByProjectID(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(apiKeyNames)
+	if err != nil {
+		keys.log.Error("failed to write json all api key names response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
 	}
 }
 

@@ -162,6 +162,45 @@ func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, pro
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
+// GetAllNamesByProjectID implements satellite.APIKeys.
+func (keys *apikeys) GetAllNamesByProjectID(ctx context.Context, projectID uuid.UUID) ([]string, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	query := keys.db.Rebind(`
+		SELECT ak.name
+		FROM api_keys ak
+		WHERE ak.project_id = ?
+		ORDER BY ` + sanitizedAPIKeyOrderColumnName(console.KeyName) + `
+		` + sanitizeOrderDirectionName(console.Ascending),
+	)
+
+	rows, err := keys.db.QueryContext(ctx, query, projectID[:])
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	names := make([]string, 0)
+	for rows.Next() {
+		var name string
+
+		err = rows.Scan(&name)
+		if err != nil {
+			return nil, err
+		}
+
+		names = append(names, name)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
+
 // Create implements satellite.APIKeys.
 func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
