@@ -10,7 +10,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.1.0
 	storj.io/common v0.0.0-20230602145716-d6ea82d58b3d
-	storj.io/private v0.0.0-20230405095015-9e5bbc1c7ca8
+	storj.io/private v0.0.0-20230601151834-9393da068323
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
 	storj.io/uplink v1.10.1-0.20230607180240-72bcffbeac33
