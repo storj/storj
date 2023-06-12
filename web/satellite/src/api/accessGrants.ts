@@ -129,7 +129,26 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
     }
 
     /**
-     * Used to delete access grant access grant by name and project ID.
+     * Fetch all API key names.
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    public async getAllAPIKeyNames(projectId: string): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/api-key-names?projectID=${projectId}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('Can not get access grant names');
+        }
+
+        const result = await response.json();
+
+        return result ? result : [];
+    }
+
+    /**
+     * Used to delete access grant by name and project ID.
      *
      * @param name - name of the access grant that will be deleted
      * @param projectID - id of the project where access grant was created

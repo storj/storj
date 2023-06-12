@@ -18,6 +18,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 class AccessGrantsState {
+    public allAGNames: string[] = [];
     public cursor: AccessGrantCursor = new AccessGrantCursor();
     public page: AccessGrantsPage = new AccessGrantsPage();
     public selectedAccessGrantsIds: string[] = [];
@@ -74,6 +75,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.accessGrantsWebWorker?.terminate();
         state.accessGrantsWebWorker = null;
         state.isAccessGrantsWebWorkerReady = false;
+    }
+
+    async function getAllAGNames(projectID: string): Promise<void> {
+        state.allAGNames = await api.getAllAPIKeyNames(projectID);
     }
 
     async function getAccessGrants(pageNumber: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<AccessGrantsPage> {
@@ -205,6 +210,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     function clear(): void {
+        state.allAGNames = [];
         state.cursor = new AccessGrantCursor();
         state.page = new AccessGrantsPage();
         state.selectedAccessGrantsIds = [];
@@ -227,6 +233,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     return {
         state,
         selectedAccessGrants,
+        getAllAGNames,
         startWorker,
         stopWorker,
         getAccessGrants,

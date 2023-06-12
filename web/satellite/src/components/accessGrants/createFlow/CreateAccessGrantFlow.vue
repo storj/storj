@@ -99,7 +99,9 @@
                     :credentials="edgeCredentials"
                     :name="accessName"
                 />
-                <div v-if="isLoading" class="modal__blur" />
+                <div v-if="isLoading" class="modal__blur">
+                    <VLoader width="50px" height="50px" />
+                </div>
             </div>
         </template>
     </VModal>
@@ -130,6 +132,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import VModal from '@/components/common/VModal.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
 import ChoosePermissionStep from '@/components/accessGrants/createFlow/steps/ChoosePermissionStep.vue';
 import AccessEncryptionStep from '@/components/accessGrants/createFlow/steps/AccessEncryptionStep.vue';
@@ -158,6 +161,13 @@ const initPermissions = [
 ];
 
 /**
+ * Returns all AG names from store.
+ */
+const allAGNames = computed((): string[] => {
+    return agStore.state.allAGNames;
+});
+
+/**
  * Indicates if user has to be prompt to enter project passphrase.
  */
 const isPromptForPassphrase = computed((): boolean => {
@@ -172,7 +182,7 @@ const storedPassphrase = computed((): string => {
 });
 
 const worker = ref<Worker| null>(null);
-const isLoading = ref<boolean>(false);
+const isLoading = ref<boolean>(true);
 const step = ref<CreateAccessStep>(CreateAccessStep.CreateNewAccess);
 const selectedAccessTypes = ref<AccessType[]>([]);
 const selectedPermissions = ref<Permission[]>(initPermissions);
@@ -384,6 +394,11 @@ function setStep(stepArg: CreateAccessStep): void {
  * If not then we set regular second step (Permissions).
  */
 function setSecondStepBasedOnAccessType(): void {
+    if (allAGNames.value.includes(accessName.value)) {
+        notify.error('Provided name is already in use', AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        return;
+    }
+
     // Unfortunately local storage updates are not reactive so putting it inside computed property doesn't do anything.
     // That's why we explicitly call it here.
     const shouldShowInfo = !LocalData.getServerSideEncryptionModalHidden() && selectedAccessTypes.value.includes(AccessType.S3);
@@ -626,10 +641,17 @@ onMounted(async () => {
     generatedPassphrase.value = generateMnemonic();
 
     try {
-        await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
+        const projectID = projectsStore.state.selectedProject.id;
+
+        await Promise.all([
+            agStore.getAllAGNames(projectID),
+            bucketsStore.getAllBucketsNames(projectID),
+        ]);
     } catch (error) {
-        notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
+
+    isLoading.value = false;
 });
 </script>
 
@@ -677,6 +699,9 @@ onMounted(async () => {
         inset: 0;
         background-color: rgb(0 0 0 / 10%);
         border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 </style>

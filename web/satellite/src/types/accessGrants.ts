@@ -7,14 +7,6 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 /**
- * AccessGrantsWorker provides access to the WASM module.
- */
-export interface AccessGrantsWorkerFactory {
-    // TODO: this should be converted to a proper interface.
-    create(): Worker;
-}
-
-/**
  * Exposes all access grants-related functionality.
  */
 export interface AccessGrantsApi {
@@ -49,6 +41,14 @@ export interface AccessGrantsApi {
      * @throws Error
      */
     deleteByNameAndProjectID(name: string, projectID: string): Promise<void>;
+
+    /**
+     * Fetch all API key names.
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    getAllAPIKeyNames(projectId: string): Promise<string[]>
 
     /**
      * Get gateway credentials using access grant
