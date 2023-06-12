@@ -190,6 +190,52 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 	})
 }
 
+func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+
+		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Name:      "testbucket",
+			Placement: storj.EU,
+		})
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+		}
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		// change all nodes location to US
+		for _, node := range planet.StorageNodes {
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "US"))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.Len(t, segments[0].Pieces, 4)
+
+		// we have bucket geofenced to EU but now all nodes are in US, repairing should fail because
+		// not enough nodes are available but segment shouldn't be deleted from repair queue
+		shouldDelete, err := planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+			StreamID: segments[0].StreamID,
+			Position: segments[0].Position,
+		})
+		require.Error(t, err)
+		require.False(t, shouldDelete)
+	})
+}
+
 func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint) (bool, error) {
 	for _, piece := range pieces {
 		nodeDossier, err := overaly.Get(ctx, piece.StorageNode)
