@@ -31,12 +31,6 @@ var (
 	// errNotImplemented is the error value used by handlers of this package to
 	// response with status Not Implemented.
 	errNotImplemented = errs.New("not implemented")
-
-	// supportedCORSOrigins allows us to support visitors who sign up from the website.
-	supportedCORSOrigins = map[string]bool{
-		"https://storj.io":     true,
-		"https://www.storj.io": true,
-	}
 )
 
 // Auth is an api controller that exposes all auth functionality.
@@ -210,19 +204,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	origin := r.Header.Get("Origin")
-	if supportedCORSOrigins[origin] {
-		// we should send the exact origin back, rather than a wildcard
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	}
-
-	// OPTIONS is a pre-flight check for cross-origin (CORS) permissions
-	if r.Method == "OPTIONS" {
-		return
-	}
-
 	var registerData struct {
 		FullName         string `json:"fullName"`
 		ShortName        string `json:"shortName"`
@@ -352,7 +333,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			FullName:     user.FullName,
 			Email:        user.Email,
 			Type:         analytics.Personal,
-			OriginHeader: origin,
+			OriginHeader: r.Header.Get("Origin"),
 			Referrer:     referrer,
 			HubspotUTK:   hubspotUTK,
 			UserAgent:    string(user.UserAgent),
