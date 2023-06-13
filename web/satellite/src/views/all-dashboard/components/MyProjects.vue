@@ -67,8 +67,8 @@
         <div v-if="projects.length || invites.length" class="my-projects__list">
             <projects-table v-if="isTableViewSelected" :invites="invites" class="my-projects__list__table" />
             <div v-else-if="!isTableViewSelected" class="my-projects__list__cards">
-                <project-item v-for="project in projects" :key="project.id" :project="project" />
                 <project-invitation-item v-for="invite in invites" :key="invite.projectID" :invitation="invite" />
+                <project-item v-for="project in projects" :key="project.id" :project="project" />
             </div>
         </div>
         <div v-else class="my-projects__empty-area">
