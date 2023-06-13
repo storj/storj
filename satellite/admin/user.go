@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,8 +12,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/zeebo/errs"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/memory"
@@ -340,6 +343,101 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "failed to update user",
 			err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func (server *Server) updateUsersUserAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	creationDatePlusMonth := user.CreatedAt.AddDate(0, 1, 0)
+	if time.Now().After(creationDatePlusMonth) {
+		sendJSONError(w, "this user was created more than a month ago",
+			"we should update user agent only for recently created users", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		UserAgent string `json:"userAgent"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if input.UserAgent == "" {
+		sendJSONError(w, "UserAgent was not provided",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	newUserAgent := []byte(input.UserAgent)
+
+	if bytes.Equal(user.UserAgent, newUserAgent) {
+		sendJSONError(w, "new UserAgent is equal to existing users UserAgent",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.Console().Users().UpdateUserAgent(ctx, user.ID, newUserAgent)
+	if err != nil {
+		sendJSONError(w, "failed to update user's user agent",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get users projects",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var errList errs.Group
+	for _, project := range projects {
+		if bytes.Equal(project.UserAgent, newUserAgent) {
+			errList.Add(errs.New("projectID: %s. New UserAgent is equal to existing users UserAgent", project.ID))
+			continue
+		}
+
+		err = server._updateProjectsUserAgent(ctx, project.ID, newUserAgent)
+		if err != nil {
+			errList.Add(errs.New("projectID: %s. Failed to update projects user agent: %s", project.ID, err))
+		}
+	}
+
+	if errList.Err() != nil {
+		sendJSONError(w, "failed to update projects user agent",
+			errList.Err().Error(), http.StatusInternalServerError)
 	}
 }
 

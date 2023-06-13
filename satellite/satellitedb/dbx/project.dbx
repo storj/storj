@@ -40,7 +40,7 @@ model project (
     // max_buckets is the maximum number of buckets that can be created for the project.
     field max_buckets                       int       ( nullable, updatable )
     // user_agent is the referred partner who created the project.
-    field user_agent                        blob      ( nullable )
+    field user_agent                        blob      ( nullable, updatable )
     // owner_id refers to the user UUID in user.id.
     field owner_id                          blob
     // salt is used for salting the user passphrase for the content.

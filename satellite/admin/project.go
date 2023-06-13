@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
+	"github.com/zeebo/errs/v2"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -440,6 +442,82 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (server *Server) updateProjectsUserAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		sendJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	creationDatePlusMonth := project.CreatedAt.AddDate(0, 1, 0)
+	if time.Now().After(creationDatePlusMonth) {
+		sendJSONError(w, "this project was created more than a month ago",
+			"we should update user agent only for recently created projects", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		UserAgent string `json:"userAgent"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if input.UserAgent == "" {
+		sendJSONError(w, "UserAgent was not provided",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	newUserAgent := []byte(input.UserAgent)
+
+	if bytes.Equal(project.UserAgent, newUserAgent) {
+		sendJSONError(w, "new UserAgent is equal to existing projects UserAgent",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	err = server._updateProjectsUserAgent(ctx, project.ID, newUserAgent)
+	if err != nil {
+		sendJSONError(w, "failed to update projects user agent",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -500,6 +578,45 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (server *Server) _updateProjectsUserAgent(ctx context.Context, projectID uuid.UUID, newUserAgent []byte) (err error) {
+	err = server.db.Console().Projects().UpdateUserAgent(ctx, projectID, newUserAgent)
+	if err != nil {
+		return err
+	}
+
+	listOptions := buckets.ListOptions{
+		Direction: buckets.DirectionForward,
+	}
+
+	allowedBuckets := macaroon.AllowedBuckets{
+		All: true,
+	}
+
+	projectBuckets, err := server.db.Buckets().ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return err
+	}
+
+	var errList errs.Group
+	for _, bucket := range projectBuckets.Items {
+		err = server.db.Buckets().UpdateUserAgent(ctx, projectID, bucket.Name, newUserAgent)
+		if err != nil {
+			errList.Append(err)
+		}
+
+		err = server.db.Attribution().UpdateUserAgent(ctx, projectID, bucket.Name, newUserAgent)
+		if err != nil {
+			errList.Append(err)
+		}
+	}
+
+	if errList.Err() != nil {
+		return errList.Err()
+	}
+
+	return nil
 }
 
 func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (openInvoices bool) {

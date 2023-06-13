@@ -44,6 +44,7 @@ require (
 	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d
 	github.com/zeebo/errs v1.3.0
+	github.com/zeebo/errs/v2 v2.0.3
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
@@ -124,7 +125,6 @@ require (
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect
-	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect

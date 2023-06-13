@@ -148,7 +148,7 @@ model value_attribution (
 	// user_agent is the first User-Agent that was used to upload data.
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.
-	field user_agent	blob       ( nullable )
+	field user_agent	blob       ( updatable, nullable )
 	// TODO remove as part of release 1.81 or after
 	field partner_id blob (nullable, default null)
 	// last_updated is updated whenever the row changes.
@@ -156,6 +156,10 @@ model value_attribution (
 )
 
 create value_attribution ()
+update value_attribution (
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
 
 read one (
     select value_attribution

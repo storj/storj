@@ -305,6 +305,21 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 	return err
 }
 
+// UpdateUserAgent is a method to update the user's user agent.
+func (users *users) UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			UserAgent: dbx.User_UserAgent(userAgent),
+		},
+	)
+
+	return err
+}
+
 // UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
 func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
 	defer mon.Task()(&ctx)(&err)

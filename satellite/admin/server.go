@@ -21,6 +21,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
 	adminui "storj.io/storj/satellite/admin/ui"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -64,6 +65,10 @@ type DB interface {
 	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripe.DB
+	// Buckets returns database for buckets metainfo.
+	Buckets() buckets.DB
+	// Attribution returns database for value attribution.
+	Attribution() attribution.DB
 }
 
 // Server provides endpoints for administrative tasks.
@@ -117,6 +122,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/users/{useremail}/useragent", server.updateUsersUserAgent).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
 	fullAccessAPI.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
 	fullAccessAPI.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")
@@ -131,6 +137,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
+	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")

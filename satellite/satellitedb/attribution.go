@@ -243,6 +243,20 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 	return attributionFromDBX(dbxInfo)
 }
 
+// UpdateUserAgent updates bucket attribution data.
+func (keys *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = keys.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName([]byte(bucketName)),
+		dbx.ValueAttribution_Update_Fields{
+			UserAgent: dbx.ValueAttribution_UserAgent(userAgent),
+		})
+
+	return err
+}
+
 // Insert implements create partner info.
 func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)

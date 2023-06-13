@@ -291,6 +291,19 @@ func (projects *projects) UpdateBucketLimit(ctx context.Context, id uuid.UUID, n
 	return err
 }
 
+// UpdateUserAgent is a method for updating projects user agent.
+func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			UserAgent: dbx.Project_UserAgent(userAgent),
+		})
+
+	return err
+}
+
 // List returns paginated projects, created before provided timestamp.
 func (projects *projects) List(ctx context.Context, offset int64, limit int, before time.Time) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)

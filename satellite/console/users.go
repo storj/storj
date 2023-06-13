@@ -42,6 +42,8 @@ type Users interface {
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
+	// UpdateUserAgent is a method to update the user's user agent.
+	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 	// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
 	UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
 	// GetProjectLimit is a method to get the users project limit

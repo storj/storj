@@ -44,6 +44,8 @@ type DB interface {
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)
 	// Insert creates and stores new Info.
 	Insert(ctx context.Context, info *Info) (*Info, error)
+	// UpdateUserAgent updates bucket attribution data.
+	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// QueryAttribution queries partner bucket attribution data.
 	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.

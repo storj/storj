@@ -272,6 +272,56 @@ func TestUserUpdate(t *testing.T) {
 	})
 }
 
+func TestUpdateUsersUserAgent(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
+		newUserAgent := "awesome user agent value"
+
+		t.Run("OK", func(t *testing.T) {
+			body := strings.NewReader(fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://"+address.String()+"/api/users/%s/useragent", project.Owner.Email), body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			newUserAgentBytes := []byte(newUserAgent)
+
+			updatedUser, err := db.Console().Users().Get(ctx, project.Owner.ID)
+			require.NoError(t, err)
+			require.Equal(t, newUserAgentBytes, updatedUser.UserAgent)
+
+			updatedProject, err := db.Console().Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.Equal(t, newUserAgentBytes, updatedProject.UserAgent)
+		})
+
+		t.Run("Same UserAgent", func(t *testing.T) {
+			err := db.Console().Users().UpdateUserAgent(ctx, project.Owner.ID, []byte(newUserAgent))
+			require.NoError(t, err)
+
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/useragent", project.Owner.Email)
+			body := fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent)
+			responseBody := assertReq(ctx, t, link, http.MethodPatch, body, http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "new UserAgent is equal to existing users UserAgent")
+		})
+	})
+}
+
 func TestDisableMFA(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

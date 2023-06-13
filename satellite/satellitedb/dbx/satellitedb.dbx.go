@@ -5573,6 +5573,7 @@ type Project_Update_Fields struct {
 	RateLimit                   Project_RateLimit_Field
 	BurstLimit                  Project_BurstLimit_Field
 	MaxBuckets                  Project_MaxBuckets_Field
+	UserAgent                   Project_UserAgent_Field
 	DefaultPlacement            Project_DefaultPlacement_Field
 }
 
@@ -9335,6 +9336,7 @@ type User_Update_Fields struct {
 	ShortName              User_ShortName_Field
 	PasswordHash           User_PasswordHash_Field
 	Status                 User_Status_Field
+	UserAgent              User_UserAgent_Field
 	ProjectLimit           User_ProjectLimit_Field
 	ProjectBandwidthLimit  User_ProjectBandwidthLimit_Field
 	ProjectStorageLimit    User_ProjectStorageLimit_Field
@@ -10313,6 +10315,7 @@ type ValueAttribution_Create_Fields struct {
 }
 
 type ValueAttribution_Update_Fields struct {
+	UserAgent ValueAttribution_UserAgent_Field
 }
 
 type ValueAttribution_ProjectId_Field struct {
@@ -18304,6 +18307,11 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
 	}
 
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
 	if update.DefaultPlacement._set {
 		__values = append(__values, update.DefaultPlacement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
@@ -18461,6 +18469,49 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 	return bucket_metainfo, nil
 }
 
+func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	update ValueAttribution_Update_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.partner_id, value_attributions.last_updated")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_updated = ?"))
+
+	__args = append(__args, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+}
+
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -18502,6 +18553,11 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
 
 	if update.ProjectLimit._set {
@@ -26211,6 +26267,11 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
 	}
 
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
 	if update.DefaultPlacement._set {
 		__values = append(__values, update.DefaultPlacement.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_placement = ?"))
@@ -26368,6 +26429,49 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx con
 	return bucket_metainfo, nil
 }
 
+func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	update ValueAttribution_Update_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.partner_id, value_attributions.last_updated")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_updated = ?"))
+
+	__args = append(__args, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+}
+
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -26409,6 +26513,11 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	if update.Status._set {
 		__values = append(__values, update.Status.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
 	}
 
 	if update.ProjectLimit._set {
@@ -29786,6 +29895,18 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	return tx.Update_User_By_Id(ctx, user_id, update)
 }
 
+func (rx *Rx) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	update ValueAttribution_Update_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx, value_attribution_project_id, value_attribution_bucket_name, update)
+}
+
 func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
 	webapp_session_id WebappSession_Id_Field,
 	update WebappSession_Update_Fields) (
@@ -30712,6 +30833,12 @@ type Methods interface {
 		user_id User_Id_Field,
 		update User_Update_Fields) (
 		user *User, err error)
+
+	Update_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+		value_attribution_project_id ValueAttribution_ProjectId_Field,
+		value_attribution_bucket_name ValueAttribution_BucketName_Field,
+		update ValueAttribution_Update_Fields) (
+		value_attribution *ValueAttribution, err error)
 
 	Update_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field,

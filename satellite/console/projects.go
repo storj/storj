@@ -55,6 +55,9 @@ type Projects interface {
 
 	// UpdateUsageLimits is a method for updating project's usage limits.
 	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
+
+	// UpdateUserAgent is a method for updating projects user agent.
+	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
