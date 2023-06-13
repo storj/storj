@@ -241,11 +241,11 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 
 	for rows.Next() {
 		var (
-			memberID  NullUUID
+			memberID  uuid.NullUUID
 			projectID uuid.UUID
 			createdAt time.Time
 			email     string
-			inviterID NullUUID
+			inviterID uuid.NullUUID
 		)
 
 		err = rows.Scan(
