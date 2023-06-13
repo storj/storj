@@ -889,6 +889,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storage per month in dollars/TB
 # payments.usage-price.storage-tb: "4"
 
+# whether to enable piece tracker observer with ranged loop
+# piece-tracker.use-ranged-loop: true
+
 # how often to remove unused project bandwidth rollups
 # project-bw-cleanup.interval: 24h0m0s
 
