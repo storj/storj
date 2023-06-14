@@ -652,30 +652,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
-# Which fraction of nodes should be contacted successfully until the delete of a batch of pieces is considered completed
-# metainfo.piece-deletion.delete-success-threshold: 0.75
-
-# timeout for dialing nodes (0 means satellite default)
-# metainfo.piece-deletion.dial-timeout: 3s
-
-# threshold for retrying a failed node
-# metainfo.piece-deletion.fail-threshold: 10m0s
-
-# maximum number of concurrent requests to storage nodes
-# metainfo.piece-deletion.max-concurrency: 100
-
-# maximum number of concurrent pieces can be processed
-# metainfo.piece-deletion.max-concurrent-pieces: 1000000
-
-# maximum number of pieces per batch
-# metainfo.piece-deletion.max-pieces-per-batch: 5000
-
-# maximum number pieces per single request
-# metainfo.piece-deletion.max-pieces-per-request: 1000
-
-# timeout for a single delete request
-# metainfo.piece-deletion.request-timeout: 15s
-
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
 

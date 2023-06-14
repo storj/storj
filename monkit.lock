@@ -79,8 +79,6 @@ storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_fail" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_success" Meter
 storj.io/storj/satellite/metabase/rangedloop."rangedloop_error" Event
 storj.io/storj/satellite/metainfo."metainfo_rate_limit_exceeded" Event
-storj.io/storj/satellite/metainfo/piecedeletion."delete_batch_size" IntVal
-storj.io/storj/satellite/metainfo/piecedeletion."deletion_pieces_unhandled_count" IntVal
 storj.io/storj/satellite/metrics."total_inline_bytes" IntVal
 storj.io/storj/satellite/metrics."total_inline_segments" IntVal
 storj.io/storj/satellite/metrics."total_remote_bytes" IntVal
