@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/private/tagsql"
 )
 
@@ -11513,6 +11513,7 @@ type __sqlbundle_SQL interface {
 }
 
 type __sqlbundle_Dialect interface {
+	// Rebind gives the opportunity to rewrite provided SQL into a SQL dialect.
 	Rebind(sql string) string
 }
 
@@ -11599,6 +11600,30 @@ func __sqlbundle_flattenSQL(x string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
+type __sqlbundle_cockroach struct{}
+
+func (p __sqlbundle_cockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgx struct{}
+
+func (p __sqlbundle_pgx) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgxcockroach struct{}
+
+func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
 type __sqlbundle_postgres struct{}
 
 func (p __sqlbundle_postgres) Rebind(sql string) string {
@@ -11659,174 +11684,6 @@ type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
 	return sql
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_cockroach struct{}
-
-func (p __sqlbundle_cockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgx struct{}
-
-func (p __sqlbundle_pgx) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgxcockroach struct{}
-
-func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
 }
 
 type __sqlbundle_Literal string

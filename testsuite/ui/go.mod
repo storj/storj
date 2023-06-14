@@ -12,7 +12,7 @@ require (
 	go.uber.org/zap v1.23.0
 	storj.io/common v0.0.0-20230602145716-d6ea82d58b3d
 	storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297
-	storj.io/private v0.0.0-20230612081536-17668e341c5e
+	storj.io/private v0.0.0-20230614131149-2ffd1635adea
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
 )
 
@@ -83,15 +83,12 @@ require (
 	github.com/graphql-go/graphql v0.7.9 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.11.0 // indirect
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.10.0 // indirect
-	github.com/jackc/pgx/v4 v4.15.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgtype v1.14.0 // indirect
+	github.com/jackc/pgx/v5 v5.3.1 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
