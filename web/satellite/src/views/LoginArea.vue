@@ -13,6 +13,11 @@
                     <template v-else><b>Oops!</b> This account has already been verified.</template>
                 </p>
             </div>
+            <div v-if="inviteInvalid" class="login-area__content-area__activation-banner error">
+                <p class="login-area__content-area__activation-banner__message">
+                    <b>Oops!</b> The invite link you used has expired or is invalid.
+                </p>
+            </div>
             <div class="login-area__content-area__container">
                 <div class="login-area__content-area__container__title-area">
                     <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
@@ -197,6 +202,7 @@ const isBadLoginMessageShown = ref(false);
 const isDropdownShown = ref(false);
 
 const pathEmail = ref<string | null>(null);
+const inviteInvalid = ref(false);
 
 const returnURL = ref(RouteConfig.ProjectDashboard.path);
 
@@ -242,6 +248,7 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
+    inviteInvalid.value = (route.query.invite_invalid as string ?? null) === 'true';
     pathEmail.value = route.query.email as string ?? null;
     if (pathEmail.value) {
         setEmail(pathEmail.value);

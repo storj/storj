@@ -3631,8 +3631,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 
 	}
 
-	signIn := fmt.Sprintf("%s/login", s.satelliteAddress)
-
+	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, invited := range users {
@@ -3648,6 +3647,11 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				}
 				return err
 			}
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+			if err != nil {
+				return err
+			}
+			inviteTokens[invited.Email] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -3656,7 +3660,10 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return nil, Error.Wrap(err)
 	}
 
+	baseLink := fmt.Sprintf("%s/invited", s.satelliteAddress)
 	for _, invited := range users {
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
+
 		userName := invited.ShortName
 		if userName == "" {
 			userName = invited.FullName
@@ -3667,10 +3674,109 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			&ExistingUserProjectInvitationEmail{
 				InviterEmail: user.Email,
 				Region:       s.satelliteName,
-				SignInLink:   fmt.Sprintf("%s?email=%s", signIn, invited.Email),
+				SignInLink:   inviteLink,
 			},
 		)
 	}
 
 	return invites, nil
+}
+
+// GetInviteByToken returns a project invite given an invite token.
+func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	publicProjectID, email, err := s.ParseInviteToken(ctx, token)
+	if err != nil {
+		return nil, ErrProjectInviteInvalid.Wrap(err)
+	}
+
+	project, err := s.store.Projects().GetByPublicID(ctx, publicProjectID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	invite, err = s.store.ProjectInvitations().Get(ctx, project.ID, email)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+	if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+		err = s.store.ProjectInvitations().Delete(ctx, invite.ProjectID, invite.Email)
+		if err != nil {
+			s.log.Warn("error deleting expired project invitations",
+				zap.Error(err),
+				zap.String("email", email),
+				zap.String("projectID", project.ID.String()),
+			)
+		}
+		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	return invite, nil
+}
+
+// CreateInviteToken creates a token for project invite links.
+func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, inviteDate time.Time) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "create invite token", zap.String("projectID", publicProjectID.String()), zap.String("email", email))
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, user.ID, publicProjectID)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	linkClaims := consoleauth.Claims{
+		ID:         publicProjectID,
+		Email:      email,
+		Expiration: inviteDate.Add(s.config.ProjectInvitationExpiration),
+	}
+
+	claimJson, err := linkClaims.JSON()
+	if err != nil {
+		return "", err
+	}
+
+	token := consoleauth.Token{Payload: claimJson}
+	signature, err := s.tokens.SignToken(token)
+	if err != nil {
+		return "", err
+	}
+	token.Signature = signature
+
+	return token.String(), nil
+}
+
+// ParseInviteToken parses a token from project invite links.
+func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID uuid.UUID, email string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	parsedToken, err := consoleauth.FromBase64URLString(token)
+	valid, err := s.tokens.ValidateToken(parsedToken)
+	if err != nil {
+		return uuid.UUID{}, "", err
+	}
+	if !valid {
+		return uuid.UUID{}, "", ErrTokenInvalid.New("incorrect signature")
+	}
+
+	claims, err := consoleauth.FromJSON(parsedToken.Payload)
+	if err != nil {
+		return uuid.UUID{}, "", ErrTokenInvalid.New("JSON decoder: %w", err)
+	}
+
+	if time.Now().After(claims.Expiration) {
+		return uuid.UUID{}, "", ErrTokenExpiration.New("invite token expired")
+	}
+
+	return claims.ID, claims.Email, nil
 }

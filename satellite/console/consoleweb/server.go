@@ -357,6 +357,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 
+		router.HandleFunc("/invited", server.handleInvited)
+
 		// These paths previously required a trailing slash, so we support both forms for now
 		slashRouter := router.NewRoute().Subrouter()
 		slashRouter.StrictSlash(true)
@@ -713,6 +715,34 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 
 	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
+}
+
+func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	token := r.URL.Query().Get("invite")
+	if token == "" {
+		server.serveError(w, http.StatusBadRequest)
+		return
+	}
+
+	loginLink := server.config.ExternalAddress + "login"
+
+	invite, err := server.service.GetInviteByToken(ctx, token)
+	if err != nil {
+		server.log.Error("handleInvited: error checking invitation", zap.Error(err))
+
+		if console.ErrProjectInviteInvalid.Has(err) {
+			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
+			return
+		}
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	email := strings.ToLower(invite.Email)
+	http.Redirect(w, r, loginLink+"?email="+email, http.StatusTemporaryRedirect)
 }
 
 // graphqlHandler is graphql endpoint http handler function.

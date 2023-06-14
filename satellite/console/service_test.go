@@ -2078,6 +2078,82 @@ func TestProjectInvitations(t *testing.T) {
 			require.Empty(t, invites)
 		})
 
+		t.Run("invite tokens", func(t *testing.T) {
+			user, ctx1 := getUserAndCtx(t)
+			_, ctx2 := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ctx1, user.ID, "Test Project")
+			require.NoError(t, err)
+
+			_, err = service.CreateInviteToken(ctx2, project.PublicID, email, time.Now())
+			require.Error(t, err)
+			require.True(t, console.ErrNoMembership.Has(err))
+
+			_, err = service.CreateInviteToken(ctx1, testrand.UUID(), email, time.Now())
+			require.Error(t, err)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+
+			someToken, err := service.CreateInviteToken(ctx1, project.PublicID, email, time.Now())
+			require.NoError(t, err)
+			require.NotEmpty(t, someToken)
+
+			id, mail, err := service.ParseInviteToken(ctx1, someToken)
+			require.NoError(t, err)
+			require.Equal(t, project.PublicID, id)
+			require.Equal(t, email, mail)
+
+			someToken, err = service.CreateInviteToken(ctx1, project.PublicID, email, time.Now().Add(-360*time.Hour))
+			require.NoError(t, err)
+			require.NotEmpty(t, someToken)
+
+			_, _, err = service.ParseInviteToken(ctx, someToken)
+			require.Error(t, err)
+			require.True(t, console.ErrTokenExpiration.Has(err))
+		})
+
+		t.Run("get invite by invite token", func(t *testing.T) {
+			owner, ctx := getUserAndCtx(t)
+			user, _ := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ctx, owner.ID, "Test Project")
+			require.NoError(t, err)
+
+			invite := addInvite(t, ctx, project, user.Email, time.Now())
+
+			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.com", invite.CreatedAt)
+			require.NoError(t, err)
+
+			inviteFromToken, err := service.GetInviteByToken(ctx, someToken)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+			require.Nil(t, inviteFromToken)
+
+			inviteToken, err := service.CreateInviteToken(ctx, project.PublicID, user.Email, invite.CreatedAt)
+			require.NoError(t, err)
+
+			inviteFromToken, err = service.GetInviteByToken(ctx, inviteToken)
+			require.NoError(t, err)
+			require.NotNil(t, inviteFromToken)
+			require.Equal(t, invite, inviteFromToken)
+
+			setInviteDate(ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			invites, err := service.GetUserProjectInvitations(ctx)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			_, err = service.GetInviteByToken(ctx, inviteToken)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			// invalid project id. GetInviteByToken supports only public ids.
+			someToken, err = service.CreateInviteToken(ctx, project.ID, user.Email, invite.CreatedAt)
+			require.NoError(t, err)
+
+			_, err = service.GetInviteByToken(ctx, someToken)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+		})
+
 		t.Run("accept invitation", func(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 			proj := addProject(t, ctx)
