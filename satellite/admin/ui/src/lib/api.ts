@@ -205,6 +205,19 @@ export class Admin {
 				}
 			},
 			{
+				name: 'update user agent',
+				desc: 'Update projects user agent',
+				params: [
+					['Project ID', new InputText('text', true)],
+					['User Agent', new InputText('text', true)]
+				],
+				func: async (projectId: string, userAgent: string): Promise<null> => {
+					return this.fetch('PATCH', `projects/${projectId}/useragent`, null, {
+						userAgent
+					}) as Promise<null>;
+				}
+			},
+			{
 				name: 'create API key',
 				desc: 'Create a new API key for a specific project',
 				params: [
@@ -416,6 +429,19 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
+				name: 'update user agent',
+				desc: `Update user's user agent.`,
+				params: [
+					["current user's email", new InputText('email', true)],
+					['user agent', new InputText('text', true)]
+				],
+				func: async (currentEmail: string, userAgent: string): Promise<null> => {
+					return this.fetch('PATCH', `users/${currentEmail}/useragent`, null, {
+						userAgent
+					}) as Promise<null>;
+				}
+			},
+			{
 				name: 'disable MFA',
 				desc: "Disable user's mulifactor authentication",
 				params: [['email', new InputText('email', true)]],
@@ -472,7 +498,7 @@ Blank fields will not be updated.`,
 	}
 
 	protected async fetch(
-		method: 'DELETE' | 'GET' | 'POST' | 'PUT',
+		method: 'DELETE' | 'GET' | 'POST' | 'PUT' | 'PATCH',
 		path: string,
 		query?: string,
 		data?: Record<string, unknown>
