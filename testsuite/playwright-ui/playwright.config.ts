@@ -3,7 +3,7 @@
 
 // @ts-ignore
 import os from 'node:os';
-import GenerateCustomLayoutSimpleMeta from '@config/slackReporter';
+import {GenerateCustomLayoutSimpleMeta} from './slackReporter';
 import { PlaywrightTestConfig, devices} from '@playwright/test';
 
 // require('dotenv').config();
