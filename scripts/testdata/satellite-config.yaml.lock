@@ -1099,6 +1099,9 @@ server.private-address: 127.0.0.1:7778
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
 
+# how large should be insert into tallies
+# tally.save-tallies-batch-size: 10000
+
 # whether to enable node tally with ranged loop
 # tally.use-ranged-loop: true
 
