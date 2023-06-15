@@ -163,11 +163,11 @@ function onCreateProjectClicked(): void {
     const user: User = usersStore.state.user;
     const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-    if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-        appStore.updateActiveModal(MODALS.createProjectPrompt);
-    } else {
+    if (user.projectLimit > ownProjectsCount) {
         analytics.pageVisit(RouteConfig.CreateProject.path);
         appStore.updateActiveModal(MODALS.newCreateProject);
+    } else {
+        appStore.updateActiveModal(MODALS.createProjectPrompt);
     }
 }
 </script>

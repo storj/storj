@@ -2930,7 +2930,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 		return 0, Error.Wrap(err)
 	}
 
-	projects, err := s.GetUsersProjects(ctx)
+	projects, err := s.store.Projects().GetOwn(ctx, userID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
