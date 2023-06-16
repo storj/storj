@@ -916,6 +916,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
 
+# time limit for dialing storage node
+# repairer.dial-timeout: 5s
+
 # repair pieces on the same network to other nodes
 # repairer.do-declumping: false
 

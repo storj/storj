@@ -2458,6 +2458,7 @@ func ecRepairerWithMockConnector(t testing.TB, sat *testplanet.Satellite, mock *
 		zaptest.NewLogger(t).Named("a-special-repairer"),
 		newDialer,
 		signing.SigneeFromPeerIdentity(sat.Identity.PeerIdentity()),
+		sat.Config.Repairer.DialTimeout,
 		sat.Config.Repairer.DownloadTimeout,
 		sat.Config.Repairer.InMemoryRepair,
 	)

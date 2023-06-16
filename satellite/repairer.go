@@ -136,6 +136,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+		peer.Dialer.DialTimeout = config.Repairer.DialTimeout
 	}
 
 	{ // setup overlay
@@ -204,6 +205,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			log.Named("ec-repair"),
 			peer.Dialer,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+			config.Repairer.DialTimeout,
 			config.Repairer.DownloadTimeout,
 			config.Repairer.InMemoryRepair)
 

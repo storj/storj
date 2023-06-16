@@ -114,6 +114,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		log.Named("ec-repair"),
 		dialer,
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
+		config.Repairer.DialTimeout,
 		config.Repairer.DownloadTimeout,
 		true) // force inmemory download of pieces
 
