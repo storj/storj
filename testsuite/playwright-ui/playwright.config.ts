@@ -50,8 +50,8 @@ const config: PlaywrightTestConfig = {
   ],
     use: {                                              /* Shared settings for all the projects below. */
         actionTimeout: 0,                                 /* Maximum time each action can take. */
-        baseURL: 'http://nightly.storj.rodeo/',     /* Base URL to use in actions like `await page.goto('/')`. */
-        // baseURL: 'http://localhost:10000',
+        // baseURL: 'http://nightly.storj.rodeo/',     /* Base URL to use in actions like `await page.goto('/')`. */
+         baseURL: 'http://localhost:10000',
         // headless: process.env.CI ? false : true,       /* Starts the UI tests in headed mode, so we can watch execution in development */
         ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
         trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
