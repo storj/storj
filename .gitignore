@@ -55,4 +55,3 @@ go.work.sum
 
 
 /testsuite/playwright-ui/node_modules/*
-!/testsuite/playwright-ui/package-lock.json
