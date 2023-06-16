@@ -71,6 +71,7 @@ pipeline {
                 stage('go') {
                     steps {
                         // sh 'go build -v ./...'
+                        sh 'echo "test"'
                     }
                 }
                 stage('go -race') {
