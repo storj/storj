@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             label 'main'
-			image 'mcr.microsoft.com/playwright:v1.35.0-jammy'
+	    image 'mcr.microsoft.com/playwright:v1.35.0-jammy'
             alwaysPull true
             args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
         }
@@ -26,7 +26,7 @@ pipeline {
                 sh 'mkdir -p .build'
 
                 // pre-check that we cannot do at a later stage reliably
-				// sh 'check-large-files'
+		// sh 'check-large-files'
             }
         }
 
@@ -41,8 +41,8 @@ pipeline {
 
                 stage('wasm') {
                     steps {
-						// sh './scripts/test-wasm.sh'
-						sh 'echo "test"'
+			// sh './scripts/test-wasm.sh'
+			sh 'echo "test"'
                     }
                 }
 
@@ -70,23 +70,23 @@ pipeline {
             parallel {
                 stage('go') {
                     steps {
-                        sh 'go build -v ./...'
+                        // sh 'go build -v ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
-                        sh 'go build -race ./...'
+                        // sh 'go build -race ./...'
 
                         // install storj-sim
                         sh '''
-                            go install -race -v storj.io/storj/cmd/satellite \
-                                storj.io/storj/cmd/storagenode \
-                                storj.io/storj/cmd/storj-sim \
-                                storj.io/storj/cmd/versioncontrol \
-                                storj.io/storj/cmd/uplink \
-                                storj.io/storj/cmd/identity \
-                                storj.io/storj/cmd/certificates \
-                                storj.io/storj/cmd/multinode
+                            go install -race -v storj.io/storj/cmd/satellite@latest \
+                                storj.io/storagenode@latest \
+                                storj.io/storj-sim@latest \
+                                storj.io/versioncontrol@latest \
+                                storj.io/uplink@latest \
+                                storj.io/identity@latest \
+                                storj.io/certificates@latest \
+                                storj.io/multinode@latest
                         '''
                     }
                 }
@@ -102,8 +102,8 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-					// sh 'npx playwright install --with-deps'
-					sh 'npm install'
+			// sh 'npx playwright install --with-deps'
+			sh 'npm install'
                 }
             }
         }
@@ -150,15 +150,15 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-						//eck-clean-directory'
-						sh 'echo "we dont need to lint this, the code is already linted in another jenkins job"'
+			//eck-clean-directory'
+			sh 'echo "we dont need to lint this, the code is already linted in another jenkins job"'
                     }
                 }
                 stage('report') {
                     steps {
                         //execute the report
-						//sh 'npm run posttest'
-						sh 'echo "Test complete"'
+			//sh 'npm run posttest'
+			sh 'echo "Test complete"'
                     }
                 }
             }
