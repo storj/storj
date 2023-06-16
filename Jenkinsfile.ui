@@ -150,6 +150,7 @@ pipeline {
                 stage('Lint') {
                     steps {
 						//eck-clean-directory'
+						sh 'echo "we dont need to lint this, the code is already linted in another jenkins job"'
                     }
                 }
                 stage('report') {
