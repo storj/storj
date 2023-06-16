@@ -6,7 +6,10 @@
         <div class="modal__header" :class="{'custom-radius': !isExpanded}" @click="toggleExpanded">
             <div class="modal__header__left">
                 <div class="modal__header__left__info">
-                    <p class="modal__header__left__info__title">{{ statusLabel }}</p>
+                    <div class="modal__header__left__info__cont">
+                        <CompleteIcon v-if="isClosable" />
+                        <p class="modal__header__left__info__cont__title">{{ statusLabel }}</p>
+                    </div>
                     <p class="modal__header__left__info__remaining">{{ remainingTimeString }}</p>
                 </div>
                 <div v-if="!isClosable" class="modal__header__left__track">
@@ -37,6 +40,7 @@ import UploadItem from '@/components/modals/objectUpload/UploadItem.vue';
 
 import ArrowIcon from '@/../static/images/modals/objectUpload/arrow.svg';
 import CloseIcon from '@/../static/images/modals/objectUpload/close.svg';
+import CompleteIcon from '@/../static/images/modals/objectUpload/complete.svg';
 
 const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
@@ -187,6 +191,7 @@ onMounted(() => {
     max-width: 500px;
     border-radius: 8px;
     font-family: 'font_regular', sans-serif;
+    filter: drop-shadow(0 7px 20px rgb(0 0 0 / 15%));
 
     @media screen and (width <= 650px) {
         max-width: unset;
@@ -217,11 +222,20 @@ onMounted(() => {
                 align-items: center;
                 justify-content: space-between;
 
-                &__title {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 14px;
-                    line-height: 20px;
-                    color: var(--c-white);
+                &__cont {
+                    display: flex;
+                    align-items: center;
+
+                    svg {
+                        margin-right: 11px;
+                    }
+
+                    &__title {
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 14px;
+                        line-height: 20px;
+                        color: var(--c-white);
+                    }
                 }
 
                 &__remaining {

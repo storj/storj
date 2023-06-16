@@ -5,7 +5,7 @@
     <div class="item">
         <div class="item__left">
             <div class="item__left__icon">
-                <p class="item__left__icon__label">{{ extension }}</p>
+                <component :is="icon" />
             </div>
             <p class="item__left__name" :title="item.Key">{{ item.Key }}</p>
         </div>
@@ -57,6 +57,7 @@ import {
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { ObjectType } from '@/utils/objectIcon';
 
 import VInfo from '@/components/common/VInfo.vue';
 
@@ -75,11 +76,9 @@ const props = defineProps<{
 }>();
 
 /**
- * Returns file's extension.
+ * Returns appropriate icon for provided object.
  */
-const extension = computed((): string => {
-    return props.item.Key.split('.').pop()?.substring(0, 3).toUpperCase() || 'EXT';
-});
+const icon = computed((): string => ObjectType.findIcon(ObjectType.findType(props.item.Key)));
 
 /**
  * Returns progress bar style.
@@ -144,7 +143,8 @@ function cancelUpload(): void {
             min-width: 32px;
             width: 32px;
             height: 32px;
-            background-color: var(--c-green-6);
+            background-color: var(--c-white);
+            border: 1px solid var(--c-grey-2);
             border-radius: 8px;
             margin-right: 12px;
             display: flex;
@@ -153,13 +153,6 @@ function cancelUpload(): void {
 
             @media screen and (width <= 550px) {
                 display: none;
-            }
-
-            &__label {
-                font-family: 'font_bold', sans-serif;
-                font-size: 9px;
-                line-height: 18px;
-                color: var(--c-green-5);
             }
         }
 

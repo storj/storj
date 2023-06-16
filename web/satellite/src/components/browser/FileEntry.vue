@@ -124,6 +124,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { ObjectType } from '@/utils/objectIcon';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -154,32 +155,7 @@ const deleteConfirmation = ref(false);
 /**
  * Return the type of the file.
  */
-const fileType = computed((): string => {
-    const image = /(\.jpg|\.jpeg|\.png|\.gif)$/i;
-    const video = /(\.mp4|\.mkv|\.mov)$/i;
-    const audio = /(\.mp3|\.aac|\.wav|\.m4a)$/i;
-    const text = /(\.txt|\.docx|\.doc|\.pages)$/i;
-    const pdf = /(\.pdf)$/i;
-    const archive = /(\.zip|\.tar.gz|\.7z|\.rar)$/i;
-    const spreadsheet = /(\.xls|\.numbers|\.csv|\.xlsx|\.tsv)$/i;
-
-    if (image.exec(props.file.Key)) {
-        return 'image';
-    } else if (video.exec(props.file.Key)) {
-        return 'video';
-    } else if (audio.exec(props.file.Key)) {
-        return 'audio';
-    } else if (text.exec(props.file.Key)) {
-        return 'text';
-    } else if (pdf.exec(props.file.Key)) {
-        return 'pdf';
-    } else if (archive.exec(props.file.Key)) {
-        return 'archive';
-    } else if (spreadsheet.exec(props.file.Key)) {
-        return 'spreadsheet';
-    }
-    return 'file';
-});
+const fileType = computed((): string => ObjectType.findType(props.file.Key));
 
 /**
  * Return the size of the file formatted.

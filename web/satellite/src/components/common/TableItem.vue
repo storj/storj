@@ -44,25 +44,12 @@
 import { computed } from 'vue';
 
 import { ProjectRole } from '@/types/projectMembers';
+import { ObjectType } from '@/utils/objectIcon';
 
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
 import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
-
-import TableLockedIcon from '@/../static/images/browser/tableLocked.svg';
-import ColorFolderIcon from '@/../static/images/objects/colorFolder.svg';
-import ColorBucketIcon from '@/../static/images/objects/colorBucket.svg';
-import FileIcon from '@/../static/images/objects/file.svg';
-import AudioIcon from '@/../static/images/objects/audio.svg';
-import VideoIcon from '@/../static/images/objects/video.svg';
-import ChevronLeftIcon from '@/../static/images/objects/chevronLeft.svg';
-import GraphIcon from '@/../static/images/objects/graph.svg';
-import PdfIcon from '@/../static/images/objects/pdf.svg';
-import PictureIcon from '@/../static/images/objects/picture.svg';
-import TxtIcon from '@/../static/images/objects/txt.svg';
-import ZipIcon from '@/../static/images/objects/zip.svg';
-import ProjectIcon from '@/../static/images/navigation/project.svg';
 
 const props = withDefaults(defineProps<{
     selectDisabled?: boolean;
@@ -91,23 +78,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits(['selectClicked']);
 
-const icons = new Map<string, string>([
-    ['locked', TableLockedIcon],
-    ['bucket', ColorBucketIcon],
-    ['folder', ColorFolderIcon],
-    ['file', FileIcon],
-    ['audio', AudioIcon],
-    ['video', VideoIcon],
-    ['back', ChevronLeftIcon],
-    ['spreadsheet', GraphIcon],
-    ['pdf', PdfIcon],
-    ['image', PictureIcon],
-    ['text', TxtIcon],
-    ['archive', ZipIcon],
-    ['project', ProjectIcon],
-]);
-
-const icon = computed(() => icons.get(props.itemType.toLowerCase()));
+const icon = computed((): string => ObjectType.findIcon(props.itemType));
 
 const customIconClasses = computed(() => {
     const classes = {};
