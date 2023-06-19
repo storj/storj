@@ -9,8 +9,10 @@
                     v-cloak
                     class="div-responsive"
                     @drop.prevent="upload"
-                    @dragover.prevent
+                    @dragover.prevent="showDropzone"
                 >
+                    <Dropzone v-if="isOver" :bucket="bucketName" :close="hideDropzone" />
+
                     <bread-crumbs @onUpdate="onRouteChange" @bucketClick="goToBuckets" />
 
                     <div class="tile-action-bar">
@@ -219,6 +221,7 @@ import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 import MultiplePassphraseBanner from '@/components/browser/MultiplePassphrasesBanner.vue';
 import UpEntry from '@/components/browser/UpEntry.vue';
+import Dropzone from '@/components/browser/Dropzone.vue';
 
 import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
@@ -239,6 +242,7 @@ const fileInput = ref<HTMLInputElement>();
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
 const isBannerShown = ref<boolean>(true);
+const isOver = ref<boolean>(false);
 /**
  * Retrieve the pathMatch from the current route.
  */
@@ -442,8 +446,12 @@ function filename(file: BrowserObject): string {
  * Upload the current selected or dragged-and-dropped file.
  */
 async function upload(e: Event): Promise<void> {
+    if (isOver.value) {
+        isOver.value = false;
+    }
+
     await obStore.upload({ e });
-    await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
 }
@@ -492,6 +500,20 @@ async function buttonFolderUpload(): Promise<void> {
  */
 function toggleUploadDropdown(): void {
     isUploadDropDownShown.value = !isUploadDropDownShown.value;
+}
+
+/**
+ * Makes dropzone visible.
+ */
+function showDropzone(): void {
+    isOver.value = true;
+}
+
+/**
+ * Hides dropzone.
+ */
+function hideDropzone(): void {
+    isOver.value = false;
 }
 
 /**
