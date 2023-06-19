@@ -10,9 +10,9 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 export class Notificator {
     public constructor() {}
 
-    public success(message: string): void {
+    public success(message: string, messageNode?: string): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifySuccess(message);
+        notificationsStore.notifySuccess(message, messageNode);
     }
 
     public error(message: string, source: AnalyticsErrorEventSource | null): void {

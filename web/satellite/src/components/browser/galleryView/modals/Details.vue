@@ -24,7 +24,7 @@
                     </p>
                 </div>
                 <div class="modal__item last">
-                    <p class="modal__item__label">Saved in</p>
+                    <p class="modal__item__label">Bucket</p>
                     <p class="modal__item__label right" :title="bucket">{{ bucket }}</p>
                 </div>
                 <VButton

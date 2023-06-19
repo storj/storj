@@ -29,13 +29,15 @@ export class DelayedNotification {
 
     public readonly type: string;
     public readonly message: string;
+    public readonly messageNode: string | undefined;
     public readonly style: { backgroundColor: string };
     public readonly icon: string;
 
-    constructor(callback: () => void, type: string, message: string) {
+    constructor(callback: () => void, type: string, message: string, messageNode?: string) {
         this.callback = callback;
         this.type = type;
         this.message = message;
+        this.messageNode = messageNode;
         this.id = getId();
         this.remainingTime = 3000;
         this.start();

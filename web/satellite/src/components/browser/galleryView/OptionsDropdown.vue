@@ -3,16 +3,20 @@
 
 <template>
     <div class="options">
+        <div class="options__item" @click="onDistribution">
+            <MapIcon />
+            <p class="options__item__label">Distribution</p>
+        </div>
         <div class="options__item" @click="onViewDetails">
             <DetailsIcon />
             <p class="options__item__label">View details</p>
         </div>
         <div class="options__item" @click="onDownload">
-            <SmallDownloadIcon />
+            <DownloadIcon />
             <p class="options__item__label">Download</p>
         </div>
         <div class="options__item" @click="onShare">
-            <SmallShareIcon />
+            <ShareIcon />
             <p class="options__item__label">Share</p>
         </div>
         <div class="options__item" @click="onDelete">
@@ -24,11 +28,13 @@
 
 <script setup lang="ts">
 import DetailsIcon from '@/../static/images/browser/galleryView/details.svg';
-import SmallDownloadIcon from '@/../static/images/browser/galleryView/downloadSmall.svg';
-import SmallShareIcon from '@/../static/images/browser/galleryView/shareSmall.svg';
+import DownloadIcon from '@/../static/images/browser/galleryView/download.svg';
+import ShareIcon from '@/../static/images/browser/galleryView/share.svg';
 import DeleteIcon from '@/../static/images/browser/galleryView/delete.svg';
+import MapIcon from '@/../static/images/browser/galleryView/map.svg';
 
 const props = defineProps<{
+    onDistribution: () => void
     onViewDetails: () => void
     onDownload: () => void
     onShare: () => void
@@ -58,6 +64,15 @@ const props = defineProps<{
         align-items: center;
         cursor: pointer;
         padding: 16px;
+
+        svg {
+            width: 18px;
+            height: 18px;
+
+            :deep(path) {
+                fill: var(--c-grey-6);
+            }
+        }
 
         &__label {
             margin-left: 16px;

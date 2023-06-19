@@ -8,7 +8,9 @@
                 <component :is="notification.icon" />
             </div>
             <div class="notification-wrap__content-area__message-area">
-                <p class="notification-wrap__content-area__message">{{ notification.message }}</p>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <div v-if="notification.messageNode" v-html="notification.messageNode" />
+                <p v-else class="notification-wrap__content-area__message">{{ notification.message }}</p>
 
                 <p v-if="isTimeoutMentioned && notOnSettingsPage" class="notification-wrap__content-area__account-msg">
                     To change this go to your
@@ -211,4 +213,17 @@ onMounted((): void => {
     .active {
         right: 0;
     }
+</style>
+
+<style lang="scss">
+.message-title,
+.message-info {
+    font-family: 'font_medium', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.message-info {
+    font-family: 'font_regular', sans-serif;
+}
 </style>

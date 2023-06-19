@@ -419,7 +419,13 @@ function openDropdown(): void {
 async function download(): Promise<void> {
     try {
         await obStore.download(props.file);
-        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+        const message = `
+            <p class="message-title">Downloading...</p>
+            <p class="message-info">
+                Keep this download link private.<br>If you want to share, use the Share option.
+            </p>
+        `;
+        notify.success('', message);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
@@ -500,7 +506,15 @@ function cancelDeletion(): void {
                 }
 
                 .dropdown-item.action.p-3.action {
-                    font-family: 'Inter', sans-serif;
+                    font-family: 'font_regular', sans-serif;
+                }
+
+                &:first-of-type {
+                    border-radius: 6px 6px 0 0;
+                }
+
+                &:last-of-type {
+                    border-radius: 0 0 6px 6px;
                 }
 
                 &__label {
