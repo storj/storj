@@ -15,11 +15,13 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func Test_DailyUsage(t *testing.T) {
@@ -496,5 +498,19 @@ func TestProjectUsageGap(t *testing.T) {
 		usage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, uplink.Projects[0].ID, time.Time{}, now.Add(time.Second))
 		require.NoError(t, err)
 		require.EqualValues(t, expectedStorage, usage.Storage)
+	})
+}
+
+func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
+	// test if invalid bucket name will be handled correctly
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		_, err := db.ProjectAccounting().GetNonEmptyTallyBucketsInRange(ctx, metabase.BucketLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "a\\",
+		}, metabase.BucketLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "b\\",
+		})
+		require.NoError(t, err)
 	})
 }

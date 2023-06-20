@@ -289,6 +289,12 @@ func TestBatchBuckets(t *testing.T) {
 				require.False(t, more)
 			}
 		}
+
+		// check if invalid bucket name 'a\' won't throw an error
+		_, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "a\\", 1, func(bucketLocations []metabase.BucketLocation) (err error) {
+			return nil
+		})
+		require.NoError(t, err)
 	})
 }
 

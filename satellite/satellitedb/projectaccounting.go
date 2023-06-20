@@ -160,7 +160,7 @@ func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context,
 			ORDER BY interval_start DESC
 			LIMIT 1
 		)
-	`, from.ProjectID, from.BucketName, to.ProjectID, to.BucketName),
+	`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName)),
 	)(func(r tagsql.Rows) error {
 		for r.Next() {
 			loc := metabase.BucketLocation{}

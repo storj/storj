@@ -819,6 +819,25 @@ func TestCollectBucketTallies(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		t.Run("invalid bucket name", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CollectBucketTallies{
+				Opts: metabase.CollectBucketTallies{
+					From: metabase.BucketLocation{
+						ProjectID:  testrand.UUID(),
+						BucketName: "a\\",
+					},
+					To: metabase.BucketLocation{
+						ProjectID:  testrand.UUID(),
+						BucketName: "b\\",
+					},
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("pending and committed", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
