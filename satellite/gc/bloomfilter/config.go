@@ -9,7 +9,7 @@ import "time"
 type Config struct {
 	RunOnce bool `help:"set if garbage collection bloom filter process should only run once then exit" default:"false"`
 
-	UseSyncObserver bool `help:"whether to use test GC SyncObserver with ranged loop" default:"false"`
+	UseSyncObserver bool `help:"whether to use test GC SyncObserver with ranged loop" default:"true"`
 
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`

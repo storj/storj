@@ -494,7 +494,7 @@ contact.external-address: ""
 # garbage-collection-bf.run-once: false
 
 # whether to use test GC SyncObserver with ranged loop
-# garbage-collection-bf.use-sync-observer: false
+# garbage-collection-bf.use-sync-observer: true
 
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
