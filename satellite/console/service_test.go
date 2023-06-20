@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -1975,23 +1974,7 @@ func TestProjectInvitations(t *testing.T) {
 			return project
 		}
 
-		setInviteDate := func(ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) *console.ProjectInvitation {
-			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
-				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
-				createdAt, invite.ProjectID, strings.ToUpper(invite.Email),
-			)
-			require.NoError(t, err)
-
-			count, err := result.RowsAffected()
-			require.NoError(t, err)
-			require.EqualValues(t, 1, count)
-
-			invite, err = sat.DB.Console().ProjectInvitations().Get(ctx, invite.ProjectID, invite.Email)
-			require.NoError(t, err)
-			return invite
-		}
-
-		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string, createdAt time.Time) *console.ProjectInvitation {
+		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string) *console.ProjectInvitation {
 			invite, err := sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
 				ProjectID: project.ID,
 				Email:     email,
@@ -1999,7 +1982,15 @@ func TestProjectInvitations(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			return setInviteDate(ctx, invite, createdAt)
+			return invite
+		}
+
+		expireInvite := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation) {
+			createdAt := time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration)
+			_, err := sat.DB.Console().ProjectInvitations().Update(ctx, invite.ProjectID, invite.Email, console.UpdateProjectInvitationRequest{
+				CreatedAt: &createdAt,
+			})
+			require.NoError(t, err)
 		}
 
 		t.Run("invite users", func(t *testing.T) {
@@ -2026,19 +2017,7 @@ func TestProjectInvitations(t *testing.T) {
 			invites, err = service.GetUserProjectInvitations(ctx3)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
-			invite := invites[0]
-
-			// inviting the same user again should fail if existing invite hasn't expired.
-			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email})
-			require.Error(t, err)
-
-			// expire the invitation.
-			setInviteDate(ctx, &invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
-
-			// inviting the same user again should succeed because the existing invite has expired.
-			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email})
-			require.NoError(t, err)
-			require.Len(t, invites, 1)
+			user3Invite := invites[0]
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
 			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
@@ -2047,9 +2026,18 @@ func TestProjectInvitations(t *testing.T) {
 
 			require.NoError(t, service.RespondToProjectInvitation(ctx2, project.ID, console.ProjectInvitationAccept))
 
-			// now that user2 is a member, they can invite others.
-			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
+			// resending an active invitation should fail.
+			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
+			require.True(t, console.ErrProjectInviteActive.Has(err))
+			require.Empty(t, invites)
+
+			// resending an expired invitation should succeed.
+			expireInvite(t, ctx, &user3Invite)
+			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
 			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, user2.ID, *invites[0].InviterID)
+			require.True(t, invites[0].CreatedAt.After(user3Invite.CreatedAt))
 
 			// inviting a project member should fail.
 			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
@@ -2063,7 +2051,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, invites)
 
-			invite := addInvite(t, ctx, addProject(t, ctx), user.Email, time.Now())
+			invite := addInvite(t, ctx, addProject(t, ctx), user.Email)
 			invites, err = service.GetUserProjectInvitations(ctx)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
@@ -2072,7 +2060,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.Equal(t, invite.InviterID, invites[0].InviterID)
 			require.WithinDuration(t, invite.CreatedAt, invites[0].CreatedAt, time.Second)
 
-			setInviteDate(ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			expireInvite(t, ctx, &invites[0])
 			invites, err = service.GetUserProjectInvitations(ctx)
 			require.NoError(t, err)
 			require.Empty(t, invites)
@@ -2118,7 +2106,7 @@ func TestProjectInvitations(t *testing.T) {
 			project, err := sat.AddProject(ctx, owner.ID, "Test Project")
 			require.NoError(t, err)
 
-			invite := addInvite(t, ctx, project, user.Email, time.Now())
+			invite := addInvite(t, ctx, project, user.Email)
 
 			someToken, err := service.CreateInviteToken(ctx, project.PublicID, "some@email.com", invite.CreatedAt)
 			require.NoError(t, err)
@@ -2136,7 +2124,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NotNil(t, inviteFromToken)
 			require.Equal(t, invite, inviteFromToken)
 
-			setInviteDate(ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			expireInvite(t, ctx, invite)
 			invites, err := service.GetUserProjectInvitations(ctx)
 			require.NoError(t, err)
 			require.Empty(t, invites)
@@ -2158,11 +2146,12 @@ func TestProjectInvitations(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 			proj := addProject(t, ctx)
 
-			addInvite(t, ctx, proj, user.Email, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			invite := addInvite(t, ctx, proj, user.Email)
+			expireInvite(t, ctx, invite)
 			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 
-			addInvite(t, ctx, proj, user.Email, time.Now())
+			addInvite(t, ctx, proj, user.Email)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept))
 
 			invites, err := service.GetUserProjectInvitations(ctx)
@@ -2186,7 +2175,7 @@ func TestProjectInvitations(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 			proj := addProject(t, ctx)
 
-			addInvite(t, ctx, proj, user.Email, time.Now())
+			addInvite(t, ctx, proj, user.Email)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline))
 
 			invites, err := service.GetUserProjectInvitations(ctx)

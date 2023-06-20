@@ -123,6 +123,27 @@ func TestProjectInvitations(t *testing.T) {
 			require.Nil(t, invite.InviterID)
 		})
 
+		t.Run("update invitation", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			req := console.UpdateProjectInvitationRequest{}
+			newCreatedAt := invite.CreatedAt.Add(time.Hour)
+			req.CreatedAt = &newCreatedAt
+			newInvite, err := invitesDB.Update(ctx, projID, email, req)
+			require.NoError(t, err)
+			require.Equal(t, newCreatedAt, newInvite.CreatedAt)
+
+			inviter, err := db.Console().Users().Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				PasswordHash: testrand.Bytes(8),
+			})
+			require.NoError(t, err)
+			req.InviterID = &inviter.ID
+			newInvite, err = invitesDB.Update(ctx, projID, email, req)
+			require.NoError(t, err)
+			require.Equal(t, inviter.ID, *newInvite.InviterID)
+		})
+
 		t.Run("delete invitation", func(t *testing.T) {
 			ctx := testcontext.New(t)
 
@@ -156,13 +177,12 @@ func TestDeleteBefore(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		invitesDB := db.Console().ProjectInvitations()
-		now := time.Now()
 
 		// Only positive page sizes should be allowed.
 		require.Error(t, invitesDB.DeleteBefore(ctx, time.Time{}, 0, 0))
 		require.Error(t, invitesDB.DeleteBefore(ctx, time.Time{}, 0, -1))
 
-		createInvite := func(createdAt time.Time) *console.ProjectInvitation {
+		createInvite := func() *console.ProjectInvitation {
 			projID := testrand.UUID()
 			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projID})
 			require.NoError(t, err)
@@ -170,26 +190,22 @@ func TestDeleteBefore(t *testing.T) {
 			invite, err := invitesDB.Insert(ctx, &console.ProjectInvitation{ProjectID: projID})
 			require.NoError(t, err)
 
-			result, err := db.Testing().RawDB().ExecContext(ctx,
-				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2",
-				createdAt, invite.ProjectID,
-			)
-			require.NoError(t, err)
-
-			count, err := result.RowsAffected()
-			require.NoError(t, err)
-			require.EqualValues(t, 1, count)
-
 			return invite
 		}
 
-		newInvite := createInvite(now)
-		oldInvite := createInvite(expiration.Add(-time.Second))
+		newInvite := createInvite()
+
+		oldInvite := createInvite()
+		oldCreatedAt := expiration.Add(-time.Second)
+		oldInvite, err := invitesDB.Update(ctx, oldInvite.ProjectID, oldInvite.Email, console.UpdateProjectInvitationRequest{
+			CreatedAt: &oldCreatedAt,
+		})
+		require.NoError(t, err)
 
 		require.NoError(t, invitesDB.DeleteBefore(ctx, expiration, 0, 1))
 
 		// Ensure that the old invitation record was deleted and the other remains.
-		_, err := invitesDB.Get(ctx, oldInvite.ProjectID, oldInvite.Email)
+		_, err = invitesDB.Get(ctx, oldInvite.ProjectID, oldInvite.Email)
 		require.ErrorIs(t, err, sql.ErrNoRows)
 		_, err = invitesDB.Get(ctx, newInvite.ProjectID, newInvite.Email)
 		require.NoError(t, err)

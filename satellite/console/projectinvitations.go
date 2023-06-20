@@ -22,6 +22,8 @@ type ProjectInvitations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]ProjectInvitation, error)
 	// GetByEmail returns all of the project member invitations for the specified email address.
 	GetByEmail(ctx context.Context, email string) ([]ProjectInvitation, error)
+	// Update updates the project member invitation specified by the given project ID and email address.
+	Update(ctx context.Context, projectID uuid.UUID, email string, request UpdateProjectInvitationRequest) (*ProjectInvitation, error)
 	// Delete removes a project member invitation from the database.
 	Delete(ctx context.Context, projectID uuid.UUID, email string) error
 	// DeleteBefore deletes project member invitations created prior to some time from the database.
@@ -34,4 +36,10 @@ type ProjectInvitation struct {
 	Email     string
 	InviterID *uuid.UUID
 	CreatedAt time.Time
+}
+
+// UpdateProjectInvitationRequest contains all fields which may be updated by ProjectInvitations.Update.
+type UpdateProjectInvitationRequest struct {
+	CreatedAt *time.Time
+	InviterID *uuid.UUID
 }

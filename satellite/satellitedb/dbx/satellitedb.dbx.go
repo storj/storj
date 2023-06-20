@@ -11263,6 +11263,8 @@ type ProjectInvitation_Create_Fields struct {
 }
 
 type ProjectInvitation_Update_Fields struct {
+	InviterId ProjectInvitation_InviterId_Field
+	CreatedAt ProjectInvitation_CreatedAt_Field
 }
 
 type ProjectInvitation_ProjectId_Field struct {
@@ -18338,6 +18340,53 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project, nil
+}
+
+func (obj *pgxImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	update ProjectInvitation_Update_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.InviterId._set {
+		__values = append(__values, update.InviterId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inviter_id = ?"))
+	}
+
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_invitation_project_id.value(), project_invitation_email.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
 }
 
 func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
@@ -26300,6 +26349,53 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *pgxcockroachImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	update ProjectInvitation_Update_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_invitations SET "), __sets, __sqlbundle_Literal(" WHERE project_invitations.project_id = ? AND project_invitations.email = ? RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.InviterId._set {
+		__values = append(__values, update.InviterId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inviter_id = ?"))
+	}
+
+	if update.CreatedAt._set {
+		__values = append(__values, update.CreatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("created_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_invitation_project_id.value(), project_invitation_email.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_invitation = &ProjectInvitation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_invitation, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
@@ -29806,6 +29902,18 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
+func (rx *Rx) Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	update ProjectInvitation_Update_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_ProjectInvitation_By_ProjectId_And_Email(ctx, project_invitation_project_id, project_invitation_email, update)
+}
+
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -30792,6 +30900,12 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
+		project_invitation_project_id ProjectInvitation_ProjectId_Field,
+		project_invitation_email ProjectInvitation_Email_Field,
+		update ProjectInvitation_Update_Fields) (
+		project_invitation *ProjectInvitation, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

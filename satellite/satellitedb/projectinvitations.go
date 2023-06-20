@@ -87,6 +87,30 @@ func (invites *projectInvitations) GetByEmail(ctx context.Context, email string)
 	return projectInvitationSliceFromDBX(dbxInvites)
 }
 
+// Update updates the project member invitation specified by the given project ID and email address.
+func (invites *projectInvitations) Update(ctx context.Context, projectID uuid.UUID, email string, request console.UpdateProjectInvitationRequest) (_ *console.ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	update := dbx.ProjectInvitation_Update_Fields{}
+	if request.CreatedAt != nil {
+		update.CreatedAt = dbx.ProjectInvitation_CreatedAt(*request.CreatedAt)
+	}
+	if request.InviterID != nil {
+		update.InviterId = dbx.ProjectInvitation_InviterId((*request.InviterID)[:])
+	}
+
+	dbxInvite, err := invites.db.Update_ProjectInvitation_By_ProjectId_And_Email(ctx,
+		dbx.ProjectInvitation_ProjectId(projectID[:]),
+		dbx.ProjectInvitation_Email(normalizeEmail(email)),
+		update,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return projectInvitationFromDBX(dbxInvite)
+}
+
 // Delete removes a project member invitation from the database.
 func (invites *projectInvitations) Delete(ctx context.Context, projectID uuid.UUID, email string) (err error) {
 	defer mon.Task()(&ctx)(&err)

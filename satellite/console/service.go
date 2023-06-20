@@ -75,7 +75,7 @@ const (
 	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
 	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
 	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
-	projInviteExistsErrMsg               = "User has already been invited"
+	projInviteActiveErrMsg               = "The invitation for '%s' has not expired yet"
 )
 
 var (
@@ -143,8 +143,8 @@ var (
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 
-	// ErrProjectInviteExists occurs when a user is invited to a project they've already been invited to.
-	ErrProjectInviteExists = errs.Class("user already invited to project")
+	// ErrProjectInviteActive occurs when trying to reinvite a user whose invitation hasn't expired yet.
+	ErrProjectInviteActive = errs.Class("project invitation active")
 )
 
 // Service is handling accounts related logic.
@@ -3470,26 +3470,10 @@ func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInv
 	}
 
 	var active []ProjectInvitation
-	var deleteErrs []error
-	var expiredIDs []string
 	for _, invite := range invites {
-		if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
-			err := s.store.ProjectInvitations().Delete(ctx, invite.ProjectID, invite.Email)
-			if err != nil {
-				deleteErrs = append(deleteErrs, err)
-				expiredIDs = append(expiredIDs, invite.ProjectID.String())
-			}
-			continue
+		if !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+			active = append(active, invite)
 		}
-		active = append(active, invite)
-	}
-
-	if len(deleteErrs) != 0 {
-		s.log.Warn("error deleting expired project invitations",
-			zap.Errors("errors", deleteErrs),
-			zap.String("email", user.Email),
-			zap.Strings("projectIDs", expiredIDs),
-		)
 	}
 
 	return active, nil
@@ -3580,6 +3564,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 }
 
 // InviteProjectMembers invites users by email to given project.
+// If an invitation already exists and has expired, it will be replaced and the user will be sent a new email.
 // Email addresses not belonging to a user are ignored.
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
@@ -3611,24 +3596,13 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			if err != nil && !errs.Is(err, sql.ErrNoRows) {
 				return nil, Error.Wrap(err)
 			}
-			if invite != nil && time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
-				// delete expired invite
-				err := s.store.ProjectInvitations().Delete(ctx, projectID, invitedUser.Email)
-				if err != nil {
-					s.log.Warn("error deleting project invitation",
-						zap.Error(err),
-						zap.String("email", invitedUser.Email),
-						zap.String("projectID", projectID.String()),
-					)
-				}
-			} else if invite != nil && !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
-				return nil, ErrProjectInviteExists.New(projInviteExistsErrMsg)
+			if invite != nil && !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+				return nil, ErrProjectInviteActive.New(projInviteActiveErrMsg, invitedUser.Email)
 			}
 			users = append(users, invitedUser)
 		} else if !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
-
 	}
 
 	inviteTokens := make(map[string]string)
@@ -3641,11 +3615,17 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				InviterID: &user.ID,
 			})
 			if err != nil {
-				if dbx.IsConstraintError(err) {
-					// should not happen, but just in case.
-					return errs.New("%s is already invited", invited.Email)
+				if !dbx.IsConstraintError(err) {
+					return err
 				}
-				return err
+				now := time.Now()
+				invite, err = tx.ProjectInvitations().Update(ctx, projectID, invited.Email, UpdateProjectInvitationRequest{
+					CreatedAt: &now,
+					InviterID: &user.ID,
+				})
+				if err != nil {
+					return err
+				}
 			}
 			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
 			if err != nil {
@@ -3707,14 +3687,6 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 	if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
-		err = s.store.ProjectInvitations().Delete(ctx, invite.ProjectID, invite.Email)
-		if err != nil {
-			s.log.Warn("error deleting expired project invitations",
-				zap.Error(err),
-				zap.String("email", email),
-				zap.String("projectID", project.ID.String()),
-			)
-		}
 		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
