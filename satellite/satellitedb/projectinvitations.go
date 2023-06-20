@@ -5,9 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"time"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -19,7 +16,7 @@ var _ console.ProjectInvitations = (*projectInvitations)(nil)
 
 // projectInvitations is an implementation of console.ProjectInvitations.
 type projectInvitations struct {
-	db *satelliteDB
+	db dbx.Methods
 }
 
 // Upsert updates a project member invitation if it exists and inserts it otherwise.
@@ -96,81 +93,6 @@ func (invites *projectInvitations) Delete(ctx context.Context, projectID uuid.UU
 		dbx.ProjectInvitation_Email(normalizeEmail(email)),
 	)
 	return err
-}
-
-// DeleteBefore deletes project member invitations created prior to some time from the database.
-func (invites *projectInvitations) DeleteBefore(
-	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if pageSize <= 0 {
-		return Error.New("expected page size to be positive; got %d", pageSize)
-	}
-
-	var pageCursor, pageEnd struct {
-		ProjectID uuid.UUID
-		Email     string
-	}
-	aost := invites.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
-	for {
-		// Select the ID beginning this page of records
-		err := invites.db.QueryRowContext(ctx, `
-			SELECT project_id, email FROM project_invitations
-			`+aost+`
-			WHERE (project_id, email) > ($1, $2) AND created_at < $3
-			ORDER BY (project_id, email) LIMIT 1
-		`, pageCursor.ProjectID, pageCursor.Email, before).Scan(&pageCursor.ProjectID, &pageCursor.Email)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
-			return Error.Wrap(err)
-		}
-
-		// Select the ID ending this page of records
-		err = invites.db.QueryRowContext(ctx, `
-			SELECT project_id, email FROM project_invitations
-			`+aost+`
-			WHERE (project_id, email) > ($1, $2)
-			ORDER BY (project_id, email) LIMIT 1 OFFSET $3
-		`, pageCursor.ProjectID, pageCursor.Email, pageSize).Scan(&pageEnd.ProjectID, &pageEnd.Email)
-		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return Error.Wrap(err)
-			}
-			// Since this is the last page, we want to return all remaining records
-			_, err = invites.db.ExecContext(ctx, `
-				DELETE FROM project_invitations
-				WHERE (project_id, email) IN (
-					SELECT project_id, email FROM project_invitations
-					`+aost+`
-					WHERE (project_id, email) >= ($1, $2)
-					AND created_at < $3
-					ORDER BY (project_id, email)
-				)
-			`, pageCursor.ProjectID, pageCursor.Email, before)
-			return Error.Wrap(err)
-		}
-
-		// Delete all old, unverified records in the range between the beginning and ending IDs
-		_, err = invites.db.ExecContext(ctx, `
-			DELETE FROM project_invitations
-			WHERE (project_id, email) IN (
-				SELECT project_id, email FROM project_invitations
-				`+aost+`
-				WHERE (project_id, email) >= ($1, $2)
-				AND (project_id, email) <= ($3, $4)
-				AND created_at < $5
-				ORDER BY (project_id, email)
-			)
-		`, pageCursor.ProjectID, pageCursor.Email, pageEnd.ProjectID, pageEnd.Email, before)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		// Advance the cursor to the next page
-		pageCursor = pageEnd
-	}
 }
 
 // projectInvitationFromDBX converts a project member invitation from the database to a *console.ProjectInvitation.

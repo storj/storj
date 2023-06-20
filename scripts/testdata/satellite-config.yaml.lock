@@ -145,9 +145,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # interval between chore cycles
 # console-db-cleanup.interval: 24h0m0s
 
-# maximum lifetime of project member invitation records
-# console-db-cleanup.max-project-invitation-age: 168h0m0s
-
 # maximum lifetime of unverified user account records
 # console-db-cleanup.max-unverified-user-age: 168h0m0s
 

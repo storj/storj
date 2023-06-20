@@ -24,8 +24,6 @@ type ProjectInvitations interface {
 	GetByEmail(ctx context.Context, email string) ([]ProjectInvitation, error)
 	// Delete removes a project member invitation from the database.
 	Delete(ctx context.Context, projectID uuid.UUID, email string) error
-	// DeleteBefore deletes project member invitations created prior to some time from the database.
-	DeleteBefore(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) error
 }
 
 // ProjectInvitation represents a pending project member invitation.
