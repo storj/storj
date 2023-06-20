@@ -108,6 +108,22 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
     }
 
     /**
+     * Get invite link for the specified project and email.
+     *
+     * @throws Error
+     */
+    public async getInviteLink(projectID: string, email: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/${projectID}/invite-link?email=${email}`;
+        const httpResponse = await this.http.get(path);
+
+        if (httpResponse.ok) {
+            return await httpResponse.json();
+        }
+
+        throw new Error('Can not get invite link');
+    }
+
+    /**
      * Method for mapping project members page from json to ProjectMembersPage type.
      *
      * @param projectMembers anonymous object from json

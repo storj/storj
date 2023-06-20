@@ -33,6 +33,16 @@ export interface ProjectMembersApi {
     invite(projectId: string, emails: string[]): Promise<void>;
 
     /**
+     * Get invite link for the specified project and email.
+     *
+     * @param projectId
+     * @param email
+     *
+     * @throws Error
+     */
+    getInviteLink(projectId: string, email: string): Promise<string>;
+
+    /**
      * Deletes ProjectMembers from project by project member emails
      *
      * @param projectId

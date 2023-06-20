@@ -56,6 +56,8 @@ export enum AnalyticsEvent {
     PROJECT_INVITATION_DECLINED = 'Project Invitation Declined',
     PASSPHRASE_CREATED = 'Passphrase Created',
     RESEND_INVITE_CLICKED = 'Resend Invite Clicked',
+    COPY_INVITE_LINK_CLICKED = 'Copy Invite Link Clicked',
+    REMOVE_PROJECT_MEMBER_CLICKED = 'Remove Member Clicked',
 }
 
 export enum AnalyticsErrorEventSource {

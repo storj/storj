@@ -36,8 +36,10 @@
                     v-for="(member, key) in projectMembers"
                     :key="key"
                     :model="member"
+                    @removeClick="onRemoveClick"
+                    @resendClick="onResendClick"
                     @memberClick="onMemberCheckChange"
-                    @selectClicked="(_) => onMemberCheckChange(member)"
+                    @selectClick="onMemberCheckChange"
                 />
             </template>
         </v-table>
@@ -48,10 +50,14 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { ProjectMemberItemModel } from '@/types/projectMembers';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { useLoading } from '@/composables/useLoading';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -60,9 +66,14 @@ import VTable from '@/components/common/VTable.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+const { withLoading } = useLoading();
 
 const FIRST_PAGE = 1;
 
@@ -137,6 +148,36 @@ async function onPageChange(index: number, limit: number): Promise<void> {
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
+}
+
+function onResendClick(member: ProjectMemberItemModel) {
+    withLoading(async () => {
+        analytics.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
+        try {
+            await pmStore.inviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
+        } catch (_) {
+            await notify.error(`Error resending invite.`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        }
+
+        await notify.notify('Invite resent!');
+        pmStore.setSearchQuery('');
+
+        try {
+            await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+        } catch (error) {
+            await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        }
+    });
+}
+
+async function onRemoveClick(member: ProjectMemberItemModel) {
+    if (projectsStore.state.selectedProject.ownerId !== member.getUserID()) {
+        if (!member.isSelected()) {
+            pmStore.toggleProjectMemberSelection(member);
+        }
+        appStore.updateActiveModal(MODALS.removeTeamMember);
+    }
+    analytics.eventTriggered(AnalyticsEvent.REMOVE_PROJECT_MEMBER_CLICKED);
 }
 
 /**

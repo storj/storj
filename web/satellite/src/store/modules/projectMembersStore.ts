@@ -32,6 +32,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         await api.invite(projectID, emails);
     }
 
+    async function getInviteLink(email: string, projectID: string): Promise<string> {
+        return await api.getInviteLink(projectID, email);
+    }
+
     async function deleteProjectMembers(projectID: string): Promise<void> {
         await api.delete(projectID, state.selectedProjectMembersEmails);
 
@@ -112,6 +116,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     return {
         state,
         inviteMembers,
+        getInviteLink,
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
