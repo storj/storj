@@ -2074,18 +2074,9 @@ func TestProjectInvitations(t *testing.T) {
 
 		t.Run("invite tokens", func(t *testing.T) {
 			user, ctx1 := getUserAndCtx(t)
-			_, ctx2 := getUserAndCtx(t)
 
 			project, err := sat.AddProject(ctx1, user.ID, "Test Project")
 			require.NoError(t, err)
-
-			_, err = service.CreateInviteToken(ctx2, project.PublicID, email, time.Now())
-			require.Error(t, err)
-			require.True(t, console.ErrNoMembership.Has(err))
-
-			_, err = service.CreateInviteToken(ctx1, testrand.UUID(), email, time.Now())
-			require.Error(t, err)
-			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			someToken, err := service.CreateInviteToken(ctx1, project.PublicID, email, time.Now())
 			require.NoError(t, err)
@@ -2103,6 +2094,40 @@ func TestProjectInvitations(t *testing.T) {
 			_, _, err = service.ParseInviteToken(ctx, someToken)
 			require.Error(t, err)
 			require.True(t, console.ErrTokenExpiration.Has(err))
+		})
+
+		t.Run("invite links", func(t *testing.T) {
+			user, ctx1 := getUserAndCtx(t)
+			user2, ctx2 := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ctx1, user.ID, "Test Project")
+			require.NoError(t, err)
+
+			_, err = service.GetInviteLink(ctx2, project.PublicID, user2.Email)
+			require.Error(t, err)
+			require.True(t, console.ErrNoMembership.Has(err))
+
+			// no such project
+			_, err = service.GetInviteLink(ctx1, testrand.UUID(), user2.Email)
+			require.Error(t, err)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+
+			// no invite exists.
+			_, err = service.GetInviteLink(ctx1, project.PublicID, user2.Email)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			invite := addInvite(t, ctx1, project, user2.Email)
+
+			someLink, err := service.GetInviteLink(ctx1, project.PublicID, user2.Email)
+			require.NoError(t, err)
+			require.NotEmpty(t, someLink)
+
+			someToken, err := service.CreateInviteToken(ctx1, project.PublicID, user2.Email, invite.CreatedAt)
+			require.NoError(t, err)
+			require.NotEmpty(t, someToken)
+
+			require.Contains(t, someLink, someToken)
 		})
 
 		t.Run("get invite by invite token", func(t *testing.T) {

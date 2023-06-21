@@ -263,6 +263,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
 	projectsRouter.Handle("/{id}/salt", server.withAuth(http.HandlerFunc(projectsController.GetSalt))).Methods(http.MethodGet)
 	projectsRouter.Handle("/{id}/invite", server.withAuth(http.HandlerFunc(projectsController.InviteUsers))).Methods(http.MethodPost)
+	projectsRouter.Handle("/{id}/invite-link", server.withAuth(http.HandlerFunc(projectsController.GetInviteLink))).Methods(http.MethodGet)
 	projectsRouter.Handle("/invitations", server.withAuth(http.HandlerFunc(projectsController.GetUserInvitations))).Methods(http.MethodGet)
 	projectsRouter.Handle("/invitations/{id}/respond", server.withAuth(http.HandlerFunc(projectsController.RespondToInvitation))).Methods(http.MethodPost)
 

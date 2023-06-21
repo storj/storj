@@ -48,8 +48,8 @@
                             </div>
                         </div>
                         <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
-                            <InfoIcon />
-                            <p class="project-selection__dropdown__link-container__label">Project Details</p>
+                            <SettingsIcon />
+                            <p class="project-selection__dropdown__link-container__label">Project Settings</p>
                         </div>
                         <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
                             <ProjectIcon />

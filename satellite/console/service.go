@@ -3627,7 +3627,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 					return err
 				}
 			}
-			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt)
 			if err != nil {
 				return err
 			}
@@ -3698,19 +3698,40 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 	return invite, nil
 }
 
-// CreateInviteToken creates a token for project invite links.
-func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, inviteDate time.Time) (_ string, err error) {
+// GetInviteLink returns a link for project invites.
+func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create invite token", zap.String("projectID", publicProjectID.String()), zap.String("email", email))
+	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("projectID", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, publicProjectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, publicProjectID)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
+
+	invite, err := s.store.ProjectInvitations().Get(ctx, isMember.project.ID, email)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return "", Error.Wrap(err)
+		}
+		return "", ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	token, err := s.CreateInviteToken(ctx, publicProjectID, email, invite.CreatedAt)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return fmt.Sprintf("%s/invited?invite=%s", s.satelliteAddress, token), nil
+}
+
+// CreateInviteToken creates a token for project invite links.
+// Internal use only, since it doesn't check if the project is valid or the user is a member of the project.
+func (s *Service) CreateInviteToken(ctx context.Context, publicProjectID uuid.UUID, email string, inviteDate time.Time) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	linkClaims := consoleauth.Claims{
 		ID:         publicProjectID,

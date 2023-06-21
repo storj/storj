@@ -463,7 +463,7 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 			(expires_at IS NULL OR expires_at > $5)
 			GROUP BY (project_id, bucket_name)
 			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now))(func(rows tagsql.Rows) error {
+		`, opts.From.ProjectID, []byte(opts.From.BucketName), opts.To.ProjectID, []byte(opts.To.BucketName), opts.Now))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var bucketTally BucketTally
 

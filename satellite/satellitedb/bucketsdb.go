@@ -339,7 +339,7 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 			WHERE (project_id, name) > ($1, $2)
 			GROUP BY (project_id, name)
 			ORDER BY (project_id, name) ASC LIMIT $3
-	`, projectID, bucketName, moreLimit)
+	`, projectID, []byte(bucketName), moreLimit)
 	if err != nil {
 		return false, buckets.ErrBucket.New("BatchBuckets query error: %s", err)
 	}
