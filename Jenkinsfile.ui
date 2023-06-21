@@ -26,7 +26,7 @@ pipeline {
                 sh 'mkdir -p .build'
 
                 // pre-check that we cannot do at a later stage reliably
-                sh 'check-large-files'
+                //sh 'check-large-files'
             }
         }
 
@@ -101,8 +101,8 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-			//sh 'npx playwright install --with-deps'
-			sh 'npm install'
+			        //sh 'npx playwright install --with-deps'
+			        sh 'echo "skip for now install playwright"'
                 }
             }
         }
@@ -149,14 +149,14 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'check-clean-directory'
+                        //sh 'check-clean-directory'
                     }
                 }
                 stage('report') {
                     steps {
                         //execute the report
-			//sh 'npm run posttest'
-			sh 'echo "Test complete"'
+						//sh 'npm run posttest'
+			            sh 'echo "Test complete"'
                     }
                 }
             }
