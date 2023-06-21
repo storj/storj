@@ -150,6 +150,7 @@ pipeline {
                 stage('Lint') {
                     steps {
                         //sh 'check-clean-directory'
+                        sh 'echo"skip lint"'
                     }
                 }
                 stage('report') {
