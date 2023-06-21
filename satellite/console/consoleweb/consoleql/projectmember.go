@@ -18,6 +18,8 @@ const (
 	ProjectInvitationType = "projectInvitation"
 	// FieldJoinedAt is a field name for joined at timestamp.
 	FieldJoinedAt = "joinedAt"
+	// FieldExpired is a field name for expiration status.
+	FieldExpired = "expired"
 )
 
 // graphqlProjectMember creates projectMember type.
@@ -50,6 +52,9 @@ func graphqlProjectInvitation() *graphql.Object {
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
+			},
+			FieldExpired: &graphql.Field{
+				Type: graphql.Boolean,
 			},
 		},
 	})
@@ -122,9 +127,16 @@ type projectMember struct {
 	JoinedAt time.Time
 }
 
+// projectInvitation encapsulates a console.ProjectInvitation and its expiration status.
+type projectInvitation struct {
+	Email     string
+	CreatedAt time.Time
+	Expired   bool
+}
+
 type projectMembersPage struct {
 	ProjectMembers     []projectMember
-	ProjectInvitations []console.ProjectInvitation
+	ProjectInvitations []projectInvitation
 
 	Search         string
 	Limit          uint

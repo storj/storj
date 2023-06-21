@@ -64,7 +64,8 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                         },
                         projectInvitations {
                             email,
-                            createdAt
+                            createdAt,
+                            expired
                         },
                         search,
                         limit,
@@ -127,6 +128,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
             key.email,
             new Date(key.createdAt),
+            key.expired,
         ));
 
         projectMembersPage.search = projectMembers.search;

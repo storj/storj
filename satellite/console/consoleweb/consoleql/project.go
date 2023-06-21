@@ -166,9 +166,18 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						})
 					}
 
+					var invites []projectInvitation
+					for _, invite := range page.ProjectInvitations {
+						invites = append(invites, projectInvitation{
+							Email:     invite.Email,
+							CreatedAt: invite.CreatedAt,
+							Expired:   service.IsProjectInvitationExpired(&invite),
+						})
+					}
+
 					projectMembersPage := projectMembersPage{
 						ProjectMembers:     users,
-						ProjectInvitations: page.ProjectInvitations,
+						ProjectInvitations: invites,
 						TotalCount:         page.TotalCount,
 						Offset:             page.Offset,
 						Limit:              page.Limit,

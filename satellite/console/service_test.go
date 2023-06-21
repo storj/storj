@@ -1987,10 +1987,11 @@ func TestProjectInvitations(t *testing.T) {
 
 		expireInvite := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation) {
 			createdAt := time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration)
-			_, err := sat.DB.Console().ProjectInvitations().Update(ctx, invite.ProjectID, invite.Email, console.UpdateProjectInvitationRequest{
+			newInvite, err := sat.DB.Console().ProjectInvitations().Update(ctx, invite.ProjectID, invite.Email, console.UpdateProjectInvitationRequest{
 				CreatedAt: &createdAt,
 			})
 			require.NoError(t, err)
+			*invite = *newInvite
 		}
 
 		t.Run("invite users", func(t *testing.T) {
@@ -2031,13 +2032,18 @@ func TestProjectInvitations(t *testing.T) {
 			require.True(t, console.ErrProjectInviteActive.Has(err))
 			require.Empty(t, invites)
 
-			// resending an expired invitation should succeed.
+			// expire the invitation.
+			require.False(t, service.IsProjectInvitationExpired(&user3Invite))
+			oldCreatedAt := user3Invite.CreatedAt
 			expireInvite(t, ctx, &user3Invite)
+			require.True(t, service.IsProjectInvitationExpired(&user3Invite))
+
+			// resending an expired invitation should succeed.
 			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
 			require.Equal(t, user2.ID, *invites[0].InviterID)
-			require.True(t, invites[0].CreatedAt.After(user3Invite.CreatedAt))
+			require.True(t, invites[0].CreatedAt.After(oldCreatedAt))
 
 			// inviting a project member should fail.
 			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})

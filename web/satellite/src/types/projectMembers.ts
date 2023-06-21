@@ -231,6 +231,7 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
     public constructor(
         public email: string,
         public createdAt: Date,
+        public expired: boolean,
     ) {}
 
     /**

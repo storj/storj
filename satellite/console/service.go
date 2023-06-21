@@ -3471,7 +3471,7 @@ func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInv
 
 	var active []ProjectInvitation
 	for _, invite := range invites {
-		if !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+		if !s.IsProjectInvitationExpired(&invite) {
 			active = append(active, invite)
 		}
 	}
@@ -3544,7 +3544,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
-	if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+	if s.IsProjectInvitationExpired(invite) {
 		deleteWithLog()
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
@@ -3596,7 +3596,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			if err != nil && !errs.Is(err, sql.ErrNoRows) {
 				return nil, Error.Wrap(err)
 			}
-			if invite != nil && !time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+			if invite != nil && !s.IsProjectInvitationExpired(invite) {
 				return nil, ErrProjectInviteActive.New(projInviteActiveErrMsg, invitedUser.Email)
 			}
 			users = append(users, invitedUser)
@@ -3662,6 +3662,11 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	return invites, nil
 }
 
+// IsProjectInvitationExpired returns whether the project member invitation has expired.
+func (s *Service) IsProjectInvitationExpired(invite *ProjectInvitation) bool {
+	return time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+}
+
 // GetInviteByToken returns a project invite given an invite token.
 func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3686,7 +3691,7 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 		}
 		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
-	if time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration)) {
+	if s.IsProjectInvitationExpired(invite) {
 		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
