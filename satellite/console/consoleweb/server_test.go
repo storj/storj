@@ -128,10 +128,10 @@ func TestInvitedRouting(t *testing.T) {
 		loginURL := baseURL + "login"
 		invalidURL := loginURL + "?invite_invalid=true"
 
-		tokenInvalidProj, err := service.CreateInviteToken(ctx1, project.ID, user2.Email, time.Now())
+		tokenInvalidProj, err := service.CreateInviteToken(ctx, project.ID, user2.Email, time.Now())
 		require.NoError(t, err)
 
-		token, err := service.CreateInviteToken(ctx1, project.PublicID, user2.Email, time.Now())
+		token, err := service.CreateInviteToken(ctx, project.PublicID, user2.Email, time.Now())
 		require.NoError(t, err)
 
 		checkInvitedRedirect("Invited - Invalid projectID", invalidURL, tokenInvalidProj)
@@ -141,7 +141,7 @@ func TestInvitedRouting(t *testing.T) {
 		_, err = service.InviteProjectMembers(ctx1, project.ID, []string{user2.Email})
 		require.NoError(t, err)
 
-		token, err = service.CreateInviteToken(ctx1, project.PublicID, user2.Email, time.Now())
+		token, err = service.CreateInviteToken(ctx, project.PublicID, user2.Email, time.Now())
 		require.NoError(t, err)
 
 		// valid invite should redirect to login page with email.

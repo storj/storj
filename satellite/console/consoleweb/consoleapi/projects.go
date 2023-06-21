@@ -97,6 +97,38 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetInviteLink returns a link to an invitation given project ID and invitee's email.
+func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+	}
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing email query param"))
+		return
+	}
+
+	link, err := p.service.GetInviteLink(ctx, id, email)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+
+	err = json.NewEncoder(w).Encode(link)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetUserInvitations returns the user's pending project member invitations.
 func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
