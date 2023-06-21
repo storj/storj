@@ -196,7 +196,7 @@ func (db *DB) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamID
 		LIMIT $3
 	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNamesBytes),
 		opts.Limit,
-		opts.CursorBucket.ProjectID, opts.CursorBucket.BucketName, opts.CursorStreamID,
+		opts.CursorBucket.ProjectID, []byte(opts.CursorBucket.BucketName), opts.CursorStreamID,
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var streamID uuid.UUID

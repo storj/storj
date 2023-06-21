@@ -253,7 +253,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			)
 			RETURNING
 				created_at`,
-			opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextAvailableVersion, opts.NewStreamID,
+			opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, nextAvailableVersion, opts.NewStreamID,
 			sourceObject.ExpiresAt, sourceObject.SegmentCount,
 			encryptionParameters{&sourceObject.Encryption},
 			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,

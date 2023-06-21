@@ -62,7 +62,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	var entries []ObjectEntry
 	err = withRows(db.db.QueryContext(ctx, opts.getSQLQuery(),
-		opts.ProjectID, opts.BucketName, opts.startKey(), opts.Cursor.Version,
+		opts.ProjectID, []byte(opts.BucketName), opts.startKey(), opts.Cursor.Version,
 		opts.stopKey(), opts.Status,
 		opts.Limit+1, len(opts.Prefix)+1))(func(rows tagsql.Rows) error {
 		entries, err = scanListObjectsResult(rows, opts)
