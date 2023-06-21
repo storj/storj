@@ -30,6 +30,5 @@ COPY release/${TAG}/wasm/wasm_exec.js /app/static/wasm/
 COPY release/${TAG}/wasm/access.wasm.br /app/static/wasm/
 COPY release/${TAG}/wasm/wasm_exec.js.br /app/static/wasm/
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
-COPY release/${TAG}/inspector_linux_${GOARCH:-amd64} /app/inspector
 COPY cmd/satellite/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

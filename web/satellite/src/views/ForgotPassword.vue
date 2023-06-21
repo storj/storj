@@ -50,22 +50,14 @@
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <VInput
                         label="Email Address"
+                        max-symbols="72"
                         placeholder="user@example.com"
                         :error="emailError"
                         @setData="setEmail"
                     />
                 </div>
-                <VueRecaptcha
-                    v-if="captchaConfig.recaptcha.enabled"
-                    ref="captcha"
-                    :sitekey="captchaConfig.recaptcha.siteKey"
-                    :load-recaptcha-script="true"
-                    size="invisible"
-                    @verify="onCaptchaVerified"
-                    @error="onCaptchaError"
-                />
                 <VueHcaptcha
-                    v-else-if="captchaConfig.hcaptcha.enabled"
+                    v-if="captchaConfig.hcaptcha.enabled"
                     ref="captcha"
                     :sitekey="captchaConfig.hcaptcha.siteKey"
                     :re-captcha-compat="false"
@@ -81,9 +73,7 @@
                     border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onSendConfigurations"
-                >
-                    Reset Password
-                </v-button>
+                />
                 <div class="forgot-area__content-area__container__login-container">
                     <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
                         Back to Login
@@ -95,14 +85,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Validator } from '@/utils/validation';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -117,8 +107,7 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
@@ -130,7 +119,7 @@ const isLoading = ref<boolean>(false);
 const isPasswordResetExpired = ref<boolean>(false);
 const isMessageShowing = ref<boolean>(true);
 const isDropdownShown = ref<boolean>(false);
-const captcha = ref<VueRecaptcha | VueHcaptcha>();
+const captcha = ref<VueHcaptcha>();
 
 /**
  * Name of the current satellite.
@@ -202,7 +191,7 @@ function onCaptchaError(): void {
  * Sends recovery password email.
  */
 async function onSendConfigurations(): Promise<void> {
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
     if (activeElement && activeElement.id === 'resetDropdown') return;
 
     if (isLoading.value || !validateFields()) {
@@ -254,7 +243,7 @@ function validateFields(): boolean {
 }
 
 onMounted((): void => {
-    isPasswordResetExpired.value = router.currentRoute.query.expired === 'true';
+    isPasswordResetExpired.value = route.query.expired === 'true';
 });
 </script>
 
@@ -266,10 +255,7 @@ onMounted((): void => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -439,7 +425,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .forgot-area {
 
@@ -459,7 +445,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .forgot-area {
 

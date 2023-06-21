@@ -114,6 +114,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		log.Named("ec-repair"),
 		dialer,
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
+		config.Repairer.DialTimeout,
 		config.Repairer.DownloadTimeout,
 		true) // force inmemory download of pieces
 
@@ -275,8 +276,8 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 	optimalThresholdMultiplier := float64(1) // is this value fine?
 	numHealthyInExcludedCountries := 0
-	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment,
-		make([]*pb.AddressedOrderLimit, len(newNodes)), make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, segment, make([]*pb.AddressedOrderLimit, len(newNodes)),
+		make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
 	if err != nil {
 		return errs.New("could not create PUT_REPAIR order limits: %w", err)
 	}

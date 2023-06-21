@@ -2,32 +2,12 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
-
-    /**
-     * Used for adding team members to project.
-     *
-     * @param projectId
-     * @param emails
-     */
-    public async add(projectId: string, emails: string[]): Promise<void> {
-        const query =
-            `mutation($projectId: String!, $emails:[String!]!) {
-                addProjectMembers(
-                    publicId: $projectId,
-                    email: $emails
-                ) {publicId}
-            }`;
-
-        const variables = {
-            projectId,
-            emails,
-        };
-
-        await this.mutate(query, variables);
-    }
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/projects';
 
     /**
      * Used for deleting team members from project.
@@ -64,7 +44,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                 project (
                     publicId: $projectId,
                 ) {
-                    members (
+                    membersAndInvitations (
                         cursor: {
                             limit: $limit,
                             search: $search,
@@ -81,6 +61,11 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                                 email
                             },
                             joinedAt
+                        },
+                        projectInvitations {
+                            email,
+                            createdAt,
+                            expired
                         },
                         search,
                         limit,
@@ -103,7 +88,23 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
 
         const response = await this.query(query, variables);
 
-        return this.getProjectMembersList(response.data.project.members);
+        return this.getProjectMembersList(response.data.project.membersAndInvitations);
+    }
+
+    /**
+     * Handles inviting users to a project.
+     *
+     * @throws Error
+     */
+    public async invite(projectID: string, emails: string[]): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/invite`;
+        const body = { emails };
+        const httpResponse = await this.http.post(path, JSON.stringify(body));
+
+        if (httpResponse.ok) return;
+
+        const result = await httpResponse.json();
+        throw new Error(result.error || 'Failed to send project invitations');
     }
 
     /**
@@ -123,6 +124,11 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
             key.user.email,
             new Date(key.joinedAt),
             key.user.id,
+        ));
+        projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
+            key.email,
+            new Date(key.createdAt),
+            key.expired,
         ));
 
         projectMembersPage.search = projectMembers.search;

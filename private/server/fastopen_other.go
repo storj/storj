@@ -12,4 +12,5 @@ import (
 
 func setTCPFastOpen(fd uintptr, queue int) error { return nil }
 
-func tryInitFastOpen(*zap.Logger) {}
+// tryInitFastOpen returns true if fastopen support is possibly enabled.
+func tryInitFastOpen(*zap.Logger) bool { return false }

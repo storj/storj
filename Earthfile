@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.18
+FROM golang:1.19
 WORKDIR /go/storj
 
 multinode-web:
@@ -42,7 +42,6 @@ storagenode-bin:
     COPY go.sum go.sum
     COPY private private
     COPY cmd/storagenode cmd/storagenode
-    COPY storage storage
     COPY storagenode storagenode
     COPY multinode multinode
     COPY web/storagenode web/storagenode

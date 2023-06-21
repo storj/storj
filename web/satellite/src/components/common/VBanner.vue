@@ -83,8 +83,11 @@ watch(() => props.dashboardRef, () => {
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-    @media screen and (max-width: 800px) {
-        margin: 0 1.5rem;
+    @media screen and (width <= 450px) {
+        flex-direction: column;
+        align-items: flex-start;
+        row-gap: 10px;
+        position: relative;
     }
 
     &__icon {
@@ -123,6 +126,7 @@ watch(() => props.dashboardRef, () => {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        column-gap: 10px;
     }
 
     &__close {
@@ -130,6 +134,13 @@ watch(() => props.dashboardRef, () => {
         height: 15px;
         margin-left: 2.375rem;
         cursor: pointer;
+        flex-shrink: 0;
+
+        @media screen and (width <= 450px) {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+        }
     }
 }
 
@@ -145,12 +156,5 @@ watch(() => props.dashboardRef, () => {
     color: black;
     text-decoration: underline !important;
     cursor: pointer;
-}
-
-@media screen and (max-width: 500px) {
-
-    .notification-wrap {
-        right: 15px;
-    }
 }
 </style>

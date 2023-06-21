@@ -42,33 +42,42 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
+            <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                <InfoIcon />
+                <p class="project-selection__dropdown__link-container__label">Project Details</p>
+            </div>
+            <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                <ProjectIcon />
+                <p class="project-selection__dropdown__link-container__label">All projects</p>
+            </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
-            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
+            <div v-if="!isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
                 <ManageIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
             </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
-                <p class="project-selection__dropdown__link-container__label">Create new</p>
+                <p class="project-selection__dropdown__link-container__label">Create new project</p>
             </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -76,6 +85,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -85,6 +95,7 @@ import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
+import InfoIcon from '@/../static/images/navigation/info.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -93,9 +104,10 @@ const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -116,7 +128,21 @@ const style = computed((): Record<string, string> => {
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+    return route.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/*
+ * Whether the user is the owner of the selected project.
+ */
+const isProjectOwner = computed((): boolean => {
+    return userStore.state.user.id === projectsStore.state.selectedProject.ownerId;
+});
+
+/**
+ * Indicates if all projects dashboard is enabled.
+ */
+const isAllProjectsDashboard = computed((): boolean => {
+    return configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -144,7 +170,7 @@ const selectedProject = computed((): Project => {
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.Buckets.path);
+    return route.path.includes(RouteConfig.Buckets.path);
 });
 
 /**
@@ -196,7 +222,9 @@ async function onProjectSelected(projectID: string): Promise<void> {
     closeDropdown();
 
     bucketsStore.clearS3Data();
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+    if (userStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
 
     if (isBucketsView.value) {
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
@@ -204,7 +232,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         const now = new Date();
         const past = new Date();
         past.setDate(past.getDate() - 30);
@@ -215,6 +243,8 @@ async function onProjectSelected(projectID: string): Promise<void> {
                 billingStore.getProjectUsageAndChargesCurrentRollup(),
                 projectsStore.getProjectLimits(projectID),
                 bucketsStore.getBuckets(FIRST_PAGE, projectID),
+                agStore.getAccessGrants(FIRST_PAGE, projectID),
+                pmStore.getProjectMembers(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
@@ -223,7 +253,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.AccessGrants.name) {
+    if (route.name === RouteConfig.AccessGrants.name) {
         try {
             await agStore.getAccessGrants(FIRST_PAGE, projectID);
         } catch (error) {
@@ -233,7 +263,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.Team.name) {
+    if (route.name === RouteConfig.Team.name) {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {
@@ -253,12 +283,30 @@ function closeDropdown(): void {
  * Route to projects list page.
  */
 function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+    if (route.name !== RouteConfig.ProjectsList.name) {
         analytics.pageVisit(RouteConfig.ProjectsList.path);
         analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
     }
 
+    closeDropdown();
+}
+
+/**
+ * Route to all projects page.
+ */
+function onAllProjectsClick(): void {
+    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
+    closeDropdown();
+}
+
+/**
+ * Route to project details page.
+ */
+function onProjectDetailsClick(): void {
+    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+    router.push(RouteConfig.EditProjectDetails.path);
     closeDropdown();
 }
 
@@ -275,17 +323,17 @@ function onManagePassphraseClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+    if (route.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = userStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
+            appStore.updateActiveModal(MODALS.newCreateProject);
         }
     }
 
@@ -500,7 +548,7 @@ function onCreateLinkClick(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .project-selection__selected {
             padding: 10px 0;

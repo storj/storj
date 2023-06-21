@@ -42,15 +42,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -64,8 +63,8 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const props = withDefaults(defineProps<{
     closeDropdowns?: () => void;
@@ -85,7 +84,7 @@ function navigateToCreateAG(): void {
     analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.AccessGrant },
+        query: { accessType: AccessType.AccessGrant },
     }).catch(() => {return;});
 }
 
@@ -99,7 +98,7 @@ function navigateToAccessGrantS3(): void {
     analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.S3 },
+        query: { accessType: AccessType.S3 },
     }).catch(() => {return;});
 }
 
@@ -119,7 +118,7 @@ function navigateToBuckets(): void {
 function navigateToCLIFlow(): void {
     analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
     props.closeDropdowns();
-    appStore.setOnboardingBackRoute(router.currentRoute.path);
+    appStore.setOnboardingBackRoute(route.path);
     analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
     router.push({ name: RouteConfig.AGName.name });
 }
@@ -128,17 +127,17 @@ function navigateToCLIFlow(): void {
  * Redirects to create access grant screen.
  */
 function navigateToNewProject(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+    if (route.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
 
         const user: User = usersStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
+            appStore.updateActiveModal(MODALS.newCreateProject);
         }
     }
 

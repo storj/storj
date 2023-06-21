@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	_ "github.com/jackc/pgx/v4"        // registers pgx as a tagsql driver.
-	_ "github.com/jackc/pgx/v4/stdlib" // registers pgx as a tagsql driver.
+	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
+	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"

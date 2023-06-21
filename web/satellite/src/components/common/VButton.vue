@@ -41,6 +41,7 @@
         <span class="label" :class="{uppercase: isUppercase}">
             <component :is="iconComponent" v-if="iconComponent" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            <slot />
             {{ label }}
         </span>
         <div class="icon-wrapper-right">
@@ -50,11 +51,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 
-import { computed, VueConstructor } from 'vue';
-
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
@@ -85,7 +87,7 @@ const props = withDefaults(defineProps<{
     onPress?: () => void;
 }>(), {
     link: undefined,
-    label: 'Default',
+    label: '',
     width: 'inherit',
     height: 'inherit',
     fontSize: '16px',
@@ -105,8 +107,9 @@ const props = withDefaults(defineProps<{
     onPress: () => {},
 });
 
-const icons = new Map<string, VueConstructor>([
+const icons = new Map<string, string>([
     ['copy', CopyIcon],
+    ['check', CheckIcon],
     ['download', DownloadIcon],
     ['lock', LockIcon],
     ['credit-card', CreditCardIcon],
@@ -115,9 +118,10 @@ const icons = new Map<string, VueConstructor>([
     ['folder', FolderIcon],
     ['resources', ResourcesIcon],
     ['addcircle', AddCircleIcon],
+    ['add', WhitePlusIcon],
 ]);
 
-const iconComponent = computed((): VueConstructor | undefined => icons.get(props.icon.toLowerCase()));
+const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));
 
 const containerClassName = computed((): string => {
     if (props.isDisabled) return 'disabled';
@@ -170,19 +174,24 @@ function handleClick(): void {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049 !important;
+        }
     }
 
     .solid-red {
-        background-color: var(--c-red-3) !important;
-        border: 1px solid var(--c-red-3) !important;
+        background-color: var(--c-red-2) !important;
+        border: 1px solid var(--c-red-2) !important;
 
         .label {
             color: #fff !important;
         }
 
         &:hover {
-            background-color: #790000 !important;
-            border: 1px solid #790000 !important;
+            background-color: var(--c-red-3) !important;
+            border: 1px solid var(--c-red-3) !important;
         }
     }
 
@@ -196,7 +205,7 @@ function handleClick(): void {
 
         :deep(path),
         :deep(rect) {
-            fill: #354049;
+            fill: #354049 !important;
         }
     }
 
@@ -216,6 +225,11 @@ function handleClick(): void {
         .label {
             color: var(--c-green-5) !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-green-5) !important;
+        }
     }
 
     .green {
@@ -232,12 +246,12 @@ function handleClick(): void {
     }
 
     .disabled {
-        background-color: #dadde5 !important;
-        border-color: #dadde5 !important;
+        background-color: var(--c-grey-5) !important;
+        border-color: var(--c-grey-5) !important;
         pointer-events: none !important;
 
         .label {
-            color: #acb0bc !important;
+            color: var(--c-white) !important;
         }
     }
 
@@ -263,6 +277,11 @@ function handleClick(): void {
         cursor: pointer;
         box-sizing: border-box;
 
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-white);
+        }
+
         .trash-icon {
             margin-right: 5px;
         }
@@ -285,7 +304,6 @@ function handleClick(): void {
 
         .label {
             font-family: 'font_medium', sans-serif;
-            line-height: 23px;
             color: #fff;
             margin: 0;
             white-space: nowrap;
@@ -303,8 +321,7 @@ function handleClick(): void {
 
                 :deep(path),
                 :deep(rect) {
-                    stroke: white;
-                    fill: white;
+                    fill: white !important;
                 }
 
                 .label {

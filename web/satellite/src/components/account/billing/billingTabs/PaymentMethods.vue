@@ -155,18 +155,18 @@
                 <v-table
                     class="payments-area__transactions-area__table"
                     items-label="transactions"
-                    :limit="PAGE_SIZE"
+                    :limit="DEFAULT_PAGE_LIMIT"
                     :total-page-count="pageCount"
                     :total-items-count="transactionCount"
-                    :on-page-click-callback="paginationController"
+                    :on-page-change="paginationController"
                 >
                     <template #head>
                         <SortingHeader @sortFunction="sortFunction" />
                     </template>
                     <template #body>
                         <token-transaction-item
-                            v-for="item in displayedHistory"
-                            :key="item.id"
+                            v-for="(item, index) in displayedHistory"
+                            :key="index"
                             :item="item"
                         />
                     </template>
@@ -177,23 +177,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import QRCode from 'qrcode';
+import { useRoute, useRouter } from 'vue-router';
 
 import {
     CreditCard,
     Wallet,
     NativePaymentHistoryItem,
 } from '@/types/payments';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -231,12 +234,11 @@ const usersStore = useUsersStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
-const PAGE_SIZE = 10;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const showTransactions = ref<boolean>(false);
@@ -254,7 +256,7 @@ const stripeCardInput = ref<typeof StripeCardInput & StripeForm>();
 const canvas = ref<HTMLCanvasElement>();
 
 const pageCount = computed((): number => {
-    return Math.ceil(transactionCount.value / PAGE_SIZE);
+    return Math.ceil(transactionCount.value / DEFAULT_PAGE_LIMIT);
 });
 
 /**
@@ -300,7 +302,7 @@ async function fetchHistory(): Promise<void> {
     try {
         await billingStore.getNativePaymentsHistory();
         transactionCount.value = nativePaymentHistoryItems.value.length;
-        displayedHistory.value = nativePaymentHistoryItems.value.slice(0, PAGE_SIZE);
+        displayedHistory.value = nativePaymentHistoryItems.value.slice(0, DEFAULT_PAGE_LIMIT);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     } finally {
@@ -414,6 +416,12 @@ async function onConfirmAddStripe(): Promise<void> {
 
 function addPaymentMethodHandler(): void {
     analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+        return;
+    }
+
     isAddingPayment.value = true;
 }
 
@@ -473,12 +481,12 @@ function sortFunction(key): void {
 /**
  * controls transaction table pagination
  */
-function paginationController(i: number): void {
-    displayedHistory.value = nativePaymentHistoryItems.value.slice((i - 1) * PAGE_SIZE, ((i - 1) * PAGE_SIZE) + PAGE_SIZE);
+function paginationController(i: number, limit: number): void {
+    displayedHistory.value = nativePaymentHistoryItems.value.slice((i - 1) * limit, ((i - 1) * limit) + limit);
 }
 
 onMounted((): void => {
-    if (router.currentRoute.params.action === 'token history') {
+    if (route.query.action === 'token history') {
         showTransactionsTable();
     }
 });
@@ -638,10 +646,7 @@ $align: center;
 
 .edit_payment_method {
     position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 100;
     background: rgb(27 37 51 / 75%);
     display: $flex;
@@ -920,7 +925,7 @@ $align: center;
                     text-overflow: ellipsis;
                     overflow: hidden;
 
-                    @media screen and (max-width: 375px) {
+                    @media screen and (width <= 375px) {
                         width: 16rem;
                     }
                 }
@@ -935,10 +940,15 @@ $align: center;
             flex-wrap: wrap;
             gap: 0.3rem;
 
+            @media screen and (width <= 650px) {
+                width: 100%;
+            }
+
             &__address {
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
+                width: 100%;
                 gap: 0.3rem;
 
                 &__label {
@@ -948,6 +958,8 @@ $align: center;
 
                 &__value {
                     font-family: 'font_bold', sans-serif;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
             }
         }

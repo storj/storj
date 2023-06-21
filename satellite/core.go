@@ -32,10 +32,10 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/nodeevents"
@@ -47,7 +47,6 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -68,6 +67,10 @@ type Core struct {
 	Version struct {
 		Chore   *version_checker.Chore
 		Service *version_checker.Service
+	}
+
+	Analytics struct {
+		Service *analytics.Service
 	}
 
 	Mail struct {
@@ -95,16 +98,11 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Metabase    *metabase.DB
-		SegmentLoop *segmentloop.Service
+		Metabase *metabase.DB
 	}
 
 	Reputation struct {
 		Service *reputation.Service
-	}
-
-	Repair struct {
-		Checker *checker.Checker
 	}
 
 	Audit struct {
@@ -139,6 +137,10 @@ type Core struct {
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
+	}
+
+	ConsoleDBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 }
 
@@ -304,40 +306,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
-
-		peer.Metainfo.SegmentLoop = segmentloop.New(
-			peer.Log.Named("metainfo:segmentloop"),
-			config.Metainfo.SegmentLoop,
-			peer.Metainfo.Metabase,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:segmentloop",
-			Run:   peer.Metainfo.SegmentLoop.Run,
-			Close: peer.Metainfo.SegmentLoop.Close,
-		})
-	}
-
-	{ // setup data repair
-		log := peer.Log.Named("repair:checker")
-		if config.Repairer.UseRangedLoop {
-			log.Info("using ranged loop")
-		} else {
-			peer.Repair.Checker = checker.NewChecker(
-				log,
-				peer.DB.RepairQueue(),
-				peer.Metainfo.Metabase,
-				peer.Metainfo.SegmentLoop,
-				peer.Overlay.Service,
-				config.Checker)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "repair:checker",
-				Run:   peer.Repair.Checker.Run,
-				Close: peer.Repair.Checker.Close,
-			})
-
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		}
 	}
 
 	{ // setup reputation
@@ -454,6 +422,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	// TODO: remove in future, should be in API
 	{ // setup payments
 		pc := config.Payments
@@ -496,7 +474,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -549,14 +529,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			analyticService := analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
 			peer.Payments.AccountFreeze = accountfreeze.NewChore(
 				peer.Log.Named("payments.accountfreeze:chore"),
 				peer.DB.StripeCoinPayments(),
 				peer.Payments.Accounts,
 				peer.DB.Console().Users(),
-				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), analyticService),
-				analyticService,
+				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), peer.Analytics.Service),
+				peer.Analytics.Service,
 				config.AccountFreeze,
 			)
 
@@ -566,6 +545,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Close: peer.Payments.AccountFreeze.Close,
 			})
 		}
+	}
+
+	// setup console DB cleanup service
+	if config.ConsoleDBCleanup.Enabled {
+		peer.ConsoleDBCleanup.Chore = dbcleanup.NewChore(
+			peer.Log.Named("console.dbcleanup:chore"),
+			peer.DB.Console(),
+			config.ConsoleDBCleanup,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "dbcleanup:chore",
+			Run:   peer.ConsoleDBCleanup.Chore.Run,
+			Close: peer.ConsoleDBCleanup.Chore.Close,
+		})
 	}
 
 	return peer, nil

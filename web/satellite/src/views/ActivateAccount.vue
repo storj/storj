@@ -42,9 +42,7 @@
                     border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onActivateClick"
-                >
-                    Reset Password
-                </v-button>
+                />
                 <div class="activate-area__content-area__container__login-row">
                     <router-link :to="loginPath" class="activate-area__content-area__container__login-row__link">
                         Back to Login
@@ -56,12 +54,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Validator } from '@/utils/validation';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
@@ -74,8 +73,7 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
@@ -127,7 +125,7 @@ function onLogoClick(): void {
 }
 
 onMounted((): void => {
-    isActivationExpired.value = router.currentRoute.query.expired === 'true';
+    isActivationExpired.value = route.query.expired === 'true';
 });
 </script>
 
@@ -140,10 +138,7 @@ onMounted((): void => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -241,7 +236,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .activate-area {
 
@@ -255,7 +250,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .activate-area {
 

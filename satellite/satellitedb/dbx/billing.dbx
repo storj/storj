@@ -110,6 +110,13 @@ read all (
 	orderby desc billing_transaction.timestamp
 )
 
+read all (
+	select billing_transaction
+	where billing_transaction.user_id = ?
+	where billing_transaction.source = ?
+	orderby desc billing_transaction.timestamp
+)
+
 read first (
 	select billing_transaction
 	where billing_transaction.source = ?
@@ -231,12 +238,6 @@ read one (
 	where stripecoinpayments_invoice_project_record.project_id = ?
 	where stripecoinpayments_invoice_project_record.period_start = ?
 	where stripecoinpayments_invoice_project_record.period_end = ?
-)
-read limitoffset (
-	select stripecoinpayments_invoice_project_record
-	where stripecoinpayments_invoice_project_record.period_start = ?
-	where stripecoinpayments_invoice_project_record.period_end = ?
-	where stripecoinpayments_invoice_project_record.state = ?
 )
 
 // stripecoinpayments_tx_conversion_rate contains information about a conversion-rate that was used in a transaction.

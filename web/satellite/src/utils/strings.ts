@@ -1,6 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Size } from '@/utils/bytesSize';
+
 /**
  * CENTS_MB_TO_DOLLARS_GB_SHIFT constant represents how many places to the left
  * a decimal point must be shifted to convert from cents/MB to dollars/GB.
@@ -77,4 +79,20 @@ export function formatPrice(decimal: string) {
     }
 
     return sign + '$' + (int || '0') + (frac ? '.' + frac : '');
+}
+
+/**
+ * centsToDollars formats amounts in cents as dollars.
+ * @param cents - the cent value
+ */
+export function centsToDollars(cents: number) {
+    return formatPrice(decimalShift(cents.toString(), 2));
+}
+
+/**
+ * bytesToBase10String Converts bytes to base-10 types.
+ * @param amountInBytes
+ */
+export function bytesToBase10String(amountInBytes: number) {
+    return Size.toBase10String(amountInBytes);
 }

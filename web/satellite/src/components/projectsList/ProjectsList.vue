@@ -25,7 +25,7 @@
             :limit="projectsPage.limit"
             :total-page-count="projectsPage.pageCount"
             items-label="projects"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
             :total-items-count="projectsPage.totalCount"
         >
             <template #head>
@@ -47,15 +47,16 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Project, ProjectsPage } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -96,11 +97,12 @@ const projectsPage = computed((): ProjectsPage => {
 /**
  * Fetches owned projects page page by clicked page number.
  * @param page
+ * @param limit
  */
-async function onPageClick(page: number): Promise<void> {
+async function onPageChange(page: number, limit: number): Promise<void> {
     currentPageNumber.value = page;
     try {
-        await projectsStore.getOwnedProjects(currentPageNumber.value);
+        await projectsStore.getOwnedProjects(currentPageNumber.value, limit);
     } catch (error) {
         await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
@@ -115,11 +117,11 @@ function onCreateClick(): void {
     const user: User = usersStore.state.user;
     const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
-    if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+    if (!user.paidTier || user.projectLimit === ownProjectsCount) {
         appStore.updateActiveModal(MODALS.createProjectPrompt);
     } else {
         analytics.pageVisit(RouteConfig.CreateProject.path);
-        appStore.updateActiveModal(MODALS.createProject);
+        appStore.updateActiveModal(MODALS.newCreateProject);
     }
 }
 

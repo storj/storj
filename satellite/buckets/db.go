@@ -101,6 +101,8 @@ type DB interface {
 	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 	// UpdateBucket updates an existing bucket
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
+	// UpdateUserAgent updates buckets user agent.
+	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// DeleteBucket deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// ListBuckets returns all buckets for a project

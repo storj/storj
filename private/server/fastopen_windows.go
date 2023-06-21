@@ -15,9 +15,11 @@ func setTCPFastOpen(fd uintptr, queue int) error {
 	return syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_TCP, tcpFastOpenServer, 1)
 }
 
-func tryInitFastOpen(*zap.Logger) {
+// tryInitFastOpen returns true if fastopen support is possibly enabled.
+func tryInitFastOpen(*zap.Logger) bool {
 	// should we log or check something along the lines of
 	// netsh int tcp set global fastopen=enabled
 	// netsh int tcp set global fastopenfallback=disabled
 	// ?
+	return false
 }

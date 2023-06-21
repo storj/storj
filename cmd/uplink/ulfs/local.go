@@ -19,8 +19,8 @@ import (
 // LocalBackendFile represents a file in the filesystem.
 type LocalBackendFile interface {
 	io.Closer
-	io.Writer
 	io.ReaderAt
+	io.WriterAt
 	Name() string
 	Stat() (os.FileInfo, error)
 	Readdir(int) ([]os.FileInfo, error)
@@ -58,7 +58,7 @@ func (l *Local) Open(ctx context.Context, path string) (MultiReadHandle, error) 
 }
 
 // Create makes any directories necessary to create a file at path and returns a WriteHandle.
-func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
+func (l *Local) Create(ctx context.Context, path string) (MultiWriteHandle, error) {
 	fi, err := l.fs.Stat(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errs.Wrap(err)
@@ -75,7 +75,7 @@ func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return newOSWriteHandle(l.fs, fh), nil
+	return newOSMultiWriteHandle(l.fs, fh), nil
 }
 
 // Move moves file to provided path.

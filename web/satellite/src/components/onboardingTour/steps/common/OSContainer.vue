@@ -131,6 +131,10 @@ onMounted((): void => {
                 padding: 16px;
                 color: #9daab6;
                 cursor: pointer;
+
+                @media screen and (width <= 350px) {
+                    padding: 10px;
+                }
             }
 
             &__choice:first-child {

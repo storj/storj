@@ -5,8 +5,11 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,7 +28,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -38,6 +40,8 @@ const (
 
 var (
 	mon = monkit.Package()
+	evs = eventkit.Package()
+
 	// Error general metainfo error.
 	Error = errs.Class("metainfo")
 	// ErrNodeAlreadyExists pointer already has a piece for a node err.
@@ -62,7 +66,6 @@ type Endpoint struct {
 	log                    *zap.Logger
 	buckets                *buckets.Service
 	metabase               *metabase.DB
-	deletePieces           *piecedeletion.Service
 	orders                 *orders.Service
 	overlay                *overlay.Service
 	attributions           attribution.DB
@@ -83,8 +86,7 @@ type Endpoint struct {
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
-	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
-	attributions attribution.DB, peerIdentities overlay.PeerIdentities,
+	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
@@ -110,7 +112,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		log:                 log,
 		buckets:             buckets,
 		metabase:            metabaseDB,
-		deletePieces:        deletePieces,
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
@@ -153,6 +154,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
 	if err != nil {
@@ -160,7 +162,8 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: salt,
+		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
+		ProjectSalt:     salt,
 	}, nil
 }
 
@@ -178,6 +181,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
@@ -296,9 +300,15 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 
 	switch {
 	case metabase.ErrObjectNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrObjectNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "object not found: "+message)
 	case metabase.ErrSegmentNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrSegmentNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
@@ -311,4 +321,12 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+}
+
+func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
+	evs.Event("usage", append([]eventkit.Tag{
+		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
+		eventkit.String("user-agent", string(header.UserAgent)),
+		eventkit.String("request", name),
+	}, tags...)...)
 }

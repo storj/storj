@@ -2,16 +2,9 @@
 // See LICENSE for copying information.
 
 import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
-
-/**
- * AccessGrantsWorker provides access to the WASM module.
- */
-export interface AccessGrantsWorkerFactory {
-    // TODO: this should be converted to a proper interface.
-    create(): Worker;
-}
 
 /**
  * Exposes all access grants-related functionality.
@@ -50,6 +43,14 @@ export interface AccessGrantsApi {
     deleteByNameAndProjectID(name: string, projectID: string): Promise<void>;
 
     /**
+     * Fetch all API key names.
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    getAllAPIKeyNames(projectId: string): Promise<string[]>
+
+    /**
      * Get gateway credentials using access grant
      *
      * @returns EdgeCredentials
@@ -72,7 +73,7 @@ export enum AccessGrantsOrderBy {
 export class AccessGrantCursor {
     public constructor(
         public search: string = '',
-        public limit: number = 6,
+        public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
         public order: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME,
         public orderDirection: SortDirection = SortDirection.ASCENDING,

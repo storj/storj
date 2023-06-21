@@ -34,7 +34,6 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -98,7 +97,7 @@ async function onDelete(): Promise<void> {
             'isList': true,
             'isDelete': true,
             'notAfter': inOneHour.toISOString(),
-            'buckets': [name.value],
+            'buckets': JSON.stringify([name.value]),
             'apiKey': apiKey.value,
         });
 
@@ -184,7 +183,7 @@ function onChangeName(value: string): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.deleteBucket);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -208,7 +207,7 @@ onMounted(() => {
     background-color: #fff;
     max-width: 480px;
 
-    @media screen and (max-width: 700px) {
+    @media screen and (width <= 700px) {
         padding: 45px;
     }
 

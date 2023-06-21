@@ -11,6 +11,7 @@
         :style="style"
         type="text"
         autocomplete="off"
+        maxlength="72"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="processSearchQuery"
@@ -102,7 +103,7 @@ defineExpose({ clearSearch });
         background-position: top 16px right 16px;
     }
 
-    @media screen and (max-width: 1150px) {
+    @media screen and (width <= 1150px) {
 
         .common-search-input {
             width: 100% !important;

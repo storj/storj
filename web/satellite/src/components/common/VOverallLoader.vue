@@ -10,6 +10,8 @@
 </template>
 
 <script setup lang="ts">
+import { Teleport } from 'vue';
+
 import VLoader from '@/components/common/VLoader.vue';
 </script>
 

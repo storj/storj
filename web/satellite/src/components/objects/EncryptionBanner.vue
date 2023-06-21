@@ -47,7 +47,7 @@ const props = withDefaults(defineProps<{
             display: flex;
             align-items: center;
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -62,7 +62,7 @@ const props = withDefaults(defineProps<{
                 color: #000;
                 margin-left: 16px;
 
-                @media screen and (max-width: 500px) {
+                @media screen and (width <= 500px) {
                     margin: 10px 0 0;
                 }
 
@@ -91,7 +91,7 @@ const props = withDefaults(defineProps<{
                 color: #000;
                 margin-right: 16px;
 
-                @media screen and (max-width: 860px) {
+                @media screen and (width <= 860px) {
                     display: none;
                 }
             }

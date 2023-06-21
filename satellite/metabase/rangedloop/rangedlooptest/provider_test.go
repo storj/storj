@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
 var (
@@ -22,30 +22,30 @@ var (
 )
 
 func TestSplitter(t *testing.T) {
-	mkseg := func(streamID byte, pos uint64) segmentloop.Segment {
-		return segmentloop.Segment{
+	mkseg := func(streamID byte, pos uint64) rangedloop.Segment {
+		return rangedloop.Segment{
 			StreamID: uuid.UUID{0: streamID},
 			Position: metabase.SegmentPositionFromEncoded(pos),
 		}
 	}
 
-	mkstream := func(streamID byte, numSegments int) []segmentloop.Segment {
-		var stream []segmentloop.Segment
+	mkstream := func(streamID byte, numSegments int) []rangedloop.Segment {
+		var stream []rangedloop.Segment
 		for i := 0; i < numSegments; i++ {
 			stream = append(stream, mkseg(streamID, uint64(numSegments)))
 		}
 		return stream
 	}
 
-	intermix := func(segments []segmentloop.Segment) []segmentloop.Segment {
-		segments = append([]segmentloop.Segment(nil), segments...)
+	intermix := func(segments []rangedloop.Segment) []rangedloop.Segment {
+		segments = append([]rangedloop.Segment(nil), segments...)
 		r.Shuffle(len(segments), func(i, j int) {
 			segments[i], segments[j] = segments[j], segments[i]
 		})
 		return segments
 	}
 
-	combine := func(streams ...[]segmentloop.Segment) []segmentloop.Segment {
+	combine := func(streams ...[]rangedloop.Segment) []rangedloop.Segment {
 		return segmentsFromStreams(streams)
 	}
 
@@ -57,15 +57,15 @@ func TestSplitter(t *testing.T) {
 
 	for _, tt := range []struct {
 		desc         string
-		segments     []segmentloop.Segment
+		segments     []rangedloop.Segment
 		numRanges    int
-		expectRanges [][]segmentloop.Segment
+		expectRanges [][]rangedloop.Segment
 	}{
 		{
 			desc:      "no segments",
 			segments:  nil,
 			numRanges: 2,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				{},
 				{},
 			},
@@ -74,7 +74,7 @@ func TestSplitter(t *testing.T) {
 			desc:      "one stream over two ranges",
 			segments:  stream1,
 			numRanges: 2,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				stream1,
 				{},
 			},
@@ -83,7 +83,7 @@ func TestSplitter(t *testing.T) {
 			desc:      "two streams over two ranges",
 			segments:  combine(stream1, stream2),
 			numRanges: 2,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				stream1,
 				stream2,
 			},
@@ -92,7 +92,7 @@ func TestSplitter(t *testing.T) {
 			desc:      "three streams over two ranges",
 			segments:  combine(stream1, stream2, stream3),
 			numRanges: 2,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				combine(stream1, stream2),
 				stream3,
 			},
@@ -101,7 +101,7 @@ func TestSplitter(t *testing.T) {
 			desc:      "three streams intermixed over two ranges",
 			segments:  intermix(combine(stream1, stream2, stream3)),
 			numRanges: 2,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				combine(stream1, stream2),
 				stream3,
 			},
@@ -110,7 +110,7 @@ func TestSplitter(t *testing.T) {
 			desc:      "five streams intermixed over three ranges",
 			segments:  intermix(combine(stream1, stream2, stream3, stream4, stream5)),
 			numRanges: 3,
-			expectRanges: [][]segmentloop.Segment{
+			expectRanges: [][]rangedloop.Segment{
 				combine(stream1, stream2),
 				combine(stream3, stream4),
 				stream5,
@@ -125,10 +125,10 @@ func TestSplitter(t *testing.T) {
 			providers, err := splitter.CreateRanges(tt.numRanges, batchSize)
 			require.NoError(t, err)
 
-			var actualRanges [][]segmentloop.Segment
+			var actualRanges [][]rangedloop.Segment
 			for _, provider := range providers {
-				rangeSegments := []segmentloop.Segment{}
-				err := provider.Iterate(context.Background(), func(segments []segmentloop.Segment) error {
+				rangeSegments := []rangedloop.Segment{}
+				err := provider.Iterate(context.Background(), func(segments []rangedloop.Segment) error {
 					if len(segments) > batchSize {
 						return fmt.Errorf("iterated segments (%d) larger than batch size (%d)", len(segments), batchSize)
 					}

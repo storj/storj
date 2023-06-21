@@ -329,6 +329,42 @@ returned response:
 	}
 }
 
+func TestTokenByAPIKeyEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		restKeys := satellite.API.REST.Keys
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		expires := 5 * time.Hour
+		apiKey, _, err := restKeys.Create(ctx, user.ID, expires)
+		require.NoError(t, err)
+		require.NotEmpty(t, apiKey)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token-by-api-key"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.NoError(t, response.Body.Close())
+
+		cookies := response.Cookies()
+		require.NoError(t, err)
+		require.Len(t, cookies, 1)
+		require.Equal(t, "_tokenKey", cookies[0].Name)
+		require.NotEmpty(t, cookies[0].Value)
+	})
+}
+
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -742,54 +778,6 @@ func TestResendActivationEmail(t *testing.T) {
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
-	})
-}
-
-func TestAuth_Register_NameSpecialChars(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Mail.AuthType = "nomail"
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		inputName := "The website has been changed to https://evil.com/login.html<> - Enter Login ' \" Details,"
-		filteredName := "The website has been changed to https---evil-com-login-html\\u0026lt;\\u0026gt; - Enter Login \\u0026#39; \\u0026#34; Details,"
-		email := "user@mail.test"
-		registerData := struct {
-			FullName  string `json:"fullName"`
-			ShortName string `json:"shortName"`
-			Email     string `json:"email"`
-			Password  string `json:"password"`
-		}{
-			FullName:  inputName,
-			ShortName: inputName,
-			Email:     email,
-			Password:  "abc123",
-		}
-
-		jsonBody, err := json.Marshal(registerData)
-		require.NoError(t, err)
-
-		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
-		require.NoError(t, err)
-		req.Header.Set("Content-Type", "application/json")
-		result, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
-		require.Equal(t, http.StatusOK, result.StatusCode)
-		require.Len(t, planet.Satellites, 1)
-		// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
-		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
-		require.NoError(t, err)
-		require.Len(t, users, 1)
-		require.Equal(t, filteredName, users[0].FullName)
-		require.Equal(t, filteredName, users[0].ShortName)
 	})
 }
 

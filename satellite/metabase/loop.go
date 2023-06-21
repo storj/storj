@@ -274,10 +274,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		it.cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
 	}
 	if it.cursor.EndStreamID.IsZero() {
-		it.cursor.EndStreamID, err = maxUUID()
-		if err != nil {
-			return err
-		}
+		it.cursor.EndStreamID = uuid.Max()
 	}
 
 	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
@@ -410,16 +407,12 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 	return nil
 }
 
-func maxUUID() (uuid.UUID, error) {
-	maxUUID, err := uuid.FromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	return maxUUID, err
-}
-
 // BucketTally contains information about aggregate data stored in a bucket.
 type BucketTally struct {
 	BucketLocation
 
-	ObjectCount int64
+	ObjectCount        int64
+	PendingObjectCount int64
 
 	TotalSegments int64
 	TotalBytes    int64
@@ -460,7 +453,10 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 	}
 
 	err = withRows(db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name, SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0), count(*)
+			SELECT
+				project_id, bucket_name,
+				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
+				count(*), count(*) FILTER (WHERE status = 1)
 			FROM objects
 			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
@@ -475,6 +471,7 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 				&bucketTally.ProjectID, &bucketTally.BucketName,
 				&bucketTally.TotalBytes, &bucketTally.TotalSegments,
 				&bucketTally.MetadataSize, &bucketTally.ObjectCount,
+				&bucketTally.PendingObjectCount,
 			); err != nil {
 				return Error.New("unable to query bucket tally: %w", err)
 			}

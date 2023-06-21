@@ -17,12 +17,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-}
 
-@media screen and (max-width: 760px) {
-
-    .tour-area {
+    @media screen and (width <= 760px) {
         width: 88% !important;
+    }
+
+    @media screen and (width <= 600px) {
+        padding: 30px 0 !important;
     }
 }
 </style>

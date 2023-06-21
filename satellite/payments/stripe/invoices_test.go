@@ -44,7 +44,7 @@ func TestInvoices(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, pi)
 
-			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, "test_payment_method")
+			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPaySuccess)
 			require.NoError(t, err)
 			require.Equal(t, pi.ID, confirmedPI.ID)
 			require.Equal(t, string(stripe.InvoiceStatusPaid), confirmedPI.Status)
@@ -57,6 +57,17 @@ func TestInvoices(t *testing.T) {
 			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPayFailure)
 			require.Error(t, err)
 			require.Nil(t, confirmedPI)
+		})
+		t.Run("Create and Get success", func(t *testing.T) {
+			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, userID, price, desc)
+			require.NoError(t, err)
+			require.NotNil(t, pi)
+
+			pi2, err := satellite.API.Payments.Accounts.Invoices().Get(ctx, pi.ID)
+			require.NoError(t, err)
+			require.Equal(t, pi.ID, pi2.ID)
+			require.Equal(t, pi.Status, pi2.Status)
+			require.Equal(t, pi.Amount, pi2.Amount)
 		})
 	})
 }

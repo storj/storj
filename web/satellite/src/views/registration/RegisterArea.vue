@@ -115,6 +115,7 @@
                     <div class="register-area__input-wrapper first-input">
                         <VInput
                             label="Full Name"
+                            max-symbols="72"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
                             role-description="name"
@@ -124,6 +125,7 @@
                     <div class="register-area__input-wrapper">
                         <VInput
                             label="Email Address"
+                            max-symbols="72"
                             placeholder="user@example.com"
                             :error="emailError"
                             role-description="email"
@@ -134,6 +136,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Company Name"
+                                max-symbols="72"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
                                 role-description="company-name"
@@ -143,6 +146,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Position"
+                                max-symbols="72"
                                 placeholder="Position Title"
                                 :error="positionError"
                                 role-description="position"
@@ -205,7 +209,7 @@
                         </div>
                         <p class="register-area__input-area__container__warning__message">
                             This means any data you upload to this satellite can be
-                            deleted at any time and your storage/bandwidth limits
+                            deleted at any time and your storage/egress limits
                             can fluctuate. To use our production service please
                             create an account on one of our production Satellites.
                             <a href="https://storj.io/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/signup/</a>
@@ -236,17 +240,8 @@
                             </p>
                         </label>
                     </div>
-                    <VueRecaptcha
-                        v-if="captchaConfig.recaptcha.enabled"
-                        ref="captcha"
-                        :sitekey="captchaConfig.recaptcha.siteKey"
-                        :load-recaptcha-script="true"
-                        size="invisible"
-                        @verify="onCaptchaVerified"
-                        @error="onCaptchaError"
-                    />
                     <VueHcaptcha
-                        v-else-if="captchaConfig.hcaptcha.enabled"
+                        v-if="captchaConfig.hcaptcha.enabled"
                         ref="captcha"
                         :sitekey="captchaConfig.hcaptcha.siteKey"
                         :re-captcha-compat="false"
@@ -262,9 +257,7 @@
                         border-radius="50px"
                         :is-disabled="isLoading"
                         :on-press="onCreateClick"
-                    >
-                        Sign In
-                    </v-button>
+                    />
                     <div class="register-area__input-area__login-container">
                         Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
                     </div>
@@ -286,20 +279,15 @@
 </template>
 
 <script setup lang="ts">
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onBeforeMount, reactive, ref } from 'vue';
-
-import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
-import LogoIcon from '../../../static/images/logo.svg';
-import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
+import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { User } from '@/types/users';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import SelectInput from '@/components/common/SelectInput.vue';
@@ -308,6 +296,10 @@ import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 
+import LogoWithPartnerIcon from '@/../static/images/partnerStorjLogo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 import InfoIcon from '@/../static/images/register/info.svg';
 
@@ -367,30 +359,30 @@ const employeeCountOptions = ['1-50', '51-1000', '1001+'];
 
 const loginPath = RouteConfig.Login.path;
 
-const captcha = ref<VueRecaptcha | VueHcaptcha | null>(null);
+const captcha = ref<VueHcaptcha | null>(null);
 
 const auth = new AuthHttpApi();
 
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from route params and loads config.
  */
 onBeforeMount(() => {
-    if (router.currentRoute.query.token) {
-        secret.value = router.currentRoute.query.token.toString();
+    if (route.query.token) {
+        secret.value = route.query.token.toString();
     }
 
-    if (router.currentRoute.query.partner) {
-        user.value.partner = router.currentRoute.query.partner.toString();
+    if (route.query.partner) {
+        user.value.partner = route.query.partner.toString();
     }
 
-    if (router.currentRoute.query.promo) {
-        user.value.signupPromoCode = router.currentRoute.query.promo.toString();
+    if (route.query.promo) {
+        user.value.signupPromoCode = route.query.promo.toString();
     }
 
     try {
@@ -444,7 +436,7 @@ async function onCreateClick(): Promise<void> {
         return;
     }
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.id === 'registerDropdown') return;
 
@@ -662,7 +654,7 @@ function validateFields(): boolean {
         isNoErrors = false;
     }
 
-    let config = configStore.state.config;
+    const config = configStore.state.config;
 
     if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid Password';
@@ -749,7 +741,7 @@ function isEmailValid(): boolean {
  */
 async function createUser(): Promise<void> {
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.classList.contains('account-tab')) {
         return;
@@ -815,10 +807,7 @@ async function createUser(): Promise<void> {
         background-color: #f5f6fa;
         box-sizing: border-box;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         overflow-y: scroll;
         padding-top: 80px;
         height: 100vh;
@@ -848,7 +837,7 @@ async function createUser(): Promise<void> {
                     height: 56px;
                     max-width: unset;
 
-                    @media screen and (max-width: 1024px) {
+                    @media screen and (width <= 1024px) {
                         object-fit: contain;
                         max-width: 45%;
                     }
@@ -870,12 +859,12 @@ async function createUser(): Promise<void> {
             justify-content: center;
             max-width: 1500px;
 
-            @media screen and (max-width: 1600px) {
+            @media screen and (width <= 1600px) {
                 width: 90%;
             }
 
             &__mobile-content {
-                @media screen and (min-width: 1025px) {
+                @media screen and (width >= 1025px) {
                     display: none;
                 }
 
@@ -1357,7 +1346,7 @@ async function createUser(): Promise<void> {
         visibility: hidden;
     }
 
-    @media screen and (max-width: 1429px) {
+    @media screen and (width <= 1429px) {
 
         .register-area {
 
@@ -1370,7 +1359,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1200px) {
+    @media screen and (width <= 1200px) {
 
         .register-area {
 
@@ -1383,7 +1372,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1060px) {
+    @media screen and (width <= 1060px) {
 
         .register-area {
 
@@ -1393,7 +1382,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (width <= 1024px) {
 
         .register-area {
             display: block;
@@ -1450,7 +1439,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 700px) {
+    @media screen and (width <= 700px) {
 
         .register-area {
 
@@ -1518,7 +1507,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (width <= 1024px) {
 
         .register-area {
 
@@ -1556,7 +1545,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .register-area {
 

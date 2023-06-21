@@ -2322,6 +2322,92 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE stripe_customers ADD COLUMN purchased_package_at timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create project_invitations table",
+				Version:     232,
+				Action: migrate.SQL{
+					`CREATE TABLE project_invitations (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						email text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, email )
+					);`,
+					`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id );`,
+					`CREATE INDEX project_invitations_email_index ON project_invitations ( email );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make value_attributions.partner_id nullable",
+				Version:     233,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ALTER COLUMN partner_id DROP NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for owner_id column for projects",
+				Version:     234,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add inviter_id column to project_invitations table",
+				Version:     235,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD COLUMN inviter_id bytea REFERENCES users( id ) ON DELETE SET NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop partner_id columns",
+				Version:     236,
+				Action: migrate.SQL{
+					`ALTER TABLE projects DROP COLUMN partner_id;`,
+					`ALTER TABLE users DROP COLUMN partner_id;`,
+					`ALTER TABLE api_keys DROP COLUMN partner_id;`,
+					`ALTER TABLE bucket_metainfos DROP COLUMN partner_id;`,
+					`ALTER TABLE value_attributions DROP COLUMN partner_id;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add back value_attributions.partner_id column",
+				Version:     237,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN partner_id bytea DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add node features",
+				Version:     238,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN features integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add default_placement to users/projects",
+				Version:     239,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN default_placement integer;`,
+					`ALTER TABLE projects ADD COLUMN default_placement integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index on project_id column for project_members",
+				Version:     240,
+				Action: migrate.SQL{
+					`CREATE INDEX project_members_project_id_index ON project_members ( project_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

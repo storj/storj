@@ -49,8 +49,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { useRouter } from '@/utils/hooks';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 const obStore = useObjectBrowserStore();

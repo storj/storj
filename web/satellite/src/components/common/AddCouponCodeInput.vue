@@ -64,12 +64,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import VInput from '@/components/common/VInput.vue';
@@ -79,8 +79,7 @@ import VButton from '@/components/common/VButton.vue';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 const billingStore = useBillingStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 const showValidationMessage = ref<boolean>(false);
 const isCodeValid = ref<boolean>(false);
@@ -94,7 +93,7 @@ const analytics = new AnalyticsHttpApi();
  * Signup view requires some unique styling and element text.
  */
 const isSignupView = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.Register.name;
+    return route.name === RouteConfig.Register.name;
 });
 
 /**
@@ -198,7 +197,7 @@ async function couponCheck(): Promise<void> {
             margin-top: 30px;
             column-gap: 20px;
 
-            @media screen and (max-width: 650px) {
+            @media screen and (width <= 650px) {
                 flex-direction: column;
                 column-gap: unset;
                 row-gap: 20px;

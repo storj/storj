@@ -78,6 +78,14 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		warnedMap := make(map[uuid.UUID]struct{})
 		bypassedMap := make(map[uuid.UUID]struct{})
 
+		checkInvPaid := func(invID string) (bool, error) {
+			inv, err := chore.payments.Invoices().Get(ctx, invID)
+			if err != nil {
+				return false, err
+			}
+			return inv.Status == payments.InvoiceStatusPaid, nil
+		}
+
 		for _, invoice := range invoices {
 			userID, err := chore.accounts.Customers().GetUserID(ctx, invoice.CustomerID)
 			if err != nil {
@@ -88,85 +96,87 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				)
 				continue
 			}
-			userMap[userID] = struct{}{}
 
-			user, err := chore.usersDB.Get(ctx, userID)
-			if err != nil {
-				chore.log.Error("Could not get user",
+			debugLog := func(message string) {
+				chore.log.Debug(message,
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+				)
+			}
+
+			errorLog := func(message string, err error) {
+				chore.log.Error(message,
 					zap.String("invoiceID", invoice.ID),
 					zap.String("customerID", invoice.CustomerID),
 					zap.Any("userID", userID),
 					zap.Error(Error.Wrap(err)),
 				)
+			}
+
+			userMap[userID] = struct{}{}
+
+			user, err := chore.usersDB.Get(ctx, userID)
+			if err != nil {
+				errorLog("Could not get user", err)
 				continue
 			}
 
 			if invoice.Amount > chore.config.PriceThreshold {
 				bypassedMap[userID] = struct{}{}
-				chore.log.Debug("amount due over threshold",
-					zap.String("invoiceID", invoice.ID),
-					zap.String("customerID", invoice.CustomerID),
-					zap.Any("userID", userID),
-				)
+				debugLog("Ignoring invoice; amount exceeds threshold")
 				chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email)
 				continue
 			}
 
 			freeze, warning, err := chore.freezeService.GetAll(ctx, userID)
 			if err != nil {
-				chore.log.Error("Could not check freeze status",
-					zap.String("invoiceID", invoice.ID),
-					zap.String("customerID", invoice.CustomerID),
-					zap.Any("userID", userID),
-					zap.Error(Error.Wrap(err)),
-				)
+				errorLog("Could not get freeze status", err)
 				continue
 			}
 			if freeze != nil {
-				chore.log.Debug("Ignoring invoice; account already frozen",
-					zap.String("invoiceID", invoice.ID),
-					zap.String("customerID", invoice.CustomerID),
-					zap.Any("userID", userID),
-				)
+				debugLog("Ignoring invoice; account already frozen")
 				continue
 			}
 
 			if warning == nil {
-				err = chore.freezeService.WarnUser(ctx, userID)
+				// check if the invoice has been paid by the time the chore gets here.
+				isPaid, err := checkInvPaid(invoice.ID)
 				if err != nil {
-					chore.log.Error("Could not add warning event",
-						zap.String("invoiceID", invoice.ID),
-						zap.String("customerID", invoice.CustomerID),
-						zap.Any("userID", userID),
-						zap.Error(Error.Wrap(err)),
-					)
+					errorLog("Could not verify invoice status", err)
 					continue
 				}
-				chore.log.Debug("user warned",
-					zap.String("invoiceID", invoice.ID),
-					zap.String("customerID", invoice.CustomerID),
-					zap.Any("userID", userID),
-				)
+				if isPaid {
+					debugLog("Ignoring invoice; payment already made")
+					continue
+				}
+				err = chore.freezeService.WarnUser(ctx, userID)
+				if err != nil {
+					errorLog("Could not add warning event", err)
+					continue
+				}
+				debugLog("user warned")
 				warnedMap[userID] = struct{}{}
 				continue
 			}
 
 			if chore.nowFn().Sub(warning.CreatedAt) > chore.config.GracePeriod {
-				err = chore.freezeService.FreezeUser(ctx, userID)
+				// check if the invoice has been paid by the time the chore gets here.
+				isPaid, err := checkInvPaid(invoice.ID)
 				if err != nil {
-					chore.log.Error("Could not freeze account",
-						zap.String("invoiceID", invoice.ID),
-						zap.String("customerID", invoice.CustomerID),
-						zap.Any("userID", userID),
-						zap.Error(Error.Wrap(err)),
-					)
+					errorLog("Could not verify invoice status", err)
 					continue
 				}
-				chore.log.Debug("user frozen",
-					zap.String("invoiceID", invoice.ID),
-					zap.String("customerID", invoice.CustomerID),
-					zap.Any("userID", userID),
-				)
+				if isPaid {
+					debugLog("Ignoring invoice; payment already made")
+					continue
+				}
+				err = chore.freezeService.FreezeUser(ctx, userID)
+				if err != nil {
+					errorLog("Could not freeze account", err)
+					continue
+				}
+				debugLog("user frozen")
 				frozenMap[userID] = struct{}{}
 			}
 		}
@@ -186,6 +196,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 // TestSetNow sets nowFn on chore for testing.
 func (chore *Chore) TestSetNow(f func() time.Time) {
 	chore.nowFn = f
+}
+
+// TestSetFreezeService changes the freeze service for tests.
+func (chore *Chore) TestSetFreezeService(service *console.AccountFreezeService) {
+	chore.freezeService = service
 }
 
 // Close closes the chore.

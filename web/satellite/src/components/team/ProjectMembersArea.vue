@@ -25,18 +25,19 @@
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
             :total-items-count="projectMembersTotalCount"
-            :on-page-click-callback="onPageClick"
+            :on-page-change="onPageChange"
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
+                <th class="align-left">Role</th>
+                <th class="align-left date-added">Date Added</th>
             </template>
             <template #body>
                 <ProjectMemberListItem
                     v-for="(member, key) in projectMembers"
                     :key="key"
-                    :item-data="member"
+                    :model="member"
                     @memberClick="onMemberCheckChange"
                     @selectClicked="(_) => onMemberCheckChange(member)"
                 />
@@ -49,8 +50,8 @@
 import { computed, onMounted, ref } from 'vue';
 
 import {
-    ProjectMember,
     ProjectMemberHeaderState,
+    ProjectMemberItemModel,
 } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -76,10 +77,10 @@ const areMembersFetching = ref<boolean>(true);
  * Returns team members of current page from store.
  * With project owner pinned to top
  */
-const projectMembers = computed((): ProjectMember[] => {
-    const projectMembers = pmStore.state.page.projectMembers;
-    const projectOwner = projectMembers.find((member) => member.user.id === projectsStore.state.selectedProject.ownerId);
-    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== projectsStore.state.selectedProject.ownerId);
+const projectMembers = computed((): ProjectMemberItemModel[] => {
+    const projectMembers = pmStore.state.page.getAllItems();
+    const projectOwner = projectMembers.find((member) => member.getUserID() === projectsStore.state.selectedProject.ownerId);
+    const projectMembersToReturn = projectMembers.filter((member) => member.getUserID() !== projectsStore.state.selectedProject.ownerId);
 
     // if the project owner exists, place at the front of the members list
     projectOwner && projectMembersToReturn.unshift(projectOwner);
@@ -128,8 +129,8 @@ const isEmptySearchResultShown = computed((): boolean => {
  * Selects team member if this user has no owner status.
  * @param member
  */
-function onMemberCheckChange(member: ProjectMember): void {
-    if (projectsStore.state.selectedProject.ownerId !== member.user.id) {
+function onMemberCheckChange(member: ProjectMemberItemModel): void {
+    if (projectsStore.state.selectedProject.ownerId !== member.getUserID()) {
         pmStore.toggleProjectMemberSelection(member);
     }
 }
@@ -137,10 +138,11 @@ function onMemberCheckChange(member: ProjectMember): void {
 /**
  * Fetches team member of selected page.
  * @param index
+ * @param limit
  */
-async function onPageClick(index: number): Promise<void> {
+async function onPageChange(index: number, limit: number): Promise<void> {
     try {
-        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id);
+        await pmStore.getProjectMembers(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
@@ -156,7 +158,7 @@ onMounted(async (): Promise<void> => {
 
         areMembersFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
 });
 </script>
@@ -193,7 +195,7 @@ onMounted(async (): Promise<void> => {
         }
     }
 
-    @media screen and (max-width: 800px) and (min-width: 500px) {
+    @media screen and (width <= 800px) and (width >= 500px) {
 
         .date-added {
             display: none;

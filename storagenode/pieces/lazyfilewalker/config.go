@@ -4,6 +4,8 @@
 package lazyfilewalker
 
 import (
+	"fmt"
+
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
@@ -16,6 +18,8 @@ type Config struct {
 	Driver    string `help:"database driver to use" default:"sqlite3"`
 	Pieces    string `help:"path to store pieces in"`
 	Filestore filestore.Config
+
+	LowerIOPriority bool `help:"if true, the process will run with lower IO priority" default:"true"`
 }
 
 // Args returns the flags to be passed lazyfilewalker process.
@@ -33,5 +37,6 @@ func (config *Config) Args() []string {
 		// use the json formatter in the subprocess, so we could read lines and re-log them in the main process
 		// with all the fields intact.
 		"--log.encoding", "json",
+		fmt.Sprintf("--lower-io-priority=%v", config.LowerIOPriority),
 	}
 }

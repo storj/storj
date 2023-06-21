@@ -42,13 +42,13 @@ func (m *Mixed) Open(ctx context.Context, loc ulloc.Location) (MultiReadHandle, 
 }
 
 // Create returns a WriteHandle to either a local file, remote object, or stdout.
-func (m *Mixed) Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (WriteHandle, error) {
+func (m *Mixed) Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
 		return m.remote.Create(ctx, bucket, key, opts)
 	} else if path, ok := loc.LocalParts(); ok {
 		return m.local.Create(ctx, path)
 	}
-	return newStdWriteHandle(clingy.Stdout(ctx)), nil
+	return newStdMultiWriteHandle(clingy.Stdout(ctx)), nil
 }
 
 // Move moves either a local file or remote object.

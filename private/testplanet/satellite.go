@@ -40,13 +40,10 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -57,7 +54,6 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -109,8 +105,6 @@ type Satellite struct {
 		// TODO remove when uplink will be adjusted to use Metabase.DB
 		Metabase *metabase.DB
 		Endpoint *metainfo.Endpoint
-		// TODO remove when uplink will be adjusted to use Metabase.SegmentLoop
-		SegmentLoop *segmentloop.Service
 	}
 
 	Userinfo struct {
@@ -118,12 +112,7 @@ type Satellite struct {
 	}
 
 	Metabase struct {
-		DB          *metabase.DB
-		SegmentLoop *segmentloop.Service
-	}
-
-	Inspector struct {
-		Endpoint *inspector.Endpoint
+		DB *metabase.DB
 	}
 
 	Orders struct {
@@ -134,7 +123,6 @@ type Satellite struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
 		Repairer *repairer.Service
 	}
 
@@ -154,8 +142,7 @@ type Satellite struct {
 	}
 
 	GarbageCollection struct {
-		Sender       *sender.Service
-		BloomFilters *bloomfilter.Service
+		Sender *sender.Service
 	}
 
 	ExpiredDeletion struct {
@@ -328,6 +315,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.GCBF.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.RangedLoop.Run(ctx))
+	})
 	return group.Wait()
 }
 
@@ -426,10 +416,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Tally.ReadRollupBatchSize = 0
 	config.Rollup.DeleteTallies = false
 	config.Payments.BonusRate = 0
-	config.Payments.NodeEgressBandwidthPrice = 0
-	config.Payments.NodeRepairBandwidthPrice = 0
-	config.Payments.NodeAuditBandwidthPrice = 0
-	config.Payments.NodeDiskSpacePrice = 0
 	config.Identity.CertPath = ""
 	config.Identity.KeyPath = ""
 	config.Metainfo.DatabaseURL = ""
@@ -453,7 +439,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Compensation.DisposePercent = 0
 	config.ProjectLimit.CacheCapacity = 0
 	config.ProjectLimit.CacheExpiration = 0
-	config.Metainfo.SegmentLoop.ListLimit = 0
 
 	// Actual testplanet-specific configuration
 	config.Server.Address = planet.NewListenAddress()
@@ -620,16 +605,12 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Userinfo.Endpoint = api.Userinfo.Endpoint
 
 	system.Metabase.DB = api.Metainfo.Metabase
-	system.Metabase.SegmentLoop = peer.Metainfo.SegmentLoop
-
-	system.Inspector.Endpoint = api.Inspector.Endpoint
 
 	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
 	system.Orders.Service = api.Orders.Service
 	system.Orders.Chore = api.Orders.Chore
 
-	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
 
 	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue
@@ -642,7 +623,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.ContainmentSyncChore = peer.Audit.ContainmentSyncChore
 
 	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
-	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
 	system.ZombieDeletion.Chore = peer.ZombieDeletion.Chore

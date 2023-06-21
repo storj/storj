@@ -6,7 +6,7 @@
         <div class="load" />
         <LoaderImage class="loading-icon" />
     </div>
-    <div v-else ref="dashboardContent" class="all-dashboard">
+    <div v-else class="all-dashboard">
         <div class="all-dashboard__bars">
             <BetaSatBar v-if="isBetaSatellite" />
             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
@@ -16,71 +16,6 @@
 
         <div class="all-dashboard__content">
             <div class="all-dashboard__content__divider" />
-
-            <div class="all-dashboard__banners">
-                <UpgradeNotification
-                    v-if="isPaidTierBannerShown"
-                    class="all-dashboard__banners__upgrade"
-                    :open-add-p-m-modal="togglePMModal"
-                />
-
-                <ProjectLimitBanner
-                    v-if="isProjectLimitBannerShown"
-                    class="all-dashboard__banners__project-limit"
-                    :dashboard-ref="dashboardContent"
-                    :on-upgrade-clicked="togglePMModal"
-                />
-
-                <v-banner
-                    v-if="isAccountFrozen && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__freeze"
-                    severity="critical"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
-                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="isAccountWarned && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__warning"
-                    severity="warning"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
-                        <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__hundred-limit"
-                    severity="critical"
-                    :on-click="() => setIsHundredLimitModalShown(true)"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">{{ limitState.hundredLabel }}</p>
-                        <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                    </template>
-                </v-banner>
-
-                <v-banner
-                    v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
-                    class="all-dashboard__banners__eighty-limit"
-                    severity="warning"
-                    :on-click="() => setIsEightyLimitModalShown(true)"
-                    :dashboard-ref="dashboardContent"
-                >
-                    <template #text>
-                        <p class="medium">{{ limitState.eightyLabel }}</p>
-                        <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                    </template>
-                </v-banner>
-            </div>
 
             <router-view />
 
@@ -104,7 +39,7 @@
         </div>
         <InactivityModal
             v-if="inactivityModalShown"
-            :on-continue="refreshSession"
+            :on-continue="() => refreshSession(true)"
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
@@ -114,7 +49,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { User } from '@/types/users';
@@ -122,8 +58,8 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
-import { RouteConfig } from '@/router';
+import { useNotify } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -148,14 +84,11 @@ import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
-import VBanner from '@/components/common/VBanner.vue';
-import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
-import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const configStore = useConfigStore();
@@ -188,13 +121,17 @@ const isSessionActive = ref<boolean>(false);
 const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
 const isEightyLimitModalShown = ref<boolean>(false);
-const dashboardContent = ref<HTMLElement | null>(null);
 
 /**
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return configStore.state.config.inactivityTimerDuration * 1000;
+    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
+    if (duration > maxTimeout) {
+        return maxTimeout;
+    }
+    return duration;
 });
 
 /**
@@ -219,14 +156,7 @@ const isAccountFrozen = computed((): boolean => {
 });
 
 /**
- * Indicates if account was warned due to billing issues.
- */
-const isAccountWarned = computed((): boolean => {
-    return usersStore.state.user.freezeStatus.warned;
-});
-
-/**
- * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+ * Returns all needed information for limit modal when bandwidth or storage close to limits.
  */
  type LimitedState = {
     eightyIsShown: boolean;
@@ -258,7 +188,7 @@ const limitState = computed((): LimitedState => {
     const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
-        { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
+        { name: 'egress', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
         { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
         { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
     ];
@@ -300,13 +230,6 @@ const limitState = computed((): LimitedState => {
 });
 
 /**
- * Whether the current route is the billing page.
- */
-const isBillingPage = computed(() => {
-    return router.currentRoute.path.includes(RouteConfig.Billing2.path);
-});
-
-/**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
@@ -328,51 +251,12 @@ const showMFARecoveryCodeBar = computed((): boolean => {
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
-/* whether the project limit banner should be shown. */
-const isProjectLimitBannerShown = computed((): boolean => {
-    return !LocalData.getProjectLimitBannerHidden()
-        && !isBillingPage.value
-        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
-});
-
-/**
- * Returns whether the user has reached project limits.
- */
-const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = usersStore.state.user.projectLimit;
-    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
-
-    return projectsCount === projectLimit;
-});
-
-/* whether the paid tier banner should be shown */
-const isPaidTierBannerShown = computed((): boolean => {
-    return !usersStore.state.user.paidTier
-        && !isBillingPage.value
-        && joinedWhileAgo.value;
-});
-
-/* whether the user joined more than 7 days ago */
-const joinedWhileAgo = computed((): boolean => {
-    const createdAt = usersStore.state.user.createdAt as Date | null;
-    if (!createdAt) return true; // true so we can show the banner regardless
-    const millisPerDay = 24 * 60 * 60 * 1000;
-    return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
-});
-
 function setIsEightyLimitModalShown(value: boolean): void {
     isEightyLimitModalShown.value = value;
 }
 
 function setIsHundredLimitModalShown(value: boolean): void {
     isHundredLimitModalShown.value = value;
-}
-
-/**
- * Redirects to Billing Page.
- */
-async function redirectToBillingPage(): Promise<void> {
-    await router.push(RouteConfig.AccountSettings.with(RouteConfig.Billing2.with(RouteConfig.BillingPaymentMethods2)).path);
 }
 
 /**
@@ -422,7 +306,7 @@ async function handleInactive(): Promise<void> {
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -434,7 +318,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 }
 
@@ -458,7 +342,10 @@ function closeInactivityModal(): void {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    }
 }
 
 /**
@@ -512,7 +399,7 @@ function restartSessionTimers(): void {
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
             await clearStoreAndTimers();
-            await notify.notify('Your session was timed out.');
+            notify.notify('Your session was timed out.');
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
 
@@ -538,14 +425,15 @@ function restartSessionTimers(): void {
 
 /**
  * Refreshes session and resets session timers.
+ * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
  */
-async function refreshSession(): Promise<void> {
+async function refreshSession(manual = false): Promise<void> {
     isSessionRefreshing.value = true;
 
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -556,6 +444,10 @@ async function refreshSession(): Promise<void> {
     inactivityModalShown.value = false;
     isSessionActive.value = false;
     isSessionRefreshing.value = false;
+
+    if (manual && !usersStore.state.settings.sessionDuration) {
+        appStore.updateActiveModal(MODALS.editSessionTimeout);
+    }
 }
 
 /**
@@ -576,15 +468,22 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction((action) => {
-        if (action.name === 'clear') clearSessionTimers();
+    usersStore.$onAction(({ name, after, args }) => {
+        if (name === 'clear') clearSessionTimers();
+        else if (name === 'updateSettings') {
+            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+                after((_) => refreshSession());
+            }
+        }
     });
 
     try {
-        await usersStore.getUser();
-        await usersStore.getFrozenStatus();
-        await abTestingStore.fetchValues();
-        await usersStore.getSettings();
+        await Promise.all([
+            usersStore.getUser(),
+            abTestingStore.fetchValues(),
+            usersStore.getSettings(),
+        ]);
+
         setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
@@ -601,26 +500,32 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
-            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
         if (couponType === CouponType.SignupCoupon) {
-            await notify.success(`The coupon code was added successfully`);
+            notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+    }
+
+    try {
+        await projectsStore.getUserInvitations();
+    } catch (error) {
+        notify.error(`Unable to get project invitations. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {
@@ -665,6 +570,7 @@ onBeforeUnmount(() => {
     overflow-y: auto;
     width: 100%;
     height: 100%;
+    background: var(--c-grey-1);
 
     &__bars {
         display: contents;
@@ -680,7 +586,7 @@ onBeforeUnmount(() => {
         max-width: 1200px;
         box-sizing: border-box;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             margin-top: 0;
             padding: 0;
         }
@@ -696,31 +602,9 @@ onBeforeUnmount(() => {
             margin: 20px 0;
             border: 0.5px solid var(--c-grey-2);
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 display: none;
             }
-        }
-    }
-
-    &__banners {
-        margin-bottom: 20px;
-
-        &__billing {
-            position: initial;
-            margin-top: 20px;
-
-            & :deep(.notification-wrap__content) {
-                position: initial;
-            }
-        }
-
-        &__upgrade,
-        &__project-limit,
-        &__freeze,
-        &__warning,
-        &__hundred-limit,
-        &__eighty-limit {
-            margin: 20px 0 0;
         }
     }
 }
@@ -746,10 +630,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     align-items: center;
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--c-white);
     visibility: hidden;
     opacity: 0;
@@ -763,10 +644,7 @@ onBeforeUnmount(() => {
 
 .loading-icon {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     margin: auto;
 }
 

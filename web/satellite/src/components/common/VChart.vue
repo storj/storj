@@ -82,7 +82,7 @@ const chartOptions = computed((): ChartOptions => {
         },
         elements: {
             line: {
-                tension: 0,
+                tension: 0.3,
             },
         },
         scales: {

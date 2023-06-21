@@ -212,6 +212,9 @@ type ProjectAccounting interface {
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
+	// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
+	// whose most recent tally does not represent empty usage.
+	GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation) ([]metabase.BucketLocation, error)
 	// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
 	GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.

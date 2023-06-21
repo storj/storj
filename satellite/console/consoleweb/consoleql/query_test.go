@@ -79,7 +79,9 @@ func TestGraphqlQuery(t *testing.T) {
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			nil,
+		)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -98,6 +100,7 @@ func TestGraphqlQuery(t *testing.T) {
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
 			nil,
+			"",
 			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
@@ -283,7 +286,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id: \"%s\") {members( cursor: { limit: %d, search: \"%s\", page: %d, order: %d, orderDirection: %d } ) { projectMembers{ user { id, fullName, shortName, email, createdAt }, joinedAt }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
+				"query {project(id: \"%s\") {membersAndInvitations( cursor: { limit: %d, search: \"%s\", page: %d, order: %d, orderDirection: %d } ) { projectMembers{ user { id, fullName, shortName, email, createdAt }, joinedAt }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
 				createdProject.ID.String(),
 				5,
 				"",
@@ -295,7 +298,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
-			members := project[consoleql.FieldMembers].(map[string]interface{})
+			members := project[consoleql.FieldMembersAndInvitations].(map[string]interface{})
 			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
 
 			assert.Equal(t, 3, len(projectMembers))

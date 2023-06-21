@@ -3,7 +3,11 @@
 
 <template>
     <div class="generated">
-        <p class="generated__info">
+        <p v-if="isProjectPassphrase" class="generated__info">
+            Please note that Storj does not know or store your encryption passphrase. If you lose it, you will not be
+            able to recover your files.
+        </p>
+        <p v-else class="generated__info">
             This passphrase will be used to encrypt all the files you upload using this access grant. You will need it
             to access these files in the future.
         </p>
@@ -15,7 +19,7 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onCopy"
-                    :icon="isPassphraseCopied ? 'none' : 'copy'"
+                    :icon="isPassphraseCopied ? 'check' : 'copy'"
                     :is-white="!isPassphraseCopied"
                     :is-white-green="isPassphraseCopied"
                 />
@@ -27,9 +31,9 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onDownload"
-                    :icon="isPassphraseDownloaded ? 'none' : 'download'"
+                    :icon="isPassphraseDownloaded ? 'check' : 'download'"
                     :is-white="!isPassphraseDownloaded"
-                    :is-green-white="isPassphraseDownloaded"
+                    :is-white-green="isPassphraseDownloaded"
                 />
             </template>
         </ButtonsContainer>
@@ -54,16 +58,18 @@
                     width="100%"
                     height="48px"
                     font-size="14px"
+                    border-radius="10px"
                     :on-press="onBack"
                     :is-white="true"
                 />
             </template>
             <template #rightButton>
                 <VButton
-                    label="Create Access ->"
+                    :label="isProjectPassphrase ? 'Continue ->' : 'Create Access ->'"
                     width="100%"
                     height="48px"
                     font-size="14px"
+                    border-radius="10px"
                     :on-press="onContinue"
                     :is-disabled="isButtonDisabled"
                 />
@@ -85,12 +91,15 @@ import ValueWithBlur from '@/components/accessGrants/createFlow/components/Value
 import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
 import VButton from '@/components/common/VButton.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     name: string;
     passphrase: string;
     onBack: () => void;
     onContinue: () => void;
-}>();
+    isProjectPassphrase?: boolean;
+}>(), {
+    isProjectPassphrase: false,
+});
 
 const notify = useNotify();
 

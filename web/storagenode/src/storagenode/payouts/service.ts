@@ -9,6 +9,7 @@ import {
     Paystub,
     SatelliteHeldHistory,
     SatellitePayoutForPeriod,
+    SatellitePricingModel,
     TotalPayments,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
@@ -78,5 +79,13 @@ export class PayoutService {
      */
     public async estimatedPayout(satelliteId: string): Promise<EstimatedPayout> {
         return await this.payouts.getEstimatedPayout(satelliteId);
+    }
+
+    /**
+     * Gets satellite pricing model.
+     * @param satelliteId
+     */
+    public async pricingModel(satelliteId: string): Promise<SatellitePricingModel> {
+        return await this.payouts.getPricingModel(satelliteId);
     }
 }

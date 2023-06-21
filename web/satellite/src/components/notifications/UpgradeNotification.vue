@@ -7,7 +7,7 @@
             <SunnyIcon class="notification-wrap__left__icon" />
             <p>
                 Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum.
-                {{ limits.bandwidthLimit | bytesToBase10String }} free included.
+                {{ bytesToBase10String(limits.bandwidthLimit) }} free included.
             </p>
         </div>
         <div class="notification-wrap__right">
@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import { bytesToBase10String } from '@/utils/strings';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ProjectLimits } from '@/types/projects';

@@ -9,11 +9,13 @@ export class LocalData {
     private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
+    private static sessionTimeoutBannerAcknowledged = 'sessionTimeoutBannerAcknowledged';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
+    private static projectTableViewEnabled = 'projectTableViewEnabled';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -113,8 +115,26 @@ export class LocalData {
         localStorage.setItem(LocalData.projectLimitBannerHidden, 'true');
     }
 
-    public static getProjectLimitBannerHidden(): boolean {
-        const value = localStorage.getItem(LocalData.projectLimitBannerHidden);
+    public static getProjectTableViewEnabled(): boolean {
+        const value = localStorage.getItem(LocalData.projectTableViewEnabled);
         return value === 'true';
+    }
+
+    public static setProjectTableViewEnabled(enabled: boolean): void {
+        localStorage.setItem(LocalData.projectTableViewEnabled, enabled.toString());
+    }
+
+    /*
+    * Whether a user defined setting has been made for the projects table
+    * */
+    public static hasProjectTableViewConfigured(): boolean {
+        return localStorage.getItem(LocalData.projectTableViewEnabled) !== null;
+    }
+
+    /*
+    * Remove the user defined setting for the projects table;
+    * */
+    public static removeProjectTableViewConfig() {
+        return localStorage.removeItem(LocalData.projectTableViewEnabled);
     }
 }

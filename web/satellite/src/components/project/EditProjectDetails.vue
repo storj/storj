@@ -128,7 +128,7 @@
                             />
                         </div>
                     </div>
-                    <p class="project-details__wrapper__container__label">Bandwidth Limit</p>
+                    <p class="project-details__wrapper__container__label">Egress Limit</p>
                     <div v-if="!isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-area">
                         <p class="project-details__wrapper__container__limits__bandwidthlimit-area__bandwidthlimit">{{ bandwidthLimitFormatted }}</p>
                         <VButton
@@ -200,6 +200,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Dimensions, Memory, Size } from '@/utils/bytesSize';
 import {
@@ -210,7 +211,7 @@ import {
 } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -535,7 +536,7 @@ async function onSaveStorageLimitButtonClick(): Promise<void> {
 
     toggleStorageLimitEditing();
     analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
-    await notify.success('Project storage limit updated successfully!');
+    notify.success('Project storage limit updated successfully!');
 }
 
 /**
@@ -560,7 +561,7 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
 
     toggleBandwidthLimitEditing();
     analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
-    await notify.success('Project bandwidth limit updated successfully!');
+    notify.success('Project egress limit updated successfully!');
 }
 
 /**

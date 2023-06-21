@@ -8,57 +8,59 @@
         :selected="isFileSelected"
         :on-click="openModal"
         :on-primary-click="openModal"
-        :item="{'name': file.Key, 'size': size, 'date': uploadDate}"
+        :item="{'fileName': file.Key, 'size': size, 'date': uploadDate}"
         :item-type="fileType"
         @selectClicked="selectFile"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
-            <div
-                v-if="loadingSpinner()"
-                class="spinner-border"
-                role="status"
-            />
-            <dots-icon v-else />
-            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
-                <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
-                    <preview-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Preview</p>
-                </div>
+        <template #options>
+            <th v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
+                <div
+                    v-if="loadingSpinner"
+                    class="spinner-border"
+                    role="status"
+                />
+                <dots-icon v-else />
+                <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                    <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
+                        <preview-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Preview</p>
+                    </div>
 
-                <div class="file-entry__functional__dropdown__item" @click.stop="download">
-                    <download-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Download</p>
-                </div>
+                    <div class="file-entry__functional__dropdown__item" @click.stop="download">
+                        <download-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Download</p>
+                    </div>
 
-                <div class="file-entry__functional__dropdown__item" @click.stop="share">
-                    <share-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Share</p>
-                </div>
+                    <div class="file-entry__functional__dropdown__item" @click.stop="share">
+                        <share-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Share</p>
+                    </div>
 
-                <div v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item" @click.stop="confirmDeletion">
-                    <delete-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
-                </div>
-                <div v-else class="file-entry__functional__dropdown__item confirmation">
-                    <div class="delete-confirmation">
-                        <p class="delete-confirmation__text">
-                            Are you sure?
-                        </p>
-                        <div class="delete-confirmation__options">
-                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
-                                <span><delete-icon /></span>
-                                <span>Yes</span>
-                            </span>
+                    <div v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item" @click.stop="confirmDeletion">
+                        <delete-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                    </div>
+                    <div v-else class="file-entry__functional__dropdown__item confirmation">
+                        <div class="delete-confirmation">
+                            <p class="delete-confirmation__text">
+                                Are you sure?
+                            </p>
+                            <div class="delete-confirmation__options">
+                                <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                    <span><delete-icon /></span>
+                                    <span>Yes</span>
+                                </span>
 
-                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
-                                <span><close-icon /></span>
-                                <span>No</span>
-                            </span>
+                                <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                    <span><close-icon /></span>
+                                    <span>No</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
     <table-item
         v-else-if="fileTypeIsFolder"
@@ -70,53 +72,59 @@
         item-type="folder"
         @selectClicked="selectFile"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
-            <div
-                v-if="loadingSpinner()"
-                class="spinner-border"
-                role="status"
-            />
-            <dots-icon v-else />
-            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+        <template #options>
+            <th v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
                 <div
-                    v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
-                    @click.stop="confirmDeletion"
-                >
-                    <delete-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
-                </div>
-                <div v-else class="file-entry__functional__dropdown__item confirmation">
-                    <div class="delete-confirmation">
-                        <p class="delete-confirmation__text">
-                            Are you sure?
-                        </p>
-                        <div class="delete-confirmation__options">
-                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
-                                <span><delete-icon /></span>
-                                <span>Yes</span>
-                            </span>
+                    v-if="loadingSpinner"
+                    class="spinner-border"
+                    role="status"
+                />
+                <dots-icon v-else />
+                <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                    <div
+                        v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
+                        @click.stop="confirmDeletion"
+                    >
+                        <delete-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                    </div>
+                    <div v-else class="file-entry__functional__dropdown__item confirmation">
+                        <div class="delete-confirmation">
+                            <p class="delete-confirmation__text">
+                                Are you sure?
+                            </p>
+                            <div class="delete-confirmation__options">
+                                <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                    <span><delete-icon /></span>
+                                    <span>Yes</span>
+                                </span>
 
-                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
-                                <span><close-icon /></span>
-                                <span>No</span>
-                            </span>
+                                <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                    <span><close-icon /></span>
+                                    <span>No</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
-import { useNotify, useRouter } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { ObjectType } from '@/utils/objectIcon';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -129,8 +137,11 @@ import CloseIcon from '@/../static/images/common/closeCross.svg';
 
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const config = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const props = defineProps<{
   path: string,
@@ -144,32 +155,7 @@ const deleteConfirmation = ref(false);
 /**
  * Return the type of the file.
  */
-const fileType = computed((): string => {
-    const image = /(\.jpg|\.jpeg|\.png|\.gif)$/i;
-    const video = /(\.mp4|\.mkv|\.mov)$/i;
-    const audio = /(\.mp3|\.aac|\.wav|\.m4a)$/i;
-    const text = /(\.txt|\.docx|\.doc|\.pages)$/i;
-    const pdf = /(\.pdf)$/i;
-    const archive = /(\.zip|\.tar.gz|\.7z|\.rar)$/i;
-    const spreadsheet = /(\.xls|\.numbers|\.csv|\.xlsx|\.tsv)$/i;
-
-    if (image.exec(props.file.Key)) {
-        return 'image';
-    } else if (video.exec(props.file.Key)) {
-        return 'video';
-    } else if (audio.exec(props.file.Key)) {
-        return 'audio';
-    } else if (text.exec(props.file.Key)) {
-        return 'text';
-    } else if (pdf.exec(props.file.Key)) {
-        return 'pdf';
-    } else if (archive.exec(props.file.Key)) {
-        return 'archive';
-    } else if (spreadsheet.exec(props.file.Key)) {
-        return 'spreadsheet';
-    }
-    return 'file';
-});
+const fileType = computed((): string => ObjectType.findType(props.file.Key));
 
 /**
  * Return the size of the file formatted.
@@ -234,21 +220,28 @@ const fileTypeIsFile = computed((): boolean => {
 });
 
 /**
+ * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
+ */
+const loadingSpinner = computed((): boolean => {
+    return obStore.state.filesToBeDeleted.some(
+        (file) => file.Key === props.file.Key,
+    );
+});
+
+/**
  * Open the modal for the current file.
  */
 function openModal(): void {
     obStore.setObjectPathForModal(props.path + props.file.Key);
-    appStore.updateActiveModal(MODALS.objectDetails);
-    obStore.closeDropdown();
-}
 
-/**
- * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
- */
-function loadingSpinner(): boolean {
-    return Boolean(obStore.state.filesToBeDeleted.find(
-        (file) => file === props.file,
-    ));
+    if (config.state.config.galleryViewEnabled) {
+        appStore.setGalleryView(true);
+        analytics.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
+    } else {
+        appStore.updateActiveModal(MODALS.objectDetails);
+    }
+
+    obStore.closeDropdown();
 }
 
 /**
@@ -270,8 +263,8 @@ function selectFile(event: KeyboardEvent): void {
     setSelectedFile(isSelectedFile);
 }
 
-function openFolder(): void {
-    router.push(link.value);
+async function openFolder(): Promise<void> {
+    await router.push(link.value);
     obStore.clearAllSelectedFiles();
     emit('onUpdate');
 }
@@ -423,9 +416,9 @@ function openDropdown(): void {
 /**
  * Download the current file.
  */
-function download(): void {
+async function download(): Promise<void> {
     try {
-        obStore.download(props.file);
+        await obStore.download(props.file);
         notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
@@ -481,7 +474,7 @@ function cancelDeletion(): void {
         position: relative;
         cursor: pointer;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             padding: 0 10px;
             width: unset;
         }
@@ -566,7 +559,7 @@ function cancelDeletion(): void {
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
     // hide size, upload date columns on mobile screens
 
     :deep(.data:not(:nth-child(2))) {
@@ -602,14 +595,14 @@ function cancelDeletion(): void {
     max-width: 26rem;
 }
 
-@media screen and (max-width: 940px) {
+@media screen and (width <= 940px) {
 
     :deep(th) {
         max-width: 15rem;
     }
 }
 
-@media screen and (max-width: 650px) {
+@media screen and (width <= 650px) {
 
     :deep(th) {
         max-width: 10rem;

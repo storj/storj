@@ -9,6 +9,7 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/private/cfgstruct"
+	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/storagenode"
 )
 
@@ -59,7 +60,8 @@ func newRootCmd(setDefaults bool) (*cobra.Command, *Factory) {
 		newGracefulExitInitCmd(factory),
 		newGracefulExitStatusCmd(factory),
 		// internal hidden commands
-		newUsedSpaceFilewalkerCmd(),
+		internalcmd.NewUsedSpaceFilewalkerCmd().Command,
+		internalcmd.NewGCFilewalkerCmd().Command,
 	)
 
 	return cmd, factory

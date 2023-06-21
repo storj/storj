@@ -9,7 +9,9 @@
         :item="{'name': 'Back', 'size': '', 'date': ''}"
         item-type="back"
     >
-        <th slot="options" />
+        <template #options>
+            <th />
+        </template>
     </table-item>
 </template>
 
@@ -19,5 +21,4 @@ import TableItem from '@/components/common/TableItem.vue';
 const props = defineProps<{
     onBack: () => void;
 }>();
-
 </script>

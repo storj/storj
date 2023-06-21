@@ -62,7 +62,7 @@ func TestProcess(t *testing.T) {
 			}
 		}
 
-		err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+		err = service.ProcessRange(ctx, uuid.UUID{}, uuid.Max())
 		require.NoError(t, err)
 
 		require.NoError(t, service.Close())

@@ -7,12 +7,14 @@ import { defineStore } from 'pinia';
 import {
     ProjectMember,
     ProjectMemberCursor,
+    ProjectMemberItemModel,
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
 } from '@/types/projectMembers';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
@@ -25,8 +27,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     const api: ProjectMembersApi = new ProjectMembersApiGql();
 
-    async function addProjectMembers(emails: string[], projectID: string): Promise<void> {
-        await api.add(projectID, emails);
+    async function inviteMembers(emails: string[], projectID: string): Promise<void> {
+        await api.invite(projectID, emails);
     }
 
     async function deleteProjectMembers(projectID: string): Promise<void> {
@@ -35,18 +37,15 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         clearProjectMemberSelection();
     }
 
-    async function getProjectMembers(page: number, projectID: string): Promise<ProjectMembersPage> {
+    async function getProjectMembers(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<ProjectMembersPage> {
         state.cursor.page = page;
+        state.cursor.limit = limit;
 
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
         state.page = projectMembersPage;
-        state.page.projectMembers = state.page.projectMembers.map(member => {
-            if (state.selectedProjectMembersEmails.includes(member.user.email)) {
-                member.isSelected = true;
-            }
-
-            return member;
+        state.page.getAllItems().forEach(item => {
+            item.setSelected(state.selectedProjectMembersEmails.includes(item.getEmail()));
         });
 
         return projectMembersPage;
@@ -64,6 +63,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.search = search;
     }
 
+    function getSearchQuery() {
+        return state.cursor.search;
+    }
+
     function setSortingBy(order: ProjectMemberOrderBy) {
         state.cursor.order = order;
     }
@@ -72,27 +75,25 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.orderDirection = direction;
     }
 
-    function toggleProjectMemberSelection(projectMember: ProjectMember) {
-        if (!state.selectedProjectMembersEmails.includes(projectMember.user.email)) {
-            projectMember.isSelected = true;
-            state.selectedProjectMembersEmails.push(projectMember.user.email);
+    function toggleProjectMemberSelection(projectMember: ProjectMemberItemModel) {
+        const email = projectMember.getEmail();
+
+        if (!state.selectedProjectMembersEmails.includes(email)) {
+            projectMember.setSelected(true);
+            state.selectedProjectMembersEmails.push(email);
 
             return;
         }
 
-        projectMember.isSelected = false;
+        projectMember.setSelected(false);
         state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
-            return projectMemberEmail !== projectMember.user.email;
+            return projectMemberEmail !== email;
         });
     }
 
     function clearProjectMemberSelection() {
         state.selectedProjectMembersEmails = [];
-        state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
-            projectMember.isSelected = false;
-
-            return projectMember;
-        });
+        state.page.getAllItems().forEach(member => member.setSelected(false));
     }
 
     function clear() {
@@ -103,10 +104,11 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     return {
         state,
-        addProjectMembers,
+        inviteMembers,
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
+        getSearchQuery,
         setSortingBy,
         setSortingDirection,
         setPage,

@@ -22,6 +22,8 @@ type APIKeys interface {
 	GetByHead(ctx context.Context, head []byte) (*APIKeyInfo, error)
 	// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
 	GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*APIKeyInfo, error)
+	// GetAllNamesByProjectID retrieves all API key names for given projectID
+	GetAllNamesByProjectID(ctx context.Context, projectID uuid.UUID) ([]string, error)
 	// Create creates and stores new APIKeyInfo
 	Create(ctx context.Context, head []byte, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store
@@ -51,13 +53,14 @@ type CreateAPIKeyResponse struct {
 
 // APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
-	ID        uuid.UUID `json:"id"`
-	ProjectID uuid.UUID `json:"projectId"`
-	UserAgent []byte    `json:"userAgent"`
-	Name      string    `json:"name"`
-	Head      []byte    `json:"-"`
-	Secret    []byte    `json:"-"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID              uuid.UUID `json:"id"`
+	ProjectID       uuid.UUID `json:"projectId"`
+	ProjectPublicID uuid.UUID `json:"projectPublicId"`
+	UserAgent       []byte    `json:"userAgent"`
+	Name            string    `json:"name"`
+	Head            []byte    `json:"-"`
+	Secret          []byte    `json:"-"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 // APIKeyCursor holds info for api keys cursor pagination.

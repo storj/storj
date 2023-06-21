@@ -22,7 +22,7 @@ func main() {
 	// definition for REST API
 	a := &apigen.API{
 		Version:     "v0",
-		Description: "",
+		Description: "Interacts with projects",
 		PackageName: "consoleapi",
 	}
 
@@ -152,6 +152,7 @@ func main() {
 	modroot := findModuleRootDir()
 	a.MustWriteGo(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "api.gen.go"))
 	a.MustWriteTS(filepath.Join(modroot, "web", "satellite", "src", "api", a.Version+".gen.ts"))
+	a.MustWriteDocs(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "apidocs.gen.md"))
 }
 
 func findModuleRootDir() string {

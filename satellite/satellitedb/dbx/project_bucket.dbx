@@ -10,10 +10,6 @@ model bucket_metainfo (
 	// name is a unique name inside the project.
 	// it's a alphanumeric string similar to domain names.
 	field name           blob
-	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
-	// deprecated: use user_agent instead.
-	// note: this field is duplicated in value_attribution.project_id.
-	field partner_id     blob   (nullable, updatable)
 	// user_agent is the first User-Agent that was used to upload data,
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in value_attribution.user_agent.
@@ -65,6 +61,7 @@ model bucket_metainfo (
 	//    3 - US
 	//    4 - DE
 	//    5 - Invalid, when there's no information about the placement.
+	//    6 - NR (no Russia, Belarus or other sanctioned country)
 	field placement int (nullable, updatable)
 )
 
@@ -148,19 +145,21 @@ model value_attribution (
 	// This does not use the id, because we need the attribution to last
 	// beyond the lifetime of bucket_metainfo row.
 	field bucket_name	blob
-	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
-	// deprecated: use user_agent instead.
-	// note: this field is duplicated in bucket_metainfo.project_id.
-	field partner_id	blob
 	// user_agent is the first User-Agent that was used to upload data.
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.
-	field user_agent	blob       ( nullable )
+	field user_agent	blob       ( updatable, nullable )
+	// TODO remove as part of release 1.81 or after
+	field partner_id blob (nullable, default null)
 	// last_updated is updated whenever the row changes.
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
 create value_attribution ()
+update value_attribution (
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
 
 read one (
     select value_attribution

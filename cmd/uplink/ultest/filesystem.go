@@ -112,7 +112,7 @@ func (rfs *remoteFilesystem) Open(ctx context.Context, bucket, key string) (ulfs
 	return newMultiReadHandle(mf.contents), nil
 }
 
-func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opts *ulfs.CreateOptions) (_ ulfs.WriteHandle, err error) {
+func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opts *ulfs.CreateOptions) (_ ulfs.MultiWriteHandle, err error) {
 	rfs.mu.Lock()
 	defer rfs.mu.Unlock()
 
@@ -140,7 +140,7 @@ func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opt
 
 	rfs.pending[loc] = append(rfs.pending[loc], wh)
 
-	return wh, nil
+	return ulfs.NewGenericMultiWriteHandle(wh), nil
 }
 
 func (rfs *remoteFilesystem) Move(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error {
@@ -282,12 +282,15 @@ type memWriteHandle struct {
 	done     bool
 }
 
-func (b *memWriteHandle) Write(p []byte) (int, error) {
+func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
 	if b.done {
 		return 0, errs.New("write to closed handle")
 	}
-	b.buf = append(b.buf, p...)
-	return len(p), nil
+	end := int64(len(p)) + off
+	if grow := end - int64(len(b.buf)); grow > 0 {
+		b.buf = append(b.buf, make([]byte, grow)...)
+	}
+	return copy(b.buf[off:], p), nil
 }
 
 func (b *memWriteHandle) Commit() error {

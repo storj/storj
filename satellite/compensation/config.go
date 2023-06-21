@@ -11,7 +11,7 @@ import (
 // Config contains configuration for the calculations this package performs.
 type Config struct {
 	Rates struct {
-		AtRestGBHours Rate `user:"true" help:"rate for data at rest per GB/hour" default:"0.00000205"`
+		AtRestGBHours Rate `user:"true" help:"rate for data at rest per GB/hour" default:"0.00000208"`
 		GetTB         Rate `user:"true" help:"rate for egress bandwidth per TB" default:"20.00"`
 		PutTB         Rate `user:"true" help:"rate for ingress bandwidth per TB" default:"0"`
 		GetRepairTB   Rate `user:"true" help:"rate for repair egress bandwidth per TB" default:"10.00"`

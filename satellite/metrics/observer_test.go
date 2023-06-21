@@ -15,18 +15,17 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var (
-	inline1 = []segmentloop.Segment{
+	inline1 = []rangedloop.Segment{
 		{StreamID: uuid.UUID{1}, EncryptedSize: 10},
 	}
-	remote2 = []segmentloop.Segment{
+	remote2 = []rangedloop.Segment{
 		{StreamID: uuid.UUID{2}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
 		{StreamID: uuid.UUID{2}, EncryptedSize: 10},
 	}
-	remote3 = []segmentloop.Segment{
+	remote3 = []rangedloop.Segment{
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
 		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}},
@@ -37,7 +36,7 @@ var (
 func TestObserver(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	loop := func(tb testing.TB, obs *Observer, streams ...[]segmentloop.Segment) Metrics {
+	loop := func(tb testing.TB, obs *Observer, streams ...[]rangedloop.Segment) Metrics {
 		service := rangedloop.NewService(
 			zap.NewNop(),
 			rangedloop.Config{BatchSize: 2, Parallelism: 2},
@@ -91,8 +90,8 @@ func TestObserver(t *testing.T) {
 	})
 }
 
-func combineSegments(ss ...[]segmentloop.Segment) []segmentloop.Segment {
-	var combined []segmentloop.Segment
+func combineSegments(ss ...[]rangedloop.Segment) []rangedloop.Segment {
+	var combined []rangedloop.Segment
 	for _, s := range ss {
 		combined = append(combined, s...)
 	}

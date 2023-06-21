@@ -9,10 +9,10 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const router = useRouter();

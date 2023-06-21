@@ -343,8 +343,7 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	// limit the size of the body to prevent excessive memory usage
-	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return

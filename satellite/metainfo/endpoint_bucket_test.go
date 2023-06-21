@@ -258,3 +258,31 @@ func TestListBucketsWithAttribution(t *testing.T) {
 		}
 	})
 }
+
+func TestBucketCreationWithDefaultPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		// change the default_placement of the project
+		project, err := planet.Satellites[0].API.DB.Console().Projects().Get(ctx, projectID)
+		project.DefaultPlacement = storj.EU
+		require.NoError(t, err)
+		err = planet.Satellites[0].API.DB.Console().Projects().Update(ctx, project)
+		require.NoError(t, err)
+
+		// create a new bucket
+		up, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+
+		_, err = up.CreateBucket(ctx, "eu1")
+		require.NoError(t, err)
+
+		// check if placement is set
+		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("eu1"), projectID)
+		require.NoError(t, err)
+		require.Equal(t, storj.EU, placement)
+
+	})
+}

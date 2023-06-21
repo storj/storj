@@ -205,31 +205,31 @@ func Test_GetProjectTotal(t *testing.T) {
 			require.NoError(t, err)
 
 			const epsilon = 1e-8
-			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()+tallies[1].Bytes()), epsilon)
-			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount+tallies[1].TotalSegmentCount), epsilon)
-			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount+tallies[1].ObjectCount), epsilon)
-			require.Equal(t, usage.Egress, expectedEgress)
-			require.Equal(t, usage.Since, tallies[0].IntervalStart)
-			require.Equal(t, usage.Before, tallies[2].IntervalStart.Add(time.Minute))
+			require.InDelta(t, float64(tallies[0].Bytes()+tallies[1].Bytes()), usage.Storage, epsilon)
+			require.InDelta(t, float64(tallies[0].TotalSegmentCount+tallies[1].TotalSegmentCount), usage.SegmentCount, epsilon)
+			require.InDelta(t, float64(tallies[0].ObjectCount+tallies[1].ObjectCount), usage.ObjectCount, epsilon)
+			require.Equal(t, expectedEgress, usage.Egress)
+			require.Equal(t, tallies[0].IntervalStart, usage.Since)
+			require.Equal(t, tallies[2].IntervalStart.Add(time.Minute), usage.Before)
 
 			// Ensure that GetProjectTotal treats the 'before' arg as exclusive
 			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart)
 			require.NoError(t, err)
-			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()), epsilon)
-			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount), epsilon)
-			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount), epsilon)
-			require.Equal(t, usage.Egress, expectedEgress)
-			require.Equal(t, usage.Since, tallies[0].IntervalStart)
-			require.Equal(t, usage.Before, tallies[2].IntervalStart)
+			require.InDelta(t, float64(tallies[0].Bytes()), usage.Storage, epsilon)
+			require.InDelta(t, float64(tallies[0].TotalSegmentCount), usage.SegmentCount, epsilon)
+			require.InDelta(t, float64(tallies[0].ObjectCount), usage.ObjectCount, epsilon)
+			require.Equal(t, expectedEgress, usage.Egress)
+			require.Equal(t, tallies[0].IntervalStart, usage.Since)
+			require.Equal(t, tallies[2].IntervalStart, usage.Before)
 
 			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, rollups[0].IntervalStart, rollups[1].IntervalStart)
 			require.NoError(t, err)
 			require.Zero(t, usage.Storage)
 			require.Zero(t, usage.SegmentCount)
 			require.Zero(t, usage.ObjectCount)
-			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
-			require.Equal(t, usage.Since, rollups[0].IntervalStart)
-			require.Equal(t, usage.Before, rollups[1].IntervalStart)
+			require.Equal(t, rollups[0].Inline+rollups[0].Settled, usage.Egress)
+			require.Equal(t, rollups[0].IntervalStart, usage.Since)
+			require.Equal(t, rollups[1].IntervalStart, usage.Before)
 		},
 	)
 }
@@ -451,4 +451,50 @@ func Test_GetProjectObjectsSegments(t *testing.T) {
 			require.Zero(t, projectStats.ObjectCount)
 			require.Zero(t, projectStats.SegmentCount)
 		})
+}
+
+func TestProjectUsageGap(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+		tally := sat.Accounting.Tally
+
+		tally.Loop.Pause()
+
+		now := time.Time{}
+		tally.SetNow(func() time.Time {
+			return now
+		})
+
+		const (
+			bucketName = "testbucket"
+			objectPath = "test/path"
+		)
+
+		data := testrand.Bytes(10)
+		require.NoError(t, uplink.Upload(ctx, sat, bucketName, objectPath, data))
+		tally.Loop.TriggerWait()
+
+		objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objs, 1)
+		expectedStorage := objs[0].TotalEncryptedSize
+
+		now = now.Add(time.Hour)
+		require.NoError(t, uplink.DeleteObject(ctx, sat, bucketName, objectPath))
+		tally.Loop.TriggerWait()
+
+		// This object is only uploaded and tallied so that the usage calculator knows
+		// how long it's been since the previous tally.
+		now = now.Add(time.Hour)
+		require.NoError(t, uplink.Upload(ctx, sat, bucketName, objectPath, data))
+		tally.Loop.TriggerWait()
+
+		// The bucket was full for only 1 hour, so expect `expectedStorage` byte-hours of storage usage.
+		usage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, uplink.Projects[0].ID, time.Time{}, now.Add(time.Second))
+		require.NoError(t, err)
+		require.EqualValues(t, expectedStorage, usage.Storage)
+	})
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console/consoleauth"
 )
@@ -33,12 +34,16 @@ type Users interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
-	// Delete is a method for deleting user by Id from the database.
+	// Delete is a method for deleting user by ID from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
+	// DeleteUnverifiedBefore deletes unverified users created prior to some time from the database.
+	DeleteUnverifiedBefore(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
+	// UpdateUserAgent is a method to update the user's user agent.
+	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 	// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
 	UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
 	// GetProjectLimit is a method to get the users project limit
@@ -182,6 +187,8 @@ type User struct {
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
 	SignupCaptcha          *float64  `json:"-"`
+
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -247,21 +254,25 @@ type UpdateUserRequest struct {
 	FailedLoginCount *int
 
 	LoginLockoutExpiration **time.Time
+
+	DefaultPlacement storj.PlacementConstraint
 }
 
 // UserSettings contains configurations for a user.
 type UserSettings struct {
-	SessionDuration *time.Duration `json:"sessionDuration"`
-	OnboardingStart bool           `json:"onboardingStart"`
-	OnboardingEnd   bool           `json:"onboardingEnd"`
-	OnboardingStep  *string        `json:"onboardingStep"`
+	SessionDuration  *time.Duration `json:"sessionDuration"`
+	OnboardingStart  bool           `json:"onboardingStart"`
+	OnboardingEnd    bool           `json:"onboardingEnd"`
+	PassphrasePrompt bool           `json:"passphrasePrompt"`
+	OnboardingStep   *string        `json:"onboardingStep"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
 type UpsertUserSettingsRequest struct {
 	// The DB stores this value with minute granularity. Finer time units are ignored.
-	SessionDuration **time.Duration
-	OnboardingStart *bool
-	OnboardingEnd   *bool
-	OnboardingStep  *string
+	SessionDuration  **time.Duration
+	OnboardingStart  *bool
+	OnboardingEnd    *bool
+	PassphrasePrompt *bool
+	OnboardingStep   *string
 }

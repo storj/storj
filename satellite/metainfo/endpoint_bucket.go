@@ -33,6 +33,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
@@ -68,6 +69,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Name)
 	if err != nil {
@@ -108,6 +110,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
+	bucketReq.Placement = project.DefaultPlacement
 
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
@@ -175,6 +178,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Name)
 	if err != nil {
@@ -285,10 +289,6 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
 	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
-		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
-			endpoint.deleteSegmentPieces(ctx, deleted)
-			return nil
-		},
 	})
 
 	return deletedObjects, Error.Wrap(err)
@@ -310,6 +310,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	allowedBuckets, err := getAllowedBuckets(ctx, req.Header, action)
 	if err != nil {

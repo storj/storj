@@ -32,13 +32,13 @@ const (
 	BucketUsageCursorInputType = "bucketUsageCursor"
 	// BucketUsageType is a graphql type name for bucket usage.
 	BucketUsageType = "bucketUsage"
-	// BucketUsagePageType is a field name for bucket usage page.
+	// BucketUsagePageType is a graphql type name for bucket usage page.
 	BucketUsagePageType = "bucketUsagePage"
-	// ProjectMembersPageType is a field name for project members page.
-	ProjectMembersPageType = "projectMembersPage"
+	// ProjectMembersAndInvitationsPageType is a graphql type name for a page of project members and invitations.
+	ProjectMembersAndInvitationsPageType = "projectMembersAndInvitationsPage"
 	// ProjectMembersCursorInputType is a graphql type name for project members.
 	ProjectMembersCursorInputType = "projectMembersCursor"
-	// APIKeysPageType is a field name for api keys page.
+	// APIKeysPageType is a graphql type name for api keys page.
 	APIKeysPageType = "apiKeysPage"
 	// APIKeysCursorInputType is a graphql type name for api keys.
 	APIKeysCursorInputType = "apiKeysCursor"
@@ -52,8 +52,8 @@ const (
 	FieldBucketName = "bucketName"
 	// FieldDescription is a field name for description.
 	FieldDescription = "description"
-	// FieldMembers is field name for members.
-	FieldMembers = "members"
+	// FieldMembersAndInvitations is field name for members and invitations.
+	FieldMembersAndInvitations = "membersAndInvitations"
 	// FieldAPIKeys is a field name for api keys.
 	FieldAPIKeys = "apiKeys"
 	// FieldUsage is a field name for usage rollup.
@@ -84,6 +84,8 @@ const (
 	FieldProjects = "projects"
 	// FieldProjectMembers is a field name for project members.
 	FieldProjectMembers = "projectMembers"
+	// FieldProjectInvitations is a field name for project member invitations.
+	FieldProjectInvitations = "projectInvitations"
 	// CursorArg is an argument name for cursor.
 	CursorArg = "cursor"
 	// PageArg ia an argument name for page number.
@@ -130,8 +132,8 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			FieldMemberCount: &graphql.Field{
 				Type: graphql.Int,
 			},
-			FieldMembers: &graphql.Field{
-				Type: types.projectMemberPage,
+			FieldMembersAndInvitations: &graphql.Field{
+				Type: types.projectMembersAndInvitationsPage,
 				Args: graphql.FieldConfigArgument{
 					CursorArg: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.projectMembersCursor),
@@ -146,7 +148,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					}
 
 					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
-					page, err := service.GetProjectMembers(p.Context, project.ID, cursor)
+					page, err := service.GetProjectMembersAndInvitations(p.Context, project.ID, cursor)
 					if err != nil {
 						return nil, err
 					}
@@ -164,16 +166,26 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						})
 					}
 
+					var invites []projectInvitation
+					for _, invite := range page.ProjectInvitations {
+						invites = append(invites, projectInvitation{
+							Email:     invite.Email,
+							CreatedAt: invite.CreatedAt,
+							Expired:   service.IsProjectInvitationExpired(&invite),
+						})
+					}
+
 					projectMembersPage := projectMembersPage{
-						ProjectMembers: users,
-						TotalCount:     page.TotalCount,
-						Offset:         page.Offset,
-						Limit:          page.Limit,
-						Order:          int(page.Order),
-						OrderDirection: int(page.OrderDirection),
-						Search:         page.Search,
-						CurrentPage:    page.CurrentPage,
-						PageCount:      page.PageCount,
+						ProjectMembers:     users,
+						ProjectInvitations: invites,
+						TotalCount:         page.TotalCount,
+						Offset:             page.Offset,
+						Limit:              page.Limit,
+						Order:              int(page.Order),
+						OrderDirection:     int(page.OrderDirection),
+						Search:             page.Search,
+						CurrentPage:        page.CurrentPage,
+						PageCount:          page.PageCount,
 					}
 					return projectMembersPage, nil
 				},

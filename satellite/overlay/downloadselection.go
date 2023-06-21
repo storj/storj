@@ -75,8 +75,8 @@ func (cache *DownloadSelectionCache) read(ctx context.Context) (_ *DownloadSelec
 	return NewDownloadSelectionCacheState(onlineNodes), nil
 }
 
-// GetNodeIPs gets the last node ip:port from the cache, refreshing when needed.
-func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+// GetNodeIPsFromPlacement gets the last node ip:port from the cache, refreshing when needed. Results are filtered out by placement.
+func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context, nodes []storj.NodeID, placement storj.PlacementConstraint) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -84,7 +84,7 @@ func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []sto
 		return nil, Error.Wrap(err)
 	}
 
-	return state.IPs(nodes), nil
+	return state.IPsFromPlacement(nodes, placement), nil
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
@@ -134,6 +134,17 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists {
+			xs[nodeID] = n.LastIPPort
+		}
+	}
+	return xs
+}
+
+// IPsFromPlacement returns node ip:port for nodes that are in state. Results are filtered out by placement.
+func (state *DownloadSelectionCacheState) IPsFromPlacement(nodes []storj.NodeID, placement storj.PlacementConstraint) map[storj.NodeID]string {
+	xs := make(map[storj.NodeID]string, len(nodes))
+	for _, nodeID := range nodes {
+		if n, exists := state.byID[nodeID]; exists && placement.AllowedCountry(n.CountryCode) {
 			xs[nodeID] = n.LastIPPort
 		}
 	}

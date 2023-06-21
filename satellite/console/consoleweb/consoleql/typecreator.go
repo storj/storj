@@ -16,18 +16,19 @@ type TypeCreator struct {
 	query    *graphql.Object
 	mutation *graphql.Object
 
-	user              *graphql.Object
-	reward            *graphql.Object
-	project           *graphql.Object
-	projectUsage      *graphql.Object
-	projectsPage      *graphql.Object
-	bucketUsage       *graphql.Object
-	bucketUsagePage   *graphql.Object
-	projectMember     *graphql.Object
-	projectMemberPage *graphql.Object
-	apiKeyPage        *graphql.Object
-	apiKeyInfo        *graphql.Object
-	createAPIKey      *graphql.Object
+	user                             *graphql.Object
+	reward                           *graphql.Object
+	project                          *graphql.Object
+	projectUsage                     *graphql.Object
+	projectsPage                     *graphql.Object
+	bucketUsage                      *graphql.Object
+	bucketUsagePage                  *graphql.Object
+	projectMember                    *graphql.Object
+	projectInvitation                *graphql.Object
+	projectMembersAndInvitationsPage *graphql.Object
+	apiKeyPage                       *graphql.Object
+	apiKeyInfo                       *graphql.Object
+	createAPIKey                     *graphql.Object
 
 	userInput            *graphql.InputObject
 	projectInput         *graphql.InputObject
@@ -112,8 +113,13 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 		return err
 	}
 
-	c.projectMemberPage = graphqlProjectMembersPage(c)
-	if err := c.projectMemberPage.Error(); err != nil {
+	c.projectInvitation = graphqlProjectInvitation()
+	if err := c.projectInvitation.Error(); err != nil {
+		return err
+	}
+
+	c.projectMembersAndInvitationsPage = graphqlProjectMembersAndInvitationsPage(c)
+	if err := c.projectMembersAndInvitationsPage.Error(); err != nil {
 		return err
 	}
 

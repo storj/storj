@@ -14,6 +14,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -86,6 +88,8 @@ type SegmentRepairer struct {
 	reporter       audit.Reporter
 
 	reputationUpdateEnabled bool
+	doDeclumping            bool
+	doPlacementCheck        bool
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -133,6 +137,8 @@ func NewSegmentRepairer(
 		repairOverrides:            repairOverrides.GetMap(),
 		reporter:                   reporter,
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
+		doDeclumping:               config.DoDeclumping,
+		doPlacementCheck:           config.DoPlacementCheck,
 
 		nowFn: time.Now,
 	}
@@ -189,31 +195,65 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
 	stats.repairSegmentSize.Observe(int64(segment.EncryptedSize))
 
-	var excludeNodeIDs storj.NodeIDList
 	pieces := segment.Pieces
+
+	allNodeIDs := make([]storj.NodeID, len(pieces))
+	for i, p := range pieces {
+		allNodeIDs[i] = p.StorageNode
+	}
+
+	excludeNodeIDs := allNodeIDs
+
 	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 
-	// if multiple pieces are on the same last_net, keep only the first one. The rest are
-	// to be considered retrievable but unhealthy.
-	nodeIDs := make([]storj.NodeID, len(pieces))
-	for i, p := range pieces {
-		nodeIDs[i] = p.StorageNode
+	var clumpedPieces metabase.Pieces
+	var clumpedPiecesSet map[uint16]bool
+	if repairer.doDeclumping {
+		// if multiple pieces are on the same last_net, keep only the first one. The rest are
+		// to be considered retrievable but unhealthy.
+		lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, allNodeIDs)
+		if err != nil {
+			return false, metainfoGetError.Wrap(err)
+		}
+		clumpedPieces = repair.FindClumpedPieces(segment.Pieces, lastNets)
+		clumpedPiecesSet = make(map[uint16]bool)
+		for _, clumpedPiece := range clumpedPieces {
+			clumpedPiecesSet[clumpedPiece.Number] = true
+		}
 	}
-	lastNets, err := repairer.overlay.GetNodesNetworkInOrder(ctx, nodeIDs)
-	if err != nil {
-		return false, metainfoGetError.Wrap(err)
+
+	var outOfPlacementPieces metabase.Pieces
+	var outOfPlacementPiecesSet map[uint16]bool
+	if repairer.doPlacementCheck && segment.Placement != storj.EveryCountry {
+		var err error
+		outOfPlacementNodes, err := repairer.overlay.GetNodesOutOfPlacement(ctx, allNodeIDs, segment.Placement)
+		if err != nil {
+			return false, metainfoGetError.Wrap(err)
+		}
+
+		outOfPlacementPiecesSet = make(map[uint16]bool)
+		for _, piece := range pieces {
+			if slices.Contains(outOfPlacementNodes, piece.StorageNode) {
+				outOfPlacementPieces = append(outOfPlacementPieces, piece)
+				outOfPlacementPiecesSet[piece.Number] = true
+			}
+		}
 	}
-	clumpedPieces := repair.FindClumpedPieces(segment.Pieces, lastNets)
-	clumpedPiecesSet := make(map[uint16]bool)
-	for _, clumpedPiece := range clumpedPieces {
-		clumpedPiecesSet[clumpedPiece.Number] = true
+
+	numUnhealthyRetrievable := len(clumpedPieces) + len(outOfPlacementPieces)
+	if len(clumpedPieces) != 0 && len(outOfPlacementPieces) != 0 {
+		// verify that some of clumped pieces and out of placement pieces are not the same
+		unhealthyRetrievableSet := map[uint16]bool{}
+		maps.Copy(unhealthyRetrievableSet, clumpedPiecesSet)
+		maps.Copy(unhealthyRetrievableSet, outOfPlacementPiecesSet)
+		numUnhealthyRetrievable = len(unhealthyRetrievableSet)
 	}
 
 	numRetrievable := len(pieces) - len(missingPieces)
-	numHealthy := len(pieces) - len(missingPieces) - len(clumpedPieces)
+	numHealthy := len(pieces) - len(missingPieces) - numUnhealthyRetrievable
 	// irreparable segment
 	if numRetrievable < int(segment.Redundancy.RequiredShares) {
 		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
@@ -256,9 +296,34 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 	// repair not needed
 	if numHealthy-numHealthyInExcludedCountries > int(repairThreshold) {
+		// remove pieces out of placement without repairing as we are above repair threshold
+		if len(outOfPlacementPieces) > 0 {
+			newPieces, err := segment.Pieces.Update(nil, outOfPlacementPieces)
+			if err != nil {
+				return false, metainfoPutError.Wrap(err)
+			}
+
+			err = repairer.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+				StreamID: segment.StreamID,
+				Position: segment.Position,
+
+				OldPieces:     segment.Pieces,
+				NewRedundancy: segment.Redundancy,
+				NewPieces:     newPieces,
+
+				NewRepairedAt: time.Now(),
+			})
+			if err != nil {
+				return false, metainfoPutError.Wrap(err)
+			}
+
+			mon.Meter("dropped_out_of_placement_pieces").Mark(len(outOfPlacementPieces))
+		}
+
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
-		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
+		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold),
+			zap.Int("numClumped", len(clumpedPieces)), zap.Int("numOffPieces", len(outOfPlacementPieces)))
 		return true, nil
 	}
 
@@ -275,14 +340,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	unhealthyPieces := make(map[metabase.Piece]struct{})
 	healthySet := make(map[int32]struct{})
 	// Populate retrievablePieces with all pieces from the segment except those correlating to indices in lostPieces.
-	// Populate unhealthyPieces with all pieces in lostPieces OR clumpedPieces.
+	// Populate unhealthyPieces with all pieces in lostPieces, clumpedPieces or outOfPlacementPieces.
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
 		if lostPiecesSet[piece.Number] {
 			unhealthyPieces[piece] = struct{}{}
 		} else {
 			retrievablePieces = append(retrievablePieces, piece)
-			if clumpedPiecesSet[piece.Number] {
+			if clumpedPiecesSet[piece.Number] || outOfPlacementPiecesSet[piece.Number] {
 				unhealthyPieces[piece] = struct{}{}
 			} else {
 				healthySet[int32(piece.Number)] = struct{}{}
@@ -291,7 +356,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, retrievablePieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, segment, retrievablePieces)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
@@ -335,6 +400,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: requestCount,
 		ExcludedIDs:    excludeNodeIDs,
+		Placement:      segment.Placement,
 	}
 	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
@@ -342,7 +408,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -598,6 +664,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
 	stats.segmentRepairCount.Observe(repairCount)
 
+	repairer.log.Debug("repaired segment",
+		zap.Stringer("Stream ID", segment.StreamID),
+		zap.Uint64("Position", segment.Position.Encode()),
+		zap.Int("clumped pieces", len(clumpedPieces)),
+		zap.Int("out of placement pieces", len(outOfPlacementPieces)),
+		zap.Int("in excluded countries", numHealthyInExcludedCountries),
+		zap.Int("removed pieces", len(toRemove)),
+		zap.Int("repaired pieces", len(repairedPieces)),
+		zap.Int("healthy before repair", numHealthy),
+		zap.Int("healthy after repair", healthyAfterRepair))
 	return true, nil
 }
 
@@ -670,7 +746,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 
 	// we treat all pieces as "healthy" for our purposes here; we want to download as many
 	// of them as we reasonably can. Thus, we pass in seg.Pieces for 'healthy'
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, *seg, seg.Pieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, *seg, seg.Pieces)
 	if err != nil {
 		return nil, errs.New("could not create order limits: %w", err)
 	}

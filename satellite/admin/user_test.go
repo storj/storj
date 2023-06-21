@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -204,32 +205,55 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectSegmentLimit)
 
-			// Update user limits and project limits (current and existing projects for a user).
-			link = "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
-			newStorageLimit := int64(15000)
-			newBandwidthLimit := int64(25000)
-			newSegmentLimit := int64(35000)
-			body2 := fmt.Sprintf(`{"projectStorageLimit":%d, "projectBandwidthLimit":%d, "projectSegmentLimit":%d}`, newStorageLimit, newBandwidthLimit, newSegmentLimit)
-			responseBody = assertReq(ctx, t, link, http.MethodPut, body2, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
+			var updateLimitsTests = []struct {
+				newStorageLimit   memory.Size
+				newBandwidthLimit memory.Size
+				newSegmentLimit   int64
+				useSizeString     bool
+			}{
+				{
+					15000,
+					25000,
+					35000,
+					false,
+				},
+				{
+					50 * memory.KB,
+					75 * memory.KB,
+					40000,
+					true,
+				},
+			}
 
-			// Get user limits returns new updated limits
-			link2 := "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
-			expectedBody := `{` +
-				fmt.Sprintf(`"storage":%d,"bandwidth":%d,"maxSegments":%d}`, newStorageLimit, newBandwidthLimit, newSegmentLimit)
-			assertReq(ctx, t, link2, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
+			for _, tt := range updateLimitsTests {
+				// Update user limits and project limits (current and existing projects for a user).
+				link = "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
+				jsonStr := `{"storage":"%d", "bandwidth":"%d", "segment":%d}`
+				if tt.useSizeString {
+					jsonStr = strings.Replace(jsonStr, "%d", "%v", 2)
+				}
+				body2 := fmt.Sprintf(jsonStr, tt.newStorageLimit, tt.newBandwidthLimit, tt.newSegmentLimit)
+				responseBody = assertReq(ctx, t, link, http.MethodPut, body2, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+				require.Len(t, responseBody, 0)
 
-			userUpdatedLimits, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-			require.NoError(t, err)
-			require.Equal(t, newStorageLimit, userUpdatedLimits.ProjectStorageLimit)
-			require.Equal(t, newBandwidthLimit, userUpdatedLimits.ProjectBandwidthLimit)
-			require.Equal(t, newSegmentLimit, userUpdatedLimits.ProjectSegmentLimit)
+				// Get user limits returns new updated limits
+				link2 := "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
+				expectedBody := `{` +
+					fmt.Sprintf(`"storage":%d,"bandwidth":%d,"segment":%d}`, tt.newStorageLimit, tt.newBandwidthLimit, tt.newSegmentLimit)
+				assertReq(ctx, t, link2, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
 
-			projectUpdatedLimits, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
-			require.NoError(t, err)
-			require.Equal(t, newStorageLimit, projectUpdatedLimits.StorageLimit.Int64())
-			require.Equal(t, newBandwidthLimit, projectUpdatedLimits.BandwidthLimit.Int64())
-			require.Equal(t, newSegmentLimit, *projectUpdatedLimits.SegmentLimit)
+				userUpdatedLimits, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+				require.NoError(t, err)
+				require.Equal(t, tt.newStorageLimit.Int64(), userUpdatedLimits.ProjectStorageLimit)
+				require.Equal(t, tt.newBandwidthLimit.Int64(), userUpdatedLimits.ProjectBandwidthLimit)
+				require.Equal(t, tt.newSegmentLimit, userUpdatedLimits.ProjectSegmentLimit)
+
+				projectUpdatedLimits, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+				require.NoError(t, err)
+				require.Equal(t, tt.newStorageLimit, *projectUpdatedLimits.StorageLimit)
+				require.Equal(t, tt.newBandwidthLimit, *projectUpdatedLimits.BandwidthLimit)
+				require.Equal(t, tt.newSegmentLimit, *projectUpdatedLimits.SegmentLimit)
+			}
 		})
 
 		t.Run("Not found", func(t *testing.T) {
@@ -237,6 +261,63 @@ func TestUserUpdate(t *testing.T) {
 			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
 			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "does not exist")
+		})
+
+		t.Run("Email already used", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", "alice+2@mail.test")
+			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
+			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusConflict, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "already exists")
+		})
+	})
+}
+
+func TestUpdateUsersUserAgent(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
+		newUserAgent := "awesome user agent value"
+
+		t.Run("OK", func(t *testing.T) {
+			body := strings.NewReader(fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, fmt.Sprintf("http://"+address.String()+"/api/users/%s/useragent", project.Owner.Email), body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			newUserAgentBytes := []byte(newUserAgent)
+
+			updatedUser, err := db.Console().Users().Get(ctx, project.Owner.ID)
+			require.NoError(t, err)
+			require.Equal(t, newUserAgentBytes, updatedUser.UserAgent)
+
+			updatedProject, err := db.Console().Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.Equal(t, newUserAgentBytes, updatedProject.UserAgent)
+		})
+
+		t.Run("Same UserAgent", func(t *testing.T) {
+			err := db.Console().Users().UpdateUserAgent(ctx, project.Owner.ID, []byte(newUserAgent))
+			require.NoError(t, err)
+
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/useragent", project.Owner.Email)
+			body := fmt.Sprintf(`{"userAgent":"%s"}`, newUserAgent)
+			responseBody := assertReq(ctx, t, link, http.MethodPatch, body, http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "new UserAgent is equal to existing users UserAgent")
 		})
 	})
 }

@@ -399,7 +399,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 	largestOrder := pb.Order{}
-	defer commitOrderToStore(ctx, &largestOrder)
+	defer commitOrderToStore(ctx, &largestOrder, func() int64 {
+		return pieceWriter.Size()
+	})
 
 	// monitor speed of upload client to flag out slow uploads.
 	speedEstimate := speedEstimation{
@@ -583,6 +585,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	maximumChunkSize := 1 * memory.MiB.Int64()
+	if memory.KiB.Int32() < message.MaximumChunkSize && message.MaximumChunkSize < memory.MiB.Int32() {
+		maximumChunkSize = int64(message.MaximumChunkSize)
+	}
+
 	actionSeriesTag := monkit.NewSeriesTag("action", limit.Action.String())
 
 	remoteAddr := getRemoteAddr(ctx)
@@ -692,8 +699,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
-		var maximumChunkSize = 1 * memory.MiB.Int64()
-
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
 
@@ -727,7 +732,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		if err != nil {
 			return err
 		}
-		defer commitOrderToStore(ctx, &largestOrder)
+		defer func() {
+			order := &largestOrder
+			commitOrderToStore(ctx, order, func() int64 {
+				// for downloads, we store the order amount for the egress graph instead
+				// of the bytes actually downloaded
+				return order.Amount
+			})
+		}()
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -820,7 +832,7 @@ func (endpoint *Endpoint) sendData(ctx context.Context, stream pb.DRPCPiecestore
 }
 
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order), err error) {
+func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
 	defer mon.Task()(nil)(&err)
 
 	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
@@ -829,7 +841,7 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 	}
 
 	done := false
-	return func(ctx context.Context, order *pb.Order) {
+	return func(ctx context.Context, order *pb.Order, amountFunc func() int64) {
 		if done {
 			return
 		}
@@ -848,8 +860,12 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
 		} else {
+			amount := order.Amount
+			if amountFunc != nil {
+				amount = amountFunc()
+			}
 			// We always want to save order to the database to be able to settle.
-			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, order.Amount, time.Now())
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
 			if err != nil {
 				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 			}

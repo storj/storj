@@ -3,10 +3,6 @@
 
 <template>
     <div class="manage-options">
-        <h1 class="manage-options__title">Manage passphrases</h1>
-        <p class="manage-options__info">
-            Here are all the options for your encryption passphrases.
-        </p>
         <div class="manage-options__option" @click="setCreate">
             <PlusIcon class="manage-options__option__icon" />
             <div class="manage-options__option__info">
@@ -31,10 +27,22 @@
             </div>
             <ChevronIcon class="manage-options__option__arrow" />
         </div>
+        <div class="manage-options__divider" />
+        <VButton
+            label="Cancel"
+            width="100%"
+            height="48px"
+            font-size="14px"
+            border-radius="10px"
+            :on-press="onCancel"
+            :is-white="true"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
+import VButton from '@/components/common/VButton.vue';
+
 import PlusIcon from '@/../static/images/projectPassphrase/plus.svg';
 import SwitchIcon from '@/../static/images/projectPassphrase/switch.svg';
 import ClearIcon from '@/../static/images/projectPassphrase/clear.svg';
@@ -44,10 +52,12 @@ const props = withDefaults(defineProps<{
     setCreate?: () => void,
     setSwitch?: () => void,
     setClear?: () => void,
+    onCancel?: () => void,
 }>(), {
     setCreate: () => () => {},
     setSwitch: () => () => {},
     setClear: () => () => {},
+    onCancel: () => () => {},
 });
 </script>
 
@@ -57,22 +67,7 @@ const props = withDefaults(defineProps<{
     flex-direction: column;
     align-items: center;
     font-family: 'font_regular', sans-serif;
-    max-width: 433px;
-
-    &__title {
-        font-family: 'font_bold', sans-serif;
-        font-size: 32px;
-        line-height: 39px;
-        color: #1b2533;
-        margin: 14px 0;
-    }
-
-    &__info {
-        font-size: 14px;
-        line-height: 19px;
-        color: #354049;
-        margin-bottom: 24px;
-    }
+    max-width: 350px;
 
     &__option {
         display: flex;
@@ -128,6 +123,13 @@ const props = withDefaults(defineProps<{
                 fill: #0149ff;
             }
         }
+    }
+
+    &__divider {
+        width: 100%;
+        height: 1px;
+        margin: 16px 0;
+        background-color: var(--c-grey-2);
     }
 }
 

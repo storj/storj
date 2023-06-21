@@ -9,6 +9,7 @@
         type="text"
         autocomplete="off"
         readonly
+        maxlength="72"
         @input="processSearchQuery"
         @focus="removeReadOnly"
         @blur="addReadOnly"
@@ -42,6 +43,8 @@ function clearSearch(): void {
 async function processSearchQuery(): Promise<void> {
     await props.search(searchQuery.value);
 }
+
+defineExpose({ clearSearch });
 </script>
 
 <style scoped lang="scss">
@@ -54,7 +57,7 @@ async function processSearchQuery(): Promise<void> {
         outline: none;
         border: 1px solid var(--c-grey-3);
         border-radius: 10px;
-        height: 56px;
+        height: 40px;
         width: 250px;
         font-family: 'font_regular', sans-serif;
         font-size: 16px;
@@ -62,9 +65,9 @@ async function processSearchQuery(): Promise<void> {
         background-image: url('../../../static/images/common/search-gray.png');
         background-repeat: no-repeat;
         background-size: 22px 22px;
-        background-position: top 16px left 16px;
+        background-position: top 8px left 14px;
 
-        @media screen and (max-width: 1150px) {
+        @media screen and (width <= 1150px) {
             width: 100%;
         }
     }

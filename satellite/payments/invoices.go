@@ -29,6 +29,8 @@ const (
 type Invoices interface {
 	// Create creates an invoice with price and description.
 	Create(ctx context.Context, userID uuid.UUID, price int64, desc string) (*Invoice, error)
+	// Get returns an invoice by invoiceID.
+	Get(ctx context.Context, invoiceID string) (*Invoice, error)
 	// Pay pays an invoice.
 	Pay(ctx context.Context, invoiceID, paymentMethodID string) (*Invoice, error)
 	// List returns a list of invoices for a given payment account.

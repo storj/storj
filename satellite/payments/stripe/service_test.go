@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
@@ -34,6 +35,68 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
+
+func TestService_BalanceInvoiceItems(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		numberOfUsers := 10
+		users := make([]*console.User, numberOfUsers)
+		projects := make([]*console.Project, numberOfUsers)
+		// create a bunch of users
+		for i := 0; i < numberOfUsers; i++ {
+			var err error
+
+			users[i], err = satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
+			require.NoError(t, err)
+
+			projects[i], err = satellite.AddProject(ctx, users[i].ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+		}
+
+		// give one of the users a stripe balance
+		cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, users[4].ID)
+		require.NoError(t, err)
+		_, err = payments.StripeClient.Customers().Update(cusID, &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+			Balance: stripe.Int64(1000),
+		})
+		require.NoError(t, err)
+
+		// convert the stripe balance into an invoice item
+		require.NoError(t, payments.StripeService.CreateBalanceInvoiceItems(ctx))
+
+		// check that the invoice item was created
+		itr := payments.StripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+			Customer: stripe.String(cusID),
+		})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+		require.Equal(t, int64(1000), itr.InvoiceItem().UnitAmount)
+
+		// check that the stripe balance was reset
+		cus, err := payments.StripeClient.Customers().Get(cusID, &stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(0), cus.Balance)
+	})
+}
 
 func TestService_InvoiceElementsProcessing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -77,7 +140,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		// check if we have project record for each project
-		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, numberOfProjects, len(recordsPage.Records))
 
@@ -85,7 +148,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify that we applied all unapplied project records
-		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(recordsPage.Records))
 	})
@@ -222,7 +285,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
 		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
-		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, len(projects), len(recordsPage.Records))
 	})
@@ -338,7 +401,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 	})
 }
 
-func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
+func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -350,11 +413,48 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		satellite := planet.Satellites[0]
 		payments := satellite.API.Payments
 
+		tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
 		}, 1)
 		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(usdCurrency),
+		})
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
 
 		// setup storjscan wallet
 		address, err := blockchain.BytesToAddress(testrand.Bytes(20))
@@ -364,7 +464,7 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		require.NoError(t, err)
 		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
 			UserID:      userID,
-			Amount:      currency.AmountFromBaseUnits(1000, currency.USDollars),
+			Amount:      tokenBalance,
 			Description: "token payment credit",
 			Source:      billing.StorjScanSource,
 			Status:      billing.TransactionStatusCompleted,
@@ -378,6 +478,168 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		// run apply token balance to see if there are no unexpected errors
 		err = payments.StripeService.InvoiceApplyTokenBalance(ctx, time.Time{})
 		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.PayInvoices(ctx, time.Time{})
+		require.NoError(t, err)
+
+		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+		})
+		iter.Next()
+		require.Equal(t, stripe.InvoiceStatusPaid, iter.Invoice().Status)
+
+		// balance is in USDollars Micro, so it needs to be converted before comparison
+		balance, err := satellite.DB.Billing().GetBalance(ctx, userID)
+		balance = currency.AmountFromDecimal(balance.AsDecimal().Truncate(2), currency.USDollars)
+		require.NoError(t, err)
+
+		require.Equal(t, tokenBalance.BaseUnits()-invoiceBalance.BaseUnits(), balance.BaseUnits())
+	})
+}
+
+func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// create user
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		amount1 := int64(75)
+		amount2 := int64(100)
+		curr := string(stripe.CurrencyUSD)
+
+		// create invoice items for first invoice
+		inv1Item1, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount1,
+			Currency: &curr,
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+		inv1Item2, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount1,
+			Currency: &curr,
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+		Inv1Items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 2)
+		Inv1Items = append(Inv1Items, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &inv1Item1.ID,
+			Amount:      &amount1,
+			Currency:    &curr,
+		})
+		Inv1Items = append(Inv1Items, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &inv1Item2.ID,
+			Amount:      &amount1,
+			Currency:    &curr,
+		})
+
+		// invoice items for second invoice
+		inv2Item1, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount2,
+			Currency: &curr,
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+		inv2Item2, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount2,
+			Currency: &curr,
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+		Inv2Items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 2)
+		Inv2Items = append(Inv2Items, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &inv2Item1.ID,
+			Amount:      &amount2,
+			Currency:    &curr,
+		})
+		Inv2Items = append(Inv2Items, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &inv2Item2.ID,
+			Amount:      &amount2,
+			Currency:    &curr,
+		})
+
+		// create invoice one
+		inv1, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: Inv1Items,
+		})
+		require.NoError(t, err)
+
+		// create invoice two
+		inv2, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: Inv2Items,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice one
+		inv1, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv1.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv1.Status)
+
+		// finalize invoice two
+		inv2, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv2.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv2.Status)
+
+		// setup storjscan wallet and user balance
+		address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		userID := user.ID
+		err = satellite.DB.Wallets().Add(ctx, userID, address)
+		require.NoError(t, err)
+		// User balance is not enough to cover full amount of both invoices
+		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
+			UserID:      userID,
+			Amount:      currency.AmountFromBaseUnits(300, currency.USDollars),
+			Description: "token payment credit",
+			Source:      billing.StorjScanSource,
+			Status:      billing.TransactionStatusCompleted,
+			Type:        billing.TransactionTypeCredit,
+			Metadata:    nil,
+			Timestamp:   time.Now(),
+			CreatedAt:   time.Now(),
+		})
+		require.NoError(t, err)
+
+		// attempt to apply token balance to invoices
+		err = satellite.API.Payments.StripeService.InvoiceApplyTokenBalance(ctx, time.Time{})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.PayInvoices(ctx, time.Time{})
+		require.NoError(t, err)
+
+		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+		})
+		for iter.Next() {
+			if iter.Invoice().AmountRemaining == 0 {
+				require.Equal(t, stripe.InvoiceStatusPaid, iter.Invoice().Status)
+			} else {
+				require.Equal(t, stripe.InvoiceStatusOpen, iter.Invoice().Status)
+			}
+		}
+		require.NoError(t, iter.Err())
+		balance, err := satellite.DB.Billing().GetBalance(ctx, userID)
+		require.NoError(t, err)
+		require.False(t, balance.IsNegative())
+		require.Zero(t, balance.BaseUnits())
 	})
 }
 
@@ -458,17 +720,6 @@ func TestService_GenerateInvoice(t *testing.T) {
 
 				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
 
-				// ensure free tier coupon was applied
-				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
-				require.NoError(t, err)
-
-				params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
-				stripeUser, err := payments.StripeClient.Customers().Get(cusID, params)
-				require.NoError(t, err)
-				require.NotNil(t, stripeUser.Discount)
-				require.NotNil(t, stripeUser.Discount.Coupon)
-				require.Equal(t, payments.StripeService.StripeFreeTierCouponID, stripeUser.Discount.Coupon.ID)
-
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
 				require.ErrorIs(t, stripe1.ErrProjectRecordExists, err)
@@ -477,6 +728,9 @@ func TestService_GenerateInvoice(t *testing.T) {
 				require.NotNil(t, rec)
 				require.NoError(t, err)
 
+				// validate generated invoices
+				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+				require.NoError(t, err)
 				invoice, hasInvoice := getCustomerInvoice(ctx, payments.StripeClient, cusID)
 				invoiceItems := getCustomerInvoiceItems(ctx, payments.StripeClient, cusID)
 
@@ -712,5 +966,138 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 				require.Equal(t, stripe.InvoiceStatusOpen, i.Status)
 			}
 		}
+	})
+}
+
+func TestRemoveExpiredPackageCredit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		p := satellite.API.Payments
+		u0 := planet.Uplinks[0].Projects[0].Owner.ID
+		u1 := planet.Uplinks[1].Projects[0].Owner.ID
+		u2 := planet.Uplinks[2].Projects[0].Owner.ID
+		u3 := planet.Uplinks[3].Projects[0].Owner.ID
+
+		credit := int64(1000)
+		pkgDesc := "test package plan"
+		now := time.Now()
+		expiredPurchase := now.AddDate(-1, -1, 0)
+
+		removeExpiredCredit := func(u uuid.UUID, expectAlert bool, purchaseTime *time.Time) {
+			require.NoError(t, p.Accounts.UpdatePackage(ctx, u, &pkgDesc, purchaseTime))
+			cPage, err := satellite.API.DB.StripeCoinPayments().Customers().List(ctx, uuid.UUID{}, 10, time.Now().Add(1*time.Hour))
+			require.NoError(t, err)
+			var c stripe1.Customer
+			for _, cus := range cPage.Customers {
+				if cus.UserID == u {
+					c = cus
+				}
+			}
+
+			alertSent, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 c.ID,
+				UserID:             c.UserID,
+				PackagePlan:        c.PackagePlan,
+				PackagePurchasedAt: c.PackagePurchasedAt,
+			})
+			require.NoError(t, err)
+			if expectAlert {
+				require.True(t, alertSent)
+			} else {
+				require.False(t, alertSent)
+			}
+		}
+
+		checkCreditAndPackage := func(u uuid.UUID, expectedBalance int64, expectNilPackage bool) {
+			b, err := p.Accounts.Balances().Get(ctx, u)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(expectedBalance), b.Credits)
+
+			dbPkgInfo, dbPurchaseTime, err := p.StripeService.Accounts().GetPackageInfo(ctx, u)
+			require.NoError(t, err)
+			if expectNilPackage {
+				require.Nil(t, dbPkgInfo)
+				require.Nil(t, dbPurchaseTime)
+			} else {
+				require.NotNil(t, dbPkgInfo)
+				require.NotNil(t, dbPurchaseTime)
+			}
+		}
+
+		t.Run("nil package plan returns safely", func(t *testing.T) {
+			_, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 "test-customer-ID",
+				UserID:             testrand.UUID(),
+				PackagePlan:        nil,
+				PackagePurchasedAt: &now,
+			})
+			require.NoError(t, err)
+		})
+
+		t.Run("nil package purchase time returns safely", func(t *testing.T) {
+			_, err := p.StripeService.RemoveExpiredPackageCredit(ctx, stripe1.Customer{
+				ID:                 "test-customer-ID",
+				UserID:             testrand.UUID(),
+				PackagePlan:        new(string),
+				PackagePurchasedAt: nil,
+			})
+			require.NoError(t, err)
+		})
+
+		t.Run("package not expired retains credit", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u3, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			removeExpiredCredit(u3, false, &now)
+			checkCreditAndPackage(u3, credit, false)
+		})
+
+		t.Run("used all credit", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u0, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// remove credit as if they used it all
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u0, -credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(0), b.Credits)
+
+			removeExpiredCredit(u0, false, &expiredPurchase)
+			checkCreditAndPackage(u0, 0, true)
+		})
+
+		t.Run("has remaining credit but no credit source other than package", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u1, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// remove some credit, but not all, as if it were used
+			toRemove := credit / 2
+			remaining := credit - toRemove
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u1, -toRemove, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(remaining), b.Credits)
+
+			removeExpiredCredit(u1, false, &expiredPurchase)
+			checkCreditAndPackage(u1, 0, true)
+		})
+
+		t.Run("has additional credit source", func(t *testing.T) {
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u2, credit, pkgDesc)
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
+
+			// give additional credit
+			additional := int64(2000)
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u2, additional, "additional credit")
+			require.NoError(t, err)
+			require.Equal(t, decimal.NewFromInt(credit+additional), b.Credits)
+
+			removeExpiredCredit(u2, true, &expiredPurchase)
+			checkCreditAndPackage(u2, credit+additional, false)
+		})
 	})
 }

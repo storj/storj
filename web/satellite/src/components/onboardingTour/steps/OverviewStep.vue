@@ -7,7 +7,7 @@
         <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
-                is-web="true"
+                :is-web="true"
                 title="Start with web browser"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
                 button-label="Continue in web ->"
@@ -28,12 +28,13 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -155,7 +156,7 @@ onMounted(async (): Promise<void> => {
     }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .overview-area {
         width: 250px;

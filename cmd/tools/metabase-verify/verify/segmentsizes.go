@@ -5,19 +5,14 @@ package verify
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/rangedloop"
 )
-
-// SegmentSizes verifies segments table plain_offset and plain_size.
-type SegmentSizes struct {
-	Log *zap.Logger
-
-	segmentState
-}
 
 type segmentState struct {
 	StreamID uuid.UUID
@@ -25,22 +20,49 @@ type segmentState struct {
 	ExpectedOffset int64
 }
 
-// LoopStarted is called at each start of a loop.
-func (verify *SegmentSizes) LoopStarted(ctx context.Context, info segmentloop.LoopInfo) (err error) {
+// SegmentSizes verifies segments table plain_offset and plain_size.
+type SegmentSizes struct {
+	Log *zap.Logger
+
+	mu sync.Mutex
+	segmentState
+}
+
+// Start is called at the beginning of each segment loop.
+func (verify *SegmentSizes) Start(context.Context, time.Time) error {
 	return nil
 }
 
-// RemoteSegment implements the Observer interface.
-func (verify *SegmentSizes) RemoteSegment(ctx context.Context, seg *segmentloop.Segment) error {
-	return verify.advanceSegment(ctx, seg)
+// Fork creates a Partial to process a chunk of all the segments. It is
+// called after Start. It is not called concurrently.
+func (verify *SegmentSizes) Fork(context.Context) (rangedloop.Partial, error) {
+	return verify, nil
 }
 
-// InlineSegment implements the Observer interface.
-func (verify *SegmentSizes) InlineSegment(ctx context.Context, seg *segmentloop.Segment) error {
-	return verify.advanceSegment(ctx, seg)
+// Join is called for each partial returned by Fork.
+func (verify *SegmentSizes) Join(context.Context, rangedloop.Partial) error {
+	return nil
 }
 
-func (verify *SegmentSizes) advanceSegment(ctx context.Context, seg *segmentloop.Segment) error {
+// Finish is called after all segments are processed by all observers.
+func (verify *SegmentSizes) Finish(context.Context) error {
+	return nil
+}
+
+// Process is called repeatedly with batches of segments.
+func (verify *SegmentSizes) Process(ctx context.Context, segments []rangedloop.Segment) error {
+	verify.mu.Lock()
+	defer verify.mu.Unlock()
+
+	for _, segment := range segments {
+		if err := verify.advanceSegment(ctx, segment); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (verify *SegmentSizes) advanceSegment(ctx context.Context, seg rangedloop.Segment) error {
 	if verify.segmentState.StreamID != seg.StreamID {
 		verify.segmentState = segmentState{
 			StreamID: seg.StreamID,

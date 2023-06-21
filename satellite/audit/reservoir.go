@@ -12,14 +12,14 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
 const maxReservoirSize = 3
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	segments [maxReservoirSize]segmentloop.Segment
+	segments [maxReservoirSize]rangedloop.Segment
 	keys     [maxReservoirSize]float64
 	size     int8
 	index    int8
@@ -39,7 +39,7 @@ func NewReservoir(size int) *Reservoir {
 }
 
 // Segments returns the segments picked by the reservoir.
-func (reservoir *Reservoir) Segments() []segmentloop.Segment {
+func (reservoir *Reservoir) Segments() []rangedloop.Segment {
 	return reservoir.segments[:reservoir.index]
 }
 
@@ -55,12 +55,12 @@ func (reservoir *Reservoir) Keys() []float64 {
 // be passed in. The way this is accomplished is known as _Reservoir Sampling_.
 // The specific algorithm we are using here is called A-Res on the Wikipedia
 // article: https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Res
-func (reservoir *Reservoir) Sample(r *rand.Rand, segment segmentloop.Segment) {
+func (reservoir *Reservoir) Sample(r *rand.Rand, segment rangedloop.Segment) {
 	k := -math.Log(r.Float64()) / float64(segment.EncryptedSize)
 	reservoir.sample(k, segment)
 }
 
-func (reservoir *Reservoir) sample(k float64, segment segmentloop.Segment) {
+func (reservoir *Reservoir) sample(k float64, segment rangedloop.Segment) {
 	if reservoir.index < reservoir.size {
 		reservoir.segments[reservoir.index] = segment
 		reservoir.keys[reservoir.index] = k
@@ -99,7 +99,7 @@ type Segment struct {
 }
 
 // NewSegment creates a new segment to audit from a metainfo loop segment.
-func NewSegment(loopSegment segmentloop.Segment) Segment {
+func NewSegment(loopSegment rangedloop.Segment) Segment {
 	return Segment{
 		StreamID:      loopSegment.StreamID,
 		Position:      loopSegment.Position,

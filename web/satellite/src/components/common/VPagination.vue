@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { OnPageClickCallback, Page } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
@@ -49,7 +49,7 @@ const props = withDefaults(defineProps<{
     totalPageCount?: number;
 }>(), {
     totalPageCount: 0,
-    onPageClickCallback: () => () => {},
+    onPageClickCallback: () => (_: number) => Promise.resolve(),
 });
 
 const { withLoading } = useLoading();
@@ -120,7 +120,7 @@ function populatePagesArray(): void {
         pagesArray.value.push(new Page(i, onPageClick));
     }
 
-    if (isPagesTotalOffBlocks) {
+    if (isPagesTotalOffBlocks.value) {
         firstBlockPages.value = pagesArray.value.slice();
         middleBlockPages.value = [];
         lastBlockPages.value = [];
@@ -130,13 +130,6 @@ function populatePagesArray(): void {
 
     reorganizePageBlocks();
 }
-
-/**
- * Method after total page count change.
- */
-const onPageCountChange = watch(() => props.totalPageCount, (): void => {
-    resetPageIndex();
-});
 
 function setBlocksIfCurrentInFirstBlock(): void {
     firstBlockPages.value = pagesArray.value.slice(0, 3);
@@ -184,7 +177,7 @@ async function onPageClick(page: number): Promise<void> {
  */
 async function nextPage(): Promise<void> {
     await withLoading(async () => {
-        if (isLastPage) {
+        if (isLastPage.value) {
             return;
         }
 
@@ -199,7 +192,7 @@ async function nextPage(): Promise<void> {
  */
 async function prevPage(): Promise<void> {
     await withLoading(async () => {
-        if (isFirstPage) {
+        if (isFirstPage.value) {
             return;
         }
 
@@ -210,38 +203,27 @@ async function prevPage(): Promise<void> {
 }
 
 /**
- * resetPageIndex sets current selected page as first and rebuilds page blocks after.
- */
-function resetPageIndex(): void {
-    pagesArray.value = [];
-    firstBlockPages.value = [];
-    setCurrentPage(1);
-
-    populatePagesArray();
-}
-
-/**
  * reorganizePageBlocks changes pages blocks organization depends of
  * current selected page index.
  */
 function reorganizePageBlocks(): void {
-    if (isPagesTotalOffBlocks) {
+    if (isPagesTotalOffBlocks.value) {
         return;
     }
 
-    if (isCurrentInFirstBlock) {
+    if (isCurrentInFirstBlock.value) {
         setBlocksIfCurrentInFirstBlock();
 
         return;
     }
 
-    if (!isCurrentInFirstBlock && !isCurrentInLastBlock) {
+    if (!isCurrentInFirstBlock.value && !isCurrentInLastBlock.value) {
         setBlocksIfCurrentInMiddleBlock();
 
         return;
     }
 
-    if (isCurrentInLastBlock) {
+    if (isCurrentInLastBlock.value) {
         setBlocksIfCurrentInLastBlock();
     }
 }

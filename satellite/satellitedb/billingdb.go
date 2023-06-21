@@ -224,15 +224,21 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 		return nil, Error.Wrap(err)
 	}
 
-	for _, dbxTX := range dbxTXs {
-		tx, err := fromDBXBillingTransaction(dbxTX)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		txs = append(txs, *tx)
+	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	return txs, Error.Wrap(err)
+}
+
+func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource string) (txs []billing.Transaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx,
+		dbx.BillingTransaction_UserId(userID[:]),
+		dbx.BillingTransaction_Source(txSource))
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	return txs, nil
+	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	return txs, Error.Wrap(err)
 }
 
 func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currency.Amount, err error) {
@@ -250,12 +256,12 @@ func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currenc
 }
 
 // fromDBXBillingTransaction converts *dbx.BillingTransaction to *billing.Transaction.
-func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (*billing.Transaction, error) {
+func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (billing.Transaction, error) {
 	userID, err := uuid.FromBytes(dbxTX.UserId)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return billing.Transaction{}, errs.Wrap(err)
 	}
-	return &billing.Transaction{
+	return billing.Transaction{
 		ID:          dbxTX.Id,
 		UserID:      userID,
 		Amount:      currency.AmountFromBaseUnits(dbxTX.Amount, currency.USDollarsMicro),

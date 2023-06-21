@@ -39,12 +39,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -64,8 +65,8 @@ const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -166,15 +167,15 @@ async function onNextClick(): Promise<void> {
         const restrictedKey = await generateRestrictedKey();
         appStore.setOnboardingAPIKey(restrictedKey);
 
-        await notify.success('Restrictions were set successfully.');
+        notify.success('Restrictions were set successfully.');
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
         return;
     } finally {
         isLoading.value = false;
     }
 
-    appStore.setOnboardingAPIKeyStepBackRoute(router.currentRoute.path);
+    appStore.setOnboardingAPIKeyStepBackRoute(route.path);
     analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     await router.push({ name: RouteConfig.APIKey.name });
 }
@@ -193,7 +194,7 @@ async function generateRestrictedKey(): Promise<string> {
         'isUpload': storedIsUpload.value,
         'isList': storedIsList.value,
         'isDelete': storedIsDelete.value,
-        'buckets': selectedBucketNames.value,
+        'buckets': JSON.stringify(selectedBucketNames.value),
         'apiKey': cleanAPIKey.value,
     };
 
@@ -255,6 +256,11 @@ onMounted(async (): Promise<void> => {
             width: 287px;
             padding: 0 98.5px;
 
+            @media screen and (width <= 600px) {
+                width: 100%;
+                padding: 0;
+            }
+
             &__label {
                 font-family: 'font_medium', sans-serif;
                 margin: 20px 0 8px;
@@ -271,6 +277,11 @@ onMounted(async (): Promise<void> => {
             padding: 0 98.5px;
             flex-wrap: wrap;
 
+            @media screen and (width <= 600px) {
+                width: 100%;
+                padding: 0;
+            }
+
             &__container {
                 display: flex;
                 margin-top: 5px;
@@ -282,5 +293,9 @@ onMounted(async (): Promise<void> => {
     :deep(.duration-selection) {
         width: 287px;
         margin-left: 0;
+
+        @media screen and (width <= 600px) {
+            width: 100%;
+        }
     }
 </style>

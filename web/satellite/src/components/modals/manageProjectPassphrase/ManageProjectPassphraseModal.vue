@@ -5,12 +5,16 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <LockIcon />
+                <div class="modal__header">
+                    <AccessEncryptionIcon />
+                    <p class="modal__header__title">{{ title }}</p>
+                </div>
                 <ManageOptionsStep
                     v-if="activeStep === ManageProjectPassphraseStep.ManageOptions"
                     :set-create="setCreate"
                     :set-switch="setSwitch"
                     :set-clear="setClear"
+                    :on-cancel="closeModal"
                 />
                 <CreateStep
                     v-if="activeStep === ManageProjectPassphraseStep.Create"
@@ -33,7 +37,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -43,7 +46,7 @@ import CreateStep from '@/components/modals/manageProjectPassphrase/CreateStep.v
 import SwitchStep from '@/components/modals/manageProjectPassphrase/SwitchStep.vue';
 import ClearStep from '@/components/modals/manageProjectPassphrase/ClearStep.vue';
 
-import LockIcon from '@/../static/images/projectPassphrase/lock.svg';
+import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
 const appStore = useAppStore();
 const notify = useNotify();
@@ -56,6 +59,24 @@ const storedStep = computed((): ManageProjectPassphraseStep | undefined => {
 });
 
 const activeStep = ref<ManageProjectPassphraseStep>(storedStep.value || ManageProjectPassphraseStep.ManageOptions);
+
+/**
+ * Returns modal title based on active step.
+ */
+const title = computed((): string => {
+    switch (activeStep.value) {
+    case ManageProjectPassphraseStep.ManageOptions:
+        return 'Manage Passphrase';
+    case ManageProjectPassphraseStep.Create:
+        return 'Create a new passphrase';
+    case ManageProjectPassphraseStep.Switch:
+        return 'Switch passphrase';
+    case ManageProjectPassphraseStep.Clear:
+        return 'Clear my passphrase';
+    }
+
+    return '';
+});
 
 /**
  * Sets flow to create step.
@@ -89,7 +110,7 @@ function setManageOptions(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.removeActiveModal();
 }
 
 onMounted(() => {
@@ -99,10 +120,28 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .modal {
-    padding: 40px 60px 68px;
+    padding: 32px;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-grey-2);
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 24px;
+            line-height: 31px;
+            color: var(--c-grey-8);
+            margin-left: 16px;
+            letter-spacing: -0.02em;
+            text-align: left;
+        }
     }
 }
 </style>

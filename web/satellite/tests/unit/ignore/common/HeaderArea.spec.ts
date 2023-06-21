@@ -1,19 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
-const localVue = createLocalVue();
-
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(HeaderArea);
 
         const addNewTemMemberPopup = wrapper.findAll('adduserpopup-stub');
 
@@ -26,9 +22,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with opened Add team member popup', () => {
-        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            localVue,
-        });
+        const wrapper = shallowMount(HeaderArea);
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.findAll('.header-default-state').length).toBe(1);
@@ -40,8 +34,7 @@ describe('Team HeaderArea', () => {
     it('renders correctly with selected users', () => {
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            localVue,
+        const wrapper = shallowMount(HeaderArea, {
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,
                 headerState: ProjectMemberHeaderState.ON_SELECT,
@@ -60,8 +53,7 @@ describe('Team HeaderArea', () => {
     it('renders correctly with 2 selected users and delete clicked once', async () => {
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            localVue,
+        const wrapper = shallowMount(HeaderArea, {
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,
                 headerState: ProjectMemberHeaderState.ON_SELECT,
@@ -84,8 +76,7 @@ describe('Team HeaderArea', () => {
     it('renders correctly with 1 selected user and delete clicked once', async () => {
         const selectedUsersCount = 1;
 
-        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            localVue,
+        const wrapper = shallowMount(HeaderArea, {
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,
                 headerState: ProjectMemberHeaderState.ON_SELECT,

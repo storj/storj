@@ -6,11 +6,13 @@ import {
     DataStamp,
     Project,
     ProjectFields,
+    ProjectInvitation,
     ProjectLimits,
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
     ProjectsStorageBandwidthDaily,
+    ProjectInvitationResponse,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -59,6 +61,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 publicId
                 description
                 createdAt
+                memberCount
                 ownerId
             }
         }`;
@@ -72,6 +75,8 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 project.description,
                 project.createdAt,
                 project.ownerId,
+                false,
+                project.memberCount,
             );
         });
     }
@@ -137,7 +142,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * Get project limits.
      *
      * @param projectId- project ID
-     * throws Error
+     * @throws Error
      */
     public async getLimits(projectId: string): Promise<ProjectLimits> {
         const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
@@ -165,7 +170,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     /**
      * Get total limits for all the projects that user owns.
      *
-     * throws Error
+     * @throws Error
      */
     public async getTotalLimits(): Promise<ProjectLimits> {
         const path = `${this.ROOT_PATH}/usage-limits`;
@@ -192,7 +197,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @param projectId- project ID
      * @param start- since date
      * @param end- before date
-     * throws Error
+     * @throws Error
      */
     public async getDailyUsage(projectId: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily> {
         const since = Time.toUnixTimestamp(start).toString();
@@ -202,7 +207,6 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         if (!response.ok) {
             throw new Error('Can not get project daily usage');
-
         }
 
         const usage = await response.json();
@@ -273,6 +277,45 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
+     * Returns a user's pending project member invitations.
+     *
+     * @throws Error
+     */
+    public async getUserInvitations(): Promise<ProjectInvitation[]> {
+        const path = `${this.ROOT_PATH}/invitations`;
+        const response = await this.http.get(path);
+        const result = await response.json();
+
+        if (response.ok) {
+            return result.map(jsonInvite => new ProjectInvitation(
+                jsonInvite.projectID,
+                jsonInvite.projectName,
+                jsonInvite.projectDescription,
+                jsonInvite.inviterEmail,
+                new Date(jsonInvite.createdAt),
+            ));
+        }
+
+        throw new Error(result.error || 'Failed to get project invitations');
+    }
+
+    /**
+     * Handles accepting or declining a user's project member invitation.
+     *
+     * @throws Error
+     */
+    public async respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void> {
+        const path = `${this.ROOT_PATH}/invitations/${projectID}/respond`;
+        const body = { projectID, response };
+        const httpResponse = await this.http.post(path, JSON.stringify(body));
+
+        if (httpResponse.ok) return;
+
+        const result = await httpResponse.json();
+        throw new Error(result.error || 'Failed to respond to project invitation');
+    }
+
+    /**
      * Method for mapping projects page from json to ProjectsPage type.
      *
      * @param page anonymous object from json
@@ -294,5 +337,4 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
-
 }

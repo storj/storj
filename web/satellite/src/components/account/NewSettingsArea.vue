@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -109,11 +109,13 @@ import { useLoading } from '@/composables/useLoading';
 import { Duration } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -240,7 +242,7 @@ onMounted(() => {
                 grid-template-columns: 1fr 1fr 1fr;
                 align-items: center;
 
-                @media screen and (max-width: 500px) {
+                @media screen and (width <= 500px) {
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -260,6 +262,12 @@ onMounted(() => {
                     font-size: 14px;
                     line-height: 20px;
                     color: var(--c-grey-6);
+                    word-wrap: break-word;
+                    overflow: hidden;
+
+                    @media screen and (width <= 500px) {
+                        width: 100%;
+                    }
                 }
 
                 &__actions {
@@ -268,7 +276,7 @@ onMounted(() => {
                     justify-content: flex-end;
                     gap: 5px;
 
-                    @media screen and (max-width: 500px) {
+                    @media screen and (width <= 500px) {
                         width: 100%;
                         justify-content: flex-start;
                     }

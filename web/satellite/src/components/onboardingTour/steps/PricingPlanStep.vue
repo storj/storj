@@ -20,17 +20,18 @@
 
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
+import PricingPlanContainer from '@/components/account/billing/pricingPlans/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 const configStore = useConfigStore();
@@ -50,7 +51,7 @@ const plans = ref<PricingPlanInfo[]>([
         '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and bandwidth. Only pay for what you use beyond that.',
+        'Add a credit card to activate your Pro Account.<br><br>Get 25GB free storage and egress. Only pay for what you use beyond that.',
         'No charge today',
         '25GB Free',
     ),
@@ -97,7 +98,7 @@ onBeforeMount(async () => {
 
     let config;
     try {
-        config = require('@/components/onboardingTour/steps/pricingPlanFlow/pricingPlanConfig.json');
+        config = require('@/components/account/billing/pricingPlans/pricingPlanConfig.json');
     } catch {
         notify.error('No pricing plan configuration file.', null);
         router.push(nextPath);
@@ -130,10 +131,7 @@ onBeforeMount(async () => {
 
     &__loader {
         position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        inset: 0;
         align-items: center;
     }
 
@@ -162,7 +160,7 @@ onBeforeMount(async () => {
     }
 }
 
-@media screen and (max-width: 963px) {
+@media screen and (width <= 963px) {
 
     .pricing-area__plans {
         max-width: 444px;

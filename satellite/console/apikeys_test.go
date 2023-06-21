@@ -160,5 +160,55 @@ func TestApiKeysRepository(t *testing.T) {
 			assert.Error(t, err)
 		})
 
+		t.Run("GetAllNamesByProjectID success", func(t *testing.T) {
+			project, err = projects.Insert(ctx, &console.Project{
+				Name:        "ProjectName1",
+				Description: "projects description",
+			})
+			assert.NotNil(t, project)
+			assert.NoError(t, err)
+
+			names, err := apikeys.GetAllNamesByProjectID(ctx, project.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, 0, len(names))
+
+			secret, err := macaroon.NewSecret()
+			assert.NoError(t, err)
+
+			key, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+
+			key1, err := macaroon.NewAPIKey(secret)
+			assert.NoError(t, err)
+
+			keyInfo := console.APIKeyInfo{
+				Name:      "awesomeKey",
+				ProjectID: project.ID,
+				Secret:    secret,
+				UserAgent: userAgent,
+			}
+
+			keyInfo1 := console.APIKeyInfo{
+				Name:      "awesomeKey1",
+				ProjectID: project.ID,
+				Secret:    secret,
+				UserAgent: userAgent,
+			}
+
+			createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey)
+
+			createdKey1, err := apikeys.Create(ctx, key1.Head(), keyInfo1)
+			assert.NoError(t, err)
+			assert.NotNil(t, createdKey1)
+
+			names, err = apikeys.GetAllNamesByProjectID(ctx, project.ID)
+			assert.NoError(t, err)
+			assert.NotNil(t, names)
+			assert.Equal(t, 2, len(names))
+			assert.Equal(t, keyInfo.Name, names[0])
+			assert.Equal(t, keyInfo1.Name, names[1])
+		})
 	})
 }

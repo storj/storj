@@ -103,61 +103,58 @@ func TestAuth(t *testing.T) {
 		}
 
 		{ // Test_UserSettings
-			testGetSettings := func(expected struct {
-				SessionDuration *time.Duration
-				OnboardingStart bool
-				OnboardingEnd   bool
-				OnboardingStep  *string
-			}) {
+			type expectedSettings struct {
+				SessionDuration  *time.Duration
+				OnboardingStart  bool
+				OnboardingEnd    bool
+				PassphrasePrompt bool
+				OnboardingStep   *string
+			}
+			testGetSettings := func(expected expectedSettings) {
 				resp, body := test.request(http.MethodGet, "/auth/account/settings", nil)
 
 				var settings struct {
-					SessionDuration *time.Duration
-					OnboardingStart bool
-					OnboardingEnd   bool
-					OnboardingStep  *string
+					SessionDuration  *time.Duration
+					OnboardingStart  bool
+					OnboardingEnd    bool
+					PassphrasePrompt bool
+					OnboardingStep   *string
 				}
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 				require.NoError(test.t, json.Unmarshal([]byte(body), &settings))
 				require.Equal(test.t, expected.OnboardingStart, settings.OnboardingStart)
 				require.Equal(test.t, expected.OnboardingEnd, settings.OnboardingEnd)
+				require.Equal(test.t, expected.PassphrasePrompt, settings.PassphrasePrompt)
 				require.Equal(test.t, expected.OnboardingStep, settings.OnboardingStep)
 				require.Equal(test.t, expected.SessionDuration, settings.SessionDuration)
 			}
 
-			testGetSettings(struct {
-				SessionDuration *time.Duration
-				OnboardingStart bool
-				OnboardingEnd   bool
-				OnboardingStep  *string
-			}{
-				SessionDuration: nil,
-				OnboardingStart: true,
-				OnboardingEnd:   true,
-				OnboardingStep:  nil,
+			testGetSettings(expectedSettings{
+				SessionDuration:  nil,
+				OnboardingStart:  true,
+				OnboardingEnd:    true,
+				PassphrasePrompt: true,
+				OnboardingStep:   nil,
 			})
 
 			step := "cli"
 			duration := time.Duration(15) * time.Minute
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
-					"sessionDuration": duration,
-					"onboardingStart": true,
-					"onboardingEnd":   false,
-					"onboardingStep":  step,
+					"sessionDuration":  duration,
+					"onboardingStart":  true,
+					"onboardingEnd":    false,
+					"passphrasePrompt": false,
+					"onboardingStep":   step,
 				}))
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-			testGetSettings(struct {
-				SessionDuration *time.Duration
-				OnboardingStart bool
-				OnboardingEnd   bool
-				OnboardingStep  *string
-			}{
-				SessionDuration: &duration,
-				OnboardingStart: true,
-				OnboardingEnd:   false,
-				OnboardingStep:  &step,
+			testGetSettings(expectedSettings{
+				SessionDuration:  &duration,
+				OnboardingStart:  true,
+				OnboardingEnd:    false,
+				PassphrasePrompt: false,
+				OnboardingStep:   &step,
 			})
 
 			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
@@ -170,16 +167,12 @@ func TestAuth(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			// having passed nil to /auth/account/settings shouldn't have changed existing values.
-			testGetSettings(struct {
-				SessionDuration *time.Duration
-				OnboardingStart bool
-				OnboardingEnd   bool
-				OnboardingStep  *string
-			}{
-				SessionDuration: &duration,
-				OnboardingStart: true,
-				OnboardingEnd:   false,
-				OnboardingStep:  &step,
+			testGetSettings(expectedSettings{
+				SessionDuration:  &duration,
+				OnboardingStart:  true,
+				OnboardingEnd:    false,
+				PassphrasePrompt: false,
+				OnboardingStep:   &step,
 			})
 
 			// having passed 0 as sessionDuration to /auth/account/settings should nullify it.
@@ -189,12 +182,7 @@ func TestAuth(t *testing.T) {
 				}))
 
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-			testGetSettings(struct {
-				SessionDuration *time.Duration
-				OnboardingStart bool
-				OnboardingEnd   bool
-				OnboardingStep  *string
-			}{
+			testGetSettings(expectedSettings{
 				SessionDuration: nil,
 				OnboardingStart: true,
 				OnboardingEnd:   false,
@@ -587,7 +575,7 @@ func TestProjects(t *testing.T) {
 					"query": `
 						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
 							project(id: $projectId) {
-								members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
+								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
 									projectMembers {
 										user {
 											id
@@ -610,7 +598,7 @@ func TestProjects(t *testing.T) {
 								__typename
 							}
 						}`}))
-			require.Contains(t, body, "projectMembersPage")
+			require.Contains(t, body, "projectMembersAndInvitationsPage")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -799,7 +787,7 @@ func TestWrongUser(t *testing.T) {
 					"query": `
 						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
 							project(id: $projectId) {
-								members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
+								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
 									projectMembers {
 										user {
 											id

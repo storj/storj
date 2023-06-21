@@ -38,12 +38,9 @@ import (
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/inspector"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -102,17 +99,12 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Metabase      *metabase.DB
-		PieceDeletion *piecedeletion.Service
-		Endpoint      *metainfo.Endpoint
+		Metabase *metabase.DB
+		Endpoint *metainfo.Endpoint
 	}
 
 	Userinfo struct {
 		Endpoint *userinfo.Endpoint
-	}
-
-	Inspector struct {
-		Endpoint *inspector.Endpoint
 	}
 
 	Accounting struct {
@@ -431,27 +423,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
 
-		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
-			peer.Log.Named("metainfo:piecedeletion"),
-			peer.Dialer,
-			// TODO use cache designed for deletion
-			peer.Overlay.Service.DownloadSelectionCache,
-			config.Metainfo.PieceDeletion,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:piecedeletion",
-			Run:   peer.Metainfo.PieceDeletion.Run,
-			Close: peer.Metainfo.PieceDeletion.Close,
-		})
-
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
-			peer.Metainfo.PieceDeletion,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
@@ -505,17 +480,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup inspector
-		peer.Inspector.Endpoint = inspector.NewEndpoint(
-			peer.Log.Named("inspector"),
-			peer.Overlay.Service,
-			peer.Metainfo.Metabase,
-		)
-		if err := internalpb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup payments
 		pc := config.Payments
 
@@ -557,7 +521,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -617,6 +583,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
 			externalAddress,
+			consoleConfig.SatelliteName,
 			consoleConfig.Config,
 		)
 		if err != nil {
@@ -654,6 +621,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Reputation.Service,
 			peer.DB.StoragenodeAccounting(),
 			config.Payments,
+			config.Compensation,
 		)
 		if err := pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())

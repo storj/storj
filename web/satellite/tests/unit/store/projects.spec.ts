@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { ProjectsApiGql } from '@/api/projects';
@@ -31,7 +32,7 @@ const projects = [
 describe('actions', () => {
     beforeEach(() => {
         setActivePinia(createPinia());
-        jest.resetAllMocks();
+        vi.resetAllMocks();
     });
 
     it('select project', () => {
@@ -47,19 +48,19 @@ describe('actions', () => {
     it('success fetch projects', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectsApiGql.prototype, 'get').mockReturnValue(
             Promise.resolve(projects),
         );
 
         await store.getProjects();
 
-        expect(store.state.projects).toBe(projects);
+        expect(store.state.projects).toStrictEqual(projects);
     });
 
     it('fetch throws an error when api call fails', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'get').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsApiGql.prototype, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.getProjects();
@@ -72,7 +73,7 @@ describe('actions', () => {
     it('success create project', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'create').mockReturnValue(
+        vi.spyOn(ProjectsApiGql.prototype, 'create').mockReturnValue(
             Promise.resolve(project),
         );
 
@@ -85,7 +86,7 @@ describe('actions', () => {
     it('create throws an error when create api call fails', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'create').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsApiGql.prototype, 'create').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.createProject(new ProjectFields());
@@ -99,7 +100,7 @@ describe('actions', () => {
     it('success update project name', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -115,7 +116,7 @@ describe('actions', () => {
     it('success update project description', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -131,7 +132,7 @@ describe('actions', () => {
     it('success get project limits', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'getLimits').mockReturnValue(
+        vi.spyOn(ProjectsApiGql.prototype, 'getLimits').mockReturnValue(
             Promise.resolve(limits),
         );
 

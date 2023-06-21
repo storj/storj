@@ -32,6 +32,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
@@ -80,7 +81,7 @@ type Config struct {
 	PartneredSatellites             Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
 	GeneralRequestURL               string     `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string     `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
+	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool       `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string     `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string     `help:"url link for for beta satellite support" default:""`
@@ -89,18 +90,25 @@ type Config struct {
 	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool       `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string     `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
+	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"false"`
+	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"true"`
+	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"false"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
+	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"false"`
+	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
 	OauthRefreshTokenExpiry time.Duration `help:"how long oauth refresh tokens are issued for" default:"720h"`
+
+	BodySizeLimit memory.Size `help:"The maximum body size allowed to be received by the API" default:"100.00 KB"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -235,38 +243,33 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
 
+	// limit body size
+	router.Use(newBodyLimiterMiddleware(logger.Named("body-limiter-middleware"), config.BodySizeLimit))
+
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
-	projectsController := consoleapi.NewProjects(logger, service)
-	router.Handle(
-		"/api/v0/projects/{id}/salt",
-		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
-	).Methods(http.MethodGet)
-
 	router.HandleFunc("/api/v0/config", server.frontendConfigHandler)
+
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
+	projectsController := consoleapi.NewProjects(logger, service)
+	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
+	projectsRouter.Handle("/{id}/salt", server.withAuth(http.HandlerFunc(projectsController.GetSalt))).Methods(http.MethodGet)
+	projectsRouter.Handle("/{id}/invite", server.withAuth(http.HandlerFunc(projectsController.InviteUsers))).Methods(http.MethodPost)
+	projectsRouter.Handle("/invitations", server.withAuth(http.HandlerFunc(projectsController.GetUserInvitations))).Methods(http.MethodGet)
+	projectsRouter.Handle("/invitations/{id}/respond", server.withAuth(http.HandlerFunc(projectsController.RespondToInvitation))).Methods(http.MethodPost)
 
 	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
-	router.Handle(
-		"/api/v0/projects/{id}/usage-limits",
-		server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits)),
-	).Methods(http.MethodGet)
-	router.Handle(
-		"/api/v0/projects/usage-limits",
-		server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits)),
-	).Methods(http.MethodGet)
-	router.Handle(
-		"/api/v0/projects/{id}/daily-usage",
-		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
-	).Methods(http.MethodGet)
+	projectsRouter.Handle("/{id}/usage-limits", server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits))).Methods(http.MethodGet)
+	projectsRouter.Handle("/usage-limits", server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits))).Methods(http.MethodGet)
+	projectsRouter.Handle("/{id}/daily-usage", server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -285,6 +288,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
@@ -329,6 +333,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withAuth)
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete)
+	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
@@ -352,12 +357,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 
+		router.HandleFunc("/invited", server.handleInvited)
+
 		// These paths previously required a trailing slash, so we support both forms for now
 		slashRouter := router.NewRoute().Subrouter()
 		slashRouter.StrictSlash(true)
 		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
 		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
+		if server.config.UseVuetifyProject {
+			router.PathPrefix("/vuetifypoc").Handler(http.HandlerFunc(server.vuetifyAppHandler))
+		}
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -410,8 +420,8 @@ func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function.
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+// setAppHeaders sets the necessary headers for requests to the app.
+func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
@@ -421,10 +431,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
+			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com *.hcaptcha.com",
-			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
+			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self' https://hcaptcha.com *.hcaptcha.com",
+			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
@@ -433,6 +443,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
+}
+
+// appHandler is web app http handler function.
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	server.setAppHeaders(w, r)
 
 	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
 	file, err := os.Open(path)
@@ -442,7 +457,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			server.log.Error("error loading index.html", zap.String("path", path), zap.Error(err))
 		}
-		// Loading index is optional.
 		return
 	}
 
@@ -455,6 +469,36 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := file.Stat()
 	if err != nil {
 		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+		return
+	}
+
+	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// vuetifyAppHandler is web app http handler function.
+func (server *Server) vuetifyAppHandler(w http.ResponseWriter, r *http.Request) {
+	server.setAppHeaders(w, r)
+
+	path := filepath.Join(server.config.StaticDir, "dist_vuetify_poc", "index-vuetify.html")
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index-vuetify.html was not generated. run 'npm run build-vuetify' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index-vuetify.html", zap.String("path", path), zap.Error(err))
+		}
+		return
+	}
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index-vuetify.html", zap.String("path", path), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve index-vuetify.html file info", zap.Error(err))
 		return
 	}
 
@@ -522,11 +566,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CouponCodeSignupUIEnabled:       server.config.CouponCodeSignupUIEnabled,
 		FileBrowserFlowDisabled:         server.config.FileBrowserFlowDisabled,
 		LinksharingURL:                  server.config.LinksharingURL,
+		PublicLinksharingURL:            server.config.PublicLinksharingURL,
 		PathwayOverviewEnabled:          server.config.PathwayOverviewEnabled,
 		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
 		AllProjectsDashboard:            server.config.AllProjectsDashboard,
+		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
@@ -536,6 +582,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMinimumLength:           console.PasswordMinimumLength,
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
+		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
+		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
+		GalleryViewEnabled:              server.config.GalleryViewEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
@@ -668,6 +717,34 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
+func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	token := r.URL.Query().Get("invite")
+	if token == "" {
+		server.serveError(w, http.StatusBadRequest)
+		return
+	}
+
+	loginLink := server.config.ExternalAddress + "login"
+
+	invite, err := server.service.GetInviteByToken(ctx, token)
+	if err != nil {
+		server.log.Error("handleInvited: error checking invitation", zap.Error(err))
+
+		if console.ErrProjectInviteInvalid.Has(err) {
+			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
+			return
+		}
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	email := strings.ToLower(invite.Email)
+	http.Redirect(w, r, loginLink+"?email="+email, http.StatusTemporaryRedirect)
+}
+
 // graphqlHandler is graphql endpoint http handler function.
 func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -705,6 +782,7 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
 	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
 	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
+	rootObject[consoleql.SatelliteRegion] = server.config.SatelliteName
 
 	result := graphql.Do(graphql.Params{
 		Schema:         server.schema,
@@ -967,6 +1045,21 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 			mon.Event("visit_event", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))
 
 			next.ServeHTTP(&respWCode, r)
+		})
+	}
+}
+
+// newBodyLimiterMiddleware returns a middleware that places a length limit on each request's body.
+func newBodyLimiterMiddleware(log *zap.Logger, limit memory.Size) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ContentLength > limit.Int64() {
+				web.ServeJSONError(log, w, http.StatusRequestEntityTooLarge, errs.New("Request body is too large"))
+				return
+			}
+
+			r.Body = http.MaxBytesReader(w, r.Body, limit.Int64())
+			next.ServeHTTP(w, r)
 		})
 	}
 }

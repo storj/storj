@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -52,10 +53,10 @@ func TestStorageNodeApi(t *testing.T) {
 			StorageNodeCount: 1,
 			Reconfigure: testplanet.Reconfigure{
 				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Payments.NodeEgressBandwidthPrice = 2000
-					config.Payments.NodeAuditBandwidthPrice = 1000
-					config.Payments.NodeRepairBandwidthPrice = 1000
-					config.Payments.NodeDiskSpacePrice = 150
+					config.Compensation.Rates.GetTB = compensation.RequireRateFromString("20")
+					config.Compensation.Rates.GetAuditTB = compensation.RequireRateFromString("10")
+					config.Compensation.Rates.GetRepairTB = compensation.RequireRateFromString("10")
+					config.Compensation.Rates.AtRestGBHours = compensation.RequireRateFromString(".00000208")
 				},
 			},
 		},

@@ -4,8 +4,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,9 +47,7 @@ func VerifyCommand(log *zap.Logger) *cobra.Command {
 
 	flag.BoolVar(&ignoreVersionMismatch, "ignore-version-mismatch", false, "ignore version mismatch")
 
-	flag.DurationVar(&verifyConfig.Loop.CoalesceDuration, "loop.coalesce-duration", 5*time.Second, "how long to wait for new observers before starting iteration")
-	flag.Float64Var(&verifyConfig.Loop.RateLimit, "loop.rate-limit", 0, "rate limit (default is 0 which is unlimited segments per second)")
-	flag.IntVar(&verifyConfig.Loop.ListLimit, "loop.list-limit", 2500, "how many items to query in a batch")
+	flag.IntVar(&verifyConfig.Loop.BatchSize, "loop.batch-size", 2500, "how many items to query in a batch")
 
 	flag.Int64Var(&verifyConfig.ProgressPrintFrequency, "progress-frequency", 1000000, "how often should we print progress (every object)")
 

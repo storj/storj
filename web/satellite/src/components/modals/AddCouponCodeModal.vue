@@ -13,8 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -30,7 +29,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  */
 function onCloseClick(): void {
     analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
-    appStore.updateActiveModal(MODALS.addCoupon);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -39,7 +38,7 @@ function onCloseClick(): void {
         width: 500px;
         padding: 32px;
 
-        @media screen and (max-width: 650px) {
+        @media screen and (width <= 650px) {
             width: unset;
             padding: 24px;
         }

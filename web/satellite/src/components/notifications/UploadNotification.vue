@@ -13,15 +13,12 @@
 </template>
 
 <script setup lang="ts">
-
-import Vue, { VueConstructor } from 'vue';
-
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 const props = defineProps<{
   wordingBold: string;
   wording: string;
-  notificationIcon: VueConstructor<Vue>;
+  notificationIcon: string;
   warningNotification: boolean;
   onCloseClick: () => void;
 }>();
@@ -38,7 +35,6 @@ const props = defineProps<{
             background-color: #fff;
             border: 1px solid rgb(56 75 101 / 40%);
             padding: 16px;
-            margin-bottom: 48px;
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
             border-radius: 16px;

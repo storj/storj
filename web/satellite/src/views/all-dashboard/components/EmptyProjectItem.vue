@@ -5,7 +5,7 @@
     <div class="empty-project-item">
         <div class="empty-project-item__header">
             <div class="empty-project-item__header__tag">
-                <box-icon />
+                <box-icon class="empty-project-item__header__tag__icon" />
 
                 <span> Project </span>
             </div>
@@ -32,7 +32,7 @@
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -40,7 +40,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
-import BoxIcon from '@/../static/images/allDashboard/box.svg';
+import BoxIcon from '@/../static/images/navigation/project.svg';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -91,16 +91,20 @@ function onCreateProjectClicked(): void {
             font-size: 12px;
             font-family: 'font_regular', sans-serif;
 
-            & :deep(svg path) {
-                fill: var(--c-blue-4);
+            &__icon {
+                width: 12px;
+                height: 12px;
+
+                :deep(path) {
+                    fill: var(--c-blue-4);
+                }
             }
         }
     }
 
     &__title {
         margin-top: 16px;
-        font-weight: bold;
-        font-family: 'font_regular', sans-serif;
+        font-family: 'font_bold', sans-serif;
         font-size: 24px;
         line-height: 31px;
         width: 100%;

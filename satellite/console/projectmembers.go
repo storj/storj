@@ -16,8 +16,8 @@ import (
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
-	// GetPagedByProjectID is a method for querying project members from the database by projectID and cursor
-	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
+	// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID and cursor.
+	GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
 	// Insert is a method for inserting project member into the database.
 	Insert(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// Delete is a method for deleting project member by memberID and projectID from the database.
@@ -43,9 +43,10 @@ type ProjectMembersCursor struct {
 	OrderDirection OrderDirection
 }
 
-// ProjectMembersPage represent project members page result.
+// ProjectMembersPage represents a page of project members and invitations.
 type ProjectMembersPage struct {
-	ProjectMembers []ProjectMember
+	ProjectMembers     []ProjectMember
+	ProjectInvitations []ProjectInvitation
 
 	Search         string
 	Limit          uint

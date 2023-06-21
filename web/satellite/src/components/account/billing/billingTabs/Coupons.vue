@@ -109,7 +109,7 @@ const couponCodeBillingUIEnabled = computed((): boolean => {
  * Opens Add Coupon modal.
  */
 function toggleCreateModal(): void {
-    if (!couponCodeBillingUIEnabled) {
+    if (!couponCodeBillingUIEnabled.value) {
         return;
     }
     analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
@@ -242,7 +242,7 @@ onMounted(async () => {
         }
     }
 
-    @media only screen and (max-width: 768px) {
+    @media only screen and (width <= 768px) {
 
         .coupon-area__wrapper {
             flex-direction: column;

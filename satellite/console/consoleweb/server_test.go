@@ -79,6 +79,76 @@ func TestActivationRouting(t *testing.T) {
 	})
 }
 
+func TestInvitedRouting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "u@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		user2, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User2",
+			Email:    "u2@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		ctx1, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx1, user.ID, "Test Project")
+		require.NoError(t, err)
+
+		client := http.Client{}
+
+		checkInvitedRedirect := func(testMsg, redirectURL string, token string) {
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/invited?invite=" + token
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			require.NoError(t, err, testMsg)
+
+			result, err := client.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode, testMsg)
+			require.Equal(t, redirectURL, result.Header.Get("Location"), testMsg)
+			require.NoError(t, result.Body.Close(), testMsg)
+		}
+
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		baseURL := "http://" + sat.API.Console.Listener.Addr().String() + "/"
+		loginURL := baseURL + "login"
+		invalidURL := loginURL + "?invite_invalid=true"
+
+		tokenInvalidProj, err := service.CreateInviteToken(ctx1, project.ID, user2.Email, time.Now())
+		require.NoError(t, err)
+
+		token, err := service.CreateInviteToken(ctx1, project.PublicID, user2.Email, time.Now())
+		require.NoError(t, err)
+
+		checkInvitedRedirect("Invited - Invalid projectID", invalidURL, tokenInvalidProj)
+
+		checkInvitedRedirect("Invited - User not invited", invalidURL, token)
+
+		_, err = service.InviteProjectMembers(ctx1, project.ID, []string{user2.Email})
+		require.NoError(t, err)
+
+		token, err = service.CreateInviteToken(ctx1, project.PublicID, user2.Email, time.Now())
+		require.NoError(t, err)
+
+		// valid invite should redirect to login page with email.
+		checkInvitedRedirect("Invited - User invited", loginURL+"?email="+user2.Email, token)
+	})
+}
+
 func TestUserIDRateLimiter(t *testing.T) {
 	numLimits := 2
 	testplanet.Run(t, testplanet.Config{

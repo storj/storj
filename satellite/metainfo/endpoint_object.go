@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/context2"
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
@@ -23,7 +24,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -60,6 +60,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !req.ExpiresAt.IsZero() && !req.ExpiresAt.After(time.Now()) {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
@@ -206,6 +207,20 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if err != nil {
 		return nil, err
 	}
+	var committedObject *metabase.Object
+	defer func() {
+		var tags []eventkit.Tag
+		if committedObject != nil {
+			tags = []eventkit.Tag{
+				eventkit.Bool("expires", committedObject.ExpiresAt != nil),
+				eventkit.Int64("segment_count", int64(committedObject.SegmentCount)),
+				eventkit.Int64("total_plain_size", committedObject.TotalPlainSize),
+				eventkit.Int64("total_encrypted_size", committedObject.TotalEncryptedSize),
+				eventkit.Int64("fixed_segment_size", int64(committedObject.FixedSegmentSize)),
+			}
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+	}()
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
@@ -217,7 +232,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	streamMeta := &pb.StreamMeta{}
 	encryption := storj.EncryptionParameters{}
 	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
-	if err == nil {
+	if err != nil {
+		// TODO: what if this is an error we don't expect?
+	} else {
 		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
@@ -233,9 +250,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 
 		DisallowDelete: !allowDelete,
-		OnDelete: func(segments []metabase.DeletedSegmentInfo) {
-			endpoint.deleteSegmentPieces(ctx, segments)
-		},
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -259,10 +273,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	_, err = endpoint.metabase.CommitObject(ctx, request)
+	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+	committedObject = &object
 
 	mon.Meter("req_commit_object").Mark(1)
 
@@ -293,6 +308,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -308,6 +324,17 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	{
+		tags := []eventkit.Tag{
+			eventkit.Bool("expires", mbObject.ExpiresAt != nil),
+			eventkit.Int64("segment_count", int64(mbObject.SegmentCount)),
+			eventkit.Int64("total_plain_size", mbObject.TotalPlainSize),
+			eventkit.Int64("total_encrypted_size", mbObject.TotalEncryptedSize),
+			eventkit.Int64("fixed_segment_size", int64(mbObject.FixedSegmentSize)),
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
 	var segmentRS *pb.RedundancyScheme
@@ -421,6 +448,22 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	streamRange, err := calculateStreamRange(object, req.Range)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	{
+		tags := []eventkit.Tag{
+			eventkit.Bool("expires", object.ExpiresAt != nil),
+			eventkit.Int64("segment_count", int64(object.SegmentCount)),
+			eventkit.Int64("total_plain_size", object.TotalPlainSize),
+			eventkit.Int64("total_encrypted_size", object.TotalEncryptedSize),
+			eventkit.Int64("fixed_segment_size", int64(object.FixedSegmentSize)),
+		}
+		if streamRange != nil {
+			tags = append(tags,
+				eventkit.Int64("range_start", streamRange.PlainStart),
+				eventkit.Int64("range_end", streamRange.PlainLimit))
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
@@ -759,6 +802,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -898,6 +942,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1010,6 +1055,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1098,6 +1144,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1116,10 +1163,24 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	pieceCountByNodeID, err := endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
-		metabase.GetStreamPieceCountByNodeID{
-			StreamID: object.StreamID,
-		})
+	var pieceCountByNodeID map[storj.NodeID]int64
+	var placement storj.PlacementConstraint
+
+	// TODO this is short term fix to easily filter out IPs out of bucket/object placement
+	// this request is not heavily used so it should be fine to add additional request to DB for now.
+	var group errgroup.Group
+	group.Go(func() error {
+		placement, err = endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
+		return err
+	})
+	group.Go(func() (err error) {
+		pieceCountByNodeID, err = endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
+			metabase.GetStreamPieceCountByNodeID{
+				StreamID: object.StreamID,
+			})
+		return err
+	})
+	err = group.Wait()
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -1129,7 +1190,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		nodeIDs = append(nodeIDs, nodeID)
 	}
 
-	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
+	nodeIPMap, err := endpoint.overlay.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1174,6 +1235,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -1399,6 +1461,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeleteCommittedObject(
 	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
 ) (deletedObjects []*pb.Object, err error) {
@@ -1422,15 +1485,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		return nil, Error.Wrap(err)
 	}
 
-	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
-		endpoint.log.Error("failed to delete pointers",
+		endpoint.log.Error("failed to convert delete object result",
 			zap.Stringer("project", projectID),
 			zap.String("bucket", bucket),
 			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
-		return deletedObjects, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return deletedObjects, nil
@@ -1441,6 +1504,12 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO regarding the above note: exporting for testing is fine, but we should name
+// it something that will definitely never ever be added to the rpc set in DRPC
+// definitions. If we ever decide to add an RPC method called "DeleteObjectAnyStatus",
+// DRPC interface definitions is all that is standing in the way from someone
+// remotely calling this. We should name this InternalDeleteObjectAnyStatus or
+// something.
 func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location metabase.ObjectLocation,
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
@@ -1460,15 +1529,15 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 		return nil, Error.Wrap(err)
 	}
 
-	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
-		endpoint.log.Error("failed to delete pointers",
+		endpoint.log.Error("failed to convert delete object result",
 			zap.Stringer("project", location.ProjectID),
 			zap.String("bucket", location.BucketName),
 			zap.Binary("object", []byte(location.ObjectKey)),
 			zap.Error(err),
 		)
-		return deletedObjects, err
+		return nil, err
 	}
 
 	return deletedObjects, nil
@@ -1479,6 +1548,7 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
+// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,
@@ -1488,13 +1558,10 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 		return nil, err
 	}
 
-	return endpoint.deleteObjectsPieces(ctx, result)
+	return endpoint.deleteObjectResultToProto(ctx, result)
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
+func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
 		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
@@ -1504,48 +1571,7 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 		deletedObjects[i] = deletedObject
 	}
 
-	endpoint.deleteSegmentPieces(ctx, result.Segments)
-
 	return deletedObjects, nil
-}
-
-func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	nodesPieces := groupPiecesByNodeID(segments)
-
-	var requests []piecedeletion.Request
-	for node, pieces := range nodesPieces {
-		requests = append(requests, piecedeletion.Request{
-			Node: storj.NodeURL{
-				ID: node,
-			},
-			Pieces: pieces,
-		})
-	}
-
-	// Only return an error if we failed to delete the objects. If we failed
-	// to delete pieces, let garbage collector take care of it.
-	err = endpoint.deletePieces.Delete(ctx, requests)
-	if err != nil {
-		endpoint.log.Error("failed to delete pieces", zap.Error(err))
-	}
-}
-
-// groupPiecesByNodeID returns a map that contains pieces with node id as the key.
-func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeID][]storj.PieceID {
-	piecesToDelete := map[storj.NodeID][]storj.PieceID{}
-
-	for _, segment := range segments {
-		deriver := segment.RootPieceID.Deriver()
-		for _, piece := range segment.Pieces {
-			pieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
-			piecesToDelete[piece.StorageNode] = append(piecesToDelete[piece.StorageNode], pieceID)
-		}
-	}
-
-	return piecesToDelete
 }
 
 // Server side move.
@@ -1586,6 +1612,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
 		err = endpoint.validateBucket(ctx, bucket)
@@ -1732,6 +1759,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.NewBucket)
 	if err != nil {
@@ -1809,6 +1837,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
 		err = endpoint.validateBucket(ctx, bucket)
@@ -1921,6 +1950,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	err = endpoint.validateBucket(ctx, req.NewBucket)
 	if err != nil {

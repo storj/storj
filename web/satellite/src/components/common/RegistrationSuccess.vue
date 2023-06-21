@@ -9,7 +9,7 @@
         <div class="register-success-area__container">
             <MailIcon />
             <h2 class="register-success-area__container__title" aria-roledescription="title">You're almost there!</h2>
-            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title">
+            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title fill">
                 If an account with the email address
                 <p class="register-success-area__container__sub-title__email">{{ userEmail }}</p>
                 exists, a verification email has been sent.
@@ -49,11 +49,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
+import { useNotify } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -68,8 +69,8 @@ const props = withDefaults(defineProps<{
     showManualActivationMsg: true,
 });
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -79,7 +80,7 @@ const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
-    return props.email || router.currentRoute.query.email.toString();
+    return props.email || route.query.email?.toString() || '';
 });
 
 /**
@@ -154,10 +155,7 @@ onBeforeUnmount(() => {
         padding: 0 20px;
         box-sizing: border-box;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         overflow-y: scroll;
 
         &__logo-wrapper {
@@ -198,6 +196,10 @@ onBeforeUnmount(() => {
                 max-width: 350px;
                 text-align: center;
                 margin-bottom: 27px;
+
+                &.fill {
+                    max-width: unset;
+                }
 
                 &__email {
                     font-family: 'font_bold', sans-serif;
@@ -254,7 +256,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .register-success-area__container {
             width: 100%;

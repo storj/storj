@@ -5,9 +5,8 @@
     <div class="project-dashboard">
         <div class="project-dashboard__heading">
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
-            <project-ownership-tag :project="selectedProject" />
+            <project-ownership-tag :role="(selectedProject.ownerId === user.id) ? ProjectRole.Owner : ProjectRole.Member" />
         </div>
-
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
@@ -64,7 +63,7 @@
             </div>
             <div class="project-dashboard__charts__container">
                 <div class="project-dashboard__charts__container__header">
-                    <h3 class="project-dashboard__charts__container__header__title">Bandwidth</h3>
+                    <h3 class="project-dashboard__charts__container__header__title">Egress</h3>
                     <div class="project-dashboard__charts__container__header__right">
                         <span class="project-dashboard__charts__container__header__right__allocated-color" />
                         <p class="project-dashboard__charts__container__header__right__allocated-label">Allocated</p>
@@ -76,7 +75,7 @@
                             </template>
                             <template #message>
                                 <p class="project-dashboard__charts__container__header__right__info__message">
-                                    The bandwidth allocated takes few hours to be settled.
+                                    The egress allocated takes few hours to be settled.
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
                                         href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
@@ -103,44 +102,61 @@
                 </template>
             </div>
         </div>
+        <LimitsArea v-if="limitsAreaEnabled" :is-loading="isDataFetching" />
         <div class="project-dashboard__info">
             <InfoContainer
-                title="Billing"
-                :subtitle="status"
-                :value="estimatedCharges | centsToDollars"
-                :is-data-fetching="isDataFetching"
+                :icon="BucketsIcon"
+                title="Buckets"
+                :subtitle="`Last update ${now}`"
+                :value="bucketsCount.toLocaleString()"
+                :is-data-fetching="areBucketsFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label">Will be charged during next billing period</p>
+                    <router-link :to="RouteConfig.Buckets.path" class="project-dashboard__info__link">
+                        Go to buckets →
+                    </router-link>
                 </template>
             </InfoContainer>
             <InfoContainer
-                title="Objects"
-                :subtitle="`Updated ${now}`"
-                :value="limits.objectCount.toString()"
+                :icon="GrantsIcon"
+                title="Access Grants"
+                :subtitle="`Last update ${now}`"
+                :value="accessGrantsCount.toLocaleString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label" aria-roledescription="total-storage">
-                        Total of {{ usedLimitFormatted(limits.storageUsed) }}
+                    <router-link :to="RouteConfig.AccessGrants.path" class="project-dashboard__info__link">
+                        Access management →
+                    </router-link>
+                </template>
+            </InfoContainer>
+            <InfoContainer
+                :icon="TeamIcon"
+                title="Users"
+                :subtitle="`Last update ${now}`"
+                :value="teamSize.toLocaleString()"
+                :is-data-fetching="isDataFetching"
+            >
+                <template #side-value>
+                    <p class="project-dashboard__info__link" @click="onInviteUsersClick">
+                        Invite project users →
                     </p>
                 </template>
             </InfoContainer>
             <InfoContainer
-                title="Segments"
-                :subtitle="`Updated ${now}`"
-                :value="limits.segmentCount.toString()"
+                :icon="BillingIcon"
+                title="Billing"
+                :subtitle="status"
+                :value="isProAccount ? centsToDollars(estimatedCharges) : 'Free'"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <a
+                    <router-link
+                        :to="RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview)).path"
                         class="project-dashboard__info__link"
-                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing#segments"
-                        target="_blank"
-                        rel="noopener noreferrer"
                     >
-                        Learn more ->
-                    </a>
+                        Go to billing →
+                    </router-link>
                 </template>
             </InfoContainer>
         </div>
@@ -154,8 +170,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
@@ -163,13 +180,18 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { centsToDollars } from '@/utils/strings';
+import { User } from '@/types/users';
+import { ProjectRole } from '@/types/projectMembers';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -182,9 +204,14 @@ import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
+import LimitsArea from '@/components/project/dashboard/LimitsArea.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
+import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import GrantsIcon from '@/../static/images/navigation/accessGrants.svg';
+import TeamIcon from '@/../static/images/navigation/users.svg';
+import BillingIcon from '@/../static/images/navigation/billing.svg';
 
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
@@ -192,6 +219,8 @@ const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const pmStore = useProjectMembersStore();
+const agStore = useAccessGrantsStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -216,6 +245,13 @@ const isChartsDatePicker = computed((): boolean => {
  */
 const limits = computed((): ProjectLimits => {
     return projectsStore.state.currentLimits;
+});
+
+/**
+ * Returns the whether the limits area is enabled.
+ */
+const limitsAreaEnabled = computed((): boolean => {
+    return configStore.state.config.limitsAreaEnabled;
 });
 
 /**
@@ -301,10 +337,38 @@ const bucketWasCreated = computed((): boolean => {
 });
 
 /**
- * get selected project from store
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
+
+/**
+ * Get selected project from store.
  */
 const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
+});
+
+/**
+ * Returns current team size from store.
+ */
+const teamSize = computed((): number => {
+    return pmStore.state.page.totalCount;
+});
+
+/**
+ * Returns access grants count from store.
+ */
+const accessGrantsCount = computed((): number => {
+    return agStore.state.page.totalCount;
+});
+
+/**
+ * Returns access grants count from store.
+ */
+const bucketsCount = computed((): number => {
+    return bucketsStore.state.page.totalCount;
 });
 
 /**
@@ -326,7 +390,14 @@ function recalculateChartWidth(): void {
  * Holds on upgrade button click logic.
  */
 function onUpgradeClick(): void {
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.upgradeAccount);
+}
+
+/**
+ * Holds on invite users CTA click logic.
+ */
+function onInviteUsersClick(): void {
+    appStore.updateActiveModal(MODALS.addTeamMember);
 }
 
 /**
@@ -389,10 +460,6 @@ onMounted(async (): Promise<void> => {
 
     const projectID = selectedProject.value.id;
     if (!projectID) {
-        if (configStore.state.config.allProjectsDashboard) {
-            await router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
         const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
         analytics.pageVisit(onboardingPath);
@@ -404,6 +471,8 @@ onMounted(async (): Promise<void> => {
     window.addEventListener('resize', recalculateChartWidth);
     recalculateChartWidth();
 
+    const FIRST_PAGE = 1;
+
     try {
         const now = new Date();
         const past = new Date();
@@ -412,26 +481,33 @@ onMounted(async (): Promise<void> => {
         await projectsStore.getProjectLimits(projectID);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
-                appStore.updateActiveModal(MODALS.enterPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.enterPassphrase);
+                }
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
                 }
             } else {
-                appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                }
             }
 
             appStore.toggleHasJustLoggedIn();
         }
 
-        await projectsStore.getDailyProjectData({ since: past, before: now });
-        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        await Promise.all([
+            projectsStore.getDailyProjectData({ since: past, before: now }),
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
+            billingStore.getCoupon(),
+            pmStore.getProjectMembers(FIRST_PAGE, projectID),
+            agStore.getAccessGrants(FIRST_PAGE, projectID),
+        ]);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {
         isDataFetching.value = false;
     }
-
-    const FIRST_PAGE = 1;
 
     try {
         await bucketsStore.getBuckets(FIRST_PAGE, projectID);
@@ -454,6 +530,7 @@ onBeforeUnmount((): void => {
 <style scoped lang="scss">
     .project-dashboard {
         max-width: calc(100vw - 280px - 95px);
+        background-origin: content-box;
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
@@ -486,7 +563,7 @@ onBeforeUnmount((): void => {
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            margin: 63px -8px 14px;
+            margin: 44px -8px 14px;
 
             > * {
                 margin: 2px 8px;
@@ -539,6 +616,12 @@ onBeforeUnmount((): void => {
                         align-items: center;
                         margin: 16px 16px 0 0;
 
+                        @media screen and (width <= 390px) {
+                            flex-direction: column;
+                            align-items: flex-end;
+                            row-gap: 5px;
+                        }
+
                         &__allocated-color,
                         &__settled-color {
                             width: 10px;
@@ -564,10 +647,18 @@ onBeforeUnmount((): void => {
 
                         &__allocated-label {
                             margin-right: 16px;
+
+                            @media screen and (width <= 390px) {
+                                margin-right: 0;
+                            }
                         }
 
                         &__settled-label {
                             margin-right: 11px;
+
+                            @media screen and (width <= 390px) {
+                                margin-right: 0;
+                            }
                         }
 
                         &__info {
@@ -615,24 +706,36 @@ onBeforeUnmount((): void => {
             flex-wrap: wrap;
 
             .info-container {
-                width: calc((100% - 32px) / 3);
+                width: calc((100% - 32px) / 4);
                 box-sizing: border-box;
             }
 
-            &__label,
+            @media screen and (width <= 1060px) {
+
+                > .info-container {
+                    width: calc((100% - 16px) / 2);
+                    margin-bottom: 16px;
+                }
+            }
+
+            @media screen and (width <= 600px) {
+
+                > .info-container {
+                    width: 100%;
+                }
+            }
+
             &__link {
                 font-weight: 500;
                 font-size: 14px;
                 line-height: 20px;
-                color: #000;
-            }
-
-            &__link {
+                color: var(--c-black);
+                cursor: pointer;
                 text-decoration: underline !important;
                 text-underline-position: under;
 
                 &:visited {
-                    color: #000;
+                    color: var(--c-black);
                 }
             }
         }
@@ -675,21 +778,21 @@ onBeforeUnmount((): void => {
         z-index: 1;
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .project-dashboard {
             max-width: calc(100vw - 86px - 95px);
         }
     }
 
-    @media screen and (max-width: 960px) {
+    @media screen and (width <= 960px) {
 
         :deep(.range-selection__popup) {
             right: -148px;
         }
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
 
         .project-dashboard {
 
@@ -709,20 +812,6 @@ onBeforeUnmount((): void => {
                     margin-bottom: 22px;
                 }
             }
-
-            &__info {
-                margin-top: 52px;
-
-                > .info-container {
-                    width: calc((100% - 25px) / 2);
-                    margin-bottom: 24px;
-                }
-
-                > .info-container:last-child {
-                    width: 100%;
-                    margin-bottom: 0;
-                }
-            }
         }
 
         :deep(.range-selection__popup) {
@@ -730,21 +819,12 @@ onBeforeUnmount((): void => {
         }
     }
 
-    @media screen and (max-width: 480px) {
+    @media screen and (width <= 480px) {
 
         .project-dashboard {
 
             &__charts__container:first-child {
                 margin-bottom: 20px;
-            }
-
-            &__info {
-                margin-top: 32px;
-
-                > .info-container {
-                    width: 100%;
-                    margin-bottom: 16px;
-                }
             }
         }
     }

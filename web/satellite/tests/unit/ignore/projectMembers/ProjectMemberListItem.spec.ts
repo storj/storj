@@ -1,13 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 import { ProjectMember } from '@/types/projectMembers';
 
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-
-const localVue = createLocalVue();
 
 describe('', () => {
     const data = new Date(0);
@@ -15,7 +13,6 @@ describe('', () => {
 
     it('should render correctly', function () {
         const wrapper = shallowMount(ProjectMemberListItem, {
-            localVue,
             propsData: {
                 itemData: member,
             },
@@ -30,7 +27,6 @@ describe('', () => {
         member.isSelected = true;
 
         const wrapper = shallowMount(ProjectMemberListItem, {
-            localVue,
             propsData: {
                 itemData: member,
             },

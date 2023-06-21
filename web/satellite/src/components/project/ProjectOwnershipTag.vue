@@ -2,41 +2,33 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="project" class="tag" :class="{member: !isOwner}">
-        <box-icon class="tag__icon" />
+    <div class="tag" :class="{[role.toLowerCase()]: true}">
+        <component :is="icon" v-if="!noIcon" class="tag__icon" />
 
-        <span class="tag__text"> {{ isOwner ? 'Owner': 'Member' }} </span>
+        <span class="tag__text">{{ role }}</span>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, Component } from 'vue';
 
-import { Project } from '@/types/projects';
-import { User } from '@/types/users';
-import { useUsersStore } from '@/store/modules/usersStore';
+import { ProjectRole } from '@/types/projectMembers';
 
-import BoxIcon from '@/../static/images/allDashboard/box.svg';
+import BoxIcon from '@/../static/images/navigation/project.svg';
+import InviteIcon from '@/../static/images/navigation/quickStart.svg';
 
-const usersStore = useUsersStore();
-
-const props = defineProps<{
-  project?: Project,
-}>();
-
-/**
- * Returns user entity from store.
- */
-const user = computed((): User => {
-    return usersStore.state.user;
+const props = withDefaults(defineProps<{
+    role: ProjectRole,
+    noIcon?: boolean,
+}>(), {
+    role: ProjectRole.Member,
+    noIcon: false,
 });
 
-/**
- * Returns projects list from store.
- */
-const isOwner = computed((): boolean => {
-    return props.project?.ownerId === user.value.id;
+const icon = computed((): string => {
+    return props.role === ProjectRole.Invited ? InviteIcon : BoxIcon;
 });
+
 </script>
 
 <style scoped lang="scss">
@@ -46,21 +38,39 @@ const isOwner = computed((): boolean => {
     align-items: center;
     gap: 5px;
     padding: 4px 8px;
-    border: 1px solid var(--c-purple-2);
+    border: 1px solid var(--c-yellow-2);
     border-radius: 24px;
-    color: var(--c-purple-4);
+    color: var(--c-yellow-5);
+
+    :deep(path) {
+        fill: var(--c-yellow-5);
+    }
+
+    &__icon {
+        width: 12px;
+        height: 12px;
+    }
 
     &__text {
         font-size: 12px;
         font-family: 'font_regular', sans-serif;
     }
 
-    &.member {
-        color: var(--c-yellow-5);
-        border-color: var(--c-yellow-2);
+    &.owner {
+        color: var(--c-purple-4);
+        border-color: var(--c-purple-2);
 
         :deep(path) {
-            fill: var(--c-yellow-5);
+            fill: var(--c-purple-4);
+        }
+    }
+
+    &.invited {
+        color: var(--c-grey-6);
+        border-color: var(--c-grey-4);
+
+        :deep(path) {
+            fill: var(--c-yellow-3);
         }
     }
 }

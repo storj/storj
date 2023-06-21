@@ -36,7 +36,7 @@
                     <p class="estimation-table-container__labels-area__text">Type</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p class="estimation-table-container__labels-area__text">Price</p>
+                    <p v-if="isSatelliteSelected && !isHistoricalPeriod" class="estimation-table-container__labels-area__text">Price</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__labels-area__text">Disk</p>
@@ -56,7 +56,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.type }}</p>
                 </div>
                 <div class="column justify-start column-3">
-                    <p class="estimation-table-container__info-area__text">{{ item.price }}</p>
+                    <p v-if="isSatelliteSelected && !isHistoricalPeriod" class="estimation-table-container__info-area__text">{{ item.price }}</p>
                 </div>
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__info-area__text">{{ item.disk }}</p>
@@ -146,9 +146,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
-    BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
-    BANDWIDTH_REPAIR_PRICE_PER_TB,
-    DISK_SPACE_PRICE_PER_TB,
     PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
 import {
@@ -156,7 +153,12 @@ import {
     PayoutInfoRange,
 } from '@/app/types/payout';
 import { Size } from '@/private/memory/size';
-import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
+import {
+    EstimatedPayout,
+    PayoutPeriod,
+    SatellitePricingModel,
+    TotalPaystubForPeriod,
+} from '@/storagenode/payouts/payouts';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
@@ -264,6 +266,13 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Returns satellite pricing model.
+     */
+    public get pricing(): SatellitePricingModel {
+        return this.$store.state.payoutModule.pricingModel;
+    }
+
+    /**
      * Returns calculated or stored held amount.
      */
     public get held(): number {
@@ -363,9 +372,9 @@ export default class EstimationArea extends Vue {
     public get tableData(): EstimationTableRow[] {
         if (this.isHistoricalPeriod) {
             return [
-                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
+                new EstimationTableRow('Download', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', ``, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
             ];
         }
 
@@ -375,7 +384,7 @@ export default class EstimationArea extends Vue {
             new EstimationTableRow(
                 'Download',
                 'Egress',
-                `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`,
+                `$${this.pricing.egressBandwidth} / TB`,
                 '--',
                 Size.toBase10String(estimatedPayout.egressBandwidth),
                 estimatedPayout.egressBandwidthPayout,
@@ -383,7 +392,7 @@ export default class EstimationArea extends Vue {
             new EstimationTableRow(
                 'Repair & Audit',
                 'Egress',
-                `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`,
+                `$${this.pricing.repairBandwidth} / TB`,
                 '--',
                 Size.toBase10String(estimatedPayout.egressRepairAudit),
                 estimatedPayout.egressRepairAuditPayout,
@@ -391,7 +400,7 @@ export default class EstimationArea extends Vue {
             new EstimationTableRow(
                 'Disk Average Month',
                 'Storage',
-                `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
+                `$${this.pricing.diskSpace} / TBm`,
                 Size.toBase10String(estimatedPayout.diskSpace) + 'm',
                 '--',
                 estimatedPayout.diskSpacePayout,

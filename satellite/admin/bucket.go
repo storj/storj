@@ -46,6 +46,8 @@ func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, err
 		return storj.US, nil
 	case "DE":
 		return storj.DE, nil
+	case "NR":
+		return storj.NR, nil
 	case "":
 		return storj.EveryCountry, fmt.Errorf("missing region parameter")
 	default:
@@ -93,7 +95,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
 	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
 	if err != nil {
-		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE", http.StatusBadRequest)
+		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
 		return
 	}
 

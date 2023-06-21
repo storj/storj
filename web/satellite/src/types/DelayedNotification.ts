@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VueConstructor } from 'vue';
-
 import { getId } from '@/utils/idGenerator';
 
 import SuccessIcon from '@/../static/images/notifications/success.svg';
@@ -32,7 +30,7 @@ export class DelayedNotification {
     public readonly type: string;
     public readonly message: string;
     public readonly style: { backgroundColor: string };
-    public readonly icon: VueConstructor<Vue>;
+    public readonly icon: string;
 
     constructor(callback: () => void, type: string, message: string) {
         this.callback = callback;

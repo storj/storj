@@ -7,6 +7,7 @@ import { MemorySize, Time, UUID } from '@/types/common';
 export class APIKeyInfo {
     id: UUID;
     projectId: UUID;
+    projectPublicId: UUID;
     userAgent: string;
     name: string;
     createdAt: Time;
@@ -65,6 +66,7 @@ export class Project {
     userSpecifiedStorageLimit: MemorySize;
     userSpecifiedBandwidthLimit: MemorySize;
     segmentLimit: number;
+    defaultPlacement: number;
 }
 
 export class ProjectInfo {

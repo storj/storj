@@ -7,8 +7,8 @@
         :item="itemToRender"
         :selectable="true"
         :select-disabled="isProjectOwner"
-        :selected="itemData.isSelected"
-        :on-click="(_) => $emit('memberClick', itemData)"
+        :selected="model.isSelected()"
+        :on-click="(_) => $emit('memberClick', model)"
         @selectClicked="($event) => $emit('selectClicked', $event)"
     />
 </template>
@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { ProjectMember } from '@/types/projectMembers';
+import { ProjectMember, ProjectMemberItemModel, ProjectRole } from '@/types/projectMembers';
 import { useResize } from '@/composables/resize';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -26,34 +26,42 @@ const { isMobile, isTablet } = useResize();
 const projectsStore = useProjectsStore();
 
 const props = withDefaults(defineProps<{
-    itemData: ProjectMember;
+    model: ProjectMemberItemModel;
 }>(), {
-    itemData: () => new ProjectMember('', '', '', new Date(), ''),
+    model: () => new ProjectMember('', '', '', new Date(), ''),
 });
 
 const isProjectOwner = computed((): boolean => {
-    return props.itemData.user.id === projectsStore.state.selectedProject.ownerId;
+    return props.model.getUserID() === projectsStore.state.selectedProject.ownerId;
 });
 
-const itemToRender = computed((): { [key: string]: string | string[] } => {
-    if (!isMobile.value && !isTablet.value) return { name: props.itemData.name, date: props.itemData.localDate(), email: props.itemData.email };
+const itemToRender = computed((): { [key: string]: unknown } => {
+    let role: ProjectRole = ProjectRole.Member;
+    if (props.model.isPending()) {
+        role = ProjectRole.Invited;
+    } else if (isProjectOwner.value) {
+        role = ProjectRole.Owner;
+    }
 
+    if (!isMobile.value && !isTablet.value) {
+        const dateStr = props.model.getJoinDate().toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        return {
+            name: props.model.getName(),
+            email: props.model.getEmail(),
+            role: role,
+            date: dateStr,
+        };
+    }
+
+    if (isTablet.value) {
+        return { name: props.model.getName(), email: props.model.getEmail(), role: role };
+    }
     // TODO: change after adding actions button to list item
-    return { name: props.itemData.name, email: props.itemData.email };
+    return { name: props.model.getName(), email: props.model.getEmail() };
 });
 </script>
 
 <style scoped lang="scss">
-    .owner {
-        cursor: not-allowed;
-
-        & > :deep(th:nth-child(2):after) {
-            content: 'Project Owner';
-            font-size: 13px;
-            color: #afb7c1;
-        }
-    }
-
     :deep(.primary) {
         overflow: hidden;
         white-space: nowrap;
@@ -64,7 +72,7 @@ const itemToRender = computed((): { [key: string]: string | string[] } => {
         max-width: 25rem;
     }
 
-    @media screen and (max-width: 940px) {
+    @media screen and (width <= 940px) {
 
         :deep(th) {
             max-width: 10rem;

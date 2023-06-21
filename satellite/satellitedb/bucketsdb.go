@@ -168,6 +168,20 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// UpdateUserAgent updates buckets user agent.
+func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucketName)),
+		dbx.BucketMetainfo_Update_Fields{
+			UserAgent: dbx.BucketMetainfo_UserAgent(userAgent),
+		})
+
+	return err
+}
+
 // DeleteBucket deletes a bucket.
 func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

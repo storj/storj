@@ -12,14 +12,15 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -93,6 +94,13 @@ const linksharingURL = computed((): string => {
 });
 
 /**
+ * Returns public linksharing URL from store.
+ */
+const publicLinksharingURL = computed((): string => {
+    return configStore.state.config.publicLinksharingURL;
+});
+
+/**
  * Generates a URL for an object map.
  */
 async function generateObjectPreviewAndMapUrl(path: string): Promise<string> {
@@ -105,8 +113,7 @@ async function generateObjectPreviewAndMapUrl(path: string): Promise<string> {
 
         return `${linksharingURL.value}/s/${creds.accessKeyId}/${path}`;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
-
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return '';
     }
 }
@@ -127,7 +134,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
 
         await analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
-        return `${linksharingURL.value}/${credentials.accessKeyId}/${path}`;
+        return `${publicLinksharingURL.value}/${credentials.accessKeyId}/${path}`;
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
@@ -230,17 +237,18 @@ onBeforeMount(() => {
 });
 
 watch(passphrase, async () => {
+    const projectID = projectsStore.state.selectedProject.id;
+    if (!projectID) return;
+
     if (!passphrase.value) {
         await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
         return;
     }
 
-    const projectID = projectsStore.state.selectedProject.id;
-
     try {
         await bucketsStore.setS3Client(projectID);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
 
@@ -258,7 +266,7 @@ watch(passphrase, async () => {
             obStore.getObjectCount(),
         ]);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
     }
 });
 </script>

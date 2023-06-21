@@ -63,16 +63,16 @@ type AccountFreezeService struct {
 	freezeEventsDB AccountFreezeEvents
 	usersDB        Users
 	projectsDB     Projects
-	analytics      *analytics.Service
+	tracker        analytics.FreezeTracker
 }
 
 // NewAccountFreezeService creates a new account freeze service.
-func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects, analytics *analytics.Service) *AccountFreezeService {
+func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects, tracker analytics.FreezeTracker) *AccountFreezeService {
 	return &AccountFreezeService{
 		freezeEventsDB: freezeEventsDB,
 		usersDB:        usersDB,
 		projectsDB:     projectsDB,
-		analytics:      analytics,
+		tracker:        tracker,
 	}
 }
 
@@ -173,7 +173,7 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 		}
 	}
 
-	s.analytics.TrackAccountFrozen(userID, user.Email)
+	s.tracker.TrackAccountFrozen(userID, user.Email)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUI
 		return err
 	}
 
-	s.analytics.TrackAccountUnfrozen(userID, user.Email)
+	s.tracker.TrackAccountUnfrozen(userID, user.Email)
 	return nil
 }
 
@@ -233,7 +233,7 @@ func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (
 		return ErrAccountFreeze.Wrap(err)
 	}
 
-	s.analytics.TrackAccountFreezeWarning(userID, user.Email)
+	s.tracker.TrackAccountFreezeWarning(userID, user.Email)
 	return nil
 }
 
@@ -256,7 +256,7 @@ func (s *AccountFreezeService) UnWarnUser(ctx context.Context, userID uuid.UUID)
 		return err
 	}
 
-	s.analytics.TrackAccountUnwarned(userID, user.Email)
+	s.tracker.TrackAccountUnwarned(userID, user.Email)
 	return nil
 }
 
@@ -270,4 +270,9 @@ func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (fr
 	}
 
 	return freeze, warning, nil
+}
+
+// TestChangeFreezeTracker changes the freeze tracker service for tests.
+func (s *AccountFreezeService) TestChangeFreezeTracker(t analytics.FreezeTracker) {
+	s.tracker = t
 }

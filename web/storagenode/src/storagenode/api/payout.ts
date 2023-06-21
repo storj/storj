@@ -9,7 +9,7 @@ import {
     Paystub,
     PreviousMonthEstimatedPayout,
     SatelliteHeldHistory,
-    SatellitePayoutForPeriod,
+    SatellitePayoutForPeriod, SatellitePricingModel,
 } from '@/storagenode/payouts/payouts';
 import { HttpClient } from '@/storagenode/utils/httpClient';
 
@@ -212,6 +212,30 @@ export class PayoutHttpApi implements PayoutApi {
                 data.previousMonth.held,
             ),
             data.currentMonthExpectations,
+        );
+    }
+
+    public async getPricingModel(satelliteId: string): Promise<SatellitePricingModel> {
+        if (!satelliteId) {
+            return new SatellitePricingModel();
+        }
+
+        const path = '/api/sno/satellites/'+ satelliteId +'/pricing';
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get satellite pricing information');
+        }
+
+        const data: any = await response.json() || new SatellitePricingModel(); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        return new SatellitePricingModel(
+            data.satelliteID,
+            data.egressBandwidth,
+            data.repairBandwidth,
+            data.auditBandwidth,
+            data.diskSpace,
         );
     }
 }

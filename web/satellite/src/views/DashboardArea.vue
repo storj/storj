@@ -15,16 +15,12 @@
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <BetaSatBar v-if="isBetaSatellite" />
                         <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <div class="banner-container dashboard__wrap__main-area__content-wrap__container__content">
+                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
+                            <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
+
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
-                            />
-
-                            <ProjectLimitBanner
-                                v-if="isProjectLimitBannerShown"
-                                :dashboard-ref="dashboardContent"
-                                :on-upgrade-clicked="togglePMModal"
                             />
 
                             <v-banner
@@ -73,7 +69,7 @@
                             </v-banner>
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
-                        <div class="banner-container__bottom dashboard__wrap__main-area__content-wrap__container__content">
+                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
                             <UploadNotification
                                 v-if="isLargeUploadNotificationShown && !isLargeUploadWarningNotificationShown && isBucketsView"
                                 wording-bold="The web browser is best for uploads up to 1GB."
@@ -115,10 +111,11 @@
             :on-upgrade="togglePMModal"
         />
         <AllModals />
+        <ObjectsUploadingModal v-if="isObjectsUploadModal" />
         <!-- IMPORTANT! Make sure these 2 modals are positioned as the last elements here so that they are shown on top of everything else -->
         <InactivityModal
             v-if="inactivityModalShown"
-            :on-continue="refreshSession"
+            :on-continue="() => refreshSession(true)"
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
@@ -128,10 +125,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -140,7 +138,7 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -166,13 +164,14 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
+import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
 
 import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
 const bucketsStore = useBucketsStore();
-
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -185,8 +184,8 @@ const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -212,7 +211,12 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Returns the session duration from the store.
  */
 const sessionDuration = computed((): number => {
-    return configStore.state.config.inactivityTimerDuration * 1000;
+    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
+    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
+    if (duration > maxTimeout) {
+        return maxTimeout;
+    }
+    return duration;
 });
 
 /**
@@ -220,6 +224,13 @@ const sessionDuration = computed((): number => {
  */
 const sessionRefreshInterval = computed((): number => {
     return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether objects upload modal should be shown.
+ */
+const isObjectsUploadModal = computed((): boolean => {
+    return configStore.state.config.newUploadModalEnabled && appStore.state.isUploadingModal;
 });
 
 /**
@@ -276,7 +287,7 @@ const limitState = computed((): LimitedState => {
     const currentLimits = projectsStore.state.currentLimits;
 
     const limitTypeArr = [
-        { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
+        { name: 'egress', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
         { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
         { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
     ];
@@ -321,20 +332,7 @@ const limitState = computed((): LimitedState => {
  * Indicates if navigation sidebar is hidden.
  */
 const isNavigationHidden = computed((): boolean => {
-    return (!isAllProjectsDashboard.value && isOnboardingTour.value)
-        || isCreateProjectPage.value;
-});
-
-/* whether all projects dashboard should be used */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
-});
-
-/* whether the project limit banner should be shown. */
-const isProjectLimitBannerShown = computed((): boolean => {
-    return !LocalData.getProjectLimitBannerHidden()
-        && isProjectListPage.value
-        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
+    return isOnboardingTour.value || isCreateProjectPage.value;
 });
 
 /**
@@ -367,14 +365,14 @@ const joinedWhileAgo = computed((): boolean => {
  * Indicates if current route is projects list page.
  */
 const isProjectListPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.ProjectsList.name;
+    return route.name === RouteConfig.ProjectsList.name;
 });
 
 /**
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+    return route.path.includes(RouteConfig.OnboardingTour.path);
 });
 
 /**
@@ -414,24 +412,31 @@ const isLargeUploadWarningNotificationShown = computed((): boolean => {
 });
 
 /**
+ * Indicates whether the project member invitation banner should be shown.
+ */
+const isProjectInvitationBannerShown = computed((): boolean => {
+    return !configStore.state.config.allProjectsDashboard;
+});
+
+/**
  * Indicates if current route is create project page.
  */
 const isCreateProjectPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.CreateProject.name;
+    return route.name === RouteConfig.CreateProject.name;
 });
 
 /**
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.ProjectDashboard.name;
+    return route.name === RouteConfig.ProjectDashboard.name;
 });
 
 /**
  * Indicates if current route is the bucketsView page.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.BucketsManagement.name;
+    return route.name === RouteConfig.BucketsManagement.name;
 });
 
 /**
@@ -513,7 +518,7 @@ function restartSessionTimers(): void {
         }, inactivityModalTime);
     }, sessionDuration.value - inactivityModalTime);
 
-    if (!debugTimerShown) return;
+    if (!debugTimerShown.value) return;
 
     const debugTimer = () => {
         const expiresAt = LocalData.getSessionExpirationDate();
@@ -553,14 +558,15 @@ function selectProject(fetchedProjects: Project[]): void {
 
 /**
  * Refreshes session and resets session timers.
+ * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
  */
-async function refreshSession(): Promise<void> {
+async function refreshSession(manual = false): Promise<void> {
     isSessionRefreshing.value = true;
 
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -571,6 +577,10 @@ async function refreshSession(): Promise<void> {
     inactivityModalShown.value = false;
     isSessionActive.value = false;
     isSessionRefreshing.value = false;
+
+    if (manual && !usersStore.state.settings.sessionDuration) {
+        appStore.updateActiveModal(MODALS.editSessionTimeout);
+    }
 }
 
 /**
@@ -620,7 +630,7 @@ async function handleInactive(): Promise<void> {
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -647,7 +657,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 }
 
@@ -657,7 +667,10 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    appStore.updateActiveModal(MODALS.addPaymentMethod);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    }
 }
 
 /**
@@ -692,8 +705,13 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction((action) => {
-        if (action.name === 'clear') clearSessionTimers();
+    usersStore.$onAction(({ name, after, args }) => {
+        if (name === 'clear') clearSessionTimers();
+        else if (name === 'updateSettings') {
+            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
+                after((_) => refreshSession());
+            }
+        }
     });
 
     if (LocalData.getLargeUploadNotificationDismissed()) {
@@ -701,15 +719,17 @@ onMounted(async () => {
     }
 
     try {
-        await usersStore.getUser();
-        await usersStore.getFrozenStatus();
-        await abTestingStore.fetchValues();
-        await usersStore.getSettings();
+        await Promise.all([
+            usersStore.getUser(),
+            abTestingStore.fetchValues(),
+            usersStore.getSettings(),
+        ]);
+
         setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
-            await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
@@ -721,26 +741,32 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
-            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         if (couponType === CouponType.SignupCoupon) {
-            await notify.success(`The coupon code was added successfully`);
+            notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    try {
+        await projectsStore.getUserInvitations();
+    } catch (error) {
+        notify.error(`Unable to get project invitations. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     let projects: Project[] = [];
@@ -751,16 +777,18 @@ onMounted(async () => {
         return;
     }
 
+    if (projects.length) {
+        selectProject(projects);
+    }
+
     if (!configStore.state.config.allProjectsDashboard) {
         try {
             if (!projects.length) {
                 await projectsStore.createDefaultProject(usersStore.state.user.id);
-            } else {
-                selectProject(projects);
             }
 
             const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
-            if (usersStore.shouldOnboard && router.currentRoute.path !== onboardingPath) {
+            if (usersStore.shouldOnboard && route.path !== onboardingPath) {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
             }
@@ -782,25 +810,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-    :deep(.notification-wrap) {
-        margin-top: 1rem;
-    }
-
-    .banner-container {
-        padding-top: 0 !important;
-
-        &:empty {
-            display: none;
-        }
-
-        &__bottom {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-    }
-
     .dashboard {
         height: 100%;
         background-color: #f5f6fa;
@@ -839,6 +848,30 @@ onBeforeUnmount(() => {
                             padding: 48px 48px 0;
                             box-sizing: border-box;
                             width: 100%;
+
+                            &.banners {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 16px;
+
+                                &:empty {
+                                    display: none;
+                                }
+                            }
+
+                            &.banners-bottom {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 16px;
+                                padding-top: 16px;
+                                padding-bottom: 48px;
+                                flex-grow: 1;
+                                justify-content: flex-end;
+
+                                &:empty {
+                                    padding-top: 0;
+                                }
+                            }
                         }
                     }
                 }
@@ -870,7 +903,7 @@ onBeforeUnmount(() => {
         width: 100%;
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .regular-navigation {
             display: none;
@@ -881,14 +914,14 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 800px) {
+    @media screen and (width <= 800px) {
 
         .dashboard__wrap__main-area__content-wrap__container__content {
-            padding: 32px 24px 50px;
+            padding: 32px 24px 0;
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         .dashboard__wrap__main-area {
             flex-direction: column;

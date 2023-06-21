@@ -1,29 +1,183 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestSanitizedOrderColumnName(t *testing.T) {
-	testCases := [...]struct {
-		orderNumber int8
-		orderColumn string
-	}{
-		0: {0, "u.full_name"},
-		1: {1, "u.full_name"},
-		2: {2, "u.email"},
-		3: {3, "pm.created_at"},
-		4: {4, "u.full_name"},
-	}
+func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		membersDB := db.Console().ProjectMembers()
 
-	for _, tc := range testCases {
-		assert.Equal(t, tc.orderColumn, sanitizedOrderColumnName(console.ProjectMemberOrder(tc.orderNumber)))
-	}
+		projectID := testrand.UUID()
+		_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projectID})
+		require.NoError(t, err)
+
+		memberUser, err := db.Console().Users().Insert(ctx, &console.User{
+			FullName:     "Alice",
+			Email:        "alice@mail.test",
+			ID:           testrand.UUID(),
+			PasswordHash: testrand.Bytes(8),
+		})
+		require.NoError(t, err)
+		_, err = db.Console().ProjectMembers().Insert(ctx, memberUser.ID, projectID)
+		require.NoError(t, err)
+
+		_, err = db.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+			ProjectID: projectID,
+			Email:     "bob@mail.test",
+		})
+		require.NoError(t, err)
+
+		t.Run("paging", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			for _, tt := range []struct {
+				limit         uint
+				page          uint
+				expectedCount int
+			}{
+				{limit: 2, page: 1, expectedCount: 2},
+				{limit: 1, page: 1, expectedCount: 1},
+				{limit: 1, page: 2, expectedCount: 1},
+			} {
+				cursor := console.ProjectMembersCursor{Limit: tt.limit, Page: tt.page}
+				page, err := membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedCount, len(page.ProjectInvitations)+len(page.ProjectMembers),
+					fmt.Sprintf("error occurred with limit %d, page %d", tt.limit, tt.page))
+			}
+
+			_, err = membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, console.ProjectMembersCursor{Limit: 1, Page: 3})
+			require.Error(t, err)
+		})
+
+		t.Run("search", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			for _, tt := range []struct {
+				search        string
+				expectMembers bool
+				expectInvites bool
+			}{
+				{search: "aLiCe", expectMembers: true},
+				{search: "@ test", expectMembers: true, expectInvites: true},
+				{search: "bad"},
+			} {
+				errMsg := "unexpected result for search '" + tt.search + "'"
+
+				cursor := console.ProjectMembersCursor{Search: tt.search, Limit: 2, Page: 1}
+				page, err := membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
+				require.NoError(t, err, errMsg)
+
+				if tt.expectMembers {
+					require.NotEmpty(t, page.ProjectMembers, errMsg)
+				} else {
+					require.Empty(t, page.ProjectMembers, errMsg)
+				}
+
+				if tt.expectInvites {
+					require.NotEmpty(t, page.ProjectInvitations, errMsg)
+				} else {
+					require.Empty(t, page.ProjectInvitations, errMsg)
+				}
+			}
+		})
+
+		t.Run("ordering", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			projectID := testrand.UUID()
+			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projectID})
+			require.NoError(t, err)
+
+			var memberIDs []uuid.UUID
+			for i := 0; i < 3; i++ {
+				id := uuid.UUID{}
+				id[len(id)-1] = byte(i + 1)
+				memberIDs = append(memberIDs, id)
+
+				user := console.User{
+					FullName:     fmt.Sprintf("%d", i),
+					Email:        fmt.Sprintf("%d@mail.test", (i+2)%3),
+					ID:           id,
+					PasswordHash: testrand.Bytes(8),
+				}
+
+				_, err := db.Console().Users().Insert(ctx, &user)
+				require.NoError(t, err)
+
+				_, err = db.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
+				require.NoError(t, err)
+
+				result, err := db.Testing().RawDB().ExecContext(ctx,
+					"UPDATE project_members SET created_at = $1 WHERE member_id = $2",
+					time.Time{}.Add(time.Duration((i+1)%3)*time.Hour), id,
+				)
+				require.NoError(t, err)
+
+				count, err := result.RowsAffected()
+				require.NoError(t, err)
+				require.EqualValues(t, 1, count)
+			}
+
+			for _, tt := range []struct {
+				order     console.ProjectMemberOrder
+				memberIDs []uuid.UUID
+			}{
+				{
+					order:     console.Name,
+					memberIDs: []uuid.UUID{memberIDs[0], memberIDs[1], memberIDs[2]},
+				}, {
+					order:     console.Email,
+					memberIDs: []uuid.UUID{memberIDs[1], memberIDs[2], memberIDs[0]},
+				}, {
+					order:     console.Created,
+					memberIDs: []uuid.UUID{memberIDs[2], memberIDs[0], memberIDs[1]},
+				},
+			} {
+				errMsg := func(cursor console.ProjectMembersCursor) string {
+					return fmt.Sprintf("unexpected result when ordering by %s, %s",
+						[]string{"name", "email", "creation date"}[cursor.Order-1],
+						[]string{"ascending", "descending"}[cursor.OrderDirection-1])
+				}
+
+				getIDsFromDB := func(cursor console.ProjectMembersCursor) (ids []uuid.UUID) {
+					page, err := membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
+					require.NoError(t, err, errMsg(cursor))
+					for _, member := range page.ProjectMembers {
+						ids = append(ids, member.MemberID)
+					}
+					return ids
+				}
+
+				cursor := console.ProjectMembersCursor{
+					Limit: uint(len(tt.memberIDs)),
+					Page:  1, Order: tt.order,
+					OrderDirection: console.Ascending,
+				}
+				require.Equal(t, tt.memberIDs, getIDsFromDB(cursor), errMsg(cursor))
+
+				cursor.OrderDirection = console.Descending
+				var reverseMemberIDs []uuid.UUID
+				for i := len(tt.memberIDs) - 1; i >= 0; i-- {
+					reverseMemberIDs = append(reverseMemberIDs, tt.memberIDs[i])
+				}
+				require.Equal(t, reverseMemberIDs, getIDsFromDB(cursor), errMsg(cursor))
+			}
+		})
+	})
 }

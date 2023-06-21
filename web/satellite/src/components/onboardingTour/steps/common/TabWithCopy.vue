@@ -3,7 +3,7 @@
 
 <template>
     <div class="tab-copy">
-        <p class="tab-copy__value" :aria-roledescription="ariaRoleDescription">{{ value }}</p>
+        <p class="tab-copy__value" :title="value" :aria-roledescription="ariaRoleDescription">{{ value }}</p>
         <CopyIcon class="tab-copy__icon" @click="onCopyClick" />
     </div>
 </template>

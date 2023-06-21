@@ -29,8 +29,8 @@ func NewNotFound(log *zap.Logger) http.Handler {
 
 // ServeHTTP serves 404 response with json error when resource is not found.
 func (handler *NotFound) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
 	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
 
 	var response struct {
 		Error string `json:"error"`

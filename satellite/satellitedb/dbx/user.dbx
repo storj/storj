@@ -25,12 +25,8 @@ model user (
 
     // status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
     field status                   int       ( updatable, autoinsert )
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    // note: this field is duplicated in value_attribution.project_id.
-    field partner_id               blob      ( nullable )
     // user_agent contains the partner parameter from registration.
-    field user_agent               blob      ( nullable )
+    field user_agent               blob      ( updatable, nullable )
     // created_at indicates when the user was created.
     field created_at               timestamp ( autoinsert )
 
@@ -80,6 +76,9 @@ model user (
 
     // signup_captcha is the captcha score recorded during sign-up.
     field signup_captcha     float64    ( nullable )
+
+    // placement to be used for every new project as default for the buckets.
+    field default_placement int (nullable, updatable)
 )
 
 create user ( )

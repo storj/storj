@@ -2,48 +2,45 @@
 // See LICENSE for copying information.
 
 <template>
-    <fragment>
-        <th
-            class="align-left"
-            @mouseover="mouseOver(AccessGrantsOrderBy.NAME)"
-            @mouseleave="mouseLeave"
-            @click="sortBy(AccessGrantsOrderBy.NAME)"
-        >
-            <span class="header__item">
-                <span>Name</span>
-                <span :class="{ invisible: nameSortData.isHidden }">
-                    <a v-if="nameSortData.isDesc" class="arrow">
-                        <desc-icon />
-                    </a>
-                    <a v-else class="arrow">
-                        <asc-icon />
-                    </a>
-                </span>
+    <th
+        class="align-left"
+        @mouseover="mouseOver(AccessGrantsOrderBy.NAME)"
+        @mouseleave="mouseLeave"
+        @click="sortBy(AccessGrantsOrderBy.NAME)"
+    >
+        <span class="header__item">
+            <span>Name</span>
+            <span :class="{ invisible: nameSortData.isHidden }">
+                <a v-if="nameSortData.isDesc" class="arrow">
+                    <desc-icon />
+                </a>
+                <a v-else class="arrow">
+                    <asc-icon />
+                </a>
             </span>
-        </th>
-        <th
-            class="align-left"
-            @mouseover="mouseOver(AccessGrantsOrderBy.CREATED_AT)"
-            @mouseleave="mouseLeave"
-            @click="sortBy(AccessGrantsOrderBy.CREATED_AT)"
-        >
-            <span class="header__item">
-                <span>Date Created</span>
-                <span :class="{ invisible: dateSortData.isHidden }">
-                    <a v-if="dateSortData.isDesc" class="arrow">
-                        <desc-icon />
-                    </a>
-                    <a v-else class="arrow">
-                        <asc-icon />
-                    </a>
-                </span>
+        </span>
+    </th>
+    <th
+        class="align-left"
+        @mouseover="mouseOver(AccessGrantsOrderBy.CREATED_AT)"
+        @mouseleave="mouseLeave"
+        @click="sortBy(AccessGrantsOrderBy.CREATED_AT)"
+    >
+        <span class="header__item">
+            <span>Date Created</span>
+            <span :class="{ invisible: dateSortData.isHidden }">
+                <a v-if="dateSortData.isDesc" class="arrow">
+                    <desc-icon />
+                </a>
+                <a v-else class="arrow">
+                    <asc-icon />
+                </a>
             </span>
-        </th>
-    </fragment>
+        </span>
+    </th>
 </template>
 
 <script setup lang="ts">
-import { Fragment } from 'vue-fragment';
 import { computed, ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';

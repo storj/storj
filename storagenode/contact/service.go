@@ -49,6 +49,7 @@ type NodeInfo struct {
 	Operator            pb.NodeOperator
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
 	DebounceLimit       int
+	FastOpen            bool
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -96,7 +97,6 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	interval := initialBackOff
 	attempts := 0
 	for {
-
 		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
 
 		err := service.pingSatelliteOnce(ctx, satellite)
@@ -117,7 +117,6 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 			return nil
 		}
 	}
-
 }
 
 func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
@@ -130,6 +129,10 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	self := service.Local()
+	var features uint64
+	if self.FastOpen {
+		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
+	}
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:             self.Address,
 		Version:             &self.Version,
@@ -137,6 +140,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		Operator:            &self.Operator,
 		NoiseKeyAttestation: self.NoiseKeyAttestation,
 		DebounceLimit:       int32(self.DebounceLimit),
+		Features:            features,
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {

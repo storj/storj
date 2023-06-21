@@ -75,6 +75,39 @@ func (invoices *invoices) Pay(ctx context.Context, invoiceID, paymentMethodID st
 	}, nil
 }
 
+func (invoices *invoices) Get(ctx context.Context, invoiceID string) (*payments.Invoice, error) {
+	params := &stripe.InvoiceParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+	}
+	inv, err := invoices.service.stripeClient.Invoices().Get(invoiceID, params)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	total := inv.Total
+	if inv.Lines != nil {
+		for _, line := range inv.Lines.Data {
+			// If amount is negative, this is a coupon or a credit line item.
+			// Add them to the total.
+			if line.Amount < 0 {
+				total -= line.Amount
+			}
+		}
+	}
+
+	return &payments.Invoice{
+		ID:          inv.ID,
+		CustomerID:  inv.Customer.ID,
+		Description: inv.Description,
+		Amount:      total,
+		Status:      convertStatus(inv.Status),
+		Link:        inv.InvoicePDF,
+		Start:       time.Unix(inv.PeriodStart, 0),
+	}, nil
+}
+
 // AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
 func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error) {
 	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)

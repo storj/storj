@@ -27,16 +27,18 @@
                     width="100%"
                     height="48px"
                     font-size="14px"
+                    border-radius="10px"
                     :on-press="onBack"
                     :is-white="true"
                 />
             </template>
             <template #rightButton>
                 <VButton
-                    label="Create Access ->"
+                    :label="isProjectPassphrase ? 'Continue ->' : 'Create Access ->'"
                     width="100%"
                     height="48px"
                     font-size="14px"
+                    border-radius="10px"
                     :on-press="onContinue"
                     :is-disabled="isButtonDisabled"
                 />
@@ -53,14 +55,18 @@ import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
-const props = defineProps<{
-    isNewPassphrase: boolean;
+const props = withDefaults(defineProps<{
+    isProjectPassphrase?: boolean;
+    isNewPassphrase?: boolean;
     info: string;
     passphrase: string;
     setPassphrase: (value: string) => void;
     onBack: () => void;
     onContinue: () => void;
-}>();
+}>(), {
+    isProjectPassphrase: false,
+    isNewPassphrase: false,
+});
 
 const isPassphraseSaved = ref<boolean>(false);
 

@@ -6,7 +6,7 @@
         <template #content>
             <div v-if="!isSuccess" class="content">
                 <div class="content__top">
-                    <h1 class="content__top__title">Activate your account</h1>
+                    <h1 class="content__top__title">Activate your plan</h1>
                     <div class="content__top__icon">
                         <CheckIcon />
                     </div>
@@ -57,7 +57,7 @@
                     <CircleCheck />
                 </div>
                 <h1 class="content-success__title">Success</h1>
-                <p class="content-success__subtitle">Your account has been successfully activated.</p>
+                <p class="content-success__subtitle">Your plan has been successfully activated.</p>
                 <div class="content-success__info">
                     <ThinCheck class="content-success__info__icon" />
                     <p class="content-success__info__title">
@@ -79,10 +79,11 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -134,10 +135,14 @@ const isFree = computed((): boolean => {
 });
 
 /**
- * Closes the modal and advances to the next step in the onboarding tour.
+ * Closes the modal. If the user has not completed the onboarding tour, advance to the next step.
  */
 function onClose(): void {
     appStore.removeActiveModal();
+    // do not reroute if the user has already completed onboarding
+    if (usersStore.state.settings.onboardingEnd) {
+        return;
+    }
     if (isSuccess.value) {
         if (configStore.state.config.allProjectsDashboard) {
             router.push(RouteConfig.AllProjectsDashboard.path);

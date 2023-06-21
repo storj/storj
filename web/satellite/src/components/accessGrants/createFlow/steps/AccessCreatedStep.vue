@@ -14,7 +14,7 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onCopy"
-                    :icon="isCopied ? 'none' : 'copy'"
+                    :icon="isCopied ? 'check' : 'copy'"
                     :is-white="!isCopied"
                     :is-white-green="isCopied"
                 />
@@ -26,9 +26,9 @@
                     height="40px"
                     font-size="14px"
                     :on-press="onDownload"
-                    :icon="isDownloaded ? 'none' : 'download'"
+                    :icon="isDownloaded ? 'check' : 'download'"
                     :is-white="!isDownloaded"
-                    :is-green-white="isDownloaded"
+                    :is-white-green="isDownloaded"
                 />
             </template>
         </ButtonsContainer>
@@ -63,13 +63,14 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessType } from '@/types/createAccessGrant';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';

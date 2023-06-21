@@ -5,7 +5,6 @@ package metabase_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -68,9 +67,6 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return errors.New("shouldn't be called")
-					},
 				},
 				Deleted: 0,
 			}.Check(ctx, t, db)
@@ -83,25 +79,12 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 2)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						for _, s := range segments {
-							if len(s.Pieces) != 1 {
-								return errors.New("expected 1 piece per segment")
-							}
-						}
-						return nil
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 2, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -114,9 +97,6 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return errors.New("expected no segments")
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
@@ -131,26 +111,13 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj2, 2)
 			metabasetest.CreateObject(ctx, t, db, obj3, 2)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						for _, s := range segments {
-							if len(s.Pieces) != 1 {
-								return errors.New("expected 1 piece per segment")
-							}
-						}
-						return nil
-					},
 				},
 				Deleted: 3,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 6, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -239,21 +206,13 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 37)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						return nil
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 37, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -269,20 +228,14 @@ func TestDeleteBucketObjects(t *testing.T) {
 				metabasetest.CreateObject(ctx, t, db, obj, 5)
 			}
 
-			segmentsDeleted := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 1,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						segmentsDeleted += len(segments)
-						return nil
-					},
 				},
 				Deleted: 5,
 			}.Check(ctx, t, db)
 
-			require.Equal(t, 25, segmentsDeleted)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 	})
@@ -310,9 +263,6 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return nil
-					},
 				})
 				return err
 			})
@@ -334,9 +284,6 @@ func TestDeleteBucketObjectsCancel(t *testing.T) {
 		_, err := db.DeleteBucketObjects(testCtx, metabase.DeleteBucketObjects{
 			Bucket:    object.Location().Bucket(),
 			BatchSize: 2,
-			DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-				return nil
-			},
 		})
 		require.Error(t, err)
 
@@ -382,9 +329,6 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "copy-bucket",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
-						},
 					})
 					require.NoError(t, err)
 
@@ -426,9 +370,6 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "original-bucket",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
-						},
 					})
 					require.NoError(t, err)
 
@@ -493,9 +434,6 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "bucket2",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
-						},
 					})
 					require.NoError(t, err)
 

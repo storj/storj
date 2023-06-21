@@ -6,9 +6,7 @@ package consoleapi
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -125,6 +123,48 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TokenByAPIKey authenticates user by API key and returns auth token.
+func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	authToken := r.Header.Get("Authorization")
+	if !(strings.HasPrefix(authToken, "Bearer ")) {
+		a.log.Info("authorization key format is incorrect. Should be 'Bearer <key>'")
+		a.serveJSONError(w, err)
+		return
+	}
+
+	apiKey := strings.TrimPrefix(authToken, "Bearer ")
+
+	userAgent := r.UserAgent()
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.TokenByAPIKey(ctx, userAgent, ip, apiKey)
+	if err != nil {
+		a.log.Info("Error authenticating token request", zap.Error(ErrAuthAPI.Wrap(err)))
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
+	if err != nil {
+		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // getSessionID gets the session ID from the request.
 func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
 
@@ -161,14 +201,6 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.cookieAuth.RemoveTokenCookie(w)
-}
-
-// replaceSpecialCharacters replaces characters that could be used to represent a url or html.
-func replaceSpecialCharacters(s string) string {
-	re := regexp.MustCompile(`[\/:\.]`)
-	s = template.HTMLEscapeString(s)
-	s = template.JSEscapeString(s)
-	return re.ReplaceAllString(s, "-")
 }
 
 // Register creates new user, sends activation e-mail.
@@ -224,14 +256,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
 	}
-
-	// remove special characters from submitted info so that malicious link or code cannot be injected anywhere.
-	registerData.FullName = replaceSpecialCharacters(registerData.FullName)
-	registerData.ShortName = replaceSpecialCharacters(registerData.ShortName)
-	registerData.Partner = replaceSpecialCharacters(registerData.Partner)
-	registerData.Position = replaceSpecialCharacters(registerData.Position)
-	registerData.CompanyName = replaceSpecialCharacters(registerData.CompanyName)
-	registerData.EmployeeCount = replaceSpecialCharacters(registerData.EmployeeCount)
 
 	if len([]rune(registerData.Partner)) > 100 {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
@@ -422,8 +446,6 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
-	updatedInfo.FullName = replaceSpecialCharacters(updatedInfo.FullName)
-	updatedInfo.ShortName = replaceSpecialCharacters(updatedInfo.ShortName)
 
 	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
 		a.serveJSONError(w, err)
@@ -845,8 +867,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
 
 	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -861,8 +883,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if console.ErrTokenExpiration.Has(err) {
-		w.WriteHeader(a.getStatusCode(err))
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
 
 		err = json.NewEncoder(w).Encode(map[string]string{
 			"error": a.getUserErrorMessage(err),
@@ -971,10 +993,11 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateInfo struct {
-		OnboardingStart *bool   `json:"onboardingStart"`
-		OnboardingEnd   *bool   `json:"onboardingEnd"`
-		OnboardingStep  *string `json:"onboardingStep"`
-		SessionDuration *int64  `json:"sessionDuration"`
+		OnboardingStart  *bool   `json:"onboardingStart"`
+		OnboardingEnd    *bool   `json:"onboardingEnd"`
+		PassphrasePrompt *bool   `json:"passphrasePrompt"`
+		OnboardingStep   *string `json:"onboardingStep"`
+		SessionDuration  *int64  `json:"sessionDuration"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateInfo)
@@ -993,10 +1016,11 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	settings, err := a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
-		OnboardingStart: updateInfo.OnboardingStart,
-		OnboardingEnd:   updateInfo.OnboardingEnd,
-		OnboardingStep:  updateInfo.OnboardingStep,
-		SessionDuration: newDuration,
+		OnboardingStart:  updateInfo.OnboardingStart,
+		OnboardingEnd:    updateInfo.OnboardingEnd,
+		OnboardingStep:   updateInfo.OnboardingStep,
+		PassphrasePrompt: updateInfo.PassphrasePrompt,
+		SessionDuration:  newDuration,
 	})
 	if err != nil {
 		a.serveJSONError(w, err)
@@ -1018,6 +1042,8 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
+	var maxBytesError *http.MaxBytesError
+
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err):
 		return http.StatusBadRequest
@@ -1027,6 +1053,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case errors.As(err, &maxBytesError):
+		return http.StatusRequestEntityTooLarge
 	default:
 		return http.StatusInternalServerError
 	}
@@ -1034,6 +1062,8 @@ func (a *Auth) getStatusCode(err error) int {
 
 // getUserErrorMessage returns a user-friendly representation of the error.
 func (a *Auth) getUserErrorMessage(err error) string {
+	var maxBytesError *http.MaxBytesError
+
 	switch {
 	case console.ErrCaptcha.Has(err):
 		return "Validation of captcha was unsuccessful"
@@ -1060,6 +1090,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
+	case errors.As(err, &maxBytesError):
+		return "Request body is too large"
 	default:
 		return "There was an error processing your request"
 	}

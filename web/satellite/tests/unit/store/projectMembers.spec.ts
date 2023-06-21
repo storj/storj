@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
@@ -14,7 +15,7 @@ selectedProject.id = '1';
 
 const FIRST_PAGE = 1;
 const TEST_ERROR = new Error('testError');
-const UNREACHABLE_ERROR = 'should be unreachable';
+const UNREACHABLE_ERROR = new Error('should be unreachable');
 
 const date = new Date(0);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
@@ -23,7 +24,7 @@ const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'tes
 describe('actions', () => {
     beforeEach(() => {
         setActivePinia(createPinia());
-        jest.resetAllMocks();
+        vi.resetAllMocks();
     });
 
     it('fetch project members', async function () {
@@ -34,7 +35,7 @@ describe('actions', () => {
         testProjectMembersPage.totalCount = 1;
         testProjectMembersPage.pageCount = 1;
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -92,10 +93,10 @@ describe('actions', () => {
         store.setPage(testProjectMembersPage);
         store.toggleProjectMemberSelection(projectMember1);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(true);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(true);
         expect(store.state.selectedProjectMembersEmails.length).toBe(1);
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -104,7 +105,7 @@ describe('actions', () => {
 
         store.toggleProjectMemberSelection(projectMember1);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(false);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(false);
         expect(store.state.selectedProjectMembersEmails.length).toBe(0);
     });
 
@@ -121,50 +122,16 @@ describe('actions', () => {
         store.clearProjectMemberSelection();
 
         store.state.page.projectMembers.forEach((pm: ProjectMember) => {
-            expect(pm.isSelected).toBe(false);
+            expect(pm.isSelected()).toBe(false);
         });
 
         expect(store.state.selectedProjectMembersEmails.length).toBe(0);
     });
 
-    it('add project members', async function () {
-        const store = useProjectMembersStore();
-
-        jest.spyOn(ProjectMembersApiGql.prototype, 'add').mockReturnValue(Promise.resolve());
-
-        try {
-            await store.addProjectMembers([projectMember1.user.email], selectedProject.id);
-            throw TEST_ERROR;
-        } catch (err) {
-            expect(err).toBe(TEST_ERROR);
-        }
-    });
-
-    it('add project member throws error when api call fails', async function () {
-        const store = useProjectMembersStore();
-
-        jest.spyOn(ProjectMembersApiGql.prototype, 'add').mockImplementation(() => {
-            throw TEST_ERROR;
-        });
-
-        const stateDump = store.state;
-
-        try {
-            await store.addProjectMembers([projectMember1.user.email], selectedProject.id);
-        } catch (err) {
-            expect(err).toBe(TEST_ERROR);
-            expect(store.state).toBe(stateDump);
-
-            return;
-        }
-
-        fail(UNREACHABLE_ERROR);
-    });
-
     it('delete project members', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'delete').mockReturnValue(Promise.resolve());
+        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockReturnValue(Promise.resolve());
 
         try {
             await store.deleteProjectMembers(selectedProject.id);
@@ -177,7 +144,7 @@ describe('actions', () => {
     it('delete project member throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'delete').mockImplementation(() => {
+        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
@@ -192,15 +159,16 @@ describe('actions', () => {
             return;
         }
 
-        fail(UNREACHABLE_ERROR);
+        throw UNREACHABLE_ERROR;
     });
 
     it('fetch project members', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
             Promise.resolve(new ProjectMembersPage(
                 [projectMember1],
+                [],
                 '',
                 ProjectMemberOrderBy.NAME,
                 SortDirection.ASCENDING,
@@ -212,7 +180,7 @@ describe('actions', () => {
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
 
-        expect(store.state.page.projectMembers[0].isSelected).toBe(false);
+        expect(store.state.page.projectMembers[0].isSelected()).toBe(false);
         expect(store.state.page.projectMembers[0].joinedAt).toBe(projectMember1.joinedAt);
         expect(store.state.page.projectMembers[0].user.email).toBe(projectMember1.user.email);
         expect(store.state.page.projectMembers[0].user.id).toBe(projectMember1.user.id);
@@ -223,7 +191,7 @@ describe('actions', () => {
     it('fetch project members throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        jest.spyOn(ProjectMembersApiGql.prototype, 'get').mockImplementation(() => {
+        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
@@ -238,6 +206,6 @@ describe('actions', () => {
             return;
         }
 
-        fail(UNREACHABLE_ERROR);
+        throw UNREACHABLE_ERROR;
     });
 });
