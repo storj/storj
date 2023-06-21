@@ -21,8 +21,6 @@ pipeline {
         stage('Checkout') {
             steps {
 				sh "chmod -R 777 ."
-				sh 'mkdir -p /npm/cache'
-				sh "chmod -R 777 /npm/cache"
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
                 checkout scm
                 sh 'mkdir -p .build'
