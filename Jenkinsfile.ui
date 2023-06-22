@@ -104,7 +104,7 @@ pipeline {
                 dir("testsuite/playwright-ui") {
 					// sh 'npm install -g @playwright/test'
 					// sh 'npm install'
-					sh 'echo "no install required'
+					sh 'echo "no install required"'
                 }
             }
         }
