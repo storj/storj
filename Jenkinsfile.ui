@@ -9,7 +9,7 @@ pipeline {
     }
     options {
         timeout(time: 4, unit: 'HOURS')
-        skipDefaultCheckout(true)
+        // skipDefaultCheckout(true)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -22,7 +22,7 @@ pipeline {
             steps {
 				sh "chmod -R 777 ."
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
-                checkout scm
+                // checkout scm
                 sh 'mkdir -p .build'
 
                 // pre-check that we cannot do at a later stage reliably
