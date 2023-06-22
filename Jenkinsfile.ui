@@ -4,12 +4,12 @@ pipeline {
             label 'main'
             image 'storjqa/playwrightci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE --tmpfs "/tmp:exec,mode=777"'
+			args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm'
         }
     }
     options {
         timeout(time: 4, unit: 'HOURS')
-        // skipDefaultCheckout(true)
+        skipDefaultCheckout(false)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -22,7 +22,7 @@ pipeline {
             steps {
 				sh "chmod -R 777 ."
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
-                // checkout scm
+                checkout scm
                 sh 'mkdir -p .build'
 
                 // pre-check that we cannot do at a later stage reliably
