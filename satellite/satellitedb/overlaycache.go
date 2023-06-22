@@ -266,62 +266,6 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 	return convertDBNode(ctx, node)
 }
 
-// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
-	for {
-		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow, asOf)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return nodes, err
-		}
-		break
-	}
-
-	return nodes, err
-}
-
-func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features
-		FROM nodes
-		`+cache.db.impl.AsOfSystemInterval(asOf.Interval())+`
-		WHERE id = any($1::bytea[])
-			AND disqualified IS NULL
-			AND exit_finished_at IS NULL
-			AND last_contact_success > $2
-	`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	nodes := make(map[storj.NodeID]*overlay.SelectedNode)
-	for rows.Next() {
-		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{}
-
-		var lastIPPort sql.NullString
-		var noise noiseScanner
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features)
-		if err != nil {
-			return nil, err
-		}
-		if lastIPPort.Valid {
-			node.LastIPPort = lastIPPort.String
-		}
-		node.Address.NoiseInfo = noise.Convert()
-
-		nodes[node.ID] = &node
-	}
-
-	return nodes, Error.Wrap(rows.Err())
-}
-
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
 	for {
