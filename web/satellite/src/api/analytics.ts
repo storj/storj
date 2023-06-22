@@ -17,13 +17,17 @@ export class AnalyticsHttpApi {
      * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
      *
      * @param eventName - name of the event
+     * @param props - additional properties to send with the event
      */
-    public async eventTriggered(eventName: string): Promise<void> {
+    public async eventTriggered(eventName: string, props?: {[p:string]:string}): Promise<void> {
         try {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
                 eventName: eventName,
             };
+            if (props) {
+                body['props'] = props;
+            }
             const response = await this.http.post(path, JSON.stringify(body));
             if (response.ok) {
                 return;

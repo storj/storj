@@ -46,7 +46,8 @@ import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import VModal from '@/components/common/VModal.vue';
 import SelectPassphraseModeStep from '@/components/modals/createProjectPassphrase/SelectPassphraseModeStep.vue';
@@ -71,6 +72,8 @@ const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const generatedPassphrase = generateMnemonic();
 
@@ -135,6 +138,10 @@ async function onContinue(): Promise<void> {
             notify.error('Passphrase can\'t be empty', AnalyticsErrorEventSource.CREATE_PROJECT_PASSPHRASE_MODAL);
             return;
         }
+
+        analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
+            method: selectedOption.value === CreatePassphraseOption.Enter ? 'enter' : 'generate',
+        });
 
         bucketsStore.setEdgeCredentials(new EdgeCredentials());
         bucketsStore.setPassphrase(passphrase.value);

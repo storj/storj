@@ -50,7 +50,7 @@ import { ref } from 'vue';
 import AccessEncryptionIcon from '../../../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -77,6 +77,10 @@ function onContinue(): void {
 
         return;
     }
+
+    analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
+        method: 'enter',
+    });
 
     bucketsStore.setPassphrase(passphrase.value);
     bucketsStore.setPromptForPassphrase(false);

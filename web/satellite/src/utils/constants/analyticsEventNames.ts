@@ -54,6 +54,7 @@ export enum AnalyticsEvent {
     GALLERY_VIEW_CLICKED = 'Gallery View Clicked',
     PROJECT_INVITATION_ACCEPTED = 'Project Invitation Accepted',
     PROJECT_INVITATION_DECLINED = 'Project Invitation Declined',
+    PASSPHRASE_CREATED = 'Passphrase Created',
 }
 
 export enum AnalyticsErrorEventSource {

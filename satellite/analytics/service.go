@@ -466,7 +466,7 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 
 // TrackEvent sends an arbitrary event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string) {
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string, customProps map[string]string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -479,6 +479,10 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 
 	props := segment.NewProperties()
 	props.Set("email", email)
+
+	for key, value := range customProps {
+		props.Set(key, value)
+	}
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
