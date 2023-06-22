@@ -25,6 +25,7 @@ pipeline {
                 checkout scm
                 sh 'mkdir -p .build'
 
+                sh 'npx playwright install'
                 // pre-check that we cannot do at a later stage reliably
                 //sh 'check-large-files'
             }
@@ -103,7 +104,6 @@ pipeline {
                 dir("testsuite/playwright-ui") {
 					sh 'npm install -g @playwright/test'
 					sh 'npm install'
-                    sh 'npx playwright install'
                 }
             }
         }
