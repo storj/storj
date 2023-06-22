@@ -2186,16 +2186,24 @@ func TestProjectInvitations(t *testing.T) {
 			proj := addProject(t, ctx)
 
 			invite := addInvite(t, ctx, proj, user.Email)
+
+			// Expect an error when accepting an expired invitation.
+			// The invitation should remain in the database.
 			setInviteDate(t, ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
 			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 
-			addInvite(t, ctx, proj, user.Email)
+			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			require.NoError(t, err)
+
+			// Expect no error when accepting an active invitation.
+			// The invitation should be removed from the database, and the user should be added as a member.
+			setInviteDate(t, ctx, invite, time.Now())
+			require.NoError(t, err)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept))
 
-			invites, err := service.GetUserProjectInvitations(ctx)
-			require.NoError(t, err)
-			require.Empty(t, invites)
+			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
 			require.NoError(t, err)
@@ -2214,12 +2222,25 @@ func TestProjectInvitations(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 			proj := addProject(t, ctx)
 
-			addInvite(t, ctx, proj, user.Email)
+			invite := addInvite(t, ctx, proj, user.Email)
+
+			// Expect an error when rejecting an expired invitation.
+			// The invitation should remain in the database.
+			setInviteDate(t, ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			require.NoError(t, err)
+
+			// Expect no error when rejecting an active invitation.
+			// The invitation should be removed from the database.
+			setInviteDate(t, ctx, invite, time.Now())
+			require.NoError(t, err)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline))
 
-			invites, err := service.GetUserProjectInvitations(ctx)
-			require.NoError(t, err)
-			require.Empty(t, invites)
+			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
 			require.NoError(t, err)

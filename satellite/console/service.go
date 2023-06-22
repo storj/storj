@@ -3545,7 +3545,6 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	}
 
 	if s.IsProjectInvitationExpired(invite) {
-		deleteWithLog()
 		return ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
 	}
 
