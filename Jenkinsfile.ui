@@ -102,9 +102,11 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-                    sh 'npx playwright install'
+
 				    sh 'npm install'
-					sh 'npm install @playwright/test'
+					sh 'npx playwright install'
+					// sh 'npm install'
+					// sh 'npm install @playwright/test'
 			    }
             }
         }
