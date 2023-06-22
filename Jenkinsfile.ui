@@ -103,6 +103,7 @@ pipeline {
                 dir("testsuite/playwright-ui") {
 					sh 'npm install -g @playwright/test'
 					sh 'npm install'
+                    sh 'npx playwright install'
                 }
             }
         }
@@ -131,7 +132,7 @@ pipeline {
                         --auth.base-url http://localhost:8000 \
                         --domain-name localhost \
                         --server.address localhost:8002 \
-                        --insecure-disable-tls gateway.log 2>&1 &
+                        --insecure-disable-tls gateway.log 2>&	1 &
                 '''
 
                 dir("testsuite/playwright-ui") {
