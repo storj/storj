@@ -264,9 +264,36 @@ func TestAPIKeyManagementGet(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		user, err := planet.Satellites[0].AddUser(ctx, console.CreateUser{
+			FullName: "testuser123",
+			Email:    "test@email.com",
+		}, 1)
+		require.NoError(t, err)
+
+		project, err := planet.Satellites[0].AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		secret, err := macaroon.NewSecret()
+		require.NoError(t, err)
+
+		apiKey, err := macaroon.NewAPIKey(secret)
+		require.NoError(t, err)
+
+		apiKeyInfo, err := planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
+			Name:      "testkey",
+			ProjectID: project.ID,
+			Secret:    secret,
+		})
+		require.NoError(t, err)
+
+		userCtx, err := planet.Satellites[0].UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		_, err = planet.Satellites[0].API.Console.Service.Payments().AddCreditCard(userCtx, "test")
+		require.NoError(t, err)
+
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		apikey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		link := fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apikey.Serialize())
+		link := fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apiKey.Serialize())
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 		require.NoError(t, err)
@@ -300,29 +327,20 @@ func TestAPIKeyManagementGet(t *testing.T) {
 		var apiResp response
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiResp))
 
-		apiKeyInfo, err := planet.Satellites[0].DB.Console().APIKeys().GetByHead(ctx, apikey.Head())
-		require.NoError(t, err)
-
-		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, apiKeyInfo.ProjectID)
-		require.NoError(t, err)
-
-		owner, err := planet.Satellites[0].DB.Console().Users().Get(ctx, project.OwnerID)
-		require.NoError(t, err)
-
 		require.Equal(t, response{
 			APIKey: apiKeyData{
 				ID:        apiKeyInfo.ID,
-				Name:      apiKeyInfo.Name,
+				Name:      "testkey",
 				CreatedAt: apiKeyInfo.CreatedAt.UTC(),
 			},
 			Project: projectData{
 				ID:   project.ID,
-				Name: project.Name,
+				Name: "testproject",
 			},
 			Owner: ownerData{
-				ID:       owner.ID,
-				Email:    owner.Email,
-				PaidTier: owner.PaidTier,
+				ID:       user.ID,
+				Email:    "test@email.com",
+				PaidTier: true,
 			},
 		}, apiResp)
 	})

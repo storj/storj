@@ -183,8 +183,9 @@ func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 			Name: project.Name,
 		},
 		Owner: ownerData{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:       user.ID,
+			Email:    user.Email,
+			PaidTier: user.PaidTier,
 		},
 	})
 	if err != nil {
