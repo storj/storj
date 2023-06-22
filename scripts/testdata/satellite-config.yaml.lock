@@ -629,7 +629,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.max-commit-interval: 48h0m0s
 
 # maximum encrypted object key length
-# metainfo.max-encrypted-object-key-length: 1750
+# metainfo.max-encrypted-object-key-length: 2000
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
