@@ -2,7 +2,7 @@
 # account-freeze.enabled: false
 
 # How long to wait between a warning event and freezing an account.
-# account-freeze.grace-period: 720h0m0s
+# account-freeze.grace-period: 360h0m0s
 
 # How often to run this chore, which is how often unpaid invoices are checked.
 # account-freeze.interval: 24h0m0s
