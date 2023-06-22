@@ -27,7 +27,7 @@
                 </p>
                 <p v-else :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
                     <middle-truncate v-if="keyVal === 'fileName'" :text="val" />
-                    <project-ownership-tag v-else-if="keyVal === 'role'" :no-icon="itemType !== 'project' && val !== ProjectRole.Invited" :role="val" />
+                    <project-ownership-tag v-else-if="keyVal === 'role'" :no-icon="!isProjectRoleIconShown(val)" :role="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -91,6 +91,10 @@ const customIconClasses = computed(() => {
     }
     return classes;
 });
+
+function isProjectRoleIconShown(role: ProjectRole) {
+    return props.itemType === 'project' || role === ProjectRole.Invited || role === ProjectRole.InviteExpired;
+}
 
 function selectClicked(event: Event): void {
     emit('selectClicked', event);

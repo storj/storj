@@ -2,9 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="tag" :class="{[role.toLowerCase()]: true}">
+    <div class="tag" :class="{[role.toLowerCase().replaceAll(' ', '-')]: true}">
         <component :is="icon" v-if="!noIcon" class="tag__icon" />
-
         <span class="tag__text">{{ role }}</span>
     </div>
 </template>
@@ -16,6 +15,7 @@ import { ProjectRole } from '@/types/projectMembers';
 
 import BoxIcon from '@/../static/images/navigation/project.svg';
 import InviteIcon from '@/../static/images/navigation/quickStart.svg';
+import ClockIcon from '@/../static/images/team/clock.svg';
 
 const props = withDefaults(defineProps<{
     role: ProjectRole,
@@ -26,7 +26,14 @@ const props = withDefaults(defineProps<{
 });
 
 const icon = computed((): string => {
-    return props.role === ProjectRole.Invited ? InviteIcon : BoxIcon;
+    switch (props.role) {
+    case ProjectRole.Invited:
+        return InviteIcon;
+    case ProjectRole.InviteExpired:
+        return ClockIcon;
+    default:
+        return BoxIcon;
+    }
 });
 
 </script>
@@ -65,13 +72,18 @@ const icon = computed((): string => {
         }
     }
 
-    &.invited {
+    &.invited,
+    &.invite-expired {
         color: var(--c-grey-6);
         border-color: var(--c-grey-4);
+    }
 
-        :deep(path) {
-            fill: var(--c-yellow-3);
-        }
+    &.invited :deep(path) {
+        fill: var(--c-yellow-3);
+    }
+
+    &.invite-expired :deep(path) {
+        fill: var(--c-grey-4);
     }
 }
 </style>
