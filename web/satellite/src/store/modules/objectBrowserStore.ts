@@ -31,7 +31,7 @@ type Promisable<T> = T | PromiseLike<T>;
 export type BrowserObject = {
     Key: string;
     Size: number;
-    LastModified: number;
+    LastModified: Date;
     type?: 'file' | 'folder';
     progress?: number;
     upload?: {
@@ -58,6 +58,11 @@ export type UploadingBrowserObject = BrowserObject & {
     failedMessage?: FailedUploadMessage;
 }
 
+export type PreviewCache = {
+    url: string,
+    lastModified: number,
+}
+
 export class FilesState {
     s3: S3Client | null = null;
     accessKey: null | string = null;
@@ -80,6 +85,7 @@ export class FilesState {
     openModalOnFirstUpload = false;
     objectPathForModal = '';
     objectsCount = 0;
+    cachedObjectPreviewURLs: Map<string, PreviewCache> = new Map<string, PreviewCache>();
 }
 
 type InitializedFilesState = FilesState & {
@@ -273,7 +279,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Prefix: string;
         }): BrowserObject => ({
             Key: Prefix.slice(path.length, -1),
-            LastModified: 0,
+            LastModified: new Date(),
             Size: 0,
             type: 'folder',
         });
@@ -455,7 +461,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                         upload,
                         progress: 0,
                         Size: 0,
-                        LastModified: 0,
+                        LastModified: new Date(),
                         Body: file,
                         status: UploadingStatus.Failed,
                         failedMessage: FailedUploadMessage.TooBig,
@@ -471,7 +477,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload,
                 progress: 0,
                 Size: 0,
-                LastModified: 0,
+                LastModified: new Date(),
                 status: UploadingStatus.InProgress,
             });
 
@@ -552,7 +558,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             upload,
             progress: 0,
             Size: 0,
-            LastModified: 0,
+            LastModified: new Date(),
             status: UploadingStatus.InProgress,
         };
 
@@ -770,6 +776,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.objectPathForModal = path;
     }
 
+    function cacheObjectPreviewURL(path: string, cacheValue: PreviewCache): void {
+        state.cachedObjectPreviewURLs.set(path, cacheValue);
+    }
+
+    function removeFromObjectPreviewCache(path: string): void {
+        state.cachedObjectPreviewURLs.delete(path);
+    }
+
     function setSelectedAnchorFile(file: BrowserObject | null): void {
         state.selectedAnchorFile = file;
     }
@@ -803,6 +817,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.orderBy = 'asc';
         state.openModalOnFirstUpload = false;
         state.objectPathForModal = '';
+        state.cachedObjectPreviewURLs = new Map<string, PreviewCache>();
     }
 
     return {
@@ -835,6 +850,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         setSelectedAnchorFile,
         setUnselectedAnchorFile,
         cancelUpload,
+        cacheObjectPreviewURL,
+        removeFromObjectPreviewCache,
         clearUploading,
         clear,
     };

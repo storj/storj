@@ -116,10 +116,11 @@ import { Component, computed, onBeforeMount, onMounted, ref, Teleport, watch } f
 import { useRoute } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { RouteConfig } from '@/types/router';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
@@ -145,6 +146,7 @@ import ArrowIcon from '@/../static/images/browser/galleryView/arrow.svg';
 
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
 const route = useRoute();
@@ -158,6 +160,13 @@ const objectMapUrl = ref<string>('');
 const objectPreviewUrl = ref<string>('');
 
 const folderType = 'folder';
+
+/**
+ * Returns object preview URLs cache from store.
+ */
+const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
+    return obStore.state.cachedObjectPreviewURLs;
+});
 
 /**
  * Retrieve the file object that the modal is set to from the store.
@@ -192,6 +201,13 @@ const filePath = computed((): string => {
  */
 const extension = computed((): string | undefined => {
     return filePath.value.split('.').pop();
+});
+
+/**
+ * Returns bucket name from store.
+ */
+const bucket = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**
@@ -262,6 +278,9 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
         return;
     }
+
+    const encodedPath = encodeURIComponent(`${bucket.value}/${filePath.value.trim()}`);
+    obStore.cacheObjectPreviewURL(encodedPath, { url, lastModified: file.value.LastModified.getTime() });
 
     objectMapUrl.value = `${url}?map=1`;
     objectPreviewUrl.value = `${url}?view=1`;
@@ -387,10 +406,40 @@ function setNewObjectPath(objectKey: string): void {
 }
 
 /**
+ * Loads object URL from cache or generates new URL.
+ */
+function processFilePath(): void {
+    const url = findCachedURL();
+    if (!url) {
+        fetchPreviewAndMapUrl();
+        return;
+    }
+
+    objectMapUrl.value = `${url}?map=1`;
+    objectPreviewUrl.value = `${url}?view=1`;
+}
+
+/**
+ * Try to find current object path in cache.
+ */
+function findCachedURL(): string | undefined {
+    const encodedPath = encodeURIComponent(`${bucket.value}/${filePath.value.trim()}`);
+    const cache = cachedObjectPreviewURLs.value.get(encodedPath);
+
+    if (!cache) return undefined;
+    if (cache.lastModified !== file.value.LastModified.getTime()) {
+        obStore.removeFromObjectPreviewCache(encodedPath);
+        return undefined;
+    }
+
+    return cache.url;
+}
+
+/**
  * Call `fetchPreviewAndMapUrl` on before mount lifecycle method.
  */
 onBeforeMount((): void => {
-    fetchPreviewAndMapUrl();
+    processFilePath();
 });
 
 onMounted((): void => {
@@ -403,7 +452,7 @@ onMounted((): void => {
 watch(filePath, () => {
     if (!filePath.value) return;
 
-    fetchPreviewAndMapUrl();
+    processFilePath();
 });
 </script>
 
