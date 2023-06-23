@@ -169,7 +169,7 @@ model project_invitation (
     field created_at  timestamp            ( autoinsert, updatable )
 )
 
-create project_invitation ( )
+create project_invitation ( replace )
 
 read one (
     select project_invitation

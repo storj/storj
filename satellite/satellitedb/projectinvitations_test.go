@@ -50,7 +50,7 @@ func TestProjectInvitations(t *testing.T) {
 
 		if !t.Run("insert invitations", func(t *testing.T) {
 			// Expect failure because no user with inviterID exists.
-			_, err = invitesDB.Insert(ctx, invite)
+			_, err = invitesDB.Upsert(ctx, invite)
 			require.Error(t, err)
 
 			_, err = db.Console().Users().Insert(ctx, &console.User{
@@ -59,19 +59,15 @@ func TestProjectInvitations(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			invite, err = invitesDB.Insert(ctx, invite)
+			invite, err = invitesDB.Upsert(ctx, invite)
 			require.NoError(t, err)
 			require.WithinDuration(t, time.Now(), invite.CreatedAt, time.Minute)
 			require.Equal(t, projID, invite.ProjectID)
 			require.Equal(t, strings.ToUpper(email), invite.Email)
 
-			// Duplicate invitations should be rejected.
-			_, err = invitesDB.Insert(ctx, invite)
-			require.Error(t, err)
-
-			inviteSameEmail, err = invitesDB.Insert(ctx, inviteSameEmail)
+			inviteSameEmail, err = invitesDB.Upsert(ctx, inviteSameEmail)
 			require.NoError(t, err)
-			inviteSameProject, err = invitesDB.Insert(ctx, inviteSameProject)
+			inviteSameProject, err = invitesDB.Upsert(ctx, inviteSameProject)
 			require.NoError(t, err)
 		}) {
 			// None of the following subtests will pass if invitation insertion failed.
@@ -126,22 +122,19 @@ func TestProjectInvitations(t *testing.T) {
 		t.Run("update invitation", func(t *testing.T) {
 			ctx := testcontext.New(t)
 
-			req := console.UpdateProjectInvitationRequest{}
-			newCreatedAt := invite.CreatedAt.Add(time.Hour)
-			req.CreatedAt = &newCreatedAt
-			newInvite, err := invitesDB.Update(ctx, projID, email, req)
-			require.NoError(t, err)
-			require.Equal(t, newCreatedAt, newInvite.CreatedAt)
-
 			inviter, err := db.Console().Users().Insert(ctx, &console.User{
 				ID:           testrand.UUID(),
 				PasswordHash: testrand.Bytes(8),
 			})
 			require.NoError(t, err)
-			req.InviterID = &inviter.ID
-			newInvite, err = invitesDB.Update(ctx, projID, email, req)
+			invite.InviterID = &inviter.ID
+
+			oldCreatedAt := invite.CreatedAt
+
+			invite, err = invitesDB.Upsert(ctx, invite)
 			require.NoError(t, err)
-			require.Equal(t, inviter.ID, *newInvite.InviterID)
+			require.Equal(t, inviter.ID, *invite.InviterID)
+			require.True(t, invite.CreatedAt.After(oldCreatedAt))
 		})
 
 		t.Run("delete invitation", func(t *testing.T) {
@@ -187,20 +180,22 @@ func TestDeleteBefore(t *testing.T) {
 			_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projID})
 			require.NoError(t, err)
 
-			invite, err := invitesDB.Insert(ctx, &console.ProjectInvitation{ProjectID: projID})
+			invite, err := invitesDB.Upsert(ctx, &console.ProjectInvitation{ProjectID: projID})
 			require.NoError(t, err)
-
 			return invite
 		}
 
 		newInvite := createInvite()
 
 		oldInvite := createInvite()
-		oldCreatedAt := expiration.Add(-time.Second)
-		oldInvite, err := invitesDB.Update(ctx, oldInvite.ProjectID, oldInvite.Email, console.UpdateProjectInvitationRequest{
-			CreatedAt: &oldCreatedAt,
-		})
+		result, err := db.Testing().RawDB().ExecContext(ctx,
+			"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2",
+			expiration.Add(-time.Second), oldInvite.ProjectID,
+		)
 		require.NoError(t, err)
+		count, err := result.RowsAffected()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, count)
 
 		require.NoError(t, invitesDB.DeleteBefore(ctx, expiration, 0, 1))
 

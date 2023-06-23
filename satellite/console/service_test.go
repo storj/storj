@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,7 +315,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				for _, id := range []uuid.UUID{up1Proj.ID, up2Proj.ID} {
-					_, err = sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+					_, err = sat.DB.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
 						ProjectID: id,
 						Email:     invitedUser.Email,
 					})
@@ -1975,7 +1976,7 @@ func TestProjectInvitations(t *testing.T) {
 		}
 
 		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string) *console.ProjectInvitation {
-			invite, err := sat.DB.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+			invite, err := sat.DB.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
 				ProjectID: project.ID,
 				Email:     email,
 				InviterID: &project.OwnerID,
@@ -1985,11 +1986,18 @@ func TestProjectInvitations(t *testing.T) {
 			return invite
 		}
 
-		expireInvite := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation) {
-			createdAt := time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration)
-			newInvite, err := sat.DB.Console().ProjectInvitations().Update(ctx, invite.ProjectID, invite.Email, console.UpdateProjectInvitationRequest{
-				CreatedAt: &createdAt,
-			})
+		setInviteDate := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) {
+			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
+				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
+				createdAt, invite.ProjectID, strings.ToUpper(invite.Email),
+			)
+			require.NoError(t, err)
+
+			count, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, count)
+
+			newInvite, err := sat.DB.Console().ProjectInvitations().Get(ctx, invite.ProjectID, invite.Email)
 			require.NoError(t, err)
 			*invite = *newInvite
 		}
@@ -2035,7 +2043,7 @@ func TestProjectInvitations(t *testing.T) {
 			// expire the invitation.
 			require.False(t, service.IsProjectInvitationExpired(&user3Invite))
 			oldCreatedAt := user3Invite.CreatedAt
-			expireInvite(t, ctx, &user3Invite)
+			setInviteDate(t, ctx, &user3Invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
 			require.True(t, service.IsProjectInvitationExpired(&user3Invite))
 
 			// resending an expired invitation should succeed.
@@ -2066,7 +2074,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.Equal(t, invite.InviterID, invites[0].InviterID)
 			require.WithinDuration(t, invite.CreatedAt, invites[0].CreatedAt, time.Second)
 
-			expireInvite(t, ctx, &invites[0])
+			setInviteDate(t, ctx, &invites[0], time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
 			invites, err = service.GetUserProjectInvitations(ctx)
 			require.NoError(t, err)
 			require.Empty(t, invites)
@@ -2155,7 +2163,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NotNil(t, inviteFromToken)
 			require.Equal(t, invite, inviteFromToken)
 
-			expireInvite(t, ctx, invite)
+			setInviteDate(t, ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
 			invites, err := service.GetUserProjectInvitations(ctx)
 			require.NoError(t, err)
 			require.Empty(t, invites)
@@ -2178,7 +2186,7 @@ func TestProjectInvitations(t *testing.T) {
 			proj := addProject(t, ctx)
 
 			invite := addInvite(t, ctx, proj, user.Email)
-			expireInvite(t, ctx, invite)
+			setInviteDate(t, ctx, invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
 			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 

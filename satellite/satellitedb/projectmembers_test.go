@@ -36,7 +36,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 		_, err = db.Console().ProjectMembers().Insert(ctx, memberUser.ID, projectID)
 		require.NoError(t, err)
 
-		_, err = db.Console().ProjectInvitations().Insert(ctx, &console.ProjectInvitation{
+		_, err = db.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
 			ProjectID: projectID,
 			Email:     "bob@mail.test",
 		})

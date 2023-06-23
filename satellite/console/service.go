@@ -3609,23 +3609,13 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, invited := range users {
-			invite, err := tx.ProjectInvitations().Insert(ctx, &ProjectInvitation{
+			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
 				Email:     invited.Email,
 				InviterID: &user.ID,
 			})
 			if err != nil {
-				if !dbx.IsConstraintError(err) {
-					return err
-				}
-				now := time.Now()
-				invite, err = tx.ProjectInvitations().Update(ctx, projectID, invited.Email, UpdateProjectInvitationRequest{
-					CreatedAt: &now,
-					InviterID: &user.ID,
-				})
-				if err != nil {
-					return err
-				}
+				return err
 			}
 			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt)
 			if err != nil {

@@ -22,8 +22,8 @@ type projectInvitations struct {
 	db *satelliteDB
 }
 
-// Insert inserts a project member invitation into the database.
-func (invites *projectInvitations) Insert(ctx context.Context, invite *console.ProjectInvitation) (_ *console.ProjectInvitation, err error) {
+// Upsert updates a project member invitation if it exists and inserts it otherwise.
+func (invites *projectInvitations) Upsert(ctx context.Context, invite *console.ProjectInvitation) (_ *console.ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if invite == nil {
@@ -36,7 +36,7 @@ func (invites *projectInvitations) Insert(ctx context.Context, invite *console.P
 		createFields.InviterId = dbx.ProjectInvitation_InviterId(id)
 	}
 
-	dbxInvite, err := invites.db.Create_ProjectInvitation(ctx,
+	dbxInvite, err := invites.db.Replace_ProjectInvitation(ctx,
 		dbx.ProjectInvitation_ProjectId(invite.ProjectID[:]),
 		dbx.ProjectInvitation_Email(normalizeEmail(invite.Email)),
 		createFields,
@@ -85,30 +85,6 @@ func (invites *projectInvitations) GetByEmail(ctx context.Context, email string)
 	}
 
 	return projectInvitationSliceFromDBX(dbxInvites)
-}
-
-// Update updates the project member invitation specified by the given project ID and email address.
-func (invites *projectInvitations) Update(ctx context.Context, projectID uuid.UUID, email string, request console.UpdateProjectInvitationRequest) (_ *console.ProjectInvitation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	update := dbx.ProjectInvitation_Update_Fields{}
-	if request.CreatedAt != nil {
-		update.CreatedAt = dbx.ProjectInvitation_CreatedAt(*request.CreatedAt)
-	}
-	if request.InviterID != nil {
-		update.InviterId = dbx.ProjectInvitation_InviterId((*request.InviterID)[:])
-	}
-
-	dbxInvite, err := invites.db.Update_ProjectInvitation_By_ProjectId_And_Email(ctx,
-		dbx.ProjectInvitation_ProjectId(projectID[:]),
-		dbx.ProjectInvitation_Email(normalizeEmail(email)),
-		update,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return projectInvitationFromDBX(dbxInvite)
 }
 
 // Delete removes a project member invitation from the database.

@@ -12869,7 +12869,7 @@ func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_ProjectInvitation(ctx context.Context,
+func (obj *pgxImpl) Replace_ProjectInvitation(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field,
 	project_invitation_email ProjectInvitation_Email_Field,
 	optional ProjectInvitation_Create_Fields) (
@@ -12882,7 +12882,7 @@ func (obj *pgxImpl) Create_ProjectInvitation(ctx context.Context,
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) ON CONFLICT ( project_id, email ) DO UPDATE SET project_id = EXCLUDED.project_id, email = EXCLUDED.email, inviter_id = EXCLUDED.inviter_id, created_at = EXCLUDED.created_at RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
 
 	var __values []interface{}
 	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
@@ -20876,7 +20876,7 @@ func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Create_ProjectInvitation(ctx context.Context,
+func (obj *pgxcockroachImpl) Replace_ProjectInvitation(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field,
 	project_invitation_email ProjectInvitation_Email_Field,
 	optional ProjectInvitation_Create_Fields) (
@@ -20889,7 +20889,7 @@ func (obj *pgxcockroachImpl) Create_ProjectInvitation(ctx context.Context,
 	__inviter_id_val := optional.InviterId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO project_invitations ( project_id, email, inviter_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at")
 
 	var __values []interface{}
 	__values = append(__values, __project_id_val, __email_val, __inviter_id_val, __created_at_val)
@@ -28506,19 +28506,6 @@ func (rx *Rx) Create_Project(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_ProjectInvitation(ctx context.Context,
-	project_invitation_project_id ProjectInvitation_ProjectId_Field,
-	project_invitation_email ProjectInvitation_Email_Field,
-	optional ProjectInvitation_Create_Fields) (
-	project_invitation *ProjectInvitation, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_ProjectInvitation(ctx, project_invitation_project_id, project_invitation_email, optional)
-
-}
-
 func (rx *Rx) Create_ProjectMember(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -29707,6 +29694,19 @@ func (rx *Rx) Replace_AccountFreezeEvent(ctx context.Context,
 
 }
 
+func (rx *Rx) Replace_ProjectInvitation(ctx context.Context,
+	project_invitation_project_id ProjectInvitation_ProjectId_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	optional ProjectInvitation_Create_Fields) (
+	project_invitation *ProjectInvitation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Replace_ProjectInvitation(ctx, project_invitation_project_id, project_invitation_email, optional)
+
+}
+
 func (rx *Rx) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -30273,12 +30273,6 @@ type Methods interface {
 		optional Project_Create_Fields) (
 		project *Project, err error)
 
-	Create_ProjectInvitation(ctx context.Context,
-		project_invitation_project_id ProjectInvitation_ProjectId_Field,
-		project_invitation_email ProjectInvitation_Email_Field,
-		optional ProjectInvitation_Create_Fields) (
-		project_invitation *ProjectInvitation, err error)
-
 	Create_ProjectMember(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -30807,6 +30801,12 @@ type Methods interface {
 		account_freeze_event_event AccountFreezeEvent_Event_Field,
 		optional AccountFreezeEvent_Create_Fields) (
 		account_freeze_event *AccountFreezeEvent, err error)
+
+	Replace_ProjectInvitation(ctx context.Context,
+		project_invitation_project_id ProjectInvitation_ProjectId_Field,
+		project_invitation_email ProjectInvitation_Email_Field,
+		optional ProjectInvitation_Create_Fields) (
+		project_invitation *ProjectInvitation, err error)
 
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,

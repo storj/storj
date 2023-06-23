@@ -14,16 +14,14 @@ import (
 //
 // architecture: Database
 type ProjectInvitations interface {
-	// Insert inserts a project member invitation into the database.
-	Insert(ctx context.Context, invite *ProjectInvitation) (*ProjectInvitation, error)
+	// Upsert updates a project member invitation if it exists and inserts it otherwise.
+	Upsert(ctx context.Context, invite *ProjectInvitation) (*ProjectInvitation, error)
 	// Get returns a project member invitation from the database.
 	Get(ctx context.Context, projectID uuid.UUID, email string) (*ProjectInvitation, error)
 	// GetByProjectID returns all of the project member invitations for the project specified by the given ID.
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]ProjectInvitation, error)
 	// GetByEmail returns all of the project member invitations for the specified email address.
 	GetByEmail(ctx context.Context, email string) ([]ProjectInvitation, error)
-	// Update updates the project member invitation specified by the given project ID and email address.
-	Update(ctx context.Context, projectID uuid.UUID, email string, request UpdateProjectInvitationRequest) (*ProjectInvitation, error)
 	// Delete removes a project member invitation from the database.
 	Delete(ctx context.Context, projectID uuid.UUID, email string) error
 	// DeleteBefore deletes project member invitations created prior to some time from the database.
@@ -36,10 +34,4 @@ type ProjectInvitation struct {
 	Email     string
 	InviterID *uuid.UUID
 	CreatedAt time.Time
-}
-
-// UpdateProjectInvitationRequest contains all fields which may be updated by ProjectInvitations.Update.
-type UpdateProjectInvitationRequest struct {
-	CreatedAt *time.Time
-	InviterID *uuid.UUID
 }
