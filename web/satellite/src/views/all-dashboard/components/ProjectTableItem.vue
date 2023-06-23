@@ -17,7 +17,7 @@
                 </div>
 
                 <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="project-item__menu__dropdown">
-                    <div class="project-item__menu__dropdown__item" @click.stop="goToProjectEdit">
+                    <div v-if="isOwner" class="project-item__menu__dropdown__item" @click.stop="goToProjectEdit">
                         <gear-icon />
                         <p class="project-item__menu__dropdown__item__label">Project settings</p>
                     </div>
