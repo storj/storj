@@ -3,7 +3,7 @@
 
 <template>
     <Teleport to="#app">
-        <div ref="viewContainer" class="gallery" tabindex="0" @keydown.esc="closeModal">
+        <div ref="viewContainer" class="gallery" tabindex="0" @keydown.esc="closeModal" @keydown.right="onNext" @keydown.left="onPrevious">
             <div class="gallery__header">
                 <LogoIcon class="gallery__header__logo" />
                 <SmallLogoIcon class="gallery__header__small-logo" />
@@ -19,13 +19,33 @@
                         :icon="DotsIcon"
                         :on-press="toggleDropdown"
                         :is-active="isOptionsDropdown === true"
+                        info="More"
                     />
-                    <ButtonIcon :icon="MapIcon" :on-press="() => setActiveModal(DistributionModal)" />
-                    <ButtonIcon class="gallery__header__functional__item" :icon="DownloadIcon" :on-press="download" />
-                    <ButtonIcon class="gallery__header__functional__item" :icon="ShareIcon" :on-press="() => setActiveModal(ShareModal)" />
-                    <ButtonIcon :icon="CloseIcon" :on-press="closeModal" />
+                    <ButtonIcon
+                        class="gallery__header__functional__item"
+                        :icon="MapIcon"
+                        :on-press="() => setActiveModal(DistributionModal)"
+                        info="Geographic Distribution"
+                    />
+                    <ButtonIcon
+                        :icon="DownloadIcon"
+                        :on-press="download"
+                        info="Download"
+                    />
+                    <ButtonIcon
+                        class="gallery__header__functional__item"
+                        :icon="ShareIcon"
+                        :on-press="() => setActiveModal(ShareModal)"
+                        info="Share"
+                    />
+                    <ButtonIcon
+                        :icon="CloseIcon"
+                        :on-press="closeModal"
+                        info="Close"
+                    />
                     <OptionsDropdown
                         v-if="isOptionsDropdown"
+                        :on-distribution="() => setActiveModal(DistributionModal)"
                         :on-view-details="() => setActiveModal(DetailsModal)"
                         :on-download="download"
                         :on-share="() => setActiveModal(ShareModal)"
@@ -253,7 +273,6 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
  */
 async function onDelete(): Promise<void> {
     try {
-        const objectsCount = obStore.sortedFiles.length;
         let newFile: BrowserObject | undefined = obStore.sortedFiles[fileIndex.value + 1];
         if (!newFile || newFile.type === folderType) {
             newFile = obStore.sortedFiles.find(f => f.type !== folderType && f.Key !== file.value.Key);
@@ -282,7 +301,13 @@ async function onDelete(): Promise<void> {
 async function download(): Promise<void> {
     try {
         await obStore.download(file.value);
-        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+        const message = `
+            <p class="message-title">Downloading...</p>
+            <p class="message-info">
+                Keep this download link private.<br>If you want to share, use the Share option.
+            </p>
+        `;
+        notify.success('', message);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
@@ -500,6 +525,16 @@ watch(filePath, () => {
             cursor: pointer;
             min-width: 46px;
 
+            &:hover {
+
+                :deep(rect)  {
+
+                    &:first-of-type {
+                        fill: rgb(255 255 255 / 10%);
+                    }
+                }
+            }
+
             @media screen and (width <= 600px) {
                 display: none;
             }
@@ -564,6 +599,16 @@ watch(filePath, () => {
                 svg {
                     width: 30px;
                     height: 30px;
+
+                    &:hover {
+
+                        :deep(rect)  {
+
+                            &:first-of-type {
+                                fill: rgb(255 255 255 / 10%);
+                            }
+                        }
+                    }
                 }
 
                 @media screen and (width <= 600px) {

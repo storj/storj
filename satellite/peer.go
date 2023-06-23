@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -215,6 +216,8 @@ type Config struct {
 	ProjectLimit accounting.ProjectLimitConfig
 
 	Analytics analytics.Config
+
+	PieceTracker piecetracker.Config
 }
 
 func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {

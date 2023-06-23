@@ -51,11 +51,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
-    function notifySuccess(message: string): void {
+    function notifySuccess(message: string, messageNode?: string): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NOTIFICATION_TYPES.SUCCESS,
             message,
+            messageNode,
         );
 
         addNotification(notification);

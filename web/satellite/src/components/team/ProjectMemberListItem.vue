@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { ProjectMember, ProjectMemberItemModel, ProjectRole } from '@/types/projectMembers';
+import { ProjectInvitationItemModel, ProjectMember, ProjectMemberItemModel, ProjectRole } from '@/types/projectMembers';
 import { useResize } from '@/composables/resize';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -38,7 +38,11 @@ const isProjectOwner = computed((): boolean => {
 const itemToRender = computed((): { [key: string]: unknown } => {
     let role: ProjectRole = ProjectRole.Member;
     if (props.model.isPending()) {
-        role = ProjectRole.Invited;
+        if ((props.model as ProjectInvitationItemModel).expired) {
+            role = ProjectRole.InviteExpired;
+        } else {
+            role = ProjectRole.Invited;
+        }
     } else if (isProjectOwner.value) {
         role = ProjectRole.Owner;
     }

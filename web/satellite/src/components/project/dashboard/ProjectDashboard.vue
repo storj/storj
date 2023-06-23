@@ -52,6 +52,7 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
+                    <h2 class="project-dashboard__charts__container__dimension">{{ getDimension(storageUsage) }}</h2>
                     <StorageChart
                         :width="chartWidth"
                         :height="170"
@@ -91,6 +92,9 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
+                    <h2 class="project-dashboard__charts__container__dimension">
+                        {{ getDimension([...settledBandwidthUsage, ...allocatedBandwidthUsage]) }}
+                    </h2>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
@@ -384,6 +388,14 @@ function hideBanner(): void {
  */
 function recalculateChartWidth(): void {
     chartWidth.value = chartContainer.value?.getBoundingClientRect().width || 0;
+}
+
+/**
+ * Returns dimension for given data values.
+ */
+function getDimension(dataStamps: DataStamp[]): Dimensions {
+    const maxValue = Math.max(...dataStamps.map(s => s.value));
+    return new Size(maxValue).label;
 }
 
 /**
@@ -682,6 +694,12 @@ onBeforeUnmount((): void => {
                             }
                         }
                     }
+                }
+
+                &__dimension {
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 14px;
+                    margin: 10px 0 0 12px;
                 }
 
                 &__loader {

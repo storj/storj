@@ -968,7 +968,15 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 
 		assert.Len(t, report.Successes, origNumPieces-1)
 		require.Len(t, report.Fails, 1)
-		assert.Equal(t, report.Fails[0], piece.StorageNode)
+		assert.Equal(t, metabase.Piece{
+			StorageNode: piece.StorageNode,
+			Number:      piece.Number,
+		}, report.Fails[0])
+		require.NotNil(t, report.Segment)
+		assert.Equal(t, segment.StreamID, report.Segment.StreamID)
+		assert.Equal(t, segment.Position, report.Segment.Position)
+		assert.Equal(t, segment.Redundancy, report.Segment.Redundancy)
+		assert.Equal(t, segment.Pieces, report.Segment.Pieces)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 	})
@@ -1196,7 +1204,15 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], lastPiece.StorageNode)
+		require.Equal(t, metabase.Piece{
+			StorageNode: lastPiece.StorageNode,
+			Number:      lastPiece.Number,
+		}, report.Fails[0])
+		require.NotNil(t, report.Segment)
+		assert.Equal(t, segmentAfterRepair.StreamID, report.Segment.StreamID)
+		assert.Equal(t, segmentAfterRepair.Position, report.Segment.Position)
+		assert.Equal(t, segmentAfterRepair.Redundancy, report.Segment.Redundancy)
+		assert.Equal(t, segmentAfterRepair.Pieces, report.Segment.Pieces)
 	})
 }
 

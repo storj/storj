@@ -292,4 +292,5 @@ export enum ProjectRole {
     Member = 'Member',
     Owner = 'Owner',
     Invited = 'Invited',
+    InviteExpired = 'Invite Expired',
 }

@@ -219,6 +219,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			log.Named("reporter"),
 			peer.Reputation,
 			peer.Overlay,
+			metabaseDB,
 			containmentDB,
 			config.Audit.MaxRetriesStatDB,
 			int32(config.Audit.MaxReverifyCount))

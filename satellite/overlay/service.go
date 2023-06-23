@@ -47,8 +47,6 @@ var ErrLowDifficulty = errs.Class("node id difficulty too low")
 //
 // architecture: Database
 type DB interface {
-	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
-	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (map[storj.NodeID]*SelectedNode, error)
 	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
@@ -394,13 +392,6 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 		return nil, ErrEmptyNode
 	}
 	return service.db.Get(ctx, nodeID)
-}
-
-// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
 }
 
 // CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.

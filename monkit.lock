@@ -6,6 +6,7 @@ storj.io/storj/satellite/accounting."bucket_segments" IntVal
 storj.io/storj/satellite/accounting."total_bytes" IntVal
 storj.io/storj/satellite/accounting."total_objects" IntVal
 storj.io/storj/satellite/accounting."total_segments" IntVal
+storj.io/storj/satellite/accounting/tally."bucket_tally_error" Event
 storj.io/storj/satellite/accounting/tally."nodetallies.totalsum" IntVal
 storj.io/storj/satellite/audit."audit_contained_nodes" IntVal
 storj.io/storj/satellite/audit."audit_contained_nodes_global" Meter
