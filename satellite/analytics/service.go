@@ -88,6 +88,7 @@ const (
 	eventExpiredCreditRemoved         = "Expired Credit Removed"
 	eventProjectInvitationAccepted    = "Project Invitation Accepted"
 	eventProjectInvitationDeclined    = "Project Invitation Declined"
+	eventGalleryViewClicked           = "Gallery View Clicked"
 )
 
 var (
@@ -156,7 +157,9 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventSeePaymentsClicked, eventEditPaymentMethodClicked, eventUsageDetailedInfoClicked, eventAddNewPaymentMethodClicked,
 		eventApplyNewCouponClicked, eventCreditCardRemoved, eventCouponCodeApplied, eventInvoiceDownloaded, eventCreditCardAddedFromBilling,
 		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent, eventError, eventProjectNameUpdated, eventProjectDescriptionUpdated,
-		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined} {
+		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
+		eventGalleryViewClicked,
+	} {
 		service.clientEvents[name] = true
 	}
 
