@@ -36,28 +36,35 @@
         <div class="team-header-container__divider" />
 
         <div class="team-header-container__wrapper">
-            <VSearchAlternateStyling
+            <VSearch
                 ref="searchInput"
                 class="team-header-container__wrapper__search"
-                placeholder="members"
                 :search="processSearchQuery"
             />
-            <div>
-                <div v-if="areProjectMembersSelected" class="header-selected-members">
+            <div v-if="selectedEmailsLength" class="team-header-container__wrapper__right">
+                <span class="team-header-container__wrapper__right__selected-text">
+                    {{ selectedEmailsLength }} user{{ selectedEmailsLength !== 1 ? 's' : '' }} selected
+                </span>
+                <div class="team-header-container__wrapper__right__buttons">
                     <VButton
-                        class="button deletion"
+                        class="team-header-container__wrapper__right__buttons__button"
                         label="Delete"
-                        width="122px"
-                        height="40px"
+                        border-radius="8px"
+                        font-size="12px"
+                        is-white
+                        icon="trash"
                         :on-press="toggleRemoveTeamMembersModal"
                     />
                     <VButton
-                        class="button"
-                        label="Cancel"
-                        width="122px"
-                        height="40px"
-                        :is-transparent="true"
-                        :on-press="onClearSelection"
+                        v-if="resendInvitesShown"
+                        class="team-header-container__wrapper__right__buttons__button"
+                        label="Resend invite"
+                        border-radius="8px"
+                        font-size="12px"
+                        is-white
+                        icon="upload"
+                        :on-press="resendInvites"
+                        :is-disabled="isLoading"
                     />
                 </div>
             </div>
@@ -68,45 +75,40 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 
-import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VButton from '@/components/common/VButton.vue';
-import VSearchAlternateStyling from '@/components/common/VSearchAlternateStyling.vue';
+import VSearch from '@/components/common/VSearch.vue';
 
 import InfoIcon from '@/../static/images/team/infoTooltip.svg';
-
-interface ClearSearch {
-    clearSearch(): void;
-}
 
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+
+const analytics = new AnalyticsHttpApi();
 
 const props = withDefaults(defineProps<{
-    headerState: ProjectMemberHeaderState;
     isAddButtonDisabled: boolean;
 }>(), {
-    headerState: ProjectMemberHeaderState.DEFAULT,
     isAddButtonDisabled: false,
 });
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const isDeleteClicked = ref<boolean>(false);
-const searchInput = ref<typeof VSearchAlternateStyling & ClearSearch>();
+const searchInput = ref<InstanceType<typeof VSearch> | null>(null);
 
 /**
  * Returns the name of the selected project from store.
@@ -115,8 +117,15 @@ const projectName = computed((): string => {
     return projectsStore.state.selectedProject.name;
 });
 
-const areProjectMembersSelected = computed((): boolean => {
-    return props.headerState === 1 && !isDeleteClicked.value;
+const selectedEmailsLength = computed((): number => {
+    return pmStore.state.selectedProjectMembersEmails.length;
+});
+
+const resendInvitesShown = computed((): boolean => {
+    const expired = pmStore.state.page.projectInvitations.filter(invite => invite.expired);
+    return pmStore.state.selectedProjectMembersEmails.every(email => {
+        return expired.some(invite => invite.email === email);
+    });
 });
 
 /**
@@ -128,14 +137,6 @@ function toggleAddTeamMembersModal(): void {
 
 function toggleRemoveTeamMembersModal(): void {
     appStore.updateActiveModal(MODALS.removeTeamMember);
-}
-
-/**
- * Clears selection and returns area state to default.
- */
-function onClearSelection(): void {
-    pmStore.clearProjectMemberSelection();
-    isDeleteClicked.value = false;
 }
 
 /**
@@ -159,6 +160,29 @@ async function processSearchQuery(search: string): Promise<void> {
 }
 
 /**
+ * resendInvites resends project member invitations.
+ * It expects that all of the selected project member emails belong to expired invitations.
+ */
+async function resendInvites(): Promise<void> {
+    await withLoading(async () => {
+        analytics.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
+
+        try {
+            await pmStore.inviteMembers(pmStore.state.selectedProjectMembersEmails, projectsStore.state.selectedProject.id);
+            notify.success('Invites re-sent!');
+        } catch (error) {
+            notify.error(`Unable to resend project invitations. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        }
+
+        try {
+            await pmStore.refresh();
+        } catch (error) {
+            notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        }
+    });
+}
+
+/**
  * Lifecycle hook after initial render.
  * Set up listener to clear search bar.
  */
@@ -177,10 +201,9 @@ onMounted((): void => {
 
 /**
  * Lifecycle hook before component destruction.
- * Clears selection and search query for team members page.
+ * Clears search query for team members page.
  */
 onBeforeUnmount((): void => {
-    onClearSelection();
     pmStore.setSearchQuery('');
 });
 </script>
@@ -230,17 +253,6 @@ onBeforeUnmount((): void => {
                     margin-left: 10px;
                     display: inline;
 
-                    &:hover {
-
-                        .team-header-svg-path {
-                            fill: #fff;
-                        }
-
-                        .team-header-svg-rect {
-                            fill: #2683ff;
-                        }
-                    }
-
                     &__message {
                         color: #586c86;
                         font-family: 'font_regular', sans-serif;
@@ -257,103 +269,68 @@ onBeforeUnmount((): void => {
             background: #dadfe7;
             margin: 24px 0;
         }
-    }
 
-    .header-default-state,
-    .header-after-delete-click {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-
-        &__info-text {
-            font-family: 'font_medium', sans-serif;
-            font-size: 14px;
-            line-height: 28px;
-        }
-
-        &__delete-confirmation {
-            font-family: 'font_regular', sans-serif;
-            font-size: 14px;
-            line-height: 28px;
-        }
-
-        &__button-area {
+        &__wrapper {
+            position: relative;
             display: flex;
-        }
-    }
-
-    .header-selected-members {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        &__info-text {
-            margin-left: 25px;
-            line-height: 48px;
-        }
-    }
-
-    .button {
-        margin-right: 12px;
-    }
-
-    .team-header-container__wrapper {
-        position: relative;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        @media screen and (width <= 1150px) {
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: flex-start;
-            row-gap: 10px;
-        }
-
-        &__search {
-            position: static;
-        }
-
-        .blur-content {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background-color: #f5f6fa;
-            width: 100%;
-            height: 70vh;
-            z-index: 100;
-            opacity: 0.3;
-        }
-
-        .blur-search {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 300px;
-            height: 40px;
-            z-index: 100;
-            opacity: 0.3;
-            background-color: #f5f6fa;
+            align-items: center;
+            justify-content: space-between;
 
             @media screen and (width <= 1150px) {
-                bottom: unset;
-                right: 0;
-                width: unset;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                row-gap: 10px;
             }
-        }
-    }
 
-    .container.deletion {
-        background-color: #ff4f4d;
+            &__search {
+                position: static;
+            }
 
-        &.label {
-            color: #fff;
-        }
+            &__right {
+                display: flex;
+                align-items: center;
+                gap: 20px;
 
-        &:hover {
-            background-color: #de3e3d;
-            box-shadow: none;
+                @media screen and (width <= 1150px) {
+                    width: 100%;
+                    flex-direction: column-reverse;
+                    align-items: flex-start;
+                    gap: 8px;
+                }
+
+                &__selected-text {
+                    color: rgb(0 0 0 / 60%);
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 14px;
+                    line-height: 24px;
+                }
+
+                &__buttons {
+                    display: flex;
+                    gap: 14px;
+
+                    @media screen and (width <= 1150px) {
+                        width: 100%;
+                    }
+
+                    &__button {
+                        padding: 8px 12px;
+
+                        @media screen and (width <= 1150px) {
+                            padding: 12px;
+                        }
+
+                        :deep(.label) {
+                            color: #56606D !important;
+                        }
+
+                        :deep(path) {
+                            fill: #56606D !important;
+                        }
+                    }
+                }
+            }
         }
     }
 

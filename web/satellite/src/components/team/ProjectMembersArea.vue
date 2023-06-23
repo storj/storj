@@ -3,13 +3,11 @@
 
 <template>
     <div class="team-area">
-        <div class="team-area__header">
-            <HeaderArea
-                :header-state="headerState"
-                :selected-project-members-count="selectedProjectMembersLength"
-                :is-add-button-disabled="areMembersFetching"
-            />
-        </div>
+        <HeaderArea
+            class="team-area__header"
+            :selected-project-members-count="selectedProjectMembersLength"
+            :is-add-button-disabled="areMembersFetching"
+        />
         <VLoader v-if="areMembersFetching" width="100px" height="100px" />
 
         <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
@@ -49,10 +47,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import {
-    ProjectMemberHeaderState,
-    ProjectMemberItemModel,
-} from '@/types/projectMembers';
+import { ProjectMemberItemModel } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -117,10 +112,6 @@ const selectedProjectMembersLength = computed((): number => {
     return pmStore.state.selectedProjectMembersEmails.length;
 });
 
-const headerState = computed((): number => {
-    return selectedProjectMembersLength.value > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
-});
-
 const isEmptySearchResultShown = computed((): boolean => {
     return projectMembersCount.value === 0 && projectMembersTotalCount.value === 0;
 });
@@ -171,6 +162,7 @@ onMounted(async (): Promise<void> => {
 
         &__header {
             width: 100%;
+            margin-bottom: 20px;
             background-color: #f5f6fa;
             top: auto;
         }

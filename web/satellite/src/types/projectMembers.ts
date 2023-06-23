@@ -17,18 +17,6 @@ export enum ProjectMemberOrderBy {
 }
 
 /**
- * Contains values of project members header component state
- * used in ProjectMembersArea and HeaderArea.
- */
-export enum ProjectMemberHeaderState {
-    DEFAULT = 0,
-    /**
-     * Used when some project members selected
-     */
-    ON_SELECT,
-}
-
-/**
  * ProjectMembersApi is a graphql implementation of ProjectMembers API.
  * Exposes all ProjectMembers-related functionality
  */

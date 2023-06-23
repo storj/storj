@@ -20,6 +20,7 @@ export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
     public selectedProjectMembersEmails: string[] = [];
+    public lastProjectID = '';
 }
 
 export const useProjectMembersStore = defineStore('projectMembers', () => {
@@ -40,6 +41,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     async function getProjectMembers(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<ProjectMembersPage> {
         state.cursor.page = page;
         state.cursor.limit = limit;
+        state.lastProjectID = projectID;
 
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
@@ -96,6 +98,11 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.page.getAllItems().forEach(member => member.setSelected(false));
     }
 
+    async function refresh(): Promise<void> {
+        clearProjectMemberSelection();
+        await getProjectMembers(state.cursor.page, state.lastProjectID, state.cursor.limit);
+    }
+
     function clear() {
         state.cursor = new ProjectMemberCursor();
         state.page = new ProjectMembersPage();
@@ -115,6 +122,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         setPageNumber,
         toggleProjectMemberSelection,
         clearProjectMemberSelection,
+        refresh,
         clear,
     };
 });

@@ -3,12 +3,7 @@
 
 <template>
     <div class="buckets-table">
-        <VHeader
-            class="buckets-table__search"
-            placeholder="Buckets"
-            :search="searchBuckets"
-            style-type="access"
-        />
+        <VSearch class="buckets-table__search" :search="searchBuckets" />
         <VLoader
             v-if="isLoading || searchLoading"
             width="100px"
@@ -84,8 +79,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VHeader from '@/components/common/VHeader.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
+import VSearch from '@/components/common/VSearch.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
@@ -245,7 +240,6 @@ onBeforeUnmount(() => {
 
         &__search {
             margin-bottom: 20px;
-            height: 56px;
         }
 
         &__loader {

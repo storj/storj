@@ -145,7 +145,7 @@ import EndDateSelection from '@/components/accessGrants/createFlow/components/En
 import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import SearchIcon from '@/../static/images/accessGrants/newCreateFlow/search.svg';
+import SearchIcon from '@/../static/images/common/search.svg';
 import CloseIcon from '@/../static/images/accessGrants/newCreateFlow/close.svg';
 
 const props = withDefaults(defineProps<{

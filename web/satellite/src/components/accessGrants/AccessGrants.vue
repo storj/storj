@@ -110,12 +110,7 @@
         <div class="access-grants__header-container">
             <h3 class="access-grants__header-container__title">My Accesses</h3>
             <div class="access-grants__header-container__divider" />
-            <VHeader
-                class="access-header-component"
-                placeholder="Accesses"
-                :search="fetch"
-                style-type="access"
-            />
+            <VSearch :search="fetch" />
         </div>
         <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
         <div class="access-grants-items">
@@ -175,8 +170,8 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VHeader from '@/components/common/VHeader.vue';
 import VTable from '@/components/common/VTable.vue';
+import VSearch from '@/components/common/VSearch.vue';
 
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
@@ -465,10 +460,6 @@ onBeforeUnmount(() => {
         .access-grants-items {
             padding-bottom: 55px;
 
-            @media screen and (width <= 1150px) {
-                margin-top: -45px;
-            }
-
             &__content {
                 margin-top: 20px;
             }
@@ -505,12 +496,7 @@ onBeforeUnmount(() => {
                 height: 1px;
                 width: auto;
                 background-color: #dadfe7;
-                margin-top: 10px;
-            }
-
-            &__access-header-component {
-                height: 55px !important;
-                margin-top: 15px;
+                margin: 13px 0 16px;
             }
         }
     }
