@@ -83,9 +83,9 @@ const icon = computed((): string => ObjectType.findIcon(props.itemType));
 const customIconClasses = computed(() => {
     const classes = {};
     if (props.itemType === 'project') {
-        if (props.item['owner']) {
+        if (props.item['role'] === ProjectRole.Owner) {
             classes['project-owner'] = true;
-        } else {
+        } else if (props.item['role'] === ProjectRole.Member) {
             classes['project-member'] = true;
         }
     }
