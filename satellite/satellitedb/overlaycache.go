@@ -322,54 +322,6 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// KnownOffline filters a set of nodes to offline nodes.
-func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
-	for {
-		offlineNodes, err = cache.knownOffline(ctx, criteria, nodeIDs)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return offlineNodes, err
-		}
-		break
-	}
-
-	return offlineNodes, err
-}
-
-func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(nodeIds) == 0 {
-		return nil, Error.New("no ids provided")
-	}
-
-	// get offline nodes
-	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
-		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
-			WHERE id = any($1::bytea[])
-			AND last_contact_success < $2
-		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
-		}
-		offlineNodes = append(offlineNodes, id)
-	}
-	return offlineNodes, Error.Wrap(rows.Err())
-}
-
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	for {

@@ -60,8 +60,6 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownOffline filters a set of nodes to offline nodes
-	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
@@ -540,15 +538,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	return nodes, nil
-}
-
-// KnownOffline filters a set of nodes to offline nodes.
-func (service *Service) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		OnlineWindow: service.config.Node.OnlineWindow,
-	}
-	return service.db.KnownOffline(ctx, criteria, nodeIds)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
