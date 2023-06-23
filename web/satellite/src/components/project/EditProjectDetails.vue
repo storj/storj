@@ -215,6 +215,7 @@ import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { RouteConfig } from '@/types/router';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -635,6 +636,21 @@ function onBackClick(): void {
 onMounted(async (): Promise<void> => {
     const projectID = projectsStore.state.selectedProject.id;
     if (!projectID) return;
+
+    if (projectsStore.state.selectedProject.ownerId !== usersStore.state.user.id) {
+        await router.replace(configStore.state.config.allProjectsDashboard ? RouteConfig.AllProjectsDashboard : RouteConfig.ProjectDashboard.path);
+        return;
+    }
+
+    projectsStore.$onAction(({ name, after }) => {
+        if (name === 'selectProject') {
+            after((_) => {
+                if (projectsStore.state.selectedProject.ownerId !== usersStore.state.user.id) {
+                    router.replace(RouteConfig.ProjectDashboard.path);
+                }
+            });
+        }
+    });
 
     if (usersStore.state.user.paidTier) {
         isPaidTier.value = true;
