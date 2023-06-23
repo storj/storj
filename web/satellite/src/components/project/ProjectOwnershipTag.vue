@@ -41,6 +41,7 @@ const icon = computed((): string => {
     border: 1px solid var(--c-yellow-2);
     border-radius: 24px;
     color: var(--c-yellow-5);
+    background: var(--c-white);
 
     :deep(path) {
         fill: var(--c-yellow-5);
