@@ -15,7 +15,7 @@ pipeline {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
-        PLAYWRIGHT_BROWSERS_PATH=0
+        PLAYWRIGHT_BROWSERS_PATH= '/ms-playwright'
     }
     stages {
         stage('Checkout') {
@@ -105,7 +105,7 @@ pipeline {
 					// sh 'npm install'
 					// sh 'npx playwright install'
 					// sh 'npm install'
-					sh 'npm install -D @playwright/test'
+					// sh 'npm install -D @playwright/test'
 					// sh 'npx playwright install'
 			    }
             }
