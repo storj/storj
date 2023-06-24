@@ -345,7 +345,53 @@ func TestGetObjectLastCommitted(t *testing.T) {
 			copiedObj, _, _ := metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObject,
 				CopyObjectStream: &copyObjStream,
-			}.Run(ctx, t, db)
+			}.Run(ctx, t, db, false)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					Version:        1,
+					ObjectLocation: obj.Location(),
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{originalObject},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: copiedObj.Location(),
+				},
+				Result: copiedObj,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  copiedObj.ProjectID,
+						BucketName: copiedObj.BucketName,
+						ObjectKey:  copiedObj.ObjectKey,
+						Version:    copiedObj.Version,
+						StreamID:   copiedObj.StreamID,
+					},
+					CreatedAt:                     now,
+					Status:                        metabase.Committed,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadata:             copiedObj.EncryptedMetadata,
+					EncryptedMetadataNonce:        copiedObj.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: copiedObj.EncryptedMetadataEncryptedKey,
+				},
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			copyObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			copiedObj, _, _ := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObject,
+				CopyObjectStream: &copyObjStream,
+			}.Run(ctx, t, db, true)
 
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
@@ -1114,7 +1160,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			copyObj, _, newSegments := metabasetest.CreateObjectCopy{
 				OriginalObject: originalObj,
-			}.Run(ctx, t, db)
+			}.Run(ctx, t, db, false)
 
 			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{
@@ -1147,6 +1193,54 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					StreamID:         copyObj.StreamID,
 					AncestorStreamID: originalObj.StreamID,
 				}},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Get segment copy with duplicate metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+
+			originalObj, originalSegments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStream,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, objStream, 1)
+
+			copyObj, _, newSegments := metabasetest.CreateObjectCopy{
+				OriginalObject: originalObj,
+			}.Run(ctx, t, db, true)
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: originalObj.Location(),
+				},
+				Result: originalSegments[0],
+			}.Check(ctx, t, db)
+
+			copySegmentGet := originalSegments[0]
+			copySegmentGet.StreamID = copyObj.StreamID
+			copySegmentGet.EncryptedETag = nil
+			copySegmentGet.InlineData = []byte{}
+			copySegmentGet.EncryptedKey = newSegments[0].EncryptedKey
+			copySegmentGet.EncryptedKeyNonce = newSegments[0].EncryptedKeyNonce
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: copyObj.Location(),
+				},
+				Result: copySegmentGet,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+					metabase.RawObject(copyObj),
+				},
+				Segments: append(metabasetest.SegmentsToRaw(originalSegments), newSegments...),
 			}.Check(ctx, t, db)
 		})
 

@@ -193,7 +193,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			_, _, _ = metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObj,
 				CopyObjectStream: &copyStream,
-			}.Run(ctx, t, db)
+			}.Run(ctx, t, db, false)
 
 			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{

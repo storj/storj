@@ -321,7 +321,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj,
 						CopyObjectStream: &copyObjectStream,
-					}.Run(ctx, t, db)
+					}.Run(ctx, t, db, false)
 
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 						Bucket: metabase.BucketLocation{
@@ -362,7 +362,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					copyObj, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj,
 						CopyObjectStream: &copyObjectStream,
-					}.Run(ctx, t, db)
+					}.Run(ctx, t, db, false)
 
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 						Bucket: metabase.BucketLocation{
@@ -420,12 +420,78 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj1,
 						CopyObjectStream: &copyObjectStream1,
-					}.Run(ctx, t, db)
+					}.Run(ctx, t, db, false)
 
 					copyObj2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj2,
 						CopyObjectStream: &copyObjectStream2,
-					}.Run(ctx, t, db)
+					}.Run(ctx, t, db, false)
+
+					// done preparing, delete bucket 1
+					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+						Bucket: metabase.BucketLocation{
+							ProjectID:  projectID,
+							BucketName: "bucket2",
+						},
+						BatchSize: 2,
+					})
+					require.NoError(t, err)
+
+					// Prepare for check.
+					// obj1 is the same as before, copyObj2 should now be the original
+					for i := range copySegments2 {
+						copySegments2[i].Pieces = originalSegments2[i].Pieces
+					}
+
+					metabasetest.Verify{
+						Objects: []metabase.RawObject{
+							metabase.RawObject(originalObj1),
+							metabase.RawObject(copyObj2),
+						},
+						Segments: append(copySegments2, metabasetest.SegmentsToRaw(originalSegments1)...),
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("delete bucket which has one ancestor and one copy with duplicate metadata", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					originalObjStream1 := metabasetest.RandObjectStream()
+					originalObjStream1.BucketName = "bucket1"
+
+					projectID := originalObjStream1.ProjectID
+
+					originalObjStream2 := metabasetest.RandObjectStream()
+					originalObjStream2.ProjectID = projectID
+					originalObjStream2.BucketName = "bucket2"
+
+					originalObj1, originalSegments1 := metabasetest.CreateTestObject{
+						CommitObject: &metabase.CommitObject{
+							ObjectStream: originalObjStream1,
+						},
+					}.Run(ctx, t, db, originalObjStream1, byte(numberOfSegments))
+
+					originalObj2, originalSegments2 := metabasetest.CreateTestObject{
+						CommitObject: &metabase.CommitObject{
+							ObjectStream: originalObjStream2,
+						},
+					}.Run(ctx, t, db, originalObjStream2, byte(numberOfSegments))
+
+					copyObjectStream1 := metabasetest.RandObjectStream()
+					copyObjectStream1.ProjectID = projectID
+					copyObjectStream1.BucketName = "bucket2" // copy from bucket 1 to bucket 2
+
+					copyObjectStream2 := metabasetest.RandObjectStream()
+					copyObjectStream2.ProjectID = projectID
+					copyObjectStream2.BucketName = "bucket1" // copy from bucket 2 to bucket 1
+
+					metabasetest.CreateObjectCopy{
+						OriginalObject:   originalObj1,
+						CopyObjectStream: &copyObjectStream1,
+					}.Run(ctx, t, db, true)
+
+					copyObj2, _, copySegments2 := metabasetest.CreateObjectCopy{
+						OriginalObject:   originalObj2,
+						CopyObjectStream: &copyObjectStream2,
+					}.Run(ctx, t, db, true)
 
 					// done preparing, delete bucket 1
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{

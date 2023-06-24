@@ -52,6 +52,10 @@ type FinishCopyObject struct {
 
 	NewSegmentKeys []EncryptedKeyAndNonce
 
+	// If set, copy the object by duplicating the metadata and
+	// remote_alias_pieces list, rather than using segment_copies.
+	DuplicateMetadata bool
+
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out completing the copy would exceed a limit.
 	// It will be called only once.
@@ -147,47 +151,96 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		plainSizes := make([]int32, sourceObject.SegmentCount)
 		plainOffsets := make([]int64, sourceObject.SegmentCount)
 		inlineDatas := make([][]byte, sourceObject.SegmentCount)
+		placementConstraints := make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+		remoteAliasPiecesLists := make([][]byte, sourceObject.SegmentCount)
 
 		redundancySchemes := make([]int64, sourceObject.SegmentCount)
-		err = withRows(db.db.QueryContext(ctx, `
-			SELECT
-				position,
-				expires_at,
-				root_piece_id,
-				encrypted_size, plain_offset, plain_size,
-				redundancy,
-				inline_data
-			FROM segments
-			WHERE stream_id = $1
-			ORDER BY position ASC
-			LIMIT  $2
+
+		if opts.DuplicateMetadata {
+			err = withRows(db.db.QueryContext(ctx, `
+				SELECT
+					position,
+					expires_at,
+					root_piece_id,
+					encrypted_size, plain_offset, plain_size,
+					redundancy,
+					remote_alias_pieces,
+					placement,
+					inline_data
+				FROM segments
+				WHERE stream_id = $1
+				ORDER BY position ASC
+				LIMIT  $2
 			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
-			index := 0
-			for rows.Next() {
-				err := rows.Scan(
-					&positions[index],
-					&expiresAts[index],
-					&rootPieceIDs[index],
-					&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
-					&redundancySchemes[index],
-					&inlineDatas[index],
-				)
-				if err != nil {
+				index := 0
+				for rows.Next() {
+					err := rows.Scan(
+						&positions[index],
+						&expiresAts[index],
+						&rootPieceIDs[index],
+						&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
+						&redundancySchemes[index],
+						&remoteAliasPiecesLists[index],
+						&placementConstraints[index],
+						&inlineDatas[index],
+					)
+					if err != nil {
+						return err
+					}
+					index++
+				}
+
+				if err := rows.Err(); err != nil {
 					return err
 				}
-				index++
-			}
 
-			if err := rows.Err(); err != nil {
-				return err
-			}
+				if index != int(sourceObject.SegmentCount) {
+					return Error.New("could not load all of the segment information")
+				}
 
-			if index != int(sourceObject.SegmentCount) {
-				return Error.New("could not load all of the segment information")
-			}
+				return nil
+			})
+		} else {
+			err = withRows(db.db.QueryContext(ctx, `
+				SELECT
+					position,
+					expires_at,
+					root_piece_id,
+					encrypted_size, plain_offset, plain_size,
+					redundancy,
+					inline_data
+				FROM segments
+				WHERE stream_id = $1
+				ORDER BY position ASC
+				LIMIT  $2
+			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
+				index := 0
+				for rows.Next() {
+					err := rows.Scan(
+						&positions[index],
+						&expiresAts[index],
+						&rootPieceIDs[index],
+						&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
+						&redundancySchemes[index],
+						&inlineDatas[index],
+					)
+					if err != nil {
+						return err
+					}
+					index++
+				}
 
-			return nil
-		})
+				if err := rows.Err(); err != nil {
+					return err
+				}
+
+				if index != int(sourceObject.SegmentCount) {
+					return Error.New("could not load all of the segment information")
+				}
+
+				return nil
+			})
+		}
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
@@ -275,6 +328,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				root_piece_id,
 				redundancy,
 				encrypted_size, plain_offset, plain_size,
+				remote_alias_pieces, placement,
 				inline_data
 			) SELECT
 				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
@@ -282,12 +336,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				UNNEST($6::BYTEA[]),
 				UNNEST($7::INT8[]),
 				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
-				UNNEST($11::BYTEA[])
+				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
+				UNNEST($13::BYTEA[])
 		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(expiresAts),
 			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
 			pgutil.ByteaArray(rootPieceIDs),
 			pgutil.Int8Array(redundancySchemes),
 			pgutil.Int4Array(encryptedSizes), pgutil.Int8Array(plainOffsets), pgutil.Int4Array(plainSizes),
+			pgutil.ByteaArray(remoteAliasPiecesLists), pgutil.PlacementConstraintArray(placementConstraints),
 			pgutil.ByteaArray(inlineDatas),
 		)
 		if err != nil {
@@ -298,15 +354,17 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return nil
 		}
 
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO segment_copies (
-				stream_id, ancestor_stream_id
-			) VALUES (
-				$1, $2
-			)
-		`, opts.NewStreamID, ancestorStreamID)
-		if err != nil {
-			return Error.New("unable to copy object: %w", err)
+		if !opts.DuplicateMetadata {
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO segment_copies (
+					stream_id, ancestor_stream_id
+				) VALUES (
+					$1, $2
+				)
+			`, opts.NewStreamID, ancestorStreamID)
+			if err != nil {
+				return Error.New("unable to copy object: %w", err)
+			}
 		}
 
 		return nil
