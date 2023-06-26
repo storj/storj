@@ -6,23 +6,15 @@
         <div class="banner__left">
             <LockedIcon class="banner__left__icon" />
             <div class="banner__left__labels">
-                <template v-if="objectsCount <= NUMBER_OF_DISPLAYED_OBJECTS">
-                    <h2 class="banner__left__labels__title">
-                        You have at least {{ lockedFilesNumber }} object{{ lockedFilesNumber > 1 ? 's' : '' }} locked with a
-                        different passphrase.
-                    </h2>
-                    <p class="banner__left__labels__subtitle">Enter your other passphrase to access these files.</p>
-                </template>
-                <template v-else>
-                    <h2 class="banner__left__labels__title">
-                        Due to the number of objects you have uploaded to this bucket, {{ lockedFilesNumber }} files are
-                        not displayed.
-                    </h2>
-                </template>
+                <h2 class="banner__left__labels__title">
+                    You have at least {{ lockedFilesCount }} object{{ lockedFilesCount > 1 ? 's' : '' }} locked with a
+                    different passphrase.
+                </h2>
+                <p class="banner__left__labels__subtitle">Enter your other passphrase to access these files.</p>
             </div>
         </div>
         <div class="banner__right">
-            <p v-if="objectsCount <= NUMBER_OF_DISPLAYED_OBJECTS" class="banner__right__unlock" @click="openManageModal">
+            <p class="banner__right__unlock" @click="openManageModal">
                 Unlock now
             </p>
             <CloseIcon class="banner__right__close" @click="onClose" />
@@ -31,48 +23,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
-import { Bucket } from '@/types/buckets';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
 
-const props = withDefaults(defineProps<{
-    onClose?: () => void;
-}>(), {
-    onClose: () => {},
-});
+const props = defineProps<{
+    lockedFilesCount: number
+    onClose: () => void
+}>();
 
 const appStore = useAppStore();
-const bucketsStore = useBucketsStore();
-const obStore = useObjectBrowserStore();
-
-const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-
-/**
- * Returns locked files number.
- */
-const lockedFilesNumber = computed((): number => {
-    const ownObjectsCount = obStore.state.objectsCount;
-
-    return objectsCount.value - ownObjectsCount;
-});
-
-/**
- * Returns bucket objects count from store.
- */
-const objectsCount = computed((): number => {
-    const name: string = obStore.state.bucket;
-    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
-
-    return data?.objectCount || 0;
-});
 
 /**
  * Opens switch passphrase modal.
