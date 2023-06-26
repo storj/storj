@@ -64,14 +64,12 @@ func BenchmarkOverlay(b *testing.B) {
 			check = append(check, testrand.NodeID())
 		}
 
-		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
-			criteria := &overlay.NodeCriteria{
-				OnlineWindow: 1000 * time.Hour,
-			}
+		b.Run("KnownReliable", func(b *testing.B) {
+			onlineWindow := 1000 * time.Hour
 			for i := 0; i < b.N; i++ {
-				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
+				online, _, err := overlaydb.KnownReliable(ctx, check, onlineWindow, 0)
 				require.NoError(b, err)
-				require.Len(b, badNodes, OfflineCount)
+				require.Len(b, online, OnlineCount)
 			}
 		})
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -60,12 +61,10 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
 	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
-	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []SelectedNode, offline []SelectedNode, err error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
@@ -540,15 +539,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	return nodes, nil
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
-func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		OnlineWindow: service.config.Node.OnlineWindow,
-	}
-	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
-}
-
 // InsertOfflineNodeEvents inserts offline events into node events.
 func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown time.Duration, cutoff time.Duration, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -594,9 +584,11 @@ func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, no
 }
 
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
-func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (onlineNodes []SelectedNode, offlineNodes []SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.KnownReliable(ctx, service.config.Node.OnlineWindow, nodeIDs)
+
+	// TODO add as of system time
+	return service.db.KnownReliable(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
 }
 
 // Reliable filters a set of nodes that are reliable, independent of new.
@@ -771,23 +763,23 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 // GetMissingPieces returns the list of offline nodes and the corresponding pieces.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// TODO this method will be removed completely in subsequent change
 	var nodeIDs storj.NodeIDList
+	missingPiecesMap := map[storj.NodeID]uint16{}
 	for _, p := range pieces {
 		nodeIDs = append(nodeIDs, p.StorageNode)
+		missingPiecesMap[p.StorageNode] = p.Number
 	}
-	badNodeIDs, err := service.KnownUnreliableOrOffline(ctx, nodeIDs)
+	onlineNodes, _, err := service.KnownReliable(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.New("error getting nodes %s", err)
 	}
 
-	for _, p := range pieces {
-		for _, nodeID := range badNodeIDs {
-			if nodeID == p.StorageNode {
-				missingPieces = append(missingPieces, p.Number)
-			}
-		}
+	for _, node := range onlineNodes {
+		delete(missingPiecesMap, node.ID)
 	}
-	return missingPieces, nil
+	return maps.Values(missingPiecesMap), nil
 }
 
 // GetReliablePiecesInExcludedCountries returns the list of pieces held by nodes located in excluded countries.

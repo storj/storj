@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -25,13 +26,10 @@ func TestStatDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testDatabase(ctx, t, db.OverlayCache())
 	})
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testDatabase(ctx, t, db.OverlayCache())
-	})
 }
 
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
-	{ // TestKnownUnreliableOrOffline and TestReliable
+	{ // Test KnownReliable and Reliable
 		for i, tt := range []struct {
 			nodeID                storj.NodeID
 			unknownAuditSuspended bool
@@ -108,16 +106,24 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			ExcludedCountries: []string{"FR", "BE"},
 		}
 
-		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
+		contains := func(nodeID storj.NodeID) func(node overlay.SelectedNode) bool {
+			return func(node overlay.SelectedNode) bool {
+				return node.ID == nodeID
+			}
+		}
+
+		online, offline, err := cache.KnownReliable(ctx, nodeIds, criteria.OnlineWindow, criteria.AsOfSystemInterval)
 		require.NoError(t, err)
 
-		require.Contains(t, invalid, storj.NodeID{2}) // disqualified
-		require.Contains(t, invalid, storj.NodeID{3}) // unknown audit suspended
-		require.Contains(t, invalid, storj.NodeID{4}) // offline
-		require.Contains(t, invalid, storj.NodeID{5}) // gracefully exited
-		require.Contains(t, invalid, storj.NodeID{6}) // offline suspended
-		require.Contains(t, invalid, storj.NodeID{9}) // not in db
-		require.Len(t, invalid, 6)
+		// unrealiable nodes shouldn't be in results
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{2}))) // disqualified
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{3}))) // unknown audit suspended
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{5}))) // gracefully exited
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{6}))) // offline suspended
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{9}))) // not in db
+
+		require.True(t, slices.ContainsFunc(offline, contains(storj.NodeID{4}))) // offline
+		require.Len(t, append(online, offline...), 4)
 
 		valid, err := cache.Reliable(ctx, criteria)
 		require.NoError(t, err)
@@ -239,6 +245,5 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.NoError(t, err)
 		_, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
-
 	}
 }

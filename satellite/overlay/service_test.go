@@ -434,7 +434,7 @@ func TestKnownReliable(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that only storage nodes #4 and #5 are reliable
-		result, err := service.KnownReliable(ctx, []storj.NodeID{
+		online, _, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -443,7 +443,7 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[5].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 2)
+		require.Len(t, online, 2)
 
 		// Sort the storage nodes for predictable checks
 		expectedReliable := []storj.NodeURL{
@@ -451,11 +451,11 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[5].NodeURL(),
 		}
 		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })
-		sort.Slice(result, func(i, j int) bool { return result[i].Id.Less(result[j].Id) })
+		sort.Slice(online, func(i, j int) bool { return online[i].ID.Less(online[j].ID) })
 
 		// Assert the reliable nodes are the expected ones
-		for i, node := range result {
-			assert.Equal(t, expectedReliable[i].ID, node.Id)
+		for i, node := range online {
+			assert.Equal(t, expectedReliable[i].ID, node.ID)
 			assert.Equal(t, expectedReliable[i].Address, node.Address.Address)
 		}
 	})

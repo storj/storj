@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -113,36 +114,45 @@ func TestMinimumDiskSpace(t *testing.T) {
 	})
 }
 
-func TestOffline(t *testing.T) {
+func TestOnlineOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
-		// TODO: handle cleanup
 
-		result, err := service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+		online, offline, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, result)
+		require.Empty(t, offline)
+		require.Len(t, online, 1)
 
-		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+		online, offline, err = service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, result)
+		require.Empty(t, offline)
+		require.Len(t, online, 3)
 
-		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
+		unreliableNodeID := storj.NodeID{1, 2, 3, 4}
+		online, offline, err = service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
-			{1, 2, 3, 4}, // note that this succeeds by design
+			unreliableNodeID,
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 1)
-		require.Equal(t, result[0], storj.NodeID{1, 2, 3, 4})
+		require.Empty(t, offline)
+		require.Len(t, online, 2)
+
+		require.False(t, slices.ContainsFunc(online, func(node overlay.SelectedNode) bool {
+			return node.ID == unreliableNodeID
+		}))
+		require.False(t, slices.ContainsFunc(offline, func(node overlay.SelectedNode) bool {
+			return node.ID == unreliableNodeID
+		}))
 	})
 }
 

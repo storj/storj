@@ -418,3 +418,139 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 	})
 
 }
+
+func TestOverlayCache_KnownReliable(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		allNodes := []overlay.SelectedNode{
+			addNode(ctx, t, cache, "online", "127.0.0.1", true, false, false, false, false),
+			addNode(ctx, t, cache, "offline", "127.0.0.2", false, false, false, false, false),
+			addNode(ctx, t, cache, "disqalified", "127.0.0.3", false, true, false, false, false),
+			addNode(ctx, t, cache, "audit-suspended", "127.0.0.4", false, false, true, false, false),
+			addNode(ctx, t, cache, "offline-suspended", "127.0.0.5", false, false, false, true, false),
+			addNode(ctx, t, cache, "exited", "127.0.0.6", false, false, false, false, true),
+		}
+
+		ids := func(nodes ...overlay.SelectedNode) storj.NodeIDList {
+			nodeIds := storj.NodeIDList{}
+			for _, node := range nodes {
+				nodeIds = append(nodeIds, node.ID)
+			}
+			return nodeIds
+		}
+
+		nodes := func(nodes ...overlay.SelectedNode) []overlay.SelectedNode {
+			return append([]overlay.SelectedNode{}, nodes...)
+		}
+
+		type testCase struct {
+			IDs     storj.NodeIDList
+			Online  []overlay.SelectedNode
+			Offline []overlay.SelectedNode
+		}
+
+		shuffledNodeIDs := ids(allNodes...)
+		rand.Shuffle(len(shuffledNodeIDs), shuffledNodeIDs.Swap)
+
+		for _, tc := range []testCase{
+			{
+				IDs:     ids(allNodes[0], allNodes[1]),
+				Online:  nodes(allNodes[0]),
+				Offline: nodes(allNodes[1]),
+			},
+			{
+				IDs:    ids(allNodes[0]),
+				Online: nodes(allNodes[0]),
+			},
+			{
+				IDs:     ids(allNodes[1]),
+				Offline: nodes(allNodes[1]),
+			},
+			{ // only unreliable
+				IDs: ids(allNodes[2], allNodes[3], allNodes[4], allNodes[5]),
+			},
+
+			{ // all nodes
+				IDs:     ids(allNodes...),
+				Online:  nodes(allNodes[0]),
+				Offline: nodes(allNodes[1]),
+			},
+			// all nodes but in shuffled order
+			{
+				IDs:     shuffledNodeIDs,
+				Online:  nodes(allNodes[0]),
+				Offline: nodes(allNodes[1]),
+			},
+			// all nodes + one ID not from DB
+			{
+				IDs:     append(ids(allNodes...), testrand.NodeID()),
+				Online:  nodes(allNodes[0]),
+				Offline: nodes(allNodes[1]),
+			},
+		} {
+			online, offline, err := cache.KnownReliable(ctx, tc.IDs, 1*time.Hour, 0)
+			require.NoError(t, err)
+			require.ElementsMatch(t, tc.Online, online)
+			require.ElementsMatch(t, tc.Offline, offline)
+		}
+
+		_, _, err := cache.KnownReliable(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
+		require.Error(t, err)
+	})
+}
+
+func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, online, disqalified, auditSuspended, offlineSuspended, exited bool) overlay.SelectedNode {
+	selectedNode := overlay.SelectedNode{
+		ID:          testrand.NodeID(),
+		Address:     &pb.NodeAddress{Address: address},
+		LastNet:     lastIPPort,
+		LastIPPort:  lastIPPort,
+		CountryCode: location.Poland,
+	}
+
+	checkInInfo := overlay.NodeCheckInInfo{
+		IsUp:        true,
+		NodeID:      selectedNode.ID,
+		Address:     &pb.NodeAddress{Address: selectedNode.Address.Address},
+		LastIPPort:  selectedNode.LastIPPort,
+		LastNet:     selectedNode.LastNet,
+		CountryCode: selectedNode.CountryCode,
+		Version:     &pb.NodeVersion{Version: "v0.0.0"},
+	}
+
+	timestamp := time.Now().UTC()
+	if !online {
+		timestamp = time.Now().Add(-10 * time.Hour)
+	}
+
+	err := cache.UpdateCheckIn(ctx, checkInInfo, timestamp, overlay.NodeSelectionConfig{})
+	require.NoError(t, err)
+
+	if disqalified {
+		_, err := cache.DisqualifyNode(ctx, selectedNode.ID, time.Now(), overlay.DisqualificationReasonAuditFailure)
+		require.NoError(t, err)
+	}
+
+	if auditSuspended {
+		require.NoError(t, cache.TestSuspendNodeUnknownAudit(ctx, selectedNode.ID, time.Now()))
+	}
+
+	if offlineSuspended {
+		require.NoError(t, cache.TestSuspendNodeOffline(ctx, selectedNode.ID, time.Now()))
+	}
+
+	if exited {
+		now := time.Now()
+		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              selectedNode.ID,
+			ExitInitiatedAt:     now,
+			ExitLoopCompletedAt: now,
+			ExitFinishedAt:      now,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+	}
+
+	return selectedNode
+}

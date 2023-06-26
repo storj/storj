@@ -322,22 +322,6 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
-	for {
-		badNodes, err = cache.knownUnreliableOrOffline(ctx, criteria, nodeIDs)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return badNodes, err
-		}
-		break
-	}
-
-	return badNodes, err
-}
-
 // GetOfflineNodesForEmail gets nodes that we want to send an email to. These are non-disqualified, non-exited nodes where
 // last_contact_success is between two points: the point where it is considered offline (offlineWindow), and the point where we don't want
 // to send more emails (cutoff). It also filters nodes where last_offline_email is too recent (cooldown).
@@ -463,102 +447,64 @@ func (cache *overlaycache) knownReliableInExcludedCountries(ctx context.Context,
 	return reliableInExcluded, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(nodeIDs) == 0 {
-		return nil, Error.New("no ids provided")
-	}
-
-	// get reliable and online nodes
-	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id
-			FROM nodes
-			`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
-			WHERE id = any($1::bytea[])
-			AND disqualified IS NULL
-			AND unknown_audit_suspended IS NULL
-			AND offline_suspended IS NULL
-			AND exit_finished_at IS NULL
-			AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIDs))
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
-		}
-		goodNodes[id] = struct{}{}
-	}
-	for _, id := range nodeIDs {
-		if _, ok := goodNodes[id]; !ok {
-			badNodes = append(badNodes, id)
-		}
-	}
-	return badNodes, Error.Wrap(rows.Err())
-}
-
-// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
-func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+// KnownReliable filters a set of nodes to reliable nodes. List is split into online and offline nodes.
+func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []overlay.SelectedNode, offline []overlay.SelectedNode, err error) {
 	for {
-		nodes, err = cache.knownReliable(ctx, onlineWindow, nodeIDs)
+		online, offline, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
-			return nodes, err
+			return nil, nil, err
 		}
 		break
 	}
 
-	return nodes, err
+	return online, offline, err
 }
 
-func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []overlay.SelectedNode, offline []overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
-		return nil, Error.New("no ids provided")
+		return nil, nil, Error.New("no ids provided")
 	}
 
-	// get online nodes
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id, last_net, last_ip_port, address, protocol, noise_proto, noise_public_key, debounce_limit, features
-			FROM nodes
-			WHERE id = any($1::bytea[])
+	err = withRows(cache.db.Query(ctx, `
+		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $2 as online
+		FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
+		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
-			AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
+	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
+	))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var onlineNode bool
+			var node overlay.SelectedNode
+			node.Address = &pb.NodeAddress{}
+			var lastIPPort sql.NullString
+			err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
+			if err != nil {
+				return err
+			}
 
-	for rows.Next() {
-		row := &dbx.Node{}
-		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol, &row.NoiseProto, &row.NoisePublicKey, &row.DebounceLimit, &row.Features)
-		if err != nil {
-			return nil, err
+			if lastIPPort.Valid {
+				node.LastIPPort = lastIPPort.String
+			}
+
+			if onlineNode {
+				online = append(online, node)
+			} else {
+				offline = append(offline, node)
+			}
 		}
-		node, err := convertDBNode(ctx, row)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, &node.Node)
-	}
-	return nodes, Error.Wrap(rows.Err())
+		return nil
+	})
+
+	return online, offline, Error.Wrap(err)
 }
 
 // Reliable returns all reliable nodes.
