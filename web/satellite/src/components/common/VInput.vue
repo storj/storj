@@ -182,6 +182,11 @@ watch(() => props.initValue, (val, oldVal) => {
 
 onBeforeMount(() => {
     type.value = props.isPassword ? passwordType : textType;
+
+    if (props.initValue) {
+        value.value = props.initValue;
+        emit('setData', props.initValue);
+    }
 });
 </script>
 

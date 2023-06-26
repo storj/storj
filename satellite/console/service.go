@@ -3578,8 +3578,8 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	}
 	projectID = isMember.project.ID
 
-	// collect user querying errors
-	users := make([]*User, 0)
+	var users []*User
+	var newUserEmails []string
 	for _, email := range emails {
 		invitedUser, err := s.store.Users().GetByEmail(ctx, email)
 		if err == nil {
@@ -3598,7 +3598,9 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				return nil, ErrProjectInviteActive.New(projInviteActiveErrMsg, invitedUser.Email)
 			}
 			users = append(users, invitedUser)
-		} else if !errs.Is(err, sql.ErrNoRows) {
+		} else if errs.Is(err, sql.ErrNoRows) {
+			newUserEmails = append(newUserEmails, email)
+		} else {
 			return nil, Error.Wrap(err)
 		}
 	}
@@ -3606,20 +3608,20 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		for _, invited := range users {
+		for _, email := range emails {
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
-				Email:     invited.Email,
+				Email:     email,
 				InviterID: &user.ID,
 			})
 			if err != nil {
 				return err
 			}
-			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt)
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, invite.CreatedAt)
 			if err != nil {
 				return err
 			}
-			inviteTokens[invited.Email] = token
+			inviteTokens[email] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -3643,6 +3645,18 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				InviterEmail: user.Email,
 				Region:       s.satelliteName,
 				SignInLink:   inviteLink,
+			},
+		)
+	}
+	for _, email := range newUserEmails {
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: email}},
+			&NewUserProjectInvitationEmail{
+				InviterEmail: user.Email,
+				Region:       s.satelliteName,
+				SignUpLink:   inviteLink,
 			},
 		)
 	}

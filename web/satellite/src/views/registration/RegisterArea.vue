@@ -47,11 +47,11 @@
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
-                    <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
+                    <div class="register-area__input-area__container__title-area">
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 25 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand">
+                        <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
                             <div class="register-area__input-area__info-button">
                                 <InfoIcon />
                                 <p class="register-area__input-area__info-button__message">
@@ -89,7 +89,7 @@
                             </ul>
                         </div>
                     </div>
-                    <p v-if="inviterName && inviterEmail && projectName" class="register-area__input-area__container__invitation-text">
+                    <p v-if="isInvited" class="register-area__input-area__container__invitation-text">
                         {{ inviterName }} ({{ inviterEmail }}) has invited you to the project {{ projectName }} on Storj. Create an account on the {{ satelliteName }} region to join {{ inviterName }} in the project.
                     </p>
                     <div class="register-area__input-area__toggle__container">
@@ -130,6 +130,8 @@
                             label="Email Address"
                             max-symbols="72"
                             placeholder="user@example.com"
+                            :init-value="email"
+                            :disabled="!!email"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"
@@ -328,6 +330,7 @@ const viewConfig = ref<ViewConfig | null>(null);
 // DCS logic
 const secret = queryRef('token');
 
+const email = queryRef('email');
 const inviterName = queryRef('inviter');
 const inviterEmail = queryRef('inviter_email');
 const projectName = queryRef('project');
@@ -418,6 +421,7 @@ function clickSatellite(address): void {
  * Toggles satellite selection dropdown visibility (Tardigrade).
  */
 function toggleDropdown(): void {
+    if (isInvited.value) return;
     isDropdownShown.value = !isDropdownShown.value;
 }
 
@@ -531,6 +535,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
 
         return s;
     });
+});
+
+/**
+ * Returns whether the current URL's query parameters indicate that the user was
+ * redirected from a project invitation link.
+ */
+const isInvited = computed((): boolean => {
+    return !!inviterName.value && !!inviterEmail.value && !!projectName.value && !!email.value;
 });
 
 /**

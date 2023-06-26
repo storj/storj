@@ -776,8 +776,43 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email := strings.ToLower(invite.Email)
-	http.Redirect(w, r, loginLink+"?email="+email, http.StatusTemporaryRedirect)
+	user, _, err := server.service.GetUserByEmailWithUnverified(ctx, invite.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		server.log.Error("error getting invitation recipient", zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+	if user != nil {
+		http.Redirect(w, r, loginLink+"?email="+user.Email, http.StatusTemporaryRedirect)
+		return
+	}
+
+	params := url.Values{"email": {strings.ToLower(invite.Email)}}
+
+	if invite.InviterID != nil {
+		inviter, err := server.service.GetUser(ctx, *invite.InviterID)
+		if err != nil {
+			server.log.Error("error getting invitation sender", zap.Error(err))
+			server.serveError(w, http.StatusInternalServerError)
+			return
+		}
+		name := inviter.ShortName
+		if name == "" {
+			name = inviter.FullName
+		}
+		params.Add("inviter", name)
+		params.Add("inviter_email", inviter.Email)
+	}
+
+	proj, err := server.service.GetProjectNoAuth(ctx, invite.ProjectID)
+	if err != nil {
+		server.log.Error("error getting invitation project", zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+	params.Add("project", proj.Name)
+
+	http.Redirect(w, r, server.config.ExternalAddress+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
 // graphqlHandler is graphql endpoint http handler function.

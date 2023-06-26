@@ -2031,15 +2031,14 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
 
-			// adding in a non-existent user should not fail the invitation.
+			// adding in a non-existent user should work.
 			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email, "notauser@mail.com"})
 			require.NoError(t, err)
-			require.Len(t, invites, 1)
+			require.Len(t, invites, 2)
 
 			invites, err = service.GetUserProjectInvitations(ctx3)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
-			user3Invite := invites[0]
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
 			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
@@ -2054,10 +2053,12 @@ func TestProjectInvitations(t *testing.T) {
 			require.Empty(t, invites)
 
 			// expire the invitation.
-			require.False(t, service.IsProjectInvitationExpired(&user3Invite))
+			user3Invite, err := sat.DB.Console().ProjectInvitations().Get(ctx, project.ID, user3.Email)
+			require.NoError(t, err)
+			require.False(t, service.IsProjectInvitationExpired(user3Invite))
 			oldCreatedAt := user3Invite.CreatedAt
-			setInviteDate(t, ctx, &user3Invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
-			require.True(t, service.IsProjectInvitationExpired(&user3Invite))
+			setInviteDate(t, ctx, user3Invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			require.True(t, service.IsProjectInvitationExpired(user3Invite))
 
 			// resending an expired invitation should succeed.
 			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
