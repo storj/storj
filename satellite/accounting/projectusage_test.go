@@ -1098,8 +1098,8 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 		total, err := io.ReadFull(reader, p)
 		require.NoError(t, err)
 		require.Equal(t, total, len(p))
-		require.NoError(t, cleanFn())
 		require.NoError(t, reader.Close())
+		require.NoError(t, cleanFn())
 
 		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 

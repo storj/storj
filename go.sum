@@ -1024,5 +1024,5 @@ storj.io/picobuf v0.0.1 h1:ekEvxSQCbEjTVIi/qxj2za13SJyfRE37yE30IBkZeT0=
 storj.io/picobuf v0.0.1/go.mod h1:7ZTAMs6VesgTHbbhFU79oQ9hDaJ+MD4uoFQZ1P4SEz0=
 storj.io/private v0.0.0-20230614131149-2ffd1635adea h1:/dv0bYRPgCFvoXF0S14Ien41i12sj9+s4aKhCrFzXHg=
 storj.io/private v0.0.0-20230614131149-2ffd1635adea/go.mod h1:mfdHEaAcTARpd4/Hc6N5uxwB1ZG3jtPdVlle57xzQxQ=
-storj.io/uplink v1.10.1-0.20230607180240-72bcffbeac33 h1:A6z1FOmqqh44BI/UOPwTi0qaM+/Hdpiwk3QAuvWf03g=
-storj.io/uplink v1.10.1-0.20230607180240-72bcffbeac33/go.mod h1:cDlpDWGJykXfYE7NtO1EeArGFy12K5Xj8pV8ufpUCKE=
+storj.io/uplink v1.10.1-0.20230626081029-035890d408c2 h1:XnJR9egrqvAqx5oCRu2b13ubK0iu0qTX12EAa6lAPhg=
+storj.io/uplink v1.10.1-0.20230626081029-035890d408c2/go.mod h1:cDlpDWGJykXfYE7NtO1EeArGFy12K5Xj8pV8ufpUCKE=
