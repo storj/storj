@@ -102,12 +102,9 @@ pipeline {
         stage('Install Playwright') {
             steps {
                 dir("testsuite/playwright-ui") {
-			    	sh 'PLAYWRIGHT_BROWSERS_PATH=$HOME/pw-browsers npx playwright install'
-                    // sh 'npm install'
-					// sh 'npx playwright install'
-					// sh 'npm install'
-					// sh 'npm install -D @playwright/test'
-					// sh 'npx playwright install'
+			    	sh 'npm install'
+					sh 'PLAYWRIGHT_BROWSERS_PATH=$HOME/pw-browsers npx playwright install'
+                
 			    }
             }
         }
