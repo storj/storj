@@ -870,7 +870,7 @@ func TestWrongUser(t *testing.T) {
 						}`}))
 			require.Contains(t, body, "not authorized")
 			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 		}
 
 		{ // get bucket usages

@@ -270,6 +270,19 @@ func TestService(t *testing.T) {
 				})
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
+
+				user2, userCtx2 := getOwnerAndCtx(ctx, up2Proj)
+				_, err = service.AddProjectMembers(userCtx1, up1Proj.ID, []string{user2.Email})
+				require.NoError(t, err)
+				// Members should not be able to update project.
+				_, err = service.UpdateProject(userCtx2, up1Proj.ID, console.ProjectInfo{
+					Name: updatedName,
+				})
+				require.Error(t, err)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				// remove user2.
+				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
+				require.NoError(t, err)
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {

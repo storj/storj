@@ -1813,12 +1813,11 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		return nil, Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	project := isMember.project
 	if updatedProject.Name != project.Name {
 		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, user.ID)
 		if err != nil || !passesNameCheck {
