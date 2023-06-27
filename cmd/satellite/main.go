@@ -208,7 +208,14 @@ var (
 		Long:  "Applies free tier coupon to Stripe customers without a coupon",
 		RunE:  cmdApplyFreeTierCoupons,
 	}
-	createCustomerBalanceInvoiceItems = &cobra.Command{
+	updateInvoiceStatusCmd = &cobra.Command{
+		Use:   "update-invoice-status [start-period] [end-period] [status]",
+		Short: "update all invoices status",
+		Long:  "Updates all invoices in the specified date ranges to the provided status. Period is a UTC date formatted like YYYY-MM.",
+		Args:  cobra.ExactArgs(3),
+		RunE:  cmdUpdateInvoiceStatus,
+	}
+	createCustomerBalanceInvoiceItemsCmd = &cobra.Command{
 		Use:   "create-balance-invoice-items",
 		Short: "Creates stripe invoice line items for stripe customer balance",
 		Long:  "Creates stripe invoice line items for stripe customer balances obtained from past invoices and other miscellaneous charges.",
@@ -342,6 +349,9 @@ var (
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Before   string `help:"select only exited nodes before this UTC date formatted like YYYY-MM. Date cannot be newer than the current time (required)"`
 	}
+	updateInvoiceStatusCfg struct {
+		DryRun bool `help:"do not update stripe" default:"false"`
+	}
 
 	confDir     string
 	identityDir string
@@ -381,7 +391,8 @@ func init() {
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
-	billingCmd.AddCommand(createCustomerBalanceInvoiceItems)
+	billingCmd.AddCommand(updateInvoiceStatusCmd)
+	billingCmd.AddCommand(createCustomerBalanceInvoiceItemsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
@@ -413,7 +424,9 @@ func init() {
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createCustomerBalanceInvoiceItems, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(updateInvoiceStatusCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(updateInvoiceStatusCmd, &updateInvoiceStatusCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerBalanceInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -752,6 +765,26 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
+}
+
+func cmdUpdateInvoiceStatus(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	periodStart, err := parseYearMonth(args[0])
+	if err != nil {
+		return err
+	}
+
+	periodEnd, err := parseYearMonth(args[1])
+	if err != nil {
+		return err
+	}
+	// parseYearMonth returns the first day of the month, but we want the period end to be the last day of the month
+	periodEnd = periodEnd.AddDate(0, 1, -1)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.UpdateInvoiceStatus(ctx, periodStart, periodEnd, args[2], updateInvoiceStatusCfg.DryRun)
+	})
 }
 
 func cmdCreateCustomerBalanceInvoiceItems(cmd *cobra.Command, _ []string) (err error) {

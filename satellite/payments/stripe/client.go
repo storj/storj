@@ -64,6 +64,8 @@ type Invoices interface {
 	Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error)
 	Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
+	MarkUncollectible(id string, params *stripe.InvoiceMarkUncollectibleParams) (*stripe.Invoice, error)
+	VoidInvoice(id string, params *stripe.InvoiceVoidParams) (*stripe.Invoice, error)
 }
 
 // InvoiceItems Stripe InvoiceItems interface.
