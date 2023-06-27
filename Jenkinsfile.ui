@@ -104,7 +104,6 @@ pipeline {
                 dir("testsuite/playwright-ui") {
 			    	sh 'npm install'
 					// sh 'PLAYWRIGHT_BROWSERS_PATH=$HOME/pw-browsers npx playwright install'
-                
 			    }
             }
         }
@@ -137,7 +136,7 @@ pipeline {
                 '''
 
                 dir("testsuite/playwright-ui") {
-                    sh 'PLAYWRIGHT_BROWSERS_PATH=$HOME/pw-browsers storj-sim network test --no-gateways -- npm run test'
+                    sh 'storj-sim network test --no-gateways -- npm run test'
                 }
             }
             post {
