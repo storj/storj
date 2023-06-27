@@ -101,7 +101,7 @@ pipeline {
 
         stage('Install Playwright') {
 			steps {
-				sh 'll -laH /ms-playwright'
+				sh 'ls -laH /ms-playwright'
 				dir("testsuite/playwright-ui") {
 			    	sh 'npm install'
 					// sh 'npx playwright install'
