@@ -317,8 +317,7 @@ function handleClick(): void {
             background-color: #0059d0;
 
             &.transparent,
-            &.blue-white,
-            &.white {
+            &.blue-white {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
@@ -330,6 +329,20 @@ function handleClick(): void {
 
                 .label {
                     color: white !important;
+                }
+            }
+
+            &.white {
+                box-shadow: none !important;
+                border: 1px solid var(--c-blue-3) !important;
+
+                :deep(path),
+                :deep(rect) {
+                    fill: var(--c-blue-3) !important;
+                }
+
+                .label {
+                    color: var(--c-blue-3) !important;
                 }
             }
 

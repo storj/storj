@@ -121,7 +121,7 @@ const hasProjectTableViewConfigured = ref(appStore.hasProjectTableViewConfigured
  * Whether to use the table view.
  */
 const isTableViewSelected = computed((): boolean => {
-    if (!hasProjectTableViewConfigured.value && projects.value.length > 1) {
+    if (!hasProjectTableViewConfigured.value && projects.value.length > 8) {
         // show the table by default if the user has more than 8 projects.
         return true;
     }
