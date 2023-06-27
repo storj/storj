@@ -103,7 +103,7 @@ pipeline {
             steps {
                 dir("testsuite/playwright-ui") {
 			    	sh 'npm install'
-					sh 'npx playwright install'
+					// sh 'npx playwright install'
 			    }
             }
         }
