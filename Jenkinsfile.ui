@@ -24,7 +24,7 @@ pipeline {
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
                 checkout scm
                 sh 'mkdir -p .build'
-				sh 'ls -laH /ms-playwright'
+				//sh 'ls -laH /ms-playwright'
                 // pre-check that we cannot do at a later stage reliably
                 //sh 'check-large-files'
             }
@@ -92,7 +92,7 @@ pipeline {
                 }
                 stage('go -race gateway') {
                     steps {
-                        // install gateway for storj-sim
+// install gateway for storj-sim
                         sh 'go install -race -v storj.io/gateway@latest'
                     }
                 }
