@@ -497,6 +497,32 @@ type mockInvoices struct {
 	invoiceItems *mockInvoiceItems
 }
 
+func (m *mockInvoices) MarkUncollectible(id string, params *stripe.InvoiceMarkUncollectibleParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == id {
+				invoice.Status = stripe.InvoiceStatusUncollectible
+				return invoice, nil
+			}
+		}
+	}
+
+	return nil, errors.New("invoice not found")
+}
+
+func (m *mockInvoices) VoidInvoice(id string, params *stripe.InvoiceVoidParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == id {
+				invoice.Status = stripe.InvoiceStatusVoid
+				return invoice, nil
+			}
+		}
+	}
+
+	return nil, errors.New("invoice not found")
+}
+
 func newMockInvoices(root *mockStripeState, invoiceItems *mockInvoiceItems) *mockInvoices {
 	return &mockInvoices{
 		root:         root,
@@ -639,8 +665,9 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 						invoice.AmountRemaining = 0
 						return invoice, nil
 					}
-				} else if invoice.AmountRemaining == 0 {
+				} else if invoice.AmountRemaining == 0 || (params.PaidOutOfBand != nil && *params.PaidOutOfBand) {
 					invoice.Status = stripe.InvoiceStatusPaid
+					invoice.AmountRemaining = 0
 				}
 				return invoice, nil
 			}

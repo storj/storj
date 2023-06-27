@@ -860,6 +860,86 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	return scheduled, draft, errGrp.Err()
 }
 
+// SetInvoiceStatus will set all open invoices within the specified date range to the requested status.
+func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPeriod time.Time, status string, dryRun bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch stripe.InvoiceStatus(strings.ToLower(status)) {
+	case stripe.InvoiceStatusUncollectible:
+		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
+			service.log.Info("updating invoice status to uncollectible", zap.String("invoiceId", invoiceId))
+			if !dryRun {
+				_, err := service.stripeClient.Invoices().MarkUncollectible(invoiceId, &stripe.InvoiceMarkUncollectibleParams{})
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
+		})
+	case stripe.InvoiceStatusVoid:
+		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
+			service.log.Info("updating invoice status to void", zap.String("invoiceId", invoiceId))
+			if !dryRun {
+				_, err = service.stripeClient.Invoices().VoidInvoice(invoiceId, &stripe.InvoiceVoidParams{})
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
+		})
+	case stripe.InvoiceStatusPaid:
+		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
+			service.log.Info("updating invoice status to paid", zap.String("invoiceId", invoiceId))
+			if !dryRun {
+				payParams := &stripe.InvoicePayParams{
+					Params:        stripe.Params{Context: ctx},
+					PaidOutOfBand: stripe.Bool(true),
+				}
+				_, err = service.stripeClient.Invoices().Pay(invoiceId, payParams)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
+		})
+	default:
+		// unknown
+		service.log.Error("Unknown status provided. Valid options are uncollectible, void, or paid.", zap.String("status", status))
+		return Error.New("unknown status provided")
+	}
+	return err
+}
+
+func (service *Service) iterateInvoicesInTimeRange(ctx context.Context, startPeriod, endPeriod time.Time, updateStatus func(string) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceListParams{
+		ListParams: stripe.ListParams{
+			Context: ctx,
+			Limit:   stripe.Int64(100),
+		},
+		Status: stripe.String("open"),
+		CreatedRange: &stripe.RangeQueryParams{
+			GreaterThanOrEqual: startPeriod.Unix(),
+			LesserThanOrEqual:  endPeriod.Unix(),
+		},
+	}
+
+	numInvoices := 0
+	invoicesIterator := service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		numInvoices++
+		stripeInvoice := invoicesIterator.Invoice()
+
+		err := updateStatus(stripeInvoice.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	service.log.Info("found " + strconv.Itoa(numInvoices) + " total invoices")
+	return Error.Wrap(invoicesIterator.Err())
+}
+
 // CreateBalanceInvoiceItems will find users with a stripe balance, create an invoice
 // item with the charges due, and zero out the stripe balance.
 func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err error) {
