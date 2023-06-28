@@ -30,12 +30,14 @@ BUCKET="${BUCKET:-bucket-123}"
 PRISTINE_FILES_DIR="$STORJ_NETWORK_DIR/pristine/$BUCKET"
 DOWNLOAD_FILES_DIR="$STORJ_NETWORK_DIR/download/$BUCKET"
 
-# override configured access with access where address is node ID + satellite addess
-STORJ_ACCESS=$(go run "$SCRIPTDIR"/../../update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
-UPLINK_ACCESS="$STORJ_ACCESS"
+if [[ ! -v UPLINK_ACCESS ]]; then
+  # override configured access with access where address is node ID + satellite addess
+  STORJ_ACCESS=$(go run "$SCRIPTDIR"/../../update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
+  UPLINK_ACCESS="$STORJ_ACCESS"
 
-export STORJ_ACCESS
-export UPLINK_ACCESS
+  export STORJ_ACCESS
+  export UPLINK_ACCESS
+fi
 
 # workaround for issues with automatic accepting monitoring question
 # with first run we need to accept question y/n about monitoring
@@ -48,9 +50,9 @@ set -x
 if [[ "$1" == "upload" ]]; then
     mkdir -p "$PRISTINE_FILES_DIR" "$DOWNLOAD_FILES_DIR"
 
-    random_bytes_file "2KiB"   "$PRISTINE_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
-    random_bytes_file "5MiB"   "$PRISTINE_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
-    random_bytes_file "12MiB"  "$PRISTINE_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
+    random_bytes_file "2048"   "$PRISTINE_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
+    random_bytes_file "5242880"   "$PRISTINE_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
+    random_bytes_file "12582912"  "$PRISTINE_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
 
     # sometimes we overwrite files in the same bucket. allow the mb to fail because of an existing
     # bucket. if it fails for any other reason, the following cp will get it anyway.
