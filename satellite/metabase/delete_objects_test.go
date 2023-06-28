@@ -332,8 +332,9 @@ func TestDeleteZombieObjects(t *testing.T) {
 			// object will be checked if is inactive and will be deleted with segment
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore:   now.Add(1 * time.Hour),
-					InactiveDeadline: now.Add(2 * time.Hour),
+					DeadlineBefore:     now.Add(1 * time.Hour),
+					InactiveDeadline:   now.Add(2 * time.Hour),
+					AsOfSystemInterval: -1 * time.Microsecond,
 				},
 			}.Check(ctx, t, db)
 
