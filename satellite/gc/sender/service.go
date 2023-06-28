@@ -33,11 +33,11 @@ var (
 
 // Config contains configurable values for garbage collection.
 type Config struct {
-	Interval time.Duration `help:"the time between each attempt to download and send garbage collection retain filters to storage nodes" releaseDefault:"48h" devDefault:"5m" testDefault:"$TESTINTERVAL"`
-	Enabled  bool          `help:"set if loop to send garbage collection retain filters is enabled" default:"false" devDefault:"false"`
+	Interval time.Duration `help:"the time between each attempt to download and send garbage collection retain filters to storage nodes" default:"1h" devDefault:"5m" testDefault:"$TESTINTERVAL"`
+	Enabled  bool          `help:"set if loop to send garbage collection retain filters is enabled" default:"true" devDefault:"false"`
 
 	// We suspect this currently not to be the critical path w.r.t. garbage collection, so no paralellism is implemented.
-	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection retain filters to" releaseDefault:"1" devDefault:"1"`
+	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection retain filters to" default:"100" devDefault:"1"`
 	RetainSendTimeout time.Duration `help:"the amount of time to allow a node to handle a retain request" default:"1m"`
 
 	AccessGrant string        `help:"Access to download the bloom filters. Needs read and write permission."`

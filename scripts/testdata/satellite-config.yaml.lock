@@ -518,16 +518,16 @@ contact.external-address: ""
 # garbage-collection.bucket: ""
 
 # the number of nodes to concurrently send garbage collection retain filters to
-# garbage-collection.concurrent-sends: 1
+# garbage-collection.concurrent-sends: 100
 
 # set if loop to send garbage collection retain filters is enabled
-# garbage-collection.enabled: false
+# garbage-collection.enabled: true
 
 # Expiration of newly created objects in the bucket. These objects are under the prefix error-[timestamp] and store error messages.
 # garbage-collection.expire-in: 336h0m0s
 
 # the time between each attempt to download and send garbage collection retain filters to storage nodes
-# garbage-collection.interval: 48h0m0s
+# garbage-collection.interval: 1h0m0s
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
