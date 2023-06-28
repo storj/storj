@@ -15,7 +15,6 @@ import {
 } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
-import { Duration } from '@/utils/time';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -173,6 +172,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.partner,
                 userResponse.password,
                 userResponse.projectLimit,
+                userResponse.projectStorageLimit,
                 userResponse.paidTier,
                 userResponse.isMFAEnabled,
                 userResponse.isProfessional,
