@@ -95,7 +95,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil); err != nil {
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
 		return nil, err
 	}
 
