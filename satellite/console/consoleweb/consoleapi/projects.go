@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -43,18 +44,18 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing id route param"))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
 		return
 	}
 
 	id, err := uuid.FromString(idParam)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
 	salt, err := p.service.GetSalt(ctx, id)
 	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -62,7 +63,7 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(b64SaltString)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
@@ -74,12 +75,12 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
 		return
 	}
 	id, err := uuid.FromString(idParam)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
 	var data struct {
@@ -88,7 +89,7 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -98,7 +99,7 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	_, err = p.service.InviteProjectMembers(ctx, id, data.Emails)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
@@ -109,28 +110,28 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
 		return
 	}
 	id, err := uuid.FromString(idParam)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
 	email := r.URL.Query().Get("email")
 	if email == "" {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing email query param"))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing email query param"))
 		return
 	}
 
 	link, err := p.service.GetInviteLink(ctx, id, email)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
 	err = json.NewEncoder(w).Encode(link)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
@@ -144,7 +145,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 
 	invites, err := p.service.GetUserProjectInvitations(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -161,7 +162,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 	for _, invite := range invites {
 		proj, err := p.service.GetProjectNoAuth(ctx, invite.ProjectID)
 		if err != nil {
-			p.serveJSONError(w, http.StatusInternalServerError, err)
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -175,7 +176,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 		if invite.InviterID != nil {
 			inviter, err := p.service.GetUser(ctx, *invite.InviterID)
 			if err != nil {
-				p.serveJSONError(w, http.StatusInternalServerError, err)
+				p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 				return
 			}
 			respInvite.InviterEmail = inviter.Email
@@ -186,7 +187,7 @@ func (p *Projects) GetUserInvitations(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 
@@ -200,13 +201,13 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	var idParam string
 
 	if idParam, ok = mux.Vars(r)["id"]; !ok {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
 		return
 	}
 
 	id, err := uuid.FromString(idParam)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
 	var payload struct {
@@ -215,7 +216,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -230,11 +231,11 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 		case console.ErrValidation.Has(err):
 			status = http.StatusBadRequest
 		}
-		p.serveJSONError(w, status, err)
+		p.serveJSONError(ctx, w, status, err)
 	}
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (p *Projects) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(p.log, w, status, err)
+func (p *Projects) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, p.log, w, status, err)
 }

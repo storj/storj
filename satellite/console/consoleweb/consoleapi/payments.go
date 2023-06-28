@@ -58,11 +58,11 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -83,11 +83,11 @@ func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	balance, err := p.service.Payments().AccountBalance(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -112,12 +112,12 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -127,11 +127,11 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	charges, err := p.service.Payments().ProjectsCharges(ctx, since, before)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -197,7 +197,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -206,17 +206,17 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
 	err = p.triggerAttemptPaymentIfFrozenOrWarned(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -232,11 +232,11 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 	cards, err := p.service.Payments().ListCreditCards(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -259,24 +259,24 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 
 	cardID, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
 	err = p.service.Payments().MakeCreditCardDefault(ctx, string(cardID))
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
 	err = p.triggerAttemptPaymentIfFrozenOrWarned(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -291,18 +291,18 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 	cardID := vars["cardId"]
 
 	if cardID == "" {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
 	err = p.service.Payments().RemoveCreditCard(ctx, cardID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -318,11 +318,11 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 	billingHistory, err := p.service.Payments().BillingHistory(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -345,7 +345,7 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 	couponCode := string(bodyBytes)
@@ -358,7 +358,7 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 		} else if payments.ErrCouponConflict.Has(err) {
 			status = http.StatusConflict
 		}
-		p.serveJSONError(w, status, err)
+		p.serveJSONError(ctx, w, status, err)
 		return
 	}
 
@@ -378,11 +378,11 @@ func (p *Payments) GetCoupon(w http.ResponseWriter, r *http.Request) {
 	coupon, err := p.service.Payments().GetCoupon(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -402,15 +402,15 @@ func (p *Payments) GetWallet(w http.ResponseWriter, r *http.Request) {
 	walletInfo, err := p.service.Payments().GetWallet(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 		if errs.Is(err, billing.ErrNoWallet) {
-			p.serveJSONError(w, http.StatusNotFound, err)
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -430,11 +430,11 @@ func (p *Payments) ClaimWallet(w http.ResponseWriter, r *http.Request) {
 	walletInfo, err := p.service.Payments().ClaimWallet(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -454,11 +454,11 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 	walletPayments, err := p.service.Payments().WalletPayments(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -477,7 +477,7 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 
 	user, err := console.GetUser(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -496,7 +496,7 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -504,13 +504,13 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 
 	u, err := console.GetUser(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		return
 	}
 
 	pkg, err := p.packagePlans.Get(u.UserAgent)
 	if err != nil {
-		p.serveJSONError(w, http.StatusNotFound, err)
+		p.serveJSONError(ctx, w, http.StatusNotFound, err)
 		return
 	}
 
@@ -518,9 +518,9 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case console.ErrUnauthorized.Has(err):
-			p.serveJSONError(w, http.StatusUnauthorized, err)
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		default:
-			p.serveJSONError(w, http.StatusInternalServerError, err)
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		}
 		return
 	}
@@ -529,19 +529,19 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	err = p.service.Payments().UpdatePackage(ctx, description, time.Now())
 	if err != nil {
 		if !console.ErrAlreadyHasPackage.Has(err) {
-			p.serveJSONError(w, http.StatusInternalServerError, err)
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
 	}
 
 	err = p.service.Payments().Purchase(ctx, pkg.Price, description, card.ID)
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if err = p.service.Payments().ApplyCredit(ctx, pkg.Credit, description); err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -554,7 +554,7 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 
 	u, err := console.GetUser(ctx)
 	if err != nil {
-		p.serveJSONError(w, http.StatusUnauthorized, err)
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -567,6 +567,6 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(p.log, w, status, err)
+func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, p.log, w, status, err)
 }

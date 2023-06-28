@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -49,28 +50,28 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 	if projectIDString != "" {
 		projectID, err = uuid.FromString(projectIDString)
 		if err != nil {
-			b.serveJSONError(w, http.StatusBadRequest, err)
+			b.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 	} else if publicIDString != "" {
 		projectID, err = uuid.FromString(publicIDString)
 		if err != nil {
-			b.serveJSONError(w, http.StatusBadRequest, err)
+			b.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 	} else {
-		b.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
 		return
 	}
 
 	bucketNames, err := b.service.GetAllBucketNames(ctx, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			b.serveJSONError(w, http.StatusUnauthorized, err)
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		b.serveJSONError(w, http.StatusInternalServerError, err)
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -81,6 +82,6 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (b *Buckets) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(b.log, w, status, err)
+func (b *Buckets) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, b.log, w, status, err)
 }

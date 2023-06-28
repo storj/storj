@@ -24,6 +24,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/currency"
+	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -302,6 +303,10 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 	if email != "" {
 		fields = append(fields, zap.String("email", email))
 	}
+	if requestID := requestid.FromContext(ctx); requestID != "" {
+		fields = append(fields, zap.String("requestID", requestID))
+	}
+
 	fields = append(fields, fields...)
 	s.auditLogger.Info("console activity", fields...)
 }

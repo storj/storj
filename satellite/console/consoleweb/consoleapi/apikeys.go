@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -42,24 +43,24 @@ func (keys *APIKeys) GetAllAPIKeyNames(w http.ResponseWriter, r *http.Request) {
 
 	projectIDString := r.URL.Query().Get("projectID")
 	if projectIDString == "" {
-		keys.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
 		return
 	}
 
 	projectID, err := uuid.FromString(projectIDString)
 	if err != nil {
-		keys.serveJSONError(w, http.StatusBadRequest, err)
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
 	apiKeyNames, err := keys.service.GetAllAPIKeyNamesByProjectID(ctx, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			keys.serveJSONError(w, http.StatusUnauthorized, err)
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		keys.serveJSONError(w, http.StatusInternalServerError, err)
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -81,7 +82,7 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 	publicIDString := r.URL.Query().Get("publicID")
 
 	if name == "" {
-		keys.serveJSONError(w, http.StatusBadRequest, err)
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -89,38 +90,38 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 	if projectIDString != "" {
 		projectID, err = uuid.FromString(projectIDString)
 		if err != nil {
-			keys.serveJSONError(w, http.StatusBadRequest, err)
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 	} else if publicIDString != "" {
 		projectID, err = uuid.FromString(publicIDString)
 		if err != nil {
-			keys.serveJSONError(w, http.StatusBadRequest, err)
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 	} else {
-		keys.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
 		return
 	}
 
 	err = keys.service.DeleteAPIKeyByNameAndProjectID(ctx, name, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			keys.serveJSONError(w, http.StatusUnauthorized, err)
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
 		if console.ErrNoAPIKey.Has(err) {
-			keys.serveJSONError(w, http.StatusNoContent, err)
+			keys.serveJSONError(ctx, w, http.StatusNoContent, err)
 			return
 		}
 
-		keys.serveJSONError(w, http.StatusInternalServerError, err)
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (keys *APIKeys) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(keys.log, w, status, err)
+func (keys *APIKeys) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, keys.log, w, status, err)
 }

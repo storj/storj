@@ -87,12 +87,12 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key, err := rl.keyFunc(r)
 		if err != nil {
-			ServeCustomJSONError(rl.log, w, http.StatusInternalServerError, err, internalServerErrMsg)
+			ServeCustomJSONError(r.Context(), rl.log, w, http.StatusInternalServerError, err, internalServerErrMsg)
 			return
 		}
 		limit := rl.getUserLimit(key)
 		if !limit.Allow() {
-			ServeJSONError(rl.log, w, http.StatusTooManyRequests, errs.New(rateLimitErrMsg))
+			ServeJSONError(r.Context(), rl.log, w, http.StatusTooManyRequests, errs.New(rateLimitErrMsg))
 			return
 		}
 		next.ServeHTTP(w, r)

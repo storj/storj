@@ -33,6 +33,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/private/web"
@@ -249,6 +250,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
+
+	router.Use(requestid.AddToContext)
 
 	// limit body size
 	router.Use(newBodyLimiterMiddleware(logger.Named("body-limiter-middleware"), config.BodySizeLimit))
@@ -645,7 +648,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 
 		defer func() {
 			if err != nil {
-				web.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				web.ServeJSONError(ctx, server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
 				server.cookieAuth.RemoveTokenCookie(w)
 			}
 		}()
@@ -924,6 +927,10 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 		jsonError.Error = err.Error()
 
+		if requestID := requestid.FromContext(ctx); requestID != "" {
+			jsonError.Error += fmt.Sprintf(" (request id: %s)", requestID)
+		}
+
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
 			server.log.Error("error graphql error", zap.Error(err))
 		}
@@ -986,6 +993,10 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 		for _, err := range errors {
 			jsonError.Errors = append(jsonError.Errors, err.Message)
+		}
+
+		if requestID := requestid.FromContext(ctx); requestID != "" {
+			jsonError.Errors = append(jsonError.Errors, fmt.Sprintf("request id: %s", requestID))
 		}
 
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
@@ -1219,7 +1230,7 @@ func newBodyLimiterMiddleware(log *zap.Logger, limit memory.Size) mux.Middleware
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ContentLength > limit.Int64() {
-				web.ServeJSONError(log, w, http.StatusRequestEntityTooLarge, errs.New("Request body is too large"))
+				web.ServeJSONError(r.Context(), log, w, http.StatusRequestEntityTooLarge, errs.New("Request body is too large"))
 				return
 			}
 
