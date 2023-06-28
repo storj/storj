@@ -164,6 +164,7 @@ func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	type ownerData struct {
 		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"fullName"`
 		Email    string    `json:"email"`
 		PaidTier bool      `json:"paidTier"`
 	}
@@ -184,6 +185,7 @@ func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 		},
 		Owner: ownerData{
 			ID:       user.ID,
+			FullName: user.FullName,
 			Email:    user.Email,
 			PaidTier: user.PaidTier,
 		},
