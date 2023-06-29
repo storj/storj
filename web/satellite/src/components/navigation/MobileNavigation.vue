@@ -5,9 +5,7 @@
     <div class="navigation-area">
         <div class="navigation-area__container">
             <header class="navigation-area__container__header">
-                <div class="navigation-area__container__header__logo" @click.stop="onLogoClick">
-                    <LogoIcon />
-                </div>
+                <LogoIcon class="navigation-area__container__header__logo" @click.stop="onLogoClick" />
                 <CrossIcon v-if="isOpened" @click="toggleNavigation" />
                 <MenuIcon v-else @click="toggleNavigation" />
             </header>
@@ -570,21 +568,14 @@ async function onLogout(): Promise<void> {
             display: flex;
             width: 100%;
             box-sizing: border-box;
-            padding: 0 32px;
+            padding: 0 24px;
             justify-content: space-between;
             align-items: center;
             height: 4rem;
 
             &__logo {
-                width: 211px;
-                max-width: 211px;
-                height: 37px;
-                max-height: 37px;
-
-                svg {
-                    width: 211px;
-                    height: 37px;
-                }
+                height: 30px;
+                width: auto;
             }
         }
 

@@ -33,9 +33,7 @@
         <div class="header__mobile-area">
             <div class="header__mobile-area__container">
                 <header class="header__mobile-area__container__header">
-                    <div class="header__mobile-area__container__header__logo" @click.stop="goToProjects">
-                        <LogoIcon />
-                    </div>
+                    <LogoIcon class="header__mobile-area__container__header__logo" @click.stop="goToProjects" />
                     <CrossIcon v-if="isNavOpened" @click="toggleNavigation" />
                     <MenuIcon v-else @click="toggleNavigation" />
                 </header>
@@ -368,21 +366,14 @@ function sendDocsEvent(): void {
                 display: flex;
                 width: 100%;
                 box-sizing: border-box;
-                padding: 0 32px;
+                padding: 0 20px;
                 justify-content: space-between;
                 align-items: center;
                 height: 4rem;
 
                 &__logo {
-                    width: 211px;
-                    max-width: 211px;
-                    height: 37px;
-                    max-height: 37px;
-
-                    svg {
-                        width: 211px;
-                        height: 37px;
-                    }
+                    height: 30px;
+                    width: auto;
                 }
             }
 
