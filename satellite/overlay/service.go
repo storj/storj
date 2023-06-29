@@ -66,7 +66,7 @@ type DB interface {
 	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error)
-	// Reliable returns all nodes that are reliable, online and offline.
+	// Reliable returns all nodes that are reliable (separated by whether they are currently online or offline).
 	Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
@@ -401,43 +401,6 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
-// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
-// requested node is not in the database, an empty string will be returned corresponding
-// to that node's last_net.
-func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
-	defer mon.Task()(&ctx)(nil)
-
-	nodes, err := service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
-	if err != nil {
-		return nil, err
-	}
-	lastNets = make([]string, len(nodeIDs))
-	for i, nodeID := range nodeIDs {
-		if selectedNode, ok := nodes[nodeID]; ok {
-			lastNets[i] = selectedNode.LastNet
-		}
-	}
-	return lastNets, nil
-}
-
-// GetNodesOutOfPlacement checks if nodes from nodeIDs list are in allowed country according to specified geo placement
-// and returns list of node ids which are not.
-func (service *Service) GetNodesOutOfPlacement(ctx context.Context, nodeIDs []storj.NodeID, placement storj.PlacementConstraint) (offNodes []storj.NodeID, err error) {
-	defer mon.Task()(&ctx)(nil)
-
-	nodes, err := service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
-	if err != nil {
-		return nil, err
-	}
-	offNodes = make([]storj.NodeID, 0, len(nodeIDs))
-	for _, nodeID := range nodeIDs {
-		if selectedNode, ok := nodes[nodeID]; ok && !placement.AllowedCountry(selectedNode.CountryCode) {
-			offNodes = append(offNodes, selectedNode.ID)
-		}
-	}
-	return offNodes, nil
-}
-
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -577,11 +540,11 @@ func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDL
 	return service.db.KnownReliable(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
 }
 
-// Reliable returns all nodes that are reliable, online and offline.
+// Reliable returns all nodes that are reliable (separated by whether they are currently online or offline).
 func (service *Service) Reliable(ctx context.Context) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add as of system time
+	// TODO add as of system tim.
 	return service.db.Reliable(ctx, service.config.Node.OnlineWindow, 0)
 }
 

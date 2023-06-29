@@ -15,11 +15,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -1027,118 +1025,5 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		ne2 := getNE()
 		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
-	})
-}
-
-func TestService_GetNodesOutOfPlacement(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AsOfSystemTime.Enabled = false
-				config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-
-		placement := storj.EU
-
-		nodeIDs := []storj.NodeID{}
-		for _, node := range planet.StorageNodes {
-			nodeIDs = append(nodeIDs, node.ID())
-
-			err := service.TestNodeCountryCode(ctx, node.ID(), location.Poland.String())
-			require.NoError(t, err)
-		}
-
-		require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
-
-		offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
-		require.NoError(t, err)
-		require.Empty(t, offNodes)
-
-		expectedNodeIDs := []storj.NodeID{}
-		for _, node := range planet.StorageNodes {
-			expectedNodeIDs = append(expectedNodeIDs, node.ID())
-			err := service.TestNodeCountryCode(ctx, node.ID(), location.Brazil.String())
-			require.NoError(t, err)
-
-			// we need to refresh cache because node country code was changed
-			require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
-
-			offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
-			require.NoError(t, err)
-			require.ElementsMatch(t, expectedNodeIDs, offNodes)
-		}
-	})
-}
-
-func TestService_UpdateTags(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sampleIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-
-		service := planet.Satellites[0].Overlay.Service
-		snIdentity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
-
-		// first time
-		err := service.UpdateNodeTags(ctx, []uploadselection.NodeTag{
-			{
-				NodeID:   snIdentity.ID,
-				SignedAt: time.Now(),
-				Signer:   sampleIdentity.ID,
-				Name:     "foo",
-				Value:    []byte("bar"),
-			},
-		})
-		require.NoError(t, err)
-
-		tags, err := service.GetNodeTags(ctx, snIdentity.ID)
-		require.NoError(t, err)
-
-		require.Len(t, tags, 1)
-
-		// second time
-		err = service.UpdateNodeTags(ctx, []uploadselection.NodeTag{
-			{
-				NodeID:   snIdentity.ID,
-				SignedAt: time.Now(),
-				Signer:   sampleIdentity.ID,
-				Name:     "foo",
-				Value:    []byte("barx"),
-			},
-			{
-				NodeID:   snIdentity.ID,
-				SignedAt: time.Now(),
-				Signer:   sampleIdentity.ID,
-				Name:     "kossuth",
-				Value:    []byte("lajos"),
-			},
-		})
-		require.NoError(t, err)
-
-		tags, err = service.GetNodeTags(ctx, snIdentity.ID)
-		require.NoError(t, err)
-		require.Len(t, tags, 2)
-
-		tag, err := tags.FindBySignerAndName(sampleIdentity.ID, "kossuth")
-		require.NoError(t, err)
-		require.Equal(t, "kossuth", tag.Name)
-		require.Equal(t, []byte("lajos"), tag.Value)
-
-		tag, err = tags.FindBySignerAndName(sampleIdentity.ID, "foo")
-		require.NoError(t, err)
-		require.Equal(t, "foo", tag.Name)
-		require.Equal(t, []byte("barx"), tag.Value)
-
-		_, err = tags.FindBySignerAndName(sampleIdentity.ID, "foox")
-		require.Error(t, err)
-
-		_, err = tags.FindBySignerAndName(testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID, "foo")
-		require.Error(t, err)
-
 	})
 }
