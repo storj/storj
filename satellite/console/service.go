@@ -2725,7 +2725,7 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID)
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID, true)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2767,7 +2767,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	var totalBandwidthUsed int64
 
 	for _, pr := range projects {
-		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID)
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID, false)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -2786,7 +2786,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	}, nil
 }
 
-func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, onlySettledBandwidth bool) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
@@ -2806,10 +2806,17 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+
+	var bandwidthUsed int64
+	if onlySettledBandwidth {
+		bandwidthUsed, err = s.projectUsage.GetProjectSettledBandwidth(ctx, projectID)
+	} else {
+		bandwidthUsed, err = s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
 	if err != nil {
 		return nil, err

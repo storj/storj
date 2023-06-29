@@ -23,6 +23,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -434,6 +435,20 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits1.BandwidthLimit)
 				require.Equal(t, updatedStorageLimit.Int64(), limits2.StorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits2.BandwidthLimit)
+
+				bucket := "testbucket1"
+				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucket)
+				require.NoError(t, err)
+
+				now := time.Now().UTC()
+				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, 1000, startOfMonth)
+				require.NoError(t, err)
+
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+				require.Equal(t, int64(0), limits2.BandwidthUsed)
 			})
 
 			t.Run("ChangeEmail", func(t *testing.T) {
