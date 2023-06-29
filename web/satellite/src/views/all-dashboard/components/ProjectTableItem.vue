@@ -3,28 +3,48 @@
 
 <template>
     <table-item
-        item-type="project"
+        :item-type="isOwner ? 'project' : 'shared-project'"
         :item="itemToRender"
         :on-click="onOpenClicked"
         class="project-item"
     >
         <template #options>
-            <th class="project-item__menu options overflow-visible" @click.stop="toggleDropDown">
-                <div class="project-item__menu__icon">
-                    <div class="project-item__menu__icon__content" :class="{open: isDropdownOpen}">
-                        <menu-icon />
-                    </div>
-                </div>
+            <th class="overflow-visible">
+                <div class="options">
+                    <v-button
+                        :on-press="onOpenClicked"
+                        is-white
+                        border-radius="8px"
+                        font-size="12px"
+                        label="Open Project"
+                        class="project-item__button"
+                    />
+                    <v-button
+                        :on-press="onOpenClicked"
+                        is-white
+                        border-radius="8px"
+                        font-size="12px"
+                        label="Open"
+                        class="project-item__mobile-button"
+                    />
+                    <div class="project-item__menu">
+                        <div class="project-item__menu__icon" @click.stop="toggleDropDown">
+                            <div class="project-item__menu__icon__content" :class="{open: isDropdownOpen}">
+                                <menu-icon />
+                            </div>
+                        </div>
 
-                <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="project-item__menu__dropdown">
-                    <div v-if="isOwner" class="project-item__menu__dropdown__item" @click.stop="goToProjectEdit">
-                        <gear-icon />
-                        <p class="project-item__menu__dropdown__item__label">Project settings</p>
-                    </div>
+                        <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="project-item__menu__dropdown">
+                            <div v-if="isOwner" class="project-item__menu__dropdown__item" @click.stop="goToProjectEdit">
+                                <gear-icon />
+                                <p class="project-item__menu__dropdown__item__label">Project settings</p>
+                            </div>
 
-                    <div class="project-item__menu__dropdown__item" @click.stop="goToProjectMembers">
-                        <users-icon />
-                        <p class="project-item__menu__dropdown__item__label">Invite members</p>
+                            <div class="project-item__menu__dropdown__item" @click.stop="goToProjectMembers">
+                                <users-icon />
+                                <p class="project-item__menu__dropdown__item__label">Invite members</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </th>
@@ -53,6 +73,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useResize } from '@/composables/resize';
 
 import TableItem from '@/components/common/TableItem.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import UsersIcon from '@/../static/images/navigation/users.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
@@ -71,19 +92,30 @@ const props = defineProps<{
     project: Project,
 }>();
 
-const { isMobile } = useResize();
+const { isMobile, screenWidth } = useResize();
 
 const itemToRender = computed((): { [key: string]: unknown | string[] } => {
-    if (!isMobile.value) {
+    if (screenWidth.value <= 600 && !isMobile.value) {
         return {
             multi: { title: props.project.name, subtitle: props.project.description },
-            date: props.project.createdDate(),
-            memberCount: props.project.memberCount.toString(),
+        };
+    }
+    if (screenWidth.value <= 850 && !isMobile.value) {
+        return {
+            multi: { title: props.project.name, subtitle: props.project.description },
             role: isOwner.value ? ProjectRole.Owner : ProjectRole.Member,
         };
     }
+    if (isMobile.value) {
+        return { info: [ props.project.name, props.project.description ] };
+    }
 
-    return { info: [ props.project.name, props.project.description ] };
+    return {
+        multi: { title: props.project.name, subtitle: props.project.description },
+        date: props.project.createdDate(),
+        memberCount: props.project.memberCount.toString(),
+        role: isOwner.value ? ProjectRole.Owner : ProjectRole.Member,
+    };
 });
 
 /**
@@ -166,8 +198,38 @@ async function goToProjectEdit(): Promise<void> {
 <style scoped lang="scss">
 .project-item {
 
+    .options {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        column-gap: 20px;
+        padding-right: 10px;
+
+        @media screen and (width <= 900px) {
+            column-gap: 10px;
+        }
+    }
+
+    &__button {
+        padding: 10px 16px;
+        box-shadow: 0 0 20px 0 rgb(0 0 0 / 4%);
+
+        @media screen and (width <= 900px) {
+            display: none;
+        }
+    }
+
+    &__mobile-button {
+        display: none;
+        padding: 10px 16px;
+        box-shadow: 0 0 20px 0 rgb(0 0 0 / 4%);
+
+        @media screen and (width <= 900px) {
+            display: flex;
+        }
+    }
+
     &__menu {
-        padding: 0 10px;
         position: relative;
         cursor: pointer;
 
@@ -176,8 +238,6 @@ async function goToProjectEdit(): Promise<void> {
             &__content {
                 height: 32px;
                 width: 32px;
-                margin-left: auto;
-                margin-right: 0;
                 padding: 12px 5px;
                 border-radius: 5px;
                 box-sizing: border-box;
@@ -193,9 +253,9 @@ async function goToProjectEdit(): Promise<void> {
 
         &__dropdown {
             position: absolute;
-            top: 55px;
-            right: 10px;
-            background: var(--c-white);
+            top: 40px;
+            right: 0;
+            background: #fff;
             box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
             border: 1px solid var(--c-grey-2);
             border-radius: 8px;

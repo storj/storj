@@ -33,6 +33,7 @@ export class ObjectType {
         ['text', TxtIcon],
         ['archive', ZipIcon],
         ['project', ProjectIcon],
+        ['shared-project', ProjectIcon],
     ]);
 
     static findIcon(type: string): string {

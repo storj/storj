@@ -8,10 +8,10 @@
         items-label="projects"
     >
         <template #head>
-            <th class="sort-header-container__name-item align-left">Project</th>
-            <th class="sort-header-container__date-item align-left">Date Added</th>
-            <th class="sort-header-container__date-item align-left">Members</th>
-            <th class="sort-header-container__date-item align-left">Role</th>
+            <th class="align-left">Project</th>
+            <th class="date-added align-left">Date Added</th>
+            <th class="members align-left">Members</th>
+            <th class="role align-left">Role</th>
         </template>
         <template #body>
             <project-table-invitation-item
@@ -54,3 +54,28 @@ const projects = computed((): Project[] => {
 });
 
 </script>
+
+<style scoped lang="scss">
+.projects-table {
+    @media screen and (width <= 550px) {
+
+        :deep(.table-footer), :deep(.base-table) {
+            border-radius: 0;
+        }
+    }
+}
+
+@media screen and (width <= 850px) {
+
+    .date-added, .members {
+        display: none;
+    }
+}
+
+@media screen and (width <= 600px) {
+
+    .role {
+        display: none;
+    }
+}
+</style>

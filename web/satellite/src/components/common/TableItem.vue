@@ -14,8 +14,13 @@
             v-for="(val, keyVal, index) in item" :key="index" class="align-left data"
             :class="{'overflow-visible': showBucketGuide(index)}"
         >
-            <div v-if="Array.isArray(val)" class="few-items">
-                <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
+            <div v-if="Array.isArray(val)" class="few-items-container">
+                <div v-if="icon && index === 0 && itemType?.includes('project')" class="item-icon file-background" :class="customIconClasses">
+                    <component :is="icon" />
+                </div>
+                <div class="few-items">
+                    <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
+                </div>
             </div>
             <div v-else class="table-item">
                 <div v-if="icon && index === 0" class="item-icon file-background" :class="customIconClasses">
@@ -83,17 +88,15 @@ const icon = computed((): string => ObjectType.findIcon(props.itemType));
 const customIconClasses = computed(() => {
     const classes = {};
     if (props.itemType === 'project') {
-        if (props.item['role'] === ProjectRole.Owner) {
-            classes['project-owner'] = true;
-        } else if (props.item['role'] === ProjectRole.Member) {
-            classes['project-member'] = true;
-        }
+        classes['project-owner'] = true;
+    } else if (props.itemType === 'shared-project') {
+        classes['project-member'] = true;
     }
     return classes;
 });
 
 function isProjectRoleIconShown(role: ProjectRole) {
-    return props.itemType === 'project' || role === ProjectRole.Invited || role === ProjectRole.InviteExpired;
+    return props.itemType.includes('project') || role === ProjectRole.Invited || role === ProjectRole.InviteExpired;
 }
 
 function selectClicked(event: Event): void {
@@ -204,11 +207,27 @@ function cellContentClicked(cellIndex: number, event: Event) {
         display: flex;
         flex-direction: column;
 
+        &__title {
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
         &__subtitle {
             font-family: 'font_regular', sans-serif;
             font-size: 12px;
             line-height: 20px;
             color: var(--c-grey-6);
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    }
+
+    .few-items-container {
+        display: flex;
+        align-items: center;
+
+        @media screen and (width <= 370px) {
+            max-width: 9rem;
         }
     }
 
