@@ -483,17 +483,9 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			var onlineNode bool
-			var node uploadselection.SelectedNode
-			node.Address = &pb.NodeAddress{}
-			var lastIPPort sql.NullString
-			err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
+			node, onlineNode, err := scanSelectedNode(rows)
 			if err != nil {
 				return err
-			}
-
-			if lastIPPort.Valid {
-				node.LastIPPort = lastIPPort.String
 			}
 
 			if onlineNode {
@@ -508,63 +500,67 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 	return online, offline, Error.Wrap(err)
 }
 
-// Reliable returns all reliable nodes.
-func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+// Reliable returns all nodes that are reliable, online and offline.
+func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
 	for {
-		nodes, err = cache.reliable(ctx, criteria)
+		online, offline, err = cache.reliable(ctx, onlineWindow, asOfSystemInterval)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
-			return nodes, err
+			return nil, nil, err
 		}
 		break
 	}
 
-	return nodes, err
+	return online, offline, nil
 }
 
-func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
-	args := []interface{}{
-		time.Now().Add(-criteria.OnlineWindow),
-	}
+func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	// When this config is not set, it's a string slice with one empty string. I added some sanity checks to make sure we don't
-	// dereference a nil pointer or index an element that doesn't exist.
-	var excludedCountriesCondition string
-	if criteria.ExcludedCountries != nil && len(criteria.ExcludedCountries) != 0 && criteria.ExcludedCountries[0] != "" {
-		excludedCountriesCondition = "AND country_code NOT IN (SELECT UNNEST($2::TEXT[]))"
-		args = append(args, pgutil.TextArray(criteria.ExcludedCountries))
-	}
-
-	// get reliable and online nodes
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id
+	err = withRows(cache.db.Query(ctx, `
+		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $1 as online
 		FROM nodes
-		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
+			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		WHERE disqualified IS NULL
-		AND unknown_audit_suspended IS NULL
-		AND offline_suspended IS NULL
-		AND exit_finished_at IS NULL
-		AND last_contact_success > $1
-		`+excludedCountriesCondition+`
-	`), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
+			AND exit_finished_at IS NULL
+	`, time.Now().Add(-onlineWindow),
+	))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			node, onlineNode, err := scanSelectedNode(rows)
+			if err != nil {
+				return err
+			}
 
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, err
+			if onlineNode {
+				online = append(online, node)
+			} else {
+				offline = append(offline, node)
+			}
 		}
-		nodes = append(nodes, id)
+		return nil
+	})
+
+	return online, offline, Error.Wrap(err)
+}
+
+func scanSelectedNode(rows tagsql.Rows) (uploadselection.SelectedNode, bool, error) {
+	var onlineNode bool
+	var node uploadselection.SelectedNode
+	node.Address = &pb.NodeAddress{}
+	var lastIPPort sql.NullString
+	err := rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
+	if err != nil {
+		return uploadselection.SelectedNode{}, false, err
 	}
-	return nodes, Error.Wrap(rows.Err())
+
+	if lastIPPort.Valid {
+		node.LastIPPort = lastIPPort.String
+	}
+	return node, onlineNode, nil
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.

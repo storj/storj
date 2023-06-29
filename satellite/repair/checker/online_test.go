@@ -12,11 +12,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -35,7 +35,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := NewReliabilityCache(overlayCache, time.Millisecond)
+	cache := NewReliabilityCache(overlayCache, time.Millisecond, []string{})
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
@@ -55,11 +55,11 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) Reliable(context.Context, *overlay.NodeCriteria) (storj.NodeIDList, error) {
-	return storj.NodeIDList{
-		testrand.NodeID(),
-		testrand.NodeID(),
-		testrand.NodeID(),
-		testrand.NodeID(),
-	}, nil
+func (fakeOverlayDB) Reliable(context.Context, time.Duration, time.Duration) ([]uploadselection.SelectedNode, []uploadselection.SelectedNode, error) {
+	return []uploadselection.SelectedNode{
+		{ID: testrand.NodeID()},
+		{ID: testrand.NodeID()},
+		{ID: testrand.NodeID()},
+		{ID: testrand.NodeID()},
+	}, nil, nil
 }

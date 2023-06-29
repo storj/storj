@@ -818,28 +818,6 @@ func TestVetAndUnvetNode(t *testing.T) {
 	})
 }
 
-func TestReliable(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-		node := planet.StorageNodes[0]
-
-		nodes, err := service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 2)
-
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
-		require.NoError(t, err)
-
-		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 1)
-		require.NotEqual(t, node.ID(), nodes[0])
-	})
-}
-
 func TestKnownReliableInExcludedCountries(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
@@ -847,15 +825,15 @@ func TestKnownReliableInExcludedCountries(t *testing.T) {
 		service := planet.Satellites[0].Overlay.Service
 		node := planet.StorageNodes[0]
 
-		nodes, err := service.Reliable(ctx)
+		onlineNodes, _, err := service.Reliable(ctx)
 		require.NoError(t, err)
-		require.Len(t, nodes, 2)
+		require.Len(t, onlineNodes, 2)
 
 		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
 		require.NoError(t, err)
 
 		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.KnownReliableInExcludedCountries(ctx, nodes)
+		nodes, err := service.KnownReliableInExcludedCountries(ctx, storj.NodeIDList{onlineNodes[0].ID, onlineNodes[1].ID})
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, node.ID(), nodes[0])

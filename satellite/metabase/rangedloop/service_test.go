@@ -426,6 +426,7 @@ func TestAllInOne(t *testing.T) {
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,
 				satellite.Config.Checker,
+				[]string{},
 			),
 		})
 

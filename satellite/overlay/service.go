@@ -66,8 +66,8 @@ type DB interface {
 	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error)
-	// Reliable returns all nodes that are reliable
-	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
+	// Reliable returns all nodes that are reliable, online and offline.
+	Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -577,15 +577,12 @@ func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDL
 	return service.db.KnownReliable(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
 }
 
-// Reliable filters a set of nodes that are reliable, independent of new.
-func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
+// Reliable returns all nodes that are reliable, online and offline.
+func (service *Service) Reliable(ctx context.Context) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	criteria := &NodeCriteria{
-		OnlineWindow: service.config.Node.OnlineWindow,
-	}
-	criteria.ExcludedCountries = service.config.RepairExcludedCountryCodes
-	return service.db.Reliable(ctx, criteria)
+	// TODO add as of system time
+	return service.db.Reliable(ctx, service.config.Node.OnlineWindow, 0)
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.

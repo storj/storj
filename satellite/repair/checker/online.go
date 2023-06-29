@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
@@ -19,10 +20,11 @@ import (
 //
 // architecture: Service
 type ReliabilityCache struct {
-	overlay   *overlay.Service
-	staleness time.Duration
-	mu        sync.Mutex
-	state     atomic.Value // contains immutable *reliabilityState
+	overlay              *overlay.Service
+	staleness            time.Duration
+	excludedCountryCodes map[location.CountryCode]struct{}
+	mu                   sync.Mutex
+	state                atomic.Value // contains immutable *reliabilityState
 }
 
 // reliabilityState.
@@ -32,10 +34,18 @@ type reliabilityState struct {
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *ReliabilityCache {
+func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration, excludedCountries []string) *ReliabilityCache {
+	excludedCountryCodes := make(map[location.CountryCode]struct{})
+	for _, countryCode := range excludedCountries {
+		if cc := location.ToCountryCode(countryCode); cc != location.None {
+			excludedCountryCodes[location.ToCountryCode(countryCode)] = struct{}{}
+		}
+	}
+
 	return &ReliabilityCache{
-		overlay:   overlay,
-		staleness: staleness,
+		overlay:              overlay,
+		staleness:            staleness,
+		excludedCountryCodes: excludedCountryCodes,
 	}
 }
 
@@ -114,17 +124,19 @@ func (cache *ReliabilityCache) Refresh(ctx context.Context) (err error) {
 func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := cache.overlay.Reliable(ctx)
+	online, _, err := cache.overlay.Reliable(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	state := &reliabilityState{
 		created:  time.Now(),
-		reliable: make(map[storj.NodeID]struct{}, len(nodes)),
+		reliable: make(map[storj.NodeID]struct{}, len(online)),
 	}
-	for _, id := range nodes {
-		state.reliable[id] = struct{}{}
+	for _, node := range online {
+		if _, ok := cache.excludedCountryCodes[node.CountryCode]; !ok {
+			state.reliable[node.ID] = struct{}{}
+		}
 	}
 
 	cache.state.Store(state)
