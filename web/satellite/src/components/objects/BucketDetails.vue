@@ -15,7 +15,17 @@
                 <p>{{ bucket.name }} created at {{ creationDate }}</p>
             </div>
         </div>
-        <bucket-details-overview class="bucket-details__table" :bucket="bucket" />
+        <VButton
+            class="bucket-details__button"
+            width="unset"
+            border-radius="8px"
+            font-size="12px"
+            icon="back"
+            label="Back"
+            is-white
+            :on-press="openBucket"
+        />
+        <bucket-details-overview :bucket="bucket" />
         <VOverallLoader v-if="isLoading" />
     </div>
 </template>
@@ -38,6 +48,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
@@ -136,6 +147,9 @@ onBeforeMount((): void => {
 <style lang="scss" scoped>
 .bucket-details {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 
     &__header {
         display: flex;
@@ -174,8 +188,15 @@ onBeforeMount((): void => {
         }
     }
 
-    &__table {
-        margin-top: 40px;
+    &__button {
+        padding: 6px 16px;
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+        align-self: flex-start;
+
+        :deep(.label) {
+            color: var(--c-black) !important;
+            line-height: 20px;
+        }
     }
 }
 </style>

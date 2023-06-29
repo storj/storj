@@ -66,6 +66,7 @@ import FolderIcon from '@/../static/images/objects/newFolder.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import UploadIcon from '@/../static/images/common/upload.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
+import BackIcon from '@/../static/images/common/arrowLeft.svg';
 
 const props = withDefaults(defineProps<{
     link?: string;
@@ -123,6 +124,7 @@ const icons = new Map<string, string>([
     ['add', WhitePlusIcon],
     ['upload', UploadIcon],
     ['project', ProjectIcon],
+    ['back', BackIcon],
 ]);
 
 const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));
