@@ -75,10 +75,29 @@ onMounted((): void => {
 
                 &__close {
                     position: absolute;
-                    right: 24px;
-                    top: 24px;
+                    right: 3px;
+                    top: 3px;
+                    padding: 10px;
+                    border-radius: 16px;
                     cursor: pointer;
-                    opacity: 0.55;
+
+                    &:hover {
+                        background-color: var(--c-grey-2);
+                    }
+
+                    &:active {
+                        background-color: var(--c-grey-4);
+                    }
+
+                    svg {
+                        display: block;
+                        width: 12px;
+                        height: 12px;
+
+                        :deep(path) {
+                            fill: var(--c-black);
+                        }
+                    }
                 }
             }
         }
