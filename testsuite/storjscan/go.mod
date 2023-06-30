@@ -9,7 +9,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.1.0
-	storj.io/common v0.0.0-20230602145716-d6ea82d58b3d
+	storj.io/common v0.0.0-20230703090058-81cb588c23b6
 	storj.io/private v0.0.0-20230627140631-807a2f00d0e1
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
