@@ -247,3 +247,30 @@ read first (
 )
 
 delete node_event ( where node_event.created_at < ? )
+
+model node_tags (
+
+    key node_id name signer
+
+    // node_id is the storagenode storj.NodeID who reported the tag
+    field node_id            blob
+
+    // name is the identififer of the k=v pair
+    field name               text
+
+    // value structure depends on the name
+    field value              blob
+
+    // timestamp represents the time of the issue (also signed).
+    field signed_at          timestamp
+
+    // signer is the node_id of the signer
+    field signer             blob
+)
+
+create node_tags ( noreturn, replace )
+
+read all (
+	select node_tags
+	where node_tags.node_id = ?
+)

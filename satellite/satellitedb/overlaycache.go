@@ -1591,3 +1591,46 @@ func (cache *overlaycache) OneTimeFixLastNets(ctx context.Context) error {
 	_, err = cache.db.ExecContext(ctx, "UPDATE nodes SET last_net = last_ip_port")
 	return Error.Wrap(err)
 }
+
+func (cache *overlaycache) UpdateNodeTags(ctx context.Context, tags uploadselection.NodeTags) error {
+	for _, t := range tags {
+		err := cache.db.ReplaceNoReturn_NodeTags(ctx,
+			dbx.NodeTags_NodeId(t.NodeID.Bytes()),
+			dbx.NodeTags_Name(t.Name),
+			dbx.NodeTags_Value(t.Value),
+			dbx.NodeTags_SignedAt(t.SignedAt),
+			dbx.NodeTags_Signer(t.Signer.Bytes()),
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (uploadselection.NodeTags, error) {
+	rows, err := cache.db.All_NodeTags_By_NodeId(ctx, dbx.NodeTags_NodeId(id.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var tags uploadselection.NodeTags
+	for _, row := range rows {
+		nodeIDBytes, err := storj.NodeIDFromBytes(row.NodeId)
+		if err != nil {
+			return tags, Error.Wrap(errs.New("Invalid nodeID in the database: %x", row.NodeId))
+		}
+		signerIDBytes, err := storj.NodeIDFromBytes(row.Signer)
+		if err != nil {
+			return tags, Error.Wrap(errs.New("Invalid nodeID in the database: %x", row.NodeId))
+		}
+		tags = append(tags, uploadselection.NodeTag{
+			NodeID:   nodeIDBytes,
+			Name:     row.Name,
+			Value:    row.Value,
+			SignedAt: row.SignedAt,
+			Signer:   signerIDBytes,
+		})
+	}
+	return tags, err
+}

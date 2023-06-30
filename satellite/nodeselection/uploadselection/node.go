@@ -15,11 +15,11 @@ import (
 
 // NodeTag is a tag associated with a node (approved by signer).
 type NodeTag struct {
-	NodeID    storj.NodeID
-	Timestamp time.Time
-	Signer    storj.NodeID
-	Name      string
-	Value     []byte
+	NodeID   storj.NodeID
+	SignedAt time.Time
+	Signer   storj.NodeID
+	Name     string
+	Value    []byte
 }
 
 // NodeTags is a collection of multiple NodeTag.

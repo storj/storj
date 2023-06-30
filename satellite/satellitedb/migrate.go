@@ -2408,6 +2408,20 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX project_members_project_id_index ON project_members ( project_id );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index on project_id column for project_members",
+				Version:     241,
+				Action: migrate.SQL{
+					`CREATE TABLE node_tags (
+						node_id bytea NOT NULL,
+						name text NOT NULL,
+						value bytea NOT NULL,
+						signed_at timestamp with time zone NOT NULL,
+						signer bytea NOT NULL,
+						PRIMARY KEY ( node_id, name, signer ));`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

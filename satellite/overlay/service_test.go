@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -1092,5 +1093,74 @@ func TestService_GetNodesOutOfPlacement(t *testing.T) {
 			require.NoError(t, err)
 			require.ElementsMatch(t, expectedNodeIDs, offNodes)
 		}
+	})
+}
+
+func TestService_UpdateTags(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sampleIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+
+		service := planet.Satellites[0].Overlay.Service
+		snIdentity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
+		// first time
+		err := service.UpdateNodeTags(ctx, []uploadselection.NodeTag{
+			{
+				NodeID:   snIdentity.ID,
+				SignedAt: time.Now(),
+				Signer:   sampleIdentity.ID,
+				Name:     "foo",
+				Value:    []byte("bar"),
+			},
+		})
+		require.NoError(t, err)
+
+		tags, err := service.GetNodeTags(ctx, snIdentity.ID)
+		require.NoError(t, err)
+
+		require.Len(t, tags, 1)
+
+		// second time
+		err = service.UpdateNodeTags(ctx, []uploadselection.NodeTag{
+			{
+				NodeID:   snIdentity.ID,
+				SignedAt: time.Now(),
+				Signer:   sampleIdentity.ID,
+				Name:     "foo",
+				Value:    []byte("barx"),
+			},
+			{
+				NodeID:   snIdentity.ID,
+				SignedAt: time.Now(),
+				Signer:   sampleIdentity.ID,
+				Name:     "kossuth",
+				Value:    []byte("lajos"),
+			},
+		})
+		require.NoError(t, err)
+
+		tags, err = service.GetNodeTags(ctx, snIdentity.ID)
+		require.NoError(t, err)
+		require.Len(t, tags, 2)
+
+		tag, err := tags.FindBySignerAndName(sampleIdentity.ID, "kossuth")
+		require.NoError(t, err)
+		require.Equal(t, "kossuth", tag.Name)
+		require.Equal(t, []byte("lajos"), tag.Value)
+
+		tag, err = tags.FindBySignerAndName(sampleIdentity.ID, "foo")
+		require.NoError(t, err)
+		require.Equal(t, "foo", tag.Name)
+		require.Equal(t, []byte("barx"), tag.Value)
+
+		_, err = tags.FindBySignerAndName(sampleIdentity.ID, "foox")
+		require.Error(t, err)
+
+		_, err = tags.FindBySignerAndName(testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID, "foo")
+		require.Error(t, err)
+
 	})
 }

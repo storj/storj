@@ -135,6 +135,12 @@ type DB interface {
 	IterateAllContactedNodes(context.Context, func(context.Context, *uploadselection.SelectedNode) error) error
 	// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
+
+	// UpdateNodeTags insert (or refresh) node tags.
+	UpdateNodeTags(ctx context.Context, tags uploadselection.NodeTags) error
+
+	// GetNodeTags returns all nodes for a specific node.
+	GetNodeTags(ctx context.Context, id storj.NodeID) (uploadselection.NodeTags, error)
 }
 
 // DisqualificationReason is disqualification reason enum type.
@@ -829,6 +835,16 @@ func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlin
 func (service *Service) ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
 	// LastNetFunc is MaskOffLastNet, unless changed for a test.
 	return ResolveIPAndNetwork(ctx, target, service.config.Node, service.LastNetFunc)
+}
+
+// UpdateNodeTags persists all new and old node tags.
+func (service *Service) UpdateNodeTags(ctx context.Context, tags []uploadselection.NodeTag) error {
+	return service.db.UpdateNodeTags(ctx, tags)
+}
+
+// GetNodeTags returns the node tags of a node.
+func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (uploadselection.NodeTags, error) {
+	return service.db.GetNodeTags(ctx, id)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.
