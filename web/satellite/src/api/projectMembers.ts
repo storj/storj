@@ -113,7 +113,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
      * @throws Error
      */
     public async getInviteLink(projectID: string, email: string): Promise<string> {
-        const path = `${this.ROOT_PATH}/${projectID}/invite-link?email=${email}`;
+        const path = `${this.ROOT_PATH}/${projectID}/invite-link?email=${encodeURIComponent(email)}`;
         const httpResponse = await this.http.get(path);
 
         if (httpResponse.ok) {

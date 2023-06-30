@@ -783,7 +783,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user != nil {
-		http.Redirect(w, r, loginLink+"?email="+user.Email, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, loginLink+"?email="+url.QueryEscape(user.Email), http.StatusTemporaryRedirect)
 		return
 	}
 

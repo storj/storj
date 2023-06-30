@@ -140,14 +140,14 @@ func TestInvitedRouting(t *testing.T) {
 		params := "email=invited%40mail.test&inviter=Project+Owner&inviter_email=owner%40mail.test&project=Test+Project"
 		checkInvitedRedirect("Invited - Nonexistent user", baseURL+"signup?"+params, token)
 
-		invitedUser, err := sat.AddUser(ctx, console.CreateUser{
+		_, err = sat.AddUser(ctx, console.CreateUser{
 			FullName: "Invited User",
 			Email:    invitedEmail,
 		}, 1)
 		require.NoError(t, err)
 
 		// valid invite should redirect to login page with email.
-		checkInvitedRedirect("Invited - User invited", loginURL+"?email="+invitedUser.Email, token)
+		checkInvitedRedirect("Invited - User invited", loginURL+"?email=invited%40mail.test", token)
 	})
 }
 
