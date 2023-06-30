@@ -48,6 +48,12 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			}
 			return reputable, new, err
 		}
+
+		err = cache.addNodeTags(ctx, append(reputable, new...))
+		if err != nil {
+			return reputable, new, err
+		}
+
 		break
 	}
 
@@ -128,9 +134,15 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 	for {
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
+
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
+			return nodes, err
+		}
+
+		err = cache.addNodeTags(ctx, nodes)
+		if err != nil {
 			return nodes, err
 		}
 		break
@@ -1629,4 +1641,36 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (up
 		})
 	}
 	return tags, err
+}
+
+func (cache *overlaycache) addNodeTags(ctx context.Context, nodes []*uploadselection.SelectedNode) error {
+	rows, err := cache.db.All_NodeTags(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	tagsByNode := map[storj.NodeID]uploadselection.NodeTags{}
+	for _, row := range rows {
+		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		signerID, err := storj.NodeIDFromBytes(row.Signer)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		tagsByNode[nodeID] = append(tagsByNode[nodeID], uploadselection.NodeTag{
+			NodeID:   nodeID,
+			Name:     row.Name,
+			Value:    row.Value,
+			SignedAt: row.SignedAt,
+			Signer:   signerID,
+		})
+
+	}
+
+	for _, node := range nodes {
+		node.Tags = tagsByNode[node.ID]
+	}
+	return nil
 }

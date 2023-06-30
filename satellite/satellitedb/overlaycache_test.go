@@ -8,11 +8,14 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
@@ -363,6 +366,8 @@ func TestGetNodesNetwork(t *testing.T) {
 
 func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		tagSigner := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
 		cache := db.OverlayCache()
 		const netMask = 28
 		mask := net.CIDRMask(netMask, 32)
@@ -385,6 +390,19 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 			}
 			err := cache.UpdateCheckIn(ctx, infos[n], time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
+
+			if n%2 == 0 {
+				err = cache.UpdateNodeTags(ctx, uploadselection.NodeTags{
+					uploadselection.NodeTag{
+						NodeID:   id,
+						SignedAt: time.Now(),
+						Signer:   tagSigner.ID,
+						Name:     "even",
+						Value:    []byte{1},
+					},
+				})
+				require.NoError(t, err)
+			}
 		}
 
 		checkNodes := func(selectedNodes []*uploadselection.SelectedNode) {
@@ -402,6 +420,16 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 				require.Equal(t, info.CountryCode, selectedNode.CountryCode)
 				require.Equal(t, info.LastIPPort, selectedNode.LastIPPort)
 				require.Equal(t, info.LastNet, selectedNode.LastNet)
+				segments := strings.Split(selectedNode.Address.Address, ".")
+				origIndex, err := strconv.Atoi(segments[len(segments)-1])
+				require.NoError(t, err)
+				if origIndex%2 == 0 {
+					require.Len(t, selectedNode.Tags, 1)
+					require.Equal(t, "even", selectedNode.Tags[0].Name)
+					require.Equal(t, []byte{1}, selectedNode.Tags[0].Value)
+				} else {
+					require.Len(t, selectedNode.Tags, 0)
+				}
 			}
 		}
 

@@ -274,3 +274,7 @@ read all (
 	select node_tags
 	where node_tags.node_id = ?
 )
+
+read all (
+        select node_tags
+)
