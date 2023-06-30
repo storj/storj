@@ -16,7 +16,7 @@ var _ Selector = (SelectByID)(nil)
 func (nodes SelectByID) Count() int { return len(nodes) }
 
 // Select selects upto n nodes.
-func (nodes SelectByID) Select(n int, criteria Criteria) []*SelectedNode {
+func (nodes SelectByID) Select(n int, nodeFilter NodeFilter) []*SelectedNode {
 	if n <= 0 {
 		return nil
 	}
@@ -25,7 +25,7 @@ func (nodes SelectByID) Select(n int, criteria Criteria) []*SelectedNode {
 	for _, idx := range mathrand.Perm(len(nodes)) {
 		node := nodes[idx]
 
-		if !criteria.MatchInclude(node) {
+		if !nodeFilter.MatchInclude(node) {
 			continue
 		}
 
@@ -71,7 +71,7 @@ func SelectBySubnetFromNodes(nodes []*SelectedNode) SelectBySubnet {
 func (subnets SelectBySubnet) Count() int { return len(subnets) }
 
 // Select selects upto n nodes.
-func (subnets SelectBySubnet) Select(n int, criteria Criteria) []*SelectedNode {
+func (subnets SelectBySubnet) Select(n int, filter NodeFilter) []*SelectedNode {
 	if n <= 0 {
 		return nil
 	}
@@ -81,7 +81,7 @@ func (subnets SelectBySubnet) Select(n int, criteria Criteria) []*SelectedNode {
 		subnet := subnets[idx]
 		node := subnet.Nodes[mathrand.Intn(len(subnet.Nodes))]
 
-		if !criteria.MatchInclude(node) {
+		if !filter.MatchInclude(node) {
 			continue
 		}
 

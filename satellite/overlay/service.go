@@ -324,8 +324,25 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr,
 		}
 	}
 
+	defaultSelection := uploadselection.NodeFilters{}
+
+	if len(config.Node.UploadExcludedCountryCodes) > 0 {
+		defaultSelection = defaultSelection.WithCountryFilter(func(code location.CountryCode) bool {
+			for _, nodeCountry := range config.Node.UploadExcludedCountryCodes {
+				if nodeCountry == code.String() {
+					return false
+				}
+			}
+			return true
+		})
+	}
+
+	// TODO: this supposed to be configurable
+	placementRules := NewPlacementRules()
+	placementRules.AddLegacyStaticRules()
 	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
 		config.NodeSelectionCache.Staleness, config.Node,
+		defaultSelection, placementRules.CreateFilters,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)

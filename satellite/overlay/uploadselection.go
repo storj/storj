@@ -36,14 +36,19 @@ type UploadSelectionCache struct {
 	selectionConfig NodeSelectionConfig
 
 	cache sync2.ReadCacheOf[*uploadselection.State]
+
+	defaultFilters uploadselection.NodeFilters
+	placementRules PlacementRules
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
-func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig) (*UploadSelectionCache, error) {
+func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig, defaultFilter uploadselection.NodeFilters, placementRules PlacementRules) (*UploadSelectionCache, error) {
 	cache := &UploadSelectionCache{
 		log:             log,
 		db:              db,
 		selectionConfig: config,
+		defaultFilters:  defaultFilter,
+		placementRules:  placementRules,
 	}
 	return cache, cache.cache.Init(staleness/2, staleness, cache.read)
 }
@@ -91,17 +96,22 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		return nil, Error.Wrap(err)
 	}
 
+	filters := cache.placementRules(req.Placement)
+	if len(req.ExcludedIDs) > 0 {
+		filters = append(filters, state.ExcludeNetworksBasedOnNodes(req.ExcludedIDs))
+	}
+
+	filters = append(filters, cache.defaultFilters)
+	filters = filters.WithAutoExcludeSubnets()
+
 	selected, err := state.Select(ctx, uploadselection.Request{
-		Count:                req.RequestedCount,
-		NewFraction:          cache.selectionConfig.NewNodeFraction,
-		ExcludedIDs:          req.ExcludedIDs,
-		Placement:            req.Placement,
-		ExcludedCountryCodes: cache.selectionConfig.UploadExcludedCountryCodes,
+		Count:       req.RequestedCount,
+		NewFraction: cache.selectionConfig.NewNodeFraction,
+		NodeFilters: filters,
 	})
 	if uploadselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
-
 	return selected, err
 }
 

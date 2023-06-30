@@ -1,0 +1,182 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package uploadselection
+
+import (
+	"bytes"
+
+	"storj.io/common/storj"
+	"storj.io/common/storj/location"
+)
+
+// NodeFilter can decide if a Node should be part of the selection or not.
+type NodeFilter interface {
+	MatchInclude(node *SelectedNode) bool
+}
+
+// NodeFilters is a collection of multiple node filters (all should vote with true).
+type NodeFilters []NodeFilter
+
+// NodeFilterFunc is helper to use func as NodeFilter.
+type NodeFilterFunc func(node *SelectedNode) bool
+
+// ExcludeAll will never select any node.
+var ExcludeAll = NodeFilters{
+	NodeFilterFunc(func(node *SelectedNode) bool {
+		return false
+	}),
+}
+
+// MatchInclude implements NodeFilter interface.
+func (n NodeFilterFunc) MatchInclude(node *SelectedNode) bool {
+	return n(node)
+}
+
+// MatchInclude implements NodeFilter interface.
+func (n NodeFilters) MatchInclude(node *SelectedNode) bool {
+	for _, filter := range n {
+		if !filter.MatchInclude(node) {
+			return false
+		}
+	}
+	return true
+}
+
+// WithCountryFilter is a helper to create a new filter with additional CountryFilter.
+func (n NodeFilters) WithCountryFilter(filter func(code location.CountryCode) bool) NodeFilters {
+	return append(n, CountryFilter{
+		matchIncludeCountry: filter,
+	})
+}
+
+// WithAutoExcludeSubnets is a helper to create a new filter with additional AutoExcludeSubnets.
+func (n NodeFilters) WithAutoExcludeSubnets() NodeFilters {
+	return append(n, NewAutoExcludeSubnets())
+}
+
+// WithExcludedIDs is a helper to create a new filter with additional WithExcludedIDs.
+func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
+	return append(n, ExcludedIDs(ds))
+}
+
+var _ NodeFilter = NodeFilters{}
+
+// CountryCodeExclude is a specific CountryFilter which excludes all nodes with the given country code.
+type CountryCodeExclude []location.CountryCode
+
+// MatchInclude implements NodeFilter interface.
+func (c CountryCodeExclude) MatchInclude(node *SelectedNode) bool {
+	for _, code := range c {
+		if code == location.None {
+			continue
+		}
+		if node.CountryCode == code {
+			return false
+		}
+	}
+	return true
+}
+
+var _ NodeFilter = CountryCodeExclude{}
+
+// CountryFilter can select nodes based on the condition of the country code.
+type CountryFilter struct {
+	matchIncludeCountry func(code location.CountryCode) bool
+}
+
+// NewCountryFilter creates a new CountryFilter.
+func NewCountryFilter(filter func(code location.CountryCode) bool) NodeFilter {
+	return CountryFilter{
+		matchIncludeCountry: filter,
+	}
+}
+
+// MatchInclude implements NodeFilter interface.
+func (p CountryFilter) MatchInclude(node *SelectedNode) bool {
+	return p.matchIncludeCountry(node.CountryCode)
+}
+
+var _ NodeFilter = CountryFilter{}
+
+// AutoExcludeSubnets pick at most one node from network.
+// Stateful!!! should be re-created for each new selection request.
+type AutoExcludeSubnets struct {
+	seenSubnets map[string]struct{}
+}
+
+// NewAutoExcludeSubnets creates an initialized AutoExcludeSubnets.
+func NewAutoExcludeSubnets() *AutoExcludeSubnets {
+	return &AutoExcludeSubnets{
+		seenSubnets: map[string]struct{}{},
+	}
+}
+
+// MatchInclude implements NodeFilter interface.
+func (a *AutoExcludeSubnets) MatchInclude(node *SelectedNode) bool {
+	if _, found := a.seenSubnets[node.LastNet]; found {
+		return false
+	}
+	a.seenSubnets[node.LastNet] = struct{}{}
+	return true
+}
+
+var _ NodeFilter = &AutoExcludeSubnets{}
+
+// ExcludedNetworks will exclude nodes with specified networks.
+type ExcludedNetworks []string
+
+// MatchInclude implements NodeFilter interface.
+func (e ExcludedNetworks) MatchInclude(node *SelectedNode) bool {
+	for _, id := range e {
+		if id == node.LastNet {
+			return false
+		}
+	}
+	return true
+}
+
+var _ NodeFilter = ExcludedNetworks{}
+
+// ExcludedIDs can blacklist NodeIDs.
+type ExcludedIDs []storj.NodeID
+
+// MatchInclude implements NodeFilter interface.
+func (e ExcludedIDs) MatchInclude(node *SelectedNode) bool {
+	for _, id := range e {
+		if id == node.ID {
+			return false
+		}
+	}
+	return true
+}
+
+var _ NodeFilter = ExcludedIDs{}
+
+// TagFilter matches nodes with specific tags.
+type TagFilter struct {
+	signer storj.NodeID
+	name   string
+	value  []byte
+}
+
+// NewTagFilter creates a new tag filter.
+func NewTagFilter(id storj.NodeID, name string, value []byte) TagFilter {
+	return TagFilter{
+		signer: id,
+		name:   name,
+		value:  value,
+	}
+}
+
+// MatchInclude implements NodeFilter interface.
+func (t TagFilter) MatchInclude(node *SelectedNode) bool {
+	for _, tag := range node.Tags {
+		if tag.Name == t.name && bytes.Equal(tag.Value, t.value) && tag.Signer == t.signer {
+			return true
+		}
+	}
+	return false
+}
+
+var _ NodeFilter = TagFilter{}

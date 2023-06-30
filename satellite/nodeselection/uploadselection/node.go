@@ -42,16 +42,28 @@ type SelectedNode struct {
 	LastNet     string
 	LastIPPort  string
 	CountryCode location.CountryCode
+	Tags        NodeTags
 }
 
 // Clone returns a deep clone of the selected node.
 func (node *SelectedNode) Clone() *SelectedNode {
 	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
+	tags := make([]NodeTag, len(node.Tags))
+	for ix, tag := range node.Tags {
+		tags[ix] = NodeTag{
+			NodeID:   tag.NodeID,
+			SignedAt: tag.SignedAt,
+			Signer:   tag.Signer,
+			Name:     tag.Name,
+			Value:    tag.Value,
+		}
+	}
 	return &SelectedNode{
 		ID:          copy.Id,
 		Address:     copy.Address,
 		LastNet:     node.LastNet,
 		LastIPPort:  node.LastIPPort,
 		CountryCode: node.CountryCode,
+		Tags:        tags,
 	}
 }

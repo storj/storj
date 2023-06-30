@@ -39,7 +39,6 @@ func TestState_SelectNonDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
-			ExcludedIDs: nil,
 		})
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
@@ -51,7 +50,6 @@ func TestState_SelectNonDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
-			ExcludedIDs: nil,
 		})
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
@@ -65,7 +63,6 @@ func TestState_SelectNonDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
-			ExcludedIDs: nil,
 		})
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
@@ -98,7 +95,6 @@ func TestState_SelectDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
-			ExcludedIDs: nil,
 		})
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
@@ -109,7 +105,6 @@ func TestState_SelectDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
-			ExcludedIDs: nil,
 		})
 		require.Error(t, err)
 		require.Len(t, selected, 2)
@@ -121,7 +116,6 @@ func TestState_SelectDistinct(t *testing.T) {
 		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
-			ExcludedIDs: nil,
 		})
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
@@ -151,7 +145,6 @@ func TestState_Select_Concurrent(t *testing.T) {
 		nodes, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0.5,
-			ExcludedIDs: nil,
 		})
 		require.Len(t, nodes, selectCount)
 		return err
@@ -162,7 +155,6 @@ func TestState_Select_Concurrent(t *testing.T) {
 		nodes, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0.5,
-			ExcludedIDs: nil,
 		})
 		require.Len(t, nodes, selectCount)
 		return err

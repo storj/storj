@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 )
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
@@ -42,7 +41,7 @@ type Selector interface {
 	Count() int
 	// Select selects up-to n nodes which are included by the criteria.
 	// empty criteria includes all the nodes
-	Select(n int, criteria Criteria) []*SelectedNode
+	Select(n int, nodeFilter NodeFilter) []*SelectedNode
 }
 
 // NewState returns a state based on the input.
@@ -70,11 +69,9 @@ func NewState(reputableNodes, newNodes []*SelectedNode) *State {
 
 // Request contains arguments for State.Request.
 type Request struct {
-	Count                int
-	NewFraction          float64
-	ExcludedIDs          []storj.NodeID
-	Placement            storj.PlacementConstraint
-	ExcludedCountryCodes []string
+	Count       int
+	NewFraction float64
+	NodeFilters NodeFilters
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
@@ -92,36 +89,18 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*SelectedN
 	var reputableNodes Selector
 	var newNodes Selector
 
-	var criteria Criteria
-
-	if request.ExcludedIDs != nil {
-		criteria.ExcludeNodeIDs = request.ExcludedIDs
-	}
-
-	for _, code := range request.ExcludedCountryCodes {
-		criteria.ExcludedCountryCodes = append(criteria.ExcludedCountryCodes, location.ToCountryCode(code))
-	}
-
-	criteria.Placement = request.Placement
-
-	criteria.AutoExcludeSubnets = make(map[string]struct{})
-	for _, id := range request.ExcludedIDs {
-		if net, ok := state.netByID[id]; ok {
-			criteria.AutoExcludeSubnets[net] = struct{}{}
-		}
-	}
 	reputableNodes = state.distinct.Reputable
 	newNodes = state.distinct.New
 
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead.
 	selected = append(selected,
-		newNodes.Select(newCount, criteria)...)
+		newNodes.Select(newCount, request.NodeFilters)...)
 
 	// Get all the remaining reputable nodes.
 	reputableCount := totalCount - len(selected)
 	selected = append(selected,
-		reputableNodes.Select(reputableCount, criteria)...)
+		reputableNodes.Select(reputableCount, request.NodeFilters)...)
 
 	if len(selected) < totalCount {
 		return selected, ErrNotEnoughNodes.New("requested from cache %d, found %d", totalCount, len(selected))
@@ -135,4 +114,20 @@ func (state *State) Stats() Stats {
 	defer state.mu.RUnlock()
 
 	return state.stats
+}
+
+// ExcludeNetworksBasedOnNodes will create a NodeFilter which exclude all nodes which shares subnet with the specified ones.
+func (state *State) ExcludeNetworksBasedOnNodes(ds []storj.NodeID) NodeFilter {
+	uniqueExcludedNet := make(map[string]struct{}, len(ds))
+	for _, id := range ds {
+		net := state.netByID[id]
+		uniqueExcludedNet[net] = struct{}{}
+	}
+	excludedNet := make([]string, len(uniqueExcludedNet))
+	i := 0
+	for net := range uniqueExcludedNet {
+		excludedNet[i] = net
+		i++
+	}
+	return ExcludedNetworks(excludedNet)
 }

@@ -54,7 +54,7 @@ func TestSelectByID(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
+		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -114,7 +114,7 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
+		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -186,7 +186,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
+		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -244,16 +244,11 @@ func TestSelectFiltered(t *testing.T) {
 	nodes := []*uploadselection.SelectedNode{subnetA1, subnetA2, subnetB1}
 	selector := uploadselection.SelectByID(nodes)
 
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{}), 3)
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{ExcludeNodeIDs: []storj.NodeID{firstID}}), 2)
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{}), 3)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}), 3)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}), 3)
 
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{ExcludeNodeIDs: []storj.NodeID{firstID, secondID}}), 1)
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{
-		AutoExcludeSubnets: map[string]struct{}{},
-	}), 2)
-	assert.Len(t, selector.Select(3, uploadselection.Criteria{
-		ExcludeNodeIDs:     []storj.NodeID{thirdID},
-		AutoExcludeSubnets: map[string]struct{}{},
-	}), 1)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
+	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{thirdID}).WithAutoExcludeSubnets()), 1)
 }
