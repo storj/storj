@@ -21,10 +21,11 @@ type Config struct {
 	RepairOverrides           RepairOverrides `help:"comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)" releaseDefault:"29/80/110-52,29/80/95-52,29/80/130-52" devDefault:""`
 	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
-	NodeFailureRate            float64 `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
-	RepairQueueInsertBatchSize int     `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
-	DoDeclumping               bool    `help:"Treat pieces on the same network as in need of repair" default:"false"`
-	DoPlacementCheck           bool    `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+	NodeFailureRate            float64  `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
+	RepairQueueInsertBatchSize int      `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
+	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
+	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"false"`
+	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
 }
 
 // RepairOverride is a configuration struct that contains an override repair

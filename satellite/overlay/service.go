@@ -62,8 +62,6 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
-	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error)
 	// Reliable returns all nodes that are reliable (separated by whether they are currently online or offline).
@@ -199,7 +197,6 @@ type NodeCriteria struct {
 	MinimumVersion     string   // semver or empty
 	OnlineWindow       time.Duration
 	AsOfSystemInterval time.Duration // only used for CRDB queries
-	ExcludedCountries  []string
 }
 
 // ReputationStatus indicates current reputation status for a node.
@@ -540,17 +537,6 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 	return count, err
 }
 
-// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
-func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, nodeIds storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	criteria := &NodeCriteria{
-		OnlineWindow:      service.config.Node.OnlineWindow,
-		ExcludedCountries: service.config.RepairExcludedCountryCodes,
-	}
-	return service.db.KnownReliableInExcludedCountries(ctx, criteria, nodeIds)
-}
-
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (onlineNodes []nodeselection.SelectedNode, offlineNodes []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -745,28 +731,6 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pi
 		delete(missingPiecesMap, node.ID)
 	}
 	return maps.Values(missingPiecesMap), nil
-}
-
-// GetReliablePiecesInExcludedCountries returns the list of pieces held by nodes located in excluded countries.
-func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context, pieces metabase.Pieces) (piecesInExcluded []uint16, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var nodeIDs storj.NodeIDList
-	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.StorageNode)
-	}
-	inExcluded, err := service.KnownReliableInExcludedCountries(ctx, nodeIDs)
-	if err != nil {
-		return nil, Error.New("error getting nodes %s", err)
-	}
-
-	for _, p := range pieces {
-		for _, nodeID := range inExcluded {
-			if nodeID == p.StorageNode {
-				piecesInExcluded = append(piecesInExcluded, p.Number)
-			}
-		}
-	}
-	return piecesInExcluded, nil
 }
 
 // DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.

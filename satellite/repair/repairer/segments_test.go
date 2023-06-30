@@ -216,7 +216,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 
 func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
@@ -255,8 +255,62 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 			StreamID: segments[0].StreamID,
 			Position: segments[0].Position,
 		})
-		require.Error(t, err)
+		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
 		require.False(t, shouldDelete)
+	})
+}
+
+func TestSegmentRepairPlacementAndExcludedCountries(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 2, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Overlay.RepairExcludedCountryCodes = []string{"US"}
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+
+		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Name:      "testbucket",
+			Placement: storj.EU,
+		})
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+		}
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.Len(t, segments[0].Pieces, 4)
+
+		// change single node to location outside bucket placement and location which is part of RepairExcludedCountryCodes
+		require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, segments[0].Pieces[0].StorageNode, "US"))
+
+		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+
+		shouldDelete, err := planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+			StreamID: segments[0].StreamID,
+			Position: segments[0].Position,
+		})
+		require.NoError(t, err)
+		require.True(t, shouldDelete)
+
+		// we are checking that repairer counted only single piece as out of placement and didn't count this piece
+		// also as from excluded country. That would cause full repair because repairer would count single pieces
+		// as unhealthy two times. Full repair would restore number of pieces to 4 but we just removed single pieces.
+		segmentsAfter, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.ElementsMatch(t, segments[0].Pieces[1:], segmentsAfter[0].Pieces)
 	})
 }
 

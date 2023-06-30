@@ -151,13 +151,16 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup repair
+		if len(config.Checker.RepairExcludedCountryCodes) == 0 {
+			config.Checker.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
+		}
+
 		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
-			config.Checker,
 			config.Placement.CreateFilters,
-			config.Overlay.RepairExcludedCountryCodes,
+			config.Checker,
 		)
 	}
 

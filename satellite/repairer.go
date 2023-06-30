@@ -211,6 +211,10 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.DownloadTimeout,
 			config.Repairer.InMemoryRepair)
 
+		if len(config.Repairer.RepairExcludedCountryCodes) == 0 {
+			config.Repairer.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
+		}
+
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			metabaseDB,

@@ -426,9 +426,8 @@ func TestAllInOne(t *testing.T) {
 				log.Named("repair:checker"),
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,
-				satellite.Config.Checker,
 				overlay.NewPlacementRules().CreateFilters,
-				[]string{},
+				satellite.Config.Checker,
 			),
 		})
 

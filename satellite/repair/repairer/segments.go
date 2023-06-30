@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
@@ -99,6 +100,8 @@ type SegmentRepairer struct {
 	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
 	repairOverrides checker.RepairOverridesMap
 
+	excludedCountryCodes map[location.CountryCode]struct{}
+
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
@@ -127,6 +130,13 @@ func NewSegmentRepairer(
 		excessOptimalThreshold = 0
 	}
 
+	excludedCountryCodes := make(map[location.CountryCode]struct{})
+	for _, countryCode := range config.RepairExcludedCountryCodes {
+		if cc := location.ToCountryCode(countryCode); cc != location.None {
+			excludedCountryCodes[cc] = struct{}{}
+		}
+	}
+
 	return &SegmentRepairer{
 		log:                        log,
 		statsCollector:             newStatsCollector(),
@@ -137,6 +147,7 @@ func NewSegmentRepairer(
 		timeout:                    config.Timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverrides:            repairOverrides.GetMap(),
+		excludedCountryCodes:       excludedCountryCodes,
 		reporter:                   reporter,
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
 		doDeclumping:               config.DoDeclumping,
@@ -223,13 +234,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, nil
 	}
 
-	piecesInExcludedCountries, err := repairer.overlay.GetReliablePiecesInExcludedCountries(ctx, pieces)
-	if err != nil {
-		return false, overlayQueryError.New("error identifying pieces in excluded countries: %w", err)
-	}
-
-	numHealthyInExcludedCountries := len(piecesInExcludedCountries)
-
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 	stats.repairerSegmentsBelowMinReq.Inc(0)
@@ -248,7 +252,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// repair not needed
-	if numHealthy-numHealthyInExcludedCountries > int(repairThreshold) {
+	if numHealthy-piecesCheck.NumHealthyInExcludedCountries > int(repairThreshold) {
 		// remove pieces out of placement without repairing as we are above repair threshold
 		if len(piecesCheck.OutOfPlacementPiecesSet) > 0 {
 
@@ -348,12 +352,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	var minSuccessfulNeeded int
 	{
 		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) * repairer.multiplierOptimalThreshold)
-		requestCount = int(totalNeeded) + numHealthyInExcludedCountries
+		requestCount = int(totalNeeded) + piecesCheck.NumHealthyInExcludedCountries
 		if requestCount > redundancy.TotalCount() {
 			requestCount = redundancy.TotalCount()
 		}
 		requestCount -= numHealthy
-		minSuccessfulNeeded = redundancy.OptimalThreshold() - numHealthy + numHealthyInExcludedCountries
+		minSuccessfulNeeded = redundancy.OptimalThreshold() - numHealthy + piecesCheck.NumHealthyInExcludedCountries
 	}
 
 	// Request Overlay for n-h new storage nodes
@@ -368,7 +372,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, getOrderLimits, healthySet, newNodes, repairer.multiplierOptimalThreshold, piecesCheck.NumHealthyInExcludedCountries)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -633,7 +637,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		zap.Uint64("Position", segment.Position.Encode()),
 		zap.Int("clumped pieces", len(piecesCheck.ClumpedPiecesSet)),
 		zap.Int("out of placement pieces", len(piecesCheck.OutOfPlacementPiecesSet)),
-		zap.Int("in excluded countries", numHealthyInExcludedCountries),
+		zap.Int("in excluded countries", piecesCheck.NumHealthyInExcludedCountries),
 		zap.Int("removed pieces", len(toRemove)),
 		zap.Int("repaired pieces", len(repairedPieces)),
 		zap.Int("healthy before repair", numHealthy),
@@ -648,13 +652,15 @@ type piecesCheckResult struct {
 	ClumpedPiecesSet        map[uint16]bool
 	OutOfPlacementPiecesSet map[uint16]bool
 
-	NumUnhealthyRetrievable int
+	NumUnhealthyRetrievable       int
+	NumHealthyInExcludedCountries int
 }
 
 func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segment metabase.Segment) (result piecesCheckResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieces := segment.Pieces
+	placement := segment.Placement
 
 	allNodeIDs := make([]storj.NodeID, len(pieces))
 	nodeIDPieceMap := map[storj.NodeID]uint16{}
@@ -674,6 +680,12 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 
 	// remove online nodes from missing pieces
 	for _, onlineNode := range online {
+		// count online nodes in excluded countries only if country is not excluded by segment
+		// placement, those nodes will be counted with out of placement check
+		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && placement.AllowedCountry(onlineNode.CountryCode) {
+			result.NumHealthyInExcludedCountries++
+		}
+
 		pieceNum := nodeIDPieceMap[onlineNode.ID]
 		delete(result.MissingPiecesSet, pieceNum)
 	}
@@ -705,7 +717,7 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 		}
 	}
 
-	if repairer.doPlacementCheck && segment.Placement != storj.EveryCountry {
+	if repairer.doPlacementCheck && placement != storj.EveryCountry {
 		result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
 		nodeFilters := repairer.placementRules(segment.Placement)
