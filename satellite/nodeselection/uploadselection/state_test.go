@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection/uploadselection"
@@ -172,15 +171,13 @@ func TestState_Select_Concurrent(t *testing.T) {
 }
 
 // createRandomNodes creates n random nodes all in the subnet.
-func createRandomNodes(n int, subnet string, shareNets bool) []*uploadselection.Node {
-	xs := make([]*uploadselection.Node, n)
+func createRandomNodes(n int, subnet string, shareNets bool) []*uploadselection.SelectedNode {
+	xs := make([]*uploadselection.SelectedNode, n)
 	for i := range xs {
 		addr := subnet + "." + strconv.Itoa(i) + ":8080"
-		xs[i] = &uploadselection.Node{
-			NodeURL: storj.NodeURL{
-				ID:      testrand.NodeID(),
-				Address: addr,
-			},
+		xs[i] = &uploadselection.SelectedNode{
+			ID:         testrand.NodeID(),
+			LastNet:    addr,
 			LastIPPort: addr,
 		}
 		if shareNets {
@@ -193,8 +190,8 @@ func createRandomNodes(n int, subnet string, shareNets bool) []*uploadselection.
 }
 
 // joinNodes appends all slices into a single slice.
-func joinNodes(lists ...[]*uploadselection.Node) []*uploadselection.Node {
-	xs := []*uploadselection.Node{}
+func joinNodes(lists ...[]*uploadselection.SelectedNode) []*uploadselection.SelectedNode {
+	xs := []*uploadselection.SelectedNode{}
 	for _, list := range lists {
 		xs = append(xs, list...)
 	}
@@ -202,8 +199,8 @@ func joinNodes(lists ...[]*uploadselection.Node) []*uploadselection.Node {
 }
 
 // intersectLists returns nodes that exist in both lists compared by ID.
-func intersectLists(as, bs []*uploadselection.Node) []*uploadselection.Node {
-	var xs []*uploadselection.Node
+func intersectLists(as, bs []*uploadselection.SelectedNode) []*uploadselection.SelectedNode {
+	var xs []*uploadselection.SelectedNode
 
 next:
 	for _, a := range as {

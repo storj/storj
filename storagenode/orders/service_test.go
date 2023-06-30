@@ -16,7 +16,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
@@ -41,7 +41,7 @@ func TestOrderDBSettle(t *testing.T) {
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
 			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: bucketname},
-			[]*overlay.SelectedNode{
+			[]*uploadselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
 			time.Now().Add(2*time.Hour),
@@ -147,7 +147,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
 			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: bucketname},
-			[]*overlay.SelectedNode{
+			[]*uploadselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
 			time.Now().Add(2*time.Hour),

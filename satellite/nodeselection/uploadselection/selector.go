@@ -8,7 +8,7 @@ import (
 )
 
 // SelectByID implements selection from nodes with every node having equal probability.
-type SelectByID []*Node
+type SelectByID []*SelectedNode
 
 var _ Selector = (SelectByID)(nil)
 
@@ -16,12 +16,12 @@ var _ Selector = (SelectByID)(nil)
 func (nodes SelectByID) Count() int { return len(nodes) }
 
 // Select selects upto n nodes.
-func (nodes SelectByID) Select(n int, criteria Criteria) []*Node {
+func (nodes SelectByID) Select(n int, criteria Criteria) []*SelectedNode {
 	if n <= 0 {
 		return nil
 	}
 
-	selected := []*Node{}
+	selected := []*SelectedNode{}
 	for _, idx := range mathrand.Perm(len(nodes)) {
 		node := nodes[idx]
 
@@ -46,12 +46,12 @@ var _ Selector = (SelectBySubnet)(nil)
 // Subnet groups together nodes with the same subnet.
 type Subnet struct {
 	Net   string
-	Nodes []*Node
+	Nodes []*SelectedNode
 }
 
 // SelectBySubnetFromNodes creates SelectBySubnet selector from nodes.
-func SelectBySubnetFromNodes(nodes []*Node) SelectBySubnet {
-	bynet := map[string][]*Node{}
+func SelectBySubnetFromNodes(nodes []*SelectedNode) SelectBySubnet {
+	bynet := map[string][]*SelectedNode{}
 	for _, node := range nodes {
 		bynet[node.LastNet] = append(bynet[node.LastNet], node)
 	}
@@ -71,12 +71,12 @@ func SelectBySubnetFromNodes(nodes []*Node) SelectBySubnet {
 func (subnets SelectBySubnet) Count() int { return len(subnets) }
 
 // Select selects upto n nodes.
-func (subnets SelectBySubnet) Select(n int, criteria Criteria) []*Node {
+func (subnets SelectBySubnet) Select(n int, criteria Criteria) []*SelectedNode {
 	if n <= 0 {
 		return nil
 	}
 
-	selected := []*Node{}
+	selected := []*SelectedNode{}
 	for _, idx := range mathrand.Perm(len(subnets)) {
 		subnet := subnets[idx]
 		node := subnet.Nodes[mathrand.Intn(len(subnet.Nodes))]

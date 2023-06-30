@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	storj "storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	overlay "storj.io/storj/satellite/overlay"
 )
 
@@ -38,10 +39,10 @@ func (m *MockOverlayForOrders) EXPECT() *MockOverlayForOrdersMockRecorder {
 }
 
 // CachedGetOnlineNodesForGet mocks base method.
-func (m *MockOverlayForOrders) CachedGetOnlineNodesForGet(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.SelectedNode, error) {
+func (m *MockOverlayForOrders) CachedGetOnlineNodesForGet(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*uploadselection.SelectedNode, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CachedGetOnlineNodesForGet", arg0, arg1)
-	ret0, _ := ret[0].(map[storj.NodeID]*overlay.SelectedNode)
+	ret0, _ := ret[0].(map[storj.NodeID]*uploadselection.SelectedNode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

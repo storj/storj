@@ -16,10 +16,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/version"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 )
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if totalNeededNodes == 0 {
 		return nil, nil
@@ -86,7 +87,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 	return nodes, nil
 }
 
-func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
@@ -127,7 +128,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var node overlay.SelectedNode
+		var node uploadselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var isNew bool

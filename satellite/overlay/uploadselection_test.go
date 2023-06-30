@@ -22,6 +22,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -126,21 +127,21 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 type mockdb struct {
 	mu        sync.Mutex
 	callCount int
-	reputable []*overlay.SelectedNode
-	new       []*overlay.SelectedNode
+	reputable []*uploadselection.SelectedNode
+	new       []*uploadselection.SelectedNode
 }
 
-func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	sync2.Sleep(ctx, 500*time.Millisecond)
 	m.callCount++
 
-	reputable = make([]*overlay.SelectedNode, len(m.reputable))
+	reputable = make([]*uploadselection.SelectedNode, len(m.reputable))
 	for i, n := range m.reputable {
 		reputable[i] = n.Clone()
 	}
-	new = make([]*overlay.SelectedNode, len(m.new))
+	new = make([]*uploadselection.SelectedNode, len(m.new))
 	for i, n := range m.new {
 		new[i] = n.Clone()
 	}
@@ -275,13 +276,13 @@ func TestGetNodesConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	reputableNodes := []*overlay.SelectedNode{{
+	reputableNodes := []*uploadselection.SelectedNode{{
 		ID:         storj.NodeID{1},
 		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
 		LastNet:    "127.0.0",
 		LastIPPort: "127.0.0.9:8000",
 	}}
-	newNodes := []*overlay.SelectedNode{{
+	newNodes := []*uploadselection.SelectedNode{{
 		ID:         storj.NodeID{1},
 		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
 		LastNet:    "127.0.0",
@@ -380,7 +381,7 @@ func TestGetNodesDistinct(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	reputableNodes := []*overlay.SelectedNode{{
+	reputableNodes := []*uploadselection.SelectedNode{{
 		ID:         testrand.NodeID(),
 		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
 		LastNet:    "127.0.0",
@@ -402,7 +403,7 @@ func TestGetNodesDistinct(t *testing.T) {
 		LastIPPort: "127.0.2.7:8000",
 	}}
 
-	newNodes := []*overlay.SelectedNode{{
+	newNodes := []*uploadselection.SelectedNode{{
 		ID:         testrand.NodeID(),
 		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
 		LastNet:    "127.0.0",
@@ -460,7 +461,7 @@ func TestGetNodesDistinct(t *testing.T) {
 
 	{ // test that distinctIP=true allows selecting 6 nodes
 		// emulate DistinctIP=false behavior by filling in LastNets with unique addresses
-		for _, nodeList := range [][]*overlay.SelectedNode{reputableNodes, newNodes} {
+		for _, nodeList := range [][]*uploadselection.SelectedNode{reputableNodes, newNodes} {
 			for i := range nodeList {
 				nodeList[i].LastNet = nodeList[i].LastIPPort
 			}

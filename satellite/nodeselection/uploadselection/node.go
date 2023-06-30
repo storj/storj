@@ -4,22 +4,52 @@
 package uploadselection
 
 import (
+	"time"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 )
 
-// Node defines necessary information for node-selection.
-type Node struct {
-	storj.NodeURL
+// NodeTag is a tag associated with a node (approved by signer).
+type NodeTag struct {
+	NodeID    storj.NodeID
+	Timestamp time.Time
+	Signer    storj.NodeID
+	Name      string
+	Value     []byte
+}
+
+// NodeTags is a collection of multiple NodeTag.
+type NodeTags []NodeTag
+
+// FindBySignerAndName selects first tag with same name / NodeID.
+func (n NodeTags) FindBySignerAndName(signer storj.NodeID, name string) (NodeTag, error) {
+	for _, tag := range n {
+		if tag.Name == name && signer == tag.Signer {
+			return tag, nil
+		}
+	}
+	return NodeTag{}, errs.New("tags not found")
+}
+
+// SelectedNode is used as a result for creating orders limits.
+type SelectedNode struct {
+	ID          storj.NodeID
+	Address     *pb.NodeAddress
 	LastNet     string
 	LastIPPort  string
 	CountryCode location.CountryCode
 }
 
 // Clone returns a deep clone of the selected node.
-func (node *Node) Clone() *Node {
-	return &Node{
-		NodeURL:     node.NodeURL,
+func (node *SelectedNode) Clone() *SelectedNode {
+	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
+	return &SelectedNode{
+		ID:          copy.Id,
+		Address:     copy.Address,
 		LastNet:     node.LastNet,
 		LastIPPort:  node.LastIPPort,
 		CountryCode: node.CountryCode,

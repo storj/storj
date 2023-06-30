@@ -21,6 +21,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
@@ -681,7 +682,7 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 
 		reliablePieces := metabase.Pieces{}
 
-		collectLastNets := func(reliable []overlay.SelectedNode) {
+		collectLastNets := func(reliable []uploadselection.SelectedNode) {
 			for _, node := range reliable {
 				pieceNum := nodeIDPieceMap[node.ID]
 				reliablePieces = append(reliablePieces, metabase.Piece{
@@ -704,7 +705,7 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	if repairer.doPlacementCheck && segment.Placement != storj.EveryCountry {
 		result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
-		checkPlacement := func(reliable []overlay.SelectedNode) {
+		checkPlacement := func(reliable []uploadselection.SelectedNode) {
 			for _, node := range reliable {
 				if segment.Placement.AllowedCountry(node.CountryCode) {
 					continue

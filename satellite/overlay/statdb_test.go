@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -106,8 +107,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			ExcludedCountries: []string{"FR", "BE"},
 		}
 
-		contains := func(nodeID storj.NodeID) func(node overlay.SelectedNode) bool {
-			return func(node overlay.SelectedNode) bool {
+		contains := func(nodeID storj.NodeID) func(node uploadselection.SelectedNode) bool {
+			return func(node uploadselection.SelectedNode) bool {
 				return node.ID == nodeID
 			}
 		}

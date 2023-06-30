@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -932,7 +932,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	successes := new(int64)
 	failures := new(int64)
 
-	undelete := func(node *overlay.SelectedNode) {
+	undelete := func(node *uploadselection.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
 
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -966,9 +966,9 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
 	}
 
-	var nodes []*overlay.SelectedNode
+	var nodes []*uploadselection.SelectedNode
 	if len(args) == 0 {
-		err = db.OverlayCache().IterateAllContactedNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+		err = db.OverlayCache().IterateAllContactedNodes(ctx, func(ctx context.Context, node *uploadselection.SelectedNode) error {
 			nodes = append(nodes, node)
 			return nil
 		})
@@ -985,7 +985,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			nodes = append(nodes, &overlay.SelectedNode{
+			nodes = append(nodes, &uploadselection.SelectedNode{
 				ID:         dossier.Id,
 				Address:    dossier.Address,
 				LastNet:    dossier.LastNet,

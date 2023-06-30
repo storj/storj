@@ -42,11 +42,11 @@ type Selector interface {
 	Count() int
 	// Select selects up-to n nodes which are included by the criteria.
 	// empty criteria includes all the nodes
-	Select(n int, criteria Criteria) []*Node
+	Select(n int, criteria Criteria) []*SelectedNode
 }
 
 // NewState returns a state based on the input.
-func NewState(reputableNodes, newNodes []*Node) *State {
+func NewState(reputableNodes, newNodes []*SelectedNode) *State {
 	state := &State{}
 
 	state.netByID = map[storj.NodeID]string{}
@@ -78,7 +78,7 @@ type Request struct {
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
-func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err error) {
+func (state *State) Select(ctx context.Context, request Request) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state.mu.RLock()
@@ -87,7 +87,7 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 	totalCount := request.Count
 	newCount := int(float64(totalCount) * request.NewFraction)
 
-	var selected []*Node
+	var selected []*SelectedNode
 
 	var reputableNodes Selector
 	var newNodes Selector

@@ -23,6 +23,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 	"storj.io/private/version"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -38,7 +39,7 @@ type overlaycache struct {
 }
 
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
-func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
 	for {
 		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
 		if err != nil {
@@ -53,7 +54,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	return reputable, new, err
 }
 
-func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -94,10 +95,10 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var reputableNodes []*overlay.SelectedNode
-	var newNodes []*overlay.SelectedNode
+	var reputableNodes []*uploadselection.SelectedNode
+	var newNodes []*uploadselection.SelectedNode
 	for rows.Next() {
-		var node overlay.SelectedNode
+		var node uploadselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
@@ -123,7 +124,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 }
 
 // SelectAllStorageNodesDownload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
-func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*uploadselection.SelectedNode, err error) {
 	for {
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
@@ -138,7 +139,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 	return nodes, err
 }
 
-func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -160,9 +161,9 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*overlay.SelectedNode
+	var nodes []*uploadselection.SelectedNode
 	for rows.Next() {
-		var node overlay.SelectedNode
+		var node uploadselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var noise noiseScanner
@@ -448,7 +449,7 @@ func (cache *overlaycache) knownReliableInExcludedCountries(ctx context.Context,
 }
 
 // KnownReliable filters a set of nodes to reliable nodes. List is split into online and offline nodes.
-func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []overlay.SelectedNode, offline []overlay.SelectedNode, err error) {
+func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
 	for {
 		online, offline, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
 		if err != nil {
@@ -463,7 +464,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.Node
 	return online, offline, err
 }
 
-func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []overlay.SelectedNode, offline []overlay.SelectedNode, err error) {
+func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -483,7 +484,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var onlineNode bool
-			var node overlay.SelectedNode
+			var node uploadselection.SelectedNode
 			node.Address = &pb.NodeAddress{}
 			var lastIPPort sql.NullString
 			err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
@@ -1472,7 +1473,7 @@ func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj
 }
 
 // IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
-func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *uploadselection.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -1488,7 +1489,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var node overlay.SelectedNode
+		var node uploadselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
