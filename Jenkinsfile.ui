@@ -24,9 +24,6 @@ pipeline {
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
                 checkout scm
                 sh 'mkdir -p .build'
-				sh 'ls -laH /ms-playwright'
-                // pre-check that we cannot do at a later stage reliably
-                //sh 'check-large-files'
             }
         }
 
@@ -101,10 +98,9 @@ pipeline {
 
         stage('Install Playwright') {
 			steps {
-				sh 'ls -laH /ms-playwright'
 				dir("testsuite/playwright-ui") {
-			    	sh 'npm install'
-			    }
+					sh 'echo "skip install"'
+				}
             }
         }
 
