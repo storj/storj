@@ -137,7 +137,7 @@ pipeline {
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'authservice.log, gateway.log, test-results/'
+archiveArtifacts artifacts: 'authservice.log, gateway.log, testsuite/playwright-ui/test-results/'
                 }
            }
         }
