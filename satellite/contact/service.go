@@ -12,11 +12,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -49,19 +51,22 @@ type Service struct {
 	timeout        time.Duration
 	idLimiter      *RateLimiter
 	allowPrivateIP bool
+
+	nodeTagAuthority nodetag.Authority
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, config Config) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, authority nodetag.Authority, config Config) *Service {
 	return &Service{
-		log:            log,
-		self:           self,
-		overlay:        overlay,
-		peerIDs:        peerIDs,
-		dialer:         dialer,
-		timeout:        config.Timeout,
-		idLimiter:      NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
-		allowPrivateIP: config.AllowPrivateIP,
+		log:              log,
+		self:             self,
+		overlay:          overlay,
+		peerIDs:          peerIDs,
+		dialer:           dialer,
+		timeout:          config.Timeout,
+		idLimiter:        NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
+		allowPrivateIP:   config.AllowPrivateIP,
+		nodeTagAuthority: authority,
 	}
 }
 
@@ -150,4 +155,57 @@ func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL)
 	}
 
 	return nil
+}
+
+func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, req *pb.SignedNodeTagSets) error {
+	if req != nil {
+		tags := uploadselection.NodeTags{}
+		for _, t := range req.Tags {
+			verifiedTags, signerID, err := verifyTags(ctx, service.nodeTagAuthority, nodeID, t)
+			if err != nil {
+				service.log.Info("Failed to verify tags.", zap.Error(err), zap.Stringer("NodeID", nodeID))
+				continue
+			}
+
+			ts := time.Unix(verifiedTags.Timestamp, 0)
+			for _, vt := range verifiedTags.Tags {
+				tags = append(tags, uploadselection.NodeTag{
+					NodeID:   nodeID,
+					Name:     vt.Name,
+					Value:    vt.Value,
+					SignedAt: ts,
+					Signer:   signerID,
+				})
+			}
+		}
+		if len(tags) > 0 {
+			err := service.overlay.UpdateNodeTags(ctx, tags)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storj.NodeID, error) {
+	signerID, err := storj.NodeIDFromBytes(t.SignerNodeId)
+	if err != nil {
+		return nil, signerID, errs.New("failed to parse signerNodeID from verifiedTags: '%x', %s", t.SignerNodeId, err.Error())
+	}
+
+	verifiedTags, err := authority.Verify(ctx, t)
+	if err != nil {
+		return nil, signerID, errs.New("received node tags with wrong/unknown signature: '%x', %s", t.Signature, err.Error())
+	}
+
+	signedNodeID, err := storj.NodeIDFromBytes(verifiedTags.NodeId)
+	if err != nil {
+		return nil, signerID, errs.New("failed to parse nodeID from verifiedTags: '%x', %s", verifiedTags.NodeId, err.Error())
+	}
+
+	if signedNodeID != nodeID {
+		return nil, signerID, errs.New("the tag is signed for a different node. Expected NodeID: '%s', Received NodeID: '%s'", nodeID, signedNodeID)
+	}
+	return verifiedTags, signerID, nil
 }

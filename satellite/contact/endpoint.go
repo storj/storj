@@ -114,6 +114,10 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			req.Operator.WalletFeatures = nil
 		}
 	}
+	err = endpoint.service.processNodeTags(ctx, nodeID, req.SignedTags)
+	if err != nil {
+		endpoint.log.Info("failed to update node tags", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+	}
 
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
