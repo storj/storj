@@ -5,7 +5,15 @@
     <UpgradeAccountWrapper title="Add STORJ Tokens">
         <template #content>
             <div class="add-tokens">
-                <p class="add-tokens__info">Send more than $10 in STORJ Tokens to the following deposit address.</p>
+                <p class="add-tokens__info">
+                    Send more than $10 in STORJ Tokens to the following deposit address, and fill in this
+                    <a
+                        class="add-tokens__info__link"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >limit increase request form</a> to upgrade to Pro Account.
+                </p>
                 <canvas ref="canvas" />
                 <div class="add-tokens__label">
                     <h2 class="add-tokens__label__text">Deposit Address</h2>
@@ -124,6 +132,16 @@ onMounted(async (): Promise<void> => {
         color: var(--c-blue-6);
         margin-bottom: 16px;
         text-align: left;
+
+        &__link {
+            color: var(--c-blue-3);
+            text-decoration: underline;
+            text-underline-position: under;
+
+            &:visited {
+                color: var(--c-blue-3);
+            }
+        }
     }
 
     &__label {
