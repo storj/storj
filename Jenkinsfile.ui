@@ -99,7 +99,7 @@ pipeline {
         stage('Install Playwright') {
 			steps {
 				dir("testsuite/playwright-ui") {
-					sh 'echo "skip install"'
+					sh 'npm i'
 				}
             }
         }
