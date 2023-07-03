@@ -8,7 +8,7 @@ pipeline {
         }
     }
     options {
-        timeout(time: 4, unit: 'HOURS')
+        timeout(time: 40, unit: 'MINUTES')
         skipDefaultCheckout(false)
     }
     environment {
@@ -24,7 +24,7 @@ pipeline {
                 sh 'bash -O extglob -c "rm -rf !(.git)"'
                 checkout scm
                 sh 'mkdir -p .build'
-				//sh 'ls -laH /ms-playwright'
+				sh 'ls -laH /ms-playwright'
                 // pre-check that we cannot do at a later stage reliably
                 //sh 'check-large-files'
             }
