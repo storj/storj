@@ -42,6 +42,7 @@ import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { User } from '@/types/users';
 
 import VModal from '@/components/common/VModal.vue';
 import UpgradeInfoStep from '@/components/modals/upgradeAccountFlow/UpgradeInfoStep.vue';

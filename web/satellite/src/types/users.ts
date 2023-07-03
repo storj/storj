@@ -85,6 +85,8 @@ export class User {
         public password: string = '',
         public projectLimit: number = 0,
         public projectStorageLimit: number = 0,
+        public projectBandwidthLimit: number = 0,
+        public projectSegmentLimit: number = 0,
         public paidTier: boolean = false,
         public isMFAEnabled: boolean = false,
         public isProfessional: boolean = false,

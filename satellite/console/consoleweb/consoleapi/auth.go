@@ -440,22 +440,24 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID                   uuid.UUID `json:"id"`
-		FullName             string    `json:"fullName"`
-		ShortName            string    `json:"shortName"`
-		Email                string    `json:"email"`
-		Partner              string    `json:"partner"`
-		ProjectLimit         int       `json:"projectLimit"`
-		ProjectStorageLimit  int64     `json:"projectStorageLimit"`
-		IsProfessional       bool      `json:"isProfessional"`
-		Position             string    `json:"position"`
-		CompanyName          string    `json:"companyName"`
-		EmployeeCount        string    `json:"employeeCount"`
-		HaveSalesContact     bool      `json:"haveSalesContact"`
-		PaidTier             bool      `json:"paidTier"`
-		MFAEnabled           bool      `json:"isMFAEnabled"`
-		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
-		CreatedAt            time.Time `json:"createdAt"`
+		ID                    uuid.UUID `json:"id"`
+		FullName              string    `json:"fullName"`
+		ShortName             string    `json:"shortName"`
+		Email                 string    `json:"email"`
+		Partner               string    `json:"partner"`
+		ProjectLimit          int       `json:"projectLimit"`
+		ProjectStorageLimit   int64     `json:"projectStorageLimit"`
+		ProjectBandwidthLimit int64     `json:"projectBandwidthLimit"`
+		ProjectSegmentLimit   int64     `json:"projectSegmentLimit"`
+		IsProfessional        bool      `json:"isProfessional"`
+		Position              string    `json:"position"`
+		CompanyName           string    `json:"companyName"`
+		EmployeeCount         string    `json:"employeeCount"`
+		HaveSalesContact      bool      `json:"haveSalesContact"`
+		PaidTier              bool      `json:"paidTier"`
+		MFAEnabled            bool      `json:"isMFAEnabled"`
+		MFARecoveryCodeCount  int       `json:"mfaRecoveryCodeCount"`
+		CreatedAt             time.Time `json:"createdAt"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -473,6 +475,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	user.ProjectLimit = consoleUser.ProjectLimit
 	user.ProjectStorageLimit = consoleUser.ProjectStorageLimit
+	user.ProjectBandwidthLimit = consoleUser.ProjectBandwidthLimit
+	user.ProjectSegmentLimit = consoleUser.ProjectSegmentLimit
 	user.IsProfessional = consoleUser.IsProfessional
 	user.CompanyName = consoleUser.CompanyName
 	user.Position = consoleUser.Position
