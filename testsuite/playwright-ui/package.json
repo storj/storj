@@ -26,6 +26,13 @@
   },
   "dependencies": {
     "@slack/socket-mode": "^1.3.2",
-    "@slack/web-api": "^6.8.0"
+    "@slack/web-api": "^6.8.0",
+	"@playwright/test": "^1.35.1",
+    "allure-commandline": "^2.20.1",
+    "allure-playwright": "^2.0.0-beta.21",
+    "mocha-multi-reporters": "^1.5.1",
+    "playwright-slack-report": "^1.0.19",
+    "rimraf": "^4.0.4"
+
   }
 }
