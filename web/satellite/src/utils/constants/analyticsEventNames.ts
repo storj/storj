@@ -90,7 +90,7 @@ export enum AnalyticsErrorEventSource {
     CREATE_FOLDER_MODAL = 'Create folder modal',
     OBJECT_DETAILS_MODAL = 'Object details modal',
     OPEN_BUCKET_MODAL = 'Open bucket modal',
-    SHARE_BUCKET_MODAL = 'Share bucket modal',
+    SHARE_MODAL = 'Share modal',
     OBJECTS_UPLOAD_MODAL = 'Objects upload modal',
     NAVIGATION_ACCOUNT_AREA = 'Navigation account area',
     NAVIGATION_PROJECT_SELECTION = 'Navigation project selection',

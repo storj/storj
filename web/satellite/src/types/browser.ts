@@ -22,3 +22,9 @@ export class ShareButtonConfig {
       public image: string = EmailIcon,
     ) {}
 }
+
+export enum ShareType {
+  File = 'File',
+  Folder = 'Folder',
+  Bucket = 'Bucket',
+}

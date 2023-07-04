@@ -117,10 +117,12 @@
 import { computed, onBeforeMount, ref, watch } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useLinksharing } from '@/composables/useLinksharing';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -129,9 +131,12 @@ import VLoader from '@/components/common/VLoader.vue';
 import ErrorNoticeIcon from '@/../static/images/common/errorNotice.svg?url';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const notify = useNotify();
+const { generateFileOrFolderShareURL, generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
@@ -233,9 +238,12 @@ const placeHolderDisplayable = computed((): boolean => {
 async function fetchPreviewAndMapUrl(): Promise<void> {
     isLoading.value = true;
 
-    const url: string = await obStore.state.fetchPreviewAndMapUrl(
-        filePath.value,
-    );
+    let url = '';
+    try {
+        url = await generateObjectPreviewAndMapURL(filePath.value);
+    } catch (error) {
+        notify.error(`Unable to get file preview and map URL. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+    }
 
     if (!url) {
         previewAndMapFailed.value = true;
@@ -294,9 +302,12 @@ async function copy(): Promise<void> {
  * Get the share link of the current opened file.
  */
 async function getSharedLink(): Promise<void> {
-    objectLink.value = await obStore.state.fetchSharedLink(
-        filePath.value,
-    );
+    analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    try {
+        objectLink.value = await generateFileOrFolderShareURL(filePath.value);
+    } catch (error) {
+        notify.error(`Unable to get sharing URL. ${error.message}`, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
+    }
 }
 
 /**

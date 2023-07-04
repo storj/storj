@@ -77,8 +77,6 @@ export class FilesState {
     selectedFiles: BrowserObject[] = [];
     shiftSelectedFiles: BrowserObject[] = [];
     filesToBeDeleted: BrowserObject[] = [];
-    fetchSharedLink: (arg0: string) => Promisable<string> = () => 'javascript:null';
-    fetchPreviewAndMapUrl: (arg0: string) => Promisable<string> = () => 'javascript:null';
     openedDropdown: null | string = null;
     headingSorted = 'name';
     orderBy: 'asc' | 'desc' = 'asc';
@@ -164,8 +162,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         endpoint,
         browserRoot,
         openModalOnFirstUpload = true,
-        fetchSharedLink = () => 'javascript:null',
-        fetchPreviewAndMapUrl = () => 'javascript:null',
     }: {
         accessKey: string;
         secretKey: string;
@@ -173,8 +169,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         endpoint: string;
         browserRoot: string;
         openModalOnFirstUpload?: boolean;
-        fetchSharedLink: (arg0: string) => Promisable<string>;
-        fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
     }): void {
         const s3Config: S3ClientConfig = {
             credentials: {
@@ -192,8 +186,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.bucket = bucket;
         state.browserRoot = browserRoot;
         state.openModalOnFirstUpload = openModalOnFirstUpload;
-        state.fetchSharedLink = fetchSharedLink;
-        state.fetchPreviewAndMapUrl = fetchPreviewAndMapUrl;
         state.path = '';
         state.files = [];
     }
@@ -810,8 +802,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.selectedFiles = [];
         state.shiftSelectedFiles = [];
         state.filesToBeDeleted = [];
-        state.fetchSharedLink = () => 'javascript:null';
-        state.fetchPreviewAndMapUrl = () => 'javascript:null';
         state.openedDropdown = null;
         state.headingSorted = 'name';
         state.orderBy = 'asc';

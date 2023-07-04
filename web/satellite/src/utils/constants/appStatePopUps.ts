@@ -14,8 +14,7 @@ import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue
 import EnableMFAModal from '@/components/modals/EnableMFAModal.vue';
 import DisableMFAModal from '@/components/modals/DisableMFAModal.vue';
 import AddTokenFundsModal from '@/components/modals/AddTokenFundsModal.vue';
-import ShareBucketModal from '@/components/modals/ShareBucketModal.vue';
-import ShareObjectModal from '@/components/modals/ShareObjectModal.vue';
+import ShareModal from '@/components/modals/ShareModal.vue';
 import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
 import CreateBucketModal from '@/components/modals/CreateBucketModal.vue';
 import NewFolderModal from '@/components/modals/NewFolderModal.vue';
@@ -67,8 +66,7 @@ enum Modals {
     ENABLE_MFA = 'enableMFA',
     DISABLE_MFA = 'disableMFA',
     ADD_TOKEN_FUNDS = 'addTokenFunds',
-    SHARE_BUCKET = 'shareBucket',
-    SHARE_OBJECT = 'shareObject',
+    SHARE = 'share',
     DELETE_BUCKET = 'deleteBucket',
     CREATE_BUCKET = 'createBucket',
     NEW_FOLDER = 'newFolder',
@@ -101,8 +99,7 @@ export const MODALS: Record<Modals, Component> = {
     [Modals.ENABLE_MFA]: EnableMFAModal,
     [Modals.DISABLE_MFA]: DisableMFAModal,
     [Modals.ADD_TOKEN_FUNDS]: AddTokenFundsModal,
-    [Modals.SHARE_BUCKET]: ShareBucketModal,
-    [Modals.SHARE_OBJECT]: ShareObjectModal,
+    [Modals.SHARE]: ShareModal,
     [Modals.DELETE_BUCKET]: DeleteBucketModal,
     [Modals.CREATE_BUCKET]: CreateBucketModal,
     [Modals.NEW_FOLDER]: NewFolderModal,

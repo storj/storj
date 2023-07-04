@@ -44,7 +44,7 @@
 <script setup lang="ts">
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
-import ModalHeader from '@/components/browser/galleryView/modals/ModalHeader.vue';
+import ModalHeader from '@/components/modals/ModalHeader.vue';
 
 import GlobeIcon from '@/../static/images/browser/galleryView/modals/globe.svg';
 

@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="onClose">
+    <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
                 <ModalHeader
                     :icon="ShareIcon"
-                    title="Share File"
+                    :title="'Share ' + shareType"
                 />
                 <VLoader v-if="loading" width="40px" height="40px" />
                 <template v-else>
@@ -29,7 +29,7 @@
                         width="100%"
                         border-radius="10px"
                         font-size="14px"
-                        :on-press="onClose"
+                        :on-press="closeModal"
                         is-white
                     />
                     <VButton
@@ -50,13 +50,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import { useAppStore } from '@/store/modules/appStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useLinksharing } from '@/composables/useLinksharing';
+import { useNotify } from '@/utils/hooks';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { ShareType } from '@/types/browser';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 import ShareContainer from '@/components/common/share/ShareContainer.vue';
-import ModalHeader from '@/components/browser/galleryView/modals/ModalHeader.vue';
+import ModalHeader from '@/components/modals/ModalHeader.vue';
 
 import ShareIcon from '@/../static/images/browser/galleryView/modals/share.svg';
 
@@ -65,15 +71,23 @@ enum ButtonStates {
     Copied,
 }
 
-const obStore = useObjectBrowserStore();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const props = defineProps<{
-    onClose: () => void
-}>();
+const appStore = useAppStore();
+const obStore = useObjectBrowserStore();
+const { generateFileOrFolderShareURL, generateBucketShareURL } = useLinksharing();
+const notify = useNotify();
 
 const link = ref<string>('');
 const loading = ref<boolean>(true);
 const copyButtonState = ref<ButtonStates>(ButtonStates.Copy);
+
+/**
+ * Returns what type of entity is being shared.
+ */
+const shareType = computed((): ShareType => {
+    return appStore.state.shareModalType;
+});
 
 /**
  * Retrieve the path to the current file.
@@ -94,10 +108,26 @@ async function onCopy(): Promise<void> {
     }, 2000);
 }
 
+/**
+ * Closes the modal.
+ */
+function closeModal(): void {
+    if (loading.value) return;
+
+    appStore.removeActiveModal();
+}
+
 onMounted(async (): Promise<void> => {
-    link.value = await obStore.state.fetchSharedLink(
-        filePath.value,
-    );
+    analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    try {
+        if (shareType.value === ShareType.Bucket) {
+            link.value = await generateBucketShareURL();
+        } else {
+            link.value = await generateFileOrFolderShareURL(filePath.value, shareType.value === ShareType.Folder);
+        }
+    } catch (error) {
+        notify.error(`Unable to get sharing URL. ${error.message}`, AnalyticsErrorEventSource.SHARE_MODAL);
+    }
 
     loading.value = false;
 });

@@ -34,6 +34,7 @@ import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { ShareType } from '@/types/browser';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
@@ -84,7 +85,8 @@ function onDetailsClick(): void {
  * Toggles share bucket modal.
  */
 function onShareBucketClick(): void {
-    appStore.updateActiveModal(MODALS.shareBucket);
+    appStore.setShareModalType(ShareType.Bucket);
+    appStore.updateActiveModal(MODALS.share);
     isDropdownOpen.value = false;
 }
 </script>

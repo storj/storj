@@ -48,7 +48,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
-import ModalHeader from '@/components/browser/galleryView/modals/ModalHeader.vue';
+import ModalHeader from '@/components/modals/ModalHeader.vue';
 
 import DetailsIcon from '@/../static/images/browser/galleryView/modals/details.svg';
 
