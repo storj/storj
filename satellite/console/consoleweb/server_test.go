@@ -85,23 +85,15 @@ func TestInvitedRouting(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
+		invitedEmail := "invited@mail.test"
 
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "u@mail.test",
+		owner, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Project Owner",
+			Email:    "owner@mail.test",
 		}, 1)
 		require.NoError(t, err)
 
-		user2, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User2",
-			Email:    "u2@mail.test",
-		}, 1)
-		require.NoError(t, err)
-
-		ctx1, err := sat.UserContext(ctx, user.ID)
-		require.NoError(t, err)
-
-		project, err := sat.AddProject(ctx1, user.ID, "Test Project")
+		project, err := sat.AddProject(ctx, owner.ID, "Test Project")
 		require.NoError(t, err)
 
 		client := http.Client{}
@@ -128,24 +120,34 @@ func TestInvitedRouting(t *testing.T) {
 		loginURL := baseURL + "login"
 		invalidURL := loginURL + "?invite_invalid=true"
 
-		tokenInvalidProj, err := service.CreateInviteToken(ctx, project.ID, user2.Email, time.Now())
+		tokenInvalidProj, err := service.CreateInviteToken(ctx, project.ID, invitedEmail, time.Now())
 		require.NoError(t, err)
 
-		token, err := service.CreateInviteToken(ctx, project.PublicID, user2.Email, time.Now())
+		token, err := service.CreateInviteToken(ctx, project.PublicID, invitedEmail, time.Now())
 		require.NoError(t, err)
 
 		checkInvitedRedirect("Invited - Invalid projectID", invalidURL, tokenInvalidProj)
 
 		checkInvitedRedirect("Invited - User not invited", invalidURL, token)
 
-		_, err = service.InviteProjectMembers(ctx1, project.ID, []string{user2.Email})
+		ownerCtx, err := sat.UserContext(ctx, owner.ID)
+		require.NoError(t, err)
+		_, err = service.InviteProjectMembers(ownerCtx, project.ID, []string{invitedEmail})
 		require.NoError(t, err)
 
-		token, err = service.CreateInviteToken(ctx, project.PublicID, user2.Email, time.Now())
+		// Valid invite for nonexistent user should redirect to registration page with
+		// query parameters containing invitation information.
+		params := "email=invited%40mail.test&inviter=Project+Owner&inviter_email=owner%40mail.test&project=Test+Project"
+		checkInvitedRedirect("Invited - Nonexistent user", baseURL+"signup?"+params, token)
+
+		_, err = sat.AddUser(ctx, console.CreateUser{
+			FullName: "Invited User",
+			Email:    invitedEmail,
+		}, 1)
 		require.NoError(t, err)
 
 		// valid invite should redirect to login page with email.
-		checkInvitedRedirect("Invited - User invited", loginURL+"?email="+user2.Email, token)
+		checkInvitedRedirect("Invited - User invited", loginURL+"?email=invited%40mail.test", token)
 	})
 }
 

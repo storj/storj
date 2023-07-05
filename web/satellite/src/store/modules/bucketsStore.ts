@@ -220,11 +220,31 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function getObjectsCount(name: string): Promise<number> {
-        const response =  await state.s3Client.send(new ListObjectsV2Command({
-            Bucket: name,
-        }));
+        const abortController = new AbortController();
 
-        return response.KeyCount === undefined ? 0 : response.KeyCount;
+        const request = state.s3Client.send(new ListObjectsV2Command({
+            Bucket: name,
+        }), { abortSignal: abortController.signal });
+
+        const timeout = setTimeout(() => {
+            abortController.abort();
+        }, 10000); // abort request in 10 seconds.
+
+        let response;
+        try {
+            response = await request;
+            clearTimeout(timeout);
+        } catch (error) {
+            clearTimeout(timeout);
+
+            if (abortController.signal.aborted) {
+                return 0;
+            }
+
+            throw error;
+        }
+
+        return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
     function clearS3Data(): void {

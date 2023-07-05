@@ -1813,12 +1813,11 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		return nil, Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	project := isMember.project
 	if updatedProject.Name != project.Name {
 		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, user.ID)
 		if err != nil || !passesNameCheck {
@@ -2726,7 +2725,7 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID)
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID, true)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2768,7 +2767,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	var totalBandwidthUsed int64
 
 	for _, pr := range projects {
-		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID)
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID, false)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -2787,7 +2786,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	}, nil
 }
 
-func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, onlySettledBandwidth bool) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
@@ -2807,10 +2806,17 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+
+	var bandwidthUsed int64
+	if onlySettledBandwidth {
+		bandwidthUsed, err = s.projectUsage.GetProjectSettledBandwidth(ctx, projectID)
+	} else {
+		bandwidthUsed, err = s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -3579,8 +3585,8 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	}
 	projectID = isMember.project.ID
 
-	// collect user querying errors
-	users := make([]*User, 0)
+	var users []*User
+	var newUserEmails []string
 	for _, email := range emails {
 		invitedUser, err := s.store.Users().GetByEmail(ctx, email)
 		if err == nil {
@@ -3599,7 +3605,9 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				return nil, ErrProjectInviteActive.New(projInviteActiveErrMsg, invitedUser.Email)
 			}
 			users = append(users, invitedUser)
-		} else if !errs.Is(err, sql.ErrNoRows) {
+		} else if errs.Is(err, sql.ErrNoRows) {
+			newUserEmails = append(newUserEmails, email)
+		} else {
 			return nil, Error.Wrap(err)
 		}
 	}
@@ -3607,20 +3615,20 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		for _, invited := range users {
+		for _, email := range emails {
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
-				Email:     invited.Email,
+				Email:     email,
 				InviterID: &user.ID,
 			})
 			if err != nil {
 				return err
 			}
-			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, invited.Email, invite.CreatedAt)
+			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, invite.CreatedAt)
 			if err != nil {
 				return err
 			}
-			inviteTokens[invited.Email] = token
+			inviteTokens[email] = token
 			invites = append(invites, *invite)
 		}
 		return nil
@@ -3644,6 +3652,18 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				InviterEmail: user.Email,
 				Region:       s.satelliteName,
 				SignInLink:   inviteLink,
+			},
+		)
+	}
+	for _, email := range newUserEmails {
+		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: email}},
+			&NewUserProjectInvitationEmail{
+				InviterEmail: user.Email,
+				Region:       s.satelliteName,
+				SignUpLink:   inviteLink,
 			},
 		)
 	}

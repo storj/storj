@@ -27,7 +27,7 @@ func TestZombieDeletion(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.ZombieDeletion.Interval = 500 * time.Millisecond
-				config.ZombieDeletion.AsOfSystemInterval = 0
+				config.ZombieDeletion.AsOfSystemInterval = -1 * time.Microsecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

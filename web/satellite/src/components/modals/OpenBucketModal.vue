@@ -52,6 +52,10 @@
                         :is-transparent="isWarningState"
                     />
                 </div>
+                <div v-if="isLoading" class="modal__loading-wrap">
+                    <VLoader width="50px" height="50px" is-white />
+                    <p class="modal__loading-wrap__label">Counting objects...</p>
+                </div>
             </div>
         </template>
     </VModal>
@@ -73,6 +77,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
@@ -148,9 +153,9 @@ async function onContinue(): Promise<void> {
 
         closeModal();
         analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
         isLoading.value = false;
     }
 }
@@ -182,6 +187,7 @@ function setPassphrase(value: string): void {
         flex-direction: column;
         padding: 32px;
         max-width: 350px;
+        position: relative;
 
         &__header {
             display: flex;
@@ -248,6 +254,23 @@ function setPassphrase(value: string): void {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 20px;
+            }
+        }
+
+        &__loading-wrap {
+            position: absolute;
+            inset: 0;
+            background: rgb(27 37 51 / 40%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            &__label {
+                font-family: 'font_medium', sans-serif;
+                font-size: 18px;
+                margin-top: 16px;
+                color: var(--c-white);
             }
         }
     }

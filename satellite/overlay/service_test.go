@@ -18,12 +18,12 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -205,7 +205,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.SelectedNode
+			var nodes []*uploadselection.SelectedNode
 			var err error
 
 			if i%2 == 0 {
@@ -326,7 +326,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.SelectedNode
+			var nodes []*uploadselection.SelectedNode
 			var err error
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: numNodesToSelect,
@@ -670,7 +670,7 @@ func TestSuspendedSelection(t *testing.T) {
 			}
 		}
 
-		var nodes []*overlay.SelectedNode
+		var nodes []*uploadselection.SelectedNode
 		var err error
 
 		numNodesToSelect := 10
@@ -816,28 +816,6 @@ func TestVetAndUnvetNode(t *testing.T) {
 	})
 }
 
-func TestReliable(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-		node := planet.StorageNodes[0]
-
-		nodes, err := service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 2)
-
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
-		require.NoError(t, err)
-
-		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 1)
-		require.NotEqual(t, node.ID(), nodes[0])
-	})
-}
-
 func TestKnownReliableInExcludedCountries(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
@@ -845,15 +823,15 @@ func TestKnownReliableInExcludedCountries(t *testing.T) {
 		service := planet.Satellites[0].Overlay.Service
 		node := planet.StorageNodes[0]
 
-		nodes, err := service.Reliable(ctx)
+		onlineNodes, _, err := service.Reliable(ctx)
 		require.NoError(t, err)
-		require.Len(t, nodes, 2)
+		require.Len(t, onlineNodes, 2)
 
 		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
 		require.NoError(t, err)
 
 		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.KnownReliableInExcludedCountries(ctx, nodes)
+		nodes, err := service.KnownReliableInExcludedCountries(ctx, storj.NodeIDList{onlineNodes[0].ID, onlineNodes[1].ID})
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, node.ID(), nodes[0])
@@ -1047,49 +1025,5 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		ne2 := getNE()
 		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
-	})
-}
-
-func TestService_GetNodesOutOfPlacement(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AsOfSystemTime.Enabled = false
-				config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-
-		placement := storj.EU
-
-		nodeIDs := []storj.NodeID{}
-		for _, node := range planet.StorageNodes {
-			nodeIDs = append(nodeIDs, node.ID())
-
-			err := service.TestNodeCountryCode(ctx, node.ID(), location.Poland.String())
-			require.NoError(t, err)
-		}
-
-		require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
-
-		offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
-		require.NoError(t, err)
-		require.Empty(t, offNodes)
-
-		expectedNodeIDs := []storj.NodeID{}
-		for _, node := range planet.StorageNodes {
-			expectedNodeIDs = append(expectedNodeIDs, node.ID())
-			err := service.TestNodeCountryCode(ctx, node.ID(), location.Brazil.String())
-			require.NoError(t, err)
-
-			// we need to refresh cache because node country code was changed
-			require.NoError(t, service.DownloadSelectionCache.Refresh(ctx))
-
-			offNodes, err := service.GetNodesOutOfPlacement(ctx, nodeIDs, placement)
-			require.NoError(t, err)
-			require.ElementsMatch(t, expectedNodeIDs, offNodes)
-		}
 	})
 }

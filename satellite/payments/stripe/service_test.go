@@ -36,6 +36,292 @@ import (
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
+func TestService_SetInvoiceStatusUncollectible(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(usdCurrency),
+		})
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		// run update invoice status to uncollectible
+		// beginning of last month
+		startPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+		// end of current month
+		endPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1)
+
+		t.Run("update invoice status to uncollectible", func(t *testing.T) {
+			err = payments.StripeService.SetInvoiceStatus(ctx, startPeriod, endPeriod, "uncollectible", false)
+			require.NoError(t, err)
+
+			iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+				ListParams: stripe.ListParams{Context: ctx},
+			})
+			iter.Next()
+			require.Equal(t, stripe.InvoiceStatusUncollectible, iter.Invoice().Status)
+		})
+	})
+}
+
+func TestService_SetInvoiceStatusVoid(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(usdCurrency),
+		})
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		// run update invoice status to uncollectible
+		// beginning of last month
+		startPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+		// end of current month
+		endPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1)
+
+		t.Run("update invoice status to void", func(t *testing.T) {
+			err = payments.StripeService.SetInvoiceStatus(ctx, startPeriod, endPeriod, "void", false)
+			require.NoError(t, err)
+
+			iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+				ListParams: stripe.ListParams{Context: ctx},
+			})
+			iter.Next()
+			require.Equal(t, stripe.InvoiceStatusVoid, iter.Invoice().Status)
+		})
+	})
+}
+
+func TestService_SetInvoiceStatusPaid(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(usdCurrency),
+		})
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		// run update invoice status to uncollectible
+		// beginning of last month
+		startPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+		// end of current month
+		endPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1)
+
+		t.Run("update invoice status to paid", func(t *testing.T) {
+			err = payments.StripeService.SetInvoiceStatus(ctx, startPeriod, endPeriod, "paid", false)
+			require.NoError(t, err)
+
+			iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+				ListParams: stripe.ListParams{Context: ctx},
+			})
+			iter.Next()
+			require.Equal(t, stripe.InvoiceStatusPaid, iter.Invoice().Status)
+		})
+	})
+}
+
+func TestService_SetInvoiceStatusInvalid(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(usdCurrency),
+		})
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		// finalize invoice
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		// run update invoice status to uncollectible
+		// beginning of last month
+		startPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+		// end of current month
+		endPeriod := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1)
+
+		t.Run("update invoice status to invalid", func(t *testing.T) {
+			err = payments.StripeService.SetInvoiceStatus(ctx, startPeriod, endPeriod, "not a real status", false)
+			require.Error(t, err)
+		})
+	})
+}
+
 func TestService_BalanceInvoiceItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

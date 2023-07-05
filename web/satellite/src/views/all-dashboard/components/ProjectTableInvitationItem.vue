@@ -3,41 +3,43 @@
 
 <template>
     <table-item
-        item-type="project"
+        item-type="shared-project"
         :item="itemToRender"
         class="invitation-item"
     >
         <template #options>
-            <th class="options overflow-visible">
-                <v-button
-                    :loading="isLoading"
-                    :disabled="isLoading"
-                    :on-press="onJoinClicked"
-                    border-radius="8px"
-                    font-size="12px"
-                    label="Join Project"
-                    class="invitation-item__menu__button"
-                />
-                <v-button
-                    :loading="isLoading"
-                    :disabled="isLoading"
-                    :on-press="onJoinClicked"
-                    border-radius="8px"
-                    font-size="12px"
-                    label="Join"
-                    class="invitation-item__menu__mobile-button"
-                />
-                <div class="invitation-item__menu">
-                    <div class="invitation-item__menu__icon" @click.stop="toggleDropDown">
-                        <div class="invitation-item__menu__icon__content" :class="{open: isDropdownOpen}">
-                            <menu-icon />
+            <th class="overflow-visible">
+                <div class="options">
+                    <v-button
+                        :loading="isLoading"
+                        :disabled="isLoading"
+                        :on-press="onJoinClicked"
+                        border-radius="8px"
+                        font-size="12px"
+                        label="Join Project"
+                        class="invitation-item__button"
+                    />
+                    <v-button
+                        :loading="isLoading"
+                        :disabled="isLoading"
+                        :on-press="onJoinClicked"
+                        border-radius="8px"
+                        font-size="12px"
+                        label="Join"
+                        class="invitation-item__mobile-button"
+                    />
+                    <div class="invitation-item__menu">
+                        <div class="invitation-item__menu__icon" @click.stop="toggleDropDown">
+                            <div class="invitation-item__menu__icon__content" :class="{open: isDropdownOpen}">
+                                <menu-icon />
+                            </div>
                         </div>
-                    </div>
 
-                    <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="invitation-item__menu__dropdown">
-                        <div class="invitation-item__menu__dropdown__item" @click.stop="onDeclineClicked">
-                            <logout-icon />
-                            <p class="invitation-item__menu__dropdown__item__label">Decline invite</p>
+                        <div v-if="isDropdownOpen" v-click-outside="closeDropDown" class="invitation-item__menu__dropdown">
+                            <div class="invitation-item__menu__dropdown__item" @click.stop="onDeclineClicked">
+                                <logout-icon />
+                                <p class="invitation-item__menu__dropdown__item__label">Decline invite</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -59,6 +61,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useResize } from '@/composables/resize';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import TableItem from '@/components/common/TableItem.vue';
@@ -72,25 +75,36 @@ const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const isLoading = ref<boolean>(false);
+const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
     invitation: ProjectInvitation,
 }>();
 
-const { isMobile } = useResize();
+const { isMobile, screenWidth } = useResize();
 
 const itemToRender = computed((): { [key: string]: unknown | string[] } => {
-    if (!isMobile.value) {
+    if (screenWidth.value <= 600 && !isMobile.value) {
         return {
             multi: { title: props.invitation.projectName, subtitle: props.invitation.projectDescription },
-            date: props.invitation.invitedDate,
-            memberCount: '',
+        };
+    }
+    if (screenWidth.value <= 850 && !isMobile.value) {
+        return {
+            multi: { title: props.invitation.projectName, subtitle: props.invitation.projectDescription },
             role: ProjectRole.Invited,
         };
     }
+    if (isMobile.value) {
+        return { info: [ props.invitation.projectName, props.invitation.projectDescription ] };
+    }
 
-    return { info: [ props.invitation.projectName, props.invitation.projectDescription ] };
+    return {
+        multi: { title: props.invitation.projectName, subtitle: props.invitation.projectDescription },
+        date: props.invitation.invitedDate,
+        memberCount: '',
+        role: ProjectRole.Invited,
+    };
 });
 
 /**
@@ -111,25 +125,22 @@ function onJoinClicked(): void {
 /**
  * Declines the project member invitation.
  */
-async function onDeclineClicked(): Promise<void> {
-    if (isLoading.value) return;
-    isLoading.value = true;
+function onDeclineClicked(): void {
+    withLoading(async () => {
+        try {
+            await projectsStore.respondToInvitation(props.invitation.projectID, ProjectInvitationResponse.Decline);
+            analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+        } catch (error) {
+            notify.error(`Failed to decline project invitation. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
+        }
 
-    try {
-        await projectsStore.respondToInvitation(props.invitation.projectID, ProjectInvitationResponse.Decline);
-        analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
-    } catch (error) {
-        notify.error(`Failed to decline project invitation. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
-    }
-
-    try {
-        await projectsStore.getUserInvitations();
-        await projectsStore.getProjects();
-    } catch (error) {
-        notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
-    }
-
-    isLoading.value = false;
+        try {
+            await projectsStore.getUserInvitations();
+            await projectsStore.getProjects();
+        } catch (error) {
+            notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
+        }
+    });
 }
 
 function toggleDropDown() {
@@ -149,30 +160,34 @@ function closeDropDown() {
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        column-gap: 10px;
+        column-gap: 20px;
         padding-right: 10px;
+
+        @media screen and (width <= 900px) {
+            column-gap: 10px;
+        }
+    }
+
+    &__button {
+        padding: 10px 16px;
+
+        @media screen and (width <= 900px) {
+            display: none;
+        }
+    }
+
+    &__mobile-button {
+        display: none;
+        padding: 10px 16px;
+
+        @media screen and (width <= 900px) {
+            display: flex;
+        }
     }
 
     &__menu {
         position: relative;
         cursor: pointer;
-
-        &__button {
-            padding: 10px 16px;
-
-            @media screen and (width <= 500px) {
-                display: none;
-            }
-        }
-
-        &__mobile-button {
-            display: none;
-            padding: 10px 16px;
-
-            @media screen and (width <= 500px) {
-                display: flex;
-            }
-        }
 
         &__icon {
 

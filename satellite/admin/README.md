@@ -422,6 +422,7 @@ A successful response body:
   },
   "owner": {
     "id": "12345678-1234-1234-1234-123456789abc",
+    "fullName": "test user",
     "email": "bob@example.test",
     "paidTier": true
   }

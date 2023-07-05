@@ -1013,8 +1013,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2zzQcaEFbx8wA8rck=
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20230602145716-d6ea82d58b3d h1:AXdJxmg4Jqdz1nmogSrImKOHAU+bn8JCy8lHYnTwP0Y=
-storj.io/common v0.0.0-20230602145716-d6ea82d58b3d/go.mod h1:zu2L8WdpvfIBrCbBTgPsz4qhHSArYSiDgRcV1RLlIF8=
+storj.io/common v0.0.0-20230703090058-81cb588c23b6 h1:UXMLomBVcTeIbyrTJWCvaxOixMwE9OIUuZR//17kYO4=
+storj.io/common v0.0.0-20230703090058-81cb588c23b6/go.mod h1:zu2L8WdpvfIBrCbBTgPsz4qhHSArYSiDgRcV1RLlIF8=
 storj.io/drpc v0.0.32/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
 storj.io/drpc v0.0.33 h1:yCGZ26r66ZdMP0IcTYsj7WDAUIIjzXk6DJhbhvt9FHI=
 storj.io/drpc v0.0.33/go.mod h1:vR804UNzhBa49NOJ6HeLjd2H3MakC1j5Gv8bsOQT6N4=
@@ -1022,7 +1022,7 @@ storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 h1:SVuEocEhZfFc13J1Aml
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41/go.mod h1:iK+dmHZZXQlW7ahKdNSOo+raMk5BDL2wbD62FIeXLWs=
 storj.io/picobuf v0.0.1 h1:ekEvxSQCbEjTVIi/qxj2za13SJyfRE37yE30IBkZeT0=
 storj.io/picobuf v0.0.1/go.mod h1:7ZTAMs6VesgTHbbhFU79oQ9hDaJ+MD4uoFQZ1P4SEz0=
-storj.io/private v0.0.0-20230614131149-2ffd1635adea h1:/dv0bYRPgCFvoXF0S14Ien41i12sj9+s4aKhCrFzXHg=
-storj.io/private v0.0.0-20230614131149-2ffd1635adea/go.mod h1:mfdHEaAcTARpd4/Hc6N5uxwB1ZG3jtPdVlle57xzQxQ=
+storj.io/private v0.0.0-20230703113355-ccd4db5ae659 h1:J72VWwbpllfolJoCsjVMr3YnscUUOQAruzFTsivqIqY=
+storj.io/private v0.0.0-20230703113355-ccd4db5ae659/go.mod h1:mfdHEaAcTARpd4/Hc6N5uxwB1ZG3jtPdVlle57xzQxQ=
 storj.io/uplink v1.10.1-0.20230626081029-035890d408c2 h1:XnJR9egrqvAqx5oCRu2b13ubK0iu0qTX12EAa6lAPhg=
 storj.io/uplink v1.10.1-0.20230626081029-035890d408c2/go.mod h1:cDlpDWGJykXfYE7NtO1EeArGFy12K5Xj8pV8ufpUCKE=

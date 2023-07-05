@@ -17,7 +17,7 @@ type Criteria struct {
 }
 
 // MatchInclude returns with true if node is selected.
-func (c *Criteria) MatchInclude(node *Node) bool {
+func (c *Criteria) MatchInclude(node *SelectedNode) bool {
 	if ContainsID(c.ExcludeNodeIDs, node.ID) {
 		return false
 	}

@@ -115,6 +115,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"192.168.1.234", "testBUCKET",
 			"test/bucket",
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
+			"test\\", "test%",
 		}
 		for _, name := range invalidNames {
 			_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
@@ -122,11 +123,13 @@ func TestBucketNameValidation(t *testing.T) {
 				EncryptedObjectKey: []byte("123"),
 			})
 			require.Error(t, err, "bucket name: %v", name)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 			_, err = metainfoClient.CreateBucket(ctx, metaclient.CreateBucketParams{
 				Name: []byte(name),
 			})
 			require.Error(t, err, "bucket name: %v", name)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		}
 	})
 }

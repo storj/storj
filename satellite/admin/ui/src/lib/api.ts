@@ -249,7 +249,7 @@ export class Admin {
 				desc: 'Get the API keys of a specific project',
 				params: [['Project ID', new InputText('text', true)]],
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}/apiKeys`);
+					return this.fetch('GET', `projects/${projectId}/apikeys`);
 				}
 			},
 			{

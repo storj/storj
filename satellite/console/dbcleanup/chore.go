@@ -54,6 +54,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		if err != nil {
 			chore.log.Error("Error deleting unverified users", zap.Error(err))
 		}
+
+		err = chore.db.WebappSessions().DeleteExpired(ctx, time.Now(), chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
+		if err != nil {
+			chore.log.Error("Error deleting expired webapp sessions", zap.Error(err))
+		}
+
 		return nil
 	})
 }

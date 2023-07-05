@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -101,18 +102,13 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			storj.NodeID{7}, storj.NodeID{8},
 			storj.NodeID{9},
 		}
-		criteria := &overlay.NodeCriteria{
-			OnlineWindow:      time.Hour,
-			ExcludedCountries: []string{"FR", "BE"},
-		}
-
-		contains := func(nodeID storj.NodeID) func(node overlay.SelectedNode) bool {
-			return func(node overlay.SelectedNode) bool {
+		contains := func(nodeID storj.NodeID) func(node uploadselection.SelectedNode) bool {
+			return func(node uploadselection.SelectedNode) bool {
 				return node.ID == nodeID
 			}
 		}
 
-		online, offline, err := cache.KnownReliable(ctx, nodeIds, criteria.OnlineWindow, criteria.AsOfSystemInterval)
+		online, offline, err := cache.KnownReliable(ctx, nodeIds, time.Hour, 0)
 		require.NoError(t, err)
 
 		// unrealiable nodes shouldn't be in results
@@ -123,19 +119,26 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{9}))) // not in db
 
 		require.True(t, slices.ContainsFunc(offline, contains(storj.NodeID{4}))) // offline
+		// KnownReliable is not excluding by country anymore
+		require.True(t, slices.ContainsFunc(online, contains(storj.NodeID{7}))) // excluded country
+
 		require.Len(t, append(online, offline...), 4)
 
-		valid, err := cache.Reliable(ctx, criteria)
+		online, offline, err = cache.Reliable(ctx, time.Hour, 0)
 		require.NoError(t, err)
 
-		require.NotContains(t, valid, storj.NodeID{2}) // disqualified
-		require.NotContains(t, valid, storj.NodeID{3}) // unknown audit suspended
-		require.NotContains(t, valid, storj.NodeID{4}) // offline
-		require.NotContains(t, valid, storj.NodeID{5}) // gracefully exited
-		require.NotContains(t, valid, storj.NodeID{6}) // offline suspended
-		require.NotContains(t, valid, storj.NodeID{7}) // excluded country
-		require.NotContains(t, valid, storj.NodeID{9}) // not in db
-		require.Len(t, valid, 2)
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{2}))) // disqualified
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{3}))) // unknown audit suspended
+
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{5}))) // gracefully exited
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{6}))) // offline suspended
+		require.False(t, slices.ContainsFunc(append(online, offline...), contains(storj.NodeID{9}))) // not in db
+
+		require.True(t, slices.ContainsFunc(offline, contains(storj.NodeID{4}))) // offline
+		// Reliable is not excluding by country anymore
+		require.True(t, slices.ContainsFunc(online, contains(storj.NodeID{7}))) // excluded country
+
+		require.Len(t, append(online, offline...), 4)
 	}
 
 	{ // TestUpdateOperator

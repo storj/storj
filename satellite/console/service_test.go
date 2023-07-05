@@ -23,6 +23,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -270,6 +271,19 @@ func TestService(t *testing.T) {
 				})
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
+
+				user2, userCtx2 := getOwnerAndCtx(ctx, up2Proj)
+				_, err = service.AddProjectMembers(userCtx1, up1Proj.ID, []string{user2.Email})
+				require.NoError(t, err)
+				// Members should not be able to update project.
+				_, err = service.UpdateProject(userCtx2, up1Proj.ID, console.ProjectInfo{
+					Name: updatedName,
+				})
+				require.Error(t, err)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				// remove user2.
+				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
+				require.NoError(t, err)
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {
@@ -421,6 +435,20 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits1.BandwidthLimit)
 				require.Equal(t, updatedStorageLimit.Int64(), limits2.StorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits2.BandwidthLimit)
+
+				bucket := "testbucket1"
+				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucket)
+				require.NoError(t, err)
+
+				now := time.Now().UTC()
+				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, 1000, startOfMonth)
+				require.NoError(t, err)
+
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+				require.Equal(t, int64(0), limits2.BandwidthUsed)
 			})
 
 			t.Run("ChangeEmail", func(t *testing.T) {
@@ -2018,15 +2046,14 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
 
-			// adding in a non-existent user should not fail the invitation.
+			// adding in a non-existent user should work.
 			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email, "notauser@mail.com"})
 			require.NoError(t, err)
-			require.Len(t, invites, 1)
+			require.Len(t, invites, 2)
 
 			invites, err = service.GetUserProjectInvitations(ctx3)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
-			user3Invite := invites[0]
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
 			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
@@ -2041,10 +2068,12 @@ func TestProjectInvitations(t *testing.T) {
 			require.Empty(t, invites)
 
 			// expire the invitation.
-			require.False(t, service.IsProjectInvitationExpired(&user3Invite))
+			user3Invite, err := sat.DB.Console().ProjectInvitations().Get(ctx, project.ID, user3.Email)
+			require.NoError(t, err)
+			require.False(t, service.IsProjectInvitationExpired(user3Invite))
 			oldCreatedAt := user3Invite.CreatedAt
-			setInviteDate(t, ctx, &user3Invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
-			require.True(t, service.IsProjectInvitationExpired(&user3Invite))
+			setInviteDate(t, ctx, user3Invite, time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration))
+			require.True(t, service.IsProjectInvitationExpired(user3Invite))
 
 			// resending an expired invitation should succeed.
 			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})

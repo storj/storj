@@ -9,8 +9,10 @@
                     v-cloak
                     class="div-responsive"
                     @drop.prevent="upload"
-                    @dragover.prevent
+                    @dragover.prevent="showDropzone"
                 >
+                    <Dropzone v-if="isOver" :bucket="bucketName" :close="hideDropzone" />
+
                     <bread-crumbs @onUpdate="onRouteChange" @bucketClick="goToBuckets" />
 
                     <div class="tile-action-bar">
@@ -91,8 +93,14 @@
                     <div class="hr-divider" />
 
                     <MultiplePassphraseBanner
-                        v-if="lockedFilesNumber > 0 && isBannerShown && !fetchingFilesSpinner && !currentPath"
-                        :on-close="closeBanner"
+                        v-if="lockedFilesEntryDisplayed && isLockedBanner"
+                        :locked-files-count="lockedFilesCount"
+                        :on-close="closeLockedBanner"
+                    />
+
+                    <TooManyObjectsBanner
+                        v-if="files.length >= NUMBER_OF_DISPLAYED_OBJECTS && isTooManyObjectsBanner"
+                        :on-close="closeTooManyObjectsBanner"
                     />
 
                     <v-table items-label="objects" :total-items-count="files.length" selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
@@ -218,7 +226,9 @@ import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 import MultiplePassphraseBanner from '@/components/browser/MultiplePassphrasesBanner.vue';
+import TooManyObjectsBanner from '@/components/browser/TooManyObjectsBanner.vue';
 import UpEntry from '@/components/browser/UpEntry.vue';
+import Dropzone from '@/components/browser/Dropzone.vue';
 
 import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
@@ -238,7 +248,9 @@ const fileInput = ref<HTMLInputElement>();
 
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
-const isBannerShown = ref<boolean>(true);
+const isLockedBanner = ref<boolean>(true);
+const isTooManyObjectsBanner = ref<boolean>(true);
+const isOver = ref<boolean>(false);
 /**
  * Retrieve the pathMatch from the current route.
  */
@@ -285,7 +297,7 @@ const currentPath = computed((): string => {
 /**
  * Return locked files number.
  */
-const lockedFilesNumber = computed((): number => {
+const lockedFilesCount = computed((): number => {
     const ownObjectsCount = obStore.state.objectsCount;
 
     return objectsCount.value - ownObjectsCount;
@@ -305,7 +317,7 @@ const objectsCount = computed((): number => {
  * Indicates if locked files entry is displayed.
  */
 const lockedFilesEntryDisplayed = computed((): boolean => {
-    return lockedFilesNumber.value > 0 &&
+    return lockedFilesCount.value > 0 &&
         objectsCount.value <= NUMBER_OF_DISPLAYED_OBJECTS &&
         !fetchingFilesSpinner.value &&
         !currentPath.value;
@@ -388,8 +400,15 @@ const bucket = computed((): string => {
 /**
  * Closes multiple passphrase banner.
  */
-function closeBanner(): void {
-    isBannerShown.value = false;
+function closeLockedBanner(): void {
+    isLockedBanner.value = false;
+}
+
+/**
+ * Closes too many objects banner.
+ */
+function closeTooManyObjectsBanner(): void {
+    isTooManyObjectsBanner.value = false;
 }
 
 function calculateRoutePath(): string {
@@ -442,8 +461,12 @@ function filename(file: BrowserObject): string {
  * Upload the current selected or dragged-and-dropped file.
  */
 async function upload(e: Event): Promise<void> {
+    if (isOver.value) {
+        isOver.value = false;
+    }
+
     await obStore.upload({ e });
-    await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
 }
@@ -492,6 +515,20 @@ async function buttonFolderUpload(): Promise<void> {
  */
 function toggleUploadDropdown(): void {
     isUploadDropDownShown.value = !isUploadDropDownShown.value;
+}
+
+/**
+ * Makes dropzone visible.
+ */
+function showDropzone(): void {
+    isOver.value = true;
+}
+
+/**
+ * Hides dropzone.
+ */
+function hideDropzone(): void {
+    isOver.value = false;
 }
 
 /**

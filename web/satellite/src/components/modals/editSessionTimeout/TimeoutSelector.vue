@@ -23,7 +23,7 @@
                 @click.stop="() => select(option)"
                 @keyup.enter="() => select(option)"
             >
-                <span class="selector__dropdown__item__label">{{ option.shortString }}</span>
+                <span>{{ option.shortString }}</span>
             </div>
         </div>
     </div>
@@ -118,13 +118,13 @@ function toggleSelector() {
         justify-content: space-between;
         position: relative;
         padding: 10px 14px;
+        cursor: pointer;
 
         &__label {
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-grey-6);
-            cursor: default;
         }
 
         &__arrow {
@@ -149,10 +149,7 @@ function toggleSelector() {
 
         &__item {
             padding: 10px;
-
-            &__label {
-                cursor: default;
-            }
+            cursor: pointer;
 
             &.selected {
                 background: var(--c-grey-1);

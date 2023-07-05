@@ -315,6 +315,7 @@ func TestAPIKeyManagementGet(t *testing.T) {
 		}
 		type ownerData struct {
 			ID       uuid.UUID `json:"id"`
+			FullName string    `json:"fullName"`
 			Email    string    `json:"email"`
 			PaidTier bool      `json:"paidTier"`
 		}
@@ -339,6 +340,7 @@ func TestAPIKeyManagementGet(t *testing.T) {
 			},
 			Owner: ownerData{
 				ID:       user.ID,
+				FullName: "testuser123",
 				Email:    "test@email.com",
 				PaidTier: true,
 			},

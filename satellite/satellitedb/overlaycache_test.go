@@ -21,6 +21,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -386,8 +387,8 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		checkNodes := func(selectedNodes []*overlay.SelectedNode) {
-			selectedNodesMap := map[storj.NodeID]*overlay.SelectedNode{}
+		checkNodes := func(selectedNodes []*uploadselection.SelectedNode) {
+			selectedNodesMap := map[storj.NodeID]*uploadselection.SelectedNode{}
 			for _, node := range selectedNodes {
 				selectedNodesMap[node.ID] = node
 			}
@@ -423,7 +424,7 @@ func TestOverlayCache_KnownReliable(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 
-		allNodes := []overlay.SelectedNode{
+		allNodes := []uploadselection.SelectedNode{
 			addNode(ctx, t, cache, "online", "127.0.0.1", true, false, false, false, false),
 			addNode(ctx, t, cache, "offline", "127.0.0.2", false, false, false, false, false),
 			addNode(ctx, t, cache, "disqalified", "127.0.0.3", false, true, false, false, false),
@@ -432,7 +433,7 @@ func TestOverlayCache_KnownReliable(t *testing.T) {
 			addNode(ctx, t, cache, "exited", "127.0.0.6", false, false, false, false, true),
 		}
 
-		ids := func(nodes ...overlay.SelectedNode) storj.NodeIDList {
+		ids := func(nodes ...uploadselection.SelectedNode) storj.NodeIDList {
 			nodeIds := storj.NodeIDList{}
 			for _, node := range nodes {
 				nodeIds = append(nodeIds, node.ID)
@@ -440,14 +441,14 @@ func TestOverlayCache_KnownReliable(t *testing.T) {
 			return nodeIds
 		}
 
-		nodes := func(nodes ...overlay.SelectedNode) []overlay.SelectedNode {
-			return append([]overlay.SelectedNode{}, nodes...)
+		nodes := func(nodes ...uploadselection.SelectedNode) []uploadselection.SelectedNode {
+			return append([]uploadselection.SelectedNode{}, nodes...)
 		}
 
 		type testCase struct {
 			IDs     storj.NodeIDList
-			Online  []overlay.SelectedNode
-			Offline []overlay.SelectedNode
+			Online  []uploadselection.SelectedNode
+			Offline []uploadselection.SelectedNode
 		}
 
 		shuffledNodeIDs := ids(allNodes...)
@@ -495,13 +496,64 @@ func TestOverlayCache_KnownReliable(t *testing.T) {
 			require.ElementsMatch(t, tc.Offline, offline)
 		}
 
+		// test empty id list
 		_, _, err := cache.KnownReliable(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
 		require.Error(t, err)
+
+		// test as of system time
+		_, _, err = cache.KnownReliable(ctx, ids(allNodes...), 1*time.Hour, -1*time.Microsecond)
+		require.NoError(t, err)
 	})
 }
 
-func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, online, disqalified, auditSuspended, offlineSuspended, exited bool) overlay.SelectedNode {
-	selectedNode := overlay.SelectedNode{
+func TestOverlayCache_Reliable(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		allNodes := []uploadselection.SelectedNode{
+			addNode(ctx, t, cache, "online", "127.0.0.1", true, false, false, false, false),
+			addNode(ctx, t, cache, "offline", "127.0.0.2", false, false, false, false, false),
+			addNode(ctx, t, cache, "disqalified", "127.0.0.3", false, true, false, false, false),
+			addNode(ctx, t, cache, "audit-suspended", "127.0.0.4", false, false, true, false, false),
+			addNode(ctx, t, cache, "offline-suspended", "127.0.0.5", false, false, false, true, false),
+			addNode(ctx, t, cache, "exited", "127.0.0.6", false, false, false, false, true),
+		}
+
+		type testCase struct {
+			OnlineWindow time.Duration
+			Online       []uploadselection.SelectedNode
+			Offline      []uploadselection.SelectedNode
+		}
+
+		for i, tc := range []testCase{
+			{
+				OnlineWindow: 1 * time.Hour,
+				Online:       []uploadselection.SelectedNode{allNodes[0]},
+				Offline:      []uploadselection.SelectedNode{allNodes[1]},
+			},
+			{
+				OnlineWindow: 20 * time.Hour,
+				Online:       []uploadselection.SelectedNode{allNodes[0], allNodes[1]},
+			},
+			{
+				OnlineWindow: 1 * time.Microsecond,
+				Offline:      []uploadselection.SelectedNode{allNodes[0], allNodes[1]},
+			},
+		} {
+			online, offline, err := cache.Reliable(ctx, tc.OnlineWindow, 0)
+			require.NoError(t, err)
+			require.ElementsMatch(t, tc.Online, online, "#%d", i)
+			require.ElementsMatch(t, tc.Offline, offline, "#%d", i)
+		}
+
+		// test as of system time
+		_, _, err := cache.Reliable(ctx, 1*time.Hour, -1*time.Microsecond)
+		require.NoError(t, err)
+	})
+}
+
+func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, online, disqalified, auditSuspended, offlineSuspended, exited bool) uploadselection.SelectedNode {
+	selectedNode := uploadselection.SelectedNode{
 		ID:          testrand.NodeID(),
 		Address:     &pb.NodeAddress{Address: address},
 		LastNet:     lastIPPort,

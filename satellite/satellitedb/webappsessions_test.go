@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -184,5 +185,28 @@ func TestWebappSessionsDeleteAllByUserID(t *testing.T) {
 		allSessions, err := sessions.GetAllByUserID(ctx, userID)
 		require.NoError(t, err)
 		require.Len(t, allSessions, 0)
+	})
+}
+
+func TestDeleteExpired(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		sessionsDB := db.Console().WebappSessions()
+		now := time.Now()
+
+		// Only positive page sizes should be allowed.
+		require.Error(t, sessionsDB.DeleteExpired(ctx, time.Time{}, 0, 0))
+		require.Error(t, sessionsDB.DeleteExpired(ctx, time.Time{}, 0, -1))
+
+		newSession, err := sessionsDB.Create(ctx, testrand.UUID(), testrand.UUID(), "", "", now.Add(time.Second))
+		require.NoError(t, err)
+		oldSession, err := sessionsDB.Create(ctx, testrand.UUID(), testrand.UUID(), "", "", now.Add(-time.Second))
+		require.NoError(t, err)
+		require.NoError(t, sessionsDB.DeleteExpired(ctx, now, 0, 1))
+
+		// Ensure that the old session record was deleted and the other remains.
+		_, err = sessionsDB.GetBySessionID(ctx, oldSession.ID)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		_, err = sessionsDB.GetBySessionID(ctx, newSession.ID)
+		require.NoError(t, err)
 	})
 }

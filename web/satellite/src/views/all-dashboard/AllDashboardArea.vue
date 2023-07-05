@@ -14,7 +14,7 @@
 
         <heading class="all-dashboard__heading" />
 
-        <div class="all-dashboard__content">
+        <div class="all-dashboard__content" :class="{ 'no-x-padding': isMyProjectsPage }">
             <div class="all-dashboard__content__divider" />
 
             <router-view />
@@ -132,6 +132,10 @@ const sessionDuration = computed((): number => {
         return maxTimeout;
     }
     return duration;
+});
+
+const isMyProjectsPage = computed((): boolean => {
+    return route.path === RouteConfig.AllProjectsDashboard.path;
 });
 
 /**
@@ -563,6 +567,11 @@ onBeforeUnmount(() => {
     to {
         transform: rotate(360deg);
     }
+}
+
+.no-x-padding {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
 .all-dashboard {

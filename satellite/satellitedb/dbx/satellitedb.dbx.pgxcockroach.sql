@@ -176,6 +176,14 @@ CREATE TABLE node_events (
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_tags (
+	node_id bytea NOT NULL,
+	name text NOT NULL,
+	value bytea NOT NULL,
+	signed_at timestamp with time zone NOT NULL,
+	signer bytea NOT NULL,
+	PRIMARY KEY ( node_id, name, signer )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,

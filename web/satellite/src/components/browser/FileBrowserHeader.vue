@@ -283,5 +283,4 @@ function cancelDeleteSelection(): void {
         }
     }
 }
-
 </style>

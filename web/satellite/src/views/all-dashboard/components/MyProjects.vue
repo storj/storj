@@ -64,7 +64,10 @@
 
         <all-projects-dashboard-banners v-if="content" :parent-ref="content" />
 
-        <div v-if="projects.length || invites.length" class="my-projects__list">
+        <div
+            v-if="projects.length || invites.length" class="my-projects__list"
+            :style="{'padding': isTableViewSelected && isMobile ? '0' : '0 20px'}"
+        >
             <projects-table v-if="isTableViewSelected" :invites="invites" class="my-projects__list__table" />
             <div v-else-if="!isTableViewSelected" class="my-projects__list__cards">
                 <project-invitation-item v-for="invite in invites" :key="invite.projectID" :invitation="invite" />
@@ -98,6 +101,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import ProjectsTable from '@/views/all-dashboard/components/ProjectsTable.vue';
 import AllProjectsDashboardBanners from '@/views/all-dashboard/components/AllProjectsDashboardBanners.vue';
+import { useResize } from '@/composables/resize';
 
 import VButton from '@/components/common/VButton.vue';
 import VChip from '@/components/common/VChip.vue';
@@ -113,6 +117,8 @@ const projectsStore = useProjectsStore();
 
 const analytics = new AnalyticsHttpApi();
 
+const { isMobile } = useResize();
+
 const content = ref<HTMLElement | null>(null);
 
 const hasProjectTableViewConfigured = ref(appStore.hasProjectTableViewConfigured());
@@ -121,7 +127,7 @@ const hasProjectTableViewConfigured = ref(appStore.hasProjectTableViewConfigured
  * Whether to use the table view.
  */
 const isTableViewSelected = computed((): boolean => {
-    if (!hasProjectTableViewConfigured.value && projects.value.length > 1) {
+    if (!hasProjectTableViewConfigured.value && projects.value.length > 8) {
         // show the table by default if the user has more than 8 projects.
         return true;
     }
@@ -173,6 +179,7 @@ function onCreateProjectClicked(): void {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding: 0 20px;
 
         @media screen and (width <= 500px) {
             margin-top: 20px;
@@ -268,6 +275,10 @@ function onCreateProjectClicked(): void {
         }
     }
 
+    & :deep(.all-dashboard-banners) {
+        padding: 0 20px;
+    }
+
     &__list {
         margin-top: 20px;
 
@@ -276,7 +287,7 @@ function onCreateProjectClicked(): void {
             gap: 10px;
             grid-template-columns: repeat(4, minmax(0, 1fr));
 
-            & :deep(.project-item) {
+            & :deep(.project-item), &:deep(.invite-item) {
                 overflow: hidden;
             }
 

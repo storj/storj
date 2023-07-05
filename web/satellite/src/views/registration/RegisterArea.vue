@@ -47,11 +47,11 @@
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
-                    <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
+                    <div class="register-area__input-area__container__title-area">
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 25 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand">
+                        <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
                             <div class="register-area__input-area__info-button">
                                 <InfoIcon />
                                 <p class="register-area__input-area__info-button__message">
@@ -89,6 +89,9 @@
                             </ul>
                         </div>
                     </div>
+                    <p v-if="isInvited" class="register-area__input-area__container__invitation-text">
+                        {{ inviterName }} ({{ inviterEmail }}) has invited you to the project {{ projectName }} on Storj. Create an account on the {{ satelliteName }} region to join {{ inviterName }} in the project.
+                    </p>
                     <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
                             <li
@@ -127,6 +130,8 @@
                             label="Email Address"
                             max-symbols="72"
                             placeholder="user@example.com"
+                            :init-value="email"
+                            :disabled="!!email"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"
@@ -279,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, ComputedRef, onBeforeMount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
@@ -323,7 +328,12 @@ const storageNeeds = ref<StorageNeed>();
 const viewConfig = ref<ViewConfig | null>(null);
 
 // DCS logic
-const secret = ref('');
+const secret = queryRef('token');
+
+const email = queryRef('email');
+const inviterName = queryRef('inviter');
+const inviterEmail = queryRef('inviter_email');
+const projectName = queryRef('project');
 
 const isTermsAccepted = ref(false);
 const password = ref('');
@@ -373,10 +383,6 @@ const route = useRoute();
  * Sets up variables from route params and loads config.
  */
 onBeforeMount(() => {
-    if (route.query.token) {
-        secret.value = route.query.token.toString();
-    }
-
     if (route.query.partner) {
         user.value.partner = route.query.partner.toString();
     }
@@ -394,6 +400,17 @@ onBeforeMount(() => {
 });
 
 /**
+ * queryRef returns a computed reference to a query parameter.
+ * Nonexistent keys or keys with no value produce an empty string.
+ */
+function queryRef(key: string): ComputedRef<string> {
+    return computed((): string => {
+        const param = route.query[key] || '';
+        return (typeof param === 'string') ? param : (param[0] || '');
+    });
+}
+
+/**
  * Redirects to chosen satellite.
  */
 function clickSatellite(address): void {
@@ -404,6 +421,7 @@ function clickSatellite(address): void {
  * Toggles satellite selection dropdown visibility (Tardigrade).
  */
 function toggleDropdown(): void {
+    if (isInvited.value) return;
     isDropdownShown.value = !isDropdownShown.value;
 }
 
@@ -517,6 +535,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
 
         return s;
     });
+});
+
+/**
+ * Returns whether the current URL's query parameters indicate that the user was
+ * redirected from a project invitation link.
+ */
+const isInvited = computed((): boolean => {
+    return !!inviterName.value && !!inviterEmail.value && !!projectName.value && !!email.value;
 });
 
 /**
@@ -1139,6 +1165,11 @@ async function createUser(): Promise<void> {
                         line-height: 21px;
                         color: #848484;
                     }
+                }
+
+                &__invitation-text {
+                    font-size: 16px;
+                    line-height: 24px;
                 }
 
                 &__warning {

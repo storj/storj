@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
@@ -19,7 +18,7 @@ import (
 // architecture: Database
 type UploadSelectionDB interface {
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error)
 }
 
 // UploadSelectionCacheConfig is a configuration for upload selection cache.
@@ -73,7 +72,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection
 		return nil, Error.Wrap(err)
 	}
 
-	state := uploadselection.NewState(convSelectedNodesToNodes(reputableNodes), convSelectedNodesToNodes(newNodes))
+	state := uploadselection.NewState(reputableNodes, newNodes)
 
 	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
 	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
@@ -84,7 +83,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
 // If the cache hasn't been refreshed recently it will do so first.
-func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*uploadselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -103,7 +102,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
 
-	return convNodesToSelectedNodes(selected), err
+	return selected, err
 }
 
 // Size returns how many reputable nodes and new nodes are in the cache.
@@ -114,32 +113,4 @@ func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount
 	}
 	stats := state.Stats()
 	return stats.Reputable, stats.New, nil
-}
-
-func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {
-	for _, n := range nodes {
-		xs = append(xs, &SelectedNode{
-			ID:          n.ID,
-			Address:     pb.NodeFromNodeURL(n.NodeURL).Address,
-			LastNet:     n.LastNet,
-			LastIPPort:  n.LastIPPort,
-			CountryCode: n.CountryCode,
-		})
-	}
-	return xs
-}
-
-func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*uploadselection.Node) {
-	for _, n := range nodes {
-		xs = append(xs, &uploadselection.Node{
-			NodeURL: (&pb.Node{
-				Id:      n.ID,
-				Address: n.Address,
-			}).NodeURL(),
-			LastNet:     n.LastNet,
-			LastIPPort:  n.LastIPPort,
-			CountryCode: n.CountryCode,
-		})
-	}
-	return xs
 }

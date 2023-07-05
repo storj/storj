@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -87,7 +88,7 @@ func TestDownloadSelectionCacheState_IPs(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	node := &overlay.SelectedNode{
+	node := &uploadselection.SelectedNode{
 		ID: testrand.NodeID(),
 		Address: &pb.NodeAddress{
 			Address: "1.0.1.1:8080",
@@ -96,7 +97,7 @@ func TestDownloadSelectionCacheState_IPs(t *testing.T) {
 		LastIPPort: "1.0.1.1:8080",
 	}
 
-	state := overlay.NewDownloadSelectionCacheState([]*overlay.SelectedNode{node})
+	state := overlay.NewDownloadSelectionCacheState([]*uploadselection.SelectedNode{node})
 	require.Equal(t, state.Size(), 1)
 
 	ips := state.IPs([]storj.NodeID{testrand.NodeID(), node.ID})

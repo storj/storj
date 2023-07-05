@@ -284,8 +284,8 @@ func validateBucketLabel(label []byte) error {
 		return Error.New("bucket label must start with a lowercase letter or number")
 	}
 
-	if label[0] == '-' || label[len(label)-1] == '-' {
-		return Error.New("bucket label cannot start or end with a hyphen")
+	if !isLowerLetter(label[len(label)-1]) && !isDigit(label[len(label)-1]) {
+		return Error.New("bucket label must end with a lowercase letter or number")
 	}
 
 	for i := 1; i < len(label)-1; i++ {

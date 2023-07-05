@@ -18,6 +18,7 @@ import (
 	"unicode"
 
 	"github.com/jackc/pgx/v5/pgconn"
+
 	"storj.io/private/tagsql"
 )
 
@@ -493,6 +494,14 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE node_tags (
+	node_id bytea NOT NULL,
+	name text NOT NULL,
+	value bytea NOT NULL,
+	signed_at timestamp with time zone NOT NULL,
+	signer bytea NOT NULL,
+	PRIMARY KEY ( node_id, name, signer )
 );
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
@@ -1176,6 +1185,14 @@ CREATE TABLE node_events (
 	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE node_tags (
+	node_id bytea NOT NULL,
+	name text NOT NULL,
+	value bytea NOT NULL,
+	signed_at timestamp with time zone NOT NULL,
+	signer bytea NOT NULL,
+	PRIMARY KEY ( node_id, name, signer )
 );
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
@@ -4927,6 +4944,114 @@ func (f NodeEvent_EmailSent_Field) value() interface{} {
 }
 
 func (NodeEvent_EmailSent_Field) _Column() string { return "email_sent" }
+
+type NodeTags struct {
+	NodeId   []byte
+	Name     string
+	Value    []byte
+	SignedAt time.Time
+	Signer   []byte
+}
+
+func (NodeTags) _Table() string { return "node_tags" }
+
+type NodeTags_Update_Fields struct {
+}
+
+type NodeTags_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeTags_NodeId(v []byte) NodeTags_NodeId_Field {
+	return NodeTags_NodeId_Field{_set: true, _value: v}
+}
+
+func (f NodeTags_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeTags_NodeId_Field) _Column() string { return "node_id" }
+
+type NodeTags_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func NodeTags_Name(v string) NodeTags_Name_Field {
+	return NodeTags_Name_Field{_set: true, _value: v}
+}
+
+func (f NodeTags_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeTags_Name_Field) _Column() string { return "name" }
+
+type NodeTags_Value_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeTags_Value(v []byte) NodeTags_Value_Field {
+	return NodeTags_Value_Field{_set: true, _value: v}
+}
+
+func (f NodeTags_Value_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeTags_Value_Field) _Column() string { return "value" }
+
+type NodeTags_SignedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func NodeTags_SignedAt(v time.Time) NodeTags_SignedAt_Field {
+	return NodeTags_SignedAt_Field{_set: true, _value: v}
+}
+
+func (f NodeTags_SignedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeTags_SignedAt_Field) _Column() string { return "signed_at" }
+
+type NodeTags_Signer_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeTags_Signer(v []byte) NodeTags_Signer_Field {
+	return NodeTags_Signer_Field{_set: true, _value: v}
+}
+
+func (f NodeTags_Signer_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeTags_Signer_Field) _Column() string { return "signer" }
 
 type OauthClient struct {
 	Id              []byte
@@ -12484,6 +12609,36 @@ func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field,
+	node_tags_name NodeTags_Name_Field,
+	node_tags_value NodeTags_Value_Field,
+	node_tags_signed_at NodeTags_SignedAt_Field,
+	node_tags_signer NodeTags_Signer_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := node_tags_node_id.value()
+	__name_val := node_tags_name.value()
+	__value_val := node_tags_value.value()
+	__signed_at_val := node_tags_signed_at.value()
+	__signer_val := node_tags_signer.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? ) ON CONFLICT ( node_id, name, signer ) DO UPDATE SET node_id = EXCLUDED.node_id, name = EXCLUDED.name, value = EXCLUDED.value, signed_at = EXCLUDED.signed_at, signer = EXCLUDED.signer")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_period StoragenodePaystub_Period_Field,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -14998,6 +15153,51 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 			return nil, obj.makeErr(err)
 		}
 		return node_event, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_NodeTags_By_NodeId(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_tags_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -19798,6 +19998,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_tags;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -20488,6 +20698,36 @@ func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return node_event, nil
+
+}
+
+func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeTags(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field,
+	node_tags_name NodeTags_Name_Field,
+	node_tags_value NodeTags_Value_Field,
+	node_tags_signed_at NodeTags_SignedAt_Field,
+	node_tags_signer NodeTags_Signer_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := node_tags_node_id.value()
+	__name_val := node_tags_name.value()
+	__value_val := node_tags_value.value()
+	__signed_at_val := node_tags_signed_at.value()
+	__signer_val := node_tags_signer.value()
+
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO node_tags ( node_id, name, value, signed_at, signer ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __name_val, __value_val, __signed_at_val, __signer_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -23005,6 +23245,51 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 			return nil, obj.makeErr(err)
 		}
 		return node_event, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_NodeTags_By_NodeId(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags WHERE node_tags.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_tags_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -27805,6 +28090,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_tags;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -28053,6 +28348,16 @@ func (rx *Rx) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx c
 		return
 	}
 	return tx.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_user_id)
+}
+
+func (rx *Rx) All_NodeTags_By_NodeId(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field) (
+	rows []*NodeTags, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_NodeTags_By_NodeId(ctx, node_tags_node_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -29650,6 +29955,21 @@ func (rx *Rx) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 }
 
+func (rx *Rx) ReplaceNoReturn_NodeTags(ctx context.Context,
+	node_tags_node_id NodeTags_NodeId_Field,
+	node_tags_name NodeTags_Name_Field,
+	node_tags_value NodeTags_Value_Field,
+	node_tags_signed_at NodeTags_SignedAt_Field,
+	node_tags_signer NodeTags_Signer_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.ReplaceNoReturn_NodeTags(ctx, node_tags_node_id, node_tags_name, node_tags_value, node_tags_signed_at, node_tags_signer)
+
+}
+
 func (rx *Rx) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_period StoragenodePaystub_Period_Field,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -30053,6 +30373,10 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
+
+	All_NodeTags_By_NodeId(ctx context.Context,
+		node_tags_node_id NodeTags_NodeId_Field) (
+		rows []*NodeTags, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
@@ -30770,6 +31094,14 @@ type Methods interface {
 	ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 		node_api_version_id NodeApiVersion_Id_Field,
 		node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
+		err error)
+
+	ReplaceNoReturn_NodeTags(ctx context.Context,
+		node_tags_node_id NodeTags_NodeId_Field,
+		node_tags_name NodeTags_Name_Field,
+		node_tags_value NodeTags_Value_Field,
+		node_tags_signed_at NodeTags_SignedAt_Field,
+		node_tags_signer NodeTags_Signer_Field) (
 		err error)
 
 	ReplaceNoReturn_StoragenodePaystub(ctx context.Context,

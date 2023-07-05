@@ -156,6 +156,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service,
 			config.Checker,
+			config.Overlay.RepairExcludedCountryCodes,
 		)
 	}
 

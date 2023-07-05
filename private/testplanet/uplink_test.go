@@ -105,9 +105,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		}
 
 		// confirm that we marked the correct number of storage nodes as offline
-		nodes, err := satellite.Overlay.Service.Reliable(ctx)
+		online, _, err := satellite.Overlay.Service.Reliable(ctx)
 		require.NoError(t, err)
-		require.Len(t, nodes, len(planet.StorageNodes)-toKill)
+		require.Len(t, online, len(planet.StorageNodes)-toKill)
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")

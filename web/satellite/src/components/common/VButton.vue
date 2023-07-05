@@ -65,6 +65,8 @@ import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import UploadIcon from '@/../static/images/common/upload.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
+import BackIcon from '@/../static/images/common/arrowLeft.svg';
 
 const props = withDefaults(defineProps<{
     link?: string;
@@ -121,6 +123,8 @@ const icons = new Map<string, string>([
     ['addcircle', AddCircleIcon],
     ['add', WhitePlusIcon],
     ['upload', UploadIcon],
+    ['project', ProjectIcon],
+    ['back', BackIcon],
 ]);
 
 const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));
@@ -315,8 +319,7 @@ function handleClick(): void {
             background-color: #0059d0;
 
             &.transparent,
-            &.blue-white,
-            &.white {
+            &.blue-white {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
@@ -328,6 +331,20 @@ function handleClick(): void {
 
                 .label {
                     color: white !important;
+                }
+            }
+
+            &.white {
+                box-shadow: none !important;
+                border: 1px solid var(--c-blue-3) !important;
+
+                :deep(path),
+                :deep(rect) {
+                    fill: var(--c-blue-3) !important;
+                }
+
+                .label {
+                    color: var(--c-blue-3) !important;
                 }
             }
 

@@ -741,6 +741,7 @@ func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, 
 // StorageStatus contains information about the disk store is using.
 type StorageStatus struct {
 	DiskUsed int64
+	// DiskFree is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
 	DiskFree int64
 }
 

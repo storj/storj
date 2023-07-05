@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -208,7 +208,14 @@ var (
 		Long:  "Applies free tier coupon to Stripe customers without a coupon",
 		RunE:  cmdApplyFreeTierCoupons,
 	}
-	createCustomerBalanceInvoiceItems = &cobra.Command{
+	setInvoiceStatusCmd = &cobra.Command{
+		Use:   "set-invoice-status [start-period] [end-period] [status]",
+		Short: "set all open invoices status",
+		Long:  "set all open invoices in the specified date ranges to the provided status. Period is a UTC date formatted like YYYY-MM.",
+		Args:  cobra.ExactArgs(3),
+		RunE:  cmdSetInvoiceStatus,
+	}
+	createCustomerBalanceInvoiceItemsCmd = &cobra.Command{
 		Use:   "create-balance-invoice-items",
 		Short: "Creates stripe invoice line items for stripe customer balance",
 		Long:  "Creates stripe invoice line items for stripe customer balances obtained from past invoices and other miscellaneous charges.",
@@ -342,6 +349,9 @@ var (
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Before   string `help:"select only exited nodes before this UTC date formatted like YYYY-MM. Date cannot be newer than the current time (required)"`
 	}
+	setInvoiceStatusCfg struct {
+		DryRun bool `help:"do not update stripe" default:"false"`
+	}
 
 	confDir     string
 	identityDir string
@@ -381,7 +391,8 @@ func init() {
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
-	billingCmd.AddCommand(createCustomerBalanceInvoiceItems)
+	billingCmd.AddCommand(setInvoiceStatusCmd)
+	billingCmd.AddCommand(createCustomerBalanceInvoiceItemsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
@@ -413,7 +424,9 @@ func init() {
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createCustomerBalanceInvoiceItems, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setInvoiceStatusCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setInvoiceStatusCmd, &setInvoiceStatusCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerBalanceInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -754,6 +767,30 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
 }
 
+// cmdSetInvoiceStatus sets the status of all open invoices within the provided period to the provided status.
+// args[0] is the start of the period in YYYY-MM format.
+// args[1] is the end of the period in YYYY-MM format.
+// args[2] is the status to set the invoices to.
+func cmdSetInvoiceStatus(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	periodStart, err := parseYearMonth(args[0])
+	if err != nil {
+		return err
+	}
+
+	periodEnd, err := parseYearMonth(args[1])
+	if err != nil {
+		return err
+	}
+	// parseYearMonth returns the first day of the month, but we want the period end to be the last day of the month
+	periodEnd = periodEnd.AddDate(0, 1, -1)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.SetInvoiceStatus(ctx, periodStart, periodEnd, args[2], setInvoiceStatusCfg.DryRun)
+	})
+}
+
 func cmdCreateCustomerBalanceInvoiceItems(cmd *cobra.Command, _ []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -895,7 +932,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	successes := new(int64)
 	failures := new(int64)
 
-	undelete := func(node *overlay.SelectedNode) {
+	undelete := func(node *uploadselection.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
 
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -929,9 +966,9 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
 	}
 
-	var nodes []*overlay.SelectedNode
+	var nodes []*uploadselection.SelectedNode
 	if len(args) == 0 {
-		err = db.OverlayCache().IterateAllContactedNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+		err = db.OverlayCache().IterateAllContactedNodes(ctx, func(ctx context.Context, node *uploadselection.SelectedNode) error {
 			nodes = append(nodes, node)
 			return nil
 		})
@@ -948,7 +985,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			nodes = append(nodes, &overlay.SelectedNode{
+			nodes = append(nodes, &uploadselection.SelectedNode{
 				ID:         dossier.Id,
 				Address:    dossier.Address,
 				LastNet:    dossier.LastNet,

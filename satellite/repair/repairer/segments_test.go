@@ -5,6 +5,7 @@ package repairer_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -27,12 +29,14 @@ import (
 func TestSegmentRepairPlacement(t *testing.T) {
 	piecesCount := 4
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(1, 2, piecesCount, piecesCount),
+			Satellite: testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+
+		defaultLocation := location.Poland
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
@@ -41,65 +45,85 @@ func TestSegmentRepairPlacement(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
-		}
-
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
-		require.NoError(t, err)
-
 		type testCase struct {
 			piecesOutOfPlacement int
 			piecesAfterRepair    int
+
+			// how many from out of placement pieces should be also offline
+			piecesOutOfPlacementOffline int
 		}
 
-		for _, tc := range []testCase{
+		for i, tc := range []testCase{
 			// all pieces/nodes are out of placement, repair download/upload should be triggered
 			{piecesOutOfPlacement: piecesCount, piecesAfterRepair: piecesCount},
+
+			// all pieces/nodes are out of placement, repair download/upload should be triggered, some pieces are offline
+			{piecesOutOfPlacement: piecesCount, piecesAfterRepair: piecesCount, piecesOutOfPlacementOffline: 1},
+			{piecesOutOfPlacement: piecesCount, piecesAfterRepair: piecesCount, piecesOutOfPlacementOffline: 2},
+
 			// few pieces/nodes are out of placement, repair download/upload should be triggered
-			{piecesOutOfPlacement: piecesCount - 2, piecesAfterRepair: piecesCount},
+			{piecesOutOfPlacement: piecesCount - 1, piecesAfterRepair: piecesCount},
+			{piecesOutOfPlacement: piecesCount - 1, piecesAfterRepair: piecesCount, piecesOutOfPlacementOffline: 1},
+
 			// single piece/node is out of placement, NO download/upload repair, we are only removing piece from segment
 			// as segment is still above repair threshold
 			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1},
+			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1, piecesOutOfPlacementOffline: 1},
+			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1, piecesOutOfPlacementOffline: 1},
 		} {
-			for _, node := range planet.StorageNodes {
-				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
-			}
+			t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
+				for _, node := range planet.StorageNodes {
+					require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), defaultLocation.String()))
+				}
 
-			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
-			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-			require.NoError(t, err)
-			require.Len(t, segments, 1)
-			require.Len(t, segments[0].Pieces, piecesCount)
+				expectedData := testrand.Bytes(5 * memory.KiB)
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", expectedData)
+				require.NoError(t, err)
 
-			for _, piece := range segments[0].Pieces[:tc.piecesOutOfPlacement] {
-				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
-			}
+				segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+				require.NoError(t, err)
+				require.Len(t, segments, 1)
+				require.Len(t, segments[0].Pieces, piecesCount)
 
-			// confirm that some pieces are out of placement
-			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
-			require.NoError(t, err)
-			require.False(t, ok)
+				for index, piece := range segments[0].Pieces {
+					// make node offline if needed
+					require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.FindNode(piece.StorageNode), index < tc.piecesOutOfPlacementOffline, defaultLocation))
 
-			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+					if index < tc.piecesOutOfPlacement {
+						require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+					}
+				}
 
-			_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
-				StreamID: segments[0].StreamID,
-				Position: segments[0].Position,
+				// confirm that some pieces are out of placement
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
+				require.NoError(t, err)
+				require.False(t, ok)
+
+				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+
+				_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
+					StreamID: segments[0].StreamID,
+					Position: segments[0].Position,
+				})
+				require.NoError(t, err)
+
+				// confirm that all pieces have correct placement
+				segments, err = planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+				require.NoError(t, err)
+				require.Len(t, segments, 1)
+				require.NotNil(t, segments[0].RepairedAt)
+				require.Len(t, segments[0].Pieces, tc.piecesAfterRepair)
+
+				ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
+				require.NoError(t, err)
+				require.True(t, ok)
+
+				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
+				require.NoError(t, err)
+				require.Equal(t, expectedData, data)
 			})
-			require.NoError(t, err)
-
-			// confirm that all pieces have correct placement
-			segments, err = planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-			require.NoError(t, err)
-			require.Len(t, segments, 1)
-			require.NotNil(t, segments[0].RepairedAt)
-			require.Len(t, segments[0].Pieces, tc.piecesAfterRepair)
-
-			ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
-			require.NoError(t, err)
-			require.True(t, ok)
 		}
 	})
 }
@@ -247,4 +271,27 @@ func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces 
 		}
 	}
 	return true, nil
+}
+
+func updateNodeStatus(ctx context.Context, satellite *testplanet.Satellite, node *testplanet.StorageNode, offline bool, countryCode location.CountryCode) error {
+	timestamp := time.Now()
+	if offline {
+		timestamp = time.Now().Add(-4 * time.Hour)
+	}
+
+	return satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+		NodeID:  node.ID(),
+		Address: &pb.NodeAddress{Address: node.Addr()},
+		IsUp:    true,
+		Version: &pb.NodeVersion{
+			Version:    "v0.0.0",
+			CommitHash: "",
+			Timestamp:  time.Time{},
+			Release:    true,
+		},
+		Capacity: &pb.NodeCapacity{
+			FreeDisk: 1 * memory.GiB.Int64(),
+		},
+		CountryCode: countryCode,
+	}, timestamp, satellite.Config.Overlay.Node)
 }

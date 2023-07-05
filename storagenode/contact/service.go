@@ -5,11 +5,15 @@ package contact
 
 import (
 	"context"
+	"encoding/base64"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -38,7 +42,55 @@ type Config struct {
 
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+
+	Tags SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
 }
+
+// SignedTags represents base64 encoded signed tags.
+type SignedTags pb.SignedNodeTagSets
+
+// Type implements pflag.Value interface.
+func (u *SignedTags) Type() string {
+	return "signedtags"
+}
+
+// String implements pflag.Value interface.
+func (u *SignedTags) String() string {
+	if u == nil {
+		return ""
+	}
+	p := pb.SignedNodeTagSets(*u)
+	raw, err := proto.Marshal(&p)
+	if err != nil {
+		return err.Error()
+	}
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
+// Set implements flag.Value interface.
+func (u *SignedTags) Set(s string) error {
+	p := pb.SignedNodeTagSets{}
+	for i, part := range strings.Split(s, ",") {
+		if s == "" {
+			return nil
+		}
+		if u == nil {
+			return nil
+		}
+		raw, err := base64.StdEncoding.DecodeString(part)
+		if err != nil {
+			return errs.New("signed tag configuration #%d is not base64 encoded: %s", i+1, s)
+		}
+		err = proto.Unmarshal(raw, &p)
+		if err != nil {
+			return errs.New("signed tag configuration #%d is not a pb.SignedNodeTagSets{}: %s", i+1, s)
+		}
+		u.Tags = append(u.Tags, p.Tags...)
+	}
+	return nil
+}
+
+var _ pflag.Value = &SignedTags{}
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
@@ -65,10 +117,12 @@ type Service struct {
 	quicStats *QUICStats
 
 	initialized sync2.Fence
+
+	tags *pb.SignedNodeTagSets
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
 	return &Service{
 		log:       log,
 		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -76,6 +130,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.
 		trust:     trust,
 		self:      self,
 		quicStats: quicStats,
+		tags:      tags,
 	}
 }
 
@@ -141,6 +196,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		NoiseKeyAttestation: self.NoiseKeyAttestation,
 		DebounceLimit:       int32(self.DebounceLimit),
 		Features:            features,
+		SignedTags:          service.tags,
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {

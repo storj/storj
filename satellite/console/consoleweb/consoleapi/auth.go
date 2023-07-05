@@ -446,6 +446,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		Email                string    `json:"email"`
 		Partner              string    `json:"partner"`
 		ProjectLimit         int       `json:"projectLimit"`
+		ProjectStorageLimit  int64     `json:"projectStorageLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
 		Position             string    `json:"position"`
 		CompanyName          string    `json:"companyName"`
@@ -471,6 +472,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		user.Partner = string(consoleUser.UserAgent)
 	}
 	user.ProjectLimit = consoleUser.ProjectLimit
+	user.ProjectStorageLimit = consoleUser.ProjectStorageLimit
 	user.IsProfessional = consoleUser.IsProfessional
 	user.CompanyName = consoleUser.CompanyName
 	user.Position = consoleUser.Position

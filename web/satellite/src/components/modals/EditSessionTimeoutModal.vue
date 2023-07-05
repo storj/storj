@@ -18,8 +18,10 @@
 
                 <div class="timeout-modal__divider" />
 
-                <p class="timeout-modal__label">Session timeout duration</p>
-                <timeout-selector :selected="sessionDuration" @select="durationChange" />
+                <div>
+                    <p class="timeout-modal__label">Session timeout duration</p>
+                    <timeout-selector :selected="sessionDuration" @select="durationChange" />
+                </div>
 
                 <div class="timeout-modal__divider" />
 
@@ -27,21 +29,19 @@
                     <VButton
                         label="Cancel"
                         width="100%"
-                        height="40px"
                         border-radius="10px"
                         font-size="13px"
                         is-white
-                        class="timeout-modal__buttons__button"
+                        class="timeout-modal__buttons__button cancel"
                         :on-press="() => withLoading(onClose)"
                         :is-disabled="isLoading"
                     />
                     <VButton
                         label="Save"
                         width="100%"
-                        height="40px"
                         border-radius="10px"
                         font-size="13px"
-                        class="timeout-modal__buttons__button save"
+                        class="timeout-modal__buttons__button"
                         :on-press="() => withLoading(save)"
                         :is-disabled="isLoading || !hasChanged"
                     />
@@ -133,51 +133,55 @@ function onClose(): void {
 
 <style scoped lang="scss">
 .timeout-modal {
+    width: calc(100vw - 48px);
+    max-width: 410px;
     padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     box-sizing: border-box;
     font-family: 'font_regular', sans-serif;
     text-align: left;
+
+    @media screen and (width <= 400px) {
+        width: 100vw;
+    }
 
     &__header {
         display: flex;
         align-items: center;
         gap: 20px;
-        margin: 20px 0;
-
-        @media screen and (width <= 500px) {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-        }
 
         &__icon {
             height: 40px;
             width: 40px;
+            flex-shrink: 0;
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 36px;
+            font-size: 24px;
+            line-height: 31px;
         }
     }
 
     &__divider {
-        margin: 20px 0;
-        border: 1px solid var(--c-grey-2);
+        height: 1px;
+        background-color: var(--c-grey-2);
     }
 
     &__info {
         font-family: 'font_regular', sans-serif;
-        font-size: 16px;
-        line-height: 24px;
+        font-size: 14px;
+        line-height: 20px;
     }
 
     &__label {
-        font-family: 'font_regular', sans-serif;
+        margin-bottom: 4px;
+        font-family: 'font_medium', sans-serif;
         font-size: 14px;
-        line-height: 24px;
-        margin-bottom: 10px;
+        line-height: 20px;
+        color: var(--c-blue-6);
     }
 
     &__buttons {
@@ -191,6 +195,14 @@ function onClose(): void {
         &__button {
             padding: 16px;
             box-sizing: border-box;
+
+            &.cancel {
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+
+                :deep(.label) {
+                    color: var(--c-black) !important;
+                }
+            }
         }
     }
 }

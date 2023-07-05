@@ -5,9 +5,20 @@
     <div class="header">
         <div class="header__content">
             <LogoIcon class="header__content__logo" @click="goToProjects" />
+            <SmallLogoIcon class="header__content__small-logo" @click="goToProjects" />
             <div class="header__content__actions">
                 <VButton
-                    class="header__content__actions__docs"
+                    v-if="isMyProjectsButtonShown"
+                    class="header__content__actions__button"
+                    icon="project"
+                    border-radius="8px"
+                    font-size="12px"
+                    is-white
+                    :on-press="goToProjects"
+                    label="My Projects"
+                />
+                <VButton
+                    class="header__content__actions__button"
                     icon="resources"
                     border-radius="8px"
                     font-size="12px"
@@ -22,13 +33,22 @@
         <div class="header__mobile-area">
             <div class="header__mobile-area__container">
                 <header class="header__mobile-area__container__header">
-                    <div class="header__mobile-area__container__header__logo" @click.stop="goToProjects">
-                        <LogoIcon />
-                    </div>
+                    <LogoIcon class="header__mobile-area__container__header__logo" @click.stop="goToProjects" />
                     <CrossIcon v-if="isNavOpened" @click="toggleNavigation" />
                     <MenuIcon v-else @click="toggleNavigation" />
                 </header>
                 <div v-if="isNavOpened" class="header__mobile-area__container__wrap">
+                    <div
+                        v-if="isMyProjectsButtonShown"
+                        aria-label="My Projects"
+                        class="header__mobile-area__container__wrap__item-container"
+                        @click="goToProjects"
+                    >
+                        <div class="header__mobile-area__container__wrap__item-container__left">
+                            <project-icon class="header__mobile-area__container__wrap__item-container__left__image" />
+                            <p class="header__mobile-area__container__wrap__item-container__left__label">My Projects</p>
+                        </div>
+                    </div>
                     <a
                         aria-label="Docs"
                         class="header__mobile-area__container__wrap__item-container"
@@ -118,6 +138,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
+import SmallLogoIcon from '@/../static/images/smallLogo.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
@@ -130,6 +151,7 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
 
 const router = useRouter();
 const route = useRoute();
@@ -167,6 +189,13 @@ const satellite = computed((): string => {
  */
 const user = computed((): User => {
     return usersStore.state.user;
+});
+
+/**
+ * Returns whether the My Projects button should be shown.
+ */
+const isMyProjectsButtonShown = computed((): boolean => {
+    return route.name !== RouteConfig.AllProjectsDashboard.name;
 });
 
 /**
@@ -279,13 +308,28 @@ function sendDocsEvent(): void {
             min-height: 37px;
             width: 207px;
             height: 37px;
+
+            @media screen and (width <= 680px) {
+                display: none;
+            }
+        }
+
+        &__small-logo {
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            display: none;
+
+            @media screen and (width <= 680px) {
+                display: block;
+            }
         }
 
         &__actions {
             display: flex;
             gap: 10px;
 
-            &__docs {
+            &__button {
                 padding: 10px 16px;
                 box-shadow: 0 0 20px rgb(0 0 0 / 4%);
 
@@ -316,48 +360,40 @@ function sendDocsEvent(): void {
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            overflow-x: hidden;
-            overflow-y: auto;
             width: 100%;
 
             &__header {
                 display: flex;
                 width: 100%;
                 box-sizing: border-box;
-                padding: 0 32px;
+                padding: 0 20px;
                 justify-content: space-between;
                 align-items: center;
                 height: 4rem;
 
                 &__logo {
-                    width: 211px;
-                    max-width: 211px;
-                    height: 37px;
-                    max-height: 37px;
-
-                    svg {
-                        width: 211px;
-                        height: 37px;
-                    }
+                    height: 30px;
+                    width: auto;
                 }
             }
 
             &__wrap {
-                position: fixed;
+                position: absolute;
                 top: 4rem;
                 left: 0;
                 display: flex;
                 flex-direction: column;
-                align-items: center;
+                align-items: stretch;
                 width: 100%;
+                padding-bottom: 8px;
                 z-index: 9999;
                 overflow-y: auto;
                 overflow-x: hidden;
                 background: white;
+                border-bottom: 1px solid var(--c-grey-2);
 
                 &__item-container {
                     padding: 14px 32px;
-                    width: 100%;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -381,9 +417,9 @@ function sendDocsEvent(): void {
                 }
 
                 &__border {
-                    margin: 0 32px 16px;
-                    border: 0.5px solid var(--c-grey-2);
-                    width: calc(100% - 48px);
+                    margin: 8px 32px;
+                    height: 1px;
+                    background-color: var(--c-grey-2);
                 }
             }
         }

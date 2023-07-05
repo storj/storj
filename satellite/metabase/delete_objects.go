@@ -249,7 +249,8 @@ func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []Ob
 		for _, obj := range objects {
 			batch.Queue(`
 				WITH check_segments AS (
-					SELECT 1 FROM segments WHERE stream_id = $5::BYTEA AND created_at > $6
+					SELECT 1 FROM segments
+					WHERE stream_id = $5::BYTEA AND created_at > $6
 				), deleted_objects AS (
 					DELETE FROM objects
 					WHERE
@@ -258,9 +259,7 @@ func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []Ob
 					RETURNING stream_id
 				)
 				DELETE FROM segments
-					`+db.impl.AsOfSystemInterval(opts.AsOfSystemInterval)+`
-				WHERE
-					segments.stream_id IN (SELECT stream_id FROM deleted_objects)
+				WHERE segments.stream_id IN (SELECT stream_id FROM deleted_objects)
 			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID, opts.InactiveDeadline)
 		}
 

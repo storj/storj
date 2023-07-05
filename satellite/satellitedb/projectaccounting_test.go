@@ -455,6 +455,50 @@ func Test_GetProjectObjectsSegments(t *testing.T) {
 		})
 }
 
+func Test_GetProjectSettledBandwidth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			projectID := planet.Uplinks[0].Projects[0].ID
+			sat := planet.Satellites[0]
+
+			now := time.Now().UTC()
+
+			egress, err := sat.DB.ProjectAccounting().GetProjectSettledBandwidth(ctx, projectID, now.Year(), now.Month(), 0)
+			require.NoError(t, err)
+			require.Zero(t, egress)
+
+			bucket := "testbucket"
+			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucket)
+			require.NoError(t, err)
+
+			bucket1 := "testbucket1"
+			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucket1)
+			require.NoError(t, err)
+
+			amount := int64(1000)
+			bucketBytes := []byte(bucket)
+			bucket1Bytes := []byte(bucket1)
+			startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+			err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, bucketBytes, pb.PieceAction_GET, amount, startOfMonth)
+			require.NoError(t, err)
+			err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, bucket1Bytes, pb.PieceAction_GET, 2*amount, startOfMonth)
+			require.NoError(t, err)
+
+			egress, err = sat.DB.ProjectAccounting().GetProjectSettledBandwidth(ctx, projectID, now.Year(), now.Month(), 0)
+			require.NoError(t, err)
+			require.Zero(t, egress)
+
+			err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, bucketBytes, pb.PieceAction_GET, amount, 0, startOfMonth)
+			require.NoError(t, err)
+			err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, bucket1Bytes, pb.PieceAction_GET, 2*amount, 0, startOfMonth)
+			require.NoError(t, err)
+
+			egress, err = sat.DB.ProjectAccounting().GetProjectSettledBandwidth(ctx, projectID, now.Year(), now.Month(), 0)
+			require.NoError(t, err)
+			require.Equal(t, 3*amount, egress)
+		})
+}
+
 func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,

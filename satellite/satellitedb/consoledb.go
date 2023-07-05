@@ -78,7 +78,7 @@ func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
 
 // WebappSessions is a getter for WebappSessions repository.
 func (db *ConsoleDB) WebappSessions() consoleauth.WebappSessions {
-	return &webappSessions{db.methods}
+	return &webappSessions{db.db}
 }
 
 // AccountFreezeEvents is a getter for AccountFreezeEvents repository.

@@ -5,9 +5,7 @@
     <div class="navigation-area">
         <div class="navigation-area__container">
             <header class="navigation-area__container__header">
-                <div class="navigation-area__container__header__logo" @click.stop="onLogoClick">
-                    <LogoIcon />
-                </div>
+                <LogoIcon class="navigation-area__container__header__logo" @click.stop="onLogoClick" />
                 <CrossIcon v-if="isOpened" @click="toggleNavigation" />
                 <MenuIcon v-else @click="toggleNavigation" />
             </header>
@@ -29,24 +27,59 @@
                         <div v-if="isLoading" class="project-selection__dropdown__loader-container">
                             <VLoader width="30px" height="30px" />
                         </div>
-                        <div v-else class="project-selection__dropdown__items">
-                            <div class="project-selection__dropdown__items__choice" @click.prevent.stop="toggleProjectDropdown">
-                                <div class="project-selection__dropdown__items__choice__mark-container">
-                                    <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                        <template v-else>
+                            <div v-if="ownProjects.length" class="project-selection__dropdown__section-head">
+                                <ProjectIcon />
+                                <span class="project-selection__dropdown__section-head__tag">My Projects</span>
+                            </div>
+                            <div class="project-selection__dropdown__items">
+                                <div
+                                    v-for="project in ownProjects"
+                                    :key="project.id"
+                                    class="project-selection__dropdown__items__choice"
+                                    @click.prevent.stop="onProjectSelected(project.id)"
+                                    @keyup.enter="onProjectSelected(project.id)"
+                                >
+                                    <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                                    </div>
+                                    <p
+                                        :class="{
+                                            'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                            'project-selection__dropdown__items__choice__selected': project.isSelected,
+                                        }"
+                                    >
+                                        {{ project.name }}
+                                    </p>
                                 </div>
-                                <p class="project-selection__dropdown__items__choice__selected">
-                                    {{ selectedProject.name }}
-                                </p>
                             </div>
-                            <div
-                                v-for="project in projects"
-                                :key="project.id"
-                                class="project-selection__dropdown__items__choice"
-                                @click.prevent.stop="onProjectSelected(project.id)"
-                            >
-                                <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
+
+                            <div v-if="sharedProjects.length" class="project-selection__dropdown__section-head shared">
+                                <ProjectIcon />
+                                <span class="project-selection__dropdown__section-head__tag shared">Shared with me</span>
                             </div>
-                        </div>
+                            <div class="project-selection__dropdown__items">
+                                <div
+                                    v-for="project in sharedProjects"
+                                    :key="project.id"
+                                    class="project-selection__dropdown__items__choice"
+                                    @click.prevent.stop="onProjectSelected(project.id)"
+                                    @keyup.enter="onProjectSelected(project.id)"
+                                >
+                                    <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                                    </div>
+                                    <p
+                                        :class="{
+                                            'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                            'project-selection__dropdown__items__choice__selected': project.isSelected,
+                                        }"
+                                    >
+                                        {{ project.name }}
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
                         <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
                             <SettingsIcon />
                             <p class="project-selection__dropdown__link-container__label">Project Settings</p>
@@ -274,10 +307,19 @@ const isAllProjectsDashboard = computed((): boolean => {
 });
 
 /**
- * Returns projects list from store.
+ * Returns user's own projects.
  */
-const projects = computed((): Project[] => {
-    return projectsStore.projectsWithoutSelected;
+const ownProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
+    return projects.sort(compareProjects);
+});
+
+/**
+ * Returns projects the user is invited to.
+ */
+const sharedProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId !== usersStore.state.user.id);
+    return projects.sort(compareProjects);
 });
 
 /**
@@ -307,6 +349,15 @@ const satellite = computed((): string => {
 const user = computed((): User => {
     return usersStore.state.user;
 });
+
+/**
+ * This comparator is used to sort projects by isSelected.
+ */
+function compareProjects(a: Project, b: Project) {
+    if (a.isSelected) return -1;
+    if (b.isSelected) return 1;
+    return 0;
+}
 
 /**
  * Redirects to project dashboard.
@@ -494,10 +545,7 @@ function navigateToBilling(): void {
     isOpened.value = false;
     if (route.path.includes(RouteConfig.Billing.path)) return;
 
-    let link = RouteConfig.Account.with(RouteConfig.Billing);
-    if (configStore.state.config.newBillingScreen) {
-        link = link.with(RouteConfig.BillingOverview);
-    }
+    const link = RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview));
     router.push(link.path);
     analytics.pageVisit(link.path);
 }
@@ -570,21 +618,14 @@ async function onLogout(): Promise<void> {
             display: flex;
             width: 100%;
             box-sizing: border-box;
-            padding: 0 32px;
+            padding: 0 24px;
             justify-content: space-between;
             align-items: center;
             height: 4rem;
 
             &__logo {
-                width: 211px;
-                max-width: 211px;
-                height: 37px;
-                max-height: 37px;
-
-                svg {
-                    width: 211px;
-                    height: 37px;
-                }
+                height: 30px;
+                width: auto;
             }
         }
 
@@ -761,6 +802,36 @@ async function onLogout(): Promise<void> {
             align-items: center;
             justify-content: center;
             border-radius: 8px 8px 0 0;
+        }
+
+        &__section-head {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            height: 48px;
+            box-sizing: border-box;
+            padding: 8px 32px;
+
+            &.shared {
+                border-top: 1px solid var(--c-grey-2);
+            }
+
+            &__tag {
+                border: 1px solid var(--c-purple-2);
+                border-radius: 24px;
+                padding: 2px 8px;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 600;
+                line-height: 18px;
+                color: var(--c-purple-4);
+                background: var(--c-white);
+
+                &.shared {
+                    border: 1px solid var(--c-yellow-2);
+                    color: var(--c-yellow-5);
+                }
+            }
         }
 
         &__items {
