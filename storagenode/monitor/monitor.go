@@ -31,12 +31,18 @@ var (
 
 // DiskSpace consolidates monitored disk space statistics.
 type DiskSpace struct {
-	Allocated     int64
+	// Allocated is the amount of disk space allocated to the storage node, in bytes.
+	Allocated int64
+	// UsedForPieces is the amount of disk space used for pieces, in bytes.
 	UsedForPieces int64
-	UsedForTrash  int64
-	Free          int64
-	Available     int64
-	Overused      int64
+	// UsedForTrash is the amount of disk space used for trash, in bytes.
+	UsedForTrash int64
+	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
+	Free int64
+	// Available is the amount of free space on the allocated disk space, in bytes.
+	Available int64
+	// Overused is the amount of disk space overused by the storage node, in bytes.
+	Overused int64
 }
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.

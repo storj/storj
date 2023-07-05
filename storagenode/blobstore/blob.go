@@ -96,7 +96,7 @@ type Blobs interface {
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 
-	// FreeSpace return how much free space is available to the blobstore.
+	// FreeSpace return how much free space is left on the whole disk, not just the allocated disk space.
 	FreeSpace(ctx context.Context) (int64, error)
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)

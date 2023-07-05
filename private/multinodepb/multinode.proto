@@ -27,7 +27,9 @@ message DiskSpaceResponse {
   int64 allocated = 1;
   int64 used_pieces = 2;
   int64 used_trash = 3;
+  // Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
   int64 free = 4;
+  // Available is the amount of free space on the allocated disk space, in bytes.
   int64 available = 5;
   int64 overused = 6;
 }
