@@ -120,6 +120,8 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, ok)
 
+				require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+
 				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
 				require.NoError(t, err)
 				require.Equal(t, expectedData, data)
