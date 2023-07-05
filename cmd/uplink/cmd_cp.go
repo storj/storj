@@ -85,8 +85,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	).(bool)
 	c.byteRange = params.Flag("range", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35", "").(string)
 
-	parallelism := params.Flag("parallelism", "Controls how many parallel chunks to upload/download from a file", nil,
-		clingy.Optional,
+	c.parallelism = params.Flag("parallelism", "Controls how many parallel parts to upload/download from a file", 1,
 		clingy.Short('p'),
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {
@@ -95,8 +94,8 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			}
 			return n, nil
 		}),
-	).(*int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.Size(0),
+	).(int)
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the parts for parallelism, 0 means automatic adjustment", memory.Size(0),
 		clingy.Transform(memory.ParseString),
 		clingy.Transform(func(n int64) (memory.Size, error) {
 			if n < 0 {
@@ -107,17 +106,16 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	).(memory.Size)
 
 	c.uploadConfig = testuplink.DefaultConcurrentSegmentUploadsConfig()
-	maxConcurrent := params.Flag(
+	c.uploadConfig.SchedulerOptions.MaximumConcurrent = params.Flag(
 		"maximum-concurrent-pieces",
-		"Maximum concurrent pieces to upload at once per transfer",
-		nil,
-		clingy.Optional,
+		"Maximum concurrent pieces to upload at once per part",
+		c.uploadConfig.SchedulerOptions.MaximumConcurrent,
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
-	).(*int)
+	).(int)
 	c.uploadConfig.SchedulerOptions.MaximumConcurrentHandles = params.Flag(
 		"maximum-concurrent-segments",
-		"Maximum concurrent segments to upload at once per transfer",
+		"Maximum concurrent segments to upload at once per part",
 		c.uploadConfig.SchedulerOptions.MaximumConcurrentHandles,
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
@@ -132,28 +130,6 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	c.uploadLogFile = params.Flag("upload-log-file", "File to write upload logs to", "",
 		clingy.Advanced,
 	).(string)
-
-	{ // handle backwards compatibility around parallelism and maximum concurrent pieces
-		addr := func(x int) *int { return &x }
-
-		switch {
-		// if neither are actively set, use defaults
-		case parallelism == nil && maxConcurrent == nil:
-			parallelism = addr(1)
-			maxConcurrent = addr(c.uploadConfig.SchedulerOptions.MaximumConcurrent)
-
-		// if parallelism is not set, use a value based on maxConcurrent
-		case parallelism == nil:
-			parallelism = addr((*maxConcurrent + 99) / 100)
-
-		// if maxConcurrent is not set, use a value based on parallelism
-		case maxConcurrent == nil:
-			maxConcurrent = addr(100 * *parallelism)
-		}
-
-		c.uploadConfig.SchedulerOptions.MaximumConcurrent = *maxConcurrent
-		c.parallelism = *parallelism
-	}
 
 	c.inmemoryEC = params.Flag("inmemory-erasure-coding", "Keep erasure-coded pieces in-memory instead of writing them on the disk during upload", false,
 		clingy.Transform(strconv.ParseBool),
@@ -194,9 +170,10 @@ func (c *cmdCp) Execute(ctx context.Context) error {
 	fs, err := c.ex.OpenFilesystem(ctx, c.access,
 		ulext.ConcurrentSegmentUploadsConfig(c.uploadConfig),
 		ulext.ConnectionPoolOptions(rpcpool.Options{
-			// Add a bit more capacity for connections to the satellite
-			Capacity:       c.uploadConfig.SchedulerOptions.MaximumConcurrent + 5,
-			KeyCapacity:    5,
+			// Allow at least as many connections as the maximum concurrent pieces per
+			// parallel part per transfer, plus a few extra for the satellite.
+			Capacity:       c.transfers*c.parallelism*c.uploadConfig.SchedulerOptions.MaximumConcurrent + 5,
+			KeyCapacity:    2,
 			IdleExpiration: 2 * time.Minute,
 		}))
 	if err != nil {
@@ -419,17 +396,6 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 	defer func() { _ = mwh.Abort(ctx) }()
 
-	// if we're uploading, do a single part of maximum size
-	if dest.Remote() {
-		return errs.Wrap(c.singleCopy(
-			ctx,
-			source, dest,
-			mrh, mwh,
-			offset, length,
-			bar,
-		))
-	}
-
 	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
 	if err != nil {
 		return err
@@ -448,12 +414,14 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 // calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
 // It hereby respects if the client requests/prefers a certain size and only increases if needed.
 func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
-	segC := (length / maxPartCount / (memory.MiB * 64).Int64()) + 1
-	requiredSize = segC * (memory.MiB * 64).Int64()
+	segC := (length / maxPartCount / memory.GiB.Int64()) + 1
+	requiredSize = segC * memory.GiB.Int64()
 	switch {
 	case preferredSize == 0:
 		return requiredSize, nil
 	case requiredSize <= preferredSize:
+		return preferredSize, nil
+	case length < 0: // let the user pick their size if we don't have a length to know better
 		return preferredSize, nil
 	default:
 		return 0, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
@@ -535,8 +503,8 @@ func (c *cmdCp) parallelCopy(
 	}
 
 	var readBufs *ulfs.BytesPool
-	if p > 1 && chunkSize > 0 && (source.Std() || dest.Std()) {
-		// Create the read buffer pool only for uploads from stdin and downloads to stdout with parallelism > 1.
+	if p > 1 && chunkSize > 0 && source.Std() {
+		// Create the read buffer pool only for uploads from stdin with parallelism > 1.
 		readBufs = ulfs.NewBytesPool(int(chunkSize))
 	}
 
@@ -617,59 +585,6 @@ func (c *cmdCp) parallelCopy(
 	}
 
 	return errs.Wrap(combineErrs(es))
-}
-
-func (c *cmdCp) singleCopy(
-	ctx context.Context,
-	source, dest ulloc.Location,
-	src ulfs.MultiReadHandle,
-	dst ulfs.MultiWriteHandle,
-	offset, length int64,
-	bar *mpb.Bar) error {
-
-	if offset != 0 {
-		if err := src.SetOffset(offset); err != nil {
-			return err
-		}
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	rh, err := src.NextPart(ctx, length)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	defer func() { _ = rh.Close() }()
-
-	wh, err := dst.NextPart(ctx, length)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	defer func() { _ = wh.Abort() }()
-
-	var w io.Writer = wh
-	if bar != nil {
-		bar.SetTotal(rh.Info().ContentLength, false)
-		bar.EnableTriggerComplete()
-		pw := bar.ProxyWriter(w)
-		defer func() { _ = pw.Close() }()
-		w = pw
-	}
-
-	if _, err := sync2.Copy(ctx, w, rh); err != nil {
-		return errs.Wrap(err)
-	}
-
-	if err := wh.Commit(); err != nil {
-		return errs.Wrap(err)
-	}
-
-	if err := dst.Commit(ctx); err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
 }
 
 func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.Bar {
