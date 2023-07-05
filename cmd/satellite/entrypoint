@@ -90,10 +90,10 @@ if [ "${STORJUP_ROLE:-""}" ]; then
 fi
 
 # for backward compatibility reason, we use argument as command, only if it's an executable (and use it as satellite flags oterwise)
-set +e
+set +eo nounset
 which "$1" > /dev/null
 VALID_EXECUTABLE=$?
-set -e
+set -eo nounset
 
 if [ $VALID_EXECUTABLE -eq 0 ]; then
   # this is a full command (what storj-up uses)
