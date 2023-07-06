@@ -52,12 +52,12 @@ type Observer struct {
 
 // NewObserver creates new checker observer instance.
 // TODO move excludedCountries into config but share it somehow with segment repairer.
-func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, config Config, excludedCountries []string) *Observer {
+func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, config Config, placementRules overlay.PlacementRules, excludedCountries []string) *Observer {
 	return &Observer{
 		logger: logger,
 
 		repairQueue:          repairQueue,
-		nodesCache:           NewReliabilityCache(overlay, config.ReliabilityCacheStaleness, excludedCountries),
+		nodesCache:           NewReliabilityCache(overlay, config.ReliabilityCacheStaleness, placementRules, excludedCountries),
 		overlayService:       overlay,
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,

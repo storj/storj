@@ -304,13 +304,14 @@ type Service struct {
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
+	placementRules         PlacementRules
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules PlacementRules, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -337,21 +338,20 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr,
 		})
 	}
 
-	// TODO: this supposed to be configurable
-	placementRules := NewPlacementRules()
-	placementRules.AddLegacyStaticRules()
 	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
 		config.NodeSelectionCache.Staleness, config.Node,
-		defaultSelection, placementRules.CreateFilters,
+		defaultSelection, placementRules,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	downloadSelectionCache, err := NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
-		Staleness:      config.NodeSelectionCache.Staleness,
-		OnlineWindow:   config.Node.OnlineWindow,
-		AsOfSystemTime: config.Node.AsOfSystemTime,
-	})
+	downloadSelectionCache, err := NewDownloadSelectionCache(log, db,
+		placementRules,
+		DownloadSelectionCacheConfig{
+			Staleness:      config.NodeSelectionCache.Staleness,
+			OnlineWindow:   config.Node.OnlineWindow,
+			AsOfSystemTime: config.Node.AsOfSystemTime,
+		})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -369,6 +369,8 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr,
 		UploadSelectionCache:   uploadSelectionCache,
 		DownloadSelectionCache: downloadSelectionCache,
 		LastNetFunc:            MaskOffLastNet,
+
+		placementRules: placementRules,
 	}, nil
 }
 

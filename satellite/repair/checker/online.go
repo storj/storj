@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -26,22 +27,18 @@ type ReliabilityCache struct {
 	excludedCountryCodes map[location.CountryCode]struct{}
 	mu                   sync.Mutex
 	state                atomic.Value // contains immutable *reliabilityState
-}
-
-type reliableNode struct {
-	LastNet     string
-	CountryCode location.CountryCode
+	placementRules       overlay.PlacementRules
 }
 
 // reliabilityState.
 type reliabilityState struct {
-	reliableOnline map[storj.NodeID]reliableNode
-	reliableAll    map[storj.NodeID]reliableNode
+	reliableOnline map[storj.NodeID]nodeselection.SelectedNode
+	reliableAll    map[storj.NodeID]nodeselection.SelectedNode
 	created        time.Time
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration, excludedCountries []string) *ReliabilityCache {
+func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration, placementRules overlay.PlacementRules, excludedCountries []string) *ReliabilityCache {
 	excludedCountryCodes := make(map[location.CountryCode]struct{})
 	for _, countryCode := range excludedCountries {
 		if cc := location.ToCountryCode(countryCode); cc != location.None {
@@ -52,6 +49,7 @@ func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration, excl
 	return &ReliabilityCache{
 		overlay:              overlay,
 		staleness:            staleness,
+		placementRules:       placementRules,
 		excludedCountryCodes: excludedCountryCodes,
 	}
 }
@@ -109,9 +107,9 @@ func (cache *ReliabilityCache) OutOfPlacementPieces(ctx context.Context, created
 		return nil, err
 	}
 	var outOfPlacementPieces metabase.Pieces
-
+	nodeFilters := cache.placementRules(placement)
 	for _, p := range pieces {
-		if node, ok := state.reliableAll[p.StorageNode]; ok && !placement.AllowedCountry(node.CountryCode) {
+		if node, ok := state.reliableAll[p.StorageNode]; ok && !nodeFilters.MatchInclude(&node) {
 			outOfPlacementPieces = append(outOfPlacementPieces, p)
 		}
 	}
@@ -189,24 +187,15 @@ func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilit
 
 	state := &reliabilityState{
 		created:        time.Now(),
-		reliableOnline: make(map[storj.NodeID]reliableNode, len(online)),
-		reliableAll:    make(map[storj.NodeID]reliableNode, len(online)+len(offline)),
+		reliableOnline: make(map[storj.NodeID]nodeselection.SelectedNode, len(online)),
+		reliableAll:    make(map[storj.NodeID]nodeselection.SelectedNode, len(online)+len(offline)),
 	}
 	for _, node := range online {
-		state.reliableOnline[node.ID] = reliableNode{
-			LastNet:     node.LastNet,
-			CountryCode: node.CountryCode,
-		}
-		state.reliableAll[node.ID] = reliableNode{
-			LastNet:     node.LastNet,
-			CountryCode: node.CountryCode,
-		}
+		state.reliableOnline[node.ID] = node
+		state.reliableAll[node.ID] = node
 	}
 	for _, node := range offline {
-		state.reliableAll[node.ID] = reliableNode{
-			LastNet:     node.LastNet,
-			CountryCode: node.CountryCode,
-		}
+		state.reliableAll[node.ID] = node
 	}
 
 	cache.state.Store(state)

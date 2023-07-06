@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 )
 
 func TestGetOrderLimits(t *testing.T) {
@@ -55,14 +56,16 @@ func TestGetOrderLimits(t *testing.T) {
 		CachedGetOnlineNodesForGet(gomock.Any(), gomock.Any()).
 		Return(nodes, nil).AnyTimes()
 
-	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(), orders.Config{
-		EncryptionKeys: orders.EncryptionKeys{
-			Default: orders.EncryptionKey{
-				ID:  orders.EncryptionKeyID{1, 2, 3, 4, 5, 6, 7, 8},
-				Key: testrand.Key(),
+	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(),
+		overlay.NewPlacementRules().CreateFilters,
+		orders.Config{
+			EncryptionKeys: orders.EncryptionKeys{
+				Default: orders.EncryptionKey{
+					ID:  orders.EncryptionKeyID{1, 2, 3, 4, 5, 6, 7, 8},
+					Key: testrand.Key(),
+				},
 			},
-		},
-	})
+		})
 	require.NoError(t, err)
 
 	segment := metabase.Segment{

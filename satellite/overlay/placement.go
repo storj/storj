@@ -4,6 +4,14 @@
 package overlay
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/jtolio/mito"
+	"github.com/spf13/pflag"
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/nodeselection"
@@ -16,6 +24,35 @@ type PlacementRules func(constraint storj.PlacementConstraint) (filter nodeselec
 type ConfigurablePlacementRule struct {
 	placements map[storj.PlacementConstraint]nodeselection.NodeFilters
 }
+
+// String implements pflag.Value.
+func (d *ConfigurablePlacementRule) String() string {
+	parts := []string{}
+	for id, filter := range d.placements {
+		// we can hide the internal rules...
+		if id > 9 {
+			// TODO: we need proper String implementation for all the used filters
+			parts = append(parts, fmt.Sprintf("%d:%s", id, filter))
+		}
+	}
+	return strings.Join(parts, ";")
+}
+
+// Set implements pflag.Value.
+func (d *ConfigurablePlacementRule) Set(s string) error {
+	if d.placements == nil {
+		d.placements = make(map[storj.PlacementConstraint]nodeselection.NodeFilters)
+	}
+	d.AddLegacyStaticRules()
+	return d.AddPlacementFromString(s)
+}
+
+// Type implements pflag.Value.
+func (d *ConfigurablePlacementRule) Type() string {
+	return "placement-rule"
+}
+
+var _ pflag.Value = &ConfigurablePlacementRule{}
 
 // NewPlacementRules creates a fully initialized NewPlacementRules.
 func NewPlacementRules() *ConfigurablePlacementRule {
@@ -63,6 +100,70 @@ func (d *ConfigurablePlacementRule) AddPlacementRule(id storj.PlacementConstrain
 	d.placements[id] = filters
 }
 
+// AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
+func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) error {
+	env := map[any]any{
+		"country": func(countries ...string) (nodeselection.NodeFilters, error) {
+			countryCodes := make([]location.CountryCode, len(countries))
+			for i, country := range countries {
+				countryCodes[i] = location.ToCountryCode(country)
+			}
+			return nodeselection.NodeFilters{}.WithCountryFilter(func(code location.CountryCode) bool {
+				for _, expectedCode := range countryCodes {
+					if code == expectedCode {
+						return true
+					}
+				}
+				return false
+			}), nil
+		},
+		"all": func(filters ...nodeselection.NodeFilters) (nodeselection.NodeFilters, error) {
+			res := nodeselection.NodeFilters{}
+			for _, filter := range filters {
+				res = append(res, filter...)
+			}
+			return res, nil
+		},
+		"tag": func(nodeIDstr string, key string, value any) (nodeselection.NodeFilters, error) {
+			nodeID, err := storj.NodeIDFromString(nodeIDstr)
+			if err != nil {
+				return nil, err
+			}
+			var rawValue []byte
+			switch v := value.(type) {
+			case string:
+				rawValue = []byte(v)
+			case []byte:
+				rawValue = v
+			default:
+				return nil, errs.New("3rd argument of tag() should be string or []byte")
+			}
+			res := nodeselection.NodeFilters{
+				nodeselection.NewTagFilter(nodeID, key, rawValue),
+			}
+			return res, nil
+		},
+	}
+	for _, definition := range strings.Split(definitions, ";") {
+		definition = strings.TrimSpace(definition)
+		if definition == "" {
+			continue
+		}
+		idDef := strings.SplitN(definition, ":", 2)
+
+		val, err := mito.Eval(idDef[1], env)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		id, err := strconv.Atoi(idDef[0])
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		d.placements[storj.PlacementConstraint(id)] = val.(nodeselection.NodeFilters)
+	}
+	return nil
+}
+
 // CreateFilters implements PlacementCondition.
 func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilters) {
 	if constraint == 0 {
@@ -72,14 +173,4 @@ func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementCons
 		return filters
 	}
 	return nodeselection.ExcludeAll
-}
-
-// CreateDefaultPlacementRules returns with a default set of configured placement rules.
-func CreateDefaultPlacementRules(satelliteID storj.NodeID) PlacementRules {
-	placement := NewPlacementRules()
-	placement.AddLegacyStaticRules()
-	placement.AddPlacementRule(10, nodeselection.NodeFilters{
-		nodeselection.NewTagFilter(satelliteID, "selection", []byte("true")),
-	})
-	return placement.CreateFilters
 }

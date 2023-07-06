@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 )
 
@@ -426,6 +427,7 @@ func TestAllInOne(t *testing.T) {
 				satellite.DB.RepairQueue(),
 				satellite.Overlay.Service,
 				satellite.Config.Checker,
+				overlay.NewPlacementRules().CreateFilters,
 				[]string{},
 			),
 		})

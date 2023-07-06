@@ -54,10 +54,11 @@ type Overlay interface {
 //
 // architecture: Service
 type Service struct {
-	log       *zap.Logger
-	satellite signing.Signer
-	overlay   Overlay
-	orders    DB
+	log            *zap.Logger
+	satellite      signing.Signer
+	overlay        Overlay
+	orders         DB
+	placementRules overlay.PlacementRules
 
 	encryptionKeys EncryptionKeys
 
@@ -70,17 +71,18 @@ type Service struct {
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay Overlay,
-	orders DB, config Config,
+	orders DB, placementRules overlay.PlacementRules, config Config,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
 	}
 
 	return &Service{
-		log:       log,
-		satellite: satellite,
-		overlay:   overlay,
-		orders:    orders,
+		log:            log,
+		satellite:      satellite,
+		overlay:        overlay,
+		orders:         orders,
+		placementRules: placementRules,
 
 		encryptionKeys: config.EncryptionKeys,
 
@@ -146,8 +148,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 	}
 
 	if segment.Placement != storj.EveryCountry {
+		filter := service.placementRules(segment.Placement)
 		for id, node := range nodes {
-			if !segment.Placement.AllowedCountry(node.CountryCode) {
+			if !filter.MatchInclude(node) {
 				delete(nodes, id)
 			}
 		}

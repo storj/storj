@@ -36,15 +36,17 @@ type DownloadSelectionCache struct {
 	db     DownloadSelectionDB
 	config DownloadSelectionCacheConfig
 
-	cache sync2.ReadCacheOf[*DownloadSelectionCacheState]
+	cache          sync2.ReadCacheOf[*DownloadSelectionCacheState]
+	placementRules PlacementRules
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
-func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
+func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, placementRules PlacementRules, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
 	cache := &DownloadSelectionCache{
-		log:    log,
-		db:     db,
-		config: config,
+		log:            log,
+		db:             db,
+		placementRules: placementRules,
+		config:         config,
 	}
 	return cache, cache.cache.Init(config.Staleness/2, config.Staleness, cache.read)
 }
@@ -85,7 +87,7 @@ func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context
 		return nil, Error.Wrap(err)
 	}
 
-	return state.IPsFromPlacement(nodes, placement), nil
+	return state.FilteredIPs(nodes, cache.placementRules(placement)), nil
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
@@ -141,11 +143,11 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 	return xs
 }
 
-// IPsFromPlacement returns node ip:port for nodes that are in state. Results are filtered out by placement.
-func (state *DownloadSelectionCacheState) IPsFromPlacement(nodes []storj.NodeID, placement storj.PlacementConstraint) map[storj.NodeID]string {
+// FilteredIPs returns node ip:port for nodes that are in state. Results are filtered out..
+func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilters) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
-		if n, exists := state.byID[nodeID]; exists && placement.AllowedCountry(n.CountryCode) {
+		if n, exists := state.byID[nodeID]; exists && filter.MatchInclude(n) {
 			xs[nodeID] = n.LastIPPort
 		}
 	}
