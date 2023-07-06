@@ -541,13 +541,13 @@ onBeforeUnmount((): void => {
 
 <style scoped lang="scss">
     .project-dashboard {
-        max-width: calc(100vw - 280px - 95px);
         background-origin: content-box;
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
+        padding-bottom: 55px;
 
         &__heading {
             display: flex;

@@ -360,7 +360,6 @@ onBeforeUnmount(() => {
 
     .access-grants {
         position: relative;
-        height: calc(100% - 95px);
         padding: 40px 30px 55px;
         font-family: 'font_regular', sans-serif;
 
@@ -458,7 +457,6 @@ onBeforeUnmount(() => {
         }
 
         .access-grants-items {
-            padding-bottom: 55px;
 
             &__content {
                 margin-top: 20px;

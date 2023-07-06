@@ -213,6 +213,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .settings {
+    padding-bottom: 35px;
 
     &__title {
         font-family: 'font_bold', sans-serif;

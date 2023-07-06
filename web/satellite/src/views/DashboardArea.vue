@@ -163,7 +163,6 @@ import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
-import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
@@ -335,16 +334,6 @@ const isNavigationHidden = computed((): boolean => {
     return isOnboardingTour.value || isCreateProjectPage.value;
 });
 
-/**
- * Returns whether the user has reached project limits.
- */
-const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = usersStore.state.user.projectLimit;
-    const projectsCount: number = projectsStore.projectsCount(usersStore.state.user.id);
-
-    return projectsCount === projectLimit;
-});
-
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
     return !usersStore.state.user.paidTier
@@ -359,13 +348,6 @@ const joinedWhileAgo = computed((): boolean => {
     if (!createdAt) return true; // true so we can show the banner regardless
     const millisPerDay = 24 * 60 * 60 * 1000;
     return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
-});
-
-/**
- * Indicates if current route is projects list page.
- */
-const isProjectListPage = computed((): boolean => {
-    return route.name === RouteConfig.ProjectsList.name;
 });
 
 /**
@@ -845,7 +827,9 @@ onBeforeUnmount(() => {
 
                         &__content {
                             max-width: 1200px;
-                            padding: 48px 48px 0;
+                            padding-top: 48px;
+                            padding-left: 48px;
+                            padding-right: 48px;
                             box-sizing: border-box;
                             width: 100%;
 
@@ -870,6 +854,7 @@ onBeforeUnmount(() => {
 
                                 &:empty {
                                     padding-top: 0;
+                                    padding-bottom: 0;
                                 }
                             }
                         }

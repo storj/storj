@@ -153,7 +153,7 @@ function toggleSelector() {
 
         &__dropdown {
             position: absolute;
-            top: 35px;
+            top: -190px;
             background: var(--c-white);
             z-index: 999;
             box-sizing: border-box;
