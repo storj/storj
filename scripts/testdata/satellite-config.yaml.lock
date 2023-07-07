@@ -1,6 +1,9 @@
 # whether to run this chore.
 # account-freeze.enabled: false
 
+# whether to exclude storjscan-paying users from automatic warn/freeze
+# account-freeze.exclude-storjscan: true
+
 # How long to wait between a warning event and freezing an account.
 # account-freeze.grace-period: 360h0m0s
 
