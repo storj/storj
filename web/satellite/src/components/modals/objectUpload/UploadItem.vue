@@ -94,7 +94,7 @@ const progressStyle = computed((): Record<string, string> => {
  */
 async function retryUpload(): Promise<void> {
     try {
-        await obStore.retryUpload(props.item);
+        await obStore.retryUpload(props.item.Key);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.OBJECTS_UPLOAD_MODAL);
     }
@@ -157,7 +157,6 @@ function cancelUpload(): void {
         }
 
         &__name {
-            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-grey-9);
@@ -173,7 +172,8 @@ function cancelUpload(): void {
         margin-left: 20px;
 
         svg {
-            min-width: 20px;
+            width: 20px;
+            height: 20px;
         }
 
         &__track {
@@ -200,14 +200,13 @@ function cancelUpload(): void {
         }
 
         &__cancelled {
-            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-grey-5);
+            text-align: right;
         }
 
         &__failed {
-            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-red-4);
@@ -215,12 +214,15 @@ function cancelUpload(): void {
         }
 
         &__retry {
-            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-blue-3);
             margin-left: 18px;
             cursor: pointer;
+
+            &:hover {
+                text-decoration: underline;
+            }
         }
 
         &__info {
