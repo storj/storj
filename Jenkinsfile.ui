@@ -109,10 +109,10 @@ pipeline {
         }
 
         stage('Install Playwright') {
-			steps {
-				dir("testsuite/playwright-ui") {
-					sh 'npm i'
-				}
+            steps {
+                dir("testsuite/playwright-ui") {
+                    sh 'npm i'
+                }
             }
         }
 
@@ -121,29 +121,37 @@ pipeline {
                 STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
             }
             steps {
-                sh 'service postgresql start'
-                sh 'psql -U postgres -c \'create database teststorj;\''
+            sh 'service postgresql start'
+            sh 'psql -U postgres -c \'create database teststorj;\''
 
-                sh 'storj-sim network setup'
+            sh 'storj-sim network setup'
 
-                sh '''
-                    nohup authservice run \
-                        --allowed-satellites $(storj-sim network env SATELLITE_0_URL) \
-                        --auth-token my-test-auth-token \
-                        --endpoint http://localhost:8002 \
-                        --listen-addr :8000 \
-                        --kv-backend badger:// > authservice.log 2>&1 &
-                '''
+            sh '''
+                nohup authservice run \
+                    --allowed-satellites $(storj-sim network env SATELLITE_0_URL) \
+                    --auth-token my-test-auth-token \
+                    --endpoint http://localhost:8002 \
+                    --listen-addr :8000 \
+                    --kv-backend badger:// > authservice.log 2>&1 &
+            '''
+            sh '''
+                nohup gateway-mt run \
+                    --auth.token my-test-auth-token \
+                    --auth.base-url http://localhost:8000 \
+                    --domain-name localhost \
+                    --server.address localhost:8002 \
+                    --insecure-disable-tls gateway.log 2>&	1 &
+            '''
 
                 dir("testsuite/playwright-ui") {
-                    sh 'storj-sim network test --no-gateways -- bash npm run test-debug'
+                    sh 'storj-sim network test --no-gateways -- npm run test'
                 }
             }
             post {
                 always {
                     archiveArtifacts artifacts: 'authservice.log,  testsuite/playwright-ui/test-results/'
                 }
-           }
+            }
         }
 
         stage('Post') {
@@ -157,8 +165,8 @@ pipeline {
                 stage('report') {
                     steps {
                         //execute the report
-						//sh 'npm run posttest'
-			            sh 'echo "Test complete"'
+                        //sh 'npm run posttest'
+                        sh 'echo "Test complete"'
                     }
                 }
             }
