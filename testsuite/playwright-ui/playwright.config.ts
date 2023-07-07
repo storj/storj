@@ -43,7 +43,14 @@ const config: PlaywrightTestConfig = {
                 sendResults: "always", // "always" , "on-failure", "off"
             },
         ],
-        ["allure-playwright"],
+        [
+            "allure-playwright",
+            {
+                detail: true,
+                outputFolder: "allure-results",
+                suiteTitle: false,
+            },
+        ],
         ["list"],
 		["html", { open: "never" }],
 
@@ -51,7 +58,7 @@ const config: PlaywrightTestConfig = {
     use: {                                              /* Shared settings for all the projects below. */
         actionTimeout: 0,                                 /* Maximum time each action can take. */
         // baseURL: 'http://nightly.storj.rodeo/',     /* Base URL to use in actions like `await page.goto('/')`. */
-         baseURL: 'http://localhost:10000',
+         baseURL: 'http://127.0.0.1:10001',
         // headless: process.env.CI ? false : true,       /* Starts the UI tests in headed mode, so we can watch execution in development */
         ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
         trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
@@ -74,7 +81,7 @@ const config: PlaywrightTestConfig = {
             name: 'firefox',
             use: {
                 ...devices['Desktop Firefox'],
-            },<F24><F25><F24><F25>
+            },
         },
 
         {
