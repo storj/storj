@@ -16,6 +16,8 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -27,10 +29,11 @@ var (
 
 // Config contains configurable values for account freeze chore.
 type Config struct {
-	Enabled        bool          `help:"whether to run this chore." default:"false"`
-	Interval       time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
-	GracePeriod    time.Duration `help:"How long to wait between a warning event and freezing an account." default:"360h"`
-	PriceThreshold int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"10000"`
+	Enabled          bool          `help:"whether to run this chore." default:"false"`
+	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
+	GracePeriod      time.Duration `help:"How long to wait between a warning event and freezing an account." default:"360h"`
+	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"10000"`
+	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"true"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.
@@ -39,6 +42,8 @@ type Chore struct {
 	freezeService *console.AccountFreezeService
 	analytics     *analytics.Service
 	usersDB       console.Users
+	walletsDB     storjscan.WalletsDB
+	paymentsDB    storjscan.PaymentsDB
 	payments      payments.Accounts
 	accounts      stripe.DB
 	config        Config
@@ -47,12 +52,14 @@ type Chore struct {
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, freezeService *console.AccountFreezeService, analytics *analytics.Service, config Config) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, config Config) *Chore {
 	return &Chore{
 		log:           log,
 		freezeService: freezeService,
 		analytics:     analytics,
 		usersDB:       usersDB,
+		walletsDB:     walletsDB,
+		paymentsDB:    paymentsDB,
 		accounts:      accounts,
 		config:        config,
 		payments:      payments,
@@ -76,7 +83,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		userMap := make(map[uuid.UUID]struct{})
 		frozenMap := make(map[uuid.UUID]struct{})
 		warnedMap := make(map[uuid.UUID]struct{})
-		bypassedMap := make(map[uuid.UUID]struct{})
+		bypassedLargeMap := make(map[uuid.UUID]struct{})
+		bypassedTokenMap := make(map[uuid.UUID]struct{})
 
 		checkInvPaid := func(invID string) (bool, error) {
 			inv, err := chore.payments.Invoices().Get(ctx, invID)
@@ -123,10 +131,38 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			}
 
 			if invoice.Amount > chore.config.PriceThreshold {
-				bypassedMap[userID] = struct{}{}
+				if _, ok := bypassedLargeMap[userID]; ok {
+					continue
+				}
+				bypassedLargeMap[userID] = struct{}{}
 				debugLog("Ignoring invoice; amount exceeds threshold")
 				chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email)
 				continue
+			}
+
+			if chore.config.ExcludeStorjscan {
+				if _, ok := bypassedTokenMap[userID]; ok {
+					continue
+				}
+				wallet, err := chore.walletsDB.GetWallet(ctx, user.ID)
+				if err != nil && !errs.Is(err, billing.ErrNoWallet) {
+					errorLog("Could not get wallets for user", err)
+					continue
+				}
+				// if there is no error, the user has a wallet and we can check for transactions
+				if err == nil {
+					cachedPayments, err := chore.paymentsDB.ListWallet(ctx, wallet, 1, 0)
+					if err != nil && !errs.Is(err, billing.ErrNoTransactions) {
+						errorLog("Could not get payments for user", err)
+						continue
+					}
+					if len(cachedPayments) > 0 {
+						bypassedTokenMap[userID] = struct{}{}
+						debugLog("Ignoring invoice; TX exists in storjscan")
+						chore.analytics.TrackStorjscanUnpaidInvoice(invoice.ID, userID, user.Email)
+						continue
+					}
+				}
 			}
 
 			freeze, warning, err := chore.freezeService.GetAll(ctx, userID)
@@ -186,7 +222,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			zap.Int("user total", len(userMap)),
 			zap.Int("total warned", len(warnedMap)),
 			zap.Int("total frozen", len(frozenMap)),
-			zap.Int("total bypassed", len(bypassedMap)),
+			zap.Int("total bypassed due to size of invoice", len(bypassedLargeMap)),
+			zap.Int("total bypassed due to storjscan payments", len(bypassedTokenMap)),
 		)
 
 		return nil
