@@ -110,23 +110,52 @@ func (invoices *invoices) Get(ctx context.Context, invoiceID string) (*payments.
 
 // AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
 func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
 	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	params := &stripe.InvoiceListParams{
-		ListParams: stripe.ListParams{Context: ctx},
-		Customer:   &customerID,
-		Status:     stripe.String(string(stripe.InvoiceStatusOpen)),
+	stripeInvoices, err := invoices.service.getInvoices(ctx, customerID, time.Unix(0, 0))
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
+	if len(stripeInvoices) == 0 {
+		return nil
+	}
+
+	// first check users token balance
+	monetaryTokenBalance, err := invoices.service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		invoices.service.log.Error("error getting token balance", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	if monetaryTokenBalance.BaseUnits() > 0 {
+		err := invoices.service.PayInvoicesWithTokenBalance(ctx, userID, customerID, stripeInvoices)
+		if err != nil {
+			invoices.service.log.Error("error paying invoice(s) with token balance", zap.Error(err))
+			return Error.Wrap(err)
+		}
+		// get invoices again to see if any are still unpaid
+		stripeInvoices, err = invoices.service.getInvoices(ctx, customerID, time.Unix(0, 0))
+		if err != nil {
+			invoices.service.log.Error("error getting invoices for stripe customer", zap.String(customerID, customerID), zap.Error(err))
+			return Error.Wrap(err)
+		}
+	}
+	if len(stripeInvoices) > 0 {
+		return invoices.attemptPayOverdueInvoicesWithCC(ctx, stripeInvoices)
+	}
+	return nil
+}
+
+// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
+func (invoices *invoices) attemptPayOverdueInvoicesWithCC(ctx context.Context, stripeInvoices []stripe.Invoice) (err error) {
 	var errGrp errs.Group
 
-	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
-	for invoicesIterator.Next() {
-		stripeInvoice := invoicesIterator.Invoice()
-
+	for _, stripeInvoice := range stripeInvoices {
 		params := &stripe.InvoicePayParams{Params: stripe.Params{Context: ctx}}
 		invResponse, err := invoices.service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
@@ -138,10 +167,6 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 			errGrp.Add(Error.New("invoice not paid after payment triggered %s", stripeInvoice.ID))
 		}
 
-	}
-
-	if err = invoicesIterator.Err(); err != nil {
-		return Error.Wrap(err)
 	}
 
 	return errGrp.Err()
