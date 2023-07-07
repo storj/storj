@@ -48,6 +48,10 @@ dist
 # intellij project level runners. Add them explicitly if you would like to share.
 .run
 
+# Node Modules
+node_modules/
+
 # go workspaces
 go.work
 go.work.sum
+
