@@ -134,14 +134,6 @@ pipeline {
                         --listen-addr :8000 \
                         --kv-backend badger:// > authservice.log 2>&1 &
                 '''
-                sh '''
-                    nohup gateway run \
-                        --auth.token my-test-auth-token \
-                        --auth.base-url http://localhost:8000 \
-                        --domain-name localhost \
-                        --server.address localhost:8002 \
-                        --insecure-disable-tls gateway.log 2>&	1 &
-                '''
 
                 dir("testsuite/playwright-ui") {
                     sh 'storj-sim network test --no-gateways -- npm run test'
@@ -149,7 +141,7 @@ pipeline {
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'authservice.log, gateway.log, testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: 'authservice.log, testsuite/playwright-ui/test-results/'
                 }
            }
         }
