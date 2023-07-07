@@ -136,12 +136,12 @@ pipeline {
                 '''
 
                 dir("testsuite/playwright-ui") {
-                    sh 'storj-sim network test --no-gateways -- npm run test-debug'
+                    sh 'storj-sim network test --no-gateways -- bash npm run test-debug'
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'authservice.log, testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: 'authservice.log,  testsuite/playwright-ui/test-results/'
                 }
            }
         }

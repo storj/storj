@@ -43,7 +43,9 @@ const config: PlaywrightTestConfig = {
                 sendResults: "always", // "always" , "on-failure", "off"
             },
         ],
-        ["allure-playwright"]
+        ["allure-playwright"],
+        ["list"],
+
   ],
     use: {                                              /* Shared settings for all the projects below. */
         actionTimeout: 0,                                 /* Maximum time each action can take. */
