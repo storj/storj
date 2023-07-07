@@ -11,11 +11,17 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/storjscan"
+	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
@@ -166,6 +172,89 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, freeze)
 		})
+
+		t.Run("Storjscan exceptions", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			storjscanUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "storjscanuser@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			// create a wallet and transaction for the new user in storjscan
+			address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Wallets().Add(ctx, storjscanUser.ID, address))
+			cachedPayments := []storjscan.CachedPayment{
+				{
+					From:        blockchaintest.NewAddress(),
+					To:          address,
+					TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+					USDValue:    currency.AmountFromBaseUnits(testrand.Int63n(1000), currency.USDollarsMicro),
+					BlockHash:   blockchaintest.NewHash(),
+					Transaction: blockchaintest.NewHash(),
+					Status:      payments.PaymentStatusConfirmed,
+					Timestamp:   time.Now(),
+				},
+			}
+			require.NoError(t, sat.DB.StorjscanPayments().InsertBatch(ctx, cachedPayments))
+
+			storjscanCus, err := customerDB.GetCustomerID(ctx, storjscanUser.ID)
+			require.NoError(t, err)
+
+			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &storjscanCus,
+			})
+			require.NoError(t, err)
+
+			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
+				InvoiceItem: &item.ID,
+				Amount:      &amount,
+				Currency:    &curr,
+			})
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:       stripe.Params{Context: ctx},
+				Customer:     &storjscanCus,
+				InvoiceItems: items,
+			})
+			require.NoError(t, err)
+
+			paymentMethod := stripe1.MockInvoicesPayFailure
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: &paymentMethod,
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			failed, err := invoicesDB.ListFailed(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(failed))
+			invFound := false
+			for _, failedInv := range failed {
+				if failedInv.ID == inv.ID {
+					invFound = true
+					break
+				}
+			}
+			require.True(t, invFound)
+
+			chore.Loop.TriggerWait()
+
+			// user should not be warned or frozen due to storjscan payments
+			freeze, warning, err := service.GetAll(ctx, storjscanUser.ID)
+			require.NoError(t, err)
+			require.Nil(t, warning)
+			require.Nil(t, freeze)
+		})
 	})
 }
 
@@ -211,3 +300,5 @@ func (mock *freezeTrackerMock) TrackAccountFreezeWarning(_ uuid.UUID, email stri
 }
 
 func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}
+
+func (mock *freezeTrackerMock) TrackStorjscanUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}
