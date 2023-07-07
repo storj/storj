@@ -22,7 +22,7 @@ const threshold = 0.95;
 
 const config: PlaywrightTestConfig = {
     testDir: './tests',                                   /* directory where tests are located.  */
-    timeout: 30 * 1000,                                 /* Maximum time one test can run for.  */
+    timeout: 10 * 1000,                                 /* Maximum time one test can run for.  */
 
     expect: {
         timeout: 4000,                                    /* Maximum time expect() should wait for the condition to be met. */
@@ -45,6 +45,7 @@ const config: PlaywrightTestConfig = {
         ],
         ["allure-playwright"],
         ["list"],
+		["html", { open: "never" }],
 
   ],
     use: {                                              /* Shared settings for all the projects below. */
@@ -73,7 +74,7 @@ const config: PlaywrightTestConfig = {
             name: 'firefox',
             use: {
                 ...devices['Desktop Firefox'],
-            },
+            },<F24><F25><F24><F25>
         },
 
         {
