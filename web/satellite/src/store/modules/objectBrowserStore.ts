@@ -464,9 +464,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             appStore.setLargeUploadWarningNotification(true);
         }
 
+        // Upload 5 parts at a time.
+        const queueSize = 5;
+        // Part size must be 64MB or higher, depending on file size.
+        const partSize = Math.max(64 * 1024 * 1024, Math.floor(body.size / queueSize));
+
         const upload = new Upload({
             client: state.s3,
-            partSize: 64 * 1024 * 1024,
+            queueSize,
+            partSize,
             params,
         });
 
