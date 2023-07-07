@@ -260,12 +260,19 @@ var (
 		Long:  "Finalizes all draft stripe invoices known to satellite's stripe account.",
 		RunE:  cmdFinalizeCustomerInvoices,
 	}
-	payCustomerInvoicesCmd = &cobra.Command{
+	payInvoicesWithTokenCmd = &cobra.Command{
+		Use:   "pay-customer-invoices",
+		Short: "pay open finalized invoices for customer",
+		Long:  "attempts payment on any open finalized invoices for a specific user.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdPayCustomerInvoices,
+	}
+	payAllInvoicesCmd = &cobra.Command{
 		Use:   "pay-invoices",
 		Short: "pay finalized invoices",
 		Long:  "attempts payment on all open finalized invoices according to subscriptions settings.",
 		Args:  cobra.ExactArgs(1),
-		RunE:  cmdPayCustomerInvoices,
+		RunE:  cmdPayAllInvoices,
 	}
 	stripeCustomerCmd = &cobra.Command{
 		Use:   "ensure-stripe-customer",
@@ -404,7 +411,8 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(generateCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
-	billingCmd.AddCommand(payCustomerInvoicesCmd)
+	billingCmd.AddCommand(payInvoicesWithTokenCmd)
+	billingCmd.AddCommand(payAllInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -439,7 +447,8 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(generateCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(payCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(payInvoicesWithTokenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(payAllInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -867,6 +876,18 @@ func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 }
 
 func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		err := payments.InvoiceApplyCustomerTokenBalance(ctx, args[0])
+		if err != nil {
+			return errs.New("error applying native token payments to invoice for customer: %v", err)
+		}
+		return payments.PayCustomerInvoices(ctx, args[0])
+	})
+}
+
+func cmdPayAllInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	periodStart, err := parseYearMonth(args[0])
