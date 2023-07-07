@@ -32,7 +32,10 @@ pipeline {
             parallel {
                 stage('web/satellite') {
                     steps {
-                        sh './web/satellite/build.sh'
+						dir('web/satellite') {
+							sh 'npm install --prefer-offline --no-audit'
+							sh 'npm run build'
+						}
                     }
                 }
 
@@ -44,19 +47,28 @@ pipeline {
 
                 stage('web/storagenode') {
                     steps {
-                        sh './web/storagenode/build.sh'
-                    }
-                }
+						dir('web/storagenode') {
+							sh 'npm install --prefer-offline --no-audit'
+							sh 'npm run build'
+						}
+                	}
+				}
 
                 stage('web/multinode') {
                     steps {
-                        sh './web/multinode/build.sh'
+						dir('web/multinode') {
+							sh 'npm install --prefer-offline --no-audit'
+							sh 'npm run build'
+						}
                     }
                 }
 
                 stage('satellite/admin/ui') {
                     steps {
-                        sh './satellite/admin/ui/build.sh'
+						dir('satellite/admin/ui') {
+							sh 'npm install --prefer-offline --no-audit'
+							sh 'npm run build'
+						}
                     }
                 }
             }
@@ -89,7 +101,7 @@ pipeline {
                 }
                 stage('go -race gateway') {
                     steps {
-// install gateway for storj-sim
+/                       // install gateway for storj-sim
                         sh 'go install -race -v storj.io/gateway@latest'
                     }
                 }
@@ -123,7 +135,7 @@ pipeline {
                         --kv-backend badger:// > authservice.log 2>&1 &
                 '''
                 sh '''
-                    nohup gateway-mt run \
+                    nohup gateway run \
                         --auth.token my-test-auth-token \
                         --auth.base-url http://localhost:8000 \
                         --domain-name localhost \
