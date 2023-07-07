@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -30,10 +30,10 @@ func TestGetOrderLimits(t *testing.T) {
 	bucket := metabase.BucketLocation{ProjectID: testrand.UUID(), BucketName: "bucket1"}
 
 	pieces := metabase.Pieces{}
-	nodes := map[storj.NodeID]*uploadselection.SelectedNode{}
+	nodes := map[storj.NodeID]*nodeselection.SelectedNode{}
 	for i := 0; i < 8; i++ {
 		nodeID := testrand.NodeID()
-		nodes[nodeID] = &uploadselection.SelectedNode{
+		nodes[nodeID] = &nodeselection.SelectedNode{
 			ID: nodeID,
 			Address: &pb.NodeAddress{
 				Address: fmt.Sprintf("host%d.com", i),

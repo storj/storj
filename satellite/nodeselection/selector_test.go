@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package uploadselection_test
+package nodeselection_test
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 func TestSelectByID(t *testing.T) {
@@ -24,26 +24,26 @@ func TestSelectByID(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &uploadselection.SelectedNode{
+	subnetA1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &uploadselection.SelectedNode{
+	subnetA2 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &uploadselection.SelectedNode{
+	subnetB1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*uploadselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := uploadselection.SelectByID(nodes)
+	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
+	selector := nodeselection.SelectByID(nodes)
 
 	const (
 		reqCount       = 2
@@ -54,7 +54,7 @@ func TestSelectByID(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
+		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -84,26 +84,26 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &uploadselection.SelectedNode{
+	subnetA1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &uploadselection.SelectedNode{
+	subnetA2 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &uploadselection.SelectedNode{
+	subnetB1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*uploadselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := uploadselection.SelectBySubnetFromNodes(nodes)
+	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
+	selector := nodeselection.SelectBySubnetFromNodes(nodes)
 
 	const (
 		reqCount       = 2
@@ -114,7 +114,7 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
+		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -156,26 +156,26 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &uploadselection.SelectedNode{
+	subnetA1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &uploadselection.SelectedNode{
+	subnetA2 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &uploadselection.SelectedNode{
+	subnetB1 := &nodeselection.SelectedNode{
 		ID:         testrand.NodeID(),
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*uploadselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := uploadselection.SelectBySubnetFromNodes(nodes)
+	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
+	selector := nodeselection.SelectBySubnetFromNodes(nodes)
 
 	const (
 		reqCount       = 1
@@ -186,7 +186,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, uploadselection.NodeFilters{})
+		selectedNodes := selector.Select(reqCount, nodeselection.NodeFilters{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -220,14 +220,14 @@ func TestSelectFiltered(t *testing.T) {
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
 	firstID := testrand.NodeID()
-	subnetA1 := &uploadselection.SelectedNode{
+	subnetA1 := &nodeselection.SelectedNode{
 		ID:         firstID,
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
 
 	secondID := testrand.NodeID()
-	subnetA2 := &uploadselection.SelectedNode{
+	subnetA2 := &nodeselection.SelectedNode{
 		ID:         secondID,
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
@@ -235,20 +235,20 @@ func TestSelectFiltered(t *testing.T) {
 
 	thirdID := testrand.NodeID()
 	lastNetSingle := "1.0.2"
-	subnetB1 := &uploadselection.SelectedNode{
+	subnetB1 := &nodeselection.SelectedNode{
 		ID:         thirdID,
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*uploadselection.SelectedNode{subnetA1, subnetA2, subnetB1}
-	selector := uploadselection.SelectByID(nodes)
+	nodes := []*nodeselection.SelectedNode{subnetA1, subnetA2, subnetB1}
+	selector := nodeselection.SelectByID(nodes)
 
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}), 3)
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}), 3)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
 
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
-	assert.Len(t, selector.Select(3, uploadselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{thirdID}).WithAutoExcludeSubnets()), 1)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
+	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{thirdID}).WithAutoExcludeSubnets()), 1)
 }

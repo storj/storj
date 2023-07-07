@@ -18,7 +18,7 @@ import (
 	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -159,7 +159,7 @@ func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL)
 
 func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, req *pb.SignedNodeTagSets) error {
 	if req != nil {
-		tags := uploadselection.NodeTags{}
+		tags := nodeselection.NodeTags{}
 		for _, t := range req.Tags {
 			verifiedTags, signerID, err := verifyTags(ctx, service.nodeTagAuthority, nodeID, t)
 			if err != nil {
@@ -169,7 +169,7 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 
 			ts := time.Unix(verifiedTags.Timestamp, 0)
 			for _, vt := range verifiedTags.Tags {
-				tags = append(tags, uploadselection.NodeTag{
+				tags = append(tags, nodeselection.NodeTag{
 					NodeID:   nodeID,
 					Name:     vt.Name,
 					Value:    vt.Value,

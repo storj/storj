@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -205,7 +205,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*uploadselection.SelectedNode
+			var nodes []*nodeselection.SelectedNode
 			var err error
 
 			if i%2 == 0 {
@@ -326,7 +326,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*uploadselection.SelectedNode
+			var nodes []*nodeselection.SelectedNode
 			var err error
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: numNodesToSelect,
@@ -670,7 +670,7 @@ func TestSuspendedSelection(t *testing.T) {
 			}
 		}
 
-		var nodes []*uploadselection.SelectedNode
+		var nodes []*nodeselection.SelectedNode
 		var err error
 
 		numNodesToSelect := 10

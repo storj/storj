@@ -26,7 +26,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
@@ -148,10 +148,10 @@ func TestOnlineOffline(t *testing.T) {
 		require.Empty(t, offline)
 		require.Len(t, online, 2)
 
-		require.False(t, slices.ContainsFunc(online, func(node uploadselection.SelectedNode) bool {
+		require.False(t, slices.ContainsFunc(online, func(node nodeselection.SelectedNode) bool {
 			return node.ID == unreliableNodeID
 		}))
-		require.False(t, slices.ContainsFunc(offline, func(node uploadselection.SelectedNode) bool {
+		require.False(t, slices.ContainsFunc(offline, func(node nodeselection.SelectedNode) bool {
 			return node.ID == unreliableNodeID
 		}))
 	})
@@ -193,7 +193,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 
 		reputable := map[storj.NodeID]bool{}
 
-		countReputable := func(selected []*uploadselection.SelectedNode) (count int) {
+		countReputable := func(selected []*nodeselection.SelectedNode) (count int) {
 			for _, n := range selected {
 				if reputable[n.ID] {
 					count++

@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -60,8 +60,8 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) Reliable(context.Context, time.Duration, time.Duration) ([]uploadselection.SelectedNode, []uploadselection.SelectedNode, error) {
-	return []uploadselection.SelectedNode{
+func (fakeOverlayDB) Reliable(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
+	return []nodeselection.SelectedNode{
 		{ID: testrand.NodeID()},
 		{ID: testrand.NodeID()},
 		{ID: testrand.NodeID()},

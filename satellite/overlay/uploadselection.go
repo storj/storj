@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 // UploadSelectionDB implements the database for upload selection cache.
@@ -18,7 +18,7 @@ import (
 // architecture: Database
 type UploadSelectionDB interface {
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error)
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 }
 
 // UploadSelectionCacheConfig is a configuration for upload selection cache.
@@ -35,14 +35,14 @@ type UploadSelectionCache struct {
 	db              UploadSelectionDB
 	selectionConfig NodeSelectionConfig
 
-	cache sync2.ReadCacheOf[*uploadselection.State]
+	cache sync2.ReadCacheOf[*nodeselection.State]
 
-	defaultFilters uploadselection.NodeFilters
+	defaultFilters nodeselection.NodeFilters
 	placementRules PlacementRules
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
-func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig, defaultFilter uploadselection.NodeFilters, placementRules PlacementRules) (*UploadSelectionCache, error) {
+func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig, defaultFilter nodeselection.NodeFilters, placementRules PlacementRules) (*UploadSelectionCache, error) {
 	cache := &UploadSelectionCache{
 		log:             log,
 		db:              db,
@@ -69,7 +69,7 @@ func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection.State, err error) {
+func (cache *UploadSelectionCache) read(ctx context.Context) (_ *nodeselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	reputableNodes, newNodes, err := cache.db.SelectAllStorageNodesUpload(ctx, cache.selectionConfig)
@@ -77,7 +77,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection
 		return nil, Error.Wrap(err)
 	}
 
-	state := uploadselection.NewState(reputableNodes, newNodes)
+	state := nodeselection.NewState(reputableNodes, newNodes)
 
 	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
 	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
@@ -88,7 +88,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ *uploadselection
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
 // If the cache hasn't been refreshed recently it will do so first.
-func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*uploadselection.SelectedNode, err error) {
+func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -104,12 +104,12 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	filters = append(filters, cache.defaultFilters)
 	filters = filters.WithAutoExcludeSubnets()
 
-	selected, err := state.Select(ctx, uploadselection.Request{
+	selected, err := state.Select(ctx, nodeselection.Request{
 		Count:       req.RequestedCount,
 		NewFraction: cache.selectionConfig.NewNodeFraction,
 		NodeFilters: filters,
 	})
-	if uploadselection.ErrNotEnoughNodes.Has(err) {
+	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
 	return selected, err

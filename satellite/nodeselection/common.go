@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 // Package uploadselection implements node selection logic for uploads.
-package uploadselection
+package nodeselection
 
 import (
 	"github.com/spacemonkeygo/monkit/v3"
