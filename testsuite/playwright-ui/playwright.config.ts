@@ -52,7 +52,13 @@ const config: PlaywrightTestConfig = {
             },
         ],
         ["list"],
-		["html", { open: "never" }],
+		[
+            "html",
+            {
+                open: "never",
+                outputFolder: "test-results",
+            }
+        ],
 
   ],
     use: {                                              /* Shared settings for all the projects below. */
