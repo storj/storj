@@ -47,8 +47,9 @@ const config: PlaywrightTestConfig = {
             "allure-playwright",
             {
                 detail: true,
-                outputFolder: "allure-results",
+                outputFolder: "allure-report/",
                 suiteTitle: false,
+
             },
         ],
         ["list"],
