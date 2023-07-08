@@ -149,6 +149,9 @@ pipeline {
             }
             post {
                 always {
+                    dir("testsuite/playwright-ui") {
+                        sh 'npm run posttest'
+                    }
                     archiveArtifacts artifacts: 'authservice.log,  testsuite/playwright-ui/test-results/, testsuite/playwright-ui/html-report/, testsuite/playwright-ui/allure-report, testsuite/playwright-ui/allure-results'
                 }
             }
@@ -164,8 +167,8 @@ pipeline {
                 }
                 stage('report') {
                     steps {
-                        //execute the report
-                        sh 'npm run posttest'
+                        // execute the report
+                        // sh 'npm run posttest'
                         sh 'echo "Test complete"'
                     }
                 }
