@@ -57,7 +57,7 @@ const config: PlaywrightTestConfig = {
             "html",
             {
                 open: "never",
-                outputFolder: "test-results",
+                outputFolder: "./html-report/",
             }
         ],
 
