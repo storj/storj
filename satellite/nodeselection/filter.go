@@ -21,17 +21,16 @@ type NodeFilters []NodeFilter
 // NodeFilterFunc is helper to use func as NodeFilter.
 type NodeFilterFunc func(node *SelectedNode) bool
 
-// ExcludeAll will never select any node.
-var ExcludeAll = NodeFilters{
-	NodeFilterFunc(func(node *SelectedNode) bool {
-		return false
-	}),
-}
-
 // MatchInclude implements NodeFilter interface.
 func (n NodeFilterFunc) MatchInclude(node *SelectedNode) bool {
 	return n(node)
 }
+
+// ExcludeAllFilter will never select any node.
+type ExcludeAllFilter struct{}
+
+// MatchInclude implements NodeFilter interface.
+func (ExcludeAllFilter) MatchInclude(node *SelectedNode) bool { return false }
 
 // MatchInclude implements NodeFilter interface.
 func (n NodeFilters) MatchInclude(node *SelectedNode) bool {

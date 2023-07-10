@@ -11,6 +11,7 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
@@ -64,12 +65,7 @@ func NewPlacementRules() *ConfigurablePlacementRule {
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
 	d.placements[storj.EEA] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		for _, c := range location.EeaNonEuCountries {
-			if c == isoCountryCode {
-				return true
-			}
-		}
-		for _, c := range location.EuCountries {
+		for _, c := range nodeselection.EeaCountries {
 			if c == isoCountryCode {
 				return true
 			}
@@ -77,7 +73,7 @@ func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
 		return false
 	})
 	d.placements[storj.EU] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		for _, c := range location.EuCountries {
+		for _, c := range nodeselection.EuCountries {
 			if c == isoCountryCode {
 				return true
 			}
@@ -106,7 +102,11 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 		"country": func(countries ...string) (nodeselection.NodeFilters, error) {
 			countryCodes := make([]location.CountryCode, len(countries))
 			for i, country := range countries {
-				countryCodes[i] = location.ToCountryCode(country)
+				code := location.ToCountryCode(country)
+				if code == location.None {
+					return nil, errs.New("invalid country code %q", code)
+				}
+				countryCodes[i] = code
 			}
 			return nodeselection.NodeFilters{}.WithCountryFilter(func(code location.CountryCode) bool {
 				for _, expectedCode := range countryCodes {
@@ -170,7 +170,9 @@ func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementCons
 		return nodeselection.NodeFilters{}
 	}
 	if filters, found := d.placements[constraint]; found {
-		return filters
+		return slices.Clone(filters)
 	}
-	return nodeselection.ExcludeAll
+	return nodeselection.NodeFilters{
+		nodeselection.ExcludeAllFilter{},
+	}
 }

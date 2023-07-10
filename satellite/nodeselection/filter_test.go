@@ -74,7 +74,7 @@ func TestCriteria_NodeIDAndSubnet(t *testing.T) {
 
 func TestCriteria_Geofencing(t *testing.T) {
 	eu := NodeFilters{}.WithCountryFilter(func(code location.CountryCode) bool {
-		for _, c := range location.EuCountries {
+		for _, c := range EuCountries {
 			if c == code {
 				return true
 			}

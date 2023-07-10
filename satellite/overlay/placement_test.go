@@ -17,6 +17,12 @@ func TestPlacementFromString(t *testing.T) {
 	signer, err := storj.NodeIDFromString("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4")
 	require.NoError(t, err)
 
+	t.Run("invalid country-code", func(t *testing.T) {
+		p := NewPlacementRules()
+		err := p.AddPlacementFromString(`1:country("ZZZZ")`)
+		require.Error(t, err)
+	})
+
 	t.Run("single country", func(t *testing.T) {
 		p := NewPlacementRules()
 		err := p.AddPlacementFromString(`11:country("GB")`)
