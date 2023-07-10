@@ -23,7 +23,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 	"storj.io/private/version"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -39,7 +39,7 @@ type overlaycache struct {
 }
 
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
-func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
 	for {
 		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
 		if err != nil {
@@ -48,13 +48,19 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			}
 			return reputable, new, err
 		}
+
+		err = cache.addNodeTags(ctx, append(reputable, new...))
+		if err != nil {
+			return reputable, new, err
+		}
+
 		break
 	}
 
 	return reputable, new, err
 }
 
-func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -95,10 +101,10 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var reputableNodes []*uploadselection.SelectedNode
-	var newNodes []*uploadselection.SelectedNode
+	var reputableNodes []*nodeselection.SelectedNode
+	var newNodes []*nodeselection.SelectedNode
 	for rows.Next() {
-		var node uploadselection.SelectedNode
+		var node nodeselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
@@ -124,13 +130,19 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 }
 
 // SelectAllStorageNodesDownload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
-func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*nodeselection.SelectedNode, err error) {
 	for {
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
+
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
+			return nodes, err
+		}
+
+		err = cache.addNodeTags(ctx, nodes)
+		if err != nil {
 			return nodes, err
 		}
 		break
@@ -139,7 +151,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 	return nodes, err
 }
 
-func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -161,9 +173,9 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*uploadselection.SelectedNode
+	var nodes []*nodeselection.SelectedNode
 	for rows.Next() {
-		var node uploadselection.SelectedNode
+		var node nodeselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var noise noiseScanner
@@ -449,7 +461,7 @@ func (cache *overlaycache) knownReliableInExcludedCountries(ctx context.Context,
 }
 
 // KnownReliable filters a set of nodes to reliable nodes. List is split into online and offline nodes.
-func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
 	for {
 		online, offline, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
 		if err != nil {
@@ -464,7 +476,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.Node
 	return online, offline, err
 }
 
-func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -501,7 +513,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 }
 
 // Reliable returns all nodes that are reliable, online and offline.
-func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
 	for {
 		online, offline, err = cache.reliable(ctx, onlineWindow, asOfSystemInterval)
 		if err != nil {
@@ -516,7 +528,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSyste
 	return online, offline, nil
 }
 
-func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []uploadselection.SelectedNode, offline []uploadselection.SelectedNode, err error) {
+func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(cache.db.Query(ctx, `
@@ -547,14 +559,14 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 	return online, offline, Error.Wrap(err)
 }
 
-func scanSelectedNode(rows tagsql.Rows) (uploadselection.SelectedNode, bool, error) {
+func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, bool, error) {
 	var onlineNode bool
-	var node uploadselection.SelectedNode
+	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
 	var lastIPPort sql.NullString
 	err := rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
 	if err != nil {
-		return uploadselection.SelectedNode{}, false, err
+		return nodeselection.SelectedNode{}, false, err
 	}
 
 	if lastIPPort.Valid {
@@ -1469,7 +1481,7 @@ func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj
 }
 
 // IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
-func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *uploadselection.SelectedNode) error) (err error) {
+func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *nodeselection.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -1485,7 +1497,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var node uploadselection.SelectedNode
+		var node nodeselection.SelectedNode
 		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
@@ -1588,7 +1600,7 @@ func (cache *overlaycache) OneTimeFixLastNets(ctx context.Context) error {
 	return Error.Wrap(err)
 }
 
-func (cache *overlaycache) UpdateNodeTags(ctx context.Context, tags uploadselection.NodeTags) error {
+func (cache *overlaycache) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags) error {
 	for _, t := range tags {
 		err := cache.db.ReplaceNoReturn_NodeTags(ctx,
 			dbx.NodeTags_NodeId(t.NodeID.Bytes()),
@@ -1604,13 +1616,13 @@ func (cache *overlaycache) UpdateNodeTags(ctx context.Context, tags uploadselect
 	return nil
 }
 
-func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (uploadselection.NodeTags, error) {
+func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
 	rows, err := cache.db.All_NodeTags_By_NodeId(ctx, dbx.NodeTags_NodeId(id.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	var tags uploadselection.NodeTags
+	var tags nodeselection.NodeTags
 	for _, row := range rows {
 		nodeIDBytes, err := storj.NodeIDFromBytes(row.NodeId)
 		if err != nil {
@@ -1620,7 +1632,7 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (up
 		if err != nil {
 			return tags, Error.Wrap(errs.New("Invalid nodeID in the database: %x", row.NodeId))
 		}
-		tags = append(tags, uploadselection.NodeTag{
+		tags = append(tags, nodeselection.NodeTag{
 			NodeID:   nodeIDBytes,
 			Name:     row.Name,
 			Value:    row.Value,
@@ -1629,4 +1641,36 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (up
 		})
 	}
 	return tags, err
+}
+
+func (cache *overlaycache) addNodeTags(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
+	rows, err := cache.db.All_NodeTags(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	tagsByNode := map[storj.NodeID]nodeselection.NodeTags{}
+	for _, row := range rows {
+		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		signerID, err := storj.NodeIDFromBytes(row.Signer)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		tagsByNode[nodeID] = append(tagsByNode[nodeID], nodeselection.NodeTag{
+			NodeID:   nodeID,
+			Name:     row.Name,
+			Value:    row.Value,
+			SignedAt: row.SignedAt,
+			Signer:   signerID,
+		})
+
+	}
+
+	for _, node := range nodes {
+		node.Tags = tagsByNode[node.ID]
+	}
+	return nil
 }

@@ -456,6 +456,8 @@ github.com/jtolds/tracetagger/v2 v2.0.0-rc5 h1:SriMFVtftPsQmG+0xaABotz9HnoKoo1QM
 github.com/jtolds/tracetagger/v2 v2.0.0-rc5/go.mod h1:61Fh+XhbBONy+RsqkA+xTtmaFbEVL040m9FAF/hTrjQ=
 github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d h1:MAGZUXA8MLSA5oJT1Gua3nLSyTYF2uvBgM4Sfs5+jts=
 github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d/go.mod h1:PXFUrknJu7TkBNyL8t7XWDPtDFFLFrNQQAdsXv9YfJE=
+github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b h1:HKvXTXZTeUHXRibg2ilZlkGSQP6A3cs0zXrBd4xMi6M=
+github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b/go.mod h1:Mrym6OnPMkBKvN8/uXSkyhFSh6ndKKYE+Q4kxCfQ4V0=
 github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6 h1:iVMQyk78uOpX/UKjEbzyBdptXgEz6jwGwo7kM9IQ+3U=
 github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6/go.mod h1:MEkhEPFwP3yudWO0lj6vfYpLIB+3eIcuIW+e0AZzUQk=
 github.com/julienschmidt/httprouter v1.2.0 h1:TDTW5Yz1mjftljbcKqRcrYhd4XeOoI98t+9HbQbYf7g=

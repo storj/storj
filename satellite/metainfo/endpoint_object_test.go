@@ -22,7 +22,9 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
+	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
@@ -37,6 +39,9 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"
@@ -2449,4 +2454,101 @@ func TestListUploads(t *testing.T) {
 		// test will fail when we will fix uplink and we will need to adjust this test
 		require.Equal(t, 1000, items)
 	})
+}
+
+func TestPlacements(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
+
+	placementRules := overlay.ConfigurablePlacementRule{}
+	err := placementRules.Set(fmt.Sprintf(`16:tag("%s", "certified","true")`, satelliteIdentity.ID()))
+	require.NoError(t, err)
+
+	testplanet.Run(t,
+		testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 12,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.RS.Min = 3
+					config.Metainfo.RS.Repair = 4
+					config.Metainfo.RS.Success = 5
+					config.Metainfo.RS.Total = 6
+					config.Metainfo.MaxInlineSegmentSize = 1
+					config.Placement = placementRules
+				},
+				StorageNode: func(index int, config *storagenode.Config) {
+					if index%2 == 0 {
+						tags := &pb.NodeTagSet{
+							NodeId:    testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
+							Timestamp: time.Now().Unix(),
+							Tags: []*pb.Tag{
+								{
+									Name:  "certified",
+									Value: []byte("true"),
+								},
+							},
+						}
+						signed, err := nodetag.Sign(ctx, tags, satelliteIdentity)
+						require.NoError(t, err)
+
+						config.Contact.Tags = contact.SignedTags(pb.SignedNodeTagSets{
+							Tags: []*pb.SignedNodeTagSet{
+								signed,
+							},
+						})
+					}
+
+				},
+			},
+		},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			buckets := satellite.API.Buckets.Service
+			uplink := planet.Uplinks[0]
+			projectID := uplink.Projects[0].ID
+
+			// create buckets with different placement (placement 16 is configured above)
+			createGeofencedBucket(t, ctx, buckets, projectID, "constrained", 16)
+
+			objectNo := 10
+			for i := 0; i < objectNo; i++ {
+				// upload an object to one of the global buckets
+				err := uplink.Upload(ctx, satellite, "constrained", "testobject"+strconv.Itoa(i), make([]byte, 10240))
+				require.NoError(t, err)
+			}
+
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+			metainfoClient, err := uplink.DialMetainfo(ctx, satellite, apiKey)
+			require.NoError(t, err)
+			defer func() {
+				_ = metainfoClient.Close()
+			}()
+
+			objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
+				Bucket: []byte("constrained"),
+			})
+			require.NoError(t, err)
+			require.Len(t, objects, objectNo)
+
+			for _, listedObject := range objects {
+				o, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+					Bucket:             []byte("constrained"),
+					EncryptedObjectKey: listedObject.EncryptedObjectKey,
+				})
+				require.NoError(t, err)
+
+				for _, limit := range o.DownloadedSegments[0].Limits {
+					if limit != nil {
+						// starting from 2 (first identity used for satellite, SN with even index are fine)
+						for i := 2; i < 11; i += 2 {
+							require.NotEqual(t, testidentity.MustPregeneratedSignedIdentity(i, storj.LatestIDVersion()).ID, limit.Limit.StorageNodeId)
+						}
+					}
+				}
+			}
+		},
+	)
 }

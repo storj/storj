@@ -15202,6 +15202,49 @@ func (obj *pgxImpl) All_NodeTags_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_NodeTags(ctx context.Context) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
 	storagenode_paystub_period StoragenodePaystub_Period_Field) (
@@ -23294,6 +23337,49 @@ func (obj *pgxcockroachImpl) All_NodeTags_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_NodeTags(ctx context.Context) (
+	rows []*NodeTags, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_tags.node_id, node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer FROM node_tags")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*NodeTags, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				node_tags := &NodeTags{}
+				err = __rows.Scan(&node_tags.NodeId, &node_tags.Name, &node_tags.Value, &node_tags.SignedAt, &node_tags.Signer)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, node_tags)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
 	storagenode_paystub_period StoragenodePaystub_Period_Field) (
@@ -28350,6 +28436,15 @@ func (rx *Rx) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx c
 	return tx.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_user_id)
 }
 
+func (rx *Rx) All_NodeTags(ctx context.Context) (
+	rows []*NodeTags, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_NodeTags(ctx)
+}
+
 func (rx *Rx) All_NodeTags_By_NodeId(ctx context.Context,
 	node_tags_node_id NodeTags_NodeId_Field) (
 	rows []*NodeTags, err error) {
@@ -30373,6 +30468,9 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
+
+	All_NodeTags(ctx context.Context) (
+		rows []*NodeTags, err error)
 
 	All_NodeTags_By_NodeId(ctx context.Context,
 		node_tags_node_id NodeTags_NodeId_Field) (

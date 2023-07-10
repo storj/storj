@@ -34,6 +34,6 @@ onMounted(async (): Promise<void> => {
 
 <style scoped lang="scss">
     .objects-area {
-        padding: 20px 45px;
+        padding-bottom: 55px;
     }
 </style>

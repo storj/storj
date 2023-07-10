@@ -10,14 +10,13 @@
         />
         <VLoader v-if="areMembersFetching" width="100px" height="100px" />
 
-        <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
+        <div v-if="isEmptySearchResultShown && !areMembersFetching" class="team-area__empty-search-result-area">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
             <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
         </div>
 
         <v-table
             v-if="!areMembersFetching && !isEmptySearchResultShown"
-            class="team-area__table"
             items-label="project members"
             :selectable="true"
             :limit="projectMemberLimit"
@@ -198,7 +197,6 @@ onMounted(async (): Promise<void> => {
 <style scoped lang="scss">
     .team-area {
         padding: 40px 30px 55px;
-        height: calc(100% - 95px);
         font-family: 'font_regular', sans-serif;
 
         &__header {
@@ -219,7 +217,6 @@ onMounted(async (): Promise<void> => {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 39px;
-                margin-top: 100px;
             }
 
             &__image {

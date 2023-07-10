@@ -17,10 +17,10 @@
                         :on-press="() => {}"
                     />
                     <div class="info-step__column__bullets">
-                        <InfoBullet class="info-step__column__bullets__item" title="Projects" info="1 project" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Storage" info="25 GB limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Egress" info="25 GB limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Segments" info="10,000 segments limit" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Projects" :info="freeProjects" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Storage" :info="`${freeUsageValue(user.projectStorageLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Egress" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                         <InfoBullet class="info-step__column__bullets__item" title="Link Sharing" info="Link sharing with Storj domain" />
                     </div>
                 </div>
@@ -65,10 +65,12 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
+import { User } from '@/types/users';
+import { Size } from '@/utils/bytesSize';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -85,6 +87,28 @@ const props = defineProps<{
 const storagePrice = ref<string>('Storage $0.004 GB / month');
 const downloadInfo = ref<string>('25 GB free every month');
 const downloadMoreInfo = ref<string>('');
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
+
+/**
+ * Returns formatted free projects count.
+ */
+const freeProjects = computed((): string => {
+    return `${user.value.projectLimit} project${user.value.projectLimit > 1 ? 's' : ''}`;
+});
+
+/**
+ * Returns formatted free usage value.
+ */
+function freeUsageValue(value: number): string {
+    const size = new Size(value);
+    return `${size.formattedBytes} ${size.label}`;
+}
 
 /**
  * Lifecycle hook before initial render.

@@ -321,7 +321,10 @@ type CreateObjectCopy struct {
 }
 
 // Run creates the copy.
-func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB) (copyObj metabase.Object, expectedOriginalSegments []metabase.RawSegment, expectedCopySegments []metabase.RawSegment) {
+//
+// The duplicateMetadata argument is a hack and it will be great to get rid of it once
+// duplicateMetadata is no longer an option.
+func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB, duplicateMetadata bool) (copyObj metabase.Object, expectedOriginalSegments []metabase.RawSegment, expectedCopySegments []metabase.RawSegment) {
 	var copyStream metabase.ObjectStream
 	if cc.CopyObjectStream != nil {
 		copyStream = *cc.CopyObjectStream
@@ -360,6 +363,11 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		} else {
 			expectedCopySegments[i].InlineData = []byte{}
 		}
+
+		if duplicateMetadata {
+			expectedCopySegments[i].Pieces = make(metabase.Pieces, len(expectedOriginalSegments[i].Pieces))
+			copy(expectedCopySegments[i].Pieces, expectedOriginalSegments[i].Pieces)
+		}
 	}
 
 	opts := cc.FinishObject
@@ -374,6 +382,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
 		}
 	}
+	opts.DuplicateMetadata = duplicateMetadata
 
 	copyObj, err := db.FinishCopyObject(ctx, *opts)
 	require.NoError(t, err)

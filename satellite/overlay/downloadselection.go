@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 // DownloadSelectionDB implements the database for download selection cache.
@@ -19,7 +19,7 @@ import (
 // architecture: Database
 type DownloadSelectionDB interface {
 	// SelectAllStorageNodesDownload returns nodes that are ready for downloading
-	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*uploadselection.SelectedNode, error)
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error)
 }
 
 // DownloadSelectionCacheConfig contains configuration for the selection cache.
@@ -36,15 +36,17 @@ type DownloadSelectionCache struct {
 	db     DownloadSelectionDB
 	config DownloadSelectionCacheConfig
 
-	cache sync2.ReadCacheOf[*DownloadSelectionCacheState]
+	cache          sync2.ReadCacheOf[*DownloadSelectionCacheState]
+	placementRules PlacementRules
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
-func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
+func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, placementRules PlacementRules, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
 	cache := &DownloadSelectionCache{
-		log:    log,
-		db:     db,
-		config: config,
+		log:            log,
+		db:             db,
+		placementRules: placementRules,
+		config:         config,
 	}
 	return cache, cache.cache.Init(config.Staleness/2, config.Staleness, cache.read)
 }
@@ -85,11 +87,11 @@ func (cache *DownloadSelectionCache) GetNodeIPsFromPlacement(ctx context.Context
 		return nil, Error.Wrap(err)
 	}
 
-	return state.IPsFromPlacement(nodes, placement), nil
+	return state.FilteredIPs(nodes, cache.placementRules(placement)), nil
 }
 
 // GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
-func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*uploadselection.SelectedNode, err error) {
+func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.cache.Get(ctx, time.Now())
@@ -111,12 +113,12 @@ func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
 // DownloadSelectionCacheState contains state of download selection cache.
 type DownloadSelectionCacheState struct {
 	// byID returns IP based on storj.NodeID
-	byID map[storj.NodeID]*uploadselection.SelectedNode // TODO: optimize, avoid pointery structures for performance
+	byID map[storj.NodeID]*nodeselection.SelectedNode // TODO: optimize, avoid pointery structures for performance
 }
 
 // NewDownloadSelectionCacheState creates a new state from the nodes.
-func NewDownloadSelectionCacheState(nodes []*uploadselection.SelectedNode) *DownloadSelectionCacheState {
-	byID := map[storj.NodeID]*uploadselection.SelectedNode{}
+func NewDownloadSelectionCacheState(nodes []*nodeselection.SelectedNode) *DownloadSelectionCacheState {
+	byID := map[storj.NodeID]*nodeselection.SelectedNode{}
 	for _, n := range nodes {
 		byID[n.ID] = n
 	}
@@ -141,11 +143,11 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 	return xs
 }
 
-// IPsFromPlacement returns node ip:port for nodes that are in state. Results are filtered out by placement.
-func (state *DownloadSelectionCacheState) IPsFromPlacement(nodes []storj.NodeID, placement storj.PlacementConstraint) map[storj.NodeID]string {
+// FilteredIPs returns node ip:port for nodes that are in state. Results are filtered out..
+func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilters) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
-		if n, exists := state.byID[nodeID]; exists && placement.AllowedCountry(n.CountryCode) {
+		if n, exists := state.byID[nodeID]; exists && filter.MatchInclude(n) {
 			xs[nodeID] = n.LastIPPort
 		}
 	}
@@ -153,8 +155,8 @@ func (state *DownloadSelectionCacheState) IPsFromPlacement(nodes []storj.NodeID,
 }
 
 // Nodes returns node ip:port for nodes that are in state.
-func (state *DownloadSelectionCacheState) Nodes(nodes []storj.NodeID) map[storj.NodeID]*uploadselection.SelectedNode {
-	xs := make(map[storj.NodeID]*uploadselection.SelectedNode, len(nodes))
+func (state *DownloadSelectionCacheState) Nodes(nodes []storj.NodeID) map[storj.NodeID]*nodeselection.SelectedNode {
+	xs := make(map[storj.NodeID]*nodeselection.SelectedNode, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists {
 			xs[nodeID] = n.Clone() // TODO: optimize the clones

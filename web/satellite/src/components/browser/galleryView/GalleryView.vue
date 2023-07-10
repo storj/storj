@@ -35,7 +35,7 @@
                     <ButtonIcon
                         class="gallery__header__functional__item"
                         :icon="ShareIcon"
-                        :on-press="() => setActiveModal(ShareModal)"
+                        :on-press="showShareModal"
                         info="Share"
                     />
                     <ButtonIcon
@@ -48,7 +48,7 @@
                         :on-distribution="() => setActiveModal(DistributionModal)"
                         :on-view-details="() => setActiveModal(DetailsModal)"
                         :on-download="download"
-                        :on-share="() => setActiveModal(ShareModal)"
+                        :on-share="showShareModal"
                         :on-delete="() => setActiveModal(DeleteModal)"
                     />
                 </div>
@@ -121,12 +121,14 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useLinksharing } from '@/composables/useLinksharing';
 import { RouteConfig } from '@/types/router';
+import { ShareType } from '@/types/browser';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
 import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';
 import DeleteModal from '@/components/browser/galleryView/modals/Delete.vue';
-import ShareModal from '@/components/browser/galleryView/modals/Share.vue';
+import ShareModal from '@/components/modals/ShareModal.vue';
 import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
 import DistributionModal from '@/components/browser/galleryView/modals/Distribution.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -148,6 +150,7 @@ const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
+const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const route = useRoute();
 
@@ -180,13 +183,6 @@ const file = computed((): BrowserObject => {
  */
 const fileIndex = computed((): number => {
     return obStore.sortedFiles.findIndex(f => f.Key === filePath.value.split('/').pop());
-});
-
-/**
- * Format the file size to be displayed.
- */
-const size = computed((): string => {
-    return prettyBytes(obStore.sortedFiles.find(f => f.Key === file.value.Key)?.Size || 0);
 });
 
 /**
@@ -271,7 +267,13 @@ const currentPath = computed((): string => {
 async function fetchPreviewAndMapUrl(): Promise<void> {
     isLoading.value = true;
 
-    const url: string = await obStore.state.fetchPreviewAndMapUrl(filePath.value);
+    let url = '';
+    try {
+        url = await generateObjectPreviewAndMapURL(filePath.value);
+    } catch (error) {
+        notify.error(`Unable to get file preview and map URL. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+    }
+
     if (!url) {
         previewAndMapFailed.value = true;
         isLoading.value = false;
@@ -433,6 +435,14 @@ function findCachedURL(): string | undefined {
     }
 
     return cache.url;
+}
+
+/**
+ * Displays the Share modal.
+ */
+function showShareModal(): void {
+    appStore.setShareModalType(ShareType.File);
+    appStore.updateActiveModal(ShareModal);
 }
 
 /**

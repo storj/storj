@@ -5,7 +5,10 @@ package overlay_test
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -14,15 +17,17 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -58,6 +63,8 @@ func TestRefresh(t *testing.T) {
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
+			nodeselection.NodeFilters{},
+			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -127,21 +134,21 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 type mockdb struct {
 	mu        sync.Mutex
 	callCount int
-	reputable []*uploadselection.SelectedNode
-	new       []*uploadselection.SelectedNode
+	reputable []*nodeselection.SelectedNode
+	new       []*nodeselection.SelectedNode
 }
 
-func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*uploadselection.SelectedNode, err error) {
+func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	sync2.Sleep(ctx, 500*time.Millisecond)
 	m.callCount++
 
-	reputable = make([]*uploadselection.SelectedNode, len(m.reputable))
+	reputable = make([]*nodeselection.SelectedNode, len(m.reputable))
 	for i, n := range m.reputable {
 		reputable[i] = n.Clone()
 	}
-	new = make([]*uploadselection.SelectedNode, len(m.new))
+	new = make([]*nodeselection.SelectedNode, len(m.new))
 	for i, n := range m.new {
 		new[i] = n.Clone()
 	}
@@ -160,6 +167,8 @@ func TestRefreshConcurrent(t *testing.T) {
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
+		nodeselection.NodeFilters{},
+		overlay.NewPlacementRules().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -185,6 +194,8 @@ func TestRefreshConcurrent(t *testing.T) {
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
+		nodeselection.NodeFilters{},
+		overlay.NewPlacementRules().CreateFilters,
 	)
 	require.NoError(t, err)
 	ctx.Go(func() error { return cache.Run(cacheCtx) })
@@ -213,6 +224,8 @@ func TestGetNodes(t *testing.T) {
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
+			nodeselection.NodeFilters{},
+			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -276,13 +289,13 @@ func TestGetNodesConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	reputableNodes := []*uploadselection.SelectedNode{{
+	reputableNodes := []*nodeselection.SelectedNode{{
 		ID:         storj.NodeID{1},
 		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
 		LastNet:    "127.0.0",
 		LastIPPort: "127.0.0.9:8000",
 	}}
-	newNodes := []*uploadselection.SelectedNode{{
+	newNodes := []*nodeselection.SelectedNode{{
 		ID:         storj.NodeID{1},
 		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
 		LastNet:    "127.0.0",
@@ -299,6 +312,8 @@ func TestGetNodesConcurrent(t *testing.T) {
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
+		nodeselection.NodeFilters{},
+		overlay.NewPlacementRules().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -344,6 +359,8 @@ func TestGetNodesConcurrent(t *testing.T) {
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
+		nodeselection.NodeFilters{},
+		overlay.NewPlacementRules().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -381,7 +398,7 @@ func TestGetNodesDistinct(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	reputableNodes := []*uploadselection.SelectedNode{{
+	reputableNodes := []*nodeselection.SelectedNode{{
 		ID:         testrand.NodeID(),
 		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
 		LastNet:    "127.0.0",
@@ -403,7 +420,7 @@ func TestGetNodesDistinct(t *testing.T) {
 		LastIPPort: "127.0.2.7:8000",
 	}}
 
-	newNodes := []*uploadselection.SelectedNode{{
+	newNodes := []*nodeselection.SelectedNode{{
 		ID:         testrand.NodeID(),
 		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
 		LastNet:    "127.0.0",
@@ -434,6 +451,8 @@ func TestGetNodesDistinct(t *testing.T) {
 			&mockDB,
 			highStaleness,
 			config,
+			nodeselection.NodeFilters{}.WithAutoExcludeSubnets(),
+			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -461,7 +480,7 @@ func TestGetNodesDistinct(t *testing.T) {
 
 	{ // test that distinctIP=true allows selecting 6 nodes
 		// emulate DistinctIP=false behavior by filling in LastNets with unique addresses
-		for _, nodeList := range [][]*uploadselection.SelectedNode{reputableNodes, newNodes} {
+		for _, nodeList := range [][]*nodeselection.SelectedNode{reputableNodes, newNodes} {
 			for i := range nodeList {
 				nodeList[i].LastNet = nodeList[i].LastIPPort
 			}
@@ -473,6 +492,8 @@ func TestGetNodesDistinct(t *testing.T) {
 			&mockDB,
 			highStaleness,
 			config,
+			nodeselection.NodeFilters{},
+			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -496,6 +517,8 @@ func TestGetNodesError(t *testing.T) {
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
+		nodeselection.NodeFilters{},
+		overlay.NewPlacementRules().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -529,6 +552,8 @@ func TestNewNodeFraction(t *testing.T) {
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
+			nodeselection.NodeFilters{},
+			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -570,4 +595,92 @@ func TestNewNodeFraction(t *testing.T) {
 		}
 		require.Equal(t, len(n)-reputableCount, int(5*newNodeFraction)) // 1, 1
 	})
+}
+
+func BenchmarkGetNodes(b *testing.B) {
+	newNodes := 2000
+	oldNodes := 18000
+	required := 110
+	if testing.Short() {
+		newNodes = 10
+		oldNodes = 50
+		required = 2
+	}
+
+	ctx, cancel := context.WithCancel(testcontext.New(b))
+	defer cancel()
+	log, err := zap.NewDevelopment()
+	require.NoError(b, err)
+	placement := overlay.NewPlacementRules()
+	placement.AddLegacyStaticRules()
+	defaultFilter := nodeselection.NodeFilters{}
+
+	db := NewMockUploadSelectionDb(
+		generatedSelectedNodes(b, oldNodes),
+		generatedSelectedNodes(b, newNodes),
+	)
+	cache, err := overlay.NewUploadSelectionCache(log, db, 10*time.Minute, overlay.NodeSelectionConfig{
+		NewNodeFraction: 0.1,
+	}, defaultFilter, placement.CreateFilters)
+	require.NoError(b, err)
+
+	go func() {
+		_ = cache.Run(ctx)
+	}()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: required,
+			Placement:      storj.US,
+		})
+		require.NoError(b, err)
+	}
+}
+
+// MockUploadSelection implements overlay.UploadSelectionDB with a static list.
+type MockUploadSelectionDB struct {
+	new       []*nodeselection.SelectedNode
+	reputable []*nodeselection.SelectedNode
+}
+
+// NewMockUploadSelectionDb creates a MockUploadSelectionDB with the given reputable and new nodes.
+func NewMockUploadSelectionDb(reputable, new []*nodeselection.SelectedNode) *MockUploadSelectionDB {
+	return &MockUploadSelectionDB{
+		new:       new,
+		reputable: reputable,
+	}
+
+}
+
+// SelectAllStorageNodesUpload implements overlay.UploadSelectionDB.
+func (m MockUploadSelectionDB) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
+	return m.reputable, m.new, nil
+}
+
+var _ overlay.UploadSelectionDB = &MockUploadSelectionDB{}
+
+func generatedSelectedNodes(b *testing.B, nodeNo int) []*nodeselection.SelectedNode {
+	nodes := make([]*nodeselection.SelectedNode, nodeNo)
+	ctx := testcontext.New(b)
+	for i := 0; i < nodeNo; i++ {
+		node := nodeselection.SelectedNode{}
+		identity, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(b, err)
+		node.ID = identity.ID
+
+		// with 5% percentage chance, we re-use an existing IP address.
+		if rand.Intn(100) < 5 && i > 0 {
+			prevParts := strings.Split(nodes[rand.Intn(i)].LastIPPort, ":")
+			node.LastIPPort = fmt.Sprintf("%s:%d", prevParts[0], rand.Int31n(10000)+1000)
+		} else {
+			node.LastIPPort = fmt.Sprintf("%d.%d.%d.%d:%d", 10+i/256/256%256, i/256%256, i%256, 1, rand.Int31n(10000)+1000)
+		}
+
+		parts := strings.Split(node.LastIPPort, ".")
+		node.LastNet = fmt.Sprintf("%s.%s.%s.0", parts[0], parts[1], parts[2])
+		node.CountryCode = []location.CountryCode{location.None, location.UnitedStates, location.Germany, location.Hungary, location.Austria}[i%5]
+		nodes[i] = &node
+	}
+	return nodes
 }

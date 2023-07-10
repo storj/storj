@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -29,7 +29,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, "", "", overlay.Config{
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, overlay.NewPlacementRules().CreateFilters, "", "", overlay.Config{
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},
@@ -40,7 +40,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, []string{})
+	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, overlay.NewPlacementRules().CreateFilters, []string{})
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
@@ -60,8 +60,8 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) Reliable(context.Context, time.Duration, time.Duration) ([]uploadselection.SelectedNode, []uploadselection.SelectedNode, error) {
-	return []uploadselection.SelectedNode{
+func (fakeOverlayDB) Reliable(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
+	return []nodeselection.SelectedNode{
 		{ID: testrand.NodeID()},
 		{ID: testrand.NodeID()},
 		{ID: testrand.NodeID()},
@@ -79,14 +79,16 @@ func TestReliabilityCache_OutOfPlacementPieces(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		overlay := planet.Satellites[0].Overlay.Service
+		overlayService := planet.Satellites[0].Overlay.Service
 		config := planet.Satellites[0].Config.Checker
 
-		cache := checker.NewReliabilityCache(overlay, config.ReliabilityCacheStaleness, []string{})
+		rules := overlay.NewPlacementRules()
+		rules.AddLegacyStaticRules()
+		cache := checker.NewReliabilityCache(overlayService, config.ReliabilityCacheStaleness, rules.CreateFilters, []string{})
 
 		nodesPlacement := func(location location.CountryCode, nodes ...*testplanet.StorageNode) {
 			for _, node := range nodes {
-				err := overlay.TestNodeCountryCode(ctx, node.ID(), location.String())
+				err := overlayService.TestNodeCountryCode(ctx, node.ID(), location.String())
 				require.NoError(t, err)
 			}
 			require.NoError(t, cache.Refresh(ctx))

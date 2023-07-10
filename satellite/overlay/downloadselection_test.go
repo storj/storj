@@ -16,7 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -31,6 +31,7 @@ func TestDownloadSelectionCacheState_Refresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
+			overlay.NewPlacementRules().CreateFilters,
 			downloadSelectionCacheConfig,
 		)
 		require.NoError(t, err)
@@ -63,6 +64,7 @@ func TestDownloadSelectionCacheState_GetNodeIPs(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
+			overlay.NewPlacementRules().CreateFilters,
 			downloadSelectionCacheConfig,
 		)
 		require.NoError(t, err)
@@ -88,7 +90,7 @@ func TestDownloadSelectionCacheState_IPs(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	node := &uploadselection.SelectedNode{
+	node := &nodeselection.SelectedNode{
 		ID: testrand.NodeID(),
 		Address: &pb.NodeAddress{
 			Address: "1.0.1.1:8080",
@@ -97,7 +99,7 @@ func TestDownloadSelectionCacheState_IPs(t *testing.T) {
 		LastIPPort: "1.0.1.1:8080",
 	}
 
-	state := overlay.NewDownloadSelectionCacheState([]*uploadselection.SelectedNode{node})
+	state := overlay.NewDownloadSelectionCacheState([]*nodeselection.SelectedNode{node})
 	require.Equal(t, state.Size(), 1)
 
 	ips := state.IPs([]storj.NodeID{testrand.NodeID(), node.ID})
@@ -114,6 +116,7 @@ func TestDownloadSelectionCache_GetNodes(t *testing.T) {
 		// create new cache and select nodes
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
+			overlay.NewPlacementRules().CreateFilters,
 			overlay.DownloadSelectionCacheConfig{
 				Staleness:      time.Hour,
 				OnlineWindow:   time.Hour,

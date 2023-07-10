@@ -81,6 +81,11 @@
                 />
                 <dots-icon v-else />
                 <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                    <div class="file-entry__functional__dropdown__item" @click.stop="share">
+                        <share-icon />
+                        <p class="file-entry__functional__dropdown__item__label">Share</p>
+                    </div>
+
                     <div
                         v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
                         @click.stop="confirmDeletion"
@@ -125,6 +130,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ObjectType } from '@/utils/objectIcon';
+import { ShareType } from '@/types/browser';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -390,7 +396,8 @@ function setShiftSelectedFiles(): void {
 function share(): void {
     obStore.closeDropdown();
     obStore.setObjectPathForModal(props.path + props.file.Key);
-    appStore.updateActiveModal(MODALS.shareObject);
+    appStore.setShareModalType(props.file.type === 'file' ? ShareType.File : ShareType.Folder);
+    appStore.updateActiveModal(MODALS.share);
 }
 
 /**

@@ -673,6 +673,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
 
+# perform server-side copy by duplicating metadata, instead of using segment_copies
+# metainfo.server-side-copy-duplicate-metadata: false
+
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 
@@ -888,6 +891,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether to enable piece tracker observer with ranged loop
 # piece-tracker.use-ranged-loop: true
+
+# detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...).
+# placement: ""
 
 # how often to remove unused project bandwidth rollups
 # project-bw-cleanup.interval: 24h0m0s

@@ -21,7 +21,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeselection/uploadselection"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
@@ -102,6 +102,7 @@ type SegmentRepairer struct {
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
+	placementRules                   overlay.PlacementRules
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -116,6 +117,7 @@ func NewSegmentRepairer(
 	overlay *overlay.Service,
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
+	placementRules overlay.PlacementRules,
 	repairOverrides checker.RepairOverrides,
 	config Config,
 ) *SegmentRepairer {
@@ -139,6 +141,7 @@ func NewSegmentRepairer(
 		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
 		doDeclumping:               config.DoDeclumping,
 		doPlacementCheck:           config.DoPlacementCheck,
+		placementRules:             placementRules,
 
 		nowFn: time.Now,
 	}
@@ -682,7 +685,7 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 
 		reliablePieces := metabase.Pieces{}
 
-		collectLastNets := func(reliable []uploadselection.SelectedNode) {
+		collectLastNets := func(reliable []nodeselection.SelectedNode) {
 			for _, node := range reliable {
 				pieceNum := nodeIDPieceMap[node.ID]
 				reliablePieces = append(reliablePieces, metabase.Piece{
@@ -705,9 +708,10 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	if repairer.doPlacementCheck && segment.Placement != storj.EveryCountry {
 		result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
-		checkPlacement := func(reliable []uploadselection.SelectedNode) {
+		nodeFilters := repairer.placementRules(segment.Placement)
+		checkPlacement := func(reliable []nodeselection.SelectedNode) {
 			for _, node := range reliable {
-				if segment.Placement.AllowedCountry(node.CountryCode) {
+				if nodeFilters.MatchInclude(&node) {
 					continue
 				}
 

@@ -173,6 +173,8 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.password,
                 userResponse.projectLimit,
                 userResponse.projectStorageLimit,
+                userResponse.projectBandwidthLimit,
+                userResponse.projectSegmentLimit,
                 userResponse.paidTier,
                 userResponse.isMFAEnabled,
                 userResponse.isProfessional,

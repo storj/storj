@@ -57,7 +57,12 @@
         </div>
         <div v-else class="pagination-container__pages-placeholder" />
 
-        <table-size-changer v-if="limit && totalPageCount && totalItemsCount > 10" :item-count="totalItemsCount" class="table-footer__sizer" :selected="pageSize" @change="sizeChanged">Size Changer</table-size-changer>
+        <table-size-changer
+            v-if="limit && totalPageCount && totalItemsCount > 10"
+            :item-count="totalItemsCount"
+            :selected="pageSize"
+            @change="sizeChanged"
+        />
     </div>
 </template>
 

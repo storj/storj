@@ -9,6 +9,7 @@ import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { LocalData } from '@/utils/localData';
 import { LimitToChange } from '@/types/projects';
+import { ShareType } from '@/types/browser';
 
 class AppState {
     public fetchState = FetchState.LOADING;
@@ -35,6 +36,7 @@ class AppState {
     public isLargeUploadWarningNotificationShown = false;
     public activeChangeLimit: LimitToChange = LimitToChange.Storage;
     public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
+    public shareModalType: ShareType = ShareType.File;
 }
 
 class ErrorPageState {
@@ -154,6 +156,10 @@ export const useAppStore = defineStore('app', () => {
         state.isGalleryView = value;
     }
 
+    function setShareModalType(type: ShareType): void {
+        state.shareModalType = type;
+    }
+
     function closeDropdowns(): void {
         state.activeDropdown = '';
     }
@@ -185,6 +191,7 @@ export const useAppStore = defineStore('app', () => {
         state.error.visible = false;
         state.isGalleryView = false;
         state.isProjectTableViewEnabled = false;
+        state.shareModalType = ShareType.File;
         LocalData.removeProjectTableViewConfig();
     }
 
@@ -211,6 +218,7 @@ export const useAppStore = defineStore('app', () => {
         setUploadingModal,
         setLargeUploadWarningNotification,
         setLargeUploadNotification,
+        setShareModalType,
         closeDropdowns,
         setErrorPage,
         removeErrorPage,

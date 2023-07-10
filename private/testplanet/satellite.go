@@ -746,7 +746,6 @@ func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite
 
 	prefix := "satellite-ranged-loop" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
-
 	return satellite.NewRangedLoop(log, db, metabaseDB, &config, nil)
 }
 

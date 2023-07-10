@@ -141,7 +141,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, config.Placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -183,6 +183,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			// PUT and GET actions which are not used by
 			// auditor so we can set noop implementation.
 			orders.NewNoopDB(),
+			config.Placement.CreateFilters,
 			config.Orders,
 		)
 		if err != nil {
