@@ -144,7 +144,8 @@ type Server struct {
 	userIDRateLimiter *web.RateLimiter
 	nodeURL           storj.NodeURL
 
-	stripePublicKey string
+	stripePublicKey                 string
+	neededTokenPaymentConfirmations int
 
 	packagePlans paymentsconfig.PackagePlans
 
@@ -210,20 +211,21 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
 	server := Server{
-		log:               logger,
-		config:            config,
-		listener:          listener,
-		service:           service,
-		mailService:       mailService,
-		analytics:         analytics,
-		abTesting:         abTesting,
-		stripePublicKey:   stripePublicKey,
-		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
-		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
-		nodeURL:           nodeURL,
-		packagePlans:      packagePlans,
+		log:                             logger,
+		config:                          config,
+		listener:                        listener,
+		service:                         service,
+		mailService:                     mailService,
+		analytics:                       analytics,
+		abTesting:                       abTesting,
+		stripePublicKey:                 stripePublicKey,
+		neededTokenPaymentConfirmations: neededTokenPaymentConfirmations,
+		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
+		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
+		nodeURL:                         nodeURL,
+		packagePlans:                    packagePlans,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -332,6 +334,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
 	paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
 	paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet, http.MethodOptions)
+	paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
 	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
@@ -718,6 +721,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
 		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 		GalleryViewEnabled:              server.config.GalleryViewEnabled,
+		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

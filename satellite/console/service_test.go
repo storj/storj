@@ -1702,6 +1702,86 @@ func TestPaymentsWalletPayments(t *testing.T) {
 	})
 }
 
+type mockDepositWallets struct {
+	address  blockchain.Address
+	payments []payments.WalletPaymentWithConfirmations
+}
+
+func (dw mockDepositWallets) Claim(_ context.Context, _ uuid.UUID) (blockchain.Address, error) {
+	return dw.address, nil
+}
+
+func (dw mockDepositWallets) Get(_ context.Context, _ uuid.UUID) (blockchain.Address, error) {
+	return dw.address, nil
+}
+
+func (dw mockDepositWallets) Payments(_ context.Context, _ blockchain.Address, _ int, _ int64) (p []payments.WalletPayment, err error) {
+	return
+}
+
+func (dw mockDepositWallets) PaymentsWithConfirmations(_ context.Context, _ blockchain.Address) ([]payments.WalletPaymentWithConfirmations, error) {
+	return dw.payments, nil
+}
+
+func TestWalletPaymentsWithConfirmations(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		paymentsService := service.Payments()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+			Password: "example",
+		}, 1)
+		require.NoError(t, err)
+
+		now := time.Now()
+		wallet := blockchaintest.NewAddress()
+
+		var expected []payments.WalletPaymentWithConfirmations
+		for i := 0; i < 3; i++ {
+			expected = append(expected, payments.WalletPaymentWithConfirmations{
+				From:          blockchaintest.NewAddress().Hex(),
+				To:            wallet.Hex(),
+				TokenValue:    currency.AmountFromBaseUnits(int64(i), currency.StorjToken).AsDecimal(),
+				USDValue:      currency.AmountFromBaseUnits(int64(i), currency.USDollarsMicro).AsDecimal(),
+				Status:        payments.PaymentStatusConfirmed,
+				BlockHash:     blockchaintest.NewHash().Hex(),
+				BlockNumber:   int64(i),
+				Transaction:   blockchaintest.NewHash().Hex(),
+				LogIndex:      i,
+				Timestamp:     now,
+				Confirmations: int64(i),
+				BonusTokens:   decimal.NewFromInt(int64(i)),
+			})
+		}
+
+		paymentsService.TestSwapDepositWallets(mockDepositWallets{address: wallet, payments: expected})
+
+		reqCtx := console.WithUser(ctx, user)
+
+		walletPayments, err := paymentsService.WalletPaymentsWithConfirmations(reqCtx)
+		require.NoError(t, err)
+		require.NotZero(t, len(walletPayments))
+
+		for i, wp := range walletPayments {
+			require.Equal(t, expected[i].From, wp.From)
+			require.Equal(t, expected[i].To, wp.To)
+			require.Equal(t, expected[i].TokenValue, wp.TokenValue)
+			require.Equal(t, expected[i].USDValue, wp.USDValue)
+			require.Equal(t, expected[i].Status, wp.Status)
+			require.Equal(t, expected[i].BlockHash, wp.BlockHash)
+			require.Equal(t, expected[i].BlockNumber, wp.BlockNumber)
+			require.Equal(t, expected[i].Transaction, wp.Transaction)
+			require.Equal(t, expected[i].LogIndex, wp.LogIndex)
+			require.Equal(t, expected[i].Timestamp, wp.Timestamp)
+		}
+	})
+}
+
 func TestPaymentsPurchase(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

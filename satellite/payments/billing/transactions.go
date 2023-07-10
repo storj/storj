@@ -105,6 +105,12 @@ type Transaction struct {
 	CreatedAt   time.Time
 }
 
+// CalculateBonusAmount calculates bonus for given currency amount and bonus rate.
+func CalculateBonusAmount(amount currency.Amount, bonusRate int64) currency.Amount {
+	bonusUnits := amount.BaseUnits() * bonusRate / 100
+	return currency.AmountFromBaseUnits(bonusUnits, amount.Currency())
+}
+
 func prepareBonusTransaction(bonusRate int64, source string, transaction Transaction) (Transaction, bool) {
 	// Bonus transactions only apply when enabled (i.e. positive rate) and
 	// for StorjScan transactions.
@@ -120,7 +126,7 @@ func prepareBonusTransaction(bonusRate int64, source string, transaction Transac
 
 	return Transaction{
 		UserID:      transaction.UserID,
-		Amount:      calculateBonusAmount(transaction.Amount, bonusRate),
+		Amount:      CalculateBonusAmount(transaction.Amount, bonusRate),
 		Description: fmt.Sprintf("STORJ Token Bonus (%d%%)", bonusRate),
 		Source:      StorjScanBonusSource,
 		Status:      TransactionStatusCompleted,
@@ -128,9 +134,4 @@ func prepareBonusTransaction(bonusRate int64, source string, transaction Transac
 		Timestamp:   transaction.Timestamp,
 		Metadata:    append([]byte(nil), transaction.Metadata...),
 	}, true
-}
-
-func calculateBonusAmount(amount currency.Amount, bonusRate int64) currency.Amount {
-	bonusUnits := amount.BaseUnits() * bonusRate / 100
-	return currency.AmountFromBaseUnits(bonusUnits, amount.Currency())
 }

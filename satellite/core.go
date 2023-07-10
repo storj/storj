@@ -496,7 +496,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
 			peer.DB.Wallets(),
 			peer.DB.StorjscanPayments(),
-			peer.Payments.StorjscanClient)
+			peer.Payments.StorjscanClient,
+			pc.Storjscan.Confirmations,
+			pc.BonusRate)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

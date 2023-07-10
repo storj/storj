@@ -65,7 +65,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		latestPayments, err := chore.client.Payments(ctx, from)
+		latestPayments, err := chore.client.AllPayments(ctx, from)
 		if err != nil {
 			chore.log.Error("error retrieving payments", zap.Error(ChoreErr.Wrap(err)))
 			return nil

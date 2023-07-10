@@ -69,17 +69,17 @@ func TestClientMocked(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := storjscan.NewClient(server.URL, "eu", "secret")
+	client := storjscan.NewClient(server.URL, identifier, secret)
 
 	t.Run("all payments from 0", func(t *testing.T) {
-		actual, err := client.Payments(ctx, 0)
+		actual, err := client.AllPayments(ctx, 0)
 		require.NoError(t, err)
 		require.Equal(t, latestBlock, actual.LatestBlock)
 		require.Equal(t, len(payments), len(actual.Payments))
 		require.Equal(t, payments, actual.Payments)
 	})
-	t.Run("payments from 50", func(t *testing.T) {
-		actual, err := client.Payments(ctx, 50)
+	t.Run("all payments from 50", func(t *testing.T) {
+		actual, err := client.AllPayments(ctx, 50)
 		require.NoError(t, err)
 		require.Equal(t, latestBlock, actual.LatestBlock)
 		require.Equal(t, 50, len(actual.Payments))
@@ -104,7 +104,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("empty credentials", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "", "")
-		_, err := client.Payments(ctx, 0)
+		_, err := client.AllPayments(ctx, 0)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
@@ -112,7 +112,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("invalid identifier", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "invalid", "secret")
-		_, err := client.Payments(ctx, 0)
+		_, err := client.AllPayments(ctx, 0)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
@@ -120,7 +120,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 
 	t.Run("invalid secret", func(t *testing.T) {
 		client := storjscan.NewClient(server.URL, "eu", "invalid")
-		_, err := client.Payments(ctx, 0)
+		_, err := client.AllPayments(ctx, 0)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
 		require.Equal(t, "secret is invalid", errs.Unwrap(err).Error())

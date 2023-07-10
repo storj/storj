@@ -48,6 +48,7 @@ type FrontendConfig struct {
 	PricingPackagesEnabled          bool                  `json:"pricingPackagesEnabled"`
 	NewUploadModalEnabled           bool                  `json:"newUploadModalEnabled"`
 	GalleryViewEnabled              bool                  `json:"galleryViewEnabled"`
+	NeededTransactionConfirmations  int                   `json:"neededTransactionConfirmations"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

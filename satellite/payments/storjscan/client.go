@@ -67,13 +67,30 @@ func NewClient(endpoint, identifier, secret string) *Client {
 	}
 }
 
-// Payments retrieves all payments after specified block for wallets associated with particular API key.
-func (client *Client) Payments(ctx context.Context, from int64) (_ LatestPayments, err error) {
+// AllPayments retrieves all payments after specified block for wallets associated with particular API key.
+func (client *Client) AllPayments(ctx context.Context, from int64) (payments LatestPayments, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	p := client.endpoint + "/api/v0/tokens/payments"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p, nil)
+	payments, err = client.getPayments(ctx, p, from)
+
+	return
+}
+
+// Payments retrieves payments after specified block for given address associated with particular API key.
+func (client *Client) Payments(ctx context.Context, from int64, address string) (payments LatestPayments, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	p := client.endpoint + "/api/v0/tokens/payments/" + address
+
+	payments, err = client.getPayments(ctx, p, from)
+
+	return
+}
+
+func (client *Client) getPayments(ctx context.Context, path string, from int64) (_ LatestPayments, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return LatestPayments{}, ClientErr.Wrap(err)
 	}

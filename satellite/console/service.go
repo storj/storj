@@ -3091,6 +3091,12 @@ func EtherscanURL(tx string) string {
 // ErrWalletNotClaimed shows that no address is claimed by the user.
 var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
 
+// TestSwapDepositWallets replaces the existing handler for deposit wallets with
+// the one specified for use in testing.
+func (payment Payments) TestSwapDepositWallets(dw payments.DepositWallets) {
+	payment.service.depositWallets = dw
+}
+
 // ClaimWallet requests a new wallet for the users to be used for payments. If wallet is already claimed,
 // it will return with the info without error.
 func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err error) {
@@ -3209,6 +3215,27 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	return WalletPayments{
 		Payments: paymentInfos,
 	}, nil
+}
+
+// WalletPaymentsWithConfirmations returns with all the native blockchain payments (including pending) for a user's wallet.
+func (payment Payments) WalletPaymentsWithConfirmations(ctx context.Context) (paymentsWithConfirmations []payments.WalletPaymentWithConfirmations, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	address, err := payment.service.depositWallets.Get(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	paymentsWithConfirmations, err = payment.service.depositWallets.PaymentsWithConfirmations(ctx, address)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return
 }
 
 // Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.

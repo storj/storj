@@ -466,6 +466,30 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// WalletPaymentsWithConfirmations returns with the list of storjscan transactions (including confirmations count) for user`s wallet.
+func (p *Payments) WalletPaymentsWithConfirmations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	walletPayments, err := p.service.Payments().WalletPaymentsWithConfirmations(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(walletPayments); err != nil {
+		p.log.Error("failed to encode wallet payments with confirmations", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // GetProjectUsagePriceModel returns the project usage price model for the user.
 func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
