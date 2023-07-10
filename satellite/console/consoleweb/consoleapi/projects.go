@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -89,6 +90,10 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
+	}
+
+	for i, email := range data.Emails {
+		data.Emails[i] = strings.TrimSpace(email)
 	}
 
 	_, err = p.service.InviteProjectMembers(ctx, id, data.Emails)
