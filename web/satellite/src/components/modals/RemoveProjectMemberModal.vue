@@ -32,6 +32,7 @@
                         border-radius="10px"
                         :on-press="closeModal"
                         :is-transparent="true"
+                        :is-disabled="isLoading"
                     />
                     <VButton
                         label="Remove"
@@ -42,6 +43,7 @@
                         font-size="14px"
                         border-radius="10px"
                         :on-press="onRemove"
+                        :is-disabled="isLoading"
                     />
                 </div>
             </div>
@@ -62,6 +64,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -75,6 +78,7 @@ const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
 const notify = useNotify();
 const router = useRouter();
+const { isLoading, withLoading } = useLoading();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -97,7 +101,7 @@ async function setProjectState(): Promise<void> {
         return;
     }
 
-    if (!projects.includes(projectsStore.state.selectedProject)) {
+    if (!projects.some(p => p.id === projectsStore.state.selectedProject.id)) {
         projectsStore.selectProject(projects[0].id);
     }
 
@@ -105,17 +109,23 @@ async function setProjectState(): Promise<void> {
 }
 
 async function onRemove(): Promise<void> {
-    try {
-        await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
-        await setProjectState();
-    } catch (error) {
-        notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
-        return;
-    }
+    await withLoading(async () => {
+        try {
+            await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id);
+            notify.success('Members were successfully removed from the project');
+            pmStore.setSearchQuery('');
+        } catch (error) {
+            notify.error(`Error removing project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        }
 
-    notify.success('Members were successfully removed from project');
-    pmStore.setSearchQuery('');
-    closeModal();
+        try {
+            await setProjectState();
+        } catch (error) {
+            notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+        }
+
+        closeModal();
+    });
 }
 
 /**
