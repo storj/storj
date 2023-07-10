@@ -146,6 +146,8 @@ async function onAddUsersClick(): Promise<void> {
     let areAllEmailsValid = true;
     const emailArray: string[] = [];
 
+    inputs.value.forEach(elem => elem.value = elem.value.trim());
+
     for (let i = 0; i < length; i++) {
         const element = inputs.value[i];
         const isEmail = Validator.email(element.value);
