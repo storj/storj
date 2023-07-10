@@ -23,6 +23,12 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (CouponType, error)
 
+	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
+
+	// GetBillingInformation gets the billing information for a user.
+	GetBillingInformation(ctx context.Context, userID uuid.UUID) (*BillingInformation, error)
+
 	// UpdatePackage updates a customer's package plan information.
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) error
 

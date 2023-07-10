@@ -170,3 +170,40 @@ func TestUpdateGetPackage(t *testing.T) {
 		require.Nil(t, dbPurchaseTime)
 	})
 }
+
+func TestBillingInformation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		accounts := planet.Satellites[0].API.Payments.Accounts
+		userID := planet.Uplinks[0].Projects[0].Owner.ID
+
+		info, err := accounts.GetBillingInformation(ctx, userID)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Zero(t, *info)
+
+		address := payments.BillingAddress{
+			Name:       "Some Company",
+			Line1:      "Some street",
+			Line2:      "Some Apartment",
+			City:       "Some city",
+			PostalCode: "12345",
+			State:      "Some state",
+			Country:    payments.TaxCountry{Code: "US", Name: "US"},
+		}
+		newInfo, err := accounts.SaveBillingAddress(ctx, userID, address)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+
+		newInfo, err = accounts.GetBillingInformation(ctx, userID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+
+		address.Name = "New Company"
+		address.City = "New City"
+		newInfo, err = accounts.SaveBillingAddress(ctx, userID, address)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+	})
+}

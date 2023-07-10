@@ -365,6 +365,20 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 			}
 		}
 	}
+
+	if params.Name != nil {
+		customer.Name = *params.Name
+	}
+	if params.Address != nil {
+		customer.Address = &stripe.Address{
+			Line1:      *params.Address.Line1,
+			Line2:      *params.Address.Line2,
+			City:       *params.Address.City,
+			State:      *params.Address.State,
+			PostalCode: *params.Address.PostalCode,
+			Country:    *params.Address.Country,
+		}
+	}
 	// TODO update customer with more params as necessary
 
 	return customer, nil

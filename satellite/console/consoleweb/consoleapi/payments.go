@@ -725,6 +725,64 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetBillingInformation gets the billing information for a user.
+func (p *Payments) GetBillingInformation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	information, err := p.service.Payments().GetBillingInformation(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(information); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// SaveBillingAddress saves billing address for a user.
+func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var address payments.BillingAddress
+	if err = json.NewDecoder(r.Body).Decode(&address); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if address.Name == "" || address.Line1 == "" ||
+		address.City == "" || address.Country.Code == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required address fields"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().SaveBillingAddress(ctx, address)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, p.log, w, status, err)

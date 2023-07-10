@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/stripe/stripe-go/v75"
@@ -99,6 +100,91 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+}
+
+// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customerParams := &stripe.CustomerParams{
+		Params: stripe.Params{
+			Context: ctx,
+		},
+		Name: &address.Name,
+		Address: &stripe.AddressParams{
+			Line1:      stripe.String(address.Line1),
+			Line2:      stripe.String(address.Line2),
+			City:       stripe.String(address.City),
+			PostalCode: stripe.String(address.PostalCode),
+			State:      stripe.String(address.State),
+			Country:    stripe.String(address.Country.Code),
+		},
+	}
+
+	customer, err := accounts.service.stripeClient.Customers().Update(customerID, customerParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.New(stripeErr.Msg)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// GetBillingInformation gets the billing information for a user.
+func (accounts *accounts) GetBillingInformation(ctx context.Context, userID uuid.UUID) (info *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+	}
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.New(stripeErr.Msg)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return accounts.unpackBillingInformation(*customer)
+}
+
+func (accounts *accounts) unpackBillingInformation(customer stripe.Customer) (info *payments.BillingInformation, err error) {
+
+	// use customer.address to determine if the customer has custom billing information.
+	hasNoAddress := customer.Address == nil || customer.Address == (&stripe.Address{})
+	if hasNoAddress {
+		return &payments.BillingInformation{}, nil
+	}
+
+	stripeAddr := customer.Address
+	return &payments.BillingInformation{
+		Address: &payments.BillingAddress{
+			Name:       customer.Name,
+			Line1:      stripeAddr.Line1,
+			Line2:      stripeAddr.Line2,
+			City:       stripeAddr.City,
+			PostalCode: stripeAddr.PostalCode,
+			State:      stripeAddr.State,
+			Country: payments.TaxCountry{
+				Name: stripeAddr.Country,
+				Code: stripeAddr.Country,
+			},
+		},
+	}, nil
 }
 
 // UpdatePackage updates a customer's package plan information.

@@ -388,6 +388,34 @@ func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType
 	return payment.service.accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 }
 
+// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+func (payment Payments) SaveBillingAddress(ctx context.Context, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.SaveBillingAddress(ctx, user.ID, address)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// GetBillingInformation updates a user's billing information.
+func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	information, err = payment.service.accounts.GetBillingInformation(ctx, user.ID)
+
+	return information, Error.Wrap(err)
+}
+
 // AccountBalance return account balance.
 func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)

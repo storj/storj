@@ -366,6 +366,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
