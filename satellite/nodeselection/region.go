@@ -6,7 +6,7 @@ package nodeselection
 import "storj.io/common/storj/location"
 
 // EuCountries defines the member countries of European Union.
-var EuCountries = []location.CountryCode{
+var EuCountries = location.NewSet(
 	location.Austria,
 	location.Belgium,
 	location.Bulgaria,
@@ -34,10 +34,10 @@ var EuCountries = []location.CountryCode{
 	location.Slovakia,
 	location.Spain,
 	location.Sweden,
-}
+)
 
 // EeaCountries defined the EEA countries.
-var EeaCountries = append(EuCountries,
+var EeaCountries = EuCountries.With(
 	location.Iceland,
 	location.Liechtenstein,
 	location.Norway,

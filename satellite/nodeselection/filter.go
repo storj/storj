@@ -43,10 +43,8 @@ func (n NodeFilters) MatchInclude(node *SelectedNode) bool {
 }
 
 // WithCountryFilter is a helper to create a new filter with additional CountryFilter.
-func (n NodeFilters) WithCountryFilter(filter func(code location.CountryCode) bool) NodeFilters {
-	return append(n, CountryFilter{
-		matchIncludeCountry: filter,
-	})
+func (n NodeFilters) WithCountryFilter(permit location.Set) NodeFilters {
+	return append(n, NewCountryFilter(permit))
 }
 
 // WithAutoExcludeSubnets is a helper to create a new filter with additional AutoExcludeSubnets.
@@ -81,25 +79,27 @@ var _ NodeFilter = CountryCodeExclude{}
 
 // CountryFilter can select nodes based on the condition of the country code.
 type CountryFilter struct {
-	matchIncludeCountry func(code location.CountryCode) bool
+	permit location.Set
 }
 
 // NewCountryFilter creates a new CountryFilter.
-func NewCountryFilter(filter func(code location.CountryCode) bool) NodeFilter {
-	return CountryFilter{
-		matchIncludeCountry: filter,
+func NewCountryFilter(permit location.Set) NodeFilter {
+	return &CountryFilter{
+		permit: permit,
 	}
 }
 
 // MatchInclude implements NodeFilter interface.
-func (p CountryFilter) MatchInclude(node *SelectedNode) bool {
-	return p.matchIncludeCountry(node.CountryCode)
+func (p *CountryFilter) MatchInclude(node *SelectedNode) bool {
+	return p.permit.Contains(node.CountryCode)
 }
 
-var _ NodeFilter = CountryFilter{}
+var _ NodeFilter = &CountryFilter{}
 
 // AutoExcludeSubnets pick at most one node from network.
+//
 // Stateful!!! should be re-created for each new selection request.
+// It should only be used as the last filter.
 type AutoExcludeSubnets struct {
 	seenSubnets map[string]struct{}
 }

@@ -325,14 +325,15 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules
 	defaultSelection := nodeselection.NodeFilters{}
 
 	if len(config.Node.UploadExcludedCountryCodes) > 0 {
-		defaultSelection = defaultSelection.WithCountryFilter(func(code location.CountryCode) bool {
-			for _, nodeCountry := range config.Node.UploadExcludedCountryCodes {
-				if nodeCountry == code.String() {
-					return false
-				}
+		set := location.NewFullSet()
+		for _, country := range config.Node.UploadExcludedCountryCodes {
+			countryCode := location.ToCountryCode(country)
+			if countryCode == location.None {
+				return nil, Error.New("invalid country %q", country)
 			}
-			return true
-		})
+			set.Remove(countryCode)
+		}
+		defaultSelection = defaultSelection.WithCountryFilter(set)
 	}
 
 	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
