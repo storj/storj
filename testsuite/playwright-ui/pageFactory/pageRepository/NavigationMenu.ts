@@ -13,7 +13,7 @@ export class NavigationMenu extends NavigationMenuObject {
     }
 
     async clickOnBuckets(): Promise<void> {
-        await this.page.getByRole('link', {name: NavigationMenuObject.BUCKETS_XPATH}).click();
+        await this.page.locator(NavigationMenuObject.BUCKETS_XPATH).click();
 
     }
 }

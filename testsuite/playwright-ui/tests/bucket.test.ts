@@ -4,10 +4,14 @@
 import test from '@lib/BaseTest';
 
 test.describe('Filebrowser + edge services', () => {
-    test.beforeEach(async ({loginPage, dashboardPage}, testInfo) => {
+    test.beforeEach(async ({loginPage, dashboardPage, allProjectsPage}, testInfo) => {
         console.log(`Running ${testInfo.title}`);
+
+        const projectName = 'testproject'
+
         await loginPage.navigateToURL();
         await loginPage.loginToApplication();
+        await allProjectsPage.clickOnProject(projectName)
         await dashboardPage.verifyWelcomeMessage();
     });
 
@@ -56,11 +60,11 @@ test.describe('Filebrowser + edge services', () => {
         await bucketsPage.enterPassphrase(bucketPassphrase);
         await bucketsPage.clickContinueConfirmPassphrase();
 
-        //Create empty folder using New Folder Button
+        // Create empty folder using New Folder Button
         await bucketsPage.createNewFolder(folderName);
         await bucketsPage.deleteFileByName(folderName);
 
-        //DRAG AND DROP FOLDER creation with a file inside it for next instance of test
+        // DRAG AND DROP FOLDER creation with a file inside it for next instance of test
         await bucketsPage.dragAndDropFolder(folderName, fileName, 'text/csv');
         await bucketsPage.deleteFileByName(folderName);
 
@@ -76,8 +80,6 @@ test.describe('Filebrowser + edge services', () => {
         await bucketsPage.openBucketByName(bucketName);
         await bucketsPage.enterPassphrase(bucketPassphrase);
         await bucketsPage.clickContinueConfirmPassphrase();
-
-        //open bucket uitest3
         await bucketsPage.openFileByName(fileName);
 
         // Checks the image preview of the tiny apple png file

@@ -23,7 +23,7 @@ export class DashboardPage extends DashboardPageObjects {
     }
 
     async clickContinuePassphraseButton(): Promise<void> {
-        await this.page.locator(DashboardPageObjects.CONTINUE_PASSPHRASE_BUTTON_XPATH).click();
+        await this.page.getByText(DashboardPageObjects.CONTINUE_BUTTON_TEXT).click();
     }
 
     async enterPassphrase(passphrase: string): Promise<void> {
@@ -35,11 +35,7 @@ export class DashboardPage extends DashboardPageObjects {
     }
 
     async enterOwnPassphraseModal(passphrase: string): Promise<void> {
-        await this.clickEnterPassphraseRadioButton();
-        await this.clickContinuePassphraseButton();
         await this.enterPassphrase(passphrase);
-        await this.clickConfirmCheckmark();
-        await this.clickContinuePassphraseButton();
         await this.clickContinuePassphraseButton();
     }
 

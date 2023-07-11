@@ -43,14 +43,13 @@ export class BucketsPage extends BucketsPageObjects {
 
     async clickCopyLinkButton(): Promise<void> {
         await this.page.locator(BucketsPageObjects.COPY_LINK_BUTTON_XPATH).click();
-        const textValue = await this.page.textContent(BucketsPageObjects.COPIED_BUTTON_XPATH);
-        expect(textValue.trim()).toBe(`Copied!`);
+        await this.page.locator('span').filter({hasText: BucketsPageObjects.COPIED_TEXT}).isVisible();
+        await expect(this.page.getByText('Link copied successfully.')).toBeVisible()
     }
 
     async clickCopyButtonShareBucketModal(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.COPY_BUTTON_SHARE_BUCKET_MODAL_XPATH).click();
-        await this.page.locator('span').filter({hasText: 'Copied'}).isVisible();
-        await expect(this.page.getByText('Link copied successfully.')).toBeVisible()
+        await this.page.locator('span').filter({hasText: 'Copy link'}).click();
+        await this.page.locator('span').filter({hasText: BucketsPageObjects.COPIED_TEXT}).isVisible();
     }
 
     async verifyObjectMapIsVisible(): Promise<void> {
@@ -68,7 +67,7 @@ export class BucketsPage extends BucketsPageObjects {
 
     async openFileDropdownByName(name: string): Promise<void> {
         const row = await this.page.waitForSelector('*css=tr >> text=' + name);
-        const button = await row.$('th:nth-child(4)');
+        const button = await row.$('th:nth-child(5)');
         await button.click();
     }
 
@@ -77,13 +76,13 @@ export class BucketsPage extends BucketsPageObjects {
     }
 
     async clickNewFolderButton(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.NEW_FOLDER_BUTTON_XPATH).click();
+        await this.page.getByText(BucketsPageObjects.NEW_FOLDER_BUTTON_TEXT).click();
     }
 
     async createNewFolder(name: string): Promise<void> {
         await this.clickNewFolderButton();
         await this.page.locator(BucketsPageObjects.NEW_FOLDER_NAME_FIELD_XPATH).fill(name);
-        await this.page.locator(BucketsPageObjects.CREATE_FOLDER_BUTTON_XPATH).click();
+        await this.page.getByText(BucketsPageObjects.CREATE_FOLDER_BUTTON_TEXT).click();
     }
 
     async openFileByName(name: string): Promise<void> {
@@ -113,7 +112,7 @@ export class BucketsPage extends BucketsPageObjects {
             mimeType: format,
             buffer: Buffer.from('Test,T')
         });
-        await expect(await this.page.getByText(name)).toBeVisible();
+        await expect(this.page.locator(`//*[contains(text(),'${name}')]`)).toBeVisible();
     }
 
     async dragAndDropFolder(folder: string, filename: string, format: string): Promise<void> {
@@ -122,7 +121,7 @@ export class BucketsPage extends BucketsPageObjects {
             mimeType: format,
             buffer: Buffer.from('Test,T')
         });
-        await expect(await this.page.getByText(folder)).toBeVisible();
+        await expect(this.page.getByText(folder)).toBeVisible();
     }
 
     async verifyDetails(name: string): Promise<void> {
@@ -164,7 +163,7 @@ export class BucketsPage extends BucketsPageObjects {
     }
 
     async clickDeleteBucketButton(): Promise<void> {
-        await this.page.locator('//p[contains(text(),\'Delete Bucket\')]').click();
+        await this.page.locator(BucketsPageObjects.DELETE_BUCKET_XPATH).click();
     }
 
     async enterBucketNameDeleteBucket(name: string): Promise<void> {
