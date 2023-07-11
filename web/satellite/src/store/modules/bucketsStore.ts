@@ -47,6 +47,7 @@ export class BucketsState {
     public promptForPassphrase = true;
     public fileComponentBucketName = '';
     public leaveRoute = '';
+    public enterPassphraseCallback: (() => void) | null = null;
 }
 
 export const useBucketsStore = defineStore('buckets', () => {
@@ -201,6 +202,10 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentBucketName = bucketName;
     }
 
+    function setEnterPassphraseCallback(fn: (() => void) | null): void {
+        state.enterPassphraseCallback = fn;
+    }
+
     async function createBucket(name: string): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
@@ -274,6 +279,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.allBucketNames = [];
         state.cursor = new BucketCursor('', DEFAULT_PAGE_LIMIT, FIRST_PAGE);
         state.page = new BucketPage([], '', DEFAULT_PAGE_LIMIT, 0, 1, 1, 0);
+        state.enterPassphraseCallback = null;
         clearS3Data();
     }
 
@@ -290,6 +296,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setPassphrase,
         setApiKey,
         setFileComponentBucketName,
+        setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
         deleteBucket,

@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
@@ -120,12 +120,16 @@ const bucketObjectCount = computed((): number => {
 async function onContinue(): Promise<void> {
     if (isLoading.value) return;
 
+    const callback = bucketsStore.state.enterPassphraseCallback || ((): void => {
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+    });
+
     if (isWarningState.value) {
         bucketsStore.setPromptForPassphrase(false);
 
         closeModal();
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        callback();
 
         return;
     }
@@ -150,14 +154,14 @@ async function onContinue(): Promise<void> {
         }
         bucketsStore.setPromptForPassphrase(false);
         isLoading.value = false;
-
-        closeModal();
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
         isLoading.value = false;
+        return;
     }
+
+    closeModal();
+    callback();
 }
 
 /**
@@ -178,6 +182,10 @@ function setPassphrase(value: string): void {
 
     passphrase.value = value;
 }
+
+onUnmounted((): void => {
+    bucketsStore.setEnterPassphraseCallback(null);
+});
 </script>
 
 <style scoped lang="scss">

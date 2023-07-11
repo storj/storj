@@ -18,6 +18,10 @@
                         <details-icon />
                         <p class="bucket-item__functional__dropdown__item__label">View Bucket Details</p>
                     </div>
+                    <div class="bucket-item__functional__dropdown__item" @click.stop="onShareClick">
+                        <share-icon />
+                        <p class="bucket-item__functional__dropdown__item__label">Share Bucket</p>
+                    </div>
                     <div class="bucket-item__functional__dropdown__item delete" @click.stop="onDeleteClick">
                         <delete-icon />
                         <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
@@ -38,14 +42,18 @@ import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useResize } from '@/composables/resize';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { ShareType } from '@/types/browser';
 
 import TableItem from '@/components/common/TableItem.vue';
 
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
+import ShareIcon from '@/../static/images/objects/share.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 
 const appStore = useAppStore();
+const bucketsStore = useBucketsStore();
 const router = useRouter();
 const route = useRoute();
 const { screenWidth } = useResize();
@@ -135,6 +143,23 @@ function onDetailsClick(): void {
     });
 
     closeDropdown();
+}
+
+/**
+ * Opens the Share modal for this bucket.
+ */
+function onShareClick(): void {
+    bucketsStore.setFileComponentBucketName(props.itemData.name);
+    appStore.setShareModalType(ShareType.Bucket);
+
+    if (bucketsStore.state.promptForPassphrase) {
+        appStore.updateActiveModal(MODALS.enterBucketPassphrase);
+        bucketsStore.setEnterPassphraseCallback((): void => {
+            appStore.updateActiveModal(MODALS.share);
+        });
+        return;
+    }
+    appStore.updateActiveModal(MODALS.share);
 }
 
 onMounted((): void => {
