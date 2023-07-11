@@ -583,6 +583,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # bandwidth cache key time to live
 # live-accounting.bandwidth-cache-ttl: 5m0s
 
+# how much projects usage should be requested from redis cache at once
+# live-accounting.batch-size: 5000
+
 # what to use for storing real-time accounting data
 # live-accounting.storage-backend: ""
 
