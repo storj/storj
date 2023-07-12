@@ -255,12 +255,15 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		return err
 	}
 
+	loopIteratorBatchSizeLimit.Ensure(&opts.BatchSize)
+
 	it := &loopSegmentIterator{
 		db: db,
 
 		asOfSystemTime:     opts.AsOfSystemTime,
 		asOfSystemInterval: opts.AsOfSystemInterval,
 		batchSize:          opts.BatchSize,
+		batchPieces:        make([]Pieces, opts.BatchSize),
 
 		curIndex: 0,
 		cursor: loopSegmentIteratorCursor{
@@ -276,8 +279,6 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 	if it.cursor.EndStreamID.IsZero() {
 		it.cursor.EndStreamID = uuid.Max()
 	}
-
-	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
@@ -298,7 +299,10 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 type loopSegmentIterator struct {
 	db *DB
 
-	batchSize          int
+	batchSize int
+	// batchPieces are reused between result pages to reduce memory consumption
+	batchPieces []Pieces
+
 	asOfSystemTime     time.Time
 	asOfSystemInterval time.Duration
 
@@ -399,7 +403,14 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 		return Error.New("failed to scan segments: %w", err)
 	}
 
-	item.Pieces, err = it.db.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
+	// allocate new Pieces only if existing have not enough capacity
+	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
+		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
+	} else {
+		it.batchPieces[it.curIndex] = it.batchPieces[it.curIndex][:len(item.AliasPieces)]
+	}
+
+	item.Pieces, err = it.db.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
 	}
