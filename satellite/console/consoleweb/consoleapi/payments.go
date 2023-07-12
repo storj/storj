@@ -155,8 +155,8 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// triggerAttemptPaymentIfFrozenOrWarned checks if the account is frozen and if frozen, will trigger attempt to pay outstanding invoices.
-func (p *Payments) triggerAttemptPaymentIfFrozenOrWarned(ctx context.Context) (err error) {
+// triggerAttemptPayment attempts payment and unfreezes/unwarn user if needed.
+func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	userID, err := p.service.GetUserID(ctx)
@@ -169,12 +169,11 @@ func (p *Payments) triggerAttemptPaymentIfFrozenOrWarned(ctx context.Context) (e
 		return err
 	}
 
-	if freeze != nil || warning != nil {
-		err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
-		if err != nil {
-			return err
-		}
+	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
+	if err != nil {
+		return err
 	}
+
 	if freeze != nil {
 		err = p.accountFreezeService.UnfreezeUser(ctx, userID)
 		if err != nil {
@@ -214,7 +213,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = p.triggerAttemptPaymentIfFrozenOrWarned(ctx)
+	err = p.triggerAttemptPayment(ctx)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
@@ -274,7 +273,7 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = p.triggerAttemptPaymentIfFrozenOrWarned(ctx)
+	err = p.triggerAttemptPayment(ctx)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return

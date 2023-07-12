@@ -576,6 +576,10 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		},
 		AmountDue:       amountDue,
 		AmountRemaining: amountDue,
+		Total:           amountDue,
+	}
+	if params.DefaultPaymentMethod != nil {
+		invoice.DefaultPaymentMethod = &stripe.PaymentMethod{ID: *params.DefaultPaymentMethod}
 	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
@@ -604,6 +608,15 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 			for _, invoices := range m.invoices {
 				for _, inv := range invoices {
 					if inv.Status == stripe.InvoiceStatus(*listParams.Status) {
+						ret = append(ret, inv)
+					}
+				}
+			}
+		} else if listParams.Customer != nil && listParams.Status != nil {
+			// filter by status and customer
+			for _, invoices := range m.invoices {
+				for _, inv := range invoices {
+					if inv.Status == stripe.InvoiceStatus(*listParams.Status) && inv.Customer.ID == *listParams.Customer {
 						ret = append(ret, inv)
 					}
 				}
@@ -640,10 +653,9 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 // FinalizeInvoice forwards the invoice's status from draft to open.
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
-		for i, invoice := range invoices {
+		for _, invoice := range invoices {
 			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
 				invoice.Status = stripe.InvoiceStatusOpen
-				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusOpen
 				return invoice, nil
 			}
 		}
@@ -664,6 +676,16 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 						invoice.Status = stripe.InvoiceStatusPaid
 						invoice.AmountRemaining = 0
 						return invoice, nil
+					}
+				} else if invoice.DefaultPaymentMethod != nil {
+					if invoice.DefaultPaymentMethod.ID == MockInvoicesPaySuccess {
+						invoice.Status = stripe.InvoiceStatusPaid
+						invoice.AmountRemaining = 0
+						return invoice, nil
+					}
+					if invoice.DefaultPaymentMethod.ID == MockInvoicesNewFailure {
+						invoice.Status = stripe.InvoiceStatusOpen
+						return invoice, &stripe.Error{}
 					}
 				} else if invoice.AmountRemaining == 0 || (params.PaidOutOfBand != nil && *params.PaidOutOfBand) {
 					invoice.Status = stripe.InvoiceStatusPaid

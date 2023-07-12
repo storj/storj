@@ -113,7 +113,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Nil(t, warning)
 		})
 
-		t.Run("Freeze event for failed invoice", func(t *testing.T) {
+		t.Run("Freeze event for failed invoice (failed later payment attempt)", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
@@ -171,6 +171,68 @@ func TestAutoFreezeChore(t *testing.T) {
 			freeze, _, err = service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.NotNil(t, freeze)
+
+			// Pay invoice so it doesn't show up in the next test.
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			})
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
+
+			// unfreeze user so they're not frozen in the next test.
+			err = service.UnfreezeUser(ctx, user.ID)
+			require.NoError(t, err)
+		})
+
+		t.Run("No freeze event for failed invoice (successful later payment attempt)", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus1,
+			})
+			require.NoError(t, err)
+
+			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
+				InvoiceItem: &item.ID,
+				Amount:      &amount,
+				Currency:    &curr,
+			})
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:               stripe.Params{Context: ctx},
+				Customer:             &cus1,
+				InvoiceItems:         items,
+				DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			})
+			require.NoError(t, err)
+
+			inv, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, nil)
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			failed, err := invoicesDB.ListFailed(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(failed))
+			require.Equal(t, inv.ID, failed[0].ID)
+
+			chore.Loop.TriggerWait()
+
+			// Payment should have succeeded in the chore.
+			failed, err = invoicesDB.ListFailed(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(failed))
+
+			freeze, warning, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, warning)
+			require.Nil(t, freeze)
 		})
 
 		t.Run("Storjscan exceptions", func(t *testing.T) {
@@ -237,7 +299,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			failed, err := invoicesDB.ListFailed(ctx)
 			require.NoError(t, err)
-			require.Equal(t, 2, len(failed))
+			require.Equal(t, 1, len(failed))
 			invFound := false
 			for _, failedInv := range failed {
 				if failedInv.ID == inv.ID {

@@ -170,6 +170,30 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				errorLog("Could not get freeze status", err)
 				continue
 			}
+
+			// try to pay the invoice before freezing/warning.
+			err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
+			if err == nil {
+				debugLog("Ignoring invoice; Payment attempt successful")
+
+				if warning != nil {
+					err = chore.freezeService.UnWarnUser(ctx, userID)
+					if err != nil {
+						errorLog("Could not remove warning event", err)
+					}
+				}
+				if freeze != nil {
+					err = chore.freezeService.UnfreezeUser(ctx, userID)
+					if err != nil {
+						errorLog("Could not remove freeze event", err)
+					}
+				}
+
+				continue
+			} else {
+				errorLog("Could not attempt payment", err)
+			}
+
 			if freeze != nil {
 				debugLog("Ignoring invoice; account already frozen")
 				continue
