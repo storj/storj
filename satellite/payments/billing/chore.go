@@ -13,6 +13,14 @@ import (
 	"storj.io/common/sync2"
 )
 
+// ObserverBilling used to create enumerable of chore observers.
+type ObserverBilling int64
+
+const (
+	// ObserverUpgradeUser stands for upgrade user observer type.
+	ObserverUpgradeUser ObserverBilling = 0
+)
+
 // ChoreErr is billing chore err class.
 var ChoreErr = errs.Class("billing chore")
 
@@ -27,10 +35,11 @@ type Chore struct {
 
 	disableLoop bool
 	bonusRate   int64
+	observers   map[ObserverBilling]Observer
 }
 
 // NewChore creates new chore.
-func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool, bonusRate int64) *Chore {
+func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool, bonusRate int64, observers map[ObserverBilling]Observer) *Chore {
 	return &Chore{
 		log:              log,
 		paymentTypes:     paymentTypes,
@@ -38,6 +47,7 @@ func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB Transa
 		TransactionCycle: sync2.NewCycle(interval),
 		disableLoop:      disableLoop,
 		bonusRate:        bonusRate,
+		observers:        observers,
 	}
 }
 
@@ -72,6 +82,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.log.Error("error storing transaction to db", zap.Error(ChoreErr.Wrap(err)))
 					// we need to halt storing transactions if one fails, so that it can be tried again on the next loop.
 					break
+				}
+
+				err = chore.observers[ObserverUpgradeUser].Process(ctx, transaction)
+				if err != nil {
+					chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
 				}
 			}
 		}

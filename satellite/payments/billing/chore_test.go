@@ -19,9 +19,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestChore(t *testing.T) {
@@ -74,7 +74,7 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanSource,
 				[]billing.Transaction{mike1, joe1, joe2},
@@ -85,7 +85,11 @@ func TestChore(t *testing.T) {
 			),
 		}
 
-		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db, time.Hour, false, bonusRate)
+		choreObservers := map[billing.ObserverBilling]billing.Observer{
+			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade),
+		}
+
+		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db, time.Hour, false, bonusRate, choreObservers)
 		ctx.Go(func() error {
 			return chore.Run(ctx)
 		})
@@ -106,28 +110,137 @@ func TestChore(t *testing.T) {
 	}
 
 	t.Run("without StorjScan bonus", func(t *testing.T) {
-		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			runTest(ctx, t, db.Billing(), 0,
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			db := sat.DB
+
+			runTest(ctx, t, db.Console(), db.Billing(), 0,
 				[]billing.Transaction{mike2, mike1},
 				[]billing.Transaction{joe1, joe2},
 				[]billing.Transaction{robert1},
 				currency.AmountFromBaseUnits(30000000, currency.USDollarsMicro),
 				currency.AmountFromBaseUnits(4000000, currency.USDollarsMicro),
 				currency.AmountFromBaseUnits(30000000, currency.USDollarsMicro),
+				sat.Config.Console.UsageLimits,
+				sat.Config.Console.UserBalanceForUpgrade,
 			)
 		})
 	})
 
 	t.Run("with StorjScan bonus", func(t *testing.T) {
-		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			runTest(ctx, t, db.Billing(), 10,
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			db := sat.DB
+
+			runTest(ctx, t, db.Console(), db.Billing(), 10,
 				[]billing.Transaction{mike2, mike2Bonus, mike1, mike1Bonus},
 				[]billing.Transaction{joe1, joe1Bonus, joe2},
 				[]billing.Transaction{robert1},
 				currency.AmountFromBaseUnits(33000000, currency.USDollarsMicro),
 				currency.AmountFromBaseUnits(4500000, currency.USDollarsMicro),
 				currency.AmountFromBaseUnits(30000000, currency.USDollarsMicro),
+				sat.Config.Console.UsageLimits,
+				sat.Config.Console.UserBalanceForUpgrade,
 			)
+		})
+	})
+}
+
+func TestChore_UpgradeUserObserver(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		usageLimitsConfig := sat.Config.Console.UsageLimits
+		ts := makeTimestamp()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "choreobserver@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		_, err = sat.AddProject(ctx, user.ID, "Test Project")
+		require.NoError(t, err)
+
+		choreObservers := map[billing.ObserverBilling]billing.Observer{
+			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+		}
+
+		amount1 := int64(2) // $2
+		amount2 := int64(8) // $8
+		transaction1 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1, ts, `{"fake": "transaction1"}`)
+		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
+		paymentTypes := []billing.PaymentType{
+			newFakePaymentType(billing.StorjScanSource,
+				[]billing.Transaction{transaction1},
+				[]billing.Transaction{},
+				[]billing.Transaction{transaction2},
+				[]billing.Transaction{},
+			),
+		}
+
+		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db.Billing(), time.Hour, false, 0, choreObservers)
+		ctx.Go(func() error {
+			return chore.Run(ctx)
+		})
+		defer ctx.Check(chore.Close)
+
+		t.Run("user not upgraded", func(t *testing.T) {
+			chore.TransactionCycle.Pause()
+			chore.TransactionCycle.TriggerWait()
+			chore.TransactionCycle.Pause()
+
+			balance, err := db.Billing().GetBalance(ctx, user.ID)
+			require.NoError(t, err)
+			expected := currency.AmountFromBaseUnits(amount1*int64(10000), currency.USDollarsMicro)
+			require.True(t, expected.Equal(balance))
+
+			user, err = db.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.False(t, user.PaidTier)
+
+			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+			require.NoError(t, err)
+
+			for _, p := range projects {
+				require.Equal(t, usageLimitsConfig.Storage.Free, *p.StorageLimit)
+				require.Equal(t, usageLimitsConfig.Bandwidth.Free, *p.BandwidthLimit)
+				require.Equal(t, usageLimitsConfig.Segment.Free, *p.SegmentLimit)
+			}
+		})
+
+		t.Run("user upgraded", func(t *testing.T) {
+			chore.TransactionCycle.Pause()
+			chore.TransactionCycle.TriggerWait()
+			chore.TransactionCycle.Pause()
+
+			balance, err := db.Billing().GetBalance(ctx, user.ID)
+			require.NoError(t, err)
+			expected := currency.AmountFromBaseUnits((amount1+amount2)*int64(10000), currency.USDollarsMicro)
+			require.True(t, expected.Equal(balance))
+
+			user, err = db.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, user.PaidTier)
+			require.Equal(t, usageLimitsConfig.Storage.Paid.Int64(), user.ProjectStorageLimit)
+			require.Equal(t, usageLimitsConfig.Bandwidth.Paid.Int64(), user.ProjectBandwidthLimit)
+			require.Equal(t, usageLimitsConfig.Segment.Paid, user.ProjectSegmentLimit)
+			require.Equal(t, usageLimitsConfig.Project.Paid, user.ProjectLimit)
+
+			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+			require.NoError(t, err)
+
+			for _, p := range projects {
+				require.Equal(t, usageLimitsConfig.Storage.Paid, *p.StorageLimit)
+				require.Equal(t, usageLimitsConfig.Bandwidth.Paid, *p.BandwidthLimit)
+				require.Equal(t, usageLimitsConfig.Segment.Paid, *p.SegmentLimit)
+			}
 		})
 	})
 }
@@ -176,7 +289,7 @@ func newFakePaymentType(source string, txBatches ...[]billing.Transaction) *fake
 
 func (pt *fakePaymentType) Source() string                { return pt.source }
 func (pt *fakePaymentType) Type() billing.TransactionType { return pt.txType }
-func (pt *fakePaymentType) GetNewTransactions(ctx context.Context, lastTransactionTime time.Time, metadata []byte) ([]billing.Transaction, error) {
+func (pt *fakePaymentType) GetNewTransactions(_ context.Context, lastTransactionTime time.Time, metadata []byte) ([]billing.Transaction, error) {
 	// Ensure that the chore is passing up the expected fields
 	switch {
 	case !pt.lastTransactionTime.Equal(lastTransactionTime):

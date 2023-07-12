@@ -517,6 +517,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Payments Storjscan", peer.Payments.StorjscanChore.TransactionCycle),
 		)
 
+		choreObservers := map[billing.ObserverBilling]billing.Observer{
+			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade),
+		}
+
 		peer.Payments.BillingChore = billing.NewChore(
 			peer.Log.Named("payments.billing:chore"),
 			[]billing.PaymentType{peer.Payments.StorjscanService},
@@ -524,6 +528,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.BillingConfig.Interval,
 			config.Payments.BillingConfig.DisableLoop,
 			config.Payments.BonusRate,
+			choreObservers,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "billing:chore",
