@@ -2,11 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-  <v-main>
-    <router-view />
-  </v-main>
+    <v-main>
+        <router-view />
+    </v-main>
 </template>
 
-<script setup>
-  //
+<script setup lang="ts">
+import { VMain } from 'vuetify/components';
+import { RouterView } from 'vue-router';
 </script>

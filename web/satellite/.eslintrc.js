@@ -44,7 +44,7 @@ module.exports = {
                 },
                 {
                     'group': 'internal',
-                    'pattern': '@/components/**',
+                    'pattern': '@?(poc)/components/**',
                     'position': 'after',
                 },
                 {
@@ -80,6 +80,7 @@ module.exports = {
         'vue/no-unused-refs': ['warn'],
         'vue/no-unused-vars': ['warn'],
         'vue/no-useless-v-bind': ['warn'],
+        'vue/valid-v-slot': ['error', { 'allowModifiers': true }],
 
         'vue/no-useless-template-attributes': ['off'], // TODO: fix later
         'vue/no-multiple-template-root': ['off'], // it's possible to have multiple roots in template in Vue 3

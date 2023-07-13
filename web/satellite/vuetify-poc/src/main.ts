@@ -8,20 +8,21 @@
  */
 
 // Components
-import App from './App.vue'
+import { createApp } from 'vue';
+
+import App from './App.vue';
 
 // Composables
-import { createApp } from 'vue'
 
 // Styles
-import './styles/settings.scss'
+import './styles/settings.scss';
 // import './styles/styles.scss'
 
 // Plugins
-import { registerPlugins } from '@poc/plugins'
+import { registerPlugins } from '@poc/plugins';
 
-const app = createApp(App)
+const app = createApp(App);
 
-registerPlugins(app)
+registerPlugins(app);
 
-app.mount('#app')
+app.mount('#app');

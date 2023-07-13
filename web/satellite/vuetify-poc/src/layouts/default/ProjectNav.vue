@@ -2,250 +2,249 @@
 // See LICENSE for copying information.
 
 <template>
+    <v-navigation-drawer class="py-1">
+        <v-sheet>
+            <v-list class="px-2" color="default" variant="flat">
+                <!-- Project -->
+                <v-list-item link class="pa-4 rounded-lg">
+                    <v-menu activator="parent" location="end" transition="scale-transition">
+                        <!-- Project Menu -->
+                        <v-list class="pa-2">
+                            <!-- My Projects -->
+                            <v-list-item rounded="lg" link router-link to="/projects">
+                                <template #prepend>
+                                    <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
+                                    <IconProject />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                        My Projects
+                                    </v-chip>
+                                </v-list-item-title>
+                            </v-list-item>
 
-  <v-navigation-drawer
-    v-model="drawer"
-    class="py-1"
-  >
-    <v-sheet>
-      <v-list class="px-2" color="default" variant="flat">
+                            <!-- Selected Project -->
+                            <v-list-item link rounded="lg" active>
+                                <template #prepend>
+                                    <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    My First Project
+                                </v-list-item-title>
+                            </v-list-item>
 
-        <!-- Project -->
-        <v-list-item link class="pa-4 rounded-lg">
-          <v-menu activator="parent" location="end" transition="scale-transition">
+                            <v-divider class="my-2" />
 
-              <!-- Project Menu -->
-              <v-list class="pa-2">
+                            <!-- Shared With Me -->
+                            <v-list-item rounded="lg" link router-link to="/projects">
+                                <template #prepend>
+                                    <IconProject />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                        Shared Projects
+                                    </v-chip>
+                                </v-list-item-title>
+                            </v-list-item>
 
-                <!-- My Projects -->
-                <v-list-item rounded="lg" link router-link to="/projects">
-                  <template v-slot:prepend>
-                    <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
-                    <IconProject/>
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                    My Projects
-                    </v-chip>
-                  </v-list-item-title>
+                            <!-- Other Project -->
+                            <v-list-item link rounded="lg">
+                                <v-list-item-title class="text-body-2">
+                                    Storj Labs
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-divider class="my-2" />
+
+                            <!-- Project Settings -->
+                            <v-list-item link rounded="lg">
+                                <template #prepend>
+                                    <IconSettings />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Project Settings
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <!-- <v-divider class="my-2"></v-divider> -->
+
+                            <!-- View All Projects -->
+                            <v-list-item link rounded="lg" router-link to="/projects">
+                                <template #prepend>
+                                    <IconAllProjects />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    View All Projects
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <!-- Create New Project -->
+                            <v-list-item link rounded="lg">
+                                <template #prepend>
+                                    <IconNew />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Create New Project
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-divider class="my-2" />
+
+                            <!-- Manage Passphrase -->
+                            <v-list-item link class="mt-1" rounded="lg">
+                                <template #prepend>
+                                    <IconPassphrase />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Manage Passphrase
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                    <template #prepend>
+                        <IconProject />
+                    </template>
+                    <v-list-item-title link class="text-body-2 ml-3">
+                        Project
+                    </v-list-item-title>
+                    <v-list-item-subtitle class="ml-3">
+                        My first project
+                    </v-list-item-subtitle>
+                    <template #append>
+                        <img src="@poc/assets/icon-right.svg" alt="Project" width="10">
+                    </template>
                 </v-list-item>
 
-                <!-- Selected Project -->
-                <v-list-item link rounded="lg" active>
-                  <template v-slot:prepend>
-                    <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                      My First Project
-                  </v-list-item-title>
+                <v-divider class="my-2" />
+
+                <v-list-item link router-link to="/dashboard" class="my-1 py-3" rounded="lg">
+                    <template #prepend>
+                        <IconDashboard />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Overview
+                    </v-list-item-title>
                 </v-list-item>
 
-                <v-divider class="my-2"></v-divider>
-
-                <!-- Shared With Me -->
-                <v-list-item rounded="lg" link router-link to="/projects">
-                  <template v-slot:prepend>
-                    <IconProject/>
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                    Shared Projects
-                    </v-chip>
-                  </v-list-item-title>
+                <v-list-item link router-link to="/buckets" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <IconBucket />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Buckets
+                    </v-list-item-title>
                 </v-list-item>
 
-                <!-- Other Project -->
-                <v-list-item link rounded="lg">
-                  <v-list-item-title class="text-body-2">
-                      Storj Labs
-                  </v-list-item-title>
+                <v-list-item link router-link to="/bucket" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <IconBrowse />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Browse
+                    </v-list-item-title>
                 </v-list-item>
 
-                <v-divider class="my-2"></v-divider>
-
-                <!-- Project Settings -->
-                <v-list-item link rounded="lg">
-                  <template v-slot:prepend>
-                    <IconSettings/>
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    Project Settings
-                  </v-list-item-title>
+                <v-list-item link router-link to="/access" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <IconAccess />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Access
+                    </v-list-item-title>
                 </v-list-item>
 
-                <!-- <v-divider class="my-2"></v-divider> -->
-
-                <!-- View All Projects -->
-                <v-list-item link rounded="lg" router-link to="/projects">
-                  <template v-slot:prepend>
-                    <IconAllProjects/>
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    View All Projects
-                  </v-list-item-title>
+                <v-list-item link router-link to="/team" class="my-1" rounded="lg">
+                    <template #prepend>
+                        <IconTeam />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Team
+                    </v-list-item-title>
                 </v-list-item>
 
-                <!-- Create New Project -->
-                <v-list-item link rounded="lg">
-                  <template v-slot:prepend>
-                    <IconNew />
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    Create New Project
-                  </v-list-item-title>
+                <v-divider class="my-2" />
+
+                <!-- Resources Menu -->
+                <v-list-item link class="rounded-lg">
+                    <v-menu activator="parent" location="end" transition="scale-transition">
+                        <v-list class="pa-2">
+                            <v-list-item link class="py-3" rounded="lg">
+                                <template #prepend>
+                                    <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
+                                    <IconDocs />
+                                </template>
+                                <v-list-item-title class="text-body-2 mx-3">
+                                    Documentation
+                                </v-list-item-title>
+                                <v-list-item-subtitle class="mx-3">
+                                    <small>Go to the Storj docs.</small>
+                                </v-list-item-subtitle>
+                            </v-list-item>
+
+                            <v-list-item link class="py-3" rounded="lg">
+                                <template #prepend>
+                                    <IconForum />
+                                </template>
+                                <v-list-item-title class="text-body-2 mx-3">
+                                    Community Forum
+                                </v-list-item-title>
+                                <v-list-item-subtitle class="mx-3">
+                                    <small>Join our global community.</small>
+                                </v-list-item-subtitle>
+                            </v-list-item>
+
+                            <v-list-item link class="py-3" rounded="lg">
+                                <template #prepend>
+                                    <IconSupport />
+                                </template>
+                                <v-list-item-title class="text-body-2 mx-3">
+                                    Storj Support
+                                </v-list-item-title>
+                                <v-list-item-subtitle class="mx-3">
+                                    <small>Need help? Get support.</small>
+                                </v-list-item-subtitle>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+
+                    <template #prepend>
+                        <IconResources />
+                    </template>
+                    <v-list-item-title class="text-body-2 ml-3">
+                        Resources
+                    </v-list-item-title>
+                    <template #append>
+                        <img src="@poc/assets/icon-right.svg" alt="Resources" width="10">
+                    </template>
                 </v-list-item>
 
-                <v-divider class="my-2"></v-divider>
+                <v-divider class="my-2" />
 
-                <!-- Manage Passphrase -->
-                <v-list-item link class="mt-1" rounded="lg">
-                  <template v-slot:prepend>
-                    <IconPassphrase/>
-                  </template>
-                  <v-list-item-title class="text-body-2 ml-3">
-                    Manage Passphrase
-                  </v-list-item-title>
-                </v-list-item>
-              </v-list>
-          </v-menu>
-          <template v-slot:prepend>
-            <IconProject/>
-          </template>
-          <v-list-item-title link class="text-body-2 ml-3">
-            Project
-          </v-list-item-title>
-          <v-list-item-subtitle class="ml-3">
-              My first project
-            </v-list-item-subtitle>
-          <template v-slot:append>
-            <img src="@poc/assets/icon-right.svg" alt="Project" width="10">
-          </template>
-        </v-list-item>
-
-        <v-divider class="my-2"></v-divider>
-
-        <v-list-item link router-link to="/dashboard" class="my-1 py-3" rounded="lg">
-          <template v-slot:prepend>
-            <IconDashboard/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Overview
-          </v-list-item-title>
-        </v-list-item>
-
-        <v-list-item link router-link to="/buckets" class="my-1" rounded="lg">
-          <template v-slot:prepend>
-            <IconBucket/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Buckets
-          </v-list-item-title>
-        </v-list-item>
-
-        <v-list-item link router-link to="/bucket" class="my-1" rounded="lg">
-          <template v-slot:prepend>
-            <IconBrowse/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Browse
-          </v-list-item-title>
-        </v-list-item>
-
-        <v-list-item link router-link to="/access" class="my-1" rounded="lg">
-          <template v-slot:prepend>
-            <IconAccess/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Access
-          </v-list-item-title>
-        </v-list-item>
-
-        <v-list-item link router-link to="/team" class="my-1" rounded="lg">
-          <template v-slot:prepend>
-            <IconTeam/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Team
-          </v-list-item-title>
-        </v-list-item>
-
-        <v-divider class="my-2"></v-divider>
-
-        <!-- Resources Menu -->
-        <v-list-item link class="rounded-lg">
-
-          <v-menu activator="parent" location="end" transition="scale-transition">
-              <v-list class="pa-2">
-
-                <v-list-item link class="py-3" rounded="lg">
-                  <template v-slot:prepend>
-                    <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
-                    <IconDocs/>
-                  </template>
-                  <v-list-item-title class="text-body-2 mx-3">
-                    Documentation
-                  </v-list-item-title>
-                  <v-list-item-subtitle class="mx-3">
-                    <small>Go to the Storj docs.</small>
-                  </v-list-item-subtitle>
-                </v-list-item>
-
-                <v-list-item link class="py-3" rounded="lg">
-                  <template v-slot:prepend>
-                    <IconForum/>
-                  </template>
-                  <v-list-item-title class="text-body-2 mx-3">
-                    Community Forum
-                  </v-list-item-title>
-                  <v-list-item-subtitle class="mx-3">
-                    <small>Join our global community.</small>
-                  </v-list-item-subtitle>
-                </v-list-item>
-
-                <v-list-item link class="py-3" rounded="lg">
-                  <template v-slot:prepend>
-                    <IconSupport/>
-                  </template>
-                  <v-list-item-title class="text-body-2 mx-3">
-                    Storj Support
-                  </v-list-item-title>
-                  <v-list-item-subtitle class="mx-3">
-                    <small>Need help? Get support.</small>
-                  </v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-          </v-menu>
-
-          <template v-slot:prepend>
-            <IconResources/>
-          </template>
-          <v-list-item-title class="text-body-2 ml-3">
-            Resources
-          </v-list-item-title>
-          <template v-slot:append>
-            <img src="@poc/assets/icon-right.svg" alt="Resources" width="10">
-          </template>
-        </v-list-item>
-
-        <v-divider class="my-2"></v-divider>
-
-        <!-- <v-list-item link class="my-1" router-link to="/design-library" rounded="lg">
-          <template v-slot:prepend>
-            <img src="@poc/assets/icon-bookmark.svg" alt="Design Library" class="mr-3">
-          </template>
-          <v-list-item-title class="text-body-2">
-            Design Library
-          </v-list-item-title>
-        </v-list-item> -->
-
-      </v-list>
-    </v-sheet>
-
-  </v-navigation-drawer>
-
+                <!-- <v-list-item link class="my-1" router-link to="/design-library" rounded="lg">
+                    <template v-slot:prepend>
+                        <img src="@poc/assets/icon-bookmark.svg" alt="Design Library" class="mr-3">
+                    </template>
+                    <v-list-item-title class="text-body-2">
+                        Design Library
+                    </v-list-item-title>
+                </v-list-item> -->
+            </v-list>
+        </v-sheet>
+    </v-navigation-drawer>
 </template>
 
-<script>
+<script setup lang="ts">
+import {
+    VNavigationDrawer,
+    VSheet,
+    VList,
+    VListItem,
+    VListItemTitle,
+    VListItemSubtitle,
+    VMenu,
+    VChip,
+    VDivider,
+} from 'vuetify/components';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -261,27 +260,4 @@ import IconDocs from '@poc/components/icons/IconDocs.vue';
 import IconForum from '@poc/components/icons/IconForum.vue';
 import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
-
-export default {
-  components: {
-    IconProject,
-    IconSettings,
-    IconAllProjects,
-    IconNew,
-    IconPassphrase,
-    IconDashboard,
-    IconBucket,
-    IconBrowse,
-    IconAccess,
-    IconTeam,
-    IconDocs,
-    IconForum,
-    IconSupport,
-    IconResources,
-  },
-  data: () => ({
-      drawer: true,
-      menu: false,
-  }),
-}
 </script>

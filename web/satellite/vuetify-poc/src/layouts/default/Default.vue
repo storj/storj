@@ -12,10 +12,11 @@
 <script setup lang="ts">
 import { onBeforeMount } from 'vue';
 import { useRouter } from 'vue-router';
+import { VApp } from 'vuetify/components';
 
-import DefaultBar from './AppBar.vue'
-import ProjectNav from './ProjectNav.vue'
-import DefaultView from './View.vue'
+import DefaultBar from './AppBar.vue';
+import ProjectNav from './ProjectNav.vue';
+import DefaultView from './View.vue';
 
 import { RouteConfig } from '@/types/router';
 import { Project } from '@/types/projects';

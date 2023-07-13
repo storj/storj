@@ -9,11 +9,11 @@
             prepend-inner-icon="mdi-magnify"
             single-line
             hide-details
-        ></v-text-field>
+        />
 
         <v-data-table
             v-model="selected"
-            v-model:sort-by="sortBy"
+            :sort-by="sortBy"
             :headers="headers"
             :items="projectMembers"
             :search="search"
@@ -21,7 +21,7 @@
             show-select
             hover
         >
-            <template v-slot:item.name="{ item }">
+            <template #item.name="{ item }">
                 <v-list-item class="font-weight-bold pl-0">
                     <!-- <template v-slot:prepend>
                     <img src="../assets/icon-user-color.svg" alt="Dashboard" class="mr-3">
@@ -29,7 +29,7 @@
                     {{ item.columns.name }}
                 </v-list-item>
             </template>
-            <template v-slot:item.role="{ item }">
+            <template #item.role="{ item }">
                 <v-chip :color="roleColors.get(item.raw.role)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
                     {{ item.raw.role }}
                 </v-chip>
@@ -40,6 +40,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { VCard, VTextField, VListItem, VChip } from 'vuetify/components';
+import { VDataTable } from 'vuetify/labs/components';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

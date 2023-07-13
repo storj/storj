@@ -3,9 +3,8 @@
 
 <template>
     <v-container>
-
-        <PageTitleComponent title="Project Overview"/>
-        <PageSubtitleComponent :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"/>
+        <PageTitleComponent title="Project Overview" />
+        <PageSubtitleComponent :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`" />
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
@@ -21,7 +20,7 @@
                 <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize" />
+                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
                 <CardStatsComponent title="Billing" subtitle="Free account" data="Free" />
@@ -30,24 +29,24 @@
 
         <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Storage" progress="40" used="10 GB Used" limit="Limit: 25GB" available="15 GB Available" cta="Need more?"/>
+                <UsageProgressComponent title="Storage" :progress="40" used="10 GB Used" limit="Limit: 25GB" available="15 GB Available" cta="Need more?" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Download" progress="60" used="15 GB Used" limit="Limit: 25GB per month" available="10 GB Available" cta="Need more?"/>
+                <UsageProgressComponent title="Download" :progress="60" used="15 GB Used" limit="Limit: 25GB per month" available="10 GB Available" cta="Need more?" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Segments" progress="12" used="1,235 Used" limit="Limit: 10,000" available="8,765 Available" cta="Learn more"/>
+                <UsageProgressComponent title="Segments" :progress="12" used="1,235 Used" limit="Limit: 10,000" available="8,765 Available" cta="Learn more" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Free Tier" progress="50" used="10 GB Used" limit="Limit: $1.65" available="50% Available" cta="Upgrade to Pro"/>
+                <UsageProgressComponent title="Free Tier" :progress="50" used="10 GB Used" limit="Limit: $1.65" available="50% Available" cta="Upgrade to Pro" />
             </v-col>
         </v-row>
-
     </v-container>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { VContainer, VRow, VCol } from 'vuetify/components';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
