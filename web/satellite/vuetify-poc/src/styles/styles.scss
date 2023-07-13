@@ -1,0 +1,290 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+/**
+ * src/styles/styles.scss
+ *
+ * Storj Stylesheet
+ * Work in progress
+ *
+ */
+
+ @use './settings';
+
+// Light Theme
+.v-theme--light {
+  --v-border-color: 0, 0, 0;
+  --v-border-opacity: 0.1;
+  --v-theme-overlay-multiplier: 0.75;
+  --v-border-color: #e0e0e0;
+}
+
+// Dark Theme
+.v-theme--dark {
+  --v-theme-overlay-multiplier: 0.75;
+}
+
+.v-navigation-drawer {
+  // box-shadow: 0 3px 4px rgba(var(--v-theme-on-surface), 0.05) !important;
+  box-shadow: 15px 0 30px 0 rgba(0,0,0,.03) !important;
+  // box-shadow: 15px 0 30px 0 rgba(var(--v-theme-on-surface), 0.03) !important;
+}
+.v-app-bar.v-toolbar {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  // box-shadow: 0 1px 3px rgba(var(--v-theme-on-surface), 0.05) !important;
+  box-shadow: 15px 0 30px 0 rgba(0,0,0,.03) !important;
+  // box-shadow: 15px 0 30px 0 rgba(var(--v-theme-on-surface), 0.03) !important;
+}
+
+// Toggle visibility class
+.show {
+  display: block;
+}
+
+// Custom rounded class
+.rounded-xlg {
+  border-radius: 12px !important;
+}
+
+// Success button text
+.v-btn.v-theme--light.bg-success {
+  color: #fff;
+}
+
+// Button Shadow
+.v-btn--variant-outlined, .v-btn--elevated, .v-btn--variant-flat  {
+  box-shadow: rgba(50, 50, 93, 0.07) 0px 2px 5px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1px 0px !important;
+  // box-shadow: rgba(50, 50, 93, 0.1) 0px 0px 0px 1px inset, rgba(50, 50, 93, 0.1) 0px 2px 5px 0px, rgba(0, 0, 0, 0.07) 0px 1px 1px 0px !important;
+}
+// .v-btn.v-theme--light {
+//   box-shadow: 0 1px 2px #eee;
+// }
+// .v-btn.v-theme--dark {
+//   box-shadow: 0 1px 2px #000;
+// }
+
+// Button Outlines
+.v-btn.v-theme--light.text-default.v-btn--variant-outlined {
+  border-color: rgba(var(--v-border-color), 0.2);
+  // border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.v-btn.v-theme--light.text-default.v-btn--variant-outlined:hover {
+  border-color: #9da3a7;
+  // color: rgb(var(--v-theme-primary));
+  border-color: rgba(var(--v-border-color), 0.5);
+}
+.v-btn.v-theme--dark.text-default.v-btn--variant-outlined {
+  border-color: #a9b0b949;
+  // border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.v-btn.v-theme--dark.text-default.v-btn--variant-outlined:hover {
+  border-color: #a9b0b979;
+}
+
+// Button focus style
+.v-btn:focus {
+  // box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px, rgb(103, 146, 244) 0px 0px 0px 3px !important;
+  // box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px, currentColor 0px 0px 0px 1px !important;
+  // outline: none !important;
+}
+
+// Button Sizes
+.v-btn--size-x-small {
+  --v-btn-height: 2rem;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.v-btn--size-small {
+  --v-btn-height: 2.25rem;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.v-btn--size-default {
+  // --v-btn-height: 2.75rem;
+  --v-btn-height: 3rem;
+  font-size: 14px;
+}
+.v-btn--size-large {
+  --v-btn-height: 3.5rem;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.v-btn--size-x-large {
+  --v-btn-height: 4rem;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+// Button Icon
+.v-btn--icon {
+    padding: 4px;
+    height: auto;
+    width: auto;
+}
+
+
+// Menu border
+.v-menu > .v-overlay__content {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+}
+
+// Menu list item
+.v-list-item--active .v-list-item-title {
+  font-weight: 700;
+}
+
+// Menu list item active background
+// .v-list-item--variant-text .v-list-item__overlay {
+//   background: rgb(var(--v-border-color));
+// }
+
+
+// Card Light Theme
+.v-card.v-theme--dark {
+//  background: #000b2f;
+//  background: #101823;
+//  background: #0d1116;
+  background: --v-theme-surface;
+//  box-shadow: 0 2px 2px #000b2f;
+// border-bottom-width: 2px !important;
+//  box-shadow: 0 2px 2px #00000047;
+//  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 4px 0px, rgba(0, 0, 0, 0.15) 0px 6px 16px -8px;
+//  border-color: #d9d7d7;
+  box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1.5px 0px !important;
+}
+
+// Card Dark Theme
+.v-card.v-theme--light {
+  // background: #f6f7fa;
+  // border-bottom-width: 2px !important;
+  // box-shadow: 0 2px 2px #eee;
+  // box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 4px 0px, rgba(0, 0, 0, 0.15) 0px 6px 16px -8px;
+  // border: 1px solid #d8dee3;
+  border: 1px solid #e0e0e0;
+  // border: none;
+  // box-shadow: rgb(224, 224, 224) 0px 0px 0px 1px, rgba(0, 0, 0, 0.07) 0px 2px 4px 0px, rgba(0, 0, 0, 0.05) 0px 1px 1.5px 0px !important;
+  box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1.5px 0px !important;
+}
+
+// Cards Padding
+.v-card-item {
+  padding: 1rem;
+}
+
+// Cards Title
+.v-card-item .v-card-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+
+// Overlay behind modals/dialogs opacity and color
+.v-overlay__scrim {
+  background: #000;
+  opacity: 0.75;
+}
+
+// Align the checkboxes in the tables
+.v-selection-control {
+  contain: inherit;
+}
+
+// Make the checkbox selection square instead of rounded
+.v-selection-control__input {
+  border-radius: 8px;
+}
+.v-selection-control__input::before {
+  border-radius: 8px;
+}
+
+
+// Sorting icon
+.mdi-arrow-up::before, .mdi-arrow-down::before {
+  // content: "\F005D";
+  font-size: 14px;
+}
+
+// Breadcrumbs
+.v-breadcrumbs {
+  min-height: 24px;
+}
+.v-breadcrumbs-item {
+  padding: 0 !important;
+}
+
+// Snackbar
+.v-snackbar__content {
+  width: 100%;
+}
+
+// Table Headers
+.v-data-table-header__content {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+}
+
+// Table content
+.v-list-item__content {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+// Table Footer
+.v-data-table-footer {
+  font-size: 14px;
+}
+.v-data-table-footer {
+  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+// Table Fonts
+table {
+  font-size: 14px;
+}
+
+// Table Pagination
+.v-data-table-footer__pagination .v-btn {
+  width: auto;
+}
+
+// Search styles
+.v-field.v-field--prepended {
+  --v-field-padding-start: 8px;
+  padding-left: 16px;
+}
+
+
+// Links
+.link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+  background-image: linear-gradient(currentColor,currentColor);
+  background-size: 0 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size .15s ease;
+}
+.link:hover {
+  color: rgb(var(--v-theme-secondary));
+  background-size: 100% 1px;
+}
+
+
+// Tooltips
+.v-tooltip>.v-overlay__content {
+  background: rgba(var(--v-theme-on-surface),0.9) !important;
+  color: rgb(var(--v-theme-surface)) !important;
+  border: 1px solid rgba(var(--v-theme-surface),0.2);
+  font-weight: 500;
+  border-radius: 20px !important;
+  padding: 6px 14px;
+  backdrop-filter: blur(12px);
+}
+
+// Upload Snackbar
+.upload-snackbar .v-snackbar__content {
+  padding: 2px;
+}

@@ -1,17 +1,27 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createApp } from 'vue';
+/**
+ * main.ts
+ *
+ * Bootstraps Vuetify and other plugins then mounts the App
+ */
 
-import App from './App.vue';
+// Components
+import App from './App.vue'
 
-import { registerPlugins } from '@poc/plugins';
+// Composables
+import { createApp } from 'vue'
 
-import './styles/settings.scss';
+// Styles
+import './styles/settings.scss'
+// import './styles/styles.scss'
 
-const app = createApp(App);
-app.config.performance = true;
+// Plugins
+import { registerPlugins } from '@poc/plugins'
 
-registerPlugins(app);
+const app = createApp(App)
 
-app.mount('#app');
+registerPlugins(app)
+
+app.mount('#app')

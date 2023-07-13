@@ -3,7 +3,8 @@
 
 <template>
     <v-app>
-        <app-bar />
+        <default-bar />
+        <ProjectNav />
         <default-view />
     </v-app>
 </template>
@@ -12,8 +13,9 @@
 import { onBeforeMount } from 'vue';
 import { useRouter } from 'vue-router';
 
-import AppBar from './AppBar.vue';
-import DefaultView from './DefaultView.vue';
+import DefaultBar from './AppBar.vue'
+import ProjectNav from './ProjectNav.vue'
+import DefaultView from './View.vue'
 
 import { RouteConfig } from '@/types/router';
 import { Project } from '@/types/projects';

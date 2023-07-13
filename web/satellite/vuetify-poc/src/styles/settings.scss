@@ -1,193 +1,36 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-@use 'vuetify' with (
+/**
+ * src/styles/settings.scss
+ *
+ * Configures SASS variables and Vuetify overwrites
+ */
+
+
+// Warning
+// Duplicated CSS
+// Placing actual styles or importing a regular stylesheet
+// into the settings file will cause them to be
+// duplicated everywhere the file is imported.
+
+// Only put variables, mixins, and functions in the settings file,
+// styles should be placed in the main stylesheet or loaded another way.
+
+
+// Use SASS https://vuetifyjs.com/en/features/sass-variables/
+
+// @use 'vuetify' with (
+//   // $utilities: false,
+//   $color-pack: false,
+//   $body-font-family: 'Inter',
+// );
+
+//  To obtain settings from Vuetify, you must forward its variables from within your local stylesheet
+@forward 'vuetify' with (
+  // $utilities: false,
   $color-pack: false,
   $body-font-family: 'Inter',
+  // $button-text-letter-spacing: 'none',
+  // $button-height: 40px,
 );
-
-.v-theme--light {
-  --v-border-color: 0, 0, 0;
-  --v-border-opacity: 0.1;
-}
-
-.v-responsive {
-  // allow the shadows to appear outside the containers
-  overflow: visible;
-}
-
-.v-btn {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 700;
-  transition: all 0.2s ease 0s;
-  line-height: 1.5rem;
-}
-
-.v-btn.v-theme--light.bg-success {
-  color: #fff;
-}
-
-.v-btn--size-x-small {
-  --v-btn-height: 2rem;
-  padding-left: 12px;
-  padding-right: 12px;
-}
-
-.v-btn--size-small {
-  --v-btn-height: 2.25rem;
-  padding-left: 14px;
-  padding-right: 14px;
-}
-
-.v-btn--size-default {
-  --v-btn-height: 3rem;
-  font-size: 14px;
-}
-
-.v-btn--size-large {
-  --v-btn-height: 3.5rem;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-.v-btn--size-x-large {
-  --v-btn-height: 4rem;
-  padding-left: 24px;
-  padding-right: 24px;
-}
-
-.v-btn--icon {
-  padding: 4px;
-  height: auto;
-  width: auto;
-}
-
-// Headings
-.v-theme--light h1, .v-theme--light h2, .v-theme--light h3, .v-theme--light h4, .v-theme--light h5, .v-theme--light h6 {
-  color: #091c45;
-}
-.v-theme--dark h1, .v-theme--dark h2, .v-theme--dark h3, .v-theme--dark h4, .v-theme--dark h5, .v-theme--dark h6 {
-  color: #fff;
-}
-
-// Menu border
-.v-menu > .v-overlay__content {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 9px;
-}
-
-// Menu list item
-.v-list-item--active .v-list-item-title {
-  font-weight: 700;
-}
-
-// Card Light Theme
-.v-card.v-theme--dark {
-  background: #0c121d;
-  border-radius: 12px !important;
-
-}
-
-// Card Dark Theme
-.v-card.v-theme--light {
-  border: 1px solid #d8dee3;
-  border-radius: 12px !important;
-}
-
-.v-card-item {
-  padding: 1rem;
-}
-
-// Cards Title
-.v-card-item .v-card-title {
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: 0;
-}
-
-// Overlay behind modals/dialogs opacity and color
-.v-overlay__scrim {
-  background: #000;
-  opacity: 0.75;
-}
-
-// Align the checkboxes in the tables
-.v-selection-control {
-  contain: inherit;
-}
-
-// Make the checkbox selection square instead of rounded
-.v-selection-control__input {
-  border-radius: 4px;
-}
-.v-selection-control__input::before {
-  border-radius: 4px;
-}
-
-
-// Sorting icon
-.mdi-arrow-up::before, .mdi-arrow-down::before {
-  font-size: 16px;
-  font-weight: 400;
-}
-
-// Breadcrumbs
-.v-breadcrumbs {
-  min-height: 24px;
-}
-.v-breadcrumbs-item {
-  padding: 0;
-}
-
-// Snackbar
-.v-snackbar__content {
-  width: 100%;
-}
-
-// Table Headers
-.v-data-table-header__content {
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 1px;
-}
-
-// Table content
-.v-list-item__content {
-  white-space: nowrap;
-  overflow: visible;
-}
-
-// Table Footer
-.v-data-table-footer {
-  font-size: 14px;
-}
-.v-data-table-footer {
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-// Table Fonts
-table {
-  font-size: 14px;
-}
-
-// Table Pagination
-.v-data-table-footer__pagination .v-btn {
-  width: auto;
-}
-
-// Search styles
-.v-field.v-field--prepended {
-  --v-field-padding-start: 8px;
-  padding-left: 16px;
-}
-
-// Links
-.link {
-  color: rgb(var(--v-theme-secondary));
-  text-decoration: none;
-  border-bottom: 1px solid;
-}
-.link:hover {
-  color: rgb(var(--v-theme-primary));
-}
