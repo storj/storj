@@ -15,7 +15,7 @@ import {
     GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Upload } from '@aws-sdk/lib-storage';
+import { Progress, Upload } from '@aws-sdk/lib-storage';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -322,6 +322,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         assertIsInitialized(state);
 
         type Item = DataTransferItem | FileSystemEntry;
+        type TraverseResult = { path: string, file: File };
 
         const items: Item[] = 'dataTransfer' in e && e.dataTransfer
             ? [...e.dataTransfer.items]
@@ -329,7 +330,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
                 : [];
 
-        async function* traverse(item: Item | Item[], path = '') {
+        async function* traverse(item: Item | Item[], path = ''): AsyncGenerator<TraverseResult, void, void> {
             if ('isFile' in item && item.isFile) {
                 const file = await new Promise(item.file.bind(item));
                 yield { path, file };
@@ -394,191 +395,165 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             return fileName;
         }
 
-        const appStore = useAppStore();
-        const config = useConfigStore();
-        const { notifyError } = useNotificationsStore();
-
         for await (const { path, file } of traverse(iterator)) {
             const directories = path.split('/');
             directories[0] = getUniqueFileName(directories[0]);
 
             const fileName = getUniqueFileName(directories.join('/') + file.name);
+            const key = state.path + fileName;
 
-            const params = {
-                Bucket: state.bucket,
-                Key: state.path + fileName,
-                Body: file,
-            };
-
-            if (config.state.config.newUploadModalEnabled) {
-                if (state.uploading.some(f => f.Key === params.Key && f.status === UploadingStatus.InProgress)) {
-                    notifyError({ message: `${params.Key} is already uploading`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
-                    continue;
-                }
-            }
-
-            // If file size exceeds 1 GB, show warning notification
-            if (file.size > (1024 * 1024 * 1024)) {
-                appStore.setLargeUploadWarningNotification(true);
-            }
-
-            const upload = new Upload({
-                client: state.s3,
-                partSize: 64 * 1024 * 1024,
-                params,
-            });
-
-            upload.on('httpUploadProgress', async (progress) => {
-                const file = state.uploading.find(file => file.Key === params.Key);
-                if (!file) {
-                    throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
-                }
-
-                let p = 0;
-                if (progress.loaded && progress.total) {
-                    p = Math.round((progress.loaded / progress.total) * 100);
-                }
-                file.progress = p;
-            });
-
-            if (config.state.config.newUploadModalEnabled) {
-                if (state.uploading.some(f => f.Key === params.Key && f.status === UploadingStatus.Cancelled)) {
-                    state.uploading = state.uploading.filter(f => f.Key !== params.Key);
-                }
-
-                // If file size exceeds 30 GB, abort the upload attempt
-                if (file.size > (30 * 1024 * 1024 * 1024)) {
-                    state.uploading.push({
-                        ...params,
-                        upload,
-                        progress: 0,
-                        Size: 0,
-                        LastModified: new Date(),
-                        Body: file,
-                        status: UploadingStatus.Failed,
-                        failedMessage: FailedUploadMessage.TooBig,
-                    });
-
-                    appStore.setUploadingModal(true);
-                    continue;
-                }
-            }
-
-            state.uploading.push({
-                ...params,
-                upload,
-                progress: 0,
-                Size: 0,
-                LastModified: new Date(),
-                status: UploadingStatus.InProgress,
-            });
-
-            if (config.state.config.newUploadModalEnabled && !appStore.state.isUploadingModal) {
-                appStore.setUploadingModal(true);
-            }
-
-            state.uploadChain = state.uploadChain.then(async () => {
-                const index = state.uploading.findIndex(f => f.Key === params.Key);
-                if (index === -1) {
-                    // upload cancelled or removed
-                    return;
-                }
-
-                try {
-                    await upload.done();
-                    state.uploading[index].status = UploadingStatus.Finished;
-                } catch (error) {
-                    handleUploadError(error.message, index);
-                    return;
-                }
-
-                await list();
-
-                const uploadedFiles = state.files.filter(f => f.type === 'file');
-                if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
-                    state.objectPathForModal = params.Key;
-
-                    if (config.state.config.galleryViewEnabled) {
-                        appStore.setGalleryView(true);
-                    } else {
-                        appStore.updateActiveModal(MODALS.objectDetails);
-                    }
-                }
-
-                if (!config.state.config.newUploadModalEnabled) {
-                    state.uploading = state.uploading.filter((file) => file.Key !== params.Key);
-                }
-            });
+            await enqueueUpload(key, file);
         }
     }
 
-    async function retryUpload(item: UploadingBrowserObject): Promise<void> {
+    async function retryUpload(key: string): Promise<void> {
         assertIsInitialized(state);
 
-        const index = state.uploading.findIndex(f => f.Key === item.Key);
-        if (index === -1) {
-            throw new Error(`No file found with key ${JSON.stringify(item.Key)}`);
+        const item = state.uploading.find(file => file.Key === key);
+        if (!item) {
+            throw new Error(`No uploads found with key '${key}'`);
         }
+
+        return await enqueueUpload(item.Key, item.Body);
+    }
+
+    async function enqueueUpload(key: string, body: File): Promise<void> {
+        assertIsInitialized(state);
+
+        const appStore = useAppStore();
+        const config = useConfigStore();
+        const { notifyError } = useNotificationsStore();
 
         const params = {
             Bucket: state.bucket,
-            Key: item.Key,
-            Body: item.Body,
+            Key: key,
+            Body: body,
         };
+
+        if (config.state.config.newUploadModalEnabled) {
+            if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
+                notifyError({ message: `${key} is already uploading`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+                return;
+            }
+
+            appStore.setUploadingModal(true);
+
+            const index = state.uploading.findIndex(file => file.Key === key);
+            if (index !== -1) {
+                state.uploading.splice(index, 1);
+            }
+
+            // If file size exceeds 30 GB, abort the upload attempt
+            if (body.size > (30 * 1024 * 1024 * 1024)) {
+                state.uploading.push({
+                    ...params,
+                    progress: 0,
+                    Size: 0,
+                    LastModified: new Date(),
+                    Body: body,
+                    status: UploadingStatus.Failed,
+                    failedMessage: FailedUploadMessage.TooBig,
+                });
+
+                return;
+            }
+        }
+
+        // If file size exceeds 1 GB, show warning notification
+        if (body.size > (1024 * 1024 * 1024)) {
+            appStore.setLargeUploadWarningNotification(true);
+        }
+
+        // Upload 5 parts at a time.
+        const queueSize = 5;
+        // Part size must be 64MB or higher, depending on file size.
+        const partSize = Math.max(64 * 1024 * 1024, Math.floor(body.size / queueSize));
 
         const upload = new Upload({
             client: state.s3,
-            partSize: 64 * 1024 * 1024,
+            queueSize,
+            partSize,
             params,
         });
 
-        upload.on('httpUploadProgress', async (progress) => {
-            const file = state.uploading.find(file => file.Key === params.Key);
-            if (!file) {
-                throw new Error(`No file found with key ${JSON.stringify(params.Key)}`);
+        const progressListener = async (progress: Progress) => {
+            const item = state.uploading.find(f => f.Key === key);
+            if (!item) {
+                upload.off('httpUploadProgress', progressListener);
+                notifyError({
+                    message: `Error updating progress. No file found with key '${key}'`,
+                    source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR,
+                });
+                return;
             }
 
             let p = 0;
             if (progress.loaded && progress.total) {
                 p = Math.round((progress.loaded / progress.total) * 100);
             }
-            file.progress = p;
-        });
+            item.progress = p;
+        };
+        upload.on('httpUploadProgress', progressListener);
 
-        state.uploading[index] = {
+        state.uploading.push({
             ...params,
             upload,
             progress: 0,
             Size: 0,
             LastModified: new Date(),
             status: UploadingStatus.InProgress,
-        };
+        });
 
-        try {
-            await upload.done();
-            state.uploading[index].status = UploadingStatus.Finished;
-        } catch (error) {
-            handleUploadError(error.message, index);
-        }
+        state.uploadChain = state.uploadChain.then(async () => {
+            const item = state.uploading.find(f => f.Key === key && f.status !== UploadingStatus.Cancelled);
+            if (!item) return;
 
-        await list();
+            try {
+                await upload.done();
+                item.status = UploadingStatus.Finished;
+            } catch (error) {
+                handleUploadError(item, error);
+                return;
+            } finally {
+                upload.off('httpUploadProgress', progressListener);
+            }
+
+            await list();
+
+            const uploadedFiles = state.files.filter(f => f.type === 'file');
+            if (uploadedFiles.length === 1 && !key.includes('/') && state.openModalOnFirstUpload) {
+                state.objectPathForModal = key;
+
+                if (config.state.config.galleryViewEnabled) {
+                    appStore.setGalleryView(true);
+                } else {
+                    appStore.updateActiveModal(MODALS.objectDetails);
+                }
+            }
+
+            if (!config.state.config.newUploadModalEnabled) {
+                state.uploading = state.uploading.filter(file => file.Key !== key);
+            }
+        });
     }
 
-    function handleUploadError(message: string, index: number): void {
+    function handleUploadError(item: UploadingBrowserObject, error: Error): void {
+        if (error.name === 'AbortError' && item.status === UploadingStatus.Cancelled) return;
+
         const config = useConfigStore();
 
         if (config.state.config.newUploadModalEnabled) {
-            state.uploading[index].status = UploadingStatus.Failed;
-            state.uploading[index].failedMessage = FailedUploadMessage.Failed;
+            item.status = UploadingStatus.Failed;
+            item.failedMessage = FailedUploadMessage.Failed;
         }
 
         const { notifyError } = useNotificationsStore();
 
         const limitExceededError = 'storage limit exceeded';
-        if (message.includes(limitExceededError)) {
+        if (error.message.includes(limitExceededError)) {
             notifyError({ message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
         } else {
-            notifyError({ message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+            notifyError({ message: error.message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
         }
     }
 
@@ -744,17 +719,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.openedDropdown = 'FileBrowser';
     }
 
-    function cancelUpload(key): void {
-        const index = state.uploading.findIndex(f => f.Key === key);
-        if (index === -1) {
-            throw new Error(`File ${JSON.stringify(key)} not found`);
+    function cancelUpload(key: string): void {
+        const file = state.uploading.find(f => f.Key === key);
+        if (!file) {
+            throw new Error(`File '${key}' not found`);
         }
-
-        const file = state.uploading[index];
-        if (file.progress !== undefined && file.upload && file.progress > 0) {
-            file.upload.abort();
-            state.uploading[index].status = UploadingStatus.Cancelled;
-        }
+        file.upload?.abort();
+        file.status = UploadingStatus.Cancelled;
     }
 
     function sort(headingSorted: string): void {

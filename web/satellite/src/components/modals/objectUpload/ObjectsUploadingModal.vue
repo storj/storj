@@ -7,10 +7,13 @@
             <div class="modal__header__left">
                 <div class="modal__header__left__info">
                     <div class="modal__header__left__info__cont">
-                        <CompleteIcon v-if="isClosable" />
+                        <component :is="icon" v-if="icon" :class="{ close: icon === FailedIcon }" />
                         <p class="modal__header__left__info__cont__title">{{ statusLabel }}</p>
                     </div>
-                    <p class="modal__header__left__info__remaining">{{ remainingTimeString }}</p>
+                    <div class="modal__header__left__info__right">
+                        <p class="modal__header__left__info__right__remaining">{{ remainingTimeString }}</p>
+                        <p v-if="!isClosable" class="modal__header__left__info__right__cancel" @click.stop="cancelAll">Cancel</p>
+                    </div>
                 </div>
                 <div v-if="!isClosable" class="modal__header__left__track">
                     <div class="modal__header__left__track__fill" :style="progressStyle" />
@@ -22,28 +25,39 @@
             </div>
         </div>
         <div v-if="isExpanded" class="modal__items">
-            <div v-for="item in uploading" :key="item.Key">
-                <UploadItem :item="item" />
-            </div>
+            <UploadItem
+                v-for="item in uploading"
+                :key="item.Key"
+                :class="{ modal__items__completed: item.status == UploadingStatus.Finished }"
+                :item="item"
+                @click="() => showFile(item)"
+            />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, Component } from 'vue';
 
 import { UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { Duration } from '@/utils/time';
+import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import UploadItem from '@/components/modals/objectUpload/UploadItem.vue';
 
 import ArrowIcon from '@/../static/images/modals/objectUpload/arrow.svg';
 import CloseIcon from '@/../static/images/modals/objectUpload/close.svg';
 import CompleteIcon from '@/../static/images/modals/objectUpload/complete.svg';
+import FailedIcon from '@/../static/images/modals/objectUpload/failed.svg';
 
 const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
+const notify = useNotify();
+const config = useConfigStore();
 
 const isExpanded = ref<boolean>(false);
 const startDate = ref<number>(Date.now());
@@ -72,34 +86,46 @@ const isClosable = computed((): boolean => {
 });
 
 /**
+ * Returns what icon should be displayed in the header.
+ */
+const icon = computed((): string => {
+    if (!isClosable.value) return '';
+    if (uploading.value.some(f => f.status === UploadingStatus.Finished)) return CompleteIcon;
+    if (uploading.value.some(f => f.status === UploadingStatus.Failed)) return FailedIcon;
+    return '';
+});
+
+/**
  * Returns header's status label.
  */
 const statusLabel = computed((): string => {
-    if (isClosable.value) {
-        let status = 'Uploading completed';
-
-        const failedUploads = uploading.value.filter(f => f.status === UploadingStatus.Failed);
-        if (failedUploads.length > 0) {
-            status += ` (${failedUploads.length} failed`;
+    let inProgress = 0, finished = 0, failed = 0, cancelled = 0;
+    uploading.value.forEach(u => {
+        switch (u.status) {
+        case UploadingStatus.InProgress:
+            inProgress++;
+            break;
+        case UploadingStatus.Failed:
+            failed++;
+            break;
+        case UploadingStatus.Cancelled:
+            cancelled++;
+            break;
+        default:
+            finished++;
         }
+    });
 
-        const cancelledUploads = uploading.value.filter(f => f.status === UploadingStatus.Cancelled);
-        if (cancelledUploads.length > 0) {
-            status += `, (${cancelledUploads.length} cancelled`;
-        }
+    if (failed === uploading.value.length) return 'Uploading failed';
+    if (cancelled === uploading.value.length) return 'Uploading cancelled';
+    if (inProgress) return `Uploading ${inProgress} item${inProgress > 1 ? 's' : ''}`;
 
-        if (!failedUploads.length && !cancelledUploads.length) {
-            return status;
-        }
+    const statuses = [
+        failed ? `${failed} failed` : '',
+        cancelled ? `${cancelled} cancelled` : '',
+    ].filter(s => s).join(', ');
 
-        return `${status})`;
-    }
-
-    if (uploading.value.length === 1) {
-        return 'Uploading 1 item';
-    }
-
-    return `Uploading ${uploading.value.length} items`;
+    return `Uploading completed${statuses ? ` (${statuses})` : ''}`;
 });
 
 /**
@@ -135,6 +161,34 @@ function calculateRemainingTime(): void {
     }
 
     remainingTimeString.value = new Duration(remainingNanoseconds).remainingFormatted;
+}
+
+/**
+ * Cancels all uploads in progress.
+ */
+function cancelAll(): void {
+    objectsInProgress.value.forEach(item => {
+        try {
+            obStore.cancelUpload(item.Key);
+        } catch (error) {
+            notify.error(`Unable to cancel upload for '${item.Key}'. ${error.message}`, AnalyticsErrorEventSource.OBJECTS_UPLOAD_MODAL);
+        }
+    });
+}
+
+/**
+ * Opens the object preview.
+ */
+function showFile(item: UploadingBrowserObject): void {
+    if (item.status !== UploadingStatus.Finished) return;
+
+    obStore.setObjectPathForModal(item.Key);
+
+    if (config.state.config.galleryViewEnabled) {
+        appStore.setGalleryView(true);
+    } else {
+        appStore.updateActiveModal(MODALS.objectDetails);
+    }
 }
 
 /**
@@ -211,10 +265,10 @@ onMounted(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 24px;
 
         &__left {
             box-sizing: border-box;
-            margin-right: 24px;
             width: 100%;
 
             &__info {
@@ -225,24 +279,40 @@ onMounted(() => {
                 &__cont {
                     display: flex;
                     align-items: center;
+                    gap: 11px;
 
                     svg {
-                        margin-right: 11px;
+                        width: 24px;
+                        height: 24px;
                     }
 
                     &__title {
-                        font-family: 'font_medium', sans-serif;
                         font-size: 14px;
                         line-height: 20px;
                         color: var(--c-white);
                     }
                 }
 
-                &__remaining {
+                &__right {
+                    display: flex;
+                    align-items: center;
+                    gap: 17px;
                     font-size: 14px;
                     line-height: 20px;
                     color: var(--c-white);
-                    opacity: 0.7;
+
+                    &__remaining {
+                        opacity: 0.7;
+                        text-align: right;
+                    }
+
+                    &__cancel {
+                        cursor: pointer;
+
+                        &:hover {
+                            text-decoration: underline;
+                        }
+                    }
                 }
             }
 
@@ -289,6 +359,18 @@ onMounted(() => {
         border-radius: 0 0 8px 8px;
         max-height: 185px;
         overflow-y: auto;
+
+        &__completed {
+            cursor: pointer;
+
+            &:hover {
+                background-color: var(--c-grey-1);
+            }
+
+            &:active {
+                background-color: var(--c-grey-2);
+            }
+        }
     }
 }
 

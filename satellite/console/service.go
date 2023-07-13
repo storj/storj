@@ -24,6 +24,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/currency"
+	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -75,7 +76,7 @@ const (
 	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
 	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
 	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
-	projInviteActiveErrMsg               = "The invitation for '%s' has not expired yet"
+	projInviteExistsErrMsg               = "An active invitation for '%s' already exists"
 )
 
 var (
@@ -143,8 +144,8 @@ var (
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 
-	// ErrProjectInviteActive occurs when trying to reinvite a user whose invitation hasn't expired yet.
-	ErrProjectInviteActive = errs.Class("project invitation active")
+	// ErrAlreadyInvited occurs when trying to invite a user who already has an unexpired invitation.
+	ErrAlreadyInvited = errs.Class("user is already invited")
 )
 
 // Service is handling accounts related logic.
@@ -302,6 +303,10 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 	if email != "" {
 		fields = append(fields, zap.String("email", email))
 	}
+	if requestID := requestid.FromContext(ctx); requestID != "" {
+		fields = append(fields, zap.String("requestID", requestID))
+	}
+
 	fields = append(fields, fields...)
 	s.auditLogger.Info("console activity", fields...)
 }
@@ -2930,7 +2935,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 		return 0, Error.Wrap(err)
 	}
 
-	projects, err := s.GetUsersProjects(ctx)
+	projects, err := s.store.Projects().GetOwn(ctx, userID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -3570,7 +3575,6 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 
 // InviteProjectMembers invites users by email to given project.
 // If an invitation already exists and has expired, it will be replaced and the user will be sent a new email.
-// Email addresses not belonging to a user are ignored.
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3588,6 +3592,14 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	var users []*User
 	var newUserEmails []string
 	for _, email := range emails {
+		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		if invite != nil && !s.IsProjectInvitationExpired(invite) {
+			return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
+		}
+
 		invitedUser, err := s.store.Users().GetByEmail(ctx, email)
 		if err == nil {
 			_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
@@ -3595,14 +3607,6 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 				return nil, Error.Wrap(err)
 			} else if err == nil {
 				return nil, ErrAlreadyMember.New("%s is already a member", email)
-			}
-
-			invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
-			if err != nil && !errs.Is(err, sql.ErrNoRows) {
-				return nil, Error.Wrap(err)
-			}
-			if invite != nil && !s.IsProjectInvitationExpired(invite) {
-				return nil, ErrProjectInviteActive.New(projInviteActiveErrMsg, invitedUser.Email)
 			}
 			users = append(users, invitedUser)
 		} else if errs.Is(err, sql.ErrNoRows) {

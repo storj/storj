@@ -11,6 +11,7 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
@@ -63,36 +64,11 @@ func NewPlacementRules() *ConfigurablePlacementRule {
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
-	d.placements[storj.EEA] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		for _, c := range location.EeaNonEuCountries {
-			if c == isoCountryCode {
-				return true
-			}
-		}
-		for _, c := range location.EuCountries {
-			if c == isoCountryCode {
-				return true
-			}
-		}
-		return false
-	})
-	d.placements[storj.EU] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		for _, c := range location.EuCountries {
-			if c == isoCountryCode {
-				return true
-			}
-		}
-		return false
-	})
-	d.placements[storj.US] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		return isoCountryCode == location.UnitedStates
-	})
-	d.placements[storj.DE] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		return isoCountryCode == location.Germany
-	})
-	d.placements[storj.NR] = nodeselection.NodeFilters{}.WithCountryFilter(func(isoCountryCode location.CountryCode) bool {
-		return isoCountryCode != location.Russia && isoCountryCode != location.Belarus
-	})
+	d.placements[storj.EEA] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(nodeselection.EeaCountries)}
+	d.placements[storj.EU] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(nodeselection.EuCountries)}
+	d.placements[storj.US] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.UnitedStates))}
+	d.placements[storj.DE] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.Germany))}
+	d.placements[storj.NR] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus))}
 }
 
 // AddPlacementRule registers a new placement.
@@ -104,18 +80,15 @@ func (d *ConfigurablePlacementRule) AddPlacementRule(id storj.PlacementConstrain
 func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) error {
 	env := map[any]any{
 		"country": func(countries ...string) (nodeselection.NodeFilters, error) {
-			countryCodes := make([]location.CountryCode, len(countries))
-			for i, country := range countries {
-				countryCodes[i] = location.ToCountryCode(country)
-			}
-			return nodeselection.NodeFilters{}.WithCountryFilter(func(code location.CountryCode) bool {
-				for _, expectedCode := range countryCodes {
-					if code == expectedCode {
-						return true
-					}
+			var set location.Set
+			for _, country := range countries {
+				code := location.ToCountryCode(country)
+				if code == location.None {
+					return nil, errs.New("invalid country code %q", code)
 				}
-				return false
-			}), nil
+				set.Include(code)
+			}
+			return nodeselection.NodeFilters{nodeselection.NewCountryFilter(set)}, nil
 		},
 		"all": func(filters ...nodeselection.NodeFilters) (nodeselection.NodeFilters, error) {
 			res := nodeselection.NodeFilters{}
@@ -166,11 +139,13 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 
 // CreateFilters implements PlacementCondition.
 func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilters) {
-	if constraint == 0 {
+	if constraint == storj.EveryCountry {
 		return nodeselection.NodeFilters{}
 	}
 	if filters, found := d.placements[constraint]; found {
-		return filters
+		return slices.Clone(filters)
 	}
-	return nodeselection.ExcludeAll
+	return nodeselection.NodeFilters{
+		nodeselection.ExcludeAllFilter{},
+	}
 }

@@ -1,6 +1,9 @@
 # whether to run this chore.
 # account-freeze.enabled: false
 
+# whether to exclude storjscan-paying users from automatic warn/freeze
+# account-freeze.exclude-storjscan: true
+
 # How long to wait between a warning event and freezing an account.
 # account-freeze.grace-period: 360h0m0s
 
@@ -184,6 +187,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # secret used to sign auth tokens
 # console.auth-token-secret: ""
 
+# the target URL of console back-end reverse proxy for local development when running a UI server
+# console.backend-reverse-proxy: ""
+
 # url link for for beta satellite feedback
 # console.beta-satellite-feedback-url: ""
 
@@ -258,6 +264,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
+
+# server address of the front-end app
+# console.frontend-address: :10200
+
+# feature flag to toggle whether console back-end server should also serve front-end endpoints
+# console.frontend-enable: true
 
 # whether to show new gallery view
 # console.gallery-view-enabled: false

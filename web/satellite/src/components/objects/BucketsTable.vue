@@ -226,7 +226,7 @@ async function openBucket(bucketName: string): Promise<void> {
         return;
     }
 
-    appStore.updateActiveModal(MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.enterBucketPassphrase);
 }
 
 onBeforeUnmount(() => {

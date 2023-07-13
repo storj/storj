@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -141,6 +142,10 @@ type Core struct {
 
 	ConsoleDBCleanup struct {
 		Chore *dbcleanup.Chore
+	}
+
+	GarbageCollection struct {
+		Sender *sender.Service
 	}
 }
 
@@ -534,6 +539,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.StripeCoinPayments(),
 				peer.Payments.Accounts,
 				peer.DB.Console().Users(),
+				peer.DB.Wallets(),
+				peer.DB.StorjscanPayments(),
 				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), peer.Analytics.Service),
 				peer.Analytics.Service,
 				config.AccountFreeze,
@@ -560,6 +567,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.ConsoleDBCleanup.Chore.Run,
 			Close: peer.ConsoleDBCleanup.Chore.Close,
 		})
+	}
+
+	{ // setup garbage collection
+		peer.GarbageCollection.Sender = sender.NewService(
+			peer.Log.Named("gc-sender"),
+			config.GarbageCollection,
+			peer.Dialer,
+			peer.Overlay.DB,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "gc-sender",
+			Run:  peer.GarbageCollection.Sender.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Garbage Collection", peer.GarbageCollection.Sender.Loop))
 	}
 
 	return peer, nil

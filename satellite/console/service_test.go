@@ -2064,7 +2064,7 @@ func TestProjectInvitations(t *testing.T) {
 
 			// resending an active invitation should fail.
 			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
-			require.True(t, console.ErrProjectInviteActive.Has(err))
+			require.True(t, console.ErrAlreadyInvited.Has(err))
 			require.Empty(t, invites)
 
 			// expire the invitation.

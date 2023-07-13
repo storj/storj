@@ -100,6 +100,11 @@ var (
 		Short: "Run the satellite API",
 		RunE:  cmdAPIRun,
 	}
+	runUICmd = &cobra.Command{
+		Use:   "ui",
+		Short: "Run the satellite UI",
+		RunE:  cmdUIRun,
+	}
 	runRepairerCmd = &cobra.Command{
 		Use:   "repair",
 		Short: "Run the repair service",
@@ -366,6 +371,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.AddCommand(runMigrationCmd)
 	runCmd.AddCommand(runAPICmd)
+	runCmd.AddCommand(runUICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
 	runCmd.AddCommand(runAuditorCmd)
@@ -404,6 +410,7 @@ func init() {
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runUICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAuditorCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

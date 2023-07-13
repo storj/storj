@@ -9,7 +9,7 @@ import EditProfileModal from '@/components/modals/EditProfileModal.vue';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
 import ChangeProjectLimitModal from '@/components/modals/ChangeProjectLimitModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
-import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
+import EnterBucketPassphraseModal from '@/components/modals/EnterBucketPassphraseModal.vue';
 import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
 import EnableMFAModal from '@/components/modals/EnableMFAModal.vue';
 import DisableMFAModal from '@/components/modals/DisableMFAModal.vue';
@@ -61,7 +61,7 @@ enum Modals {
     EDIT_PROFILE = 'editProfile',
     CHANGE_PASSWORD = 'changePassword',
     CREATE_PROJECT = 'createProject',
-    OPEN_BUCKET = 'openBucket',
+    ENTER_BUCKET_PASSPHRASE = 'enterBucketPassphrase',
     MFA_RECOVERY = 'mfaRecovery',
     ENABLE_MFA = 'enableMFA',
     DISABLE_MFA = 'disableMFA',
@@ -94,7 +94,7 @@ export const MODALS: Record<Modals, Component> = {
     [Modals.EDIT_PROFILE]: EditProfileModal,
     [Modals.CHANGE_PASSWORD]: ChangePasswordModal,
     [Modals.CREATE_PROJECT]: CreateProjectModal,
-    [Modals.OPEN_BUCKET]: OpenBucketModal,
+    [Modals.ENTER_BUCKET_PASSPHRASE]: EnterBucketPassphraseModal,
     [Modals.MFA_RECOVERY]: MFARecoveryCodesModal,
     [Modals.ENABLE_MFA]: EnableMFAModal,
     [Modals.DISABLE_MFA]: DisableMFAModal,

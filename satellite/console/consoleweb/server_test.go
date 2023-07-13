@@ -5,6 +5,7 @@ package consoleweb_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -218,4 +219,57 @@ func TestUserIDRateLimiter(t *testing.T) {
 		}
 		require.Equal(t, http.StatusTooManyRequests, applyCouponStatus(firstToken))
 	})
+}
+
+func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FrontendEnable = false
+				config.Console.UseVuetifyProject = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
+		uiAddr := planet.Satellites[0].UI.Console.Listener.Addr().String()
+
+		testEndpoint(ctx, t, apiAddr, "/", http.StatusNotFound)
+		testEndpoint(ctx, t, apiAddr, "/vuetifypoc", http.StatusNotFound)
+		testEndpoint(ctx, t, apiAddr, "/static/", http.StatusNotFound)
+
+		testEndpoint(ctx, t, uiAddr, "/", http.StatusOK)
+		testEndpoint(ctx, t, uiAddr, "/vuetifypoc", http.StatusOK)
+		testEndpoint(ctx, t, uiAddr, "/static/", http.StatusOK)
+	})
+}
+
+func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UseVuetifyProject = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
+
+		testEndpoint(ctx, t, apiAddr, "/", http.StatusOK)
+		testEndpoint(ctx, t, apiAddr, "/vuetifypoc", http.StatusOK)
+		testEndpoint(ctx, t, apiAddr, "/static/", http.StatusOK)
+	})
+}
+
+func testEndpoint(ctx context.Context, t *testing.T, addr, endpoint string, expectedStatus int) {
+	client := http.Client{}
+	url := "http://" + addr + endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	require.NoError(t, err)
+
+	result, err := client.Do(req)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedStatus, result.StatusCode)
+	require.NoError(t, result.Body.Close())
 }

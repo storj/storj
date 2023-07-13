@@ -130,7 +130,7 @@ async function openBucket(): Promise<void> {
         return;
     }
 
-    appStore.updateActiveModal(MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.enterBucketPassphrase);
 }
 
 /**

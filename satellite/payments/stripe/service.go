@@ -1068,8 +1068,6 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 	}
 	params.Filters.AddFilter("created", "gte", strconv.FormatInt(createdOnAfter.Unix(), 10))
 
-	var errGrp errs.Group
-
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
@@ -1084,11 +1082,13 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 		params := &stripe.InvoicePayParams{Params: stripe.Params{Context: ctx}}
 		_, err = service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
-			errGrp.Add(Error.New("unable to pay invoice %s", stripeInvoice.ID))
+			service.log.Warn("unable to pay invoice",
+				zap.String("stripe-invoice-id", stripeInvoice.ID),
+				zap.Error(err))
 			continue
 		}
 	}
-	return errGrp.Err()
+	return invoicesIterator.Err()
 }
 
 // projectUsagePrice represents pricing for project usage.

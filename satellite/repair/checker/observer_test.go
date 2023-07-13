@@ -555,7 +555,7 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		}
 
 		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].DB.RepairQueue(),
-			planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker, overlay.NewPlacementRules().CreateFilters, []string{})
+			planet.Satellites[0].Auditor.Overlay, overlay.NewPlacementRules().CreateFilters, planet.Satellites[0].Config.Checker)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 

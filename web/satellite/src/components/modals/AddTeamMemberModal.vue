@@ -146,6 +146,8 @@ async function onAddUsersClick(): Promise<void> {
     let areAllEmailsValid = true;
     const emailArray: string[] = [];
 
+    inputs.value.forEach(elem => elem.value = elem.value.trim());
+
     for (let i = 0; i < length; i++) {
         const element = inputs.value[i];
         const isEmail = Validator.email(element.value);
@@ -186,7 +188,7 @@ async function onAddUsersClick(): Promise<void> {
     }
 
     if (emailArray.includes(usersStore.state.user.email)) {
-        await notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        await notify.error(`Error adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 
         return;
@@ -194,8 +196,8 @@ async function onAddUsersClick(): Promise<void> {
 
     try {
         await pmStore.inviteMembers(emailArray, projectsStore.state.selectedProject.id);
-    } catch (_) {
-        await notify.error(`Error during adding project members.`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+    } catch (error) {
+        await notify.error(`Error adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 
         return;
