@@ -15,6 +15,7 @@ import {
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
+    PaymentWithConfirmations,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -278,6 +279,39 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.Status,
                     item.Link,
                     new Date(item.Timestamp),
+                ),
+            );
+        }
+
+        return [];
+    }
+
+    /**
+     * Returns a list of STORJ token payments with confirmations.
+     *
+     * @returns list of native token payment items with confirmations
+     * @throws Error
+     */
+    public async paymentsWithConfirmations(): Promise<PaymentWithConfirmations[]> {
+        const path = `${this.ROOT_PATH}/wallet/payments-with-confirmations`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('Can not list token payment with confirmations');
+        }
+
+        const json = await response.json();
+        if (json && json.length) {
+            return json.map(item =>
+                new PaymentWithConfirmations(
+                    item.to,
+                    parseFloat(item.tokenValue),
+                    parseFloat(item.usdValue),
+                    item.transaction,
+                    new Date(item.timestamp),
+                    parseFloat(item.bonusTokens),
+                    item.status,
+                    item.confirmations,
                 ),
             );
         }

@@ -79,6 +79,14 @@ export interface PaymentsApi {
     nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
 
     /**
+     * Returns a list of STORJ token payments with confirmations.
+     *
+     * @returns list of native token payment items with confirmations
+     * @throws Error
+     */
+    paymentsWithConfirmations(): Promise<PaymentWithConfirmations[]>;
+
+    /**
      * applyCouponCode applies a coupon code.
      *
      * @param couponCode
@@ -623,6 +631,27 @@ export class NativePaymentHistoryItem {
         }
         return this.amount.formattedValue;
     }
+}
+
+export enum PaymentStatus {
+    Pending = 'pending',
+    Confirmed = 'confirmed',
+}
+
+/**
+ * PaymentWithConfirmation holds all information about token payment with confirmations count.
+ */
+export class PaymentWithConfirmations {
+    public constructor(
+        public readonly address: string = '',
+        public readonly tokenValue: number = 0,
+        public readonly usdValue: number = 0,
+        public readonly transaction: string = '',
+        public readonly timestamp: Date = new Date(),
+        public readonly bonusTokens: number = 0,
+        public status: PaymentStatus = PaymentStatus.Confirmed,
+        public confirmations: number = 0,
+    ) { }
 }
 
 export class TokenAmount {

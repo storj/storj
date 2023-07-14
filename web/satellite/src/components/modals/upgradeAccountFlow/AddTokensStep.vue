@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <UpgradeAccountWrapper title="Add STORJ Tokens">
+    <UpgradeAccountWrapper :title="title">
         <template #content>
             <div class="add-tokens">
                 <p class="add-tokens__info">
@@ -52,38 +52,47 @@
                     />
                 </div>
                 <div class="add-tokens__divider" />
-                <div class="add-tokens__send-info">
-                    <h2 class="add-tokens__send-info__title">Send only STORJ Tokens to this deposit address.</h2>
-                    <p class="add-tokens__send-info__message">
-                        Sending anything else may result in the loss of your deposit.
-                    </p>
-                </div>
+                <AddTokensStepBanner
+                    :is-default="viewState === ViewState.Default"
+                    :is-pending="viewState === ViewState.Pending"
+                    :is-success="viewState === ViewState.Success"
+                    :pending-payments="pendingPayments"
+                />
             </div>
         </template>
     </UpgradeAccountWrapper>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
-import { Wallet } from '@/types/payments';
+import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
+import AddTokensStepBanner from '@/components/modals/upgradeAccountFlow/AddTokensStepBanner.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
+
+enum ViewState {
+    Default,
+    Pending,
+    Success,
+}
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 
 const canvas = ref<HTMLCanvasElement>();
+const intervalID = ref<NodeJS.Timer>();
+const viewState = ref<ViewState>(ViewState.Default);
 
 /**
  * Returns wallet from store.
@@ -100,6 +109,27 @@ const neededConfirmations = computed((): number => {
 });
 
 /**
+ * Returns pending payments from store.
+ */
+const pendingPayments = computed((): PaymentWithConfirmations[] => {
+    return billingStore.state.pendingPaymentsWithConfirmations;
+});
+
+/**
+ * Returns title based on payment statuses.
+ */
+const title = computed((): string => {
+    switch (viewState.value) {
+    case ViewState.Pending:
+        return 'Transaction pending...';
+    case ViewState.Success:
+        return 'Transaction Successful';
+    default:
+        return 'Add STORJ Tokens';
+    }
+});
+
+/**
  * Copies address to user's clipboard.
  */
 function onCopyAddressClick(): void {
@@ -108,10 +138,38 @@ function onCopyAddressClick(): void {
 }
 
 /**
+ * Sets current view state depending on payment statuses.
+ */
+function setViewState(): void {
+    switch (true) {
+    case pendingPayments.value.some(p => p.status === PaymentStatus.Pending):
+        viewState.value = ViewState.Pending;
+        break;
+    case pendingPayments.value.some(p => p.status === PaymentStatus.Confirmed):
+        viewState.value = ViewState.Success;
+        break;
+    default:
+        viewState.value = ViewState.Default;
+    }
+}
+
+watch(() => pendingPayments.value, () => {
+    setViewState();
+}, { deep: true });
+
+/**
  * Mounted lifecycle hook after initial render.
  * Renders QR code.
  */
 onMounted(async (): Promise<void> => {
+    setViewState();
+
+    intervalID.value = setInterval(async () => {
+        try {
+            await billingStore.getPaymentsWithConfirmations();
+        } catch { /* empty */ }
+    }, 20000); // get payments every 20 seconds.
+
     if (!canvas.value) {
         return;
     }
@@ -120,6 +178,14 @@ onMounted(async (): Promise<void> => {
         await QRCode.toCanvas(canvas.value, wallet.value.address, { width: 124 });
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+    }
+});
+
+onBeforeUnmount(() => {
+    clearInterval(intervalID.value);
+
+    if (viewState.value === ViewState.Success) {
+        billingStore.clearPendingPayments();
     }
 });
 </script>
@@ -224,27 +290,6 @@ onMounted(async (): Promise<void> => {
         height: 1px;
         margin-top: 16px;
         background-color: var(--c-grey-2);
-    }
-
-    &__send-info {
-        margin-top: 16px;
-        padding: 16px;
-        background: var(--c-yellow-1);
-        border: 1px solid var(--c-yellow-2);
-        box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
-        border-radius: 10px;
-
-        &__title,
-        &__message {
-            font-size: 14px;
-            line-height: 20px;
-            color: var(--c-black);
-            text-align: left;
-        }
-
-        &__title {
-            font-family: 'font_bold', sans-serif;
-        }
     }
 }
 
