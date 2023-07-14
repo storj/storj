@@ -1500,50 +1500,6 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	return deletedObjects, nil
 }
 
-// DeleteObjectAnyStatus deletes all the pieces of the storage nodes that belongs
-// to the specified object.
-//
-// NOTE: this method is exported for being able to individually test it without
-// having import cycles.
-// TODO regarding the above note: exporting for testing is fine, but we should name
-// it something that will definitely never ever be added to the rpc set in DRPC
-// definitions. If we ever decide to add an RPC method called "DeleteObjectAnyStatus",
-// DRPC interface definitions is all that is standing in the way from someone
-// remotely calling this. We should name this InternalDeleteObjectAnyStatus or
-// something.
-func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location metabase.ObjectLocation,
-) (deletedObjects []*pb.Object, err error) {
-	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
-
-	var result metabase.DeleteObjectResult
-	if endpoint.config.ServerSideCopy {
-		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
-			ObjectLocation: location,
-			Version:        metabase.DefaultVersion,
-		})
-	} else {
-		result, err = endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
-			ObjectLocation: location,
-		})
-	}
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
-	if err != nil {
-		endpoint.log.Error("failed to convert delete object result",
-			zap.Stringer("project", location.ProjectID),
-			zap.String("bucket", location.BucketName),
-			zap.Binary("object", []byte(location.ObjectKey)),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-
-	return deletedObjects, nil
-}
-
 // DeletePendingObject deletes all the pieces of the storage nodes that belongs
 // to the specified pending object.
 //

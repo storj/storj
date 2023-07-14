@@ -1590,59 +1590,6 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 	testDeleteObject(t, createPendingObject, deletePendingObject)
 }
 
-func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
-	createCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket, key, data)
-		require.NoError(t, err)
-	}
-	deleteCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: bucket,
-			ObjectKey:  metabase.ObjectKey(encryptedKey),
-		})
-		require.NoError(t, err)
-		require.Len(t, deletedObjects, 1)
-
-	}
-	testDeleteObject(t, createCommittedObject, deleteCommittedObject)
-
-	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
-		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-		require.NoError(t, err, "failed to retrieve project")
-		defer func() { require.NoError(t, project.Close()) }()
-
-		_, err = project.EnsureBucket(ctx, bucket)
-		require.NoError(t, err, "failed to create bucket")
-
-		info, err := project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{})
-		require.NoError(t, err, "failed to start multipart upload")
-
-		upload, err := project.UploadPart(ctx, bucket, key, info.UploadID, 1)
-		require.NoError(t, err, "failed to put object part")
-		_, err = upload.Write(data)
-		require.NoError(t, err, "failed to start multipart upload")
-		require.NoError(t, upload.Commit(), "failed to start multipart upload")
-	}
-
-	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: bucket,
-			ObjectKey:  metabase.ObjectKey(encryptedKey),
-		})
-		require.NoError(t, err)
-		require.Len(t, deletedObjects, 1)
-	}
-
-	testDeleteObject(t, createPendingObject, deletePendingObject)
-}
-
 func testDeleteObject(t *testing.T,
 	createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte),
 	deleteObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID),

@@ -65,11 +65,6 @@ type deletedRemoteSegmentInfo struct {
 	RepairedAt  *time.Time
 }
 
-// DeleteObjectAnyStatusAllVersions contains arguments necessary for deleting all object versions.
-type DeleteObjectAnyStatusAllVersions struct {
-	ObjectLocation
-}
-
 // DeleteObjectsAllVersions contains arguments necessary for deleting all versions of multiple objects from the same bucket.
 type DeleteObjectsAllVersions struct {
 	Locations []ObjectLocation
@@ -549,66 +544,6 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.Location(), rows)
-		return err
-	})
-
-	if err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	if len(result.Objects) == 0 {
-		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-	}
-
-	mon.Meter("object_delete").Mark(len(result.Objects))
-	mon.Meter("segment_delete").Mark(len(result.Segments))
-
-	return result, nil
-}
-
-// DeleteObjectAnyStatusAllVersions deletes all object versions.
-func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteObjectAnyStatusAllVersions) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if db.config.ServerSideCopy {
-		return DeleteObjectResult{}, errs.New("method cannot be used when server-side copy is enabled")
-	}
-
-	if err := opts.Verify(); err != nil {
-		return DeleteObjectResult{}, err
-	}
-
-	err = withRows(db.db.QueryContext(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
-				WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3
-				RETURNING
-					version, stream_id,
-					created_at, expires_at,
-					status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-					total_plain_size, total_encrypted_size, fixed_segment_size,
-					encryption
-			), deleted_segments AS (
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
-			)
-			SELECT
-				deleted_objects.version, deleted_objects.stream_id,
-				deleted_objects.created_at, deleted_objects.expires_at,
-				deleted_objects.status, deleted_objects.segment_count,
-				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
-				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
-				deleted_objects.encryption,
-				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
-			FROM deleted_objects
-			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
-		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
 		return err
 	})
 
