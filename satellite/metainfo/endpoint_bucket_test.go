@@ -118,15 +118,23 @@ func TestBucketNameValidation(t *testing.T) {
 			"test\\", "test%",
 		}
 		for _, name := range invalidNames {
-			_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
-				Bucket:             []byte(name),
-				EncryptedObjectKey: []byte("123"),
-			})
-			require.Error(t, err, "bucket name: %v", name)
-			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 			_, err = metainfoClient.CreateBucket(ctx, metaclient.CreateBucketParams{
 				Name: []byte(name),
+			})
+			require.Error(t, err, "bucket name: %v", name)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		}
+
+		invalidNames = []string{
+			"", "t", "te",
+			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
+		}
+		for _, name := range invalidNames {
+			// BeginObject validates only bucket name length
+			_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
+				Bucket:             []byte(name),
+				EncryptedObjectKey: []byte("123"),
 			})
 			require.Error(t, err, "bucket name: %v", name)
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
