@@ -37,7 +37,7 @@ type Config struct {
 	ReputationUpdateEnabled       bool          `help:"whether the audit score of nodes should be updated as a part of repair" default:"false"`
 	UseRangedLoop                 bool          `help:"whether to enable repair checker observer with ranged loop" default:"true"`
 	RepairExcludedCountryCodes    []string      `help:"list of country codes to treat node from this country as offline" default:"" hidden:"true"`
-	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"false"`
+	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"true"`
 	DoPlacementCheck              bool          `help:"repair pieces out of segment placement" default:"true"`
 }
 

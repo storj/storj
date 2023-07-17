@@ -24,7 +24,7 @@ type Config struct {
 	NodeFailureRate            float64  `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
 	RepairQueueInsertBatchSize int      `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
 	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
-	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"false"`
+	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"true"`
 	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
 }
 

@@ -92,7 +92,7 @@
 # audit.worker-concurrency: 2
 
 # Treat pieces on the same network as in need of repair
-# checker.do-declumping: false
+# checker.do-declumping: true
 
 # Treat pieces out of segment placement as in need of repair
 # checker.do-placement-check: true
@@ -938,7 +938,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.dial-timeout: 5s
 
 # repair pieces on the same network to other nodes
-# repairer.do-declumping: false
+# repairer.do-declumping: true
 
 # repair pieces out of segment placement
 # repairer.do-placement-check: true
