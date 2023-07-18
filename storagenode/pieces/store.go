@@ -157,11 +157,9 @@ type SatelliteUsage struct {
 
 // Config is configuration for Store.
 type Config struct {
-	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
-	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
-	// TODO(clement): default is set to false for now.
-	//  I will test and monitor on my node for some time before changing the default to true.
-	EnableLazyFilewalker bool `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" releaseDefault:"false" devDefault:"true" testDefault:"false"`
+	WritePreallocSize    memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
+	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
 }
 
 // DefaultConfig is the default value for the Config.

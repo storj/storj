@@ -21,6 +21,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
+	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/storagenode"
@@ -215,6 +216,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			MinDownloadTimeout:     2 * time.Minute,
 		},
 	}
+
+	// enable the lazy filewalker
+	config.Pieces.EnableLazyFilewalker = true
+
 	if planet.config.Reconfigure.StorageNode != nil {
 		planet.config.Reconfigure.StorageNode(index, &config)
 	}
@@ -273,6 +278,21 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	apiKey, err := service.Issue(ctx)
 	if err != nil {
 		return nil, errs.New("error while trying to issue new api key: %v", err)
+	}
+
+	{
+		// set up the used space lazyfilewalker filewalker
+		cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
+		cmd.Logger = log.Named("used-space-filewalker")
+		cmd.Ctx = ctx
+		peer.Storage2.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
+	}
+	{
+		// set up the GC lazyfilewalker filewalker
+		cmd := internalcmd.NewGCFilewalkerCmd()
+		cmd.Logger = log.Named("gc-filewalker")
+		cmd.Ctx = ctx
+		peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
 	}
 
 	return &StorageNode{
