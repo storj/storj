@@ -3,8 +3,8 @@
 
 <template>
     <v-app>
-        <default-bar />
-        <ProjectNav />
+        <default-bar show-nav-drawer-button />
+        <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
         <default-view />
     </v-app>
 </template>
@@ -25,6 +25,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { LocalData } from '@/utils/localData';
+import { useAppStore } from '@poc/store/appStore';
 
 const router = useRouter();
 
@@ -32,6 +33,7 @@ const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
+const appStore = useAppStore();
 
 /**
  * Stores project to vuex store and browser's local storage.

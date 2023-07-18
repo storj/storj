@@ -4,15 +4,16 @@
 <template>
     <v-app-bar :elevation="0">
         <v-app-bar-nav-icon
+            v-if="showNavDrawerButton"
             variant="text"
             color="default"
             class="ml-1"
             size="x-small"
             density="comfortable"
-            @click.stop="drawer = !drawer"
+            @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mx-1">
+        <v-app-bar-title class="mx-1" :class="{ 'ml-4': !showNavDrawerButton }">
             <v-img
                 v-if="theme.global.current.value.dark"
                 src="@poc/assets/logo-dark.svg"
@@ -154,10 +155,18 @@ import {
     VDivider,
 } from 'vuetify/components';
 
-const drawer = ref<boolean>(true);
+import { useAppStore } from '@poc/store/appStore';
+
 const activeTheme = ref<number>(0);
 
+const appStore = useAppStore();
 const theme = useTheme();
+
+const props = withDefaults(defineProps<{
+    showNavDrawerButton: boolean;
+}>(), {
+    showNavDrawerButton: false,
+});
 
 function toggleTheme(newTheme: string): void {
     if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
