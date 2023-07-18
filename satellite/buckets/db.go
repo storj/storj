@@ -25,6 +25,9 @@ var (
 
 	// ErrBucketNotFound is an error class for non-existing bucket.
 	ErrBucketNotFound = errs.Class("bucket not found")
+
+	// ErrBucketAlreadyExists is used to indicate that bucket already exists.
+	ErrBucketAlreadyExists = errs.Class("bucket already exists")
 )
 
 // Bucket contains information about a specific bucket.

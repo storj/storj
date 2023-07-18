@@ -114,6 +114,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
+		if buckets.ErrBucketAlreadyExists.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
+		}
+
 		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucketReq.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
 	}

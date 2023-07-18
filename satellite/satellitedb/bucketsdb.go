@@ -51,6 +51,9 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		optionalFields,
 	)
 	if err != nil {
+		if dbx.IsConstraintError(err) {
+			return buckets.Bucket{}, buckets.ErrBucketAlreadyExists.New("")
+		}
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 
