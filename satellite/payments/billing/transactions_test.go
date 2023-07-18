@@ -29,6 +29,8 @@ func TestTransactionsDBList(t *testing.T) {
 	// create transactions
 	userID := testrand.UUID()
 
+	firstTimestamp := makeTimestamp()
+
 	var txs []billing.Transaction
 	var txStatus billing.TransactionStatus
 	var txType billing.TransactionType
@@ -60,7 +62,7 @@ func TestTransactionsDBList(t *testing.T) {
 			Status:      txStatus,
 			Type:        txType,
 			Metadata:    metadata,
-			Timestamp:   makeTimestamp(),
+			Timestamp:   firstTimestamp.Add(time.Duration(i) * time.Second),
 		}
 
 		txs = append(txs, createTX)
