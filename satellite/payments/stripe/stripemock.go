@@ -356,6 +356,15 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 	if params.Balance != nil {
 		customer.Balance = *params.Balance
 	}
+	if params.InvoiceSettings != nil {
+		if params.InvoiceSettings.DefaultPaymentMethod != nil {
+			customer.InvoiceSettings = &stripe.CustomerInvoiceSettings{
+				DefaultPaymentMethod: &stripe.PaymentMethod{
+					ID: *params.InvoiceSettings.DefaultPaymentMethod,
+				},
+			}
+		}
+	}
 	// TODO update customer with more params as necessary
 
 	return customer, nil
