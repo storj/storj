@@ -15,7 +15,7 @@ export class SignupPage extends SignupPageObjects {
     }
 
     async navigateToPartnerSignup(): Promise<void> {
-        await this.page.goto(testConfig.host +'/signup?partner=ix-storj-1');
+        await this.page.goto(testConfig.host + testConfig.port + '/signup?partner=ix-storj-1');
     }
 
     async clickOnBusinessButton(): Promise<void> {

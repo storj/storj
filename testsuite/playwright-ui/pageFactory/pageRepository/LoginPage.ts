@@ -14,7 +14,7 @@ export class LoginPage extends LoginPageObjects {
     }
 
     async navigateToURL(): Promise<void> {
-        await this.page.goto(testConfig.host);
+        await this.page.goto(testConfig.host+testConfig.port);
     }
 
     async loginToApplication(): Promise<void> {
