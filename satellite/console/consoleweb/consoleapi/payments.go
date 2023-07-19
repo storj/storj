@@ -304,6 +304,12 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
+
+	err = p.triggerAttemptPayment(ctx)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
 }
 
 // BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
