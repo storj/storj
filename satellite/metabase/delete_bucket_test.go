@@ -297,6 +297,7 @@ func TestDeleteBucketObjectsCancel(t *testing.T) {
 }
 
 func TestDeleteBucketWithCopies(t *testing.T) {
+	duplicateMetadata := true
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		for _, numberOfSegments := range []int{0, 1, 3} {
 			t.Run(fmt.Sprintf("%d segments", numberOfSegments), func(t *testing.T) {
@@ -321,7 +322,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj,
 						CopyObjectStream: &copyObjectStream,
-					}.Run(ctx, t, db, false)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 						Bucket: metabase.BucketLocation{
@@ -362,7 +363,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					copyObj, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj,
 						CopyObjectStream: &copyObjectStream,
-					}.Run(ctx, t, db, false)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 						Bucket: metabase.BucketLocation{
@@ -420,12 +421,12 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj1,
 						CopyObjectStream: &copyObjectStream1,
-					}.Run(ctx, t, db, false)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					copyObj2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj2,
 						CopyObjectStream: &copyObjectStream2,
-					}.Run(ctx, t, db, false)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					// done preparing, delete bucket 1
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
@@ -486,12 +487,12 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj1,
 						CopyObjectStream: &copyObjectStream1,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					copyObj2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject:   originalObj2,
 						CopyObjectStream: &copyObjectStream2,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db, duplicateMetadata)
 
 					// done preparing, delete bucket 1
 					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
