@@ -13,19 +13,21 @@
             @click.stop="appStore.toggleNavigationDrawer()"
         />
 
-        <v-app-bar-title class="mx-1" :class="{ 'ml-4': !showNavDrawerButton }">
-            <v-img
-                v-if="theme.global.current.value.dark"
-                src="@poc/assets/logo-dark.svg"
-                width="120"
-                alt="Storj Logo"
-            />
-            <v-img
-                v-else
-                src="@poc/assets/logo.svg"
-                width="120"
-                alt="Storj Logo"
-            />
+        <v-app-bar-title class="mx-1 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
+            <router-link to="/projects">
+                <v-img
+                    v-if="theme.global.current.value.dark"
+                    src="@poc/assets/logo-dark.svg"
+                    width="120"
+                    alt="Storj Logo"
+                />
+                <v-img
+                    v-else
+                    src="@poc/assets/logo.svg"
+                    width="120"
+                    alt="Storj Logo"
+                />
+            </router-link>
         </v-app-bar-title>
 
         <template #append>
@@ -184,3 +186,9 @@ watch(() => theme.global.current.value.dark, (newVal: boolean) => {
 toggleTheme(localStorage.getItem('theme') || 'light');
 activeTheme.value = theme.global.current.value.dark ? 1 : 0;
 </script>
+
+<style scoped lang="scss">
+.flex-initial {
+    flex: initial;
+}
+</style>
