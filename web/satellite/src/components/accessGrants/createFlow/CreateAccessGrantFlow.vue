@@ -626,7 +626,7 @@ async function setLastStep(): Promise<void> {
             bucketsStore.setPromptForPassphrase(false);
         }
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
 
     isLoading.value = false;
@@ -648,7 +648,7 @@ onMounted(async () => {
             bucketsStore.getAllBucketsNames(projectID),
         ]);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
 
     isLoading.value = false;

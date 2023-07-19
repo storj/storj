@@ -4,6 +4,7 @@
 import { BaseGql } from '@/api/baseGql';
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
+import { APIError } from '@/utils/error';
 
 /**
  * BucketsApiGql is a graphql implementation of Buckets API.
@@ -69,7 +70,11 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('Can not get bucket names');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get bucket names',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const result = await response.json();

@@ -154,12 +154,13 @@ function onResendClick(member: ProjectMemberItemModel) {
         analytics.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
             await pmStore.inviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
-        } catch (_) {
-            await notify.error(`Error resending invite.`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            notify.notify('Invite resent!');
+            pmStore.setSearchQuery('');
+        } catch (error) {
+            error.message = `Error resending invite. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            return;
         }
-
-        await notify.notify('Invite resent!');
-        pmStore.setSearchQuery('');
 
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);

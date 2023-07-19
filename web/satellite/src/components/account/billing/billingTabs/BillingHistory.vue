@@ -47,7 +47,7 @@ async function fetchHistory(): Promise<void> {
     try {
         await billingStore.getPaymentsHistory();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
     }
 }
 

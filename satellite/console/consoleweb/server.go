@@ -926,13 +926,14 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(code)
 
 		var jsonError struct {
-			Error string `json:"error"`
+			Error     string `json:"error"`
+			RequestID string `json:"requestID"`
 		}
 
 		jsonError.Error = err.Error()
 
 		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.Error += fmt.Sprintf(" (request id: %s)", requestID)
+			jsonError.RequestID = requestID
 		}
 
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
@@ -992,7 +993,8 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(code)
 
 		var jsonError struct {
-			Errors []string `json:"errors"`
+			Errors    []string `json:"errors"`
+			RequestID string   `json:"requestID"`
 		}
 
 		for _, err := range errors {
@@ -1000,7 +1002,7 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.Errors = append(jsonError.Errors, fmt.Sprintf("request id: %s", requestID))
+			jsonError.RequestID = requestID
 		}
 
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {

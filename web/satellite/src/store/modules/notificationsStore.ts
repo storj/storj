@@ -82,7 +82,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         addNotification(notification);
     }
 
-    function notifyError(payload: ErrorPayload): void {
+    function notifyError(payload: ErrorPayload, messageNode?: string): void {
         if (payload.source) {
             state.analytics.errorEventTriggered(payload.source);
         }
@@ -91,6 +91,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
             () => deleteNotification(notification.id),
             NOTIFICATION_TYPES.ERROR,
             payload.message,
+            messageNode,
         );
 
         addNotification(notification);

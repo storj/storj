@@ -244,7 +244,8 @@ async function onPageClick(index: number, limit: number): Promise<void> {
     try {
         await agStore.getAccessGrants(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
-        notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch Access Grants. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -280,7 +281,8 @@ async function fetch(searchQuery: string): Promise<void> {
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch accesses: ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -332,7 +334,8 @@ onMounted(async () => {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         areGrantsFetching.value = false;
     } catch (error) {
-        notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch Access Grants. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 });
 

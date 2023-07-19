@@ -108,7 +108,7 @@ async function disable(): Promise<void> {
 
         closeModal();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.DISABLE_MFA_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.DISABLE_MFA_MODAL);
         isError.value = true;
     }
 

@@ -16,6 +16,7 @@ import {
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
+import { APIError } from '@/utils/error';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -149,7 +150,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const response = await this.http.get(path);
 
         if (!response.ok) {
-            throw new Error('can not get usage limits');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get usage limits',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const limits = await response.json();
@@ -177,8 +182,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const response = await this.http.get(path);
 
         if (!response.ok) {
-            throw new Error('can not get total usage limits');
-
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get total usage limits',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const limits = await response.json();
@@ -206,7 +214,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const response = await this.http.get(path);
 
         if (!response.ok) {
-            throw new Error('Can not get project daily usage');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get project daily usage',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const usage = await response.json();
@@ -237,7 +249,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             return await response.json();
         }
 
-        throw new Error('Can not get project salt');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not get project salt',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -296,7 +312,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             ));
         }
 
-        throw new Error(result.error || 'Failed to get project invitations');
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Failed to get project invitations',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -312,7 +332,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         if (httpResponse.ok) return;
 
         const result = await httpResponse.json();
-        throw new Error(result.error || 'Failed to respond to project invitation');
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Failed to respond to project invitation',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
     }
 
     /**

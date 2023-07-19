@@ -447,7 +447,7 @@ async function onChartsDateRangePick(dateRange: Date[]): Promise<void> {
     try {
         await projectsStore.getDailyProjectData({ since, before });
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
 }
 
@@ -516,7 +516,7 @@ onMounted(async (): Promise<void> => {
             agStore.getAccessGrants(FIRST_PAGE, projectID),
         ]);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {
         isDataFetching.value = false;
     }

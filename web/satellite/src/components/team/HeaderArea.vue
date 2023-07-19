@@ -171,7 +171,8 @@ async function resendInvites(): Promise<void> {
             await pmStore.inviteMembers(pmStore.state.selectedProjectMembersEmails, projectsStore.state.selectedProject.id);
             notify.success('Invites re-sent!');
         } catch (error) {
-            notify.error(`Unable to resend project invitations. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+            error.message = `Unable to resend project invitations. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         }
 
         try {

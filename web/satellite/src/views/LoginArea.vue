@@ -437,7 +437,7 @@ async function login(): Promise<void> {
             return;
         }
 
-        await notify.error(error.message, null);
+        notify.notifyError(error, null);
         isLoading.value = false;
         return;
     }

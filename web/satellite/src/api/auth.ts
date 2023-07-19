@@ -15,6 +15,7 @@ import {
 } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { APIError } from '@/utils/error';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -43,7 +44,11 @@ export class AuthHttpApi implements UsersApi {
         case 429:
             throw new ErrorTooManyRequests(errMsg);
         default:
-            throw new Error(errMsg);
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
         }
     }
 
@@ -85,7 +90,11 @@ export class AuthHttpApi implements UsersApi {
         case 429:
             throw new ErrorTooManyRequests(errMsg);
         default:
-            throw new Error(errMsg);
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
         }
     }
 
@@ -102,7 +111,11 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        throw new Error('Can not logout. Please try again later');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not logout. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -129,7 +142,11 @@ export class AuthHttpApi implements UsersApi {
         case 429:
             throw new ErrorTooManyRequests(errMsg);
         default:
-            throw new Error(errMsg);
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
         }
     }
 
@@ -150,7 +167,11 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        throw new Error('can not update user data');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not update user data',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -187,7 +208,11 @@ export class AuthHttpApi implements UsersApi {
             );
         }
 
-        throw new Error('can not get user data');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not get user data',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -209,7 +234,11 @@ export class AuthHttpApi implements UsersApi {
         }
 
         const result = await response.json();
-        throw new Error(result.error);
+        throw new APIError({
+            status: response.status,
+            message: result.error,
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -228,7 +257,11 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        throw new Error('can not delete user');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not delete user',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -248,7 +281,11 @@ export class AuthHttpApi implements UsersApi {
             );
         }
 
-        throw new Error('can not get user frozen status');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not get user frozen status',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -271,7 +308,11 @@ export class AuthHttpApi implements UsersApi {
             );
         }
 
-        throw new Error('can not get user settings');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not get user settings',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -296,7 +337,11 @@ export class AuthHttpApi implements UsersApi {
             );
         }
 
-        throw new Error('can not get user settings');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not update user settings',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     // TODO: remove secret after Vanguard release
@@ -338,7 +383,11 @@ export class AuthHttpApi implements UsersApi {
             case 429:
                 throw new ErrorTooManyRequests(errMsg);
             default:
-                throw new Error(errMsg);
+                throw new APIError({
+                    status: response.status,
+                    message: errMsg,
+                    requestID: response.headers.get('x-request-id'),
+                });
             }
         }
     }
@@ -356,7 +405,11 @@ export class AuthHttpApi implements UsersApi {
             return await response.json();
         }
 
-        throw new Error('Can not generate MFA secret. Please try again later');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not generate MFA secret. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -376,7 +429,11 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        throw new Error('Can not enable MFA. Please try again later');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not enable MFA. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -399,7 +456,11 @@ export class AuthHttpApi implements UsersApi {
 
         const result = await response.json();
         const errMsg = result.error || 'Cannot disable MFA. Please try again later';
-        throw new Error(errMsg);
+        throw new APIError({
+            status: response.status,
+            message: errMsg,
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -415,7 +476,11 @@ export class AuthHttpApi implements UsersApi {
             return await response.json();
         }
 
-        throw new Error('Can not generate MFA recovery codes. Please try again later');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not generate MFA recovery codes. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -462,7 +527,11 @@ export class AuthHttpApi implements UsersApi {
         case 400:
             throw new ErrorBadRequest(errMsg);
         default:
-            throw new Error(errMsg);
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
         }
     }
 
@@ -480,6 +549,10 @@ export class AuthHttpApi implements UsersApi {
             return new Date(await response.json());
         }
 
-        throw new Error('Unable to refresh session.');
+        throw new APIError({
+            status: response.status,
+            message: 'Unable to refresh session.',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 }

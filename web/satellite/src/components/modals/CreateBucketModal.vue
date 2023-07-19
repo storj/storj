@@ -264,7 +264,7 @@ async function onCreate(): Promise<void> {
             LocalData.setBucketWasCreatedStatus();
         }
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
+        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
     } finally {
         isLoading.value = false;
     }
@@ -319,7 +319,7 @@ onMounted(async (): Promise<void> => {
         await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
     } finally {
         bucketNamesLoading.value = false;
     }

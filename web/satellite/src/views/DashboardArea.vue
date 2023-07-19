@@ -548,7 +548,8 @@ async function refreshSession(manual = false): Promise<void> {
     try {
         LocalData.setSessionExpirationDate(await auth.refreshSession());
     } catch (error) {
-        notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        error.message = (error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         await handleInactive();
         isSessionRefreshing.value = false;
         return;
@@ -612,7 +613,7 @@ async function handleInactive(): Promise<void> {
     } catch (error) {
         if (error instanceof ErrorUnauthorized) return;
 
-        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
     }
 }
 
@@ -639,7 +640,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
         await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 }
 
@@ -711,7 +712,7 @@ onMounted(async () => {
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
-            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
@@ -736,19 +737,22 @@ onMounted(async () => {
             notify.success(`The coupon code was added successfully`);
         }
     } catch (error) {
-        notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        error.message = `Unable to setup account. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        error.message = `Unable to get credit cards. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {
         await projectsStore.getUserInvitations();
     } catch (error) {
-        notify.error(`Unable to get project invitations. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        error.message = `Unable to get project invitations. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     let projects: Project[] = [];

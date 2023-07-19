@@ -105,7 +105,7 @@ async function onActivateClick(): Promise<void> {
         await auth.resendEmail(email.value);
         isResendSuccessShown.value = true;
     } catch (error) {
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 }
 

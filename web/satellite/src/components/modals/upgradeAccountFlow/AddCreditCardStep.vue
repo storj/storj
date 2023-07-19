@@ -76,7 +76,7 @@ async function onSaveCardClick(): Promise<void> {
     try {
         await stripeCardInput.value.onSubmit();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         loading.value = false;
     }
 }
@@ -106,7 +106,7 @@ async function addCardToDB(token: string): Promise<void> {
         loading.value = false;
         props.setSuccess();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         loading.value = false;
     }
 }

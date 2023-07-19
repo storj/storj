@@ -140,7 +140,7 @@ async function onDelete(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
         await fetchBuckets();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
         return;
     } finally {
         isLoading.value = false;

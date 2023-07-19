@@ -4,6 +4,7 @@
 import { BaseGql } from '@/api/baseGql';
 import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
 import { HttpClient } from '@/utils/httpClient';
+import { APIError } from '@/utils/error';
 
 export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
     private readonly http: HttpClient = new HttpClient();
@@ -104,7 +105,11 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         if (httpResponse.ok) return;
 
         const result = await httpResponse.json();
-        throw new Error(result.error || 'Failed to send project invitations');
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Failed to send project invitations',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -115,12 +120,16 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
     public async getInviteLink(projectID: string, email: string): Promise<string> {
         const path = `${this.ROOT_PATH}/${projectID}/invite-link?email=${encodeURIComponent(email)}`;
         const httpResponse = await this.http.get(path);
-
+        const result = await httpResponse.json();
         if (httpResponse.ok) {
-            return await httpResponse.json();
+            return result;
         }
 
-        throw new Error('Can not get invite link');
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Can not get invite link',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
     }
 
     /**

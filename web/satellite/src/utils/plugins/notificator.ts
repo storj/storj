@@ -3,6 +3,7 @@
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { APIError } from '@/utils/error';
 
 /**
  * Exposes UI notifications functionality.
@@ -13,6 +14,25 @@ export class Notificator {
     public success(message: string, messageNode?: string): void {
         const notificationsStore = useNotificationsStore();
         notificationsStore.notifySuccess(message, messageNode);
+    }
+
+    public notifyError(error: Error, source: AnalyticsErrorEventSource | null): void {
+        const notificationsStore = useNotificationsStore();
+
+        if (error instanceof APIError) {
+            let template = `
+            <p class="message-title">${error.message}</p>
+        `;
+            if (error.requestID) {
+                template = `
+            ${template}
+            <p class="message-footer">Request ID: ${error.requestID}</p>
+        `;
+            }
+            notificationsStore.notifyError({ message: '', source }, template);
+            return;
+        }
+        notificationsStore.notifyError({ message: error.message, source });
     }
 
     public error(message: string, source: AnalyticsErrorEventSource | null): void {

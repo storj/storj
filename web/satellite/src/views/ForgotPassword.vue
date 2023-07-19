@@ -214,7 +214,7 @@ async function onSendConfigurations(): Promise<void> {
         await auth.forgotPassword(email.value, captchaResponseToken.value);
         await notify.success('Please look for instructions in your email');
     } catch (error) {
-        await notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     captcha.value?.reset();

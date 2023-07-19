@@ -58,7 +58,7 @@ async function rememberSkip() {
         await usersStore.updateSettings({ passphrasePrompt: false });
         appStore.removeActiveModal();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.SKIP_PASSPHRASE_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.SKIP_PASSPHRASE_MODAL);
     }
 }
 

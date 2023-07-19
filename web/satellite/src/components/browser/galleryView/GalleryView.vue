@@ -271,7 +271,8 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
     try {
         url = await generateObjectPreviewAndMapURL(filePath.value);
     } catch (error) {
-        notify.error(`Unable to get file preview and map URL. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+        error.message = `Unable to get file preview and map URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
     }
 
     if (!url) {

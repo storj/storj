@@ -153,7 +153,7 @@ async function showCodes(): Promise<void> {
         isEnable.value = false;
         isCodes.value = true;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
     }
 }
 
@@ -181,7 +181,7 @@ async function enable(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.MFA_ENABLED);
         await notify.success('MFA was enabled successfully');
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
         isError.value = true;
     }
 

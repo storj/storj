@@ -160,7 +160,7 @@ async function claimWalletClick(): Promise<void> {
         // wallet claimed; open token modal
         onAddTokensClick();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
     }
 
     isLoading.value = false;

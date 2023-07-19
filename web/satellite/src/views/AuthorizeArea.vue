@@ -194,7 +194,7 @@ async function ensureLogin(): Promise<void> {
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
-            await notify.error(error.message, null);
+            notify.notifyError(error, null);
         }
 
         const query = new URLSearchParams(oauthData.value).toString();

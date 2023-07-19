@@ -90,7 +90,7 @@ async function onUpdateClick(): Promise<void> {
     try {
         await userStore.updateUser(userInfo);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
 
         return;
     }

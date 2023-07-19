@@ -800,7 +800,7 @@ async function createUser(): Promise<void> {
 
         await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
     } catch (error) {
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     captcha.value?.reset();

@@ -126,7 +126,8 @@ onMounted(async (): Promise<void> => {
             link.value = await generateFileOrFolderShareURL(filePath.value, shareType.value === ShareType.Folder);
         }
     } catch (error) {
-        notify.error(`Unable to get sharing URL. ${error.message}`, AnalyticsErrorEventSource.SHARE_MODAL);
+        error.message = `Unable to get sharing URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.SHARE_MODAL);
     }
 
     loading.value = false;

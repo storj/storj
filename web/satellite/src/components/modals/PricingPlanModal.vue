@@ -187,7 +187,7 @@ async function onCardAdded(token: string): Promise<void> {
         // Fetch cards to hide paid tier banner
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     isLoading.value = false;

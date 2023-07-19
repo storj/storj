@@ -31,11 +31,22 @@ const authLink = setContext((_, { headers }) => {
 /**
  * Handling unauthorized error.
  */
-const errorLink = onError(({ graphQLErrors, networkError }) => {
+const errorLink = onError(({ graphQLErrors, networkError, response }) => {
     const notificationsStore = useNotificationsStore();
 
     if (graphQLErrors?.length) {
-        notificationsStore.notifyError({ message: graphQLErrors.join('\n'), source: AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR });
+        const message = graphQLErrors.join('<br>');
+        let template = `
+            <p class="message-title">${message}</p>
+        `;
+        if (response && response['requestID']) {
+            template = `
+            ${template}
+            <p class="message-footer">Request ID: ${response['requestID']}</p>
+        `;
+        }
+
+        notificationsStore.notifyError({ message: '', source: AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR }, template);
     }
 
     if (networkError) {
@@ -47,8 +58,13 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
                 window.location.href = window.location.origin + '/login';
             }, 2000);
         } else {
-            const error = typeof nError.result === 'string' ? nError.result : nError.result.error;
-            nError.result && notificationsStore.notifyError({ message: error, source: AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR });
+            const message = typeof nError.result === 'string' ? nError.result : nError.result.error;
+            let template = `<p class="message-title">${message}</p>`;
+            if (typeof nError.result !== 'string' && nError.result.requestID) {
+                template = `${template} <p class="message-footer">Request ID: ${nError.result.requestID}</p>`;
+            }
+
+            notificationsStore.notifyError({ message: '', source: AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR }, template);
         }
     }
 

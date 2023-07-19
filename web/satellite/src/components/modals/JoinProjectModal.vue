@@ -90,14 +90,16 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
         success = true;
     } catch (error) {
         const action = accepted ? 'accept' : 'decline';
-        notify.error(`Failed to ${action} project invitation. ${error.message}`, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
+        error.message = `Failed to ${action} project invitation. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
     }
 
     try {
         await projectsStore.getUserInvitations();
         await projectsStore.getProjects();
     } catch (error) {
-        notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
+        error.message = `Failed to reload projects and invitations list. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
     }
 
     if (!success) {

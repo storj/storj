@@ -214,7 +214,7 @@ async function openBucket(bucketName: string): Promise<void> {
                 await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 overallLoading.value = false;
             } catch (error) {
-                notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
+                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
                 overallLoading.value = false;
                 return;
             }

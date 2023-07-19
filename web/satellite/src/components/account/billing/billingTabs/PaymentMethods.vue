@@ -304,7 +304,7 @@ async function fetchHistory(): Promise<void> {
         transactionCount.value = nativePaymentHistoryItems.value.length;
         displayedHistory.value = nativePaymentHistoryItems.value.slice(0, DEFAULT_PAGE_LIMIT);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     } finally {
         nativePayIsLoading.value = false;
     }
@@ -336,7 +336,7 @@ async function updatePaymentMethod(): Promise<void> {
         await notify.success('Default payment card updated');
         isChangeDefaultPaymentModalOpen.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
 }
 
@@ -351,7 +351,7 @@ async function removePaymentMethod(): Promise<void> {
             analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
             await notify.success('Credit card removed');
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+            notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
 
         isRemovePaymentMethodsModalOpen.value = false;
@@ -376,7 +376,7 @@ async function addCard(token: string): Promise<void> {
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
 
         emit('toggleIsLoading');
 
@@ -387,7 +387,7 @@ async function addCard(token: string): Promise<void> {
     try {
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         emit('toggleIsLoading');
     }
 

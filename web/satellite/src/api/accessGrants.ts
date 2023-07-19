@@ -10,6 +10,7 @@ import {
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { HttpClient } from '@/utils/httpClient';
+import { APIError } from '@/utils/error';
 
 /**
  * AccessGrantsApiGql is a graphql implementation of Access Grants API.
@@ -139,7 +140,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('Can not get access grant names');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get access grant names',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const result = await response.json();
@@ -162,7 +167,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
             return;
         }
 
-        throw new Error('can not delete access grant');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not delete access grant',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -181,7 +190,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         };
         const response = await this.client.post(path, JSON.stringify(body));
         if (!response.ok) {
-            throw new Error('Cannot get gateway credentials');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get gateway credentials',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const result = await response.json();

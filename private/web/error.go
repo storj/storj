@@ -6,7 +6,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"go.uber.org/zap"
@@ -29,7 +28,6 @@ func ServeCustomJSONError(ctx context.Context, log *zap.Logger, w http.ResponseW
 
 	if requestID := requestid.FromContext(ctx); requestID != "" {
 		fields = append(fields, zap.String("requestID", requestID))
-		msg += fmt.Sprintf(" (request id: %s)", requestID)
 	}
 
 	switch status {

@@ -197,7 +197,8 @@ async function onAddUsersClick(): Promise<void> {
     try {
         await pmStore.inviteMembers(emailArray, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Error adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        error.message = `Error adding project members. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 
         return;
@@ -210,7 +211,8 @@ async function onAddUsersClick(): Promise<void> {
     try {
         await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        error.message = `Unable to fetch project members. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
     }
 
     closeModal();

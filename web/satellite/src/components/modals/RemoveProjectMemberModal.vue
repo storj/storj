@@ -115,13 +115,15 @@ async function onRemove(): Promise<void> {
             notify.success('Members were successfully removed from the project');
             pmStore.setSearchQuery('');
         } catch (error) {
-            notify.error(`Error removing project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+            error.message = `Error removing project members. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         }
 
         try {
             await setProjectState();
         } catch (error) {
-            notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
+            error.message = `Unable to fetch project members. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         }
 
         closeModal();

@@ -122,7 +122,7 @@ async function onResendEmailButtonClick(): Promise<void> {
     try {
         await auth.resendEmail(email);
     } catch (error) {
-        await notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     startResendEmailCountdown();

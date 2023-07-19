@@ -459,7 +459,7 @@ async function onProjectClick(): Promise<void> {
         await projectsStore.getProjects();
         await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     } finally {
         isLoading.value = false;
     }
@@ -492,7 +492,8 @@ async function onProjectSelected(projectID: string): Promise<void> {
             projectsStore.getProjectLimits(projectID),
         ]);
     } catch (error) {
-        notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        error.message = `Unable to select project. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 
@@ -584,7 +585,7 @@ async function onLogout(): Promise<void> {
         analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 </script>

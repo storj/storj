@@ -151,7 +151,8 @@ async function onProjectSelected(project: Project): Promise<void> {
         analytics.pageVisit(RouteConfig.EditProjectDetails.path);
         await router.push(RouteConfig.EditProjectDetails.path);
     } catch (error) {
-        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
+        error.message = `Unable to select project. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
 
     isLoading.value = false;

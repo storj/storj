@@ -251,7 +251,7 @@ async function toggleSelection(): Promise<void> {
         await projectsStore.getProjects();
         await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
     } finally {
         isLoading.value = false;
     }
@@ -301,7 +301,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
                 pmStore.getProjectMembers(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
 
         return;

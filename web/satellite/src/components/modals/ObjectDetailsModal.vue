@@ -242,7 +242,8 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
     try {
         url = await generateObjectPreviewAndMapURL(filePath.value);
     } catch (error) {
-        notify.error(`Unable to get file preview and map URL. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to get file preview and map URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 
     if (!url) {
@@ -306,7 +307,8 @@ async function getSharedLink(): Promise<void> {
     try {
         objectLink.value = await generateFileOrFolderShareURL(filePath.value);
     } catch (error) {
-        notify.error(`Unable to get sharing URL. ${error.message}`, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
+        error.message = `Unable to get sharing URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
 }
 

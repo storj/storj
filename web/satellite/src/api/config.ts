@@ -3,6 +3,7 @@
 
 import { HttpClient } from '@/utils/httpClient';
 import { FrontendConfig, FrontendConfigApi } from '@/types/config';
+import { APIError } from '@/utils/error';
 
 /**
  * FrontendConfigHttpApi is an HTTP implementation of the frontend config API.
@@ -19,7 +20,11 @@ export class FrontendConfigHttpApi implements FrontendConfigApi {
     public async get(): Promise<FrontendConfig> {
         const response = await this.http.get(this.ROOT_PATH);
         if (!response.ok) {
-            throw new Error('Cannot get frontend config');
+            throw new APIError({
+                status: response.status,
+                message: 'Cannot get frontend config',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
         return await response.json() as FrontendConfig;
     }

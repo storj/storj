@@ -72,7 +72,7 @@ onMounted(async (): Promise<void> => {
         await configStore.getConfig();
     } catch (error) {
         appStore.setErrorPage(500, true);
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     fixViewportHeight();

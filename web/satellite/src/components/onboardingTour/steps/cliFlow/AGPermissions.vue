@@ -242,7 +242,8 @@ onMounted(async (): Promise<void> => {
 
         areBucketNamesFetching.value = false;
     } catch (error) {
-        await notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
+        error.message = `Unable to fetch all bucket names. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
     }
 
     isLoading.value = false;

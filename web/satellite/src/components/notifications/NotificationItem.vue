@@ -226,4 +226,10 @@ onMounted((): void => {
 .message-info {
     font-family: 'font_regular', sans-serif;
 }
+
+.message-footer {
+    font-family: 'font_regular', sans-serif;
+    font-size: 12px;
+    line-height: 20px;
+}
 </style>

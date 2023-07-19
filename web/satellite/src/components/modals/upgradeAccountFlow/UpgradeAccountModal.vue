@@ -88,7 +88,7 @@ async function onAddTokens(): Promise<void> {
 
         setStep(UpgradeAccountStep.AddTokens);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
 
     loading.value = false;
@@ -123,7 +123,7 @@ async function setSecondStep() {
     try {
         pkgAvailable = await payments.pricingPackageAvailable();
     } catch (error) {
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
         setStep(UpgradeAccountStep.Options);
         loading.value = false;
         return;

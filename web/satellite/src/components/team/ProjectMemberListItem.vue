@@ -145,12 +145,12 @@ function copyLinkClicked() {
     withLoading(async () => {
         try {
             inviteLink.value = await pmStore.getInviteLink(props.model.getEmail(), projectsStore.state.selectedProject.id);
-        } catch (_) {
-            notify.error(`Error getting invite link.`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            navigator.clipboard.writeText(inviteLink.value);
+            notify.notify('Invite copied!');
+        } catch (error) {
+            error.message = `Error getting invite link. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
-
-        navigator.clipboard.writeText(inviteLink.value);
-        notify.notify('Invite copied!');
     });
 }
 

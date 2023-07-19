@@ -155,7 +155,7 @@ async function onContinue(): Promise<void> {
         bucketsStore.setPromptForPassphrase(false);
         isLoading.value = false;
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
         isLoading.value = false;
         return;
     }

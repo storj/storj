@@ -69,7 +69,7 @@ async function endOnboarding(): Promise<void> {
     try {
         await usersStore.updateSettings({ onboardingEnd: true });
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+        notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 }
 </script>

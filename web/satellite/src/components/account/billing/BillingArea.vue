@@ -151,7 +151,7 @@ onMounted(async (): Promise<void> => {
     try {
         await billingStore.getBalance();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
     }
 });
 </script>

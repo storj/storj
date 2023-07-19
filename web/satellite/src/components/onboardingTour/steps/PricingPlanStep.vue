@@ -89,7 +89,7 @@ onBeforeMount(async () => {
     try {
         pkgAvailable = await payments.pricingPackageAvailable();
     } catch (error) {
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
     if (!pkgAvailable) {
         router.push(nextPath);
@@ -118,7 +118,7 @@ onBeforeMount(async () => {
         try {
             await usersStore.updateSettings({ onboardingStart: true });
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
+            notify.notifyError(error, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
         }
     }
 

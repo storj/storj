@@ -175,7 +175,7 @@ async function onUpdateClick(): Promise<void> {
     try {
         await auth.changePassword(oldPassword.value, newPassword.value);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
 
         return;
     }
@@ -187,7 +187,7 @@ async function onUpdateClick(): Promise<void> {
             router.push(RouteConfig.Login.path);
         }, DELAY_BEFORE_REDIRECT);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
     }
 
     analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);

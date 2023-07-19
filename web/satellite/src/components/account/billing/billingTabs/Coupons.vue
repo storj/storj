@@ -124,7 +124,7 @@ onMounted(async () => {
     try {
         await billingStore.getCoupon();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
     }
 
     isCouponFetching.value = false;

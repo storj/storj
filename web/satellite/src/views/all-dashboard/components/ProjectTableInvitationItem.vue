@@ -131,14 +131,16 @@ function onDeclineClicked(): void {
             await projectsStore.respondToInvitation(props.invitation.projectID, ProjectInvitationResponse.Decline);
             analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
         } catch (error) {
-            notify.error(`Failed to decline project invitation. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
+            error.message = `Failed to decline project invitation. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);
         }
 
         try {
             await projectsStore.getUserInvitations();
             await projectsStore.getProjects();
         } catch (error) {
-            notify.error(`Failed to reload projects and invitations list. ${error.message}`, AnalyticsErrorEventSource.PROJECT_INVITATION);
+            error.message = `Failed to reload projects and invitations list. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);
         }
     });
 }

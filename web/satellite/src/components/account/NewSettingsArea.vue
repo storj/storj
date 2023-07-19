@@ -184,7 +184,7 @@ async function enableMFA(): Promise<void> {
             await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
     });
 }
@@ -198,7 +198,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
             await usersStore.generateUserMFARecoveryCodes();
             toggleMFACodesModal();
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
     });
 }

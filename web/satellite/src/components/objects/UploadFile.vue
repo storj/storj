@@ -95,7 +95,7 @@ watch(passphrase, async () => {
     try {
         await bucketsStore.setS3Client(projectID);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
 

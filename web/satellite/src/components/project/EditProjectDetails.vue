@@ -659,7 +659,7 @@ onMounted(async (): Promise<void> => {
     try {
         await projectsStore.getProjectLimits(projectID);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
+        notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
     }
 });
 </script>

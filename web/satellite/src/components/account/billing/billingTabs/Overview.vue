@@ -176,7 +176,7 @@ onMounted(async () => {
     try {
         await projectsStore.getProjects();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
         isDataFetching.value = false;
         return;
     }
@@ -185,7 +185,7 @@ onMounted(async () => {
         await billingStore.getProjectUsageAndChargesCurrentRollup();
         await billingStore.getProjectUsagePriceModel();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
     }
 
     isDataFetching.value = false;

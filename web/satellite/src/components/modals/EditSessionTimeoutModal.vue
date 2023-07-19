@@ -117,7 +117,7 @@ async function save() {
         notify.success(`Session timeout changed successfully. Your session timeout is ${sessionDuration.value?.shortString}.`);
         onClose();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.EDIT_TIMEOUT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.EDIT_TIMEOUT_MODAL);
     } finally {
         isLoading.value = false;
     }
