@@ -424,9 +424,6 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	sortObjects(result.Objects)
 	sortObjects(step.Result.Objects)
 
-	sortDeletedSegments(result.Segments)
-	sortDeletedSegments(step.Result.Segments)
-
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
@@ -447,9 +444,6 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	sortObjects(result.Objects)
 	sortObjects(step.Result.Objects)
 
-	sortDeletedSegments(result.Segments)
-	sortDeletedSegments(step.Result.Segments)
-
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
@@ -469,9 +463,6 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.T
 
 	sortObjects(result.Objects)
 	sortObjects(step.Result.Objects)
-
-	sortDeletedSegments(result.Segments)
-	sortDeletedSegments(step.Result.Segments)
 
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
@@ -719,8 +710,6 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 
 	sortObjects(result.Objects)
 	sortObjects(step.Result.Objects)
-	sortDeletedSegments(result.Segments)
-	sortDeletedSegments(step.Result.Segments)
 
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)

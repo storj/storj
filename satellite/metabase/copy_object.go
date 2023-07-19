@@ -263,7 +263,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 		if objectAtDestination != nil {
 			version := objectAtDestination.Version
-			deletedObjects, err := db.deleteObjectExactVersionServerSideCopy(
+			deletedObjects, err := db.deleteObjectExactVersion(
 				ctx, DeleteObjectExactVersion{
 					Version: version,
 					ObjectLocation: ObjectLocation{
@@ -278,13 +278,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			}
 
 			// The object at the destination was the ancestor!
-			// Now that the ancestor of the source object is removed, we need to change the target ancestor.
 			if ancestorStreamID == objectAtDestination.StreamID {
-				if len(deletedObjects) == 0 {
+				if len(deletedObjects.Objects) == 0 {
 					return Error.New("ancestor is gone, please retry operation")
 				}
-
-				ancestorStreamID = *deletedObjects[0].PromotedAncestor
 			}
 		}
 

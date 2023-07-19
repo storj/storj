@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/audit"
 )
@@ -77,10 +79,16 @@ func TestAuditOrderLimit(t *testing.T) {
 	})
 }
 
-// Minimal test to verify that copies aren't audited.
+// Minimal test to verify that copies are also audited as we duplicate
+// all segment metadata.
 func TestAuditSkipsRemoteCopies(t *testing.T) {
 	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ServerSideCopyDuplicateMetadata = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -96,10 +104,6 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		err = uplink.Upload(ctx, satellite, "testbucket", "testobj2", testData)
 		require.NoError(t, err)
 
-		originalSegments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-		require.Len(t, originalSegments, 2)
-
 		project, err := uplink.OpenProject(ctx, satellite)
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
@@ -107,13 +111,17 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		_, err = project.CopyObject(ctx, "testbucket", "testobj1", "testbucket", "copy", nil)
 		require.NoError(t, err)
 
+		allSegments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, allSegments, 3)
+
 		err = runQueueingOnce(ctx, satellite)
 		require.NoError(t, err)
 
 		queue := audits.VerifyQueue
 
-		auditSegments := make([]audit.Segment, 0, 2)
-		for range originalSegments {
+		auditSegments := make([]audit.Segment, 0, 3)
+		for range allSegments {
 			auditSegment, err := queue.Next(ctx)
 			require.NoError(t, err)
 			auditSegments = append(auditSegments, auditSegment)
@@ -125,8 +133,8 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		})
 
 		// Check that StreamID of copy
-		for i := range originalSegments {
-			require.Equal(t, originalSegments[i].StreamID, auditSegments[i].StreamID)
+		for i := range allSegments {
+			require.Equal(t, allSegments[i].StreamID, auditSegments[i].StreamID)
 		}
 
 		// delete originals, keep 1 copy
@@ -138,14 +146,18 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		err = runQueueingOnce(ctx, satellite)
 		require.NoError(t, err)
 
+		allSegments, err = satellite.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, allSegments, 1)
+
 		queue = audits.VerifyQueue
 
 		// verify that the copy is being audited
 		remainingSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		for _, originalSegment := range originalSegments {
-			require.NotEqual(t, originalSegment.StreamID, remainingSegment.StreamID)
+		for _, segment := range allSegments {
+			require.Equal(t, segment.StreamID, remainingSegment.StreamID)
 		}
 	})
 }

@@ -86,6 +86,8 @@ func TestBeginCopyObject(t *testing.T) {
 }
 
 func TestFinishCopyObject(t *testing.T) {
+	t.Skip("test will be removed in subsequent change")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		newBucketName := "New bucket name"

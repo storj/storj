@@ -42,6 +42,7 @@ func (s Segment) Inline() bool {
 }
 
 // PiecesInAncestorSegment returns true if remote alias pieces are to be found in an ancestor segment.
+// TODO we will remove this method and related to code when all metadata will be migrated to segment copies.
 func (s Segment) PiecesInAncestorSegment() bool {
 	return s.EncryptedSize != 0 && len(s.InlineData) == 0 && len(s.Pieces) == 0
 }

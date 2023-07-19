@@ -4,7 +4,6 @@
 package metabasetest
 
 import (
-	"bytes"
 	"sort"
 	"testing"
 	"time"
@@ -89,12 +88,6 @@ func sortRawSegments(segments []metabase.RawSegment) {
 func sortRawCopies(copies []metabase.RawCopy) {
 	sort.Slice(copies, func(i, j int) bool {
 		return copies[i].StreamID.Less(copies[j].StreamID)
-	})
-}
-
-func sortDeletedSegments(segments []metabase.DeletedSegmentInfo) {
-	sort.Slice(segments, func(i, j int) bool {
-		return bytes.Compare(segments[i].RootPieceID[:], segments[j].RootPieceID[:]) < 0
 	})
 }
 
