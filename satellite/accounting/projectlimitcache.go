@@ -40,7 +40,8 @@ type ProjectLimitConfig struct {
 // ProjectLimitCache stores the values for both storage usage limit and bandwidth limit for
 // each project ID if they differ from the default limits.
 type ProjectLimitCache struct {
-	projectLimitDB      ProjectLimitDB
+	projectLimitDB ProjectLimitDB
+
 	defaultMaxUsage     memory.Size
 	defaultMaxBandwidth memory.Size
 	defaultMaxSegments  int64
@@ -116,10 +117,6 @@ func (c *ProjectLimitCache) getProjectLimits(ctx context.Context, projectID uuid
 	if projectLimits.Usage == nil {
 		defaultUsage := c.defaultMaxUsage.Int64()
 		projectLimits.Usage = &defaultUsage
-	}
-	if projectLimits.Segments == nil {
-		defaultSegments := c.defaultMaxSegments
-		projectLimits.Segments = &defaultSegments
 	}
 	if projectLimits.Segments == nil {
 		defaultSegments := c.defaultMaxSegments
