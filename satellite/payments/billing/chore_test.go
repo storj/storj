@@ -172,8 +172,8 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
 		}
 
-		amount1 := int64(2) // $2
-		amount2 := int64(8) // $8
+		amount1 := int64(200) // $2
+		amount2 := int64(800) // $8
 		transaction1 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1, ts, `{"fake": "transaction1"}`)
 		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
 		paymentTypes := []billing.PaymentType{
@@ -191,7 +191,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 		})
 		defer ctx.Check(chore.Close)
 
-		t.Run("user not upgraded", func(t *testing.T) {
+		t.Run("user upgrade status", func(t *testing.T) {
 			chore.TransactionCycle.Pause()
 			chore.TransactionCycle.TriggerWait()
 			chore.TransactionCycle.Pause()
@@ -213,16 +213,13 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 				require.Equal(t, usageLimitsConfig.Bandwidth.Free, *p.BandwidthLimit)
 				require.Equal(t, usageLimitsConfig.Segment.Free, *p.SegmentLimit)
 			}
-		})
 
-		t.Run("user upgraded", func(t *testing.T) {
-			chore.TransactionCycle.Pause()
 			chore.TransactionCycle.TriggerWait()
 			chore.TransactionCycle.Pause()
 
-			balance, err := db.Billing().GetBalance(ctx, user.ID)
+			balance, err = db.Billing().GetBalance(ctx, user.ID)
 			require.NoError(t, err)
-			expected := currency.AmountFromBaseUnits((amount1+amount2)*int64(10000), currency.USDollarsMicro)
+			expected = currency.AmountFromBaseUnits((amount1+amount2)*int64(10000), currency.USDollarsMicro)
 			require.True(t, expected.Equal(balance))
 
 			user, err = db.Console().Users().Get(ctx, user.ID)
@@ -233,7 +230,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			require.Equal(t, usageLimitsConfig.Segment.Paid, user.ProjectSegmentLimit)
 			require.Equal(t, usageLimitsConfig.Project.Paid, user.ProjectLimit)
 
-			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+			projects, err = db.Console().Projects().GetOwn(ctx, user.ID)
 			require.NoError(t, err)
 
 			for _, p := range projects {

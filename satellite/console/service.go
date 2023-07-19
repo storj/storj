@@ -194,7 +194,7 @@ type Config struct {
 	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
 	ProjectInvitationExpiration time.Duration `help:"duration that project member invitations are valid for" default:"168h"`
-	UserBalanceForUpgrade       int64         `help:"amount of base units of US micro dollars needed to upgrade user's tier status'" default:"100000"`
+	UserBalanceForUpgrade       int64         `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	UsageLimits                 UsageLimitsConfig
 	Captcha                     CaptchaConfig
 	Session                     SessionConfig

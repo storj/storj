@@ -406,8 +406,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to use vuetify POC project
 # console.use-vuetify-project: false
 
-# amount of base units of US micro dollars needed to upgrade user's tier status'
-# console.user-balance-for-upgrade: 100000
+# amount of base units of US micro dollars needed to upgrade user's tier status
+# console.user-balance-for-upgrade: 10000000
 
 # whether to load templates on each request
 # console.watch: false
