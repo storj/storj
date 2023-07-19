@@ -171,6 +171,8 @@ type Service struct {
 	satelliteName    string
 
 	config Config
+
+	nowFn func() time.Time
 }
 
 func init() {
@@ -280,6 +282,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
 		config:                     config,
+		nowFn:                      time.Now,
 	}, nil
 }
 
@@ -2731,7 +2734,7 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID, true)
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID, false)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2773,7 +2776,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	var totalBandwidthUsed int64
 
 	for _, pr := range projects {
-		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID, false)
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID, true)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -2792,7 +2795,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 	}, nil
 }
 
-func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, onlySettledBandwidth bool) (_ *ProjectUsageLimits, err error) {
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, getBandwidthTotals bool) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
@@ -2814,10 +2817,11 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	}
 
 	var bandwidthUsed int64
-	if onlySettledBandwidth {
-		bandwidthUsed, err = s.projectUsage.GetProjectSettledBandwidth(ctx, projectID)
-	} else {
+	if getBandwidthTotals {
 		bandwidthUsed, err = s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+	} else {
+		now := s.nowFn()
+		bandwidthUsed, err = s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 	}
 	if err != nil {
 		return nil, err
@@ -3818,4 +3822,9 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	}
 
 	return claims.ID, claims.Email, nil
+}
+
+// TestSetNow allows tests to have the Service act as if the current time is whatever they want.
+func (s *Service) TestSetNow(now func() time.Time) {
+	s.nowFn = now
 }

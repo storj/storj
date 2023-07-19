@@ -441,14 +441,61 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				now := time.Now().UTC()
+				allocatedAmount := int64(1000)
+				settledAmount := int64(2000)
 				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, 1000, startOfMonth)
+				thirdDayOfMonth := time.Date(now.Year(), now.Month(), 3, 0, 0, 0, 0, time.UTC)
+
+				// set now as third day of the month.
+				service.TestSetNow(func() time.Time {
+					return thirdDayOfMonth
+				})
+
+				// add allocated and settled bandwidth for the beginning of the month.
+				err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, allocatedAmount, startOfMonth)
+				require.NoError(t, err)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, startOfMonth)
 				require.NoError(t, err)
 
+				sat.API.Accounting.ProjectUsage.TestSetAsOfSystemInterval(0)
+
+				// at this point only allocated traffic is expected.
 				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
 				require.NoError(t, err)
 				require.NotNil(t, limits2)
-				require.Equal(t, int64(0), limits2.BandwidthUsed)
+				require.Equal(t, allocatedAmount, limits2.BandwidthUsed)
+
+				// set now as fourth day of the month.
+				service.TestSetNow(func() time.Time {
+					return time.Date(now.Year(), now.Month(), 4, 0, 0, 0, 0, time.UTC)
+				})
+
+				// at this point only settled traffic for the first day is expected.
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+				require.Equal(t, settledAmount, limits2.BandwidthUsed)
+
+				// add settled traffic for the third day of the month.
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, up2Proj.ID, []byte(bucket), pb.PieceAction_GET, settledAmount, 0, thirdDayOfMonth)
+				require.NoError(t, err)
+
+				// at this point only settled traffic for the first day is expected because now is still set to fourth day.
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+				require.Equal(t, settledAmount, limits2.BandwidthUsed)
+
+				// set now as sixth day of the month.
+				service.TestSetNow(func() time.Time {
+					return time.Date(now.Year(), now.Month(), 6, 0, 0, 0, 0, time.UTC)
+				})
+
+				// at this point only settled traffic for the first and third days is expected.
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+				require.Equal(t, settledAmount+settledAmount, limits2.BandwidthUsed)
 			})
 
 			t.Run("ChangeEmail", func(t *testing.T) {

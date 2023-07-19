@@ -330,3 +330,8 @@ func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid
 func (usage *Service) SetNow(now func() time.Time) {
 	usage.nowFn = now
 }
+
+// TestSetAsOfSystemInterval allows tests to set Service asOfSystemInterval value.
+func (usage *Service) TestSetAsOfSystemInterval(asOfSystemInterval time.Duration) {
+	usage.asOfSystemInterval = asOfSystemInterval
+}
