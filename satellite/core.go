@@ -519,8 +519,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Payments Storjscan", peer.Payments.StorjscanChore.TransactionCycle),
 		)
 
-		choreObservers := map[billing.ObserverBilling]billing.Observer{
-			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade),
+		choreObservers := billing.ChoreObservers{
+			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade),
 		}
 
 		peer.Payments.BillingChore = billing.NewChore(

@@ -85,8 +85,8 @@ func TestChore(t *testing.T) {
 			),
 		}
 
-		choreObservers := map[billing.ObserverBilling]billing.Observer{
-			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade),
+		choreObservers := billing.ChoreObservers{
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade),
 		}
 
 		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db, time.Hour, false, bonusRate, choreObservers)
@@ -168,8 +168,8 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 		_, err = sat.AddProject(ctx, user.ID, "Test Project")
 		require.NoError(t, err)
 
-		choreObservers := map[billing.ObserverBilling]billing.Observer{
-			billing.ObserverUpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+		choreObservers := billing.ChoreObservers{
+			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
 		}
 
 		amount1 := int64(200) // $2

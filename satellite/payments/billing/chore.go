@@ -13,13 +13,16 @@ import (
 	"storj.io/common/sync2"
 )
 
-// ObserverBilling used to create enumerable of chore observers.
-type ObserverBilling int64
+// Observer processes a billing transaction.
+type Observer interface {
+	// Process is called repeatedly for each transaction.
+	Process(context.Context, Transaction) error
+}
 
-const (
-	// ObserverUpgradeUser stands for upgrade user observer type.
-	ObserverUpgradeUser ObserverBilling = 0
-)
+// ChoreObservers holds functionality to process confirmed transactions using different types of observers.
+type ChoreObservers struct {
+	UpgradeUser Observer
+}
 
 // ChoreErr is billing chore err class.
 var ChoreErr = errs.Class("billing chore")
@@ -35,11 +38,11 @@ type Chore struct {
 
 	disableLoop bool
 	bonusRate   int64
-	observers   map[ObserverBilling]Observer
+	observers   ChoreObservers
 }
 
 // NewChore creates new chore.
-func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool, bonusRate int64, observers map[ObserverBilling]Observer) *Chore {
+func NewChore(log *zap.Logger, paymentTypes []PaymentType, transactionsDB TransactionsDB, interval time.Duration, disableLoop bool, bonusRate int64, observers ChoreObservers) *Chore {
 	return &Chore{
 		log:              log,
 		paymentTypes:     paymentTypes,
@@ -84,8 +87,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					break
 				}
 
-				err = chore.observers[ObserverUpgradeUser].Process(ctx, transaction)
+				if chore.observers.UpgradeUser == nil {
+					continue
+				}
+
+				err = chore.observers.UpgradeUser.Process(ctx, transaction)
 				if err != nil {
+					// we don't want to halt storing transactions if upgrade user observer fails
+					// because this chore is designed to store new transactions.
+					// So auto upgrading user is a side effect which shouldn't interrupt the main process.
 					chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
 				}
 			}
