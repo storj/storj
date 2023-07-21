@@ -147,6 +147,8 @@ type Config struct {
 	ServerSideCopyDisabled          bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 	ServerSideCopyDuplicateMetadata bool `help:"perform server-side copy by duplicating metadata, instead of using segment_copies" default:"false"`
 
+	UsePendingObjectsTable bool `help:"enable new flow for upload which is using pending_objects table" default:"false"`
+
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
 }

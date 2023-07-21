@@ -139,6 +139,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonce,
+
+		UsePendingObjectsTable: endpoint.config.UsePendingObjectsTable,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -154,6 +156,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(placement),
+
+		UsePendingObjectsTable: endpoint.config.UsePendingObjectsTable,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))

@@ -46,6 +46,11 @@ type BeginObjectNextVersion struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	Encryption storj.EncryptionParameters
+
+	// UsePendingObjectsTable was added to options not metabase configuration
+	// to be able to test scenarios with pending object in pending_objects and
+	// objects table with the same test case.
+	UsePendingObjectsTable bool
 }
 
 // Verify verifies get object request fields.
@@ -67,6 +72,7 @@ func (opts *BeginObjectNextVersion) Verify() error {
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
+// TODO at the end of transition to pending_objects table we can rename this metod to just BeginObject.
 func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -91,31 +97,59 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 	}
 
-	if err := db.db.QueryRowContext(ctx, `
-		INSERT INTO objects (
-			project_id, bucket_name, object_key, version, stream_id,
-			expires_at, encryption,
-			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
-		) VALUES (
-			$1, $2, $3,
-				coalesce((
-					SELECT version + 1
-					FROM objects
-					WHERE project_id = $1 AND bucket_name = $2 AND object_key = $3
-					ORDER BY version DESC
-					LIMIT 1
-				), 1),
-			$4, $5, $6,
-			$7,
-			$8, $9, $10)
-		RETURNING status, version, created_at
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
-		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline,
-		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	).Scan(&object.Status, &object.Version, &object.CreatedAt); err != nil {
-		return Object{}, Error.New("unable to insert object: %w", err)
+	if opts.UsePendingObjectsTable {
+		object.Status = Pending
+		object.Version = DefaultVersion
+
+		if err := db.db.QueryRowContext(ctx, `
+			INSERT INTO pending_objects (
+				project_id, bucket_name, object_key, stream_id,
+				expires_at, encryption,
+				zombie_deletion_deadline,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			) VALUES (
+				$1, $2, $3, $4,
+				$5, $6,
+				$7,
+				$8, $9, $10)
+			RETURNING created_at
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+			opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+			opts.ZombieDeletionDeadline,
+			opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		).Scan(&object.CreatedAt); err != nil {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+				return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))
+			}
+			return Object{}, Error.New("unable to insert object: %w", err)
+		}
+	} else {
+		if err := db.db.QueryRowContext(ctx, `
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				expires_at, encryption,
+				zombie_deletion_deadline,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
+			) VALUES (
+				$1, $2, $3,
+					coalesce((
+						SELECT version + 1
+						FROM objects
+						WHERE project_id = $1 AND bucket_name = $2 AND object_key = $3
+						ORDER BY version DESC
+						LIMIT 1
+					), 1),
+				$4, $5, $6,
+				$7,
+				$8, $9, $10)
+			RETURNING status, version, created_at
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+			opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+			opts.ZombieDeletionDeadline,
+			opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		).Scan(&object.Status, &object.Version, &object.CreatedAt); err != nil {
+			return Object{}, Error.New("unable to insert object: %w", err)
+		}
 	}
 
 	mon.Meter("object_begin").Mark(1)

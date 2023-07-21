@@ -338,6 +338,184 @@ func TestBeginObjectNextVersion(t *testing.T) {
 	})
 }
 
+func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
+	// TODO when we stop storing pending objects in objects tabe we will be able
+	// to merge this tests with TestBeginObjectNextVersion
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
+
+		t.Run("object already exists", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
+			futureTime := now1.Add(10 * 24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.DefaultVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           objectStream,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &futureTime,
+
+					UsePendingObjectsTable: true,
+				},
+				Version:  metabase.DefaultVersion,
+				ErrClass: &metabase.ErrObjectAlreadyExists,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				PendingObjects: []metabase.RawPendingObject{
+					{
+						PendingObjectStream: metabase.PendingObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						ExpiresAt: nil,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("multiple versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
+			futureTime := now1.Add(10 * 24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.DefaultVersion,
+			}.Check(ctx, t, db)
+
+			now2 := time.Now()
+
+			secondObjectStream := objectStream
+			secondObjectStream.StreamID = testrand.UUID()
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           secondObjectStream,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &futureTime,
+
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.DefaultVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				PendingObjects: []metabase.RawPendingObject{
+					{
+						PendingObjectStream: metabase.PendingObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						ExpiresAt: nil,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+					{
+						PendingObjectStream: metabase.PendingObjectStream{
+							ProjectID:  secondObjectStream.ProjectID,
+							BucketName: secondObjectStream.BucketName,
+							ObjectKey:  secondObjectStream.ObjectKey,
+							StreamID:   secondObjectStream.StreamID,
+						},
+						CreatedAt: now2,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &futureTime,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("begin object next version with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.DefaultVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				PendingObjects: []metabase.RawPendingObject{
+					{
+						PendingObjectStream: metabase.PendingObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestBeginObjectExactVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
