@@ -65,6 +65,8 @@ export interface AccessGrantsApi {
 export enum AccessGrantsOrderBy {
     NAME = 1,
     CREATED_AT,
+    name = 1,
+    createdAt = 2,
 }
 
 /**
