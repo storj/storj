@@ -6,13 +6,15 @@
         <template #content>
             <div class="add-tokens">
                 <p class="add-tokens__info">
-                    Send more than $10 in STORJ Tokens to the following deposit address, and fill in this
+                    Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
+                    Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
+                    If your account is not automatically upgraded, please fill out this
                     <a
                         class="add-tokens__info__link"
                         href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                         target="_blank"
                         rel="noopener noreferrer"
-                    >limit increase request form</a> to upgrade to Pro Account.
+                    >limit increase request form</a>.
                 </p>
                 <canvas ref="canvas" />
                 <div class="add-tokens__label">
@@ -66,6 +68,7 @@ import { computed, onMounted, ref } from 'vue';
 import QRCode from 'qrcode';
 
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -76,6 +79,7 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
 
+const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 
@@ -86,6 +90,13 @@ const canvas = ref<HTMLCanvasElement>();
  */
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
+});
+
+/**
+ * Returns needed transaction confirmations from config store.
+ */
+const neededConfirmations = computed((): number => {
+    return configStore.state.config.neededTransactionConfirmations;
 });
 
 /**
