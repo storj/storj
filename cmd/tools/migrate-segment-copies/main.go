@@ -81,7 +81,9 @@ func main() {
 func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db, err := metabase.Open(ctx, log, config.MetabaseDB, metabase.Config{})
+	db, err := metabase.Open(ctx, log, config.MetabaseDB, metabase.Config{
+		ApplicationName: "migrate-segment-copies",
+	})
 	if err != nil {
 		return errs.New("unable to connect %q: %w", config.MetabaseDB, err)
 	}
@@ -164,7 +166,7 @@ func MigrateSegments(ctx context.Context, log *zap.Logger, metabaseDB *metabase.
 			RemoteAliasPieces []byte
 			RootPieceID       []byte
 			RepairedAt        *time.Time
-			Placement         int64
+			Placement         *int64
 		}
 
 		updates := []Update{}
@@ -176,7 +178,7 @@ func MigrateSegments(ctx context.Context, log *zap.Logger, metabaseDB *metabase.
 				var position int64
 				var remoteAliasPieces, rootPieceID []byte
 				var repairedAt *time.Time
-				var placement int64
+				var placement *int64
 				err := rows.Scan(&ancestorStreamID, &position, &remoteAliasPieces, &rootPieceID, &repairedAt, &placement)
 				if err != nil {
 					return err
