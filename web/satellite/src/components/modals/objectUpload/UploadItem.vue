@@ -12,7 +12,8 @@
         <div class="item__right">
             <template v-if="item.status === UploadingStatus.InProgress">
                 <div class="item__right__track">
-                    <div class="item__right__track__fill" :style="progressStyle" />
+                    <div v-if="item.progress" class="item__right__track__fill" :style="progressStyle" />
+                    <div v-else class="item__right__track__indeterminate" />
                 </div>
                 <CloseIcon class="item__right__cancel" @click="cancelUpload" />
             </template>
@@ -183,6 +184,7 @@ function cancelUpload(): void {
             position: relative;
             margin-right: 34px;
             background-color: var(--c-blue-1);
+            overflow: hidden;
 
             &__fill {
                 position: absolute;
@@ -192,6 +194,31 @@ function cancelUpload(): void {
                 background-color: var(--c-blue-3);
                 border-radius: 3px;
                 max-width: 100%;
+            }
+
+            &__indeterminate {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                background-color: var(--c-blue-3);
+                border-radius: 3px;
+                max-width: 100%;
+                width: 50%;
+                animation: indeterminate-progress-bar;
+                animation-duration: 2s;
+                animation-iteration-count: infinite;
+            }
+
+            @keyframes indeterminate-progress-bar {
+
+                from {
+                    left: -50%;
+                }
+
+                to {
+                    left: 100%;
+                }
             }
         }
 
