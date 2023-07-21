@@ -16,7 +16,8 @@
                     </div>
                 </div>
                 <div v-if="!isClosable" class="modal__header__left__track">
-                    <div class="modal__header__left__track__fill" :style="progressStyle" />
+                    <div v-if="progress" class="modal__header__left__track__fill" :style="progressStyle" />
+                    <div v-else class="modal__header__left__track__indeterminate" />
                 </div>
             </div>
             <div class="modal__header__right">
@@ -129,16 +130,21 @@ const statusLabel = computed((): string => {
 });
 
 /**
- * Returns progress bar style.
+ * Returns upload progress.
  */
-const progressStyle = computed((): Record<string, string> => {
-    const progress = uploading.value.reduce((total: number, item: UploadingBrowserObject) => {
+const progress = computed((): number => {
+    return uploading.value.reduce((total: number, item: UploadingBrowserObject) => {
         total += item.progress || 0;
         return total;
     }, 0) / uploading.value.length;
+});
 
+/**
+ * Returns progress bar style.
+ */
+const progressStyle = computed((): Record<string, string> => {
     return {
-        width: `${progress}%`,
+        width: `${progress.value}%`,
     };
 });
 
@@ -323,6 +329,7 @@ onMounted(() => {
                 border-radius: 4px;
                 position: relative;
                 background-color: var(--c-grey-11);
+                overflow: hidden;
 
                 &__fill {
                     position: absolute;
@@ -332,6 +339,31 @@ onMounted(() => {
                     background-color: var(--c-blue-1);
                     border-radius: 4px;
                     max-width: 100%;
+                }
+
+                &__indeterminate {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    bottom: 0;
+                    background-color: var(--c-blue-1);
+                    border-radius: 4px;
+                    max-width: 100%;
+                    width: 50%;
+                    animation: indeterminate-progress-bar;
+                    animation-duration: 2s;
+                    animation-iteration-count: infinite;
+                }
+
+                @keyframes indeterminate-progress-bar {
+
+                    from {
+                        left: -50%;
+                    }
+
+                    to {
+                        left: 100%;
+                    }
                 }
             }
         }
