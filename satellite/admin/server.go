@@ -151,6 +151,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/freeze", server.freezeUser).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/freeze", server.unfreezeUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/warning", server.unWarnUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
