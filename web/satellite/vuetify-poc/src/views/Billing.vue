@@ -178,12 +178,9 @@
                         hover
                     >
                         <template #item.date="{ item }">
-                            <v-list-item class="font-weight-bold pl-0">
-                                <!-- <template v-slot:prepend>
-                        <img src="../assets/icon-user-color.svg" alt="Dashboard" class="mr-3">
-                      </template> -->
-                                {{ item.columns.date }}
-                            </v-list-item>
+                            <span class="font-weight-bold">
+                                {{ item.raw.date }}
+                            </span>
                         </template>
                         <template #item.status="{ item }">
                             <v-chip :color="getColor(item.raw.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
@@ -215,12 +212,9 @@
                         hover
                     >
                         <template #item.date="{ item }">
-                            <v-list-item class="font-weight-bold pl-0">
-                                <!-- <template v-slot:prepend>
-                        <img src="../assets/icon-user-color.svg" alt="Dashboard" class="mr-3">
-                      </template> -->
-                                {{ item.columns.date }}
-                            </v-list-item>
+                            <span class="font-weight-bold">
+                                {{ item.raw.date }}
+                            </span>
                         </template>
                         <template #item.status="{ item }">
                             <v-chip :color="getColor(item.raw.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
@@ -267,7 +261,6 @@ import {
     VExpansionPanels,
     VExpansionPanel,
     VTextField,
-    VListItem,
 } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 

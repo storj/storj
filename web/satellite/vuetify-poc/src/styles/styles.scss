@@ -226,12 +226,6 @@
   letter-spacing: 1px;
 }
 
-// Table content
-.v-list-item__content {
-  white-space: nowrap;
-  overflow: visible;
-}
-
 // Table Footer
 .v-data-table-footer {
   font-size: 14px;
@@ -270,6 +264,7 @@ table {
 .link:hover {
   color: rgb(var(--v-theme-secondary));
   background-size: 100% 1px;
+  cursor: pointer;
 }
 
 

@@ -11,7 +11,7 @@
 
 <script setup lang="ts">
 import { onBeforeMount } from 'vue';
-import { useRouter } from 'vue-router';
+import { onBeforeRouteLeave, useRouter } from 'vue-router';
 import { VApp } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';

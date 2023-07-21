@@ -22,9 +22,9 @@
             hover
         >
             <template #item.name="{ item }">
-                <v-list-item class="font-weight-bold pl-0">
-                    {{ item.columns.name }}
-                </v-list-item>
+                <span class="font-weight-bold">
+                    {{ item.raw.name }}
+                </span>
             </template>
             <template #item.status="{ item }">
                 <v-chip :color="item.raw.status == 'Active' ? 'success' : 'warning'" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
@@ -37,7 +37,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VListItem, VChip } from 'vuetify/components';
+import { VCard, VTextField, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 const search = ref<string>('');

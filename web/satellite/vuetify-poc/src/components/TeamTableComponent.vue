@@ -22,15 +22,12 @@
             hover
         >
             <template #item.name="{ item }">
-                <v-list-item class="font-weight-bold pl-0">
-                    <!-- <template v-slot:prepend>
-                    <img src="../assets/icon-user-color.svg" alt="Dashboard" class="mr-3">
-                    </template> -->
-                    {{ item.columns.name }}
-                </v-list-item>
+                <span class="font-weight-bold">
+                    {{ item.raw.name }}
+                </span>
             </template>
             <template #item.role="{ item }">
-                <v-chip :color="roleColors.get(item.raw.role)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="PROJECT_ROLE_COLORS[item.raw.role]" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
                     {{ item.raw.role }}
                 </v-chip>
             </template>
@@ -40,12 +37,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VCard, VTextField, VListItem, VChip } from 'vuetify/components';
+import { VCard, VTextField, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ProjectInvitationItemModel, ProjectRole } from '@/types/projectMembers';
+import { PROJECT_ROLE_COLORS } from '@poc/types/projects';
 
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
@@ -62,13 +60,6 @@ const headers = ref([
     { title: 'Email', key: 'email' },
     { title: 'Role', key: 'role' },
     { title: 'Date Added', key: 'date' },
-]);
-
-const roleColors = new Map<ProjectRole, string>([
-    [ProjectRole.Member, 'green'],
-    [ProjectRole.Owner, 'purple2'],
-    [ProjectRole.Invited, 'warning'],
-    [ProjectRole.InviteExpired, 'error'],
 ]);
 
 /**

@@ -12,39 +12,97 @@
         />
 
         <v-data-table
-            v-model="selected"
             :sort-by="sortBy"
             :headers="headers"
-            :items="files"
+            :items="items"
             :search="search"
             class="elevation-1"
             item-key="path"
         >
             <template #item.name="{ item }">
-                <v-list-item class="rounded-lg font-weight-bold pl-1" link router-link to="/dashboard">
-                    <template #prepend>
-                        <img src="../assets/icon-project-tonal.svg" alt="Bucket" class="mr-3">
-                        <!-- Project Icon -->
-                        <!-- <v-chip :color="getColor(item.raw.role)" variant="tonal" size="small" class="ml-2 mr-2" rounded>
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill="currentColor" d="M10.0567 1.05318L10.0849 1.06832L17.4768 5.33727C17.6249 5.42279 17.7084 5.5642 17.7274 5.71277L17.7301 5.73906L17.7314 5.76543L17.7316 14.2407C17.7316 14.4124 17.6452 14.5718 17.5032 14.6657L17.476 14.6826L10.084 18.9322C9.93533 19.0176 9.75438 19.0223 9.60224 18.9463L9.57407 18.9311L2.25387 14.6815C2.10601 14.5956 2.01167 14.4418 2.00108 14.2726L2 14.2407V5.77863L2.00023 5.75974C1.99504 5.58748 2.07759 5.41781 2.22993 5.31793L2.25457 5.30275L9.57482 1.06849C9.71403 0.987969 9.88182 0.978444 10.0278 1.03993L10.0567 1.05318ZM16.7123 6.6615L10.3397 10.3418V17.6094L16.7123 13.9458V6.6615ZM3.01944 6.66573V13.947L9.32037 17.605V10.3402L3.01944 6.66573ZM9.83034 2.09828L3.49475 5.76287L9.83122 9.45833L16.2029 5.7786L9.83034 2.09828Z"/>
-                            </svg>
-                        </v-chip> -->
-                    </template>
-                    {{ item.columns.name }}
-                </v-list-item>
+                <div>
+                    <v-btn
+                        class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
+                        variant="text"
+                        height="40"
+                        color="default"
+                        @click="openProject(item.raw)"
+                    >
+                        <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                        {{ item.raw.name }}
+                    </v-btn>
+                </div>
             </template>
 
             <template #item.role="{ item }">
-                <v-chip :color="getColor(item.raw.role)" rounded="xl" size="small" class="font-weight-bold">
+                <v-chip :color="PROJECT_ROLE_COLORS[item.raw.role]" rounded="xl" size="small" class="font-weight-bold">
                     {{ item.raw.role }}
                 </v-chip>
             </template>
 
+            <template #item.createdAt="{ item }">
+                {{ getFormattedDate(item.raw.createdAt) }}
+            </template>
+
             <template #item.actions="{ item }">
-                <v-btn size="small" link router-link to="/dashboard">
-                    {{ item.raw.actions }}
-                </v-btn>
+                <div class="w-100 d-flex align-center justify-space-between">
+                    <v-btn
+                        v-if="item.raw.role === ProjectRole.Invited"
+                        color="primary"
+                        size="small"
+                        :disabled="decliningIds.has(item.raw.id)"
+                        @click="emit('joinClick', item.raw)"
+                    >
+                        Join Project
+                    </v-btn>
+                    <v-btn v-else color="primary" size="small" @click="openProject(item.raw)">Open Project</v-btn>
+
+                    <v-btn
+                        v-if="item.raw.role === ProjectRole.Owner || item.raw.role === ProjectRole.Invited"
+                        class="ml-2"
+                        icon
+                        color="default"
+                        variant="text"
+                        size="small"
+                        density="comfortable"
+                        :loading="decliningIds.has(item.raw.id)"
+                    >
+                        <v-icon icon="mdi-dots-vertical" size="18" />
+                        <v-menu activator="parent" location="bottom end" transition="scale-transition">
+                            <v-list class="pa-0">
+                                <template v-if="item.raw.role === ProjectRole.Owner">
+                                    <v-list-item link>
+                                        <template #prepend>
+                                            <icon-settings />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Project Settings
+                                        </v-list-item-title>
+                                    </v-list-item>
+
+                                    <v-divider />
+
+                                    <v-list-item link>
+                                        <template #prepend>
+                                            <icon-team />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Invite Members
+                                        </v-list-item-title>
+                                    </v-list-item>
+                                </template>
+                                <v-list-item v-else link @click="declineInvitation(item.raw)">
+                                    <template #prepend>
+                                        <img src="@poc/assets/icon-trash.svg" alt="Decline">
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Decline
+                                    </v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
+                    </v-btn>
+                </div>
             </template>
         </v-data-table>
     </v-card>
@@ -52,51 +110,81 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VListItem, VChip, VBtn } from 'vuetify/components';
+import { useRouter } from 'vue-router';
+import {
+    VCard,
+    VTextField,
+    VListItem,
+    VChip,
+    VBtn,
+    VMenu,
+    VList,
+    VIcon,
+    VListItemTitle,
+    VDivider,
+} from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
+import { ProjectItemModel, PROJECT_ROLE_COLORS } from '@poc/types/projects';
+import { ProjectInvitationResponse } from '@/types/projects';
+import { ProjectRole } from '@/types/projectMembers';
+import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { LocalData } from '@/utils/localData';
+
+import IconSettings from '@poc/components/icons/IconSettings.vue';
+import IconTeam from '@poc/components/icons/IconTeam.vue';
+
+const props = defineProps<{
+    items: ProjectItemModel[],
+}>();
+
+const emit = defineEmits<{
+    (event: 'joinClick', item: ProjectItemModel): void;
+}>();
+
 const search = ref<string>('');
-const selected = ref([]);
+const decliningIds = ref(new Set<string>());
+
+const projectsStore = useProjectsStore();
+const router = useRouter();
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
-    {
-        title: 'Project',
-        align: 'start',
-        key: 'name',
-    },
-    { title: 'Role', key:'role' },
-    { title: 'Members', key: 'size' },
-    { title: 'Date Added', key: 'date' },
-    { title: 'Actions', key: 'actions' },
-];
-const files = [
-    {
-        name: 'My First Project',
-        role: 'Owner',
-        size: '1',
-        date: '02 Mar 2023',
-        actions: 'Open Project',
-    },
-    {
-        name: 'Storj Labs',
-        role: 'Member',
-        size: '23',
-        date: '21 Apr 2023',
-        actions: 'Open Project',
-    },
-    {
-        name: 'Invitation Project',
-        role: 'Invited',
-        size: '15',
-        date: '24 Mar 2023',
-        actions: 'Join Project',
-    },
+    { title: 'Project', key: 'name', align: 'start' },
+    { title: 'Role', key: 'role' },
+    { title: 'Members', key: 'memberCount' },
+    { title: 'Date Added', key: 'createdAt' },
+    { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];
 
-function getColor(role: string): string {
-    if (role === 'Owner') return 'purple2';
-    if (role === 'Invited') return 'warning';
-    return 'green';
+/**
+ * Formats the given project creation date.
+ */
+function getFormattedDate(date: Date): string {
+    return `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/**
+ * Selects the project and navigates to the project dashboard.
+ */
+function openProject(item: ProjectItemModel): void {
+    projectsStore.selectProject(item.id);
+    LocalData.setSelectedProjectId(item.id);
+    router.push('/dashboard');
+}
+
+/**
+ * Declines the project invitation.
+ */
+async function declineInvitation(item: ProjectItemModel): Promise<void> {
+    if (decliningIds.value.has(item.id)) return;
+    decliningIds.value.add(item.id);
+
+    await projectsStore.respondToInvitation(item.id, ProjectInvitationResponse.Decline).catch(_ => {});
+    await projectsStore.getUserInvitations().catch(_ => {});
+    await projectsStore.getProjects().catch(_ => {});
+
+    decliningIds.value.delete(item.id);
 }
 </script>

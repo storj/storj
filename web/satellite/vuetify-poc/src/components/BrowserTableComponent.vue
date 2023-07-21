@@ -22,13 +22,18 @@
             show-select
         >
             <template #item.name="{ item }">
-                <v-list-item class="rounded-lg font-weight-bold pl-1" link @click="previewFile">
-                    <template #prepend>
-                        <!-- Filetype icons -->
+                <div>
+                    <v-btn
+                        class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
+                        variant="text"
+                        height="40"
+                        color="default"
+                        @click="previewFile"
+                    >
                         <img :src="icons.get(item.raw.icon) || fileIcon" alt="Item icon" class="mr-3">
-                    </template>
-                    {{ item.columns.name }}
-                </v-list-item>
+                        {{ item.raw.name }}
+                    </v-btn>
+                </div>
             </template>
         </v-data-table>
 
@@ -146,7 +151,6 @@ import { ref } from 'vue';
 import {
     VCard,
     VTextField,
-    VListItem,
     VDialog,
     VCarousel,
     VBtn,

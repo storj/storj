@@ -105,13 +105,13 @@
                         <IconProject />
                     </template>
                     <v-list-item-title link class="text-body-2 ml-3">
-                        Project
+                        {{ selectedProject.name }}
                     </v-list-item-title>
                     <v-list-item-subtitle class="ml-3">
-                        My first project
+                        {{ selectedProject.description }}
                     </v-list-item-subtitle>
                     <template #append>
-                        <img src="@poc/assets/icon-right.svg" alt="Project" width="10">
+                        <img src="@poc/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
                     </template>
                 </v-list-item>
 
@@ -234,6 +234,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
     VNavigationDrawer,
     VSheet,
@@ -245,6 +246,9 @@ import {
     VChip,
     VDivider,
 } from 'vuetify/components';
+
+import { Project } from '@/types/projects';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -260,4 +264,13 @@ import IconDocs from '@poc/components/icons/IconDocs.vue';
 import IconForum from '@poc/components/icons/IconForum.vue';
 import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
+
+const projectsStore = useProjectsStore();
+
+/**
+ * Returns the selected project from the store.
+ */
+const selectedProject = computed((): Project => {
+    return projectsStore.state.selectedProject;
+});
 </script>

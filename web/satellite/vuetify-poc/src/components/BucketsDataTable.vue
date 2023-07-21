@@ -21,12 +21,18 @@
             show-select
         >
             <template #item.name="{ item }">
-                <v-list-item class="rounded-lg font-weight-bold pl-1" link router-link to="/bucket">
-                    <template #prepend>
+                <div>
+                    <v-btn
+                        class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
+                        variant="text"
+                        height="40"
+                        color="default"
+                        to="/bucket"
+                    >
                         <img src="../assets/icon-bucket-tonal.svg" alt="Bucket" class="mr-3">
-                    </template>
-                    {{ item.columns.name }}
-                </v-list-item>
+                        {{ item.raw.name }}
+                    </v-btn>
+                </div>
             </template>
         </v-data-table>
     </v-card>
@@ -34,7 +40,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VListItem } from 'vuetify/components';
+import { VCard, VTextField, VBtn } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 const props = defineProps<{

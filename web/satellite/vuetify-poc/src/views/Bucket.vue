@@ -43,7 +43,7 @@ import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
 import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 import BrowserTableComponent from '@poc/components/BrowserTableComponent.vue';
-import BrowserNewFolderDialog from '@poc/components/BrowserNewFolderDialog.vue';
+import BrowserNewFolderDialog from '@poc/components/dialogs/BrowserNewFolderDialog.vue';
 import IconUpload from '@poc/components/icons/IconUpload.vue';
 import IconFolder from '@poc/components/icons/IconFolder.vue';
 
