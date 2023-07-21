@@ -1136,6 +1136,156 @@ func TestBeginSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("use pending objects table", func(t *testing.T) {
+			obj.Version = metabase.NextVersion
+			t.Run("pending object missing", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				metabasetest.BeginSegment{
+					Opts: metabase.BeginSegment{
+						ObjectStream: obj,
+						RootPieceID:  storj.PieceID{1},
+						Pieces: []metabase.Piece{{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						}},
+						UsePendingObjectsTable: true,
+					},
+					ErrClass: &metabase.ErrPendingObjectMissing,
+				}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+
+			t.Run("pending object missing when object committed", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				now := time.Now()
+
+				obj := obj
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					Version: 1,
+				}.Check(ctx, t, db)
+				obj.Version++
+
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: obj,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.BeginSegment{
+					Opts: metabase.BeginSegment{
+						ObjectStream: obj,
+						RootPieceID:  storj.PieceID{1},
+						Pieces: []metabase.Piece{{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						}},
+						UsePendingObjectsTable: true,
+					},
+					ErrClass: &metabase.ErrPendingObjectMissing,
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Committed,
+
+							Encryption: metabasetest.DefaultEncryption,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("begin segment successfully", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream:           obj,
+						Encryption:             metabasetest.DefaultEncryption,
+						UsePendingObjectsTable: true,
+					},
+					Version: 1,
+				}.Check(ctx, t, db)
+
+				metabasetest.BeginSegment{
+					Opts: metabase.BeginSegment{
+						ObjectStream: obj,
+						RootPieceID:  storj.PieceID{1},
+						Pieces: []metabase.Piece{{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						}},
+						UsePendingObjectsTable: true,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					PendingObjects: []metabase.RawPendingObject{
+						{
+							PendingObjectStream: metabasetest.ObjectStreamToPending(obj),
+							CreatedAt:           now,
+
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("multiple begin segment successfully", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				now := time.Now()
+				zombieDeadline := now.Add(24 * time.Hour)
+
+				obj := metabasetest.RandObjectStream()
+				obj.Version = metabase.NextVersion
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream:           obj,
+						Encryption:             metabasetest.DefaultEncryption,
+						UsePendingObjectsTable: true,
+					},
+					Version: 1,
+				}.Check(ctx, t, db)
+
+				for i := 0; i < 5; i++ {
+					metabasetest.BeginSegment{
+						Opts: metabase.BeginSegment{
+							ObjectStream: obj,
+							RootPieceID:  testrand.PieceID(),
+							Pieces: []metabase.Piece{{
+								Number:      1,
+								StorageNode: testrand.NodeID(),
+							}},
+							UsePendingObjectsTable: true,
+						},
+					}.Check(ctx, t, db)
+				}
+
+				metabasetest.Verify{
+					PendingObjects: []metabase.RawPendingObject{
+						{
+							PendingObjectStream: metabasetest.ObjectStreamToPending(obj),
+							CreatedAt:           now,
+
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
+		})
 	})
 }
 

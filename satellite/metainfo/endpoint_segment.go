@@ -120,6 +120,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		},
 		RootPieceID: rootPieceID,
 		Pieces:      pieces,
+
+		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

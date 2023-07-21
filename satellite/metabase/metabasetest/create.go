@@ -400,3 +400,13 @@ func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
 
 	return rawSegments
 }
+
+// ObjectStreamToPending converts ObjectStream to PendingObjectStream.
+func ObjectStreamToPending(objectStream metabase.ObjectStream) metabase.PendingObjectStream {
+	return metabase.PendingObjectStream{
+		ProjectID:  objectStream.ProjectID,
+		BucketName: objectStream.BucketName,
+		ObjectKey:  objectStream.ObjectKey,
+		StreamID:   objectStream.StreamID,
+	}
+}

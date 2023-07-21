@@ -257,6 +257,8 @@ type BeginSegment struct {
 	RootPieceID storj.PieceID
 
 	Pieces Pieces
+
+	UsePendingObjectsTable bool
 }
 
 // BeginSegment verifies, whether a new segment upload can be started.
@@ -280,7 +282,17 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 	// Verify that object exists and is partial.
 	var value int
-	err = db.db.QueryRowContext(ctx, `
+	if opts.UsePendingObjectsTable {
+		err = db.db.QueryRowContext(ctx, `
+			SELECT 1
+			FROM pending_objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				stream_id    = $4
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID).Scan(&value)
+	} else {
+		err = db.db.QueryRowContext(ctx, `
 			SELECT 1
 			FROM objects WHERE
 				project_id   = $1 AND
@@ -289,7 +301,8 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				version      = $4 AND
 				stream_id    = $5 AND
 				status       = `+pendingStatus,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrPendingObjectMissing.New("")
