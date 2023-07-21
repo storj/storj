@@ -428,6 +428,43 @@ func TestFreezeUnfreezeUser(t *testing.T) {
 	})
 }
 
+func TestWarnUnwarnUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().Get(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+
+		err = planet.Satellites[0].Admin.FreezeAccounts.Service.WarnUser(ctx, user.ID)
+		require.NoError(t, err)
+
+		freeze, warning, err := planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.Nil(t, freeze)
+		require.NotNil(t, warning)
+
+		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/warning", user.Email)
+		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		freeze, warning, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.Nil(t, freeze)
+		require.Nil(t, warning)
+
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusInternalServerError, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), "user is not warned")
+	})
+}
+
 func TestUserDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

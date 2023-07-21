@@ -464,6 +464,14 @@ Blank fields will not be updated.`,
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/freeze`) as Promise<null>;
 				}
+			},
+			{
+				name: 'unwarn user',
+				desc: "Remove a user's warning status",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/warning`) as Promise<null>;
+				}
 			}
 		],
 		rest_api_keys: [
