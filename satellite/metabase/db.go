@@ -170,7 +170,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     16,
+				Version:     17,
 				Action: migrate.SQL{
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
@@ -300,7 +300,43 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 					COMMENT ON TABLE  segment_copies                    is 'segment_copies contains a reference for sharing stream_id-s.';
 					COMMENT ON COLUMN segment_copies.stream_id          is 'stream_id refers to the objects.stream_id.';
 					COMMENT ON COLUMN segment_copies.ancestor_stream_id is 'ancestor_stream_id refers to the actual segments where data is stored.';
-					`,
+					`, `
+					CREATE TABLE pending_objects (
+						project_id   BYTEA NOT NULL,
+						bucket_name  BYTEA NOT NULL,
+						object_key   BYTEA NOT NULL,
+						stream_id    BYTEA NOT NULL,
+					
+						created_at TIMESTAMPTZ NOT NULL default now(),
+						expires_at TIMESTAMPTZ,
+					
+						encrypted_metadata_nonce         BYTEA default NULL,
+						encrypted_metadata               BYTEA default NULL,
+						encrypted_metadata_encrypted_key BYTEA default NULL,
+					
+						encryption INT8 NOT NULL default 0,
+					
+						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
+					
+						PRIMARY KEY (project_id, bucket_name, object_key, stream_id)
+					)`,
+					`
+					COMMENT ON TABLE  pending_objects     is 'Pending objects table contains information about path and streams of in progress uploads';
+					COMMENT ON COLUMN objects.project_id  is 'project_id is a uuid referring to project.id.';
+					COMMENT ON COLUMN objects.bucket_name is 'bucket_name is a alpha-numeric string referring to bucket_metainfo.name.';
+					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
+					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
+
+					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
+					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';
+
+					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
+					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
+					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
+
+					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
+
+					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';`,
 				},
 			},
 		},
@@ -595,6 +631,49 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					COMMENT ON TABLE  segment_copies                    is 'segment_copies contains a reference for sharing stream_id-s.';
 					COMMENT ON COLUMN segment_copies.stream_id          is 'stream_id refers to the objects.stream_id.';
 					COMMENT ON COLUMN segment_copies.ancestor_stream_id is 'ancestor_stream_id refers to the actual segments where data is stored.';
+				`},
+			},
+			{
+				DB:          &db.db,
+				Description: "add pending_objects table",
+				Version:     17,
+				Action: migrate.SQL{`
+					CREATE TABLE pending_objects (
+						project_id   BYTEA NOT NULL,
+						bucket_name  BYTEA NOT NULL,
+						object_key   BYTEA NOT NULL,
+						stream_id    BYTEA NOT NULL,
+
+						created_at TIMESTAMPTZ NOT NULL default now(),
+						expires_at TIMESTAMPTZ,
+
+						encrypted_metadata_nonce         BYTEA default NULL,
+						encrypted_metadata               BYTEA default NULL,
+						encrypted_metadata_encrypted_key BYTEA default NULL,
+
+						encryption INT8 NOT NULL default 0,
+
+						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
+
+						PRIMARY KEY (project_id, bucket_name, object_key, stream_id)
+					)`,
+					`
+					COMMENT ON TABLE  pending_objects     is 'Pending objects table contains information about path and streams of in progress uploads';
+					COMMENT ON COLUMN objects.project_id  is 'project_id is a uuid referring to project.id.';
+					COMMENT ON COLUMN objects.bucket_name is 'bucket_name is a alpha-numeric string referring to bucket_metainfo.name.';
+					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
+					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
+
+					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
+					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';
+
+					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
+					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
+					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
+
+					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
+
+					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
 				`},
 			},
 		},

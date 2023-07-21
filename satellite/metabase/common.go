@@ -290,6 +290,29 @@ func (obj *ObjectStream) Location() ObjectLocation {
 	}
 }
 
+// PendingObjectStream uniquely defines an pending object and stream.
+type PendingObjectStream struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	StreamID   uuid.UUID
+}
+
+// Verify object stream fields.
+func (obj *PendingObjectStream) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	case obj.StreamID.IsZero():
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
+}
+
 // SegmentPosition is segment part and index combined.
 type SegmentPosition struct {
 	Part  uint32
