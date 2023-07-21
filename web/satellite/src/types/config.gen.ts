@@ -45,6 +45,7 @@ export class FrontendConfig {
     pricingPackagesEnabled: boolean;
     newUploadModalEnabled: boolean;
     galleryViewEnabled: boolean;
+    neededTransactionConfirmations: number;
 }
 
 export class MultiCaptchaConfig {
