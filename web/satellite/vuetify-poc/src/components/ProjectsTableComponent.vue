@@ -130,7 +130,6 @@ import { ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { LocalData } from '@/utils/localData';
 
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
@@ -170,8 +169,7 @@ function getFormattedDate(date: Date): string {
  */
 function openProject(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
-    LocalData.setSelectedProjectId(item.id);
-    router.push('/dashboard');
+    router.push(`/projects/${item.id}/dashboard`);
 }
 
 /**

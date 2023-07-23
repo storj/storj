@@ -3,16 +3,21 @@
 
 <template>
     <v-app>
-        <default-bar show-nav-drawer-button />
-        <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
-        <default-view />
+        <div v-if="isLoading" class="d-flex align-center justify-center w-100 h-100">
+            <v-progress-circular color="primary" indeterminate size="64" />
+        </div>
+        <template v-else>
+            <default-bar show-nav-drawer-button />
+            <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
+            <default-view />
+        </template>
     </v-app>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount } from 'vue';
-import { onBeforeRouteLeave, useRouter } from 'vue-router';
-import { VApp } from 'vuetify/components';
+import { onBeforeMount, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { VApp, VProgressCircular } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';
 import ProjectNav from './ProjectNav.vue';
@@ -24,10 +29,10 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@poc/store/appStore';
 
 const router = useRouter();
+const route = useRoute();
 
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -35,32 +40,32 @@ const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 
-/**
- * Stores project to vuex store and browser's local storage.
- * @param projectID - project id string
- */
-function storeProject(projectID: string): void {
-    projectsStore.selectProject(projectID);
-    LocalData.setSelectedProjectId(projectID);
-}
+const isLoading = ref<boolean>(true);
 
 /**
- * Checks if stored project is in fetched projects array and selects it.
- * Selects first fetched project if check is not successful.
- * @param fetchedProjects - fetched projects array
+ * Selects the project with the given ID, redirecting to the
+ * all projects dashboard if no such project exists.
  */
-function selectProject(fetchedProjects: Project[]): void {
-    const storedProjectID = LocalData.getSelectedProjectId();
-    const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
-    if (storedProjectID && isProjectInFetchedProjects) {
-        storeProject(storedProjectID);
+async function selectProject(projectId: string): Promise<void> {
+    isLoading.value = true;
 
+    let projects: Project[];
+    try {
+        projects = await projectsStore.getProjects();
+    } catch (_) {
+        router.push('/projects');
         return;
     }
+    if (!projects.some(p => p.id === projectId)) {
+        router.push('/projects');
+        return;
+    }
+    projectsStore.selectProject(projectId);
 
-    // Length of fetchedProjects array is checked before selectProject() function call.
-    storeProject(fetchedProjects[0].id);
+    isLoading.value = false;
 }
+
+watch(() => route.params.projectId, async newId => selectProject(newId as string));
 
 /**
  * Lifecycle hook after initial render.
@@ -87,16 +92,6 @@ onBeforeMount(async () => {
         await billingStore.getCreditCards();
     } catch (error) { /* empty */ }
 
-    let projects: Project[] = [];
-
-    try {
-        projects = await projectsStore.getProjects();
-    } catch (error) {
-        return;
-    }
-
-    if (projects.length) {
-        selectProject(projects);
-    }
+    selectProject(route.params.projectId as string);
 });
 </script>

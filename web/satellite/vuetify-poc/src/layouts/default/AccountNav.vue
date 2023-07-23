@@ -5,20 +5,21 @@
     <v-navigation-drawer class="py-1">
         <v-sheet>
             <v-list class="px-2" color="default" variant="flat">
-                <!-- Project -->
-                <v-list-item class="pa-4 rounded-lg" link router-link to="/dashboard">
-                    <template #prepend>
-                        <img src="@poc/assets/icon-back-tonal.svg" alt="Project">
-                        <!-- <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10.0567 1.05318L10.0849 1.06832L17.4768 5.33727C17.6249 5.42279 17.7084 5.5642 17.7274 5.71277L17.7301 5.73906L17.7314 5.76543L17.7316 14.2407C17.7316 14.4124 17.6452 14.5718 17.5032 14.6657L17.476 14.6826L10.084 18.9322C9.93533 19.0176 9.75438 19.0223 9.60224 18.9463L9.57407 18.9311L2.25387 14.6815C2.10601 14.5956 2.01167 14.4418 2.00108 14.2726L2 14.2407V5.77863L2.00023 5.75974C1.99504 5.58748 2.07759 5.41781 2.22993 5.31793L2.25457 5.30275L9.57482 1.06849C9.71403 0.987969 9.88182 0.978444 10.0278 1.03993L10.0567 1.05318ZM16.7123 6.6615L10.3397 10.3418V17.6094L16.7123 13.9458V6.6615ZM3.01944 6.66573V13.947L9.32037 17.605V10.3402L3.01944 6.66573ZM9.83034 2.09828L3.49475 5.76287L9.83122 9.45833L16.2029 5.7786L9.83034 2.09828Z" fill="currentColor"/>
-                        </svg> -->
-                    </template>
-                    <v-list-item-title link class="text-body-2 ml-3">
-                        Go back
-                    </v-list-item-title>
-                </v-list-item>
+                <template v-if="pathBeforeAccountPage">
+                    <v-list-item class="pa-4 rounded-lg" link router-link :to="pathBeforeAccountPage">
+                        <template #prepend>
+                            <img src="@poc/assets/icon-back-tonal.svg" alt="Project">
+                            <!-- <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.0567 1.05318L10.0849 1.06832L17.4768 5.33727C17.6249 5.42279 17.7084 5.5642 17.7274 5.71277L17.7301 5.73906L17.7314 5.76543L17.7316 14.2407C17.7316 14.4124 17.6452 14.5718 17.5032 14.6657L17.476 14.6826L10.084 18.9322C9.93533 19.0176 9.75438 19.0223 9.60224 18.9463L9.57407 18.9311L2.25387 14.6815C2.10601 14.5956 2.01167 14.4418 2.00108 14.2726L2 14.2407V5.77863L2.00023 5.75974C1.99504 5.58748 2.07759 5.41781 2.22993 5.31793L2.25457 5.30275L9.57482 1.06849C9.71403 0.987969 9.88182 0.978444 10.0278 1.03993L10.0567 1.05318ZM16.7123 6.6615L10.3397 10.3418V17.6094L16.7123 13.9458V6.6615ZM3.01944 6.66573V13.947L9.32037 17.605V10.3402L3.01944 6.66573ZM9.83034 2.09828L3.49475 5.76287L9.83122 9.45833L16.2029 5.7786L9.83034 2.09828Z" fill="currentColor"/>
+                            </svg> -->
+                        </template>
+                        <v-list-item-title link class="text-body-2 ml-3">
+                            Go back
+                        </v-list-item-title>
+                    </v-list-item>
 
-                <v-divider class="my-2" />
+                    <v-divider class="my-2" />
+                </template>
 
                 <!-- All Projects -->
                 <v-list-item class="pa-4 rounded-lg" link router-link to="/projects">
@@ -39,7 +40,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/account-settings" class="my-1 py-3" rounded="lg">
+                <v-list-item link router-link to="settings" class="my-1 py-3" rounded="lg">
                     <template #prepend>
                         <!-- <img src="@poc/assets/icon-settings.svg" alt="Account Settings" class="mr-3"> -->
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -51,7 +52,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/billing" class="my-1" rounded="lg">
+                <v-list-item link router-link to="billing" class="my-1" rounded="lg">
                     <template #prepend>
                         <!-- <img src="@poc/assets/icon-card.svg" alt="Billing" class="mr-3"> -->
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -70,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
     VNavigationDrawer,
     VSheet,
@@ -78,4 +80,17 @@ import {
     VListItemTitle,
     VDivider,
 } from 'vuetify/components';
+
+import { useAppStore } from '@poc/store/appStore';
+
+const appStore = useAppStore();
+
+/**
+ * Returns the path to the most recent non-account-related page.
+ */
+const pathBeforeAccountPage = computed((): string | null => {
+    const path = appStore.state.pathBeforeAccountPage;
+    if (!path || path === '/projects') return null;
+    return path;
+});
 </script>

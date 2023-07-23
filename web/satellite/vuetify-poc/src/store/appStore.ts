@@ -6,6 +6,7 @@ import { reactive } from 'vue';
 
 class AppState {
     public isNavigationDrawerShown = true;
+    public pathBeforeAccountPage: string | null = null;
 }
 
 export const useAppStore = defineStore('vuetifyApp', () => {
@@ -15,8 +16,13 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state.isNavigationDrawerShown = !state.isNavigationDrawerShown;
     }
 
+    function setPathBeforeAccountPage(path: string) {
+        state.pathBeforeAccountPage = path;
+    }
+
     return {
         state,
         toggleNavigationDrawer,
+        setPathBeforeAccountPage,
     };
 });

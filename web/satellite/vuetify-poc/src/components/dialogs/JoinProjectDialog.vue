@@ -77,7 +77,6 @@ import {
 
 import { ProjectInvitationResponse } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { LocalData } from '@/utils/localData';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -105,8 +104,7 @@ const isDeclining = ref<boolean>(false);
  */
 function openProject(): void {
     projectsStore.selectProject(props.id);
-    LocalData.setSelectedProjectId(props.id);
-    router.push('/dashboard');
+    router.push(`/projects/${props.id}/dashboard`);
 }
 
 /**

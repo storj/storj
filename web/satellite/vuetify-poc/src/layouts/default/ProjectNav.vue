@@ -117,7 +117,7 @@
 
                 <v-divider class="my-2" />
 
-                <v-list-item link router-link to="/dashboard" class="my-1 py-3" rounded="lg">
+                <v-list-item link router-link to="dashboard" class="my-1 py-3" rounded="lg">
                     <template #prepend>
                         <IconDashboard />
                     </template>
@@ -126,7 +126,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/buckets" class="my-1" rounded="lg">
+                <v-list-item link router-link to="buckets" class="my-1" rounded="lg">
                     <template #prepend>
                         <IconBucket />
                     </template>
@@ -135,7 +135,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/bucket" class="my-1" rounded="lg">
+                <v-list-item link router-link to="bucket" class="my-1" rounded="lg">
                     <template #prepend>
                         <IconBrowse />
                     </template>
@@ -144,7 +144,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/access" class="my-1" rounded="lg">
+                <v-list-item link router-link to="access" class="my-1" rounded="lg">
                     <template #prepend>
                         <IconAccess />
                     </template>
@@ -153,7 +153,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="/team" class="my-1" rounded="lg">
+                <v-list-item link router-link to="team" class="my-1" rounded="lg">
                     <template #prepend>
                         <IconTeam />
                     </template>

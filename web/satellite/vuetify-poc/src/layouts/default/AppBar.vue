@@ -107,7 +107,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/billing">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing">
                         <template #prepend>
                             <img src="@poc/assets/icon-card.svg" alt="Billing">
                         </template>
@@ -116,7 +116,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account-settings">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings">
                         <template #prepend>
                             <img src="@poc/assets/icon-settings.svg" alt="Account Settings">
                         </template>

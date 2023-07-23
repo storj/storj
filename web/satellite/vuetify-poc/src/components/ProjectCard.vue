@@ -98,7 +98,6 @@ import { ProjectItemModel, PROJECT_ROLE_COLORS } from '@poc/types/projects';
 import { ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { LocalData } from '@/utils/localData';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -123,8 +122,7 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
-    LocalData.setSelectedProjectId(props.item.id);
-    router.push('/dashboard');
+    router.push(`/projects/${props.item.id}/dashboard`);
 }
 
 /**
