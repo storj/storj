@@ -8,7 +8,7 @@ class AppState {
     public isNavigationDrawerShown = true;
 }
 
-export const useAppStore = defineStore('app', () => {
+export const useAppStore = defineStore('vuetifyApp', () => {
     const state = reactive<AppState>(new AppState());
 
     function toggleNavigationDrawer(): void {
