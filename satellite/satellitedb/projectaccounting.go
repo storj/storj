@@ -568,13 +568,70 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
+
+	var buckets []struct{ Name, UserAgent []byte }
+
+	q := db.db.Rebind(`
+		SELECT buckets.bucket_name,
+			m.user_agent
+		FROM (SELECT bucket_name
+				FROM bucket_bandwidth_rollups
+				WHERE project_id = $1
+			UNION
+			SELECT bucket_name
+				FROM bucket_storage_tallies
+				WHERE project_id = $1) AS buckets
+		LEFT JOIN bucket_metainfos AS m ON
+			m.project_id = $1 AND
+			m.name = buckets.bucket_name
+	`)
+	rows, err := db.db.QueryContext(ctx, q, projectID[:])
+	if err != nil {
+		return nil, err
+	}
+	var bucketNames [][]byte
+	for rows.Next() {
+		var bucket struct{ Name, UserAgent []byte }
+		err = rows.Scan(&bucket.Name, &bucket.UserAgent)
+		if err != nil {
+			return nil, errs.Combine(err, rows.Close())
+		}
+		buckets = append(buckets, bucket)
+		bucketNames = append(bucketNames, bucket.Name)
+	}
+	err = errs.Combine(rows.Err(), rows.Close())
 	if err != nil {
 		return nil, err
 	}
 
+	bucketNameToPartner := make(map[string]string, len(buckets))
+	for _, bucket := range buckets {
+		if len(bucket.UserAgent) == 0 {
+			bucketNameToPartner[string(bucket.Name)] = ""
+			continue
+		}
+
+		entries, err := useragent.ParseEntries(bucket.UserAgent)
+		if err != nil {
+			return nil, err
+		}
+
+		partner := ""
+		if len(entries) != 0 {
+			for _, partnerName := range partnerNames {
+				if entries[0].Product == partnerName {
+					partner = partnerName
+					break
+				}
+			}
+		}
+
+		bucketNameToPartner[string(bucket.Name)] = partner
+	}
+
 	storageQuery := db.db.Rebind(`
 		SELECT
+			bucket_storage_tallies.bucket_name,
 			bucket_storage_tallies.interval_start,
 			bucket_storage_tallies.total_bytes,
 			bucket_storage_tallies.inline,
@@ -584,105 +641,101 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		FROM
 			bucket_storage_tallies
 		WHERE
+			bucket_storage_tallies.bucket_name = ANY(?) AND
 			bucket_storage_tallies.project_id = ? AND
-			bucket_storage_tallies.bucket_name = ? AND
 			bucket_storage_tallies.interval_start >= ? AND
 			bucket_storage_tallies.interval_start < ?
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
-	totalEgressQuery := db.db.Rebind(`
-		SELECT
-			COALESCE(SUM(settled) + SUM(inline), 0)
-		FROM
-			bucket_bandwidth_rollups
-		WHERE
-			project_id = ? AND
-			bucket_name = ? AND
-			interval_start >= ? AND
-			interval_start < ? AND
-			action = ?;
-	`)
+	storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, pgutil.ByteaArray(bucketNames), projectID[:], since, before)
+	if err != nil {
+		return nil, err
+	}
 
 	usages = make(map[string]accounting.ProjectUsage)
+	previousBucketTally := make(map[string]*accounting.BucketStorageTally)
+	for storageTalliesRows.Next() {
+		tally := accounting.BucketStorageTally{}
 
-	for _, bucket := range bucketNames {
-		userAgentRow, err := db.db.Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(bucket)))
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
+		var inline, remote int64
+		var bucket string
+		err = storageTalliesRows.Scan(&bucket, &tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
+		if err != nil {
+			return nil, errs.Combine(err, storageTalliesRows.Close())
+		}
+		if tally.TotalBytes == 0 {
+			tally.TotalBytes = inline + remote
 		}
 
-		var partner string
-		if userAgentRow != nil && userAgentRow.UserAgent != nil {
-			entries, err := useragent.ParseEntries(userAgentRow.UserAgent)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(entries) != 0 {
-				for _, iterPartner := range partnerNames {
-					if entries[0].Product == iterPartner {
-						partner = iterPartner
-						break
-					}
-				}
-			}
+		if previousBucketTally[bucket] == nil {
+			previousBucketTally[bucket] = &tally
+			continue
 		}
+		prevTally := previousBucketTally[bucket]
+
+		partner := bucketNameToPartner[bucket]
+
 		if _, ok := usages[partner]; !ok {
 			usages[partner] = accounting.ProjectUsage{Since: since, Before: before}
 		}
 		usage := usages[partner]
 
-		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
-		if err != nil {
-			return nil, err
-		}
+		hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
+		usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
+		usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
+		usage.ObjectCount += float64(tally.ObjectCount) * hours
+		usages[partner] = usage
 
-		var prevTally *accounting.BucketStorageTally
-		for storageTalliesRows.Next() {
-			tally := accounting.BucketStorageTally{}
+		previousBucketTally[bucket] = &tally
+	}
 
-			var inline, remote int64
-			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
-			if err != nil {
-				return nil, errs.Combine(err, storageTalliesRows.Close())
-			}
-			if tally.TotalBytes == 0 {
-				tally.TotalBytes = inline + remote
-			}
+	err = errs.Combine(storageTalliesRows.Err(), storageTalliesRows.Close())
+	if err != nil {
+		return nil, err
+	}
 
-			if prevTally == nil {
-				prevTally = &tally
-				continue
-			}
+	totalEgressQuery := db.db.Rebind(`
+		SELECT
+			bucket_name,
+			COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM
+			bucket_bandwidth_rollups
+		WHERE
+			project_id = ? AND
+			interval_start >= ? AND
+			interval_start < ? AND
+			action = ?
+		Group BY bucket_name;
+	`)
 
-			hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
-			usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
-			usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
-			usage.ObjectCount += float64(tally.ObjectCount) * hours
+	totalEgressRow, err := db.db.QueryContext(ctx, totalEgressQuery, projectID[:], since, before, pb.PieceAction_GET)
+	if err != nil {
+		return nil, err
+	}
 
-			prevTally = &tally
-		}
-
-		err = errs.Combine(storageTalliesRows.Err(), storageTalliesRows.Close())
-		if err != nil {
-			return nil, err
-		}
-
-		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
-		if err != nil {
-			return nil, err
-		}
-
+	for totalEgressRow.Next() {
 		var egress int64
-		if err = totalEgressRow.Scan(&egress); err != nil {
+		var bucket string
+		if err = totalEgressRow.Scan(&bucket, &egress); err != nil {
 			return nil, err
 		}
+
+		partner := bucketNameToPartner[bucket]
+
+		if _, ok := usages[partner]; !ok {
+			usages[partner] = accounting.ProjectUsage{Since: since, Before: before}
+		}
+		usage := usages[partner]
+
 		usage.Egress += egress
 
 		usages[partner] = usage
+	}
+
+	err = errs.Combine(totalEgressRow.Err(), totalEgressRow.Close())
+	if err != nil {
+		return nil, err
 	}
 
 	return usages, nil
