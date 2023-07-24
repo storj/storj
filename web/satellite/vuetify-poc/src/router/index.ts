@@ -58,9 +58,9 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "Buckets" */ '@poc/views/Buckets.vue'),
             },
             {
-                path: 'bucket',
+                path: 'buckets/:bucketName',
                 name: 'Bucket',
-                component: () => import(/* webpackChunkName: "Buckets" */ '@poc/views/Bucket.vue'),
+                component: () => import(/* webpackChunkName: "Bucket" */ '@poc/views/Bucket.vue'),
             },
             {
                 path: 'access',

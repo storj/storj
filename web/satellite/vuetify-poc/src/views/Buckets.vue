@@ -87,7 +87,7 @@
             </v-col>
         </v-row>
 
-        <BucketsDataTable :headers="headers" :buckets="buckets" />
+        <BucketsDataTable />
     </v-container>
 </template>
 
@@ -124,40 +124,6 @@ const bucketNameRules = [
         if (/\s/.test(value)) return 'Spaces are not allowed.';
         if (/[^a-zA-Z0-9-.]/.test(value)) return 'Other characters are not allowed.';
         return true;
-    },
-];
-const headers = [
-    {
-        title: 'Name',
-        align: 'start',
-        key: 'name',
-    },
-    { title: 'Files', key: 'files' },
-    { title: 'Storage', key: 'storage' },
-    { title: 'Bandwidth', key: 'bandwidth' },
-    { title: 'Date Created', key: 'date' },
-];
-const buckets = [
-    {
-        name: 'Demo',
-        date: '02 Mar 2023',
-        files: '4,210',
-        bandwidth: '481 MB',
-        storage: '32 GB',
-    },
-    {
-        name: 'Photos',
-        date: '03 Mar 2023',
-        files: '92,155',
-        bandwidth: '2.0 GB',
-        storage: '5.2 GB',
-    },
-    {
-        name: 'Videos',
-        date: '04 Mar 2023',
-        files: '24',
-        bandwidth: '102 MB',
-        storage: '1.7 TB',
     },
 ];
 </script>
