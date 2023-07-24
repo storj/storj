@@ -149,7 +149,7 @@ func fullTableScanQueries(ctx context.Context, db *metabase.DB, applicationName 
 		}
 
 		switch {
-		case strings.Contains(query, "WITH testing AS (SELECT _)"):
+		case strings.Contains(query, "WITH ignore_full_scan_for_test AS (SELECT _)"):
 			continue
 		case !strings.Contains(strings.ToUpper(query), "WHERE"): // find smarter way to ignore known full table scan queries
 			continue
