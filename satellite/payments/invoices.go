@@ -36,7 +36,7 @@ type Invoices interface {
 	// List returns a list of invoices for a given payment account.
 	List(ctx context.Context, userID uuid.UUID) ([]Invoice, error)
 	// ListFailed returns a list of failed invoices.
-	ListFailed(ctx context.Context) ([]Invoice, error)
+	ListFailed(ctx context.Context, userID *uuid.UUID) ([]Invoice, error)
 	// ListWithDiscounts returns a list of invoices and coupon usages for a given payment account.
 	ListWithDiscounts(ctx context.Context, userID uuid.UUID) ([]Invoice, []CouponUsage, error)
 	// CheckPendingItems returns if pending invoice items for a given payment account exist.

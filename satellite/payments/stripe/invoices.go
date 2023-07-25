@@ -219,13 +219,20 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 	return invoicesList, nil
 }
 
-func (invoices *invoices) ListFailed(ctx context.Context) (invoicesList []payments.Invoice, err error) {
+func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (invoicesList []payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	status := string(stripe.InvoiceStatusOpen)
 	params := &stripe.InvoiceListParams{
 		ListParams: stripe.ListParams{Context: ctx},
-		Status:     &status,
+		Status:     stripe.String(string(stripe.InvoiceStatusOpen)),
+	}
+
+	if userID != nil {
+		customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, *userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		params.Customer = &customerID
 	}
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)

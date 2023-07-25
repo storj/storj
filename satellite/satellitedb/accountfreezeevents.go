@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -17,7 +19,7 @@ var _ console.AccountFreezeEvents = (*accountFreezeEvents)(nil)
 
 // accountFreezeEvents is an implementation of console.AccountFreezeEvents.
 type accountFreezeEvents struct {
-	db dbx.Methods
+	db *satelliteDB
 }
 
 // Upsert is a method for updating an account freeze event if it exists and inserting it otherwise.
@@ -62,6 +64,59 @@ func (events *accountFreezeEvents) Get(ctx context.Context, userID uuid.UUID, ev
 	}
 
 	return fromDBXAccountFreezeEvent(dbxEvent)
+}
+
+// GetAllEvents is a method for querying all account freeze events from the database.
+func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor console.FreezeEventsCursor) (freezeEvents *console.FreezeEventsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if cursor.Limit <= 0 {
+		return nil, errs.New("limit cannot be zero or less")
+	}
+
+	page := console.FreezeEventsPage{
+		Events: make([]console.AccountFreezeEvent, 0, cursor.Limit),
+	}
+
+	if cursor.StartingAfter == nil {
+		cursor.StartingAfter = &uuid.UUID{}
+	}
+
+	rows, err := events.db.Query(ctx, events.db.Rebind(`
+		SELECT user_id, event
+		FROM account_freeze_events
+			WHERE user_id > ? 
+			ORDER BY user_id LIMIT ?
+		`), cursor.StartingAfter, cursor.Limit+1)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	count := 0
+	for rows.Next() {
+		count++
+		if count > cursor.Limit {
+			// we are done with this page; do not include this event
+			page.Next = true
+			break
+		}
+		var event dbx.AccountFreezeEvent
+		err = rows.Scan(&event.UserId, &event.Event)
+		if err != nil {
+			return nil, err
+		}
+
+		eventToSend, err := fromDBXAccountFreezeEvent(&event)
+		if err != nil {
+			return nil, err
+		}
+
+		page.Events = append(page.Events, *eventToSend)
+	}
+
+	return &page, rows.Err()
 }
 
 // GetAll is a method for querying all account freeze events from the database by user ID.

@@ -26,6 +26,8 @@ type AccountFreezeEvents interface {
 	Upsert(ctx context.Context, event *AccountFreezeEvent) (*AccountFreezeEvent, error)
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
+	// GetAllEvents is a method for querying all account freeze events from the database.
+	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor) (events *FreezeEventsPage, err error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freeze *AccountFreezeEvent, warning *AccountFreezeEvent, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -46,6 +48,23 @@ type AccountFreezeEvent struct {
 type AccountFreezeEventLimits struct {
 	User     UsageLimits               `json:"user"`
 	Projects map[uuid.UUID]UsageLimits `json:"projects"`
+}
+
+// FreezeEventsCursor holds info for freeze events
+// cursor pagination.
+type FreezeEventsCursor struct {
+	Limit int
+
+	// StartingAfter is the last user ID of the previous page.
+	// The next page will start after this user ID.
+	StartingAfter *uuid.UUID
+}
+
+// FreezeEventsPage returns paginated freeze events.
+type FreezeEventsPage struct {
+	Events []AccountFreezeEvent
+	// Next indicates whether there are more events to retrieve.
+	Next bool
 }
 
 // AccountFreezeEventType is used to indicate the account freeze event's type.
@@ -270,6 +289,18 @@ func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (fr
 	}
 
 	return freeze, warning, nil
+}
+
+// GetAllEvents returns all events.
+func (s *AccountFreezeService) GetAllEvents(ctx context.Context, cursor FreezeEventsCursor) (events *FreezeEventsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	events, err = s.freezeEventsDB.GetAllEvents(ctx, cursor)
+	if err != nil {
+		return nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return events, nil
 }
 
 // TestChangeFreezeTracker changes the freeze tracker service for tests.
