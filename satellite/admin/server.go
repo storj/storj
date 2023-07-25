@@ -138,6 +138,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
+	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.createGeofenceForProject).Methods("POST")
+	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.deleteGeofenceForProject).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")

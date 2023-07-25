@@ -20,6 +20,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -695,6 +696,55 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 
 	// If we have open invoice items, do not delete the project yet and wait for invoice completion.
 	return server.checkInvoicing(ctx, w, projectID)
+}
+
+func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Request) {
+	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
+	if err != nil {
+		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
+		return
+	}
+
+	server.setGeofenceForProject(w, r, placement)
+}
+
+func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Request) {
+	server.setGeofenceForProject(w, r, storj.EveryCountry)
+}
+
+func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		sendJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+
+	project.DefaultPlacement = placement
+
+	err = server.db.Console().Projects().Update(ctx, project)
+	if err != nil {
+		sendJSONError(w, "unable to set geofence for project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func bucketNames(buckets []buckets.Bucket) []string {
