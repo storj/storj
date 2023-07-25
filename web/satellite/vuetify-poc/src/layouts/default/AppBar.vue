@@ -124,7 +124,7 @@
                             Settings
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item class="rounded-lg" link>
+                    <v-list-item class="rounded-lg" link @click="onLogout">
                         <template #prepend>
                             <img src="@poc/assets/icon-logout.svg" alt="Log Out">
                         </template>
@@ -140,6 +140,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useTheme } from 'vuetify';
 import {
     VAppBar,
@@ -158,11 +159,38 @@ import {
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
+import { AuthHttpApi } from '@/api/auth';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/types/router';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 const activeTheme = ref<number>(0);
-
-const appStore = useAppStore();
 const theme = useTheme();
+
+const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
+const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+const notificationsStore = useNotificationsStore();
+const projectsStore = useProjectsStore();
+const obStore = useObjectBrowserStore();
+
+const router = useRouter();
+const notify = useNotify();
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const auth: AuthHttpApi = new AuthHttpApi();
 
 const props = withDefaults(defineProps<{
     showNavDrawerButton: boolean;
@@ -185,6 +213,37 @@ watch(() => theme.global.current.value.dark, (newVal: boolean) => {
 // Check for stored theme in localStorage. If none, default to 'light'
 toggleTheme(localStorage.getItem('theme') || 'light');
 activeTheme.value = theme.global.current.value.dark ? 1 : 0;
+
+/**
+ * Logs out user and navigates to login page.
+ */
+async function onLogout(): Promise<void> {
+    await Promise.all([
+        pmStore.clear(),
+        projectsStore.clear(),
+        usersStore.clear(),
+        agStore.stopWorker(),
+        agStore.clear(),
+        notificationsStore.clear(),
+        bucketsStore.clear(),
+        appStore.clear(),
+        billingStore.clear(),
+        obStore.clear(),
+    ]);
+
+    try {
+        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        await auth.logout();
+    } catch (error) {
+        notify.error(error.message, null);
+    }
+
+    analytics.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
+    // TODO this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
+    location.reload();
+}
+
 </script>
 
 <style scoped lang="scss">

@@ -20,9 +20,15 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state.pathBeforeAccountPage = path;
     }
 
+    function clear(): void {
+        state.isNavigationDrawerShown = true;
+        state.pathBeforeAccountPage = null;
+    }
+
     return {
         state,
         toggleNavigationDrawer,
         setPathBeforeAccountPage,
+        clear,
     };
 });

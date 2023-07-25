@@ -135,7 +135,7 @@ async function fetchBuckets(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Prom
 /**
  * Handles update table rows limit event.
  */
- function onUpdateLimit(limit: number): void {
+function onUpdateLimit(limit: number): void {
     fetchBuckets(page.value.currentPage, limit);
 }
 
@@ -149,7 +149,7 @@ function onUpdatePage(page: number): void {
 /**
  * Handles update table search.
  */
- watch(() => search.value, () => {
+watch(() => search.value, () => {
     clearTimeout(searchTimer.value);
 
     searchTimer.value = setTimeout(() => {
