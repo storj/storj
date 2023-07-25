@@ -27,7 +27,7 @@ import (
 )
 
 // generateGracefulExitCSV creates a report with graceful exit data for exiting or exited nodes in a given period.
-func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Time, end time.Time, output io.Writer) error {
+func generateGracefulExitCSV(ctx context.Context, timeBased bool, completed bool, start time.Time, end time.Time, output io.Writer) error {
 	db, err := satellitedb.Open(ctx, zap.L().Named("db"), reportsGracefulExitCfg.Database, satellitedb.Options{ApplicationName: "satellite-gracefulexit"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
@@ -67,11 +67,14 @@ func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Tim
 		if err != nil {
 			return err
 		}
-		exitProgress, err := db.GracefulExit().GetProgress(ctx, id)
-		if gracefulexit.ErrNodeNotFound.Has(err) {
-			exitProgress = &gracefulexit.Progress{}
-		} else if err != nil {
-			return err
+		exitProgress := &gracefulexit.Progress{}
+		if !timeBased {
+			exitProgress, err = db.GracefulExit().GetProgress(ctx, id)
+			if gracefulexit.ErrNodeNotFound.Has(err) {
+				exitProgress = &gracefulexit.Progress{}
+			} else if err != nil {
+				return err
+			}
 		}
 
 		exitStatus := node.ExitStatus

@@ -562,6 +562,9 @@ contact.external-address: ""
 # size of the buffer used to batch transfer queue reads and sends to the storage node.
 # graceful-exit.endpoint-batch-size: 300
 
+# number of days it takes to execute a passive graceful exit
+# graceful-exit.graceful-exit-duration-in-days: 30
+
 # maximum number of transfer failures per piece.
 # graceful-exit.max-failures-per-piece: 5
 
@@ -571,14 +574,23 @@ contact.external-address: ""
 # maximum number of order limits a satellite sends to a node before marking piece transfer failed
 # graceful-exit.max-order-limit-send-count: 10
 
+# a gracefully exiting node will fail GE if it falls below this online score (compare AuditHistoryConfig.OfflineThreshold)
+# graceful-exit.minimum-online-score: 0.8
+
 # minimum age for a node on the network in order to initiate graceful exit
 # graceful-exit.node-min-age-in-months: 6
+
+# how frequently to check uptime ratio of gracefully-exiting nodes
+# graceful-exit.offline-check-interval: 30m0s
 
 # maximum percentage of transfer failures per node.
 # graceful-exit.overall-max-failures-percentage: 10
 
 # the minimum duration for receiving a stream from a storage node before timing out
 # graceful-exit.recv-timeout: 2h0m0s
+
+# whether graceful exit will be determined by a period of time, rather than by instructing nodes to transfer one piece at a time
+# graceful-exit.time-based: false
 
 # batch size (crdb specific) for deleting and adding items to the transfer queue
 # graceful-exit.transfer-queue-batch-size: 1000

@@ -370,6 +370,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
 	mon.IntVal("checker_segment_clumped_count").Observe(int64(len(piecesCheck.Clumped))) //mon:locked
 	stats.segmentStats.segmentClumpedCount.Observe(int64(len(piecesCheck.Clumped)))
+	mon.IntVal("checker_segment_exiting_count").Observe(int64(len(piecesCheck.Exiting)))
+	stats.segmentStats.segmentExitingCount.Observe(int64(len(piecesCheck.Exiting)))
 	mon.IntVal("checker_segment_off_placement_count").Observe(int64(len(piecesCheck.OutOfPlacement))) //mon:locked
 	stats.segmentStats.segmentOffPlacementCount.Observe(int64(len(piecesCheck.OutOfPlacement)))
 

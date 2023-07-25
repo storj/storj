@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/storj/storagenode/gracefulexit"
@@ -46,7 +47,7 @@ type exitProcessClient interface {
 	Recv() (*pb.SatelliteMessage, error)
 }
 
-func TestSuccess(t *testing.T) {
+func TestSuccessOld(t *testing.T) {
 	testTransfers(t, numObjects, numMultipartObjects, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.Satellite, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var pieceID storj.PieceID
 		failedCount := 0
@@ -148,6 +149,60 @@ func TestSuccess(t *testing.T) {
 	})
 }
 
+func TestSuccess(t *testing.T) {
+	const steps = 5
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode := planet.StorageNodes[0]
+
+		simTime := time.Now()
+		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
+		doneTime := simTime.AddDate(0, 0, satellite.Config.GracefulExit.GracefulExitDurationInDays)
+		interval := doneTime.Sub(simTime) / steps
+
+		// we should get NotReady responses until after the GE time has elapsed.
+		for simTime.Before(doneTime) {
+			response, err := callProcess(ctx, exitingNode, satellite)
+			require.NoError(t, err)
+			require.IsType(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage())
+
+			// check that the exiting node is still currently exiting.
+			exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+			require.NoError(t, err)
+			require.Len(t, exitingNodes, 1)
+			require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+			simTime = simTime.Add(interval)
+		}
+		simTime = doneTime.Add(time.Second)
+
+		// now we should get a successful finish message
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_ExitCompleted)(nil), response.GetMessage())
+
+		// verify signature on exit receipt and we're done
+		m := response.GetMessage().(*pb.SatelliteMessage_ExitCompleted)
+		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+		err = signing.VerifyExitCompleted(ctx, signee, m.ExitCompleted)
+		require.NoError(t, err)
+	})
+}
+
 func TestConcurrentConnections(t *testing.T) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
@@ -155,7 +210,13 @@ func TestConcurrentConnections(t *testing.T) {
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -263,6 +324,8 @@ func TestRecvTimeout(t *testing.T) {
 					// This config value will create a very short timeframe allowed for receiving
 					// data from storage nodes. This will cause context to cancel with timeout.
 					config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
 			),
@@ -398,11 +461,15 @@ func TestInvalidStorageNodeSignature(t *testing.T) {
 	})
 }
 
-func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
+func TestExitDisqualifiedNodeFailOnStartOld(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 2,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			// This test can be removed entirely when we are using time-based GE everywhere.
+			config.GracefulExit.TimeBased = false
+		}},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
@@ -432,6 +499,46 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		require.False(t, exitStatus.ExitSuccess)
 	})
 
+}
+
+func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 2,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		_, err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
+		require.NoError(t, err)
+
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
+		processClient, err := client.Process(ctx)
+		require.NoError(t, err)
+
+		// Process endpoint should return immediately if node is disqualified
+		response, err := processClient.Recv()
+		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+		require.Nil(t, response)
+
+		require.NoError(t, processClient.Close())
+
+		// make sure GE was not initiated for the disqualified node
+		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.Nil(t, exitStatus.ExitInitiatedAt)
+		require.False(t, exitStatus.ExitSuccess)
+	})
 }
 
 func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
@@ -954,6 +1061,7 @@ func testUpdateSegmentFailureDuplicatedNodeID(t *testing.T, ctx *testcontext.Con
 	require.True(t, ok)
 	require.Equal(t, 1, count)
 }
+
 func TestExitDisabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -994,7 +1102,13 @@ func TestSegmentChangedOrDeleted(t *testing.T) {
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1086,7 +1200,13 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1264,6 +1384,8 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 					// so we set the max failures percentage extra high.
 					config.GracefulExit.OverallMaxFailuresPercentage = 101
 					config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(2, 3, 4, 4),
 			),
@@ -1383,6 +1505,40 @@ func TestIneligibleNodeAge(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// Set the required node age to 1 month.
+				config.GracefulExit.NodeMinAgeInMonths = 1
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode := planet.StorageNodes[0]
+
+		// try to initiate GE; expect to get a node ineligible error
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.Error(t, err)
+		require.Nil(t, response)
+		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+
+		// check that there are still no exiting nodes
+		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+	})
+}
+
+func TestIneligibleNodeAgeOld(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
@@ -1445,7 +1601,13 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// These tests can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1609,6 +1771,128 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 	})
 }
 
+func TestNodeAlreadyExited(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		exitingNode := planet.StorageNodes[0]
+
+		simTime := time.Now()
+		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
+		doneTime := simTime.AddDate(0, 0, satellite.Config.GracefulExit.GracefulExitDurationInDays)
+
+		// initiate GE
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage())
+
+		// jump to when GE will be done
+		simTime = doneTime.Add(time.Second)
+
+		// should get ExitCompleted now
+		response, err = callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_ExitCompleted)(nil), response.GetMessage())
+
+		// now that the node has successfully exited, try doing it again! we expect to get the
+		// ExitCompleted message again.
+		response, err = callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_ExitCompleted)(nil), response.GetMessage())
+
+		// check that node is not marked as exiting still
+		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+	})
+}
+
+func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditHistory.WindowSize = 24 * time.Hour
+				config.Reputation.AuditHistory.TrackingPeriod = 3 * 24 * time.Hour
+				config.Reputation.FlushInterval = 0
+				config.GracefulExit.MinimumOnlineScore = 0.6
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		simTime := time.Now()
+		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
+		doneTime := simTime.AddDate(0, 0, satellite.Config.GracefulExit.GracefulExitDurationInDays)
+
+		// initiate GE
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage())
+
+		// set the audit history for that node to reflect a poor online score
+		last := reputation.AuditSuccess
+		for simTime.Before(doneTime) {
+			// alternate between Success and Offline to get a ~50% score
+			if last == reputation.AuditSuccess {
+				last = reputation.AuditOffline
+			} else {
+				last = reputation.AuditSuccess
+			}
+			_, err := satellite.DB.Reputation().Update(ctx, reputation.UpdateRequest{
+				NodeID:       exitingNode.ID(),
+				AuditOutcome: last,
+				Config:       satellite.Config.Reputation,
+			}, simTime)
+			require.NoError(t, err)
+
+			// GE shouldn't fail until the end of the period, so node has a chance to get score back up
+			response, err := callProcess(ctx, exitingNode, satellite)
+			require.NoError(t, err)
+			require.IsTypef(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage(), "simTime=%s, doneTime=%s", simTime, doneTime)
+
+			simTime = simTime.Add(time.Hour)
+		}
+		err = satellite.Reputation.Service.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
+
+		simTime = doneTime.Add(time.Second)
+		response, err = callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		msg := response.GetMessage()
+		require.IsType(t, (*pb.SatelliteMessage_ExitFailed)(nil), msg)
+		failure := msg.(*pb.SatelliteMessage_ExitFailed)
+
+		// validate signature on failure message
+		signee := signing.SigneeFromPeerIdentity(satellite.Identity.PeerIdentity())
+		err = signing.VerifyExitFailed(ctx, signee, failure.ExitFailed)
+		require.Equal(t, exitingNode.ID(), failure.ExitFailed.NodeId)
+		// truncate to micros since the Failed time has gone through the database
+		expectedFailTime := simTime.Truncate(time.Microsecond)
+		require.Falsef(t, failure.ExitFailed.Failed.Before(expectedFailTime),
+			"failure time should have been at or after %s: %s", simTime, failure.ExitFailed.Failed)
+		require.Equal(t, satellite.ID(), failure.ExitFailed.SatelliteId)
+		require.Equal(t, pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED, failure.ExitFailed.Reason)
+		require.NoError(t, err)
+	})
+}
+
 func hasDuplicates(pieces metabase.Pieces) bool {
 	nodePieceCounts := make(map[storj.NodeID]int)
 	for _, piece := range pieces {
@@ -1622,4 +1906,22 @@ func hasDuplicates(pieces metabase.Pieces) bool {
 	}
 
 	return false
+}
+
+func callProcess(ctx *testcontext.Context, exitingNode *testplanet.StorageNode, satellite *testplanet.Satellite) (*pb.SatelliteMessage, error) {
+	conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
+	if err != nil {
+		return nil, err
+	}
+	defer ctx.Check(conn.Close)
+
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn)
+
+	c, err := client.Process(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer ctx.Check(c.CloseSend)
+
+	return c.Recv()
 }

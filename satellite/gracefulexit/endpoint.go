@@ -56,6 +56,8 @@ type Endpoint struct {
 	peerIdentities overlay.PeerIdentities
 	config         Config
 	recvTimeout    time.Duration
+
+	nowFunc func() time.Time
 }
 
 // connectionsTracker for tracking ongoing connections on this api server.
@@ -109,7 +111,14 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		peerIdentities: peerIdentities,
 		config:         config,
 		recvTimeout:    config.RecvTimeout,
+		nowFunc:        func() time.Time { return time.Now().UTC() },
 	}
+}
+
+// SetNowFunc applies a function to be used in determining the "now" time for graceful exit
+// purposes.
+func (endpoint *Endpoint) SetNowFunc(timeFunc func() time.Time) {
+	endpoint.nowFunc = timeFunc
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
@@ -122,8 +131,49 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	nodeID := peer.ID
-	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", nodeID))
+	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
+
+	if endpoint.config.TimeBased {
+		return endpoint.processTimeBased(ctx, stream, peer.ID)
+	}
+	return endpoint.processPiecewise(ctx, stream, peer.ID)
+}
+
+func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	isDisqualified, err := endpoint.handleDisqualifiedNodeTimeBased(ctx, nodeInfo)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	if isDisqualified {
+		return rpcstatus.Error(rpcstatus.FailedPrecondition, "node is disqualified")
+	}
+
+	msg, err := endpoint.checkExitStatusTimeBased(ctx, nodeInfo)
+	if err != nil {
+		if ErrIneligibleNodeAge.Has(err) {
+			return rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = stream.Send(msg)
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return nil
+}
+
+// process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
+func (endpoint *Endpoint) processPiecewise(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// ensure that only one connection can be opened for a single node at a time
 	if !endpoint.connections.tryAdd(nodeID) {
@@ -315,7 +365,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 					exitStatusRequest := &overlay.ExitStatusRequest{
 						NodeID:         nodeID,
-						ExitFinishedAt: time.Now().UTC(),
+						ExitFinishedAt: endpoint.nowFunc(),
 						ExitSuccess:    false,
 					}
 
@@ -560,7 +610,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	now := time.Now().UTC()
+	now := endpoint.nowFunc()
 	failedCount := 1
 	if transferQueueItem.FailedCount != nil {
 		failedCount = *transferQueueItem.FailedCount + 1
@@ -643,7 +693,7 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 		// update graceful exit status to be failed
 		exitStatusRequest := &overlay.ExitStatusRequest{
 			NodeID:         nodeID,
-			ExitFinishedAt: time.Now().UTC(),
+			ExitFinishedAt: endpoint.nowFunc(),
 			ExitSuccess:    false,
 		}
 
@@ -661,6 +711,30 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 		return true, nil
 	}
 
+	return false, nil
+}
+
+func (endpoint *Endpoint) handleDisqualifiedNodeTimeBased(ctx context.Context, nodeInfo *overlay.NodeDossier) (isDisqualified bool, err error) {
+	if nodeInfo.Disqualified != nil {
+		if nodeInfo.ExitStatus.ExitInitiatedAt == nil {
+			// node never started graceful exit before, and it is already disqualified; nothing
+			// for us to do here
+			return true, nil
+		}
+		if nodeInfo.ExitStatus.ExitFinishedAt == nil {
+			// node did start graceful exit and hasn't been marked as finished, although it
+			// has been disqualified. We'll correct that now.
+			exitStatusRequest := &overlay.ExitStatusRequest{
+				NodeID:         nodeInfo.Id,
+				ExitFinishedAt: endpoint.nowFunc(),
+				ExitSuccess:    false,
+			}
+
+			_, err = endpoint.overlaydb.UpdateExitStatus(ctx, exitStatusRequest)
+			return true, Error.Wrap(err)
+		}
+		return true, nil
+	}
 	return false, nil
 }
 
@@ -691,40 +765,48 @@ func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSate
 
 func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, success bool, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
 	if success {
-		unsigned := &pb.ExitCompleted{
-			SatelliteId: endpoint.signer.ID(),
-			NodeId:      nodeID,
-			Completed:   finishedAt,
-		}
-		signed, err := signing.SignExitCompleted(ctx, endpoint.signer, unsigned)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{
-			ExitCompleted: signed,
-		}}
-	} else {
-		unsigned := &pb.ExitFailed{
-			SatelliteId: endpoint.signer.ID(),
-			NodeId:      nodeID,
-			Failed:      finishedAt,
-		}
-		if reason >= 0 {
-			unsigned.Reason = reason
-		}
-		signed, err := signing.SignExitFailed(ctx, endpoint.signer, unsigned)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
-			ExitFailed: signed,
-		}}
+		return endpoint.getFinishedSuccessMessage(ctx, nodeID, finishedAt)
+	}
+	return endpoint.getFinishedFailureMessage(ctx, nodeID, finishedAt, reason)
+}
+
+func (endpoint *Endpoint) getFinishedSuccessMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time) (message *pb.SatelliteMessage, err error) {
+	unsigned := &pb.ExitCompleted{
+		SatelliteId: endpoint.signer.ID(),
+		NodeId:      nodeID,
+		Completed:   finishedAt,
+	}
+	signed, err := signing.SignExitCompleted(ctx, endpoint.signer, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitCompleted{
+		ExitCompleted: signed,
+	}}, nil
+}
+
+func (endpoint *Endpoint) getFinishedFailureMessage(ctx context.Context, nodeID storj.NodeID, finishedAt time.Time, reason pb.ExitFailed_Reason) (message *pb.SatelliteMessage, err error) {
+	unsigned := &pb.ExitFailed{
+		SatelliteId: endpoint.signer.ID(),
+		NodeId:      nodeID,
+		Failed:      finishedAt,
+	}
+	if reason >= 0 {
+		unsigned.Reason = reason
+	}
+	signed, err := signing.SignExitFailed(ctx, endpoint.signer, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
+		ExitFailed: signed,
+	}}
+	if !endpoint.config.TimeBased {
 		err = endpoint.overlay.DisqualifyNode(ctx, nodeID, overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}
-
 	return message, nil
 }
 
@@ -792,11 +874,11 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 			return nil, Error.Wrap(err)
 		}
 		geEligibilityDate := nodeDossier.CreatedAt.AddDate(0, endpoint.config.NodeMinAgeInMonths, 0)
-		if time.Now().Before(geEligibilityDate) {
+		if endpoint.nowFunc().Before(geEligibilityDate) {
 			return nil, ErrIneligibleNodeAge.New("will be eligible after %s", geEligibilityDate.String())
 		}
 
-		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: time.Now().UTC()}
+		request := &overlay.ExitStatusRequest{NodeID: nodeID, ExitInitiatedAt: endpoint.nowFunc()}
 		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -812,7 +894,7 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 		}
 
 		// graceful exit initiation metrics
-		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
+		age := endpoint.nowFunc().Sub(node.CreatedAt.UTC())
 		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
 		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
 		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
@@ -826,6 +908,83 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 	}
 
 	return nil, nil
+}
+
+func (endpoint *Endpoint) checkExitStatusTimeBased(ctx context.Context, nodeInfo *overlay.NodeDossier) (*pb.SatelliteMessage, error) {
+	if nodeInfo.ExitStatus.ExitFinishedAt != nil {
+		// TODO maybe we should store the reason in the DB so we know how it originally failed.
+		return endpoint.getFinishedMessage(ctx, nodeInfo.Id, *nodeInfo.ExitStatus.ExitFinishedAt, nodeInfo.ExitStatus.ExitSuccess, -1)
+	}
+
+	if nodeInfo.ExitStatus.ExitInitiatedAt == nil {
+		// the node has just requested to begin GE. verify eligibility and set it up in the DB.
+		geEligibilityDate := nodeInfo.CreatedAt.AddDate(0, endpoint.config.NodeMinAgeInMonths, 0)
+		if endpoint.nowFunc().Before(geEligibilityDate) {
+			return nil, ErrIneligibleNodeAge.New("will be eligible after %s", geEligibilityDate.String())
+		}
+
+		request := &overlay.ExitStatusRequest{
+			NodeID:          nodeInfo.Id,
+			ExitInitiatedAt: endpoint.nowFunc(),
+		}
+		node, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		reputationInfo, err := endpoint.reputation.Get(ctx, nodeInfo.Id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// graceful exit initiation metrics
+		age := endpoint.nowFunc().Sub(node.CreatedAt)
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          //mon:locked
+	} else {
+		// the node has already initiated GE and hasn't finished yet... or has it?!?!
+		geDoneDate := nodeInfo.ExitStatus.ExitInitiatedAt.AddDate(0, 0, endpoint.config.GracefulExitDurationInDays)
+		if endpoint.nowFunc().After(geDoneDate) {
+			// ok actually it has finished, and this is the first time we've noticed it
+			reputationInfo, err := endpoint.reputation.Get(ctx, nodeInfo.Id)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			request := &overlay.ExitStatusRequest{
+				NodeID:         nodeInfo.Id,
+				ExitFinishedAt: endpoint.nowFunc(),
+				ExitSuccess:    true,
+			}
+
+			// We don't check the online score constantly over the course of the graceful exit,
+			// because we want to give the node a chance to get the score back up if it's
+			// temporarily low.
+			//
+			// Instead, we check the overall score at the end of the GE period.
+			if reputationInfo.OnlineScore < endpoint.config.MinimumOnlineScore {
+				request.ExitSuccess = false
+			}
+			endpoint.log.Info("node completed graceful exit",
+				zap.Float64("online score", reputationInfo.OnlineScore),
+				zap.Bool("success", request.ExitSuccess),
+				zap.Stringer("node ID", nodeInfo.Id))
+			updatedNode, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			if request.ExitSuccess {
+				mon.Meter("graceful_exit_success").Mark(1) //mon:locked
+				return endpoint.getFinishedSuccessMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt)
+			}
+			mon.Meter("graceful_exit_failure").Mark(1)
+			return endpoint.getFinishedFailureMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt, pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED)
+		}
+	}
+
+	// this will cause the node to disconnect, wait a bit, and then try asking again.
+	return &pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}}, nil
 }
 
 func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID storj.NodeID) (*overlay.ExitStatusRequest, pb.ExitFailed_Reason, error) {
@@ -846,7 +1005,7 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 
 	exitStatusRequest := &overlay.ExitStatusRequest{
 		NodeID:         progress.NodeID,
-		ExitFinishedAt: time.Now().UTC(),
+		ExitFinishedAt: endpoint.nowFunc(),
 	}
 	// check node's exiting progress to see if it has failed passed max failure threshold
 	if processed > 0 && float64(progress.PiecesFailed)/float64(processed)*100 >= float64(endpoint.config.OverallMaxFailuresPercentage) {
@@ -923,14 +1082,14 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 
 	var response pb.GracefulExitFeasibilityResponse
 
-	nodeDossier, err := endpoint.overlaydb.Get(ctx, peer.ID)
+	nodeDossier, err := endpoint.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", peer.ID))
 		return nil, Error.Wrap(err)
 	}
 
 	eligibilityDate := nodeDossier.CreatedAt.AddDate(0, endpoint.config.NodeMinAgeInMonths, 0)
-	if time.Now().Before(eligibilityDate) {
+	if endpoint.nowFunc().Before(eligibilityDate) {
 		response.IsAllowed = false
 	} else {
 		response.IsAllowed = true

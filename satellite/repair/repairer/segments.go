@@ -296,7 +296,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", len(piecesCheck.Healthy)), zap.Int32("repairThreshold", repairThreshold),
-			zap.Int("numClumped", len(piecesCheck.Clumped)), zap.Int("numOffPieces", len(piecesCheck.OutOfPlacement)),
+			zap.Int("numClumped", len(piecesCheck.Clumped)), zap.Int("numExiting", len(piecesCheck.Exiting)), zap.Int("numOffPieces", len(piecesCheck.OutOfPlacement)),
 			zap.Int("numExcluded", len(piecesCheck.InExcludedCountry)), zap.Int("droppedPieces", len(dropPieces)))
 		return true, nil
 	}
@@ -658,6 +658,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		zap.Stringer("Stream ID", segment.StreamID),
 		zap.Uint64("Position", segment.Position.Encode()),
 		zap.Int("clumped pieces", len(piecesCheck.Clumped)),
+		zap.Int("exiting-node pieces", len(piecesCheck.Exiting)),
 		zap.Int("out of placement pieces", len(piecesCheck.OutOfPlacement)),
 		zap.Int("in excluded countries", len(piecesCheck.InExcludedCountry)),
 		zap.Int("missing pieces", len(piecesCheck.Missing)),

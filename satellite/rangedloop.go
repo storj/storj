@@ -113,13 +113,15 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup gracefulexit
-		peer.GracefulExit.Observer = gracefulexit.NewObserver(
-			peer.Log.Named("gracefulexit:observer"),
-			peer.DB.GracefulExit(),
-			peer.DB.OverlayCache(),
-			metabaseDB,
-			config.GracefulExit,
-		)
+		if config.GracefulExit.Enabled && !config.GracefulExit.TimeBased {
+			peer.GracefulExit.Observer = gracefulexit.NewObserver(
+				peer.Log.Named("gracefulexit:observer"),
+				peer.DB.GracefulExit(),
+				peer.DB.OverlayCache(),
+				metabaseDB,
+				config.GracefulExit,
+			)
+		}
 	}
 
 	{ // setup node tally observer
@@ -188,7 +190,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, peer.Accounting.NodeTallyObserver)
 		}
 
-		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
+		if peer.GracefulExit.Observer != nil && config.GracefulExit.UseRangedLoop {
 			observers = append(observers, peer.GracefulExit.Observer)
 		}
 

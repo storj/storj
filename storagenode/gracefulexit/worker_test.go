@@ -31,7 +31,13 @@ func TestWorkerSuccess(t *testing.T) {
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// this test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.GracefulExit.NumWorkers = 2
 				config.GracefulExit.NumConcurrentTransfers = 2
@@ -98,7 +104,13 @@ func TestWorkerTimeout(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// this test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.GracefulExit.NumWorkers = 2
 				config.GracefulExit.NumConcurrentTransfers = 2
@@ -163,6 +175,11 @@ func TestWorkerTimeout(t *testing.T) {
 }
 
 func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
+	t.Run("TimeBased=true", func(t *testing.T) { testWorkerFailure_IneligibleNodeAge(t, true) })
+	t.Run("TimeBased=false", func(t *testing.T) { testWorkerFailure_IneligibleNodeAge(t, false) })
+}
+
+func testWorkerFailure_IneligibleNodeAge(t *testing.T, timeBased bool) {
 	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -173,6 +190,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// Set the required node age to 1 month.
 					config.GracefulExit.NodeMinAgeInMonths = 1
+					config.GracefulExit.TimeBased = timeBased
 				},
 				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
 			),

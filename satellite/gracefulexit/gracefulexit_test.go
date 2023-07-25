@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
@@ -28,6 +29,12 @@ import (
 func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		geDB := planet.Satellites[0].DB.GracefulExit()
@@ -81,6 +88,12 @@ func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 func TestGracefulExit_HandleAsOfSystemTimeBadInput(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		gracefulexitDB := planet.Satellites[0].DB.GracefulExit()
 		now := time.Now().UTC()
@@ -97,6 +110,12 @@ func TestGracefulExit_HandleAsOfSystemTimeBadInput(t *testing.T) {
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 7,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var (
 			cache       = planet.Satellites[0].DB.OverlayCache()
@@ -233,7 +252,13 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
@@ -291,6 +316,8 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 
 // TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batch
 // ensures that deletion works as expected using different batch sizes.
+//
+// This test can be removed entirely when we are using time-based GE everywhere.
 func TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batchsize(t *testing.T) {
 	var testCases = []struct {
 		name                      string
@@ -394,6 +421,8 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 // TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch verifies that
 // the CRDB batch logic for delete all the transfer queue items of exited nodes
 // works as expected.
+//
+// This test can be removed entirely when we are using time-based GE everywhere.
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		const (

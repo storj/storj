@@ -354,6 +354,7 @@ var (
 		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output    string `help:"destination of report output" default:""`
 		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
+		TimeBased bool   `help:"whether the satellite is using time-based graceful exit (and thus, whether to include piece transfer progress in output)" default:"false"`
 	}
 	reportsVerifyGracefulExitReceiptCfg struct {
 	}
@@ -660,7 +661,7 @@ func cmdReportsGracefulExit(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if reportsGracefulExitCfg.Output == "" {
-		return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, os.Stdout)
+		return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.TimeBased, reportsGracefulExitCfg.Completed, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -673,7 +674,7 @@ func cmdReportsGracefulExit(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, file)
+	return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.TimeBased, reportsGracefulExitCfg.Completed, start, end, file)
 }
 
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
@@ -913,6 +914,9 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 
+	if runCfg.GracefulExit.TimeBased {
+		return errs.New("this command is not supported with time-based graceful exit")
+	}
 	before, err := time.Parse("2006-01-02", consistencyGECleanupCfg.Before)
 	if err != nil {
 		return errs.New("before flag value isn't of the expected format. %+v", err)

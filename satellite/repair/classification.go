@@ -32,6 +32,9 @@ type PiecesCheckResult struct {
 	// Clumped is a set of Piece Numbers which are to be considered unhealthy because of IP
 	// clumping. (If DoDeclumping is disabled, this set will be empty.)
 	Clumped map[uint16]struct{}
+	// Exiting is a set of Piece Numbers which are considered unhealthy because the node on
+	// which they reside has initiated graceful exit.
+	Exiting map[uint16]struct{}
 	// OutOfPlacement is a set of Piece Numbers which are unhealthy because of placement rules.
 	// (If DoPlacementCheck is disabled, this set will be empty.)
 	OutOfPlacement map[uint16]struct{}
@@ -43,14 +46,14 @@ type PiecesCheckResult struct {
 	// includes, currently, only pieces in OutOfPlacement).
 	ForcingRepair map[uint16]struct{}
 	// Unhealthy contains all Piece Numbers which are in Missing OR Suspended OR Clumped OR
-	// OutOfPlacement OR InExcludedCountry.
+	// Exiting OR OutOfPlacement OR InExcludedCountry.
 	Unhealthy map[uint16]struct{}
 	// UnhealthyRetrievable is the set of pieces that are "unhealthy-but-retrievable". That is,
 	// pieces that are in Unhealthy AND Retrievable.
 	UnhealthyRetrievable map[uint16]struct{}
 	// Healthy contains all Piece Numbers from the segment which are not in Unhealthy.
 	// (Equivalently: all Piece Numbers from the segment which are NOT in Missing OR
-	// Suspended OR Clumped OR OutOfPlacement OR InExcludedCountry).
+	// Suspended OR Clumped OR Exiting OR OutOfPlacement OR InExcludedCountry).
 	Healthy map[uint16]struct{}
 }
 
@@ -66,6 +69,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	// check excluded countries and remove online nodes from missing pieces
 	result.Missing = make(map[uint16]struct{})
 	result.Suspended = make(map[uint16]struct{})
+	result.Exiting = make(map[uint16]struct{})
 	result.Retrievable = make(map[uint16]struct{})
 	result.InExcludedCountry = make(map[uint16]struct{})
 	for index, nodeRecord := range nodes {
@@ -86,6 +90,9 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 
 		if nodeRecord.Suspended {
 			result.Suspended[pieceNum] = struct{}{}
+		}
+		if nodeRecord.Exiting {
+			result.Exiting[pieceNum] = struct{}{}
 		}
 
 		if _, excluded := excludedCountryCodes[nodeRecord.CountryCode]; excluded {
@@ -150,6 +157,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	maps.Copy(result.Unhealthy, result.Missing)
 	maps.Copy(result.Unhealthy, result.Suspended)
 	maps.Copy(result.Unhealthy, result.Clumped)
+	maps.Copy(result.Unhealthy, result.Exiting)
 	maps.Copy(result.Unhealthy, result.OutOfPlacement)
 	maps.Copy(result.Unhealthy, result.InExcludedCountry)
 
