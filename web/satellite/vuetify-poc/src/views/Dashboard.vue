@@ -56,22 +56,22 @@
                 <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Billing" subtitle="Free account" data="Free" />
+                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" />
             </v-col>
         </v-row>
 
         <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Storage" :progress="40" used="10 GB Used" limit="Limit: 25GB" available="15 GB Available" cta="Need more?" />
+                <UsageProgressComponent title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Download" :progress="60" used="15 GB Used" limit="Limit: 25GB per month" available="10 GB Available" cta="Need more?" />
+                <UsageProgressComponent title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Segments" :progress="12" used="1,235 Used" limit="Limit: 10,000" available="8,765 Available" cta="Learn more" />
+                <UsageProgressComponent title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed} Used`" :limit="`Limit: ${limits.segmentLimit}`" :available="`${availableSegment} Available`" cta="Learn more" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Free Tier" :progress="50" used="10 GB Used" limit="Limit: $1.65" available="50% Available" cta="Upgrade to Pro" />
+                <UsageProgressComponent v-if="billingStore.state.coupon" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />
             </v-col>
         </v-row>
     </v-container>
@@ -82,6 +82,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VContainer, VRow, VCol, VCard } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 
+import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -98,6 +99,7 @@ import UsageProgressComponent from '@poc/components/UsageProgressComponent.vue';
 import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
 import StorageChart from '@/components/project/dashboard/StorageChart.vue';
 
+const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
@@ -109,10 +111,107 @@ const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
 
 /**
+ * Returns percent of coupon used.
+ */
+const couponProgress = computed((): number => {
+    if (!billingStore.state.coupon) {
+        return 0;
+    }
+    const charges = billingStore.state.projectCharges.getPrice();
+    const couponValue = billingStore.state.coupon.amountOff;
+    if (charges > couponValue) {
+        return 100;
+    }
+    return Math.round(charges / couponValue * 100);
+});
+
+/**
+ * Returns coupon value.
+ */
+const couponValue = computed((): string => {
+    return billingStore.state.coupon?.amountOff ? '$' + (billingStore.state.coupon.amountOff * 0.01).toLocaleString() : billingStore.state.coupon?.percentOff.toLocaleString() + '%';
+});
+
+/**
+ * Returns percent of coupon value remaining.
+ */
+const couponRemainingPercent = computed((): number => {
+    return 100 - couponProgress.value;
+});
+
+/**
+ * Returns formatted amount.
+ */
+function usedLimitFormatted(value: number): string {
+    return formattedValue(new Size(value, 2));
+}
+
+/**
+ * Formats value to needed form and returns it.
+ */
+function formattedValue(value: Size): string {
+    switch (value.label) {
+    case Dimensions.Bytes:
+        return '0';
+    default:
+        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+    }
+}
+
+/**
+ * Returns user account tier string.
+ */
+const paidTierString = computed((): string => {
+    return usersStore.state.user.paidTier ? 'Pro' : 'Free';
+});
+
+/**
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
     return projectsStore.state.currentLimits;
+});
+
+/**
+ * Returns remaining segments available.
+ */
+const availableSegment = computed((): number => {
+    return projectsStore.state.currentLimits.segmentLimit - projectsStore.state.currentLimits.segmentUsed;
+});
+
+/**
+ * Returns percentage of segment limit used.
+ */
+const segmentUsedPercent = computed((): number => {
+    return projectsStore.state.currentLimits.segmentUsed/projectsStore.state.currentLimits.segmentLimit * 100;
+});
+
+/**
+ * Returns remaining egress available.
+ */
+const availableEgress = computed((): number => {
+    return projectsStore.state.currentLimits.bandwidthLimit - projectsStore.state.currentLimits.bandwidthUsed;
+});
+
+/**
+ * Returns percentage of egress limit used.
+ */
+const egressUsedPercent = computed((): number => {
+    return projectsStore.state.currentLimits.bandwidthUsed/projectsStore.state.currentLimits.bandwidthLimit * 100;
+});
+
+/**
+ * Returns remaining storage available.
+ */
+const availableStorage = computed((): number => {
+    return projectsStore.state.currentLimits.storageLimit - projectsStore.state.currentLimits.storageUsed;
+});
+
+/**
+ * Returns percentage of storage limit used.
+ */
+const storageUsedPercent = computed((): number => {
+    return projectsStore.state.currentLimits.storageUsed/projectsStore.state.currentLimits.storageLimit * 100;
 });
 
 /**
@@ -219,6 +318,7 @@ onMounted(async (): Promise<void> => {
             projectsStore.getDailyProjectData({ since: past, before: now }),
             projectsStore.getProjectLimits(projectID),
             billingStore.getProjectUsageAndChargesCurrentRollup(),
+            billingStore.getCoupon(),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
             bucketsStore.getBuckets(FIRST_PAGE, projectID),
