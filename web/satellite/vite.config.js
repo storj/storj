@@ -22,15 +22,6 @@ const plugins = [
     vitePluginRequire(),
 ];
 
-if (process.env.NODE_ENV === 'production') {
-    plugins.push(viteCompression({
-        algorithm: 'brotliCompress',
-        threshold: 1024,
-        ext: '.br',
-        filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
-    }));
-}
-
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
     plugins.push(visualizer({
         template: 'treemap', // or sunburst
@@ -40,7 +31,17 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
     }));
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+    // compress chunks only for production mode builds.
+    if (mode === 'production') {
+        plugins.push(viteCompression({
+            algorithm: 'brotliCompress',
+            threshold: 1024,
+            ext: '.br',
+            filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
+        }));
+    }
+
     return {
         base: '/static/dist',
         plugins,
