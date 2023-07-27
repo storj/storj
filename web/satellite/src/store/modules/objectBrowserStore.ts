@@ -464,8 +464,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             appStore.setLargeUploadWarningNotification(true);
         }
 
-        // Upload 5 parts at a time.
-        const queueSize = 5;
+        // Upload 4 parts at a time.
+        const queueSize = 4;
         // Part size must be 64MB or higher, depending on file size.
         const partSize = Math.max(64 * 1024 * 1024, Math.floor(body.size / queueSize));
 
