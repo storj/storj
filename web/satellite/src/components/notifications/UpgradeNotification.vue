@@ -6,8 +6,8 @@
         <SunnyIcon class="notification-wrap__icon" />
         <div class="notification-wrap__text">
             <p>
-                Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum.
-                {{ formattedStorageLimit }} free included.
+                Ready to upgrade? Increase your limits and only pay for what you use - no minimum.
+                {{ formattedStorageLimit }} free still included.
             </p>
             <a @click="openBanner">Upgrade Now</a>
         </div>
@@ -79,7 +79,7 @@ async function openBanner(): Promise<void> {
     &__text {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 6px;
         flex-grow: 1;
 
         & a {
