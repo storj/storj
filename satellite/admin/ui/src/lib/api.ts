@@ -472,6 +472,36 @@ Blank fields will not be updated.`,
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/warning`) as Promise<null>;
 				}
+			},
+			{
+				name: 'set geofencing',
+				desc: 'Set account level geofence for a user',
+				params: [
+					['email', new InputText('email', true)],
+					[
+						'Region',
+						new Select(false, true, [
+							{ text: 'European Union', value: 'EU' },
+							{ text: 'European Economic Area', value: 'EEA' },
+							{ text: 'United States', value: 'US' },
+							{ text: 'Germany', value: 'DE' },
+							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
+						])
+					]
+				],
+				func: async (email: string, region: string): Promise<null> => {
+					return this.fetch('PATCH', `users/${email}/geofence`, null, {
+						region
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'delete geofencing',
+				desc: 'Delete account level geofence for a user',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/geofence`) as Promise<null>;
+				}
 			}
 		],
 		rest_api_keys: [
