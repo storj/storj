@@ -29,6 +29,7 @@ const props = withDefaults(defineProps<{
     before: Date,
     width: number,
     height: number,
+    isVuetify?: boolean,
 }>(), {
     settledData: () => [],
     allocatedData: () => [],
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<{
     before: () => new Date(),
     width: 0,
     height: 0,
+    isVuetify: false,
 });
 
 const chartKey = ref<number>(0);
@@ -99,10 +101,10 @@ function tooltip(tooltipModel: TooltipModel<ChartType>): void {
         let tooltipParams: TooltipParams;
         if (p.datasetIndex === 0) {
             tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'settled-bandwidth-tooltip',
-                settledTooltipMarkUp(tooltipModel), -20, 78);
+                settledTooltipMarkUp(tooltipModel), -20, props.isVuetify ? 68 : 78);
         } else {
             tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'allocated-bandwidth-tooltip',
-                allocatedTooltipMarkUp(tooltipModel), 95, 78);
+                allocatedTooltipMarkUp(tooltipModel), 95, props.isVuetify ? 68 : 78);
         }
 
         Tooltip.custom(tooltipParams);
