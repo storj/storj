@@ -12,6 +12,7 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -616,6 +617,8 @@ type CommitObject struct {
 	// Wil be only executed after succesfull commit + delete DB operation.
 	// Error on this function won't revert back committed object.
 	OnDelete func(segments []DeletedSegmentInfo)
+
+	UsePendingObjectsTable bool
 }
 
 // Verify verifies reqest fields.
@@ -696,20 +699,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			encryptionParameters{&opts.Encryption},
 		}
 
-		metadataColumns := ""
-		if opts.OverrideEncryptedMetadata {
-			args = append(args,
-				opts.EncryptedMetadataNonce,
-				opts.EncryptedMetadata,
-				opts.EncryptedMetadataEncryptedKey,
-			)
-			metadataColumns = `,
-				encrypted_metadata_nonce         = $11,
-				encrypted_metadata               = $12,
-				encrypted_metadata_encrypted_key = $13
-			`
-		}
-
 		versionsToDelete := []Version{}
 		if err := withRows(tx.QueryContext(ctx, `
 			SELECT version
@@ -745,39 +734,138 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			return ErrPermissionDenied.New("no permissions to delete existing object")
 		}
 
-		err = tx.QueryRowContext(ctx, `
-			UPDATE objects SET
-				status =`+committedStatus+`,
-				segment_count = $6,
+		if opts.UsePendingObjectsTable {
+			opts.Version = 1
 
-				total_plain_size     = $7,
-				total_encrypted_size = $8,
-				fixed_segment_size   = $9,
-				zombie_deletion_deadline = NULL,
+			// we remove from deletion list object with version 1 as we will
+			// override/update instead deleting and inserting new one.
+			index := slices.Index(versionsToDelete, opts.Version)
+			if index != -1 {
+				versionsToDelete = slices.Delete(versionsToDelete, index, index+1)
+			}
 
-				-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-				encryption = CASE
-					WHEN objects.encryption = 0 AND $10 <> 0 THEN $10
-					WHEN objects.encryption = 0 AND $10 = 0 THEN NULL
-					ELSE objects.encryption
-				END
-			    `+metadataColumns+`
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+pendingStatus+`
-			RETURNING
-				created_at, expires_at,
-				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
-				encryption
+			args = append(args,
+				opts.EncryptedMetadataNonce,
+				opts.EncryptedMetadata,
+				opts.EncryptedMetadataEncryptedKey,
+				opts.OverrideEncryptedMetadata,
+			)
+
+			err = tx.QueryRowContext(ctx, `
+				WITH delete_pending_object AS (
+					DELETE FROM pending_objects WHERE
+						project_id   = $1 AND
+						bucket_name  = $2 AND
+						object_key   = $3 AND
+						stream_id    = $5
+					RETURNING
+						project_id, bucket_name, object_key, $4::INT as version, stream_id,
+						`+committedStatus+` as status, $6::INT as segment_count, $7::INT as total_plain_size, $8::INT as total_encrypted_size, $9::INT as fixed_segment_size, NULL as zombie_deletion_deadline,
+						CASE
+							WHEN encryption = 0 AND $10 <> 0 THEN $10
+							WHEN encryption = 0 AND $10 = 0 THEN NULL
+							ELSE encryption
+						END as
+						encryption,
+						encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				), object_to_commit AS (
+					SELECT
+						project_id, bucket_name, object_key, version, stream_id,
+						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
+						encryption,
+						CASE
+							WHEN $14::BOOL = true THEN $11
+							ELSE delete_pending_object.encrypted_metadata_nonce
+						END as
+						encrypted_metadata_nonce,
+						CASE
+							WHEN $14::BOOL = true THEN $12
+							ELSE delete_pending_object.encrypted_metadata
+						END as
+						encrypted_metadata,
+						CASE
+							WHEN $14::BOOL = true THEN $13
+							ELSE delete_pending_object.encrypted_metadata_encrypted_key
+						END as
+						encrypted_metadata_encrypted_key
+					FROM delete_pending_object
+				)
+				INSERT INTO objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
+					encryption,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				)
+				SELECT * FROM object_to_commit
+				ON CONFLICT (project_id, bucket_name, object_key, version)
+				DO UPDATE SET (
+					stream_id,
+					status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
+					encryption,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				) = (SELECT
+						stream_id,
+						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
+						encryption,
+						encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+					FROM object_to_commit)
+				RETURNING
+					created_at, expires_at,
+					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+					encryption
 			`, args...).Scan(
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
-			encryptionParameters{&object.Encryption},
-		)
+				&object.CreatedAt, &object.ExpiresAt,
+				&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
+				encryptionParameters{&object.Encryption},
+			)
+		} else {
+			metadataColumns := ""
+			if opts.OverrideEncryptedMetadata {
+				args = append(args,
+					opts.EncryptedMetadataNonce,
+					opts.EncryptedMetadata,
+					opts.EncryptedMetadataEncryptedKey,
+				)
+				metadataColumns = `,
+					encrypted_metadata_nonce         = $11,
+					encrypted_metadata               = $12,
+					encrypted_metadata_encrypted_key = $13
+				`
+			}
+			err = tx.QueryRowContext(ctx, `
+				UPDATE objects SET
+					status =`+committedStatus+`,
+					segment_count = $6,
+
+					total_plain_size     = $7,
+					total_encrypted_size = $8,
+					fixed_segment_size   = $9,
+					zombie_deletion_deadline = NULL,
+
+					-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
+					encryption = CASE
+						WHEN objects.encryption = 0 AND $10 <> 0 THEN $10
+						WHEN objects.encryption = 0 AND $10 = 0 THEN NULL
+						ELSE objects.encryption
+					END
+					`+metadataColumns+`
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version      = $4 AND
+					stream_id    = $5 AND
+					status       = `+pendingStatus+`
+				RETURNING
+					created_at, expires_at,
+					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+					encryption
+				`, args...).Scan(
+				&object.CreatedAt, &object.ExpiresAt,
+				&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
+				encryptionParameters{&object.Encryption},
+			)
+		}
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
