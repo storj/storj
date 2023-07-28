@@ -159,14 +159,12 @@ const isLastPage = computed((): boolean => {
     return currentPageNumber.value === props.totalPageCount;
 });
 
-async function sizeChanged(size: number) {
+function sizeChanged(size: number) {
     // if the new size is large enough to cause the page index to  be out of range
     // we calculate an appropriate new page index.
-    let page = currentPageNumber.value;
-    if (size * props.totalPageCount > props.totalItemsCount) {
-        page = Math.ceil(props.totalItemsCount / size);
-    }
-    await withLoading(async () => {
+    const maxPage = Math.ceil(Math.ceil(props.totalItemsCount / size));
+    const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
+    withLoading(async () => {
         if (!props.onPageChange) {
             return;
         }
