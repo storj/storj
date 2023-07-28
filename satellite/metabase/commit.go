@@ -338,6 +338,8 @@ type CommitSegment struct {
 	Pieces Pieces
 
 	Placement storj.PlacementConstraint
+
+	UsePendingObjectsTable bool
 }
 
 // CommitSegment commits segment to the database.
@@ -378,47 +380,89 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
 
+	// second part will be removed when there will be no pending_objects in objects table.
 	// Verify that object exists and is partial.
-	_, err = db.db.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position, expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, encrypted_etag,
-			redundancy,
-			remote_alias_pieces,
-			placement
-		) VALUES (
-			(SELECT stream_id
-				FROM objects WHERE
-					project_id   = $12 AND
-					bucket_name  = $13 AND
-					object_key   = $14 AND
-					version      = $15 AND
-					stream_id    = $16 AND
-					status       = `+pendingStatus+
-		`	), $1, $2,
-			$3, $4, $5,
-			$6, $7, $8, $9,
-			$10,
-			$11,
-			$17
-		)
-		ON CONFLICT(stream_id, position)
-		DO UPDATE SET
-			expires_at = $2,
-			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
-			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
-			redundancy = $10,
-			remote_alias_pieces = $11,
-			placement = $17
+	if opts.UsePendingObjectsTable {
+		_, err = db.db.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				redundancy,
+				remote_alias_pieces,
+				placement
+			) VALUES (
+				(SELECT stream_id
+					FROM pending_objects WHERE
+						project_id   = $12 AND
+						bucket_name  = $13 AND
+						object_key   = $14 AND
+						stream_id    = $15
+				), $1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10,
+				$11,
+				$16
+			)
+			ON CONFLICT(stream_id, position)
+			DO UPDATE SET
+				expires_at = $2,
+				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+				redundancy = $10,
+				remote_alias_pieces = $11,
+				placement = $16
 		`, opts.Position, opts.ExpiresAt,
-		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-		redundancyScheme{&opts.Redundancy},
-		aliasPieces,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-		opts.Placement,
-	)
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+			opts.Placement,
+		)
+	} else {
+		_, err = db.db.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				redundancy,
+				remote_alias_pieces,
+				placement
+			) VALUES (
+				(SELECT stream_id
+					FROM objects WHERE
+						project_id   = $12 AND
+						bucket_name  = $13 AND
+						object_key   = $14 AND
+						version      = $15 AND
+						stream_id    = $16 AND
+						status       = `+pendingStatus+
+			`	), $1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10,
+				$11,
+				$17
+			)
+			ON CONFLICT(stream_id, position)
+			DO UPDATE SET
+				expires_at = $2,
+				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+				redundancy = $10,
+				remote_alias_pieces = $11,
+				placement = $17
+			`, opts.Position, opts.ExpiresAt,
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			redundancyScheme{&opts.Redundancy},
+			aliasPieces,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			opts.Placement,
+		)
+	}
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return ErrPendingObjectMissing.New("")
@@ -448,6 +492,8 @@ type CommitInlineSegment struct {
 	EncryptedETag []byte
 
 	InlineData []byte
+
+	UsePendingObjectsTable bool
 }
 
 // CommitInlineSegment commits inline segment to the database.
@@ -472,39 +518,71 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
 
-	// Verify that object exists and is partial.
-	_, err = db.db.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position, expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, encrypted_etag,
-			inline_data
-		) VALUES (
-			(SELECT stream_id
-				FROM objects WHERE
-					project_id   = $11 AND
-					bucket_name  = $12 AND
-					object_key   = $13 AND
-					version      = $14 AND
-					stream_id    = $15 AND
-					status       = `+pendingStatus+
-		`	), $1, $2,
-			$3, $4, $5,
-			$6, $7, $8, $9,
-			$10
-		)
-		ON CONFLICT(stream_id, position)
-		DO UPDATE SET
-			expires_at = $2,
-			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
-			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
-			inline_data = $10
+	if opts.UsePendingObjectsTable {
+		_, err = db.db.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				inline_data
+			) VALUES (
+				(SELECT stream_id
+					FROM pending_objects WHERE
+						project_id   = $11 AND
+						bucket_name  = $12 AND
+						object_key   = $13 AND
+						stream_id    = $14
+				), $1, $2,
+				$3, $4, $5,
+				$6, $7, $8, $9,
+				$10
+			)
+			ON CONFLICT(stream_id, position)
+			DO UPDATE SET
+				expires_at = $2,
+				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+				inline_data = $10
 		`, opts.Position, opts.ExpiresAt,
-		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-		opts.InlineData,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-	)
+			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			opts.InlineData,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
+		)
+	} else {
+		_, err = db.db.ExecContext(ctx, `
+					INSERT INTO segments (
+						stream_id, position, expires_at,
+						root_piece_id, encrypted_key_nonce, encrypted_key,
+						encrypted_size, plain_offset, plain_size, encrypted_etag,
+						inline_data
+					) VALUES (
+						(SELECT stream_id
+							FROM objects WHERE
+								project_id   = $11 AND
+								bucket_name  = $12 AND
+								object_key   = $13 AND
+								version      = $14 AND
+								stream_id    = $15 AND
+								status       = `+pendingStatus+
+			`	), $1, $2,
+						$3, $4, $5,
+						$6, $7, $8, $9,
+						$10
+					)
+					ON CONFLICT(stream_id, position)
+					DO UPDATE SET
+						expires_at = $2,
+						root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+						encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+						inline_data = $10
+				`, opts.Position, opts.ExpiresAt,
+			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+			opts.InlineData,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		)
+	}
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return ErrPendingObjectMissing.New("")
