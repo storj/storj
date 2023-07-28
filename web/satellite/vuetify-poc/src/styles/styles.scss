@@ -12,6 +12,10 @@
  @use './settings';
  @import 'static/styles/variables';
 
+html {
+  overflow-y: auto !important;
+}
+
 // Light Theme
 .v-theme--light {
   --v-border-color: 0, 0, 0;
@@ -200,6 +204,10 @@
   border-radius: 8px;
 }
 
+// Ensure that the compact checkbox isn't too close to its label
+.v-selection-control--density-compact .v-label {
+  margin-left: 8px;
+}
 
 // Sorting icon
 .mdi-arrow-up::before, .mdi-arrow-down::before {
@@ -278,9 +286,23 @@ table {
   border-radius: 20px !important;
   padding: 6px 14px;
   backdrop-filter: blur(12px);
+  pointer-events: all !important;
 }
 
 // Upload Snackbar
 .upload-snackbar .v-snackbar__content {
   padding: 2px;
+}
+
+// Scrollbar
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background-color: rgb(var(--v-theme-background));
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--v-theme-on-background), 0.33);
+  border-radius: 2px;
+  min-height: 5px;
 }

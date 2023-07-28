@@ -80,6 +80,7 @@ module.exports = {
         'vue/no-unused-refs': ['warn'],
         'vue/no-unused-vars': ['warn'],
         'vue/no-useless-v-bind': ['warn'],
+        'vue/no-v-model-argument': ['off'],
         'vue/valid-v-slot': ['error', { 'allowModifiers': true }],
 
         'vue/no-useless-template-attributes': ['off'], // TODO: fix later
