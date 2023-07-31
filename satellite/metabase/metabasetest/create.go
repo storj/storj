@@ -84,6 +84,55 @@ func CreatePendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 	}
 }
 
+// CreatePendingObjectNew creates a new pending object with the specified number of segments.
+// TODO CreatePendingObject will be removed when transition to pending_objects table will be complete.
+func CreatePendingObjectNew(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) {
+	obj.Version = metabase.NextVersion
+	BeginObjectNextVersion{
+		Opts: metabase.BeginObjectNextVersion{
+			ObjectStream:           obj,
+			Encryption:             DefaultEncryption,
+			UsePendingObjectsTable: true,
+		},
+		Version: 1,
+	}.Check(ctx, t, db)
+	obj.Version = 1
+
+	for i := byte(0); i < numberOfSegments; i++ {
+		BeginSegment{
+			Opts: metabase.BeginSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{i + 1},
+				Pieces: []metabase.Piece{{
+					Number:      1,
+					StorageNode: testrand.NodeID(),
+				}},
+				UsePendingObjectsTable: true,
+			},
+		}.Check(ctx, t, db)
+
+		CommitSegment{
+			Opts: metabase.CommitSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
+
+				EncryptedSize:          1024,
+				PlainSize:              512,
+				PlainOffset:            0,
+				Redundancy:             DefaultRedundancy,
+				UsePendingObjectsTable: true,
+			},
+		}.Check(ctx, t, db)
+	}
+}
+
 // CreateObject creates a new committed object with the specified number of segments.
 func CreateObject(ctx *testcontext.Context, t require.TestingT, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
 	BeginObjectExactVersion{

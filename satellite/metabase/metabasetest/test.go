@@ -542,6 +542,19 @@ func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjec
 	return nil
 }
 
+// PendingObjectsCollector is for testing metabase.PendingObjectsCollector.
+type PendingObjectsCollector []metabase.PendingObjectEntry
+
+// Add adds object entries from iterator to the collection.
+func (coll *PendingObjectsCollector) Add(ctx context.Context, it metabase.PendingObjectsIterator) error {
+	var item metabase.PendingObjectEntry
+
+	for it.Next(ctx, &item) {
+		*coll = append(*coll, item)
+	}
+	return nil
+}
+
 // IteratePendingObjectsByKey is for testing metabase.IteratePendingObjectsByKey.
 type IteratePendingObjectsByKey struct {
 	Opts metabase.IteratePendingObjectsByKey
@@ -581,6 +594,26 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// IteratePendingObjects is for testing metabase.IteratePendingObjects.
+type IteratePendingObjects struct {
+	Opts metabase.IteratePendingObjects
+
+	Result   []metabase.PendingObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step IteratePendingObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	var result PendingObjectsCollector
+
+	err := db.IteratePendingObjects(ctx, step.Opts, result.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, []metabase.PendingObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
