@@ -67,7 +67,9 @@
 
                     <template #append>
                         <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small">Change Password</v-btn>
+                            <v-btn variant="outlined" color="default" size="small" @click="isChangePasswordDialogShown = true">
+                                Change Password
+                            </v-btn>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -132,9 +134,14 @@
             </v-list>
         </v-card>
     </v-container>
+
+    <ChangePasswordDialog
+        v-model="isChangePasswordDialogShown"
+    />
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -148,4 +155,8 @@ import {
     VBtn,
     VCheckboxBtn,
 } from 'vuetify/components';
+
+import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
+
+const isChangePasswordDialogShown = ref<boolean>(false);
 </script>
