@@ -361,6 +361,13 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 		WHERE
 			project_id   = $1 AND
 			bucket_name  = $2
+		UNION ALL
+		SELECT
+			1
+		FROM pending_objects
+		WHERE
+			project_id   = $1 AND
+			bucket_name  = $2
 		LIMIT 1
 	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
 	if err != nil {
