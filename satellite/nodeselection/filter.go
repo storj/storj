@@ -59,24 +59,6 @@ func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 
 var _ NodeFilter = NodeFilters{}
 
-// CountryCodeExclude is a specific CountryFilter which excludes all nodes with the given country code.
-type CountryCodeExclude []location.CountryCode
-
-// MatchInclude implements NodeFilter interface.
-func (c CountryCodeExclude) MatchInclude(node *SelectedNode) bool {
-	for _, code := range c {
-		if code == location.None {
-			continue
-		}
-		if node.CountryCode == code {
-			return false
-		}
-	}
-	return true
-}
-
-var _ NodeFilter = CountryCodeExclude{}
-
 // CountryFilter can select nodes based on the condition of the country code.
 type CountryFilter struct {
 	permit location.Set
