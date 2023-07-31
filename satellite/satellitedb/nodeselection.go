@@ -104,14 +104,14 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
 	reputableNodeQuery = partialQuery{
-		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, false FROM nodes`,
+		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, country_code, noise_proto, noise_public_key, debounce_limit, features, false FROM nodes`,
 		condition: reputableNodesCondition,
 		distinct:  true,
 		limit:     reputableNodeCount,
 		orderBy:   "last_net",
 	}
 	newNodeQuery = partialQuery{
-		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, true FROM nodes`,
+		selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, country_code, noise_proto, noise_public_key, debounce_limit, features, true FROM nodes`,
 		condition: newNodesCondition,
 		distinct:  true,
 		limit:     newNodeCount,
@@ -134,7 +134,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		var isNew bool
 		var noise noiseScanner
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &isNew)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &node.CountryCode, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &isNew)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -149,6 +149,9 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		} else {
 			reputableNodes = append(reputableNodes, &node)
 		}
+		// node.Exiting and node.Suspended are always false here, as we filter those nodes out unconditionally in nodeSelectionCondition.
+		// By similar logic, all nodes selected here are "online" in terms of the specified criteria (specifically, OnlineWindow).
+		node.Online = true
 
 		if len(newNodes) >= newNodeCount && len(reputableNodes) >= reputableNodeCount {
 			break
