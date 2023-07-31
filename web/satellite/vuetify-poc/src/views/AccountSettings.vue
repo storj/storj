@@ -21,12 +21,14 @@
                     <v-list-item-title>Name</v-list-item-title>
 
                     <v-list-item-subtitle>
-                        Tome Boshevski
+                        {{ user.getFullName() }}
                     </v-list-item-subtitle>
 
                     <template #append>
                         <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small">Edit Name</v-btn>
+                            <v-btn variant="outlined" color="default" size="small" @click="isChangeNameDialogShown = true">
+                                Edit Name
+                            </v-btn>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -37,7 +39,7 @@
                     <v-list-item-title>Email</v-list-item-title>
 
                     <v-list-item-subtitle>
-                        tome@storj.io
+                        {{ user.email }}
                     </v-list-item-subtitle>
 
                     <!-- <template v-slot:append>
@@ -138,10 +140,14 @@
     <ChangePasswordDialog
         v-model="isChangePasswordDialogShown"
     />
+
+    <ChangeNameDialog
+        v-model="isChangeNameDialogShown"
+    />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -156,7 +162,21 @@ import {
     VCheckboxBtn,
 } from 'vuetify/components';
 
+import { useUsersStore } from '@/store/modules/usersStore';
+import { User } from '@/types/users';
+
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
+import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
+
+const usersStore = useUsersStore();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
+const isChangeNameDialogShown = ref<boolean>(false);
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
 </script>

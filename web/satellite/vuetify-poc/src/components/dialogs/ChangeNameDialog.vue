@@ -1,0 +1,135 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <v-dialog
+        v-model="model"
+        width="auto"
+        min-width="320px"
+        max-width="410px"
+        transition="fade-transition"
+    >
+        <v-card rounded="xlg">
+            <v-card-item class="pl-7 pr-0 pb-5 pt-0">
+                <v-row align="start" justify="space-between" class="ma-0">
+                    <v-row align="center" class="ma-0 pt-5">
+                        <img class="flex-shrink-0" src="@poc/assets/icon-change-name.svg" alt="Change name">
+                        <v-card-title class="font-weight-bold ml-4">Edit name</v-card-title>
+                    </v-row>
+                    <v-btn
+                        icon="$close"
+                        variant="text"
+                        size="small"
+                        color="default"
+                        :disabled="isLoading"
+                        @click="model = false"
+                    />
+                </v-row>
+            </v-card-item>
+            <v-divider />
+            <v-card-item class="px-7 py-5">
+                <v-form v-model="formValid">
+                    <v-col cols="12" class="px-0">
+                        <v-text-field
+                            v-model="name"
+                            variant="outlined"
+                            :rules="rules"
+                            label="Full name"
+                            required
+                            autofocus
+                        />
+                    </v-col>
+                </v-form>
+            </v-card-item>
+            <v-divider />
+            <v-card-actions class="px-7 py-5">
+                <v-row class="ma-0">
+                    <v-col>
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            block
+                            :disabled="isLoading"
+                            :loading="isLoading"
+                            @click="model = false"
+                        >
+                            Cancel
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            block
+                            :disabled="isLoading || !formValid"
+                            :loading="isLoading"
+                            @click="onChangeName"
+                        >
+                            Save
+                        </v-btn>
+                    </v-col>
+                </v-row>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import {
+    VDialog,
+    VCard,
+    VCardItem,
+    VCardTitle,
+    VDivider,
+    VCardActions,
+    VRow,
+    VCol,
+    VBtn,
+    VForm,
+    VTextField,
+} from 'vuetify/components';
+
+import { useLoading } from '@/composables/useLoading';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { UpdatedUser } from '@/types/users';
+
+const rules = [
+    (value: string) => (!!value || 'Can\'t be empty'),
+];
+
+const userStore = useUsersStore();
+const { isLoading, withLoading } = useLoading();
+
+const props = defineProps<{
+    modelValue: boolean,
+}>();
+
+const emit = defineEmits<{
+    (event: 'update:modelValue', value: boolean): void,
+}>();
+
+const model = computed<boolean>({
+    get: () => props.modelValue,
+    set: value => emit('update:modelValue', value),
+});
+const formValid = ref<boolean>(false);
+const name = ref<string>(userStore.userName);
+
+/**
+ * Handles change name request.
+ */
+async function onChangeName(): Promise<void> {
+    if (!formValid.value) return;
+
+    await withLoading(async () => {
+        try {
+            await userStore.updateUser(new UpdatedUser(name.value, name.value));
+        } catch (error) {
+            return;
+        }
+
+        emit('update:modelValue', false);
+    });
+}
+</script>
