@@ -113,4 +113,35 @@ func TestPlacementFromString(t *testing.T) {
 
 	})
 
+	t.Run("legacy geofencing rules", func(t *testing.T) {
+		p := NewPlacementRules()
+		p.AddLegacyStaticRules()
+
+		t.Run("nr", func(t *testing.T) {
+			nr := p.placements[storj.NR]
+			require.True(t, nr.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedKingdom,
+			}))
+			require.False(t, nr.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.Russia,
+			}))
+			require.False(t, nr.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: 0,
+			}))
+		})
+		t.Run("us", func(t *testing.T) {
+			us := p.placements[storj.US]
+			require.True(t, us.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedStates,
+			}))
+			require.False(t, us.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.Germany,
+			}))
+			require.False(t, us.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: 0,
+			}))
+		})
+
+	})
+
 }
