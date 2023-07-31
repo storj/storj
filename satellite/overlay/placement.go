@@ -68,7 +68,7 @@ func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
 	d.placements[storj.EU] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(nodeselection.EuCountries)}
 	d.placements[storj.US] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.UnitedStates))}
 	d.placements[storj.DE] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.Germany))}
-	d.placements[storj.NR] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus))}
+	d.placements[storj.NR] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))}
 }
 
 // AddPlacementRule registers a new placement.
