@@ -17,10 +17,10 @@
   },
   "dependencies": {
     "@apollo/client": "3.7.14",
-    "@aws-sdk/client-s3": "3.338.0",
-    "@aws-sdk/lib-storage": "3.338.0",
-    "@aws-sdk/s3-request-presigner": "3.338.0",
-    "@aws-sdk/signature-v4": "3.338.0",
+    "@aws-sdk/client-s3": "3.379.1",
+    "@aws-sdk/lib-storage": "3.379.1",
+    "@aws-sdk/s3-request-presigner": "3.379.1",
+    "@smithy/signature-v4": "2.0.1",
     "@hcaptcha/vue3-hcaptcha": "1.2.1",
     "@mdi/font": "7.0.96",
     "bip39-english": "2.5.0",
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@types/filesystem": "0.0.32",
-    "@types/node": "16.18.14",
+    "@types/node": "18.17.1",
     "@types/qrcode": "1.5.0",
     "@typescript-eslint/eslint-plugin": "5.59.5",
     "@typescript-eslint/parser": "5.59.5",

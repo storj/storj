@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive } from 'vue';
+import { computed, reactive, UnwrapNestedRefs } from 'vue';
 import { defineStore } from 'pinia';
 import {
     S3Client,
@@ -16,7 +16,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@smithy/signature-v4';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -25,8 +25,6 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const listCache = new Map();
-
-type Promisable<T> = T | PromiseLike<T>;
 
 export type BrowserObject = {
     Key: string;
@@ -54,6 +52,7 @@ export enum UploadingStatus {
 
 export type UploadingBrowserObject = BrowserObject & {
     status: UploadingStatus;
+    Bucket: string;
     Body: File;
     failedMessage?: FailedUploadMessage;
 }
@@ -91,7 +90,7 @@ type InitializedFilesState = FilesState & {
 };
 
 function assertIsInitialized(
-    state: FilesState,
+    state: UnwrapNestedRefs<FilesState>,
 ): asserts state is InitializedFilesState {
     if (state.s3 === null) {
         throw new Error(

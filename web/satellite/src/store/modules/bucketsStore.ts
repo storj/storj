@@ -10,7 +10,7 @@ import {
     DeleteBucketCommand,
     ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { SignatureV4 } from '@smithy/signature-v4';
 
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { BucketsApiGql } from '@/api/buckets';
@@ -88,8 +88,8 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         const s3Config: S3ClientConfig = {
             credentials: {
-                accessKeyId: state.edgeCredentialsForDelete.accessKeyId,
-                secretAccessKey: state.edgeCredentialsForDelete.secretKey,
+                accessKeyId: state.edgeCredentialsForDelete.accessKeyId || '',
+                secretAccessKey: state.edgeCredentialsForDelete.secretKey || '',
             },
             endpoint: state.edgeCredentialsForDelete.endpoint,
             forcePathStyle: true,
@@ -105,8 +105,8 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         const s3Config: S3ClientConfig = {
             credentials: {
-                accessKeyId: state.edgeCredentialsForCreate.accessKeyId,
-                secretAccessKey: state.edgeCredentialsForCreate.secretKey,
+                accessKeyId: state.edgeCredentialsForCreate.accessKeyId || '',
+                secretAccessKey: state.edgeCredentialsForCreate.secretKey || '',
             },
             endpoint: state.edgeCredentialsForCreate.endpoint,
             forcePathStyle: true,
@@ -182,8 +182,8 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         const s3Config: S3ClientConfig = {
             credentials: {
-                accessKeyId: state.edgeCredentials.accessKeyId,
-                secretAccessKey: state.edgeCredentials.secretKey,
+                accessKeyId: state.edgeCredentials.accessKeyId || '',
+                secretAccessKey: state.edgeCredentials.secretKey || '',
             },
             endpoint: state.edgeCredentials.endpoint,
             forcePathStyle: true,
