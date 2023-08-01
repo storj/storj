@@ -28,7 +28,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
-	github.com/oschwald/maxminddb-golang v1.8.0
+	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/shopspring/decimal v1.2.0
@@ -37,7 +37,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/stripe/stripe-go/v72 v72.90.0
 	github.com/vbauerster/mpb/v8 v8.4.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
@@ -55,7 +55,7 @@ require (
 	golang.org/x/net v0.9.0
 	golang.org/x/oauth2 v0.7.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.7.0
+	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.7.0
 	golang.org/x/text v0.9.0
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
