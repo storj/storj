@@ -1111,6 +1111,9 @@ server.private-address: 127.0.0.1:7778
 # length of time a node can go without contacting satellite before being disqualified
 # stray-nodes.max-duration-without-contact: 720h0m0s
 
+# comma-separated paths of additional cert files, used to validate signed node tags
+# tag-authorities: ""
+
 # as of system interval
 # tally.as-of-system-interval: -5m0s
 

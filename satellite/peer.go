@@ -220,6 +220,8 @@ type Config struct {
 	Analytics analytics.Config
 
 	PieceTracker piecetracker.Config
+
+	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }
 
 func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {

@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"runtime/pprof"
+	"strings"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -327,9 +329,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Version: *pbVersion,
 		}
 
-		var authority nodetag.Authority
-		peerIdentity := full.PeerIdentity()
-		authority = append(authority, signing.SigneeFromPeerIdentity(peerIdentity))
+		authority, err := loadAuthorities(full.PeerIdentity(), config.TagAuthorities)
+		if err != nil {
+			return nil, err
+		}
 
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, authority, config.Contact)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
@@ -676,6 +679,28 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	return peer, nil
+}
+
+func loadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations string) (nodetag.Authority, error) {
+	var authority nodetag.Authority
+	authority = append(authority, signing.SigneeFromPeerIdentity(peerIdentity))
+	for _, cert := range strings.Split(authorityLocations, ",") {
+		cert = strings.TrimSpace(cert)
+		if cert == "" {
+			continue
+		}
+		cert = strings.TrimSpace(cert)
+		raw, err := os.ReadFile(cert)
+		if err != nil {
+			return nil, errs.New("Couldn't load identity for node tag authority from %s: %v", cert, err)
+		}
+		pi, err := identity.PeerIdentityFromPEM(raw)
+		if err != nil {
+			return nil, errs.New("Node tag authority file  %s couldn't be loaded as peer identity: %v", cert, err)
+		}
+		authority = append(authority, signing.SigneeFromPeerIdentity(pi))
+	}
+	return authority, nil
 }
 
 // Run runs satellite until it's either closed or it errors.
