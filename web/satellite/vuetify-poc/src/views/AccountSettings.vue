@@ -88,7 +88,7 @@
                     <template #append>
                         <v-list-item-action>
                             <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
-                            <v-btn v-else variant="outlined" color="default" size="small">Disable Two-factor</v-btn>
+                            <v-btn v-else variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -152,6 +152,10 @@
         v-model="isEnableMFADialogShown"
     />
 
+    <DisableMFADialog
+        v-model="isDisableMFADialogShown"
+    />
+
     <SetSessionTimeoutDialog
         v-model="isSetSessionTimeoutDialogShown"
     />
@@ -182,6 +186,7 @@ import { Duration } from '@/utils/time';
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
 import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
 import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';
+import DisableMFADialog from '@poc/components/dialogs/DisableMFADialog.vue';
 import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
 
 const usersStore = useUsersStore();
@@ -190,6 +195,7 @@ const notify = useNotify();
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
 const isEnableMFADialogShown = ref<boolean>(false);
+const isDisableMFADialogShown = ref<boolean>(false);
 const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 
 /**
