@@ -166,3 +166,45 @@ func TestCachePersistence(t *testing.T) {
 	}
 
 }
+
+func TestCache_DeleteSatelliteEntry(t *testing.T) {
+	url1, err := trust.ParseSatelliteURL("121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@foo.test:7777")
+	require.NoError(t, err)
+
+	url2, err := trust.ParseSatelliteURL("12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@b.bar.test:7777")
+	require.NoError(t, err)
+
+	entry1 := trust.Entry{
+		SatelliteURL:  url1,
+		Authoritative: false,
+	}
+
+	entry2 := trust.Entry{
+		SatelliteURL:  url2,
+		Authoritative: true,
+	}
+
+	entriesBefore := map[string][]trust.Entry{
+		"key": {entry1, entry2},
+	}
+
+	expectedEntriesAfter := map[string][]trust.Entry{
+		"key": {entry2},
+	}
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	cachePath := ctx.File("cache.json")
+	require.NoError(t, trust.SaveCacheData(cachePath, &trust.CacheData{Entries: entriesBefore}))
+
+	cache, err := trust.LoadCache(cachePath)
+	require.NoError(t, err)
+
+	cache.DeleteSatelliteEntry(url1.ID)
+	require.NoError(t, cache.Save(ctx))
+
+	cacheAfter, err := trust.LoadCacheData(cachePath)
+	require.NoError(t, err)
+	require.Equal(t, &trust.CacheData{Entries: expectedEntriesAfter}, cacheAfter)
+}

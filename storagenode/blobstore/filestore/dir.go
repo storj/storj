@@ -541,6 +541,12 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 	return bytesEmptied, deletedKeys, errorsEncountered.Err()
 }
 
+// DeleteTrashNamespace deletes the entire trash namespace.
+func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error) {
+	mon.Task()(&ctx)(&err)
+	return dir.deleteNamespace(ctx, dir.trashdir(), namespace)
+}
+
 // iterateStorageFormatVersions executes f for all storage format versions,
 // starting with the oldest format version. It is more likely, in the general
 // case, that we will find the piece with the newest format version instead,

@@ -24,6 +24,8 @@ const (
 	ExitSucceeded = 3
 	// ExitFailed reflects a graceful exit that failed.
 	ExitFailed = 4
+	// Untrusted reflects a satellite that is not trusted.
+	Untrusted = 5
 )
 
 // ExitProgress contains the status of a graceful exit.
@@ -50,8 +52,16 @@ type Satellite struct {
 type DB interface {
 	// SetAddress inserts into satellite's db id, address.
 	SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) error
+	// SetAddressAndStatus inserts into satellite's db id, address and status.
+	SetAddressAndStatus(ctx context.Context, satelliteID storj.NodeID, address string, status Status) error
 	// GetSatellite retrieves that satellite by ID
 	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
+	// GetSatellites retrieves all satellites, including untrusted ones.
+	GetSatellites(ctx context.Context) (sats []Satellite, err error)
+	// DeleteSatellite removes that satellite by ID.
+	DeleteSatellite(ctx context.Context, satelliteID storj.NodeID) error
+	// UpdateSatelliteStatus updates the status of the satellite.
+	UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status Status) error
 	// GetSatellitesUrls retrieves all satellite's id and urls.
 	GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
