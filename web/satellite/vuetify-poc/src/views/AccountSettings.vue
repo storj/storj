@@ -87,7 +87,8 @@
 
                     <template #append>
                         <v-list-item-action>
-                            <v-btn size="small">Enable Two-factor</v-btn>
+                            <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
+                            <v-btn v-else variant="outlined" color="default" size="small">Disable Two-factor</v-btn>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -144,10 +145,14 @@
     <ChangeNameDialog
         v-model="isChangeNameDialogShown"
     />
+
+    <EnableMFADialog
+        v-model="isEnableMFADialogShown"
+    />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -162,21 +167,36 @@ import {
     VCheckboxBtn,
 } from 'vuetify/components';
 
-import { useUsersStore } from '@/store/modules/usersStore';
 import { User } from '@/types/users';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
 import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
+import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';
 
 const usersStore = useUsersStore();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
+const isEnableMFADialogShown = ref<boolean>(false);
 
 /**
  * Returns user entity from store.
  */
 const user = computed((): User => {
     return usersStore.state.user;
+});
+
+async function toggleEnableMFADialog() {
+    try {
+        await usersStore.generateUserMFASecret();
+        isEnableMFADialogShown.value = true;
+    } catch (error) {
+    /* empty */
+    }
+}
+
+onMounted(() => {
+    usersStore.getUser();
 });
 </script>
