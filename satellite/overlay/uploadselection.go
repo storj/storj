@@ -114,13 +114,3 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	}
 	return selected, err
 }
-
-// Size returns how many reputable nodes and new nodes are in the cache.
-func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount int, newNodeCount int, _ error) {
-	state, err := cache.cache.Get(ctx, time.Now())
-	if err != nil {
-		return 0, 0, Error.Wrap(err)
-	}
-	stats := state.Stats()
-	return stats.Reputable, stats.New, nil
-}

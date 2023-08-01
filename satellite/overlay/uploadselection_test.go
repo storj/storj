@@ -75,10 +75,6 @@ func TestRefresh(t *testing.T) {
 		// the cache should have no nodes to start
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err := cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, reputable)
-		require.Equal(t, 0, new)
 
 		// add some nodes to the database
 		const nodeCount = 2
@@ -87,10 +83,6 @@ func TestRefresh(t *testing.T) {
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err = cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 2, new)
-		require.Equal(t, 0, reputable)
 	})
 }
 
@@ -233,12 +225,6 @@ func TestGetNodes(t *testing.T) {
 		defer cacheCancel()
 		ctx.Go(func() error { return cache.Run(cacheCtx) })
 
-		// the cache should have no nodes to start
-		reputable, new, err := cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, reputable)
-		require.Equal(t, 0, new)
-
 		// add 4 nodes to the database and vet 2
 		const nodeCount = 4
 		nodeIds := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 2)
@@ -247,10 +233,6 @@ func TestGetNodes(t *testing.T) {
 		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 		require.NoError(t, err)
-		reputable, new, err = cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 2, new)
-		require.Equal(t, 2, reputable)
 		require.Equal(t, 2, len(selectedNodes))
 		for _, node := range selectedNodes {
 			require.NotEqual(t, node.ID, "")
@@ -276,9 +258,6 @@ func TestGetNodesExcludeCountryCodes(t *testing.T) {
 		// we only expect one node to be returned, even though we requested two, so there will be an error
 		require.Error(t, err)
 
-		_, new, err := cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 2, new)
 		require.Equal(t, 1, len(selectedNodes))
 		// the node that was returned should be the one that does not have the "FR" country code
 		require.Equal(t, planet.StorageNodes[1].ID(), selectedNodes[0].ID)
@@ -526,12 +505,6 @@ func TestGetNodesError(t *testing.T) {
 	defer cacheCancel()
 	ctx.Go(func() error { return cache.Run(cacheCtx) })
 
-	// there should be 0 nodes in the cache
-	reputable, new, err := cache.Size(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 0, reputable)
-	require.Equal(t, 0, new)
-
 	// since the cache has no nodes, we should not be able
 	// to get 2 storage nodes from it and we expect an error
 	_, err = cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
@@ -564,10 +537,6 @@ func TestNewNodeFraction(t *testing.T) {
 		// the cache should have no nodes to start
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err := cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, reputable)
-		require.Equal(t, 0, new)
 
 		// add some nodes to the database, some are reputable and some are new nodes
 		const nodeCount = 10
@@ -576,10 +545,6 @@ func TestNewNodeFraction(t *testing.T) {
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err = cache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 6, new)
-		require.Equal(t, 4, reputable)
 
 		// select nodes and confirm correct new node fraction
 		n, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 5})

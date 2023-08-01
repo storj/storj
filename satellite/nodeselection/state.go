@@ -19,7 +19,6 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 type State struct {
 	mu sync.RWMutex
 
-	stats Stats
 	// netByID returns subnet based on storj.NodeID
 	netByID map[storj.NodeID]string
 	// distinct contains selectors for distinct selection.
@@ -37,8 +36,6 @@ type Stats struct {
 
 // Selector defines interface for selecting nodes.
 type Selector interface {
-	// Count returns the number of maximum number of nodes that it can return.
-	Count() int
 	// Select selects up-to n nodes which are included by the criteria.
 	// empty criteria includes all the nodes
 	Select(n int, nodeFilter NodeFilter) []*SelectedNode
@@ -58,11 +55,6 @@ func NewState(reputableNodes, newNodes []*SelectedNode) *State {
 
 	state.distinct.Reputable = SelectBySubnetFromNodes(reputableNodes)
 	state.distinct.New = SelectBySubnetFromNodes(newNodes)
-
-	state.stats = Stats{
-		New:       state.distinct.New.Count(),
-		Reputable: state.distinct.Reputable.Count(),
-	}
 
 	return state
 }
@@ -106,14 +98,6 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*SelectedN
 		return selected, ErrNotEnoughNodes.New("requested from cache %d, found %d", totalCount, len(selected))
 	}
 	return selected, nil
-}
-
-// Stats returns state information.
-func (state *State) Stats() Stats {
-	state.mu.RLock()
-	defer state.mu.RUnlock()
-
-	return state.stats
 }
 
 // ExcludeNetworksBasedOnNodes will create a NodeFilter which exclude all nodes which shares subnet with the specified ones.

@@ -277,7 +277,6 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
-		expectedNewCount := int(float64(totalNodes) * satellite.Config.Overlay.Node.NewNodeFraction)
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -319,10 +318,6 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 		err := uploadSelectionCache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err := uploadSelectionCache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, totalNodes-expectedNewCount, reputable)
-		require.Equal(t, expectedNewCount, new)
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {

@@ -29,10 +29,6 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	)
 
 	state := nodeselection.NewState(reputableNodes, newNodes)
-	require.Equal(t, nodeselection.Stats{
-		New:       5,
-		Reputable: 5,
-	}, state.Stats())
 
 	{ // select 5 non-distinct subnet reputable nodes
 		const selectCount = 5
@@ -85,10 +81,6 @@ func TestState_SelectDistinct(t *testing.T) {
 	)
 
 	state := nodeselection.NewState(reputableNodes, newNodes)
-	require.Equal(t, nodeselection.Stats{
-		New:       2,
-		Reputable: 2,
-	}, state.Stats())
 
 	{ // select 2 distinct subnet reputable nodes
 		const selectCount = 2
