@@ -86,9 +86,12 @@
                     </v-list-item-subtitle>
 
                     <template #append>
-                        <v-list-item-action>
+                        <v-list-item-action justify="end" class="flex-column flex-sm-row align-end">
                             <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
-                            <v-btn v-else variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                            <template v-else>
+                                <v-btn class="mb-1 mb-sm-0 mr-sm-1" variant="outlined" color="default" size="small" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                            </template>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -156,6 +159,10 @@
         v-model="isDisableMFADialogShown"
     />
 
+    <MFACodesDialog
+        v-model="isRecoveryCodesDialogShown"
+    />
+
     <SetSessionTimeoutDialog
         v-model="isSetSessionTimeoutDialogShown"
     />
@@ -187,6 +194,7 @@ import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.v
 import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
 import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';
 import DisableMFADialog from '@poc/components/dialogs/DisableMFADialog.vue';
+import MFACodesDialog from '@poc/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
 
 const usersStore = useUsersStore();
@@ -196,6 +204,7 @@ const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
 const isEnableMFADialogShown = ref<boolean>(false);
 const isDisableMFADialogShown = ref<boolean>(false);
+const isRecoveryCodesDialogShown = ref<boolean>(false);
 const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 
 /**
@@ -216,6 +225,15 @@ async function toggleEnableMFADialog() {
     try {
         await usersStore.generateUserMFASecret();
         isEnableMFADialogShown.value = true;
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+    }
+}
+
+async function toggleRecoveryCodesDialog() {
+    try {
+        await usersStore.generateUserMFARecoveryCodes();
+        isRecoveryCodesDialogShown.value = true;
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
