@@ -15,6 +15,41 @@ type NodeFilter interface {
 	MatchInclude(node *SelectedNode) bool
 }
 
+// AnnotatedNodeFilter is just a NodeFilter with additional annotations.
+type AnnotatedNodeFilter struct {
+	Filter      NodeFilter
+	Annotations map[string]string
+}
+
+// MatchInclude implements NodeFilter.
+func (a AnnotatedNodeFilter) MatchInclude(node *SelectedNode) bool {
+	return a.Filter.MatchInclude(node)
+}
+
+// WithAnnotation adds annotations to a NodeFilter.
+func WithAnnotation(filter NodeFilter, name string, value string) NodeFilter {
+	if anf, ok := filter.(AnnotatedNodeFilter); ok {
+		anf.Annotations[name] = value
+		return anf
+	}
+	return AnnotatedNodeFilter{
+		Filter: filter,
+		Annotations: map[string]string{
+			name: value,
+		},
+	}
+}
+
+// GetAnnotation retrieves annotation from AnnotatedNodeFilter.
+func GetAnnotation(filter NodeFilter, name string) string {
+	if annotated, ok := filter.(AnnotatedNodeFilter); ok {
+		return annotated.Annotations[name]
+	}
+	return ""
+}
+
+var _ NodeFilter = AnnotatedNodeFilter{}
+
 // NodeFilters is a collection of multiple node filters (all should vote with true).
 type NodeFilters []NodeFilter
 

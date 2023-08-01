@@ -13,6 +13,14 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
+const (
+	// AutoExcludeSubnet is placement annotation key to turn off subnet restrictions.
+	AutoExcludeSubnet = "autoExcludeSubnet"
+
+	// AutoExcludeSubnetOFF is the value of AutoExcludeSubnet to disable subnet restrictions.
+	AutoExcludeSubnetOFF = "off"
+)
+
 // UploadSelectionDB implements the database for upload selection cache.
 //
 // architecture: Database
@@ -96,19 +104,31 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		return nil, Error.Wrap(err)
 	}
 
-	filters := cache.placementRules(req.Placement)
+	placementRules := cache.placementRules(req.Placement)
+	useSubnetExclusion := nodeselection.GetAnnotation(placementRules, AutoExcludeSubnet) != AutoExcludeSubnetOFF
+
+	filters := nodeselection.NodeFilters{placementRules}
 	if len(req.ExcludedIDs) > 0 {
-		filters = append(filters, state.ExcludeNetworksBasedOnNodes(req.ExcludedIDs))
+		if useSubnetExclusion {
+			filters = append(filters, state.ExcludeNetworksBasedOnNodes(req.ExcludedIDs))
+		} else {
+			filters = append(filters, nodeselection.ExcludedIDs(req.ExcludedIDs))
+		}
 	}
 
 	filters = append(filters, cache.defaultFilters)
-	filters = filters.WithAutoExcludeSubnets()
 
-	selected, err := state.Select(ctx, nodeselection.Request{
+	selectionReq := nodeselection.Request{
 		Count:       req.RequestedCount,
 		NewFraction: cache.selectionConfig.NewNodeFraction,
 		NodeFilters: filters,
-	})
+	}
+
+	if !useSubnetExclusion {
+		selectionReq.SelectionType = nodeselection.SelectionTypeByID
+	}
+
+	selected, err := state.Select(ctx, selectionReq)
 	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}

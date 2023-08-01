@@ -144,7 +144,7 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 }
 
 // FilteredIPs returns node ip:port for nodes that are in state. Results are filtered out..
-func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilters) map[storj.NodeID]string {
+func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilter) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
 		if n, exists := state.byID[nodeID]; exists && filter.MatchInclude(n) {

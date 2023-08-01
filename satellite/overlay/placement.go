@@ -11,7 +11,6 @@ import (
 	"github.com/jtolio/mito"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
@@ -19,11 +18,11 @@ import (
 )
 
 // PlacementRules can crate filter based on the placement identifier.
-type PlacementRules func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilters)
+type PlacementRules func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter)
 
 // ConfigurablePlacementRule can include the placement definitions for each known identifier.
 type ConfigurablePlacementRule struct {
-	placements map[storj.PlacementConstraint]nodeselection.NodeFilters
+	placements map[storj.PlacementConstraint]nodeselection.NodeFilter
 }
 
 // String implements pflag.Value.
@@ -42,7 +41,7 @@ func (d *ConfigurablePlacementRule) String() string {
 // Set implements pflag.Value.
 func (d *ConfigurablePlacementRule) Set(s string) error {
 	if d.placements == nil {
-		d.placements = make(map[storj.PlacementConstraint]nodeselection.NodeFilters)
+		d.placements = make(map[storj.PlacementConstraint]nodeselection.NodeFilter)
 	}
 	d.AddLegacyStaticRules()
 	return d.AddPlacementFromString(s)
@@ -58,7 +57,7 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 // NewPlacementRules creates a fully initialized NewPlacementRules.
 func NewPlacementRules() *ConfigurablePlacementRule {
 	return &ConfigurablePlacementRule{
-		placements: map[storj.PlacementConstraint]nodeselection.NodeFilters{},
+		placements: make(map[storj.PlacementConstraint]nodeselection.NodeFilter),
 	}
 }
 
@@ -72,8 +71,8 @@ func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
 }
 
 // AddPlacementRule registers a new placement.
-func (d *ConfigurablePlacementRule) AddPlacementRule(id storj.PlacementConstraint, filters nodeselection.NodeFilters) {
-	d.placements[id] = filters
+func (d *ConfigurablePlacementRule) AddPlacementRule(id storj.PlacementConstraint, filter nodeselection.NodeFilter) {
+	d.placements[id] = filter
 }
 
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
@@ -116,6 +115,17 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 			}
 			return res, nil
 		},
+		"annotated": func(filter nodeselection.NodeFilter, kv map[string]string) (nodeselection.AnnotatedNodeFilter, error) {
+			return nodeselection.AnnotatedNodeFilter{
+				Filter:      filter,
+				Annotations: kv,
+			}, nil
+		},
+		"annotation": func(key string, value string) (map[string]string, error) {
+			return map[string]string{
+				key: value,
+			}, nil
+		},
 	}
 	for _, definition := range strings.Split(definitions, ";") {
 		definition = strings.TrimSpace(definition)
@@ -132,18 +142,18 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		d.placements[storj.PlacementConstraint(id)] = val.(nodeselection.NodeFilters)
+		d.placements[storj.PlacementConstraint(id)] = val.(nodeselection.NodeFilter)
 	}
 	return nil
 }
 
 // CreateFilters implements PlacementCondition.
-func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilters) {
+func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
 	if constraint == storj.EveryCountry {
 		return nodeselection.NodeFilters{}
 	}
 	if filters, found := d.placements[constraint]; found {
-		return slices.Clone(filters)
+		return filters
 	}
 	return nodeselection.NodeFilters{
 		nodeselection.ExcludeAllFilter{},

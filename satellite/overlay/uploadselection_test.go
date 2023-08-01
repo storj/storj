@@ -215,6 +215,7 @@ func TestGetNodes(t *testing.T) {
 		}
 		placementRules := overlay.NewPlacementRules()
 		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
+		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), overlay.AutoExcludeSubnet, overlay.AutoExcludeSubnetOFF))
 
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
@@ -239,6 +240,7 @@ func TestGetNodes(t *testing.T) {
 
 		t.Run("normal selection", func(t *testing.T) {
 			t.Run("get 2", func(t *testing.T) {
+				t.Parallel()
 				// confirm cache.GetNodes returns the correct nodes
 				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 				require.NoError(t, err)
@@ -253,6 +255,7 @@ func TestGetNodes(t *testing.T) {
 				}
 			})
 			t.Run("too much", func(t *testing.T) {
+				t.Parallel()
 				// we have 5 subnets (1 new, 4 vetted), with two nodes in each
 				_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 6})
 				require.Error(t, err)
@@ -262,6 +265,7 @@ func TestGetNodes(t *testing.T) {
 
 		t.Run("using country filter", func(t *testing.T) {
 			t.Run("normal", func(t *testing.T) {
+				t.Parallel()
 				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount: 3,
 					Placement:      5,
@@ -270,12 +274,67 @@ func TestGetNodes(t *testing.T) {
 				require.Len(t, selectedNodes, 3)
 			})
 			t.Run("too much", func(t *testing.T) {
+				t.Parallel()
 				_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount: 4,
 					Placement:      5,
 				})
 				require.Error(t, err)
 			})
+		})
+
+		t.Run("using country without subnets", func(t *testing.T) {
+			t.Run("normal", func(t *testing.T) {
+				t.Parallel()
+				// it's possible to get 5 only because we don't use subnet exclusions.
+				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+					RequestedCount: 5,
+					Placement:      6,
+				})
+				require.NoError(t, err)
+				require.Len(t, selectedNodes, 5)
+			})
+			t.Run("too much", func(t *testing.T) {
+				t.Parallel()
+				_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+					RequestedCount: 6,
+					Placement:      6,
+				})
+				require.Error(t, err)
+			})
+		})
+
+		t.Run("using country without subnets and exclusions", func(t *testing.T) {
+			// DE nodes: 0 (subet:A), 2 (A), 4 (B) 6(C) 8(C, but not vetted)
+			// if everything works well, we can exclude 0, and got 3 (2,4,6)
+			// unless somebody removes the 2 (because it's in the same subnet as 0)
+			selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+				RequestedCount: 3,
+				Placement:      6,
+				ExcludedIDs: []storj.NodeID{
+					nodeIds[0],
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, selectedNodes, 3)
+		})
+
+		t.Run("check subnet selection", func(t *testing.T) {
+			for i := 0; i < 10; i++ {
+				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+					RequestedCount: 3,
+					Placement:      0,
+				})
+				require.NoError(t, err)
+
+				subnets := map[string]struct{}{}
+				for _, node := range selectedNodes {
+					subnets[node.LastNet] = struct{}{}
+				}
+
+				require.Len(t, selectedNodes, 3)
+				require.Len(t, subnets, 3)
+			}
 		})
 
 	})
