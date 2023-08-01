@@ -88,8 +88,8 @@ func TestRefresh(t *testing.T) {
 
 func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count, makeReputable int) (ids []storj.NodeID) {
 	for i := 0; i < count; i++ {
-		subnet := strconv.Itoa(i) + ".1.2"
-		addr := subnet + ".3:8080"
+		subnet := strconv.Itoa(i/3) + ".1.2"
+		addr := fmt.Sprintf("%s.%d:8080", subnet, i%3+1)
 		n := overlay.NodeCheckInInfo{
 			NodeID: storj.NodeID{byte(i)},
 			Address: &pb.NodeAddress{
@@ -107,6 +107,7 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 				Timestamp:  time.Time{},
 				Release:    true,
 			},
+			CountryCode: location.Germany + location.CountryCode(i%2),
 		}
 		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
@@ -212,12 +213,15 @@ func TestGetNodes(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
+		placementRules := overlay.NewPlacementRules()
+		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
+
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementRules().CreateFilters,
+			placementRules.CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -225,22 +229,55 @@ func TestGetNodes(t *testing.T) {
 		defer cacheCancel()
 		ctx.Go(func() error { return cache.Run(cacheCtx) })
 
-		// add 4 nodes to the database and vet 2
-		const nodeCount = 4
-		nodeIds := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 2)
-		require.Len(t, nodeIds, 2)
+		// add 10 nodes to the database and vet 8
+		// 4 subnets   [A  A  A  B  B  B  C  C  C  D]
+		// 2 countries [DE X  DE x  DE x  DE x  DE x]
+		// vetted      [1  1  1  1  1  1  1  1  0  0]
+		const nodeCount = 10
+		nodeIds := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 8)
+		require.Len(t, nodeIds, 8)
 
-		// confirm cache.GetNodes returns the correct nodes
-		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
-		require.NoError(t, err)
-		require.Equal(t, 2, len(selectedNodes))
-		for _, node := range selectedNodes {
-			require.NotEqual(t, node.ID, "")
-			require.NotEqual(t, node.Address.Address, "")
-			require.NotEqual(t, node.LastIPPort, "")
-			require.NotEqual(t, node.LastNet, "")
-			require.NotEqual(t, node.LastNet, "")
-		}
+		t.Run("normal selection", func(t *testing.T) {
+			t.Run("get 2", func(t *testing.T) {
+				// confirm cache.GetNodes returns the correct nodes
+				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+				require.NoError(t, err)
+				require.Len(t, selectedNodes, 2)
+
+				for _, node := range selectedNodes {
+					require.NotEqual(t, node.ID, "")
+					require.NotEqual(t, node.Address.Address, "")
+					require.NotEqual(t, node.LastIPPort, "")
+					require.NotEqual(t, node.LastNet, "")
+					require.NotEqual(t, node.LastNet, "")
+				}
+			})
+			t.Run("too much", func(t *testing.T) {
+				// we have 5 subnets (1 new, 4 vetted), with two nodes in each
+				_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 6})
+				require.Error(t, err)
+			})
+
+		})
+
+		t.Run("using country filter", func(t *testing.T) {
+			t.Run("normal", func(t *testing.T) {
+				selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+					RequestedCount: 3,
+					Placement:      5,
+				})
+				require.NoError(t, err)
+				require.Len(t, selectedNodes, 3)
+			})
+			t.Run("too much", func(t *testing.T) {
+				_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+					RequestedCount: 4,
+					Placement:      5,
+				})
+				require.Error(t, err)
+			})
+		})
+
 	})
 }
 
@@ -539,9 +576,10 @@ func TestNewNodeFraction(t *testing.T) {
 		require.NoError(t, err)
 
 		// add some nodes to the database, some are reputable and some are new nodes
-		const nodeCount = 10
-		repIDs := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 4)
-		require.Len(t, repIDs, 4)
+		// 3 nodes per net --> we need 4 net (* 3 node) reputable + 1 net (* 3 node) new to select 5 with 0.2 percentage new
+		const nodeCount = 15
+		repIDs := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 12)
+		require.Len(t, repIDs, 12)
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)

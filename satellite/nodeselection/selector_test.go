@@ -4,12 +4,15 @@
 package nodeselection_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection"
@@ -251,4 +254,30 @@ func TestSelectFiltered(t *testing.T) {
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{thirdID}).WithAutoExcludeSubnets()), 1)
+}
+
+func TestSelectFilteredMulti(t *testing.T) {
+	// four subnets with 3 nodes in each. Only one per subnet is located in Germany.
+	// Algorithm should pick the German one from each subnet, and 4 nodes should be possible to be picked.
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	var nodes []*nodeselection.SelectedNode
+
+	for i := 0; i < 12; i++ {
+		nodes = append(nodes, &nodeselection.SelectedNode{
+			ID:          testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			LastNet:     fmt.Sprintf("68.0.%d", i/3),
+			LastIPPort:  fmt.Sprintf("68.0.%d.%d:1000", i/3, i),
+			CountryCode: location.Germany + location.CountryCode(i%3),
+		})
+
+	}
+
+	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	for i := 0; i < 100; i++ {
+		assert.Len(t, selector.Select(4, nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany))), 4)
+	}
+
 }

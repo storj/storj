@@ -77,15 +77,17 @@ func (subnets SelectBySubnet) Select(n int, filter NodeFilter) []*SelectedNode {
 	}
 
 	selected := []*SelectedNode{}
-	for _, idx := range mathrand.Perm(len(subnets)) {
-		subnet := subnets[idx]
-		node := subnet.Nodes[mathrand.Intn(len(subnet.Nodes))]
+	r := NewRandomOrder(len(subnets))
+	for r.Next() {
+		subnet := subnets[r.At()]
 
-		if !filter.MatchInclude(node) {
-			continue
+		rs := NewRandomOrder(len(subnet.Nodes))
+		for rs.Next() {
+			if filter.MatchInclude(subnet.Nodes[rs.At()]) {
+				selected = append(selected, subnet.Nodes[rs.At()].Clone())
+				break
+			}
 		}
-
-		selected = append(selected, node.Clone())
 		if len(selected) >= n {
 			break
 		}
