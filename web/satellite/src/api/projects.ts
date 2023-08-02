@@ -56,30 +56,26 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @throws Error
      */
     public async get(): Promise<Project[]> {
-        const query = `query {
-            myProjects{
-                name
-                publicId
-                description
-                createdAt
-                memberCount
-                ownerId
-            }
-        }`;
+        const response = await this.http.get(this.ROOT_PATH);
 
-        const response = await this.query(query);
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get projects',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        return response.data.myProjects.map((project: Project & {publicId: string}) => {
-            return new Project(
-                project.publicId,
-                project.name,
-                project.description,
-                project.createdAt,
-                project.ownerId,
-                false,
-                project.memberCount,
-            );
-        });
+        const projects = await response.json();
+        return projects.map((p: Project) => new Project(
+            p.id,
+            p.name,
+            p.description,
+            p.createdAt,
+            p.ownerId,
+            p.isSelected,
+            p.memberCount,
+        ));
     }
 
     /**
