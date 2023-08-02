@@ -99,12 +99,14 @@
                     <v-list-item-title>Session Timeout</v-list-item-title>
 
                     <v-list-item-subtitle>
-                        Set timeout to log you out for inactivity.
+                        {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}
                     </v-list-item-subtitle>
 
                     <template #append>
                         <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small">Set Timeout</v-btn>
+                            <v-btn variant="outlined" color="default" size="small" @click="isSetSessionTimeoutDialogShown = true">
+                                Set Timeout
+                            </v-btn>
                         </v-list-item-action>
                     </template>
                 </v-list-item>
@@ -149,6 +151,10 @@
     <EnableMFADialog
         v-model="isEnableMFADialogShown"
     />
+
+    <SetSessionTimeoutDialog
+        v-model="isSetSessionTimeoutDialogShown"
+    />
 </template>
 
 <script setup lang="ts">
@@ -167,24 +173,34 @@ import {
     VCheckboxBtn,
 } from 'vuetify/components';
 
-import { User } from '@/types/users';
+import { User, UserSettings } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { Duration } from '@/utils/time';
 
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
 import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
 import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';
+import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
 
 const usersStore = useUsersStore();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
 const isEnableMFADialogShown = ref<boolean>(false);
+const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 
 /**
  * Returns user entity from store.
  */
 const user = computed((): User => {
     return usersStore.state.user;
+});
+
+/**
+ * Returns user settings from store.
+ */
+const userSettings = computed((): UserSettings => {
+    return usersStore.state.settings as UserSettings;
 });
 
 async function toggleEnableMFADialog() {
@@ -197,6 +213,9 @@ async function toggleEnableMFADialog() {
 }
 
 onMounted(() => {
-    usersStore.getUser();
+    Promise.all([
+        usersStore.getUser(),
+        usersStore.getSettings(),
+    ]);
 });
 </script>
