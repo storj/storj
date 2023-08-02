@@ -27,6 +27,33 @@ type Projects struct {
 	service *console.Service
 }
 
+// ProjectMembersPage contains information about a page of project members and invitations.
+type ProjectMembersPage struct {
+	Members        []Member     `json:"projectMembers"`
+	Invitations    []Invitation `json:"projectInvitations"`
+	TotalCount     int          `json:"totalCount"`
+	Offset         int          `json:"offset"`
+	Limit          int          `json:"limit"`
+	Order          int          `json:"order"`
+	OrderDirection int          `json:"orderDirection"`
+	Search         string       `json:"search"`
+	CurrentPage    int          `json:"currentPage"`
+	PageCount      int          `json:"pageCount"`
+}
+
+// Member is a project member in a ProjectMembersPage.
+type Member struct {
+	User     *console.User `json:"user"`
+	JoinedAt time.Time     `json:"joinedAt"`
+}
+
+// Invitation is a project invitation in a ProjectMembersPage.
+type Invitation struct {
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
+	Expired   bool      `json:"expired"`
+}
+
 // NewProjects is a constructor for api analytics controller.
 func NewProjects(log *zap.Logger, service *console.Service) *Projects {
 	return &Projects{
@@ -133,6 +160,124 @@ func (p *Projects) GetPagedProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(pageToSend)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// GetMembersAndInvitations returns the project's members and invitees.
+func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	project, err := p.service.GetProject(ctx, publicID)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	if limitStr == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing limit query param"))
+		return
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid limit parameter: %s", limitStr))
+		return
+	}
+
+	search := r.URL.Query().Get("search")
+
+	pageStr := r.URL.Query().Get("page")
+	if pageStr == "" {
+		pageStr = "1"
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid page parameter: %s", pageStr))
+		return
+	}
+
+	orderStr := r.URL.Query().Get("order")
+	if orderStr == "" {
+		orderStr = "1"
+	}
+	order, err := strconv.Atoi(orderStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid order parameter: %s", orderStr))
+		return
+	}
+
+	orderDirStr := r.URL.Query().Get("order-direction")
+	if orderDirStr == "" {
+		orderDirStr = "1"
+	}
+	orderDir, err := strconv.Atoi(orderDirStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid order-direction parameter: %s", orderDirStr))
+		return
+	}
+
+	var memberPage ProjectMembersPage
+	membersAndInvitations, err := p.service.GetProjectMembersAndInvitations(ctx, project.ID, console.ProjectMembersCursor{
+		Search:         search,
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          console.ProjectMemberOrder(order),
+		OrderDirection: console.OrderDirection(orderDir),
+	})
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
+	}
+	memberPage.Search = membersAndInvitations.Search
+	memberPage.Limit = int(membersAndInvitations.Limit)
+	memberPage.Order = int(membersAndInvitations.Order)
+	memberPage.OrderDirection = int(membersAndInvitations.OrderDirection)
+	memberPage.Offset = int(membersAndInvitations.Offset)
+	memberPage.PageCount = int(membersAndInvitations.PageCount)
+	memberPage.CurrentPage = int(membersAndInvitations.CurrentPage)
+	memberPage.TotalCount = int(membersAndInvitations.TotalCount)
+	memberPage.Members = []Member{}
+	memberPage.Invitations = []Invitation{}
+
+	for _, m := range membersAndInvitations.ProjectMembers {
+		user, err := p.service.GetUser(ctx, m.MemberID)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+			return
+		}
+		member := Member{
+			User:     user,
+			JoinedAt: m.CreatedAt,
+		}
+		memberPage.Members = append(memberPage.Members, member)
+	}
+	for _, inv := range membersAndInvitations.ProjectInvitations {
+		invitee := Invitation{
+			Email:     inv.Email,
+			CreatedAt: inv.CreatedAt,
+			Expired:   p.service.IsProjectInvitationExpired(&inv),
+		}
+		memberPage.Invitations = append(memberPage.Invitations, invitee)
+	}
+	err = json.NewEncoder(w).Encode(memberPage)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
