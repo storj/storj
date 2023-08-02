@@ -73,8 +73,9 @@ type Config struct {
 	StaticDir string `help:"path to static resources" default:""`
 	Watch     bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 
-	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
-	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
+	AuthToken        string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
+	AuthTokenSecret  string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
+	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
 	ContactInfoURL                  string     `help:"url link to contacts page" default:"https://forum.storj.io"`
 	FrameAncestors                  string     `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
@@ -109,6 +110,7 @@ type Config struct {
 	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"false"`
 	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
+	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -233,7 +235,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
 		Path: "/",
-	})
+	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
@@ -394,7 +396,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
 
 		if server.config.UseVuetifyProject {
-			router.PathPrefix("/vuetifypoc").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			if server.config.VuetifyHost != "" {
+				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			} else {
+				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
+				router.PathPrefix("/vuetifypoc").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+			}
 		}
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 	}

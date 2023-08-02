@@ -181,6 +181,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
 
+# optional domain for cookies to use
+# console.auth-cookie-domain: ""
+
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
@@ -408,6 +411,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
+
+# the subdomain the vuetify POC project should be hosted on
+# console.vuetify-host: ""
 
 # whether to load templates on each request
 # console.watch: false
