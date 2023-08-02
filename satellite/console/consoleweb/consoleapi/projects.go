@@ -34,6 +34,47 @@ func NewProjects(log *zap.Logger, service *console.Service) *Projects {
 	}
 }
 
+// GetUserProjects returns the user's projects.
+func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projects, err := p.service.GetUsersProjects(ctx)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	type jsonProject struct {
+		ID          uuid.UUID `json:"id"`
+		Name        string    `json:"name"`
+		OwnerID     uuid.UUID `json:"ownerId"`
+		Description string    `json:"description"`
+		MemberCount int       `json:"memberCount"`
+		CreatedAt   time.Time `json:"createdAt"`
+	}
+
+	response := make([]jsonProject, 0)
+	for _, project := range projects {
+		response = append(response, jsonProject{
+			ID:          project.PublicID,
+			Name:        project.Name,
+			OwnerID:     project.OwnerID,
+			Description: project.Description,
+			MemberCount: project.MemberCount,
+			CreatedAt:   project.CreatedAt,
+		})
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetSalt returns the project's salt.
 func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

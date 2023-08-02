@@ -485,6 +485,22 @@ func TestProjects(t *testing.T) {
 			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
 		}
 
+		{ // Get_User_Projects
+
+			var projects []struct {
+				ID          uuid.UUID `json:"id"`
+				Name        string    `json:"name"`
+				OwnerID     uuid.UUID `json:"ownerId"`
+				Description string    `json:"description"`
+				MemberCount int       `json:"memberCount"`
+				CreatedAt   time.Time `json:"createdAt"`
+			}
+			resp, body := test.request(http.MethodGet, "/projects", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.NotEmpty(t, projects)
+		}
+
 		{ // Get_ProjectInfo
 			resp, body := test.request(http.MethodPost, "/graphql",
 				test.toJSON(map[string]interface{}{
