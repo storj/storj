@@ -74,9 +74,9 @@ import { useRouter } from 'vue-router';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -88,14 +88,13 @@ const props = defineProps<{
     apiKey: string;
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 
 const isCopied = ref<boolean>(false);
 const isDownloaded = ref<boolean>(false);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Returns the web address of this satellite from the store.
@@ -110,7 +109,7 @@ const satelliteAddress = computed((): string => {
 function onCopy(): void {
     navigator.clipboard.writeText(`${satelliteAddress.value} ${props.apiKey}`);
     isCopied.value = true;
-    analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`CLI access was copied successfully`);
 }
 
@@ -122,7 +121,7 @@ function onDownload(): void {
 
     const fileContent = `Satellite address:\n${satelliteAddress.value}\n\nAPI Key:\n${props.apiKey}`;
     Download.file(fileContent, `Storj-CLI-access-${props.name}-${new Date().toISOString()}.txt`);
-    analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 }
 
 /**

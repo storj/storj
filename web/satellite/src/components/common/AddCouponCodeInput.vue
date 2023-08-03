@@ -68,9 +68,9 @@ import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -78,6 +78,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
+const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const route = useRoute();
 
@@ -86,8 +87,6 @@ const isCodeValid = ref<boolean>(false);
 const showConfirmMessage = ref<boolean>(false);
 const errorMessage = ref<string>('');
 const couponCode = ref<string>('');
-
-const analytics = new AnalyticsHttpApi();
 
 /**
  * Signup view requires some unique styling and element text.
@@ -128,7 +127,7 @@ async function applyCouponCode(): Promise<void> {
         errorMessage.value = error.message;
         isCodeValid.value = false;
         showValidationMessage.value = true;
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
 
         return;
     } finally {

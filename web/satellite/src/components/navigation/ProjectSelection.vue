@@ -106,7 +106,6 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
@@ -122,6 +121,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -133,6 +133,7 @@ import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -146,7 +147,6 @@ const router = useRouter();
 const route = useRoute();
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const dropdownYPos = ref<number>(0);
 const dropdownXPos = ref<number>(0);
@@ -228,7 +228,7 @@ function compareProjects(a: Project, b: Project) {
 }
 
 /**
- * Fetches projects related information and than toggles selection popup.
+ * Fetches projects related information and then toggles selection popup.
  */
 async function toggleSelection(): Promise<void> {
     if (isOnboardingTour.value || !projectSelection.value) return;
@@ -269,7 +269,7 @@ function toggleDropdown(): void {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
@@ -311,7 +311,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         try {
             await agStore.getAccessGrants(FIRST_PAGE, projectID);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
 
         return;
@@ -321,7 +321,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
     }
 }
@@ -338,8 +338,8 @@ function closeDropdown(): void {
  */
 function onProjectsLinkClick(): void {
     if (route.name !== RouteConfig.ProjectsList.name) {
-        analytics.pageVisit(RouteConfig.ProjectsList.path);
-        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
+        analyticsStore.pageVisit(RouteConfig.ProjectsList.path);
+        analyticsStore.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
     }
 
@@ -350,7 +350,7 @@ function onProjectsLinkClick(): void {
  * Route to all projects page.
  */
 function onAllProjectsClick(): void {
-    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    analyticsStore.pageVisit(RouteConfig.AllProjectsDashboard.path);
     router.push(RouteConfig.AllProjectsDashboard.path);
     closeDropdown();
 }
@@ -359,7 +359,7 @@ function onAllProjectsClick(): void {
  * Route to project details page.
  */
 function onProjectDetailsClick(): void {
-    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+    analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
     router.push(RouteConfig.EditProjectDetails.path);
     closeDropdown();
 }
@@ -378,13 +378,13 @@ function onManagePassphraseClick(): void {
  */
 function onCreateLinkClick(): void {
     if (route.name !== RouteConfig.CreateProject.name) {
-        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = userStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
         if (user.projectLimit > ownProjectsCount) {
-            analytics.pageVisit(RouteConfig.CreateProject.path);
+            analyticsStore.pageVisit(RouteConfig.CreateProject.path);
             appStore.updateActiveModal(MODALS.newCreateProject);
         } else {
             appStore.updateActiveModal(MODALS.createProjectPrompt);

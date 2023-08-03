@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import LearnIcon from '@/../static/images/accessGrants/newCreateFlow/learn.svg';
 
@@ -27,13 +27,13 @@ const props = withDefaults(defineProps<{
     withIcon: false,
 });
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 /**
  * Sends "trackPageVisit" event to segment.
  */
 function trackPageVisit(): void {
-    analytics.pageVisit(props.link);
+    analyticsStore.pageVisit(props.link);
 }
 </script>
 

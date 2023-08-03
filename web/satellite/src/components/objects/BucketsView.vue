@@ -23,7 +23,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 
 import { LocalData } from '@/utils/localData';
 import { BucketPage } from '@/types/buckets';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
@@ -40,8 +39,6 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(true);
 const isServerSideEncryptionBannerHidden = ref<boolean>(true);

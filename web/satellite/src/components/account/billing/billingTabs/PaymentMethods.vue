@@ -107,8 +107,8 @@
                     @mouseover="deleteHover = true"
                     @mouseleave="deleteHover = false"
                 >
-                    <Trash v-if="deleteHover === false" />
-                    <Trash v-if="deleteHover === true" class="red-trash" />
+                    <Trash v-if="!deleteHover" />
+                    <Trash v-if="deleteHover" class="red-trash" />
                     Remove
                 </div>
             </div>
@@ -187,7 +187,6 @@ import {
     NativePaymentHistoryItem,
 } from '@/types/payments';
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -197,6 +196,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -228,6 +228,7 @@ interface CardEdited {
     isDefault?: boolean
 }
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -238,8 +239,6 @@ const router = useRouter();
 const route = useRoute();
 
 const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const showTransactions = ref<boolean>(false);
 const nativePayIsLoading = ref<boolean>(false);
@@ -326,14 +325,14 @@ async function prepQRCode(): Promise<void> {
     try {
         await QRCode.toCanvas(canvas.value, wallet.value.address);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
 }
 
 async function updatePaymentMethod(): Promise<void> {
     try {
         await billingStore.makeCardDefault(defaultCreditCardSelection.value);
-        await notify.success('Default payment card updated');
+        notify.success('Default payment card updated');
         isChangeDefaultPaymentModalOpen.value = false;
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
@@ -348,8 +347,8 @@ async function removePaymentMethod(): Promise<void> {
 
         try {
             await billingStore.removeCreditCard(cardBeingEdited.value.id);
-            analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
-            await notify.success('Credit card removed');
+            analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
+            notify.success('Credit card removed');
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
@@ -383,7 +382,7 @@ async function addCard(token: string): Promise<void> {
         return;
     }
 
-    await notify.success('Card successfully added');
+    notify.success('Card successfully added');
     try {
         await billingStore.getCreditCards();
     } catch (error) {
@@ -411,11 +410,11 @@ async function onConfirmAddStripe(): Promise<void> {
 
     isLoading.value = true;
     await stripeCardInput.value.onSubmit().then(() => {isLoading.value = false;});
-    analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
 }
 
 function addPaymentMethodHandler(): void {
-    analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
 
     if (!usersStore.state.user.paidTier) {
         appStore.updateActiveModal(MODALS.upgradeAccount);
@@ -444,7 +443,7 @@ function onCloseClickDefault(): void {
 /**
  * controls sorting the transaction table
  */
-function sortFunction(key): void {
+function sortFunction(key: string): void {
     switch (key) {
     case 'date-ascending':
         nativePaymentHistoryItems.value.sort((a, b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
@@ -481,8 +480,8 @@ function sortFunction(key): void {
 /**
  * controls transaction table pagination
  */
-function paginationController(i: number, limit: number): void {
-    displayedHistory.value = nativePaymentHistoryItems.value.slice((i - 1) * limit, ((i - 1) * limit) + limit);
+function paginationController(page: number, limit: number): void {
+    displayedHistory.value = nativePaymentHistoryItems.value.slice((page - 1) * limit, ((page - 1) * limit) + limit);
 }
 
 onMounted((): void => {
@@ -542,7 +541,6 @@ $align: center;
 }
 
 .change-default-input-container {
-    margin: auto;
     display: $flex;
     flex-direction: row;
     align-items: flex-start;
@@ -552,7 +550,7 @@ $align: center;
     height: 10px;
     border: 1px solid var(--c-grey-4);
     border-radius: 8px;
-    margin-top: 7px;
+    margin: 7px auto auto;
 }
 
 .change-default-input {

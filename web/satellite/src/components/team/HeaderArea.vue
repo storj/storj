@@ -75,7 +75,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
@@ -84,6 +83,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -91,14 +91,13 @@ import VSearch from '@/components/common/VSearch.vue';
 
 import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
-
-const analytics = new AnalyticsHttpApi();
 
 const props = withDefaults(defineProps<{
     isAddButtonDisabled: boolean;
@@ -165,7 +164,7 @@ async function processSearchQuery(search: string): Promise<void> {
  */
 async function resendInvites(): Promise<void> {
     await withLoading(async () => {
-        analytics.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
 
         try {
             await pmStore.inviteMembers(pmStore.state.selectedProjectMembersEmails, projectsStore.state.selectedProject.id);

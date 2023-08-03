@@ -41,8 +41,8 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import UpgradeInfoStep from '@/components/modals/upgradeAccountFlow/UpgradeInfoStep.vue';
@@ -61,14 +61,13 @@ enum UpgradeAccountStep {
     PricingPlan = 'pricingPlanStep',
 }
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
 const loading = ref<boolean>(false);
@@ -84,7 +83,7 @@ async function onAddTokens(): Promise<void> {
     try {
         await billingStore.claimWallet();
 
-        analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
 
         setStep(UpgradeAccountStep.AddTokens);
     } catch (error) {

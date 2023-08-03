@@ -83,12 +83,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -106,13 +106,13 @@ import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const router = useRouter();
 const route = useRoute();
 
 const TWENTY_PIXELS = 20;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const navigation: NavigationLink[] = [
     RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
     RouteConfig.Buckets.withIcon(BucketsIcon),
@@ -256,7 +256,7 @@ function trackClickEvent(path: string): void {
     if (path === '/account/billing') {
         routeToOverview();
     } else {
-        analytics.pageVisit(path);
+        analyticsStore.pageVisit(path);
     }
 }
 

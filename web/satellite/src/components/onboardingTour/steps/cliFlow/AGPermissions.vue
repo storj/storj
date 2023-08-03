@@ -44,12 +44,12 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
@@ -60,6 +60,7 @@ import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permiss
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -67,8 +68,6 @@ const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const worker = ref<Worker| null>(null);
 const areBucketNamesFetching = ref<boolean>(true);
@@ -151,7 +150,7 @@ function setWorker(): void {
 async function onBackClick(): Promise<void> {
     if (isLoading.value) return;
 
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
     await router.push({ name: RouteConfig.AGName.name });
 }
 
@@ -176,7 +175,7 @@ async function onNextClick(): Promise<void> {
     }
 
     appStore.setOnboardingAPIKeyStepBackRoute(route.path);
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     await router.push({ name: RouteConfig.APIKey.name });
 }
 
@@ -205,7 +204,7 @@ async function generateRestrictedKey(): Promise<string> {
         permissionsMsg, { 'notAfter': notAfterPermission.value.toISOString() },
     );
 
-    await worker.value.postMessage(permissionsMsg);
+    worker.value.postMessage(permissionsMsg);
 
     const grantEvent: MessageEvent = await new Promise(resolve => {
         if (worker.value) {
@@ -216,7 +215,7 @@ async function generateRestrictedKey(): Promise<string> {
         throw new Error(grantEvent.data.error);
     }
 
-    analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
 
     return grantEvent.data.value;
 }

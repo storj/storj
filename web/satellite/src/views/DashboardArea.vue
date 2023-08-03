@@ -136,7 +136,6 @@ import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -151,6 +150,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -170,6 +170,7 @@ import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploa
 import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
@@ -187,7 +188,6 @@ const router = useRouter();
 const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 const inactivityModalTime = 60000;
 // Minimum number of recovery codes before the recovery code warning bar is shown.
@@ -570,7 +570,7 @@ async function refreshSession(manual = false): Promise<void> {
  * Redirects to log in screen.
  */
 function redirectToLogin(): void {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     router.push(RouteConfig.Login.path);
 
     sessionExpiredModalShown.value = false;
@@ -685,7 +685,7 @@ async function onSessionActivity(): Promise<void> {
 
 /**
  * Lifecycle hook after initial render.
- * Pre fetches user`s and project information.
+ * Pre-fetches user`s and project information.
  */
 onMounted(async () => {
     usersStore.$onAction(({ name, after, args }) => {
@@ -775,7 +775,7 @@ onMounted(async () => {
 
             const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
             if (usersStore.shouldOnboard && route.path !== onboardingPath) {
-                await analytics.pageVisit(onboardingPath);
+                analyticsStore.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
             }
         } catch (error) {

@@ -122,7 +122,7 @@ import { useNotify } from '@/utils/hooks';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useLinksharing } from '@/composables/useLinksharing';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -131,8 +131,7 @@ import VLoader from '@/components/common/VLoader.vue';
 import ErrorNoticeIcon from '@/../static/images/common/errorNotice.svg?url';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const notify = useNotify();
@@ -303,7 +302,7 @@ async function copy(): Promise<void> {
  * Get the share link of the current opened file.
  */
 async function getSharedLink(): Promise<void> {
-    analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
     try {
         objectLink.value = await generateFileOrFolderShareURL(filePath.value);
     } catch (error) {

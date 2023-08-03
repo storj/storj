@@ -211,7 +211,6 @@ import FileEntry from './FileEntry.vue';
 import LockedFilesEntry from './LockedFilesEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
@@ -221,6 +220,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -238,6 +238,7 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const configStore = useConfigStore();
+const analyticsStore = useAnalyticsStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -257,7 +258,6 @@ const isOver = ref<boolean>(false);
 const routePath = ref(calculateRoutePath());
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Check if the s3 client has been initialized in the store.
@@ -308,7 +308,7 @@ const lockedFilesCount = computed((): number => {
  */
 const objectsCount = computed((): number => {
     const name: string = obStore.state.bucket;
-    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find(bucket => bucket.name === name);
 
     return data?.objectCount || 0;
 });
@@ -466,7 +466,7 @@ async function upload(e: Event): Promise<void> {
     }
 
     await obStore.upload({ e });
-    analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
 }
@@ -496,7 +496,7 @@ async function list(path: string): Promise<void> {
 async function buttonFileUpload(): Promise<void> {
     const fileInputElement = fileInput.value as HTMLInputElement;
     fileInputElement.showPicker();
-    analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
     closeUploadDropdown();
 }
 
@@ -506,7 +506,7 @@ async function buttonFileUpload(): Promise<void> {
 async function buttonFolderUpload(): Promise<void> {
     const folderInputElement = folderInput.value as HTMLInputElement;
     folderInputElement.showPicker();
-    analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
     closeUploadDropdown();
 }
 
@@ -542,8 +542,8 @@ function closeUploadDropdown(): void {
  * Redirects to buckets list view.
  */
 async function goToBuckets(): Promise<void> {
-    await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(err => {});
-    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+    await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(_ => {});
+    analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     await onRouteChange();
 }
 
@@ -572,7 +572,7 @@ onBeforeMount(async () => {
     if (!bucket.value) {
         const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
 
-        analytics.pageVisit(path);
+        analyticsStore.pageVisit(path);
         await router.push(path);
 
         return;

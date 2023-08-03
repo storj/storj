@@ -14,21 +14,20 @@
 
 <script setup lang="ts">
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Closes add coupon modal.
  */
 function onCloseClick(): void {
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
     appStore.removeActiveModal();
 }
 </script>

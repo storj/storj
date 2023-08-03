@@ -53,10 +53,10 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useLoading } from '@/composables/useLoading';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -65,12 +65,11 @@ import VTable from '@/components/common/VTable.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const { withLoading } = useLoading();
 
@@ -151,7 +150,7 @@ async function onPageChange(index: number, limit: number): Promise<void> {
 
 function onResendClick(member: ProjectMemberItemModel) {
     withLoading(async () => {
-        analytics.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
             await pmStore.inviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
             notify.notify('Invite resent!');
@@ -165,7 +164,7 @@ function onResendClick(member: ProjectMemberItemModel) {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
         } catch (error) {
-            await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     });
 }
@@ -177,7 +176,7 @@ async function onRemoveClick(member: ProjectMemberItemModel) {
         }
         appStore.updateActiveModal(MODALS.removeTeamMember);
     }
-    analytics.eventTriggered(AnalyticsEvent.REMOVE_PROJECT_MEMBER_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.REMOVE_PROJECT_MEMBER_CLICKED);
 }
 
 /**

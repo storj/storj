@@ -102,7 +102,7 @@
 import { computed } from 'vue';
 
 import { AccessType, FUNCTIONAL_CONTAINER_ICON_AND_TITLE, FunctionalContainer } from '@/types/createAccessGrant';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ContainerWithIcon from '@/components/accessGrants/createFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -119,7 +119,7 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 /**
  * Indicates if button should be disabled.
@@ -132,7 +132,7 @@ const isButtonDisabled = computed((): boolean => {
  * Sends "trackPageVisit" event to segment.
  */
 function trackPageVisit(link: string): void {
-    analytics.pageVisit(link);
+    analyticsStore.pageVisit(link);
 }
 </script>
 

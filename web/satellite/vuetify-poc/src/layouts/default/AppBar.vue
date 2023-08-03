@@ -160,7 +160,6 @@ import {
 
 import { useAppStore } from '@poc/store/appStore';
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -172,10 +171,12 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -189,7 +190,6 @@ const obStore = useObjectBrowserStore();
 const router = useRouter();
 const notify = useNotify();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const props = withDefaults(defineProps<{
@@ -232,13 +232,13 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
         notify.error(error.message, null);
     }
 
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
     // TODO this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
     location.reload();

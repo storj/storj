@@ -95,12 +95,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Wallet } from '@/types/payments';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -110,13 +110,12 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(false);
 
@@ -171,7 +170,7 @@ async function claimWalletClick(): Promise<void> {
  * Triggers Add funds popup.
  */
 function onAddTokensClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
     appStore.updateActiveModal(MODALS.addTokenFunds);
 }
 

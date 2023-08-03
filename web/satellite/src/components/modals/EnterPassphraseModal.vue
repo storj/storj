@@ -47,22 +47,21 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import AccessEncryptionIcon from '../../../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
+
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const enterError = ref<string>('');
 const passphrase = ref<string>('');
@@ -73,12 +72,12 @@ const passphrase = ref<string>('');
 function onContinue(): void {
     if (!passphrase.value) {
         enterError.value = 'Passphrase can\'t be empty';
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
 
         return;
     }
 
-    analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
+    analyticsStore.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
         method: 'enter',
     });
 

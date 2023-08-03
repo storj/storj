@@ -58,7 +58,6 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { Validator } from '@/utils/validation';
@@ -69,6 +68,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -77,6 +77,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -84,8 +85,6 @@ const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const bucketName = ref<string>('');
 const nameError = ref<string>('');
@@ -147,17 +146,17 @@ async function onCreate(): Promise<void> {
     if (isLoading.value) return;
 
     if (!worker.value) {
-        notify.error('Worker is not defined', AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        notify.error('Worker is not defined', AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
         return;
     }
 
     if (!isBucketNameValid(bucketName.value)) {
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
         return;
     }
 
     if (allBucketNames.value.includes(bucketName.value)) {
-        notify.error('Bucket with this name already exists', AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        notify.error('Bucket with this name already exists', AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
         return;
     }
 
@@ -174,8 +173,8 @@ async function onCreate(): Promise<void> {
             await bucketsStore.getBuckets(1, projectID);
             bucketsStore.setFileComponentBucketName(bucketName.value);
 
-            analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-            analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+            analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             closeModal();
 
@@ -189,7 +188,7 @@ async function onCreate(): Promise<void> {
         if (edgeCredentialsForCreate.value.accessKeyId) {
             await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
             await bucketsStore.getBuckets(1, projectID);
-            analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+            analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
             closeModal();
 
             if (!bucketWasCreated.value) {
@@ -208,7 +207,7 @@ async function onCreate(): Promise<void> {
         const now = new Date();
         const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-        await worker.value.postMessage({
+        worker.value.postMessage({
             'type': 'SetPermission',
             'isDownload': false,
             'isUpload': true,
@@ -225,7 +224,7 @@ async function onCreate(): Promise<void> {
             }
         });
         if (grantEvent.data.error) {
-            await notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            notify.error(grantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             return;
         }
 
@@ -246,7 +245,7 @@ async function onCreate(): Promise<void> {
             }
         });
         if (accessGrantEvent.data.error) {
-            await notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             return;
         }
 
@@ -256,7 +255,7 @@ async function onCreate(): Promise<void> {
         bucketsStore.setEdgeCredentialsForCreate(creds);
         await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
         await bucketsStore.getBuckets(1, projectID);
-        analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
         closeModal();
 
@@ -264,7 +263,7 @@ async function onCreate(): Promise<void> {
             LocalData.setBucketWasCreatedStatus();
         }
     } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
+        notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
     } finally {
         isLoading.value = false;
     }
@@ -291,7 +290,7 @@ function setWorker(): void {
     worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            notify.error(error.message, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
         };
     }
 }
@@ -319,7 +318,7 @@ onMounted(async (): Promise<void> => {
         await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
     } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
     } finally {
         bucketNamesLoading.value = false;
     }

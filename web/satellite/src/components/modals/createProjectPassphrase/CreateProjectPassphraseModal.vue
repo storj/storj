@@ -47,7 +47,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import SelectPassphraseModeStep from '@/components/modals/createProjectPassphrase/SelectPassphraseModeStep.vue';
@@ -67,15 +67,14 @@ enum CreatePassphraseOption {
     Enter = 'Enter',
 }
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-const generatedPassphrase = generateMnemonic();
+const generatedPassphrase: string = generateMnemonic();
 
 const selectedOption = ref<CreatePassphraseOption>(CreatePassphraseOption.Generate);
 const activeStep = ref<CreateProjectPassphraseStep>(CreateProjectPassphraseStep.SelectMode);
@@ -139,7 +138,7 @@ async function onContinue(): Promise<void> {
             return;
         }
 
-        analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
+        analyticsStore.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
             method: selectedOption.value === CreatePassphraseOption.Enter ? 'enter' : 'generate',
         });
 
@@ -154,7 +153,7 @@ async function onContinue(): Promise<void> {
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
         if (route.name === RouteConfig.OverviewStep.name) {
-            router.push(RouteConfig.ProjectDashboard.path);
+            await router.push(RouteConfig.ProjectDashboard.path);
         }
 
         closeModal();

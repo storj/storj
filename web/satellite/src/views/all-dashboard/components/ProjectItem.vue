@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="project.id" class="project-item">
+    <div v-if="project?.id" class="project-item">
         <div class="project-item__header">
             <project-ownership-tag :role="isOwner ? ProjectRole.Owner : ProjectRole.Member" />
 
@@ -50,7 +50,6 @@ import { Project } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -59,6 +58,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
@@ -67,14 +67,13 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
 import MenuIcon from '@/../static/images/allDashboard/menu.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
-
-const analytics = new AnalyticsHttpApi();
 
 const props = withDefaults(defineProps<{
     project?: Project,
@@ -117,17 +116,17 @@ function closeDropDown() {
 async function onOpenClicked(): Promise<void> {
     await selectProject();
     if (usersStore.shouldOnboard) {
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;
     }
-    await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 
     if (usersStore.state.settings.passphrasePrompt) {
         appStore.updateActiveModal(MODALS.enterPassphrase);
     }
-    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
-    router.push(RouteConfig.ProjectDashboard.path);
+    analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
+    await router.push(RouteConfig.ProjectDashboard.path);
 }
 
 async function selectProject() {
@@ -143,8 +142,8 @@ async function selectProject() {
  */
 async function goToProjectMembers(): Promise<void> {
     await selectProject();
-    analytics.pageVisit(RouteConfig.Team.path);
-    router.push(RouteConfig.Team.path);
+    analyticsStore.pageVisit(RouteConfig.Team.path);
+    await router.push(RouteConfig.Team.path);
     closeDropDown();
 }
 
@@ -153,8 +152,8 @@ async function goToProjectMembers(): Promise<void> {
  */
 async function goToProjectEdit(): Promise<void> {
     await selectProject();
-    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
-    router.push(RouteConfig.EditProjectDetails.path);
+    analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
+    await router.push(RouteConfig.EditProjectDetails.path);
     closeDropDown();
 }
 </script>

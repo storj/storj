@@ -58,7 +58,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { User } from '@/types/users';
 import { RouteConfig } from '@/types/router';
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
@@ -73,6 +72,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -100,9 +100,9 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const pmStore = useProjectMembersStore();
 const notificationsStore = useNotificationsStore();
+const analyticsStore = useAnalyticsStore();
 
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const dropdownYPos = ref<number>(0);
 const dropdownXPos = ref<number>(0);
@@ -154,7 +154,7 @@ function navigateToBilling(): void {
     if (route.path.includes(RouteConfig.Billing.path)) return;
 
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
 }
 
 /**
@@ -162,7 +162,7 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     closeDropdown();
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
     router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
 }
 
@@ -170,8 +170,8 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
 
     await Promise.all([
         pmStore.clear(),
@@ -188,7 +188,7 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        await analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);

@@ -121,22 +121,21 @@ import { useNotify } from '@/utils/hooks';
 import { LimitToChange, ProjectLimits } from '@/types/projects';
 import { Dimensions, Memory } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useLoading } from '@/composables/useLoading';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LimitIcon from '@/../static/images/modals/limit.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 const notify = useNotify();
 
 const { isLoading, withLoading } = useLoading();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const activeLimit = ref<LimitToChange>(LimitToChange.Storage);
 const activeMeasurement = ref<string>(Dimensions.TB);
@@ -300,13 +299,13 @@ async function onSave(): Promise<void> {
                 const updatedProject = new ProjectLimits(limit);
                 await projectsStore.updateProjectBandwidthLimit(updatedProject);
 
-                analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
+                analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
                 notify.success('Project egress limit updated successfully!');
             } else {
                 const updatedProject = new ProjectLimits(0, 0, limit);
                 await projectsStore.updateProjectStorageLimit(updatedProject);
 
-                analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
+                analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
                 notify.success('Project storage limit updated successfully!');
             }
 

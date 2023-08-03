@@ -68,13 +68,13 @@ import { computed, ref } from 'vue';
 
 import { EmailInput } from '@/types/EmailInput';
 import { Validator } from '@/utils/validation';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -83,6 +83,7 @@ import VInput from '@/components/common/VInput.vue';
 import TeamMembersIcon from '@/../static/images/team/teamMembers.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -90,7 +91,6 @@ const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const inputs = ref<EmailInput[]>([new EmailInput()]);
 const formError = ref<string>('');
@@ -188,7 +188,7 @@ async function onAddUsersClick(): Promise<void> {
     }
 
     if (emailArray.includes(usersStore.state.user.email)) {
-        await notify.error(`Error adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        notify.error(`Error adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 
         return;
@@ -204,8 +204,8 @@ async function onAddUsersClick(): Promise<void> {
         return;
     }
 
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
-    await notify.notify('Invites sent!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
+    notify.notify('Invites sent!');
     pmStore.setSearchQuery('');
 
     try {
@@ -228,18 +228,6 @@ function addInput(): void {
     if (inputsLength < 10) {
         inputs.value.push(new EmailInput());
     }
-}
-
-/**
- * Deletes selected email input from list.
- * @param index
- */
-function deleteInput(index: number): void {
-    if (inputs.value.length === 1) return;
-
-    resetFormErrors(index);
-
-    inputs.value = inputs.value.filter((input, i) => i !== index);
 }
 
 /**

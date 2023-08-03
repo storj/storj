@@ -48,22 +48,21 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { RouteConfig } from '@/types/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import Icon from '@/../static/images/modals/boxesIcon.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(false);
 
@@ -86,7 +85,7 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
     let success = false;
     try {
         await projectsStore.respondToInvitation(invite.value.projectID, response);
-        analytics.eventTriggered(accepted ? AnalyticsEvent.PROJECT_INVITATION_ACCEPTED : AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+        analyticsStore.eventTriggered(accepted ? AnalyticsEvent.PROJECT_INVITATION_ACCEPTED : AnalyticsEvent.PROJECT_INVITATION_DECLINED);
         success = true;
     } catch (error) {
         const action = accepted ? 'accept' : 'decline';
@@ -112,7 +111,7 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
         LocalData.setSelectedProjectId(invite.value.projectID);
 
         notify.success('Invite accepted!');
-        analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+        analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
         router.push(RouteConfig.ProjectDashboard.path);
     }
 

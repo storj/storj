@@ -78,7 +78,7 @@
                     <CLIIcon />
                 </div>
                 <div class="access-grants__flows-area__title">API Key</div>
-                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
+                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programmatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
@@ -158,7 +158,6 @@ import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
 import { RouteConfig } from '@/types/router';
 import { AccessGrant } from '@/types/accessGrants';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
 import { useNotify } from '@/utils/hooks';
@@ -166,6 +165,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -179,8 +179,7 @@ import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
 const FIRST_PAGE = 1;
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
@@ -290,7 +289,7 @@ async function fetch(searchQuery: string): Promise<void> {
  * Access grant button click.
  */
 function accessGrantClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
@@ -302,7 +301,7 @@ function accessGrantClick(): void {
  * S3 Access button click..
  */
 function s3Click(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
@@ -314,7 +313,7 @@ function s3Click(): void {
  * CLI Access button click.
  */
 function cliClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
@@ -326,7 +325,7 @@ function cliClick(): void {
  * Sends "trackPageVisit" event to segment and opens link.
  */
 function trackPageVisit(link: string): void {
-    analytics.pageVisit(link);
+    analyticsStore.pageVisit(link);
 }
 
 onMounted(async () => {

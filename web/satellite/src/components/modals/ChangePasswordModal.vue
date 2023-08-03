@@ -67,11 +67,11 @@ import { useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -80,6 +80,7 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
@@ -87,7 +88,6 @@ const router = useRouter();
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const oldPassword = ref<string>('');
 const newPassword = ref<string>('');
@@ -168,7 +168,7 @@ async function onUpdateClick(): Promise<void> {
     }
 
     if (hasError) {
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         return;
     }
 
@@ -190,8 +190,8 @@ async function onUpdateClick(): Promise<void> {
         notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
     }
 
-    analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
-    await notify.success('Password successfully changed!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
+    notify.success('Password successfully changed!');
     closeModal();
 }
 

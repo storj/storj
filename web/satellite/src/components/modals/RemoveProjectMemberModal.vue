@@ -56,7 +56,6 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { Project } from '@/types/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -65,6 +64,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -72,6 +72,8 @@ import VButton from '@/components/common/VButton.vue';
 import TeamMemberIcon from '@/../static/images/team/teamMember.svg';
 
 const FIRST_PAGE = 1;
+
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -79,8 +81,6 @@ const pmStore = useProjectMembersStore();
 const notify = useNotify();
 const router = useRouter();
 const { isLoading, withLoading } = useLoading();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const firstThreeSelected = computed((): string[] => {
     return pmStore.state.selectedProjectMembersEmails.slice(0, 3);
@@ -95,8 +95,8 @@ async function setProjectState(): Promise<void> {
     if (!projects.length) {
         const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
-        analytics.pageVisit(onboardingPath);
-        router.push(onboardingPath);
+        analyticsStore.pageVisit(onboardingPath);
+        await router.push(onboardingPath);
 
         return;
     }

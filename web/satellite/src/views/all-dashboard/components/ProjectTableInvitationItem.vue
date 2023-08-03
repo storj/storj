@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import { ProjectRole } from '@/types/projectMembers';
 import { ProjectInvitation, ProjectInvitationResponse } from '@/types/projects';
@@ -60,8 +60,8 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useResize } from '@/composables/resize';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useLoading } from '@/composables/useLoading';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import TableItem from '@/components/common/TableItem.vue';
@@ -69,11 +69,10 @@ import TableItem from '@/components/common/TableItem.vue';
 import MenuIcon from '@/../static/images/common/horizontalDots.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const { isLoading, withLoading } = useLoading();
 
@@ -129,7 +128,7 @@ function onDeclineClicked(): void {
     withLoading(async () => {
         try {
             await projectsStore.respondToInvitation(props.invitation.projectID, ProjectInvitationResponse.Decline);
-            analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+            analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
         } catch (error) {
             error.message = `Failed to decline project invitation. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);

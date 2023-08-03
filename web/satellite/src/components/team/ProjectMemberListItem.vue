@@ -52,7 +52,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -64,12 +64,11 @@ import CopyIcon from '@/../static/images/accessGrants/newCreateFlow/copy.svg';
 const { isMobile, isTablet } = useResize();
 const { withLoading } = useLoading();
 
-const appStore = useAppStore();
 const notify = useNotify();
+const analyticsStore = useAnalyticsStore();
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const props = withDefaults(defineProps<{
     model: ProjectMemberItemModel;
@@ -135,7 +134,7 @@ const isDropdownOpen = computed((): boolean => {
 });
 
 function copyLinkClicked() {
-    analytics.eventTriggered(AnalyticsEvent.COPY_INVITE_LINK_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.COPY_INVITE_LINK_CLICKED);
     closeDropDown();
 
     if (inviteLink.value) {
