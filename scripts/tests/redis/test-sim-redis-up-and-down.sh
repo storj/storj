@@ -44,6 +44,9 @@ export STORJ_NETWORK_DIR="${TMP_DIR}"
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 export STORJ_REDIS_HOST=${STORJ_NETWORK_HOST4}
 
+# TODO remove when metainfo.server-side-copy-duplicate-metadata will be dropped
+export STORJ_METAINFO_SERVER_SIDE_COPY_DUPLICATE_METADATA=true
+
 # setup the network
 "${SCRIPT_DIR}/redis-server.sh" start
 storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \

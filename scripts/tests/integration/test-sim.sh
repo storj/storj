@@ -25,6 +25,9 @@ export STORJ_NETWORK_DIR=$TMP
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
+# TODO remove when metainfo.server-side-copy-duplicate-metadata will be dropped
+export STORJ_METAINFO_SERVER_SIDE_COPY_DUPLICATE_METADATA=true
+
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
 if [ -z ${STORJ_SIM_POSTGRES} ]; then

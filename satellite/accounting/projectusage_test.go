@@ -1161,6 +1161,8 @@ func TestProjectBandwidthUsageWithCopies(t *testing.T) {
 				// this effectively disable live accounting cache
 				config.LiveAccounting.BandwidthCacheTTL = -1
 				config.LiveAccounting.AsOfSystemInterval = 0
+
+				config.Metainfo.ServerSideCopyDuplicateMetadata = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
