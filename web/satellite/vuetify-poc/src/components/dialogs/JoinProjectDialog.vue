@@ -77,6 +77,9 @@ import {
 
 import { ProjectInvitationResponse } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { RouteConfig } from '@/types/router';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -93,6 +96,7 @@ const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void,
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 
@@ -105,6 +109,7 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     projectsStore.selectProject(props.id);
     router.push(`/projects/${props.id}/dashboard`);
+    analyticsStore.pageVisit('/projects/dashboard');
 }
 
 /**
@@ -117,7 +122,16 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
     isLoading.value = true;
 
     let success = false;
-    await projectsStore.respondToInvitation(props.id, response).then(() => { success = true; }).catch(_ => {});
+    try {
+        await projectsStore.respondToInvitation(props.id, response);
+        success = true;
+        analyticsStore.eventTriggered(
+            response === ProjectInvitationResponse.Accept ?
+                AnalyticsEvent.PROJECT_INVITATION_ACCEPTED :
+                AnalyticsEvent.PROJECT_INVITATION_DECLINED,
+        );
+    } catch { /* empty */ }
+
     await projectsStore.getUserInvitations().catch(_ => {});
     await projectsStore.getProjects().catch(_ => { success = false; });
 

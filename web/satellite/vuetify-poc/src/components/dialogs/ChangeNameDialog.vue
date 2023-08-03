@@ -93,11 +93,14 @@ import {
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { UpdatedUser } from '@/types/users';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const rules = [
     (value: string) => (!!value || 'Can\'t be empty'),
 ];
 
+const analyticsStore = useAnalyticsStore();
 const userStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
 
@@ -125,6 +128,8 @@ async function onChangeName(): Promise<void> {
     await withLoading(async () => {
         try {
             await userStore.updateUser(new UpdatedUser(name.value, name.value));
+
+            analyticsStore.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
         } catch (error) {
             return;
         }

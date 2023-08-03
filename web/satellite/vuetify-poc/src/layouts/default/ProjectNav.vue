@@ -11,7 +11,7 @@
                         <!-- Project Menu -->
                         <v-list class="pa-2">
                             <!-- My Projects -->
-                            <v-list-item rounded="lg" link router-link to="/projects">
+                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
                                 <template #prepend>
                                     <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
                                     <IconProject />
@@ -36,7 +36,7 @@
                             <v-divider class="my-2" />
 
                             <!-- Shared With Me -->
-                            <v-list-item rounded="lg" link router-link to="/projects">
+                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
                                 <template #prepend>
                                     <IconProject />
                                 </template>
@@ -69,7 +69,7 @@
                             <!-- <v-divider class="my-2"></v-divider> -->
 
                             <!-- View All Projects -->
-                            <v-list-item link rounded="lg" router-link to="/projects">
+                            <v-list-item link rounded="lg" router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
                                 <template #prepend>
                                     <IconAllProjects />
                                 </template>
@@ -117,7 +117,7 @@
 
                 <v-divider class="my-2" />
 
-                <v-list-item link router-link to="dashboard" class="my-1 py-3" rounded="lg">
+                <v-list-item link router-link to="dashboard" class="my-1 py-3" rounded="lg" @click="() => trackPageVisitEvent('/dashboard')">
                     <template #prepend>
                         <IconDashboard />
                     </template>
@@ -126,7 +126,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="buckets" class="my-1" rounded="lg">
+                <v-list-item link router-link to="buckets" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/buckets')">
                     <template #prepend>
                         <IconBucket />
                     </template>
@@ -135,7 +135,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="bucket" class="my-1" rounded="lg">
+                <v-list-item link router-link to="bucket" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/bucket')">
                     <template #prepend>
                         <IconBrowse />
                     </template>
@@ -144,7 +144,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="access" class="my-1" rounded="lg">
+                <v-list-item link router-link to="access" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/access')">
                     <template #prepend>
                         <IconAccess />
                     </template>
@@ -153,7 +153,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="team" class="my-1" rounded="lg">
+                <v-list-item link router-link to="team" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/team')">
                     <template #prepend>
                         <IconTeam />
                     </template>
@@ -249,6 +249,7 @@ import {
 
 import { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -265,6 +266,7 @@ import IconForum from '@poc/components/icons/IconForum.vue';
 import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 
 /**
@@ -273,4 +275,11 @@ const projectsStore = useProjectsStore();
 const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
 });
+
+/**
+ * Sends "Page Visit" event to segment and opens link.
+ */
+function trackPageVisitEvent(page: string): void {
+    analyticsStore.pageVisit(page);
+}
 </script>

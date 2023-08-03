@@ -162,6 +162,8 @@ import QRCode from 'qrcode';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const rules = [
     (value: string) => (!!value || 'Can\'t be empty'),
@@ -170,6 +172,7 @@ const rules = [
     (value: string) => (value.length === 6 || 'Can only be 6 numbers long'),
 ];
 
+const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
@@ -234,6 +237,8 @@ function enable(): void {
             await usersStore.enableUserMFA(confirmPasscode.value);
             await usersStore.getUser();
             await showCodes();
+
+            analyticsStore.eventTriggered(AnalyticsEvent.MFA_ENABLED);
         } catch (error) {
             isError.value = true;
         }
