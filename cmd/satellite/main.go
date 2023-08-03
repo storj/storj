@@ -64,7 +64,7 @@ type Satellite struct {
 	satellite.Config
 }
 
-// APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
+// aPIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
 func (s *Satellite) APIKeysLRUOptions() lrucache.Options {
 	return lrucache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
