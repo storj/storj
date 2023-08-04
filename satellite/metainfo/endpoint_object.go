@@ -126,6 +126,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
+	usePendingObjectsTable := endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID)
 	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -141,7 +142,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonce,
 
-		UsePendingObjectsTable: endpoint.config.UsePendingObjectsTable,
+		UsePendingObjectsTable: usePendingObjectsTable,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -158,7 +159,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(placement),
 
-		UsePendingObjectsTable: endpoint.config.UsePendingObjectsTable,
+		UsePendingObjectsTable: usePendingObjectsTable,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -903,7 +904,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 		resp.More = result.More
 	} else {
-		if status == metabase.Pending && endpoint.config.UsePendingObjectsTable {
+		if status == metabase.Pending && endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID) {
 			type ObjectListItem struct {
 				Item     *pb.ObjectListItem
 				StreamID uuid.UUID
@@ -1107,8 +1108,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		BatchSize: limit + 1,
 		Cursor:    cursor,
 	}
-
-	if endpoint.config.UsePendingObjectsTable {
+	if endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID) {
 		err = endpoint.metabase.IteratePendingObjectsByKeyNew(ctx,
 			options, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
 				entry := metabase.PendingObjectEntry{}

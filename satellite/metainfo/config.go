@@ -12,6 +12,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink/private/eestream"
 )
@@ -147,6 +148,8 @@ type Config struct {
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 
 	UsePendingObjectsTable bool `help:"enable new flow for upload which is using pending_objects table" default:"false"`
+	// flag to simplify testing by enabling feature only for specific projects
+	UsePendingObjectsTableProjects []string `help:"list of projects which will have UsePendingObjectsTable feature flag enabled" default:"" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
@@ -160,4 +163,39 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MaxNumberOfParts: c.MaxNumberOfParts,
 		ServerSideCopy:   c.ServerSideCopy,
 	}
+}
+
+// ExtendedConfig extended config keeps additional helper fields and methods around Config.
+// TODO potentially can be removed when UsePendingObjectsTableProjects won't be used anymore.
+type ExtendedConfig struct {
+	Config
+
+	usePendingObjectsTableProjects []uuid.UUID
+}
+
+// NewExtendedConfig creates new instance of extended config.
+func NewExtendedConfig(config Config) (ExtendedConfig, error) {
+	extendedConfig := ExtendedConfig{Config: config}
+	for _, projectIDString := range config.UsePendingObjectsTableProjects {
+		projectID, err := uuid.FromString(projectIDString)
+		if err != nil {
+			return ExtendedConfig{}, err
+		}
+		extendedConfig.usePendingObjectsTableProjects = append(extendedConfig.usePendingObjectsTableProjects, projectID)
+	}
+	return extendedConfig, nil
+}
+
+// UsePendingObjectsTableByProject checks if UsePendingObjectsTable should be enabled for specific project.
+func (ec ExtendedConfig) UsePendingObjectsTableByProject(projectID uuid.UUID) bool {
+	// if its globally enabled don't look at projects
+	if ec.UsePendingObjectsTable {
+		return true
+	}
+	for _, p := range ec.usePendingObjectsTableProjects {
+		if p == projectID {
+			return true
+		}
+	}
+	return false
 }

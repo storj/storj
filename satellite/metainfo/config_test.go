@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -95,4 +97,43 @@ func TestRSConfigValidation(t *testing.T) {
 			require.EqualValues(t, tt.expectedConfig.Total, rsConfig.Total)
 		}
 	}
+}
+
+func TestExtendedConfig_UsePendingObjectsTable(t *testing.T) {
+	projectA := testrand.UUID()
+	projectB := testrand.UUID()
+	projectC := testrand.UUID()
+	config, err := metainfo.NewExtendedConfig(metainfo.Config{
+		UsePendingObjectsTable: false,
+		UsePendingObjectsTableProjects: []string{
+			projectA.String(),
+			projectB.String(),
+		},
+	})
+	require.NoError(t, err)
+
+	require.True(t, config.UsePendingObjectsTableByProject(projectA))
+	require.True(t, config.UsePendingObjectsTableByProject(projectB))
+	require.False(t, config.UsePendingObjectsTableByProject(projectC))
+
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UsePendingObjectsTable: true,
+		UsePendingObjectsTableProjects: []string{
+			projectA.String(),
+		},
+	})
+	require.NoError(t, err)
+
+	require.True(t, config.UsePendingObjectsTableByProject(projectA))
+	require.True(t, config.UsePendingObjectsTableByProject(projectB))
+	require.True(t, config.UsePendingObjectsTableByProject(projectC))
+
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UsePendingObjectsTable: false,
+		UsePendingObjectsTableProjects: []string{
+			"01000000-0000-0000-0000-000000000000",
+		},
+	})
+	require.NoError(t, err)
+	require.True(t, config.UsePendingObjectsTableByProject(uuid.UUID{1}))
 }

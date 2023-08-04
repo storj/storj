@@ -80,7 +80,7 @@ type Endpoint struct {
 	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
 	revocations            revocation.DB
 	defaultRS              *pb.RedundancyScheme
-	config                 Config
+	config                 ExtendedConfig
 	versionCollector       *versionCollector
 }
 
@@ -90,6 +90,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
+
+	extendedConfig, err := NewExtendedConfig(config)
+	if err != nil {
+		return nil, err
+	}
 
 	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
 		CipherSuite: storj.EncAESGCM,
@@ -133,7 +138,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
 		defaultRS:            defaultRSScheme,
-		config:               config,
+		config:               extendedConfig,
 		versionCollector:     newVersionCollector(log),
 	}, nil
 }
