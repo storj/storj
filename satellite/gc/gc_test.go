@@ -22,7 +22,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -306,12 +305,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 3, 4, 4),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Metainfo.ServerSideCopyDuplicateMetadata = true
-				},
-			),
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]

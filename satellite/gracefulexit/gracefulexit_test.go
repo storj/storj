@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
@@ -235,12 +234,7 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 3, 4, 4),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Metainfo.ServerSideCopyDuplicateMetadata = true
-				},
-			),
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])

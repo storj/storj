@@ -841,7 +841,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.GeoIP.MockCountries = []string{"DE"}
-				config.Metainfo.ServerSideCopyDuplicateMetadata = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2197,11 +2196,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 func TestEndpoint_Object_CopyObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ServerSideCopyDuplicateMetadata = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checkDownload := func(objectKey string, expectedData []byte) {
 			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "multipleversions", objectKey)

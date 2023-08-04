@@ -52,10 +52,6 @@ type FinishCopyObject struct {
 
 	NewSegmentKeys []EncryptedKeyAndNonce
 
-	// If set, copy the object by duplicating the metadata and
-	// remote_alias_pieces list, rather than using segment_copies.
-	DuplicateMetadata bool
-
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out completing the copy would exceed a limit.
 	// It will be called only once.
@@ -156,8 +152,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 		redundancySchemes := make([]int64, sourceObject.SegmentCount)
 
-		if opts.DuplicateMetadata {
-			err = withRows(db.db.QueryContext(ctx, `
+		err = withRows(db.db.QueryContext(ctx, `
 				SELECT
 					position,
 					expires_at,
@@ -172,75 +167,35 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				ORDER BY position ASC
 				LIMIT  $2
 			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
-				index := 0
-				for rows.Next() {
-					err := rows.Scan(
-						&positions[index],
-						&expiresAts[index],
-						&rootPieceIDs[index],
-						&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
-						&redundancySchemes[index],
-						&remoteAliasPiecesLists[index],
-						&placementConstraints[index],
-						&inlineDatas[index],
-					)
-					if err != nil {
-						return err
-					}
-					index++
-				}
-
-				if err := rows.Err(); err != nil {
+			index := 0
+			for rows.Next() {
+				err := rows.Scan(
+					&positions[index],
+					&expiresAts[index],
+					&rootPieceIDs[index],
+					&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
+					&redundancySchemes[index],
+					&remoteAliasPiecesLists[index],
+					&placementConstraints[index],
+					&inlineDatas[index],
+				)
+				if err != nil {
 					return err
 				}
+				index++
+			}
 
-				if index != int(sourceObject.SegmentCount) {
-					return Error.New("could not load all of the segment information")
-				}
+			if err := rows.Err(); err != nil {
+				return err
+			}
 
-				return nil
-			})
-		} else {
-			err = withRows(db.db.QueryContext(ctx, `
-				SELECT
-					position,
-					expires_at,
-					root_piece_id,
-					encrypted_size, plain_offset, plain_size,
-					redundancy,
-					inline_data
-				FROM segments
-				WHERE stream_id = $1
-				ORDER BY position ASC
-				LIMIT  $2
-			`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
-				index := 0
-				for rows.Next() {
-					err := rows.Scan(
-						&positions[index],
-						&expiresAts[index],
-						&rootPieceIDs[index],
-						&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
-						&redundancySchemes[index],
-						&inlineDatas[index],
-					)
-					if err != nil {
-						return err
-					}
-					index++
-				}
+			if index != int(sourceObject.SegmentCount) {
+				return Error.New("could not load all of the segment information")
+			}
 
-				if err := rows.Err(); err != nil {
-					return err
-				}
+			return nil
+		})
 
-				if index != int(sourceObject.SegmentCount) {
-					return Error.New("could not load all of the segment information")
-				}
-
-				return nil
-			})
-		}
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
@@ -351,19 +306,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return nil
 		}
 
-		if !opts.DuplicateMetadata {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO segment_copies (
-					stream_id, ancestor_stream_id
-				) VALUES (
-					$1, $2
-				)
-			`, opts.NewStreamID, ancestorStreamID)
-			if err != nil {
-				return Error.New("unable to copy object: %w", err)
-			}
-		}
-
 		return nil
 	})
 
@@ -387,7 +329,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 // Fetch the following in a single query:
 // - object at copy source location (error if it's not there)
-// - source ancestor stream id (if any)
 // - next version available
 // - object at copy destination location (if any).
 func getObjectAtCopySourceAndDestination(
@@ -395,7 +336,6 @@ func getObjectAtCopySourceAndDestination(
 ) (sourceObject Object, ancestorStreamID uuid.UUID, destinationObject *Object, nextAvailableVersion Version, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var ancestorStreamIDBytes []byte
 	var highestVersion Version
 
 	sourceObject.ProjectID = opts.ProjectID
@@ -422,11 +362,9 @@ func getObjectAtCopySourceAndDestination(
 			encrypted_metadata,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
-			segment_copies.ancestor_stream_id,
 			0,
 			coalesce((SELECT max(version) FROM destination_current_versions),0) AS highest_version
 		FROM objects
-		LEFT JOIN segment_copies ON objects.stream_id = segment_copies.stream_id
 		WHERE
 			project_id   = $1 AND
 			bucket_name  = $3 AND
@@ -441,7 +379,6 @@ func getObjectAtCopySourceAndDestination(
 			NULL,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
-			NULL,
 			version,
 			(SELECT max(version) FROM destination_current_versions) AS highest_version
 		FROM objects
@@ -472,7 +409,6 @@ func getObjectAtCopySourceAndDestination(
 		&sourceObject.EncryptedMetadata,
 		&sourceObject.TotalPlainSize, &sourceObject.TotalEncryptedSize, &sourceObject.FixedSegmentSize,
 		encryptionParameters{&sourceObject.Encryption},
-		&ancestorStreamIDBytes,
 		&highestVersion,
 		&highestVersion,
 	)
@@ -483,19 +419,7 @@ func getObjectAtCopySourceAndDestination(
 		return Object{}, uuid.UUID{}, nil, 0, ErrObjectNotFound.New("object was changed during copy")
 	}
 
-	if len(ancestorStreamIDBytes) != 0 {
-		// Source object already was a copy, the new copy becomes yet another copy of the existing ancestor
-		ancestorStreamID, err = uuid.FromBytes(ancestorStreamIDBytes)
-		if err != nil {
-			return Object{}, uuid.UUID{}, nil, 0, err
-		}
-	} else {
-		// Source object was not a copy, it will now become an ancestor (unless it has only inline segments)
-		ancestorStreamID = sourceObject.StreamID
-	}
-
 	if rows.Next() {
-		var _bogusBytes []byte
 		destinationObject = &Object{}
 		destinationObject.ProjectID = opts.ProjectID
 		destinationObject.BucketName = opts.NewBucket
@@ -509,7 +433,6 @@ func getObjectAtCopySourceAndDestination(
 			&destinationObject.EncryptedMetadata,
 			&destinationObject.TotalPlainSize, &destinationObject.TotalEncryptedSize, &destinationObject.FixedSegmentSize,
 			encryptionParameters{&destinationObject.Encryption},
-			&_bogusBytes,
 			&destinationObject.Version,
 			&highestVersion,
 		)

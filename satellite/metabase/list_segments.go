@@ -20,10 +20,6 @@ type ListSegments struct {
 	Limit    int
 
 	Range *StreamRange
-
-	// This causes ListSegments to update the first Segment in the response
-	// with the ancestor info if it exists and server side copy is enabled.
-	UpdateFirstWithAncestor bool
 }
 
 // ListSegmentsResult result of listing segments.

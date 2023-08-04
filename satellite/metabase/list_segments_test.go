@@ -282,7 +282,7 @@ func TestListSegments(t *testing.T) {
 				_, _, copySegments := metabasetest.CreateObjectCopy{
 					OriginalObject:   originalObject,
 					CopyObjectStream: &copyStream,
-				}.Run(ctx, t, db, true)
+				}.Run(ctx, t, db)
 
 				expectedSegments := []metabase.Segment{}
 				for _, segment := range copySegments {
@@ -304,8 +304,7 @@ func TestListSegments(t *testing.T) {
 
 				metabasetest.ListSegments{
 					Opts: metabase.ListSegments{
-						StreamID:                copyStream.StreamID,
-						UpdateFirstWithAncestor: true,
+						StreamID: copyStream.StreamID,
 					},
 					Result: metabase.ListSegmentsResult{
 						Segments: expectedSegments,

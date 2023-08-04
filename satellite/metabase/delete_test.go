@@ -753,7 +753,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					copyObj, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 
 					// check that copy went OK
 					metabasetest.Verify{
@@ -798,10 +798,10 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					copyObject1, _, _ := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 					copyObject2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 
 					metabasetest.DeleteObjectExactVersion{
 						Opts: metabase.DeleteObjectExactVersion{
@@ -838,7 +838,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					copyObject, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 
 					metabasetest.DeleteObjectExactVersion{
 						Opts: metabase.DeleteObjectExactVersion{
@@ -878,10 +878,10 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					copyObject1, _, copySegments1 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 					copyObject2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
-					}.Run(ctx, t, db, true)
+					}.Run(ctx, t, db)
 
 					_, err := db.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 						Version:        originalObj.Version,
