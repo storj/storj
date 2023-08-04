@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -437,6 +438,15 @@ func TestAPIKeys(t *testing.T) {
 						}`}))
 			require.Contains(t, body, "apiKeysPage")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_ProjectAPIKeys
+			var projects console.APIKeyPage
+			path := "/api-keys/list-paged?projectID=" + test.defaultProjectID() + "&search=''&limit=6&page=1&order=1&orderDirection=1"
+			resp, body := test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.Contains(t, body, "apiKeys")
 		}
 	})
 }

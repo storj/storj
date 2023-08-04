@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -35,7 +36,102 @@ func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	}
 }
 
-// GetAllAPIKeyNames returns all api key names by project ID.
+// GetProjectAPIKeys returns paged API keys by project ID.
+func (keys *APIKeys) GetProjectAPIKeys(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	query := r.URL.Query()
+
+	projectIDParam := query.Get("projectID")
+	if projectIDParam == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'limit' can't be empty"))
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' can't be empty"))
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	orderParam := query.Get("order")
+	if orderParam == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'order' can't be empty"))
+		return
+	}
+
+	order, err := strconv.ParseUint(orderParam, 10, 32)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	orderDirectionParam := query.Get("orderDirection")
+	if orderDirectionParam == "" {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'orderDirection' can't be empty"))
+		return
+	}
+
+	orderDirection, err := strconv.ParseUint(orderDirectionParam, 10, 32)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	searchString := query.Get("search")
+
+	cursor := console.APIKeyCursor{
+		Search:         searchString,
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          console.APIKeyOrder(order),
+		OrderDirection: console.OrderDirection(orderDirection),
+	}
+
+	apiKeys, err := keys.service.GetAPIKeys(ctx, projectID, cursor)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(apiKeys)
+	if err != nil {
+		keys.log.Error("failed to write json all api keys response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
+	}
+}
+
+// GetAllAPIKeyNames returns all API key names by project ID.
 func (keys *APIKeys) GetAllAPIKeyNames(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -70,7 +166,7 @@ func (keys *APIKeys) GetAllAPIKeyNames(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteByNameAndProjectID deletes specific api key by it's name and project ID.
+// DeleteByNameAndProjectID deletes specific API key by it's name and project ID.
 // ID here may be project.publicID or project.ID.
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
