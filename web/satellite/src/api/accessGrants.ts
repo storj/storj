@@ -27,47 +27,20 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async get(projectId: string, cursor: AccessGrantCursor): Promise<AccessGrantsPage> {
-        const query =
-            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-                project (
-                    publicId: $projectId,
-                ) {
-                    apiKeys (
-                        cursor: {
-                            limit: $limit,
-                            search: $search,
-                            page: $page,
-                            order: $order,
-                            orderDirection: $orderDirection
-                        }
-                    ) {
-                        apiKeys {
-                            id,
-                            name,
-                            createdAt
-                        }
-                        search,
-                        limit,
-                        order,
-                        pageCount,
-                        currentPage,
-                        totalCount
-                    }
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/list-paged?projectID=${projectId}&search=${cursor.search}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const response = await this.client.get(path);
 
-        const variables = {
-            projectId: projectId,
-            limit: cursor.limit,
-            search: cursor.search,
-            page: cursor.page,
-            order: cursor.order,
-            orderDirection: cursor.orderDirection,
-        };
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get API keys',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const response = await this.query(query, variables);
+        const apiKeys = await response.json();
 
-        return this.getAccessGrantsPage(response.data.project.apiKeys);
+        return this.getAccessGrantsPage(apiKeys);
     }
 
     /**
@@ -214,7 +187,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @param page anonymous object from json
      */
     private getAccessGrantsPage(page: any): AccessGrantsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (!page) {
+        if (!(page && page.apiKeys)) {
             return new AccessGrantsPage();
         }
 
