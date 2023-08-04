@@ -95,9 +95,12 @@ import {
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Duration } from '@/utils/time';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const props = defineProps<{
     modelValue: boolean,
@@ -137,7 +140,9 @@ async function onChangeTimeout(): Promise<void> {
     await withLoading(async () => {
         try {
             await usersStore.updateSettings({ sessionDuration: duration.value.nanoseconds });
+            notify.success(`Session timeout changed successfully. Your session timeout is ${duration.value?.shortString}.`);
         } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_TIMEOUT_MODAL);
             return;
         }
 

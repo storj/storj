@@ -91,6 +91,8 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -105,6 +107,8 @@ const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
+
+const notify = useNotify();
 
 const isDataFetching = ref<boolean>(true);
 const chartWidth = ref<number>(0);
@@ -323,7 +327,9 @@ onMounted(async (): Promise<void> => {
             agStore.getAccessGrants(FIRST_PAGE, projectID),
             bucketsStore.getBuckets(FIRST_PAGE, projectID),
         ]);
-    } catch (error) { /* empty */ } finally {
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+    } finally {
         isDataFetching.value = false;
     }
 });

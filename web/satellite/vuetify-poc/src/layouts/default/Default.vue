@@ -31,9 +31,12 @@ import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 const router = useRouter();
 const route = useRoute();
+const notify = useNotify();
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
@@ -75,7 +78,7 @@ watch(() => route.params.projectId, async newId => selectProject(newId as string
 
 /**
  * Lifecycle hook after initial render.
- * Pre fetches user`s and project information.
+ * Pre-fetches user`s and project information.
  */
 onBeforeMount(async () => {
     try {
@@ -85,6 +88,7 @@ onBeforeMount(async () => {
             usersStore.getSettings(),
         ]);
     } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
 
         return;
@@ -92,11 +96,17 @@ onBeforeMount(async () => {
 
     try {
         await billingStore.setupAccount();
-    } catch (error) { /* empty */ }
+    } catch (error) {
+        error.message = `Unable to setup account. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
 
     try {
         await billingStore.getCreditCards();
-    } catch (error) { /* empty */ }
+    } catch (error) {
+        error.message = `Unable to get credit cards. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
 
     selectProject(route.params.projectId as string);
 });

@@ -77,9 +77,9 @@ import {
 
 import { ProjectInvitationResponse } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { RouteConfig } from '@/types/router';
+import { useNotify } from '@/utils/hooks';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -99,6 +99,7 @@ const emit = defineEmits<{
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
+const notify = useNotify();
 
 const isAccepting = ref<boolean>(false);
 const isDeclining = ref<boolean>(false);
@@ -108,6 +109,7 @@ const isDeclining = ref<boolean>(false);
  */
 function openProject(): void {
     projectsStore.selectProject(props.id);
+    notify.success('Invite accepted!');
     router.push(`/projects/${props.id}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
 }
@@ -118,7 +120,8 @@ function openProject(): void {
 async function respondToInvitation(response: ProjectInvitationResponse): Promise<void> {
     if (isDeclining.value || isAccepting.value) return;
 
-    const isLoading = response === ProjectInvitationResponse.Accept ? isAccepting : isDeclining;
+    const accepted = response === ProjectInvitationResponse.Accept;
+    const isLoading = accepted ? isAccepting : isDeclining;
     isLoading.value = true;
 
     let success = false;
@@ -126,16 +129,26 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
         await projectsStore.respondToInvitation(props.id, response);
         success = true;
         analyticsStore.eventTriggered(
-            response === ProjectInvitationResponse.Accept ?
+            accepted ?
                 AnalyticsEvent.PROJECT_INVITATION_ACCEPTED :
                 AnalyticsEvent.PROJECT_INVITATION_DECLINED,
         );
-    } catch { /* empty */ }
+    } catch (error) {
+        const action = accepted ? 'accept' : 'decline';
+        error.message = `Failed to ${action} project invitation. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
+    }
 
-    await projectsStore.getUserInvitations().catch(_ => {});
-    await projectsStore.getProjects().catch(_ => { success = false; });
+    try {
+        await projectsStore.getUserInvitations();
+        await projectsStore.getProjects();
+    } catch (error) {
+        success = false;
+        error.message = `Failed to reload projects and invitations list. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.JOIN_PROJECT_MODAL);
+    }
 
-    if (response === ProjectInvitationResponse.Accept && success) openProject();
+    if (accepted && success) openProject();
 
     isLoading.value = false;
 }

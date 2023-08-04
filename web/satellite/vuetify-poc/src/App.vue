@@ -3,12 +3,14 @@
 
 <template>
     <router-view />
+    <Notifications />
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
+import Notifications from '@poc/layouts/default/Notifications.vue';
 
 const configStore = useConfigStore();
 
