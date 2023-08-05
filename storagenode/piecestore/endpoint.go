@@ -642,7 +642,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			mon.IntVal("download_failure_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			if errors.Is(err, context.Canceled) {
+				endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			} else {
+				endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			}
 		} else {
 			mon.Counter("download_success_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_success_byte_meter", actionSeriesTag).Mark64(downloadSize)
