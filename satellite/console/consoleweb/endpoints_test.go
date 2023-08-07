@@ -448,6 +448,21 @@ func TestAPIKeys(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(body), &projects))
 			require.Contains(t, body, "apiKeys")
 		}
+
+		{ // Post_Create_APIKey
+			var response console.CreateAPIKeyResponse
+			path := "/api-keys/create/" + test.defaultProjectID()
+			resp, body := test.request(http.MethodPost, path,
+				test.toJSON(map[string]interface{}{
+					"name": "testCreatedKey",
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			err := json.Unmarshal([]byte(body), &response)
+			require.NoError(t, err)
+			require.Contains(t, body, "key")
+			require.Contains(t, body, "keyInfo")
+			require.NotNil(t, response.KeyInfo)
+		}
 	})
 }
 

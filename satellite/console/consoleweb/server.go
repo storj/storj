@@ -355,6 +355,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
+	apiKeysRouter.HandleFunc("/create/{projectID}", apiKeysController.CreateAPIKey).Methods(http.MethodPost, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
