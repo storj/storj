@@ -52,31 +52,23 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async create(projectId: string, name: string): Promise<AccessGrant> {
-        const query =
-            `mutation($projectId: String!, $name: String!) {
-                createAPIKey(
-                    publicId: $projectId,
-                    name: $name
-                ) {
-                    key,
-                    keyInfo {
-                        id,
-                        name,
-                        createdAt
-                    }
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/create/${projectId}`;
+        const response = await this.client.post(path, name);
 
-        const variables = {
-            projectId,
-            name,
-        };
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not create new access grant',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const response = await this.mutate(query, variables);
-        const key = response.data.createAPIKey.keyInfo;
-        const secret: string = response.data.createAPIKey.key;
+        const result = await response.json();
 
-        return new AccessGrant(key.id, key.name, key.createdAt, secret);
+        const info = result.keyInfo;
+        const secret: string = result.key;
+
+        return new AccessGrant(info.id, info.name, info.createdAt, secret);
     }
 
     /**
