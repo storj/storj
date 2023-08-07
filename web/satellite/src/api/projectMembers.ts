@@ -34,62 +34,23 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
     }
 
     /**
-     * Used for fetching team members related to project.
+     * Used for fetching team members and invitations related to project.
      *
      * @param projectId
      * @param cursor for pagination
      */
     public async get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
-        const query =
-            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-                project (
-                    publicId: $projectId,
-                ) {
-                    membersAndInvitations (
-                        cursor: {
-                            limit: $limit,
-                            search: $search,
-                            page: $page,
-                            order: $order,
-                            orderDirection: $orderDirection
-                        }
-                    ) {
-                        projectMembers {
-                            user {
-                                id,
-                                fullName,
-                                shortName,
-                                email
-                            },
-                            joinedAt
-                        },
-                        projectInvitations {
-                            email,
-                            createdAt,
-                            expired
-                        },
-                        search,
-                        limit,
-                        order,
-                        pageCount,
-                        currentPage,
-                        totalCount
-                    }
-                }
-            }`;
-
-        const variables = {
-            projectId: projectId,
-            limit: cursor.limit,
-            search: cursor.search,
-            page: cursor.page,
-            order: cursor.order,
-            orderDirection: cursor.orderDirection,
-        };
-
-        const response = await this.query(query, variables);
-
-        return this.getProjectMembersList(response.data.project.membersAndInvitations);
+        const path = `${this.ROOT_PATH}/${projectId}/members?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.page}&order-direction=${cursor.orderDirection}&search=${cursor.search}`;
+        const response = await this.http.get(path);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Failed to get project members and invitations',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+        return this.getProjectMembersList(result);
     }
 
     /**
