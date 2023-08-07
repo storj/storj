@@ -30,10 +30,12 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const router = useRouter();
 const route = useRoute();
 
+const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
@@ -53,11 +55,15 @@ async function selectProject(projectId: string): Promise<void> {
     try {
         projects = await projectsStore.getProjects();
     } catch (_) {
-        router.push('/projects');
+        const path = '/projects';
+        router.push(path);
+        analyticsStore.pageVisit(path);
         return;
     }
     if (!projects.some(p => p.id === projectId)) {
-        router.push('/projects');
+        const path = '/projects';
+        router.push(path);
+        analyticsStore.pageVisit(path);
         return;
     }
     projectsStore.selectProject(projectId);

@@ -81,11 +81,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -95,6 +95,7 @@ import KeyIcon from '@/../static/images/resetPassword/success.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
@@ -103,7 +104,6 @@ const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const token = ref<string>('');
 const password = ref<string>('');
@@ -117,7 +117,7 @@ const isMFARequired = ref<boolean>(false);
 const isMFAError = ref<boolean>(false);
 const isRecoveryCodeState = ref<boolean>(false);
 const isPasswordStrengthShown = ref<boolean>(false);
-const mfaInput = ref<ConfirmMFAInput>();
+const mfaInput = ref<typeof ConfirmMFAInput>();
 
 /**
  * Returns whether the successful password reset area is shown.
@@ -267,13 +267,13 @@ onBeforeUnmount((): void => {
 /**
  * Lifecycle hook after initial render.
  * Initializes recovery token from route param
- * and redirects to login if token doesn't exist.
+ * and redirects to login page if token doesn't exist.
  */
 onMounted((): void => {
     if (route.query.token) {
         token.value = route.query.token.toString();
     } else {
-        analytics.pageVisit(RouteConfig.Login.path);
+        analyticsStore.pageVisit(RouteConfig.Login.path);
         router.push(RouteConfig.Login.path);
     }
 });

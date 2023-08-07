@@ -119,6 +119,8 @@ import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/types/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -134,6 +136,7 @@ const repeatRules = [
     (value: string) => (value && value === newPassword.value || 'Passwords are not the same.'),
 ];
 
+const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const { isLoading, withLoading } = useLoading();
 const router = useRouter();
@@ -163,6 +166,8 @@ async function onChangePassword(): Promise<void> {
     await withLoading(async () => {
         try {
             await auth.changePassword(oldPassword.value, newPassword.value);
+
+            analyticsStore.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
         } catch (error) {
             return;
         }

@@ -570,6 +570,13 @@ func TestOverlayCache_Reliable(t *testing.T) {
 		} {
 			online, offline, err := cache.Reliable(ctx, tc.OnlineWindow, 0)
 			require.NoError(t, err)
+			// make the .Online attribute match expectations for this OnlineWindow
+			for n := range tc.Online {
+				tc.Online[n].Online = true
+			}
+			for n := range tc.Offline {
+				tc.Offline[n].Online = false
+			}
 			require.ElementsMatch(t, tc.Online, online, "#%d", i)
 			require.ElementsMatch(t, tc.Offline, offline, "#%d", i)
 		}
@@ -580,13 +587,14 @@ func TestOverlayCache_Reliable(t *testing.T) {
 	})
 }
 
-func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, online, disqalified, auditSuspended, offlineSuspended, exited bool) nodeselection.SelectedNode {
+func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, online, disqualified, auditSuspended, offlineSuspended, exited bool) nodeselection.SelectedNode {
 	selectedNode := nodeselection.SelectedNode{
 		ID:          testrand.NodeID(),
 		Address:     &pb.NodeAddress{Address: address},
 		LastNet:     lastIPPort,
 		LastIPPort:  lastIPPort,
 		CountryCode: location.Poland,
+		Online:      online,
 	}
 
 	checkInInfo := overlay.NodeCheckInInfo{
@@ -607,17 +615,19 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 	err := cache.UpdateCheckIn(ctx, checkInInfo, timestamp, overlay.NodeSelectionConfig{})
 	require.NoError(t, err)
 
-	if disqalified {
+	if disqualified {
 		_, err := cache.DisqualifyNode(ctx, selectedNode.ID, time.Now(), overlay.DisqualificationReasonAuditFailure)
 		require.NoError(t, err)
 	}
 
 	if auditSuspended {
 		require.NoError(t, cache.TestSuspendNodeUnknownAudit(ctx, selectedNode.ID, time.Now()))
+		selectedNode.Suspended = true
 	}
 
 	if offlineSuspended {
 		require.NoError(t, cache.TestSuspendNodeOffline(ctx, selectedNode.ID, time.Now()))
+		selectedNode.Suspended = true
 	}
 
 	if exited {
@@ -629,6 +639,7 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 			ExitFinishedAt:      now,
 			ExitSuccess:         true,
 		})
+		selectedNode.Exiting = true
 		require.NoError(t, err)
 	}
 

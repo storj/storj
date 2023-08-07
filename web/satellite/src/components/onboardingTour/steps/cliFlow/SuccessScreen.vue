@@ -33,26 +33,25 @@
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import Icon from '@/../static/images/onboardingTour/successStep.svg';
 
+const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Holds on back button click logic.
  */
 async function onBackClick(): Promise<void> {
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
     await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
 }
 
@@ -61,7 +60,7 @@ async function onBackClick(): Promise<void> {
  */
 async function onFinishClick(): Promise<void> {
     endOnboarding();
-    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
     await router.push(RouteConfig.ProjectDashboard.path);
 }
 

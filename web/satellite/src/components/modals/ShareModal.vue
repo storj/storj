@@ -54,9 +54,9 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ShareType } from '@/types/browser';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -71,8 +71,7 @@ enum ButtonStates {
     Copied,
 }
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const { generateFileOrFolderShareURL, generateBucketShareURL } = useLinksharing();
@@ -118,7 +117,7 @@ function closeModal(): void {
 }
 
 onMounted(async (): Promise<void> => {
-    analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
     try {
         if (shareType.value === ShareType.Bucket) {
             link.value = await generateBucketShareURL();

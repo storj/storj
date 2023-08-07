@@ -134,11 +134,14 @@ import {
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
 import TeamTableComponent from '@poc/components/TeamTableComponent.vue';
 
+const analyticsStore = useAnalyticsStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 
@@ -168,6 +171,8 @@ async function onAddUsersClick(): Promise<void> {
         isLoading.value = false;
         return;
     }
+
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
 
     try {
         await pmStore.getProjectMembers(1, selectedProjectID.value);

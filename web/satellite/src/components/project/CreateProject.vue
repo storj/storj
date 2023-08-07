@@ -66,22 +66,21 @@ import { useRouter } from 'vue-router';
 import { RouteConfig } from '@/types/router';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const description = ref<string>('');
 const createdProjectId = ref<string>('');
@@ -132,7 +131,7 @@ async function onCreateProjectClick(): Promise<void> {
     } catch (error) {
         isLoading.value = false;
         nameError.value = error.message;
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
 
         return;
     }
@@ -148,11 +147,11 @@ async function onCreateProjectClick(): Promise<void> {
 
     selectCreatedProject();
 
-    await notify.success('Project created successfully!');
+    notify.success('Project created successfully!');
 
     isLoading.value = false;
 
-    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
     await router.push(RouteConfig.ProjectDashboard.path);
 }
 

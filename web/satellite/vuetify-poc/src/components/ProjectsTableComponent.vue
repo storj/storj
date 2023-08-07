@@ -130,6 +130,8 @@ import { ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
@@ -145,6 +147,7 @@ const emit = defineEmits<{
 const search = ref<string>('');
 const decliningIds = ref(new Set<string>());
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 
@@ -170,6 +173,7 @@ function getFormattedDate(date: Date): string {
 function openProject(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
     router.push(`/projects/${item.id}/dashboard`);
+    analyticsStore.pageVisit('/projects/dashboard');
 }
 
 /**
@@ -179,7 +183,11 @@ async function declineInvitation(item: ProjectItemModel): Promise<void> {
     if (decliningIds.value.has(item.id)) return;
     decliningIds.value.add(item.id);
 
-    await projectsStore.respondToInvitation(item.id, ProjectInvitationResponse.Decline).catch(_ => {});
+    try {
+        await projectsStore.respondToInvitation(item.id, ProjectInvitationResponse.Decline);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+    } catch { /* empty */ }
+
     await projectsStore.getUserInvitations().catch(_ => {});
     await projectsStore.getProjects().catch(_ => {});
 

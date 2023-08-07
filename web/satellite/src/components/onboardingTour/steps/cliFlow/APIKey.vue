@@ -25,20 +25,19 @@ import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import ValueWithCopy from '@/components/onboardingTour/steps/common/ValueWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Returns the web address of this satellite from the store.
@@ -67,13 +66,13 @@ const backRoute = computed((): string => {
  */
 async function onBackClick(): Promise<void> {
     if (backRoute.value) {
-        analytics.pageVisit(backRoute.value);
+        analyticsStore.pageVisit(backRoute.value);
         await router.push(backRoute.value).catch(() => {return; });
 
         return;
     }
 
-    analytics.pageVisit(RouteConfig.OnboardingTour.path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.path);
     await router.push(RouteConfig.OnboardingTour.path).catch(() => {return; });
 }
 
@@ -81,7 +80,7 @@ async function onBackClick(): Promise<void> {
  * Holds on next button click logic.
  */
 async function onNextClick(): Promise<void> {
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
     await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
 }
 
@@ -91,7 +90,7 @@ async function onNextClick(): Promise<void> {
  */
 onMounted((): void => {
     if (!storedAPIKey.value) {
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+        analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
         router.push({ name: RouteConfig.AGName.name });
     }
 });

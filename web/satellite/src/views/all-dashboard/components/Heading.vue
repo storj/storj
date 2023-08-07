@@ -119,7 +119,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { useNotify } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
@@ -134,6 +133,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -157,6 +157,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -169,7 +170,6 @@ const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
-const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
 const link = 'https://docs.storj.io/';
@@ -225,7 +225,7 @@ function goToProjects(): void {
         return;
     }
 
-    analytics.pageVisit(projects);
+    analyticsStore.pageVisit(projects);
     router.push(projects);
 }
 
@@ -239,7 +239,7 @@ function navigateToBilling(): void {
 
     const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
-    analytics.pageVisit(routeConf);
+    analyticsStore.pageVisit(routeConf);
 }
 
 /**
@@ -253,7 +253,7 @@ function navigateToSettings(): void {
         return;
     }
 
-    analytics.pageVisit(settings);
+    analyticsStore.pageVisit(settings);
     router.push(settings).catch(() => {return;});
 }
 
@@ -261,7 +261,7 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
@@ -279,7 +279,7 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
@@ -290,8 +290,8 @@ async function onLogout(): Promise<void> {
  * Sends "View Docs" event to segment and opens link.
  */
 function sendDocsEvent(): void {
-    analytics.pageVisit(link);
-    analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 </script>
 

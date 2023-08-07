@@ -55,7 +55,6 @@ import {
     FailedUploadMessage,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ObjectType } from '@/utils/objectIcon';
@@ -66,8 +65,6 @@ import CloseIcon from '@/../static/images/modals/objectUpload/close.svg';
 import CheckIcon from '@/../static/images/modals/objectUpload/check.svg';
 import FailedIcon from '@/../static/images/modals/objectUpload/failed.svg';
 import InfoIcon from '@/../static/images/modals/objectUpload/info.svg';
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const obStore = useObjectBrowserStore();
 const notify = useNotify();

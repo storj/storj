@@ -128,9 +128,9 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { ObjectType } from '@/utils/objectIcon';
 import { ShareType } from '@/types/browser';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -141,13 +141,12 @@ import DownloadIcon from '@/../static/images/objects/download.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const config = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const props = defineProps<{
   path: string,
@@ -226,7 +225,7 @@ const fileTypeIsFile = computed((): boolean => {
 });
 
 /**
- * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
+ * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner should be shown.
  */
 const loadingSpinner = computed((): boolean => {
     return obStore.state.filesToBeDeleted.some(
@@ -242,7 +241,7 @@ function openModal(): void {
 
     if (config.state.config.galleryViewEnabled) {
         appStore.setGalleryView(true);
-        analytics.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
     } else {
         appStore.updateActiveModal(MODALS.objectDetails);
     }
@@ -317,7 +316,7 @@ function setSelectedFile(command: boolean): void {
         obStore.setUnselectedAnchorFile(null);
         obStore.updateShiftSelectedFiles([]);
     } else if (command) {
-        /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
+        /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorFile to null, update the selectedFiles, and update the shiftSelectedFiles */
         obStore.setSelectedAnchorFile(props.file);
         obStore.setUnselectedAnchorFile(null);
         obStore.updateSelectedFiles([
@@ -363,7 +362,7 @@ function setShiftSelectedFiles(): void {
     const unselectedAnchorFile = obStore.state.unselectedAnchorFile;
 
     if (unselectedAnchorFile) {
-        /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
+        /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now choosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
         obStore.setSelectedAnchorFile(unselectedAnchorFile);
         obStore.setUnselectedAnchorFile(null);
     }

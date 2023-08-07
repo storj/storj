@@ -52,7 +52,6 @@ import { useRouter } from 'vue-router';
 import { RouteConfig } from '@/types/router';
 import { Project, ProjectsPage } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -64,6 +63,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -71,8 +71,8 @@ import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -95,7 +95,7 @@ const projectsPage = computed((): ProjectsPage => {
 });
 
 /**
- * Fetches owned projects page page by clicked page number.
+ * Fetches owned projects page by clicked page number.
  * @param page
  * @param limit
  */
@@ -104,7 +104,7 @@ async function onPageChange(page: number, limit: number): Promise<void> {
     try {
         await projectsStore.getOwnedProjects(currentPageNumber.value, limit);
     } catch (error) {
-        await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
+        notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
 }
 
@@ -112,7 +112,7 @@ async function onPageChange(page: number, limit: number): Promise<void> {
  * Redirects to create project page.
  */
 function onCreateClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
 
     const user: User = usersStore.state.user;
     const ownProjectsCount: number = projectsStore.projectsCount(user.id);
@@ -120,7 +120,7 @@ function onCreateClick(): void {
     if (!user.paidTier || user.projectLimit === ownProjectsCount) {
         appStore.updateActiveModal(MODALS.createProjectPrompt);
     } else {
-        analytics.pageVisit(RouteConfig.CreateProject.path);
+        analyticsStore.pageVisit(RouteConfig.CreateProject.path);
         appStore.updateActiveModal(MODALS.newCreateProject);
     }
 }
@@ -148,7 +148,7 @@ async function onProjectSelected(project: Project): Promise<void> {
             projectsStore.getProjectLimits(projectID),
         ]);
 
-        analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+        analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
         await router.push(RouteConfig.EditProjectDetails.path);
     } catch (error) {
         error.message = `Unable to select project. ${error.message}`;
@@ -167,7 +167,7 @@ onMounted(async () => {
 
         areProjectsFetching.value = false;
     } catch (error) {
-        await notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
+        notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
     }
 });
 </script>

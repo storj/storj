@@ -84,7 +84,7 @@ import { computed, ref } from 'vue';
 import { useNotify } from '@/utils/hooks';
 import { Download } from '@/utils/download';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
 import ValueWithBlur from '@/components/accessGrants/createFlow/components/ValueWithBlur.vue';
@@ -101,13 +101,13 @@ const props = withDefaults(defineProps<{
     isProjectPassphrase: false,
 });
 
+const analyticsStore = useAnalyticsStore();
+
 const notify = useNotify();
 
 const isPassphraseSaved = ref<boolean>(false);
 const isPassphraseCopied = ref<boolean>(false);
 const isPassphraseDownloaded = ref<boolean>(false);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Indicates if continue button is disabled.
@@ -129,7 +129,7 @@ function togglePassphraseSaved(): void {
 function onCopy(): void {
     isPassphraseCopied.value = true;
     navigator.clipboard.writeText(props.passphrase);
-    analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`Passphrase was copied successfully`);
 }
 
@@ -139,7 +139,7 @@ function onCopy(): void {
 function onDownload(): void {
     isPassphraseDownloaded.value = true;
     Download.file(props.passphrase, `passphrase-${props.name}-${new Date().toISOString()}.txt`);
-    analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 }
 </script>
 

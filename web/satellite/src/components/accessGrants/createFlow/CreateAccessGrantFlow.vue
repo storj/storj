@@ -124,12 +124,12 @@ import {
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -144,6 +144,7 @@ import CLIAccessCreatedStep from '@/components/accessGrants/createFlow/steps/CLI
 import S3CredentialsCreatedStep from '@/components/accessGrants/createFlow/steps/S3CredentialsCreatedStep.vue';
 import ConfirmDetailsStep from '@/components/accessGrants/createFlow/steps/ConfirmDetailsStep.vue';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
@@ -202,7 +203,6 @@ const accessGrant = ref<string>('');
 const edgeCredentials = ref<EdgeCredentials>(new EdgeCredentials());
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Selects access type.
@@ -498,7 +498,7 @@ async function createCLIAccess(): Promise<void> {
 
     if (notAfter.value) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': notAfter.value.toISOString() });
 
-    await worker.value.postMessage(permissionsMsg);
+    worker.value.postMessage(permissionsMsg);
 
     const grantEvent: MessageEvent = await new Promise(resolve => {
         if (worker.value) {
@@ -512,7 +512,7 @@ async function createCLIAccess(): Promise<void> {
     cliAccess.value = grantEvent.data.value;
 
     if (selectedAccessTypes.value.includes(AccessType.APIKey)) {
-        analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+        analyticsStore.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
     }
 }
 
@@ -566,7 +566,7 @@ async function createAccessGrant(): Promise<void> {
     accessGrant.value = accessEvent.data.value;
 
     if (selectedAccessTypes.value.includes(AccessType.AccessGrant)) {
-        analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+        analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
     }
 }
 
@@ -575,7 +575,7 @@ async function createAccessGrant(): Promise<void> {
  */
 async function createEdgeCredentials(): Promise<void> {
     edgeCredentials.value = await agStore.getEdgeCredentials(accessGrant.value);
-    analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 }
 
 /**

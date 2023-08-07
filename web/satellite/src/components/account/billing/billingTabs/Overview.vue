@@ -96,11 +96,11 @@ import { centsToDollars } from '@/utils/strings';
 import { RouteConfig } from '@/types/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -109,8 +109,7 @@ import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstima
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
@@ -152,12 +151,12 @@ const priceSummary = computed((): number => {
 });
 
 function routeToBillingHistory(): void {
-    analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path);
 }
 
 function routeToPaymentMethods(): void {
-    analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
 }
 

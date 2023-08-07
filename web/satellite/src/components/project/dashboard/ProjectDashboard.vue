@@ -180,7 +180,6 @@ import { RouteConfig } from '@/types/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
@@ -196,6 +195,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { centsToDollars } from '@/utils/strings';
 import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -217,6 +217,7 @@ import GrantsIcon from '@/../static/images/navigation/accessGrants.svg';
 import TeamIcon from '@/../static/images/navigation/users.svg';
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -229,7 +230,6 @@ const notify = useNotify();
 const router = useRouter();
 
 const now = new Date().toLocaleDateString('en-US');
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isDataFetching = ref<boolean>(true);
 const areBucketsFetching = ref<boolean>(true);
@@ -416,15 +416,8 @@ function onInviteUsersClick(): void {
  * Holds on create project button click logic.
  */
 function onCreateProjectClick(): void {
-    analytics.pageVisit(RouteConfig.CreateProject.path);
+    analyticsStore.pageVisit(RouteConfig.CreateProject.path);
     router.push(RouteConfig.CreateProject.path);
-}
-
-/**
- * Returns formatted amount.
- */
-function usedLimitFormatted(value: number): string {
-    return formattedValue(new Size(value, 2));
 }
 
 /**
@@ -452,18 +445,6 @@ async function onChartsDateRangePick(dateRange: Date[]): Promise<void> {
 }
 
 /**
- * Formats value to needed form and returns it.
- */
-function formattedValue(value: Size): string {
-    switch (value.label) {
-    case Dimensions.Bytes:
-        return '0';
-    default:
-        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
-    }
-}
-
-/**
  * Lifecycle hook after initial render.
  * Fetches project limits.
  */
@@ -474,8 +455,8 @@ onMounted(async (): Promise<void> => {
     if (!projectID) {
         const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
-        analytics.pageVisit(onboardingPath);
-        router.push(onboardingPath);
+        analyticsStore.pageVisit(onboardingPath);
+        await router.push(onboardingPath);
 
         return;
     }
@@ -526,7 +507,7 @@ onMounted(async (): Promise<void> => {
 
         areBucketsFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
 });
 

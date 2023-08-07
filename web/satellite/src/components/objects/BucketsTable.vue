@@ -67,7 +67,6 @@ import { useRouter } from 'vue-router';
 
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -75,6 +74,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -95,8 +95,8 @@ const props = withDefaults(defineProps<{
 const activeDropdown = ref<number>(-1);
 const overallLoading = ref<boolean>(false);
 const searchLoading = ref<boolean>(false);
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -175,7 +175,7 @@ async function fetchBuckets(page = 1, limit: number): Promise<void> {
  */
 async function searchBuckets(searchQuery: string): Promise<void> {
     bucketsStore.setBucketsSearch(searchQuery);
-    analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
+    analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
     searchLoading.value = true;
 
@@ -220,7 +220,7 @@ async function openBucket(bucketName: string): Promise<void> {
             }
         }
 
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
         return;

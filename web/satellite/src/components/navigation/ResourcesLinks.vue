@@ -46,21 +46,21 @@
 </template>
 
 <script setup lang="ts">
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import DocsIcon from '@/../static/images/navigation/docs.svg';
 import ForumIcon from '@/../static/images/navigation/forum.svg';
 import SupportIcon from '@/../static/images/navigation/support.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 /**
  * Sends "View Docs" event to segment and opens link.
  */
 function trackViewDocsEvent(link: string): void {
-    analytics.pageVisit(link);
-    analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(link);
 }
 
@@ -68,8 +68,8 @@ function trackViewDocsEvent(link: string): void {
  * Sends "View Forum" event to segment and opens link.
  */
 function trackViewForumEvent(link: string): void {
-    analytics.pageVisit(link);
-    analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
     window.open(link);
 }
 
@@ -77,8 +77,8 @@ function trackViewForumEvent(link: string): void {
  * Sends "View Support" event to segment and opens link.
  */
 function trackViewSupportEvent(link: string): void {
-    analytics.pageVisit(link);
-    analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
     window.open(link);
 }
 </script>
@@ -86,7 +86,6 @@ function trackViewSupportEvent(link: string): void {
 <style scoped lang="scss">
     .dropdown-item:focus {
         background-color: #f5f6fa;
-        outline: auto;
-        outline-color: var(--c-blue-3);
+        outline: var(--c-blue-3);
     }
 </style>

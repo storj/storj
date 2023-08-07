@@ -46,7 +46,7 @@ import { ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
@@ -67,9 +67,9 @@ const props = withDefaults(defineProps<{
 
 const notify = useNotify();
 
-const isValueShown = ref<boolean>(false);
+const analyticsStore = useAnalyticsStore();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const isValueShown = ref<boolean>(false);
 
 /**
  * Makes blurred value to be shown.
@@ -83,7 +83,7 @@ function showValue(): void {
  */
 function onCopy(): void {
     navigator.clipboard.writeText(props.value);
-    analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`${props.title} was copied successfully`);
 }
 </script>

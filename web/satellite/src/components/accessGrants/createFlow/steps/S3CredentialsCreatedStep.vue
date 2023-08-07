@@ -81,9 +81,9 @@ import { useRouter } from 'vue-router';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -98,10 +98,10 @@ const props = defineProps<{
 const notify = useNotify();
 const router = useRouter();
 
+const analyticsStore = useAnalyticsStore();
+
 const isCopied = ref<boolean>(false);
 const isDownloaded = ref<boolean>(false);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Saves CLI access to clipboard.
@@ -111,7 +111,7 @@ function onCopy(): void {
     navigator.clipboard.writeText(`${credentials.accessKeyId} ${credentials.secretKey} ${credentials.endpoint}`);
 
     isCopied.value = true;
-    analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`S3 credentials were copied successfully`);
 }
 
@@ -123,7 +123,7 @@ function onDownload(): void {
 
     const fileContent = `Access Key:\n${props.credentials.accessKeyId}\n\nSecret Key:\n${props.credentials.secretKey}\n\nEndpoint:\n${props.credentials.endpoint}`;
     Download.file(fileContent, `Storj-S3-credentials-${props.name}-${new Date().toISOString()}.txt`);
-    analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 }
 
 /**

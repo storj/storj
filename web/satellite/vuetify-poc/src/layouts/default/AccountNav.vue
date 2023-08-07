@@ -6,7 +6,7 @@
         <v-sheet>
             <v-list class="px-2" color="default" variant="flat">
                 <template v-if="pathBeforeAccountPage">
-                    <v-list-item class="pa-4 rounded-lg" link router-link :to="pathBeforeAccountPage">
+                    <v-list-item class="pa-4 rounded-lg" link router-link :to="pathBeforeAccountPage" @click="() => trackPageVisitEvent(pathBeforeAccountPage)">
                         <template #prepend>
                             <img src="@poc/assets/icon-back-tonal.svg" alt="Project">
                             <!-- <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -22,7 +22,7 @@
                 </template>
 
                 <!-- All Projects -->
-                <v-list-item class="pa-4 rounded-lg" link router-link to="/projects">
+                <v-list-item class="pa-4 rounded-lg" link router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
                     <template #prepend>
                         <!-- <img src="@poc/assets/icon-prosject.svg" alt="Project" class="mr-3"> -->
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="settings" class="my-1 py-3" rounded="lg">
+                <v-list-item link router-link to="settings" class="my-1 py-3" rounded="lg" @click="() => trackPageVisitEvent('/settings')">
                     <template #prepend>
                         <!-- <img src="@poc/assets/icon-settings.svg" alt="Account Settings" class="mr-3"> -->
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -52,7 +52,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="billing" class="my-1" rounded="lg">
+                <v-list-item link router-link to="billing" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/billing')">
                     <template #prepend>
                         <!-- <img src="@poc/assets/icon-card.svg" alt="Billing" class="mr-3"> -->
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -82,7 +82,9 @@ import {
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 
 /**
@@ -93,4 +95,11 @@ const pathBeforeAccountPage = computed((): string | null => {
     if (!path || path === '/projects') return null;
     return path;
 });
+
+/**
+ * Sends "Page Visit" event to segment and opens link.
+ */
+function trackPageVisitEvent(page: string | null): void {
+    if (page) analyticsStore.pageVisit(page);
+}
 </script>

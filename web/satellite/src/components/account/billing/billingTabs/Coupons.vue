@@ -32,7 +32,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { Coupon, CouponDuration } from '@/types/payments';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
@@ -40,14 +39,14 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 import CouponIcon from '@/../static/images/billing/coupon.svg';
 import CloudIcon from '@/../static/images/onboardingTour/cloudIcon.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
@@ -112,7 +111,7 @@ function toggleCreateModal(): void {
     if (!couponCodeBillingUIEnabled.value) {
         return;
     }
-    analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
     appStore.updateActiveModal(MODALS.newBillingAddCoupon);
 }
 

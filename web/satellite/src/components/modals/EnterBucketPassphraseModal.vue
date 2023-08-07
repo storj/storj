@@ -66,13 +66,13 @@ import { computed, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -82,6 +82,7 @@ import VLoader from '@/components/common/VLoader.vue';
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -89,7 +90,6 @@ const router = useRouter();
 const notify = useNotify();
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const enterError = ref<string>('');
 const passphrase = ref<string>('');
@@ -121,7 +121,7 @@ async function onContinue(): Promise<void> {
     if (isLoading.value) return;
 
     const callback = bucketsStore.state.enterPassphraseCallback || ((): void => {
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
     });
 
@@ -136,7 +136,7 @@ async function onContinue(): Promise<void> {
 
     if (!passphrase.value) {
         enterError.value = 'Passphrase can\'t be empty';
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
 
         return;
     }

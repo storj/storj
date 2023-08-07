@@ -160,7 +160,6 @@ import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
 import { useNotify } from '@/utils/hooks';
@@ -168,6 +167,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -213,8 +213,8 @@ const forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
 const registerPath: string = RouteConfig.Register.path;
 
 const auth = new AuthHttpApi();
-const analytics = new AnalyticsHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -328,7 +328,7 @@ function setPassword(value: string): void {
 /**
  * Redirects to chosen satellite.
  */
-function clickSatellite(address): void {
+function clickSatellite(address: string): void {
     window.location.href = address + '/login';
 }
 
@@ -423,7 +423,7 @@ async function login(): Promise<void> {
 
         if (isMFARequired.value) {
             if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                await notify.error(error.message, null);
+                notify.error(error.message, null);
             }
 
             isMFAError.value = true;
@@ -446,7 +446,7 @@ async function login(): Promise<void> {
     appStore.changeState(FetchState.LOADING);
     isLoading.value = false;
 
-    analytics.pageVisit(returnURL.value);
+    analyticsStore.pageVisit(returnURL.value);
     await router.push(returnURL.value);
 }
 

@@ -19,9 +19,9 @@
 import { computed, ref } from 'vue';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Size } from '@/utils/bytesSize';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -30,8 +30,8 @@ const props = defineProps<{
     openAddPMModal: () => void,
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isBannerShowing = ref<boolean>(true);
 
@@ -54,7 +54,7 @@ const formattedStorageLimit = computed((): string => {
  */
 async function openBanner(): Promise<void> {
     props.openAddPMModal();
-    await analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
 }
 </script>
 

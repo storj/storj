@@ -91,7 +91,6 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
 import ProjectInvitationItem from '@/views/all-dashboard/components/ProjectInvitationItem.vue';
@@ -102,6 +101,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import ProjectsTable from '@/views/all-dashboard/components/ProjectsTable.vue';
 import AllProjectsDashboardBanners from '@/views/all-dashboard/components/AllProjectsDashboardBanners.vue';
 import { useResize } from '@/composables/resize';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VChip from '@/components/common/VChip.vue';
@@ -114,8 +114,7 @@ const appStore = useAppStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-
-const analytics = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 const { isMobile } = useResize();
 
@@ -158,13 +157,13 @@ function onViewChangeClicked(view: string): void {
  * Route to create project page.
  */
 function onCreateProjectClicked(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
     const user: User = usersStore.state.user;
     const ownProjectsCount: number = projectsStore.projectsCount(user.id);
 
     if (user.projectLimit > ownProjectsCount) {
-        analytics.pageVisit(RouteConfig.CreateProject.path);
+        analyticsStore.pageVisit(RouteConfig.CreateProject.path);
         appStore.updateActiveModal(MODALS.newCreateProject);
     } else {
         appStore.updateActiveModal(MODALS.createProjectPrompt);

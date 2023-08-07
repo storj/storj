@@ -118,6 +118,10 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			node.LastIPPort = lastIPPort.String
 		}
 		node.Address.NoiseInfo = noise.Convert()
+		// node.Exiting and node.Suspended are always false here, as we filter them out unconditionally above.
+		// By similar logic, all nodes selected here are "online" in terms of the specified selectionCfg
+		// (specifically, OnlineWindow).
+		node.Online = true
 
 		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
@@ -155,7 +159,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code
+		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code,
+               exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
@@ -180,7 +185,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		var lastIPPort sql.NullString
 		var noise noiseScanner
 		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &noise.Proto,
-			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode)
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode,
+			&node.Exiting, &node.Suspended)
 		if err != nil {
 			return nil, err
 		}
@@ -188,6 +194,8 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 			node.LastIPPort = lastIPPort.String
 		}
 		node.Address.NoiseInfo = noise.Convert()
+		// we consider all nodes in the download selection cache to be online.
+		node.Online = true
 		nodes = append(nodes, &node)
 	}
 	return nodes, Error.Wrap(rows.Err())
@@ -410,7 +418,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 	}
 
 	err = withRows(cache.db.Query(ctx, `
-		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $2 as online
+		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $2 as online, exit_initiated_at IS NOT NULL as exiting
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		WHERE id = any($1::bytea[])
@@ -421,12 +429,12 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			node, onlineNode, err := scanSelectedNode(rows)
+			node, err := scanSelectedNode(rows)
 			if err != nil {
 				return err
 			}
 
-			if onlineNode {
+			if node.Online {
 				online = append(online, node)
 			} else {
 				offline = append(offline, node)
@@ -458,7 +466,7 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(cache.db.Query(ctx, `
-		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $1 as online
+		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $1 as online, exit_initiated_at IS NOT NULL as exiting
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		WHERE disqualified IS NULL
@@ -468,12 +476,12 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 	`, time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			node, onlineNode, err := scanSelectedNode(rows)
+			node, err := scanSelectedNode(rows)
 			if err != nil {
 				return err
 			}
 
-			if onlineNode {
+			if node.Online {
 				online = append(online, node)
 			} else {
 				offline = append(offline, node)
@@ -485,20 +493,23 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 	return online, offline, Error.Wrap(err)
 }
 
-func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, bool, error) {
-	var onlineNode bool
+func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
 	var lastIPPort sql.NullString
-	err := rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &onlineNode)
+	err := rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &node.Online, &node.Exiting)
 	if err != nil {
-		return nodeselection.SelectedNode{}, false, err
+		return nodeselection.SelectedNode{}, err
 	}
 
 	if lastIPPort.Valid {
 		node.LastIPPort = lastIPPort.String
 	}
-	return node, onlineNode, nil
+	// node.Suspended is always false for now, but that will change in a coming
+	// commit; we need to include suspended nodes in return values from
+	// Reliable() and KnownReliable() (in case they are in excluded countries,
+	// are out of placement, are on clumped IP networks, etc).
+	return node, nil
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
@@ -1407,13 +1418,16 @@ func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj
 }
 
 // IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+//
+// Note that this may include disqualified nodes!
 func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *nodeselection.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	// 2018-04-06 is the date of the first storj v3 commit.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features
+		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code,
+		       exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended
 		FROM nodes
 		WHERE last_contact_success >= timestamp '2018-04-06'
 	`))
@@ -1428,7 +1442,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 
 		var lastIPPort sql.NullString
 		var noise noiseScanner
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.Exiting, &node.Suspended)
 		if err != nil {
 			return Error.Wrap(err)
 		}

@@ -27,19 +27,18 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 import UsersIcon from '@/../static/images/notifications/usersIcon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(false);
 const hidden = ref<Set<ProjectInvitation>>(new Set<ProjectInvitation>());
@@ -87,7 +86,7 @@ async function onDeclineClicked(): Promise<void> {
 
     try {
         await projectsStore.respondToInvitation(invite.value.projectID, ProjectInvitationResponse.Decline);
-        analytics.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
     } catch (error) {
         error.message = `Failed to decline project invitation. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);

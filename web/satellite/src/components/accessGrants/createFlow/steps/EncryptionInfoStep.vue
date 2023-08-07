@@ -46,7 +46,7 @@
 import { ref } from 'vue';
 
 import { LocalData } from '@/utils/localData';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
 import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
@@ -57,15 +57,15 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
-const isDontShow = ref<boolean>(false);
+const analyticsStore = useAnalyticsStore();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const isDontShow = ref<boolean>(false);
 
 /**
  * Sends "trackPageVisit" event to segment.
  */
 function trackPageVisit(): void {
-    analytics.pageVisit('https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/');
+    analyticsStore.pageVisit('https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/');
 }
 
 /**

@@ -37,7 +37,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { Bucket } from '@/types/buckets';
 import { RouteConfig } from '@/types/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -45,6 +44,7 @@ import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
@@ -52,14 +52,13 @@ import VButton from '@/components/common/VButton.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(false);
 
@@ -124,8 +123,8 @@ async function openBucket(): Promise<void> {
             }
         }
 
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
         return;
     }

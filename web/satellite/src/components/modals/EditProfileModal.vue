@@ -43,27 +43,26 @@
 import { computed, reactive, ref } from 'vue';
 
 import { UpdatedUser } from '@/types/users';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const userStore = useUsersStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const userInfo = reactive<UpdatedUser>(new UpdatedUser(userStore.state.user.fullName, userStore.state.user.shortName));
 const fullNameError = ref<string>('');
 
 /**
- * Returns first letter of user name.
+ * Returns first letter of username.
  */
 const avatarLetter = computed((): string => {
     return userStore.userName.slice(0, 1).toUpperCase();
@@ -95,7 +94,7 @@ async function onUpdateClick(): Promise<void> {
         return;
     }
 
-    analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
 
     notify.success('Account info successfully updated!');
 

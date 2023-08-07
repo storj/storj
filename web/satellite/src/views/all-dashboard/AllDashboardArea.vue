@@ -57,7 +57,6 @@ import { User } from '@/types/users';
 import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/types/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -77,6 +76,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
@@ -91,6 +91,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const pmStore = useProjectMembersStore();
@@ -103,7 +104,6 @@ const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
-const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const inactivityModalTime = 60000;
@@ -267,7 +267,7 @@ function setIsHundredLimitModalShown(value: boolean): void {
  * Redirects to log in screen.
  */
 function redirectToLogin(): void {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     router.push(RouteConfig.Login.path);
 
     sessionExpiredModalShown.value = false;
@@ -470,7 +470,7 @@ async function onSessionActivity(): Promise<void> {
 
 /**
  * Lifecycle hook after initial render.
- * Pre fetches user`s and project information.
+ * Pre-fetches user`s and project information.
  */
 onMounted(async () => {
     usersStore.$onAction(({ name, after, args }) => {
@@ -548,7 +548,7 @@ onMounted(async () => {
         appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
+        analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
     }
 });

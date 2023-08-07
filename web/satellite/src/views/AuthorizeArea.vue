@@ -97,19 +97,18 @@ import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const oauthClientsAPI = new OAuthClientsAPI();
 const validPerms = {
     'list': true,
@@ -118,6 +117,7 @@ const validPerms = {
     'delete': true,
 };
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -200,7 +200,7 @@ async function ensureLogin(): Promise<void> {
         const query = new URLSearchParams(oauthData.value).toString();
         const path = `${RouteConfig.Authorize.path}?${query}#${clientKey.value}`;
 
-        analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
+        analyticsStore.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
         await router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
     }
 }
@@ -210,7 +210,7 @@ async function ensureWorker(): Promise<void> {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, null);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, null);
         return;
     }
 
@@ -328,7 +328,7 @@ async function setScope(): Promise<void> {
     });
 
     if (event.data.error) {
-        await notify.error(event.data.error, null);
+        notify.error(event.data.error, null);
         return;
     }
 

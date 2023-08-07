@@ -210,22 +210,21 @@ import {
     ProjectFields, ProjectLimits,
 } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { RouteConfig } from '@/types/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const activeStorageMeasurement = ref<string>(Dimensions.TB);
 const activeBandwidthMeasurement = ref<string>(Dimensions.TB);
@@ -494,8 +493,8 @@ async function onSaveNameButtonClick(): Promise<void> {
     }
 
     toggleNameEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_NAME_UPDATED);
-    await notify.success('Project name updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_NAME_UPDATED);
+    notify.success('Project name updated successfully!');
 }
 
 /**
@@ -511,8 +510,8 @@ async function onSaveDescriptionButtonClick(): Promise<void> {
     }
 
     toggleDescriptionEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED);
-    await notify.success('Project description updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED);
+    notify.success('Project description updated successfully!');
 }
 
 /**
@@ -536,7 +535,7 @@ async function onSaveStorageLimitButtonClick(): Promise<void> {
     }
 
     toggleStorageLimitEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
     notify.success('Project storage limit updated successfully!');
 }
 
@@ -561,7 +560,7 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
     }
 
     toggleBandwidthLimitEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
     notify.success('Project egress limit updated successfully!');
 }
 

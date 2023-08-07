@@ -12,13 +12,12 @@ import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const router = useRouter();
 const configStore = useConfigStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 /**
  * Lifecycle hook after initial render.
@@ -26,7 +25,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  */
 onMounted(async (): Promise<void> => {
     if (configStore.state.config.fileBrowserFlowDisabled) {
-        analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+        analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
         await router.push(RouteConfig.ProjectDashboard.path);
     }
 });

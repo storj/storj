@@ -98,6 +98,8 @@ import { ProjectItemModel, PROJECT_ROLE_COLORS } from '@poc/types/projects';
 import { ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -111,6 +113,7 @@ const emit = defineEmits<{
     (event: 'joinClick'): void;
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 
@@ -123,6 +126,7 @@ function openProject(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
     router.push(`/projects/${props.item.id}/dashboard`);
+    analyticsStore.pageVisit('/projects/dashboard');
 }
 
 /**
@@ -132,7 +136,11 @@ async function declineInvitation(): Promise<void> {
     if (!props.item || isDeclining.value) return;
     isDeclining.value = true;
 
-    await projectsStore.respondToInvitation(props.item.id, ProjectInvitationResponse.Decline).catch(_ => {});
+    try {
+        await projectsStore.respondToInvitation(props.item.id, ProjectInvitationResponse.Decline);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+    } catch { /* empty */ }
+
     await projectsStore.getUserInvitations().catch(_ => {});
     await projectsStore.getProjects().catch(_ => {});
 

@@ -39,7 +39,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
@@ -49,6 +49,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
@@ -59,8 +60,6 @@ const route = useRoute();
 const props = defineProps<{
     setSuccess: () => void;
 }>();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const loading = ref<boolean>(false);
 const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
@@ -101,7 +100,7 @@ async function addCardToDB(token: string): Promise<void> {
             await billingStore.getCreditCards();
         }
 
-        analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+        analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
 
         loading.value = false;
         props.setSuccess();

@@ -32,7 +32,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
@@ -40,13 +39,13 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -90,7 +89,7 @@ async function onDelete(): Promise<void> {
         const now = new Date();
         const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-        await worker.value.postMessage({
+        worker.value.postMessage({
             'type': 'SetPermission',
             'isDownload': false,
             'isUpload': false,
@@ -107,7 +106,7 @@ async function onDelete(): Promise<void> {
             }
         });
         if (grantEvent.data.error) {
-            await notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
             return;
         }
 
@@ -137,7 +136,7 @@ async function onDelete(): Promise<void> {
         const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
         bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
         await bucketsStore.deleteBucket(name.value);
-        analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
         await fetchBuckets();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);

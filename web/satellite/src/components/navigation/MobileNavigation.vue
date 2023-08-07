@@ -208,7 +208,6 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/types/router';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
@@ -228,6 +227,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -266,6 +266,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Team.withIcon(UsersIcon),
 ];
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -282,7 +283,6 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const isResourcesDropdownShown = ref<boolean>(false);
@@ -420,14 +420,14 @@ function toggleAccountDropdown(): void {
  * Sends new path click event to segment.
  */
 function trackClickEvent(path: string): void {
-    analytics.pageVisit(path);
+    analyticsStore.pageVisit(path);
 }
 
 /**
  * Route to all projects page.
  */
 function onAllProjectsClick(): void {
-    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    analyticsStore.pageVisit(RouteConfig.AllProjectsDashboard.path);
     router.push(RouteConfig.AllProjectsDashboard.path);
     toggleProjectDropdown();
 }
@@ -436,7 +436,7 @@ function onAllProjectsClick(): void {
  * Route to project details page.
  */
 function onProjectDetailsClick(): void {
-    analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+    analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
     router.push(RouteConfig.EditProjectDetails.path);
     toggleProjectDropdown();
 }
@@ -470,7 +470,7 @@ async function onProjectClick(): Promise<void> {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
@@ -479,7 +479,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     if (isBucketsView.value) {
         bucketsStore.clear();
-        analytics.pageVisit(RouteConfig.Buckets.path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.path);
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
     }
 
@@ -502,8 +502,8 @@ async function onProjectSelected(projectID: string): Promise<void> {
  */
 function onProjectsLinkClick(): void {
     if (route.name !== RouteConfig.ProjectsList.name) {
-        analytics.pageVisit(RouteConfig.ProjectsList.path);
-        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
+        analyticsStore.pageVisit(RouteConfig.ProjectsList.path);
+        analyticsStore.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
         router.push(RouteConfig.ProjectsList.path);
     }
 
@@ -515,7 +515,7 @@ function onProjectsLinkClick(): void {
  */
 function onCreateLinkClick(): void {
     if (route.name !== RouteConfig.CreateProject.name) {
-        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
         const user: User = usersStore.state.user;
         const ownProjectsCount: number = projectsStore.projectsCount(user.id);
@@ -523,7 +523,7 @@ function onCreateLinkClick(): void {
         if (!user.paidTier || user.projectLimit === ownProjectsCount) {
             appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
-            analytics.pageVisit(RouteConfig.CreateProject.path);
+            analyticsStore.pageVisit(RouteConfig.CreateProject.path);
             appStore.updateActiveModal(MODALS.newCreateProject);
         }
     }
@@ -548,7 +548,7 @@ function navigateToBilling(): void {
 
     const link = RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview));
     router.push(link.path);
-    analytics.pageVisit(link.path);
+    analyticsStore.pageVisit(link.path);
 }
 
 /**
@@ -556,7 +556,7 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     isOpened.value = false;
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
     router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
 }
 
@@ -564,7 +564,7 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
@@ -582,7 +582,7 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);

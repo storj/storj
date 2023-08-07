@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -438,6 +439,15 @@ func TestAPIKeys(t *testing.T) {
 			require.Contains(t, body, "apiKeysPage")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
+
+		{ // Get_ProjectAPIKeys
+			var projects console.APIKeyPage
+			path := "/api-keys/list-paged?projectID=" + test.defaultProjectID() + "&search=''&limit=6&page=1&order=1&orderDirection=1"
+			resp, body := test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.Contains(t, body, "apiKeys")
+		}
 	})
 }
 
@@ -483,6 +493,22 @@ func TestProjects(t *testing.T) {
 			salt, err := planet.Satellites[0].DB.Console().Projects().GetSalt(ctx, id)
 			require.NoError(t, err)
 			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
+		}
+
+		{ // Get_User_Projects
+
+			var projects []struct {
+				ID          uuid.UUID `json:"id"`
+				Name        string    `json:"name"`
+				OwnerID     uuid.UUID `json:"ownerId"`
+				Description string    `json:"description"`
+				MemberCount int       `json:"memberCount"`
+				CreatedAt   time.Time `json:"createdAt"`
+			}
+			resp, body := test.request(http.MethodGet, "/projects", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.NotEmpty(t, projects)
 		}
 
 		{ // Get_ProjectInfo
