@@ -41,8 +41,14 @@ func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.
 			PasswordHash:          []byte("test"),
 		})
 		require.NoError(t, err)
-
 		members[memberID] = *member
+
+		status := console.UserStatus(1)
+
+		err = db.Users().Update(ctx, memberID, console.UpdateUserRequest{
+			Status: &status,
+		})
+		require.NoError(t, err)
 
 		_, err = db.ProjectMembers().Insert(ctx, member.ID, p)
 		require.NoError(t, err)
@@ -380,5 +386,97 @@ func TestGetProjectMembersAndInvitationsLimitAndPage(t *testing.T) {
 			limit++
 			page++
 		}
+	})
+}
+
+func TestDeleteProjectMembers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := planet.Uplinks[0].Projects[0].ID
+
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
+
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.NoError(t, err)
+
+		expire := time.Now().AddDate(0, 0, 1)
+		cookie := http.Cookie{
+			Name:    "_tokenKey",
+			Path:    "/",
+			Value:   tokenInfo.Token.String(),
+			Expires: expire,
+		}
+
+		addr := planet.Satellites[0].API.Console.Listener.Addr().String()
+
+		var emails string
+		var firstAppendDone bool
+		for _, m := range members {
+			if firstAppendDone {
+				emails += ","
+			} else {
+				firstAppendDone = true
+			}
+			emails += m.Email
+		}
+		for e := range invitees {
+			if len(members) > 0 {
+				emails += ","
+			}
+			emails += e
+		}
+
+		endpoint := fmt.Sprintf("http://%s/api/v0/projects/%s/members?", addr, p.String())
+		params := url.Values{}
+		params.Add("emails", emails)
+		endpoint += params.Encode()
+
+		req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+		require.NoError(t, err)
+
+		req.AddCookie(&cookie)
+
+		client := http.Client{}
+		res, err := client.Do(req)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+
+		body, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.NoError(t, res.Body.Close())
+		require.NotContains(t, string(body), "error")
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+
+		page, err := sat.DB.Console().ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, p, console.ProjectMembersCursor{Limit: 1, Page: 1})
+		require.NoError(t, err)
+		require.Len(t, page.ProjectMembers, 1)
+		require.Equal(t, user.ID, page.ProjectMembers[0].MemberID)
+
+		// test error
+		endpoint = fmt.Sprintf("http://%s/api/v0/projects/%s/members?", addr, p.String())
+		params = url.Values{}
+		params.Add("emails", "nonmember@storj.test")
+		endpoint += params.Encode()
+
+		req, err = http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+		require.NoError(t, err)
+
+		req.AddCookie(&cookie)
+
+		client = http.Client{}
+		res, err = client.Do(req)
+		require.NoError(t, err)
+		require.NotNil(t, res)
+
+		body, err = io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.NoError(t, res.Body.Close())
+		require.Contains(t, string(body), "error")
 	})
 }

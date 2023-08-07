@@ -524,6 +524,39 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteMembersAndInvitations deletes members and invitations from a project.
+func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	emailsStr := r.URL.Query().Get("emails")
+	if emailsStr == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing emails parameter"))
+		return
+	}
+
+	emails := strings.Split(emailsStr, ",")
+
+	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, emails)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Projects) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, p.log, w, status, err)
