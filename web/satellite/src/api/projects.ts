@@ -73,7 +73,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             p.description,
             p.createdAt,
             p.ownerId,
-            p.isSelected,
+            false,
             p.memberCount,
         ));
     }
@@ -259,33 +259,30 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @throws Error
      */
     public async getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
-        const query =
-            `query($limit: Int!, $page: Int!) {
-                ownedProjects( cursor: { limit: $limit, page: $page } ) {
-                    projects {
-                        publicId,
-                        name,
-                        ownerId,
-                        description,
-                        createdAt,
-                        memberCount
-                    },
-                    limit,
-                    offset,
-                    pageCount,
-                    currentPage,
-                    totalCount
-                 }
-             }`;
+        const response = await this.http.get(`${this.ROOT_PATH}/paged?limit=${cursor.limit}&page=${cursor.page}`);
 
-        const variables = {
-            limit: cursor.limit,
-            page: cursor.page,
-        };
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get projects',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const response = await this.query(query, variables);
+        const page = await response.json();
 
-        return this.getProjectsPage(response.data.ownedProjects);
+        const projects: Project[] = page.projects.map((p: Project) =>
+            new Project(
+                p.id,
+                p.name,
+                p.description,
+                p.createdAt,
+                p.ownerId,
+                false,
+                p.memberCount,
+            ));
+
+        return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
 
     /**
@@ -333,28 +330,5 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             message: result.error || 'Failed to respond to project invitation',
             requestID: httpResponse.headers.get('x-request-id'),
         });
-    }
-
-    /**
-     * Method for mapping projects page from json to ProjectsPage type.
-     *
-     * @param page anonymous object from json
-     */
-    private getProjectsPage(page: any): ProjectsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (!page) {
-            return new ProjectsPage();
-        }
-
-        const projects: Project[] = page.projects.map(key =>
-            new Project(
-                key.publicId,
-                key.name,
-                key.description,
-                key.createdAt,
-                key.ownerId,
-                false,
-                key.memberCount));
-
-        return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
 }
