@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -903,6 +904,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		resp.More = result.More
 	} else {
 		if status == metabase.Pending && endpoint.config.UsePendingObjectsTable {
+			type ObjectListItem struct {
+				Item     *pb.ObjectListItem
+				StreamID uuid.UUID
+			}
+
+			pendingObjectsEntries := make([]ObjectListItem, 0, limit)
+			// TODO when objects table will be free from pending objects only this listing method will remain
 			err = endpoint.metabase.IteratePendingObjects(ctx, metabase.IteratePendingObjects{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
@@ -917,53 +925,118 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				IncludeSystemMetadata: includeSystemMetadata,
 			}, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
 				entry := metabase.PendingObjectEntry{}
-				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+				for it.Next(ctx, &entry) {
 					item, err := endpoint.pendingObjectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
 					if err != nil {
 						return err
 					}
-					resp.Items = append(resp.Items, item)
+					pendingObjectsEntries = append(pendingObjectsEntries, ObjectListItem{
+						Item:     item,
+						StreamID: entry.StreamID,
+					})
 				}
-				resp.More = it.Next(ctx, &entry)
 				return nil
 			})
 			if err != nil {
 				return nil, endpoint.convertMetabaseErr(err)
 			}
-		}
 
-		// we always need results from both tables for now
-		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
-			metabase.IterateObjectsWithStatus{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				Prefix:     prefix,
-				Cursor: metabase.IterateCursor{
-					Key:     cursorKey,
-					Version: cursorVersion,
-				},
-				Recursive:             req.Recursive,
-				BatchSize:             limit + 1,
-				Status:                status,
-				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: includeSystemMetadata,
-			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-				entry := metabase.ObjectEntry{}
-				for len(resp.Items) < limit && it.Next(ctx, &entry) {
-					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
-					if err != nil {
-						return err
+			// we always need results from both tables for now
+			objectsEntries := make([]ObjectListItem, 0, limit)
+			err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
+				metabase.IterateObjectsWithStatus{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.IterateCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Recursive:             req.Recursive,
+					BatchSize:             limit + 1,
+					Status:                metabase.Pending,
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for it.Next(ctx, &entry) {
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+						if err != nil {
+							return err
+						}
+						objectsEntries = append(objectsEntries, ObjectListItem{
+							Item:     item,
+							StreamID: entry.StreamID,
+						})
 					}
-					resp.Items = append(resp.Items, item)
-				}
+					return nil
+				},
+			)
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
 
-				// we need to take into account also potential results from IteratePendingObjects
-				resp.More = resp.More || it.Next(ctx, &entry)
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
+			// combine results from both tables and sort them by object key to be able to cut results to the limit
+			allResults := make([]ObjectListItem, 0, len(pendingObjectsEntries)+len(objectsEntries))
+			allResults = append(allResults, pendingObjectsEntries...)
+			allResults = append(allResults, objectsEntries...)
+			sort.Slice(allResults, func(i, j int) bool {
+				keyCompare := bytes.Compare(allResults[i].Item.EncryptedObjectKey, allResults[j].Item.EncryptedObjectKey)
+				switch {
+				case keyCompare == -1:
+					return true
+				case keyCompare == 1:
+					return false
+				case allResults[i].Item.Version < allResults[j].Item.Version:
+					return true
+				case allResults[i].Item.Version > allResults[j].Item.Version:
+					return false
+				default:
+					return allResults[i].StreamID.Less(allResults[j].StreamID)
+				}
+			})
+			if len(allResults) >= limit {
+				resp.More = len(allResults) > limit
+				allResults = allResults[:limit]
+			}
+			resp.Items = make([]*pb.ObjectListItem, len(allResults))
+			for i, objectListItem := range allResults {
+				resp.Items[i] = objectListItem.Item
+			}
+		} else {
+			// we always need results from both tables for now
+			err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
+				metabase.IterateObjectsWithStatus{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					Prefix:     prefix,
+					Cursor: metabase.IterateCursor{
+						Key:     cursorKey,
+						Version: cursorVersion,
+					},
+					Recursive:             req.Recursive,
+					BatchSize:             limit + 1,
+					Status:                status,
+					IncludeCustomMetadata: includeCustomMetadata,
+					IncludeSystemMetadata: includeSystemMetadata,
+				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for len(resp.Items) < limit && it.Next(ctx, &entry) {
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+						if err != nil {
+							return err
+						}
+						resp.Items = append(resp.Items, item)
+					}
+
+					// we need to take into account also potential results from IteratePendingObjects
+					resp.More = resp.More || it.Next(ctx, &entry)
+					return nil
+				},
+			)
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
 		}
 	}
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1024,30 +1097,62 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	resp = &pb.ObjectListPendingStreamsResponse{}
 	resp.Items = []*pb.ObjectListItem{}
-	err = endpoint.metabase.IteratePendingObjectsByKey(ctx,
-		metabase.IteratePendingObjectsByKey{
-			ObjectLocation: metabase.ObjectLocation{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+
+	options := metabase.IteratePendingObjectsByKey{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+		},
+		BatchSize: limit + 1,
+		Cursor:    cursor,
+	}
+
+	if endpoint.config.UsePendingObjectsTable {
+		err = endpoint.metabase.IteratePendingObjectsByKeyNew(ctx,
+			options, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
+				entry := metabase.PendingObjectEntry{}
+				for it.Next(ctx, &entry) {
+					item, err := endpoint.pendingObjectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, true, placement)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+				return nil
 			},
-			BatchSize: limit + 1,
-			Cursor:    cursor,
-		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+		)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+	}
+
+	objectsEntries := make([]*pb.ObjectListItem, 0, limit)
+	err = endpoint.metabase.IteratePendingObjectsByKey(ctx,
+		options, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
-			for len(resp.Items) < limit && it.Next(ctx, &entry) {
+			for it.Next(ctx, &entry) {
 				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, true, placement)
 				if err != nil {
 					return err
 				}
-				resp.Items = append(resp.Items, item)
+				objectsEntries = append(objectsEntries, item)
 			}
-			resp.More = it.Next(ctx, &entry)
 			return nil
 		},
 	)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	// TODO currently this request have a bug if we would like to list all pending objects
+	// with the same name if we have more than single page of them (1000) because protobuf
+	// cursor doesn't include additional things like StreamID so it's a bit useless to do
+	// anything else than just combine results
+	resp.Items = append(resp.Items, objectsEntries...)
+	if len(resp.Items) >= limit {
+		resp.More = len(resp.Items) > limit
+		resp.Items = resp.Items[:limit]
 	}
 
 	endpoint.log.Info("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))

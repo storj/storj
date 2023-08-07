@@ -19,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -801,6 +802,127 @@ func TestEndpoint_Object_No_StorageNodes_UsePendingObjectsTable(t *testing.T) {
 			iterator = project.ListUploads(ctx, bucketName, nil)
 			require.False(t, iterator.Next())
 			require.NoError(t, iterator.Err())
+		})
+
+		t.Run("ListPendingObjectStreams", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			_, err = project.CreateBucket(ctx, bucketName)
+			require.NoError(t, err)
+
+			_, err = project.BeginUpload(ctx, bucketName, "pending_object", nil)
+			require.NoError(t, err)
+
+			iterator := project.ListUploads(ctx, bucketName, &uplink.ListUploadsOptions{
+				Prefix: "pending_object",
+			})
+			require.True(t, iterator.Next())
+			require.Equal(t, "pending_object", iterator.Item().Key)
+			require.NoError(t, iterator.Err())
+
+			// pending object in objects table
+			_, err := planet.Satellites[0].Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  metabase.ObjectKey("pending_object"),
+					StreamID:   testrand.UUID(),
+					Version:    metabase.NextVersion,
+				},
+				Encryption:             metabasetest.DefaultEncryption,
+				UsePendingObjectsTable: false,
+			})
+			require.NoError(t, err)
+
+			keys := []string{}
+			iterator = project.ListUploads(ctx, bucketName, &uplink.ListUploadsOptions{
+				Prefix: "pending_object",
+			})
+			for iterator.Next() {
+				keys = append(keys, iterator.Item().Key)
+			}
+			require.NoError(t, iterator.Err())
+
+			// we should have two objects with the same name, one from pending_objects
+			// table and second from objects table
+			require.ElementsMatch(t, []string{
+				"pending_object",
+				"pending_object",
+			}, keys)
+		})
+
+		t.Run("mixed objects from both tables", func(t *testing.T) {
+			type TestCases struct {
+				PendingObjectsTable []string
+				ObjectsTable        []string
+			}
+
+			for _, tc := range []TestCases{
+				{
+					PendingObjectsTable: []string{"A", "B", "C"},
+					ObjectsTable:        []string{"X", "Y", "Z"},
+				},
+				{
+					PendingObjectsTable: []string{"A", "Y", "C"},
+					ObjectsTable:        []string{"X", "B", "Z"},
+				},
+				{
+
+					PendingObjectsTable: []string{"X", "B", "Z"},
+					ObjectsTable:        []string{"A", "Y", "C"},
+				},
+				{
+					PendingObjectsTable: []string{"A", "B", "C", "X", "Y", "Z"},
+				},
+				{
+					ObjectsTable: []string{"A", "B", "C", "X", "Y", "Z"},
+				},
+			} {
+				t.Run("", func(t *testing.T) {
+					defer ctx.Check(deleteBucket)
+
+					_, err = project.CreateBucket(ctx, bucketName)
+					require.NoError(t, err)
+
+					allKeys := []string{}
+					// create objects in pending_objects table
+					for _, key := range tc.PendingObjectsTable {
+						_, err = project.BeginUpload(ctx, bucketName, key, nil)
+						require.NoError(t, err)
+						allKeys = append(allKeys, key)
+					}
+
+					// create objects in objects table
+					for _, key := range tc.ObjectsTable {
+						_, err := planet.Satellites[0].Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  projectID,
+								BucketName: bucketName,
+								ObjectKey:  metabase.ObjectKey(key),
+								StreamID:   testrand.UUID(),
+								Version:    metabase.NextVersion,
+							},
+							Encryption:             metabasetest.DefaultEncryption,
+							UsePendingObjectsTable: false,
+						})
+						require.NoError(t, err)
+						allKeys = append(allKeys, key)
+					}
+
+					slices.Sort(allKeys)
+
+					for _, limit := range []int{1, 2, 3, 10, 1000} {
+						ctx := testuplink.WithListLimit(ctx, limit)
+						resultKeys := []string{}
+						iterator := project.ListUploads(ctx, bucketName, nil)
+						for iterator.Next() {
+							resultKeys = append(resultKeys, iterator.Item().Key)
+						}
+						require.NoError(t, iterator.Err())
+						require.Equal(t, allKeys, resultKeys)
+					}
+				})
+			}
 		})
 	})
 }
