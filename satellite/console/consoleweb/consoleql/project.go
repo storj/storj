@@ -450,16 +450,16 @@ func graphqlProjectUsage() *graphql.Object {
 	})
 }
 
-// fromMapProjectInfo creates console.ProjectInfo from input args.
-func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
+// fromMapProjectInfo creates console.UpsertProjectInfo from input args.
+func fromMapProjectInfo(args map[string]interface{}) (project console.UpsertProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
 	project.Description, _ = args[FieldDescription].(string)
 
 	return
 }
 
-// fromMapProjectInfoProjectLimits creates console.ProjectInfo from input args.
-func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.ProjectInfo, err error) {
+// fromMapProjectInfoProjectLimits creates console.UpsertProjectInfo from input args.
+func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.UpsertProjectInfo, err error) {
 	project.Name, _ = projectInfo[FieldName].(string)
 	project.Description, _ = projectInfo[FieldDescription].(string)
 	storageLimit, err := strconv.Atoi(projectLimits[FieldStorageLimit].(string))

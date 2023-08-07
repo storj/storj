@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,32 +45,94 @@ func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 
 	projects, err := p.service.GetUsersProjects(ctx)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
-	type jsonProject struct {
-		ID          uuid.UUID `json:"id"`
-		Name        string    `json:"name"`
-		OwnerID     uuid.UUID `json:"ownerId"`
-		Description string    `json:"description"`
-		MemberCount int       `json:"memberCount"`
-		CreatedAt   time.Time `json:"createdAt"`
-	}
-
-	response := make([]jsonProject, 0)
+	response := make([]console.ProjectInfo, 0)
 	for _, project := range projects {
-		response = append(response, jsonProject{
-			ID:          project.PublicID,
-			Name:        project.Name,
-			OwnerID:     project.OwnerID,
-			Description: project.Description,
-			MemberCount: project.MemberCount,
-			CreatedAt:   project.CreatedAt,
-		})
+		response = append(response, project.GetMinimal())
 	}
 
 	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// GetPagedProjects returns paged projects for a user.
+func (p *Projects) GetPagedProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'limit' is required"))
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' is required"))
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if page == 0 {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' can not be 0"))
+		return
+	}
+
+	cursor := console.ProjectsCursor{
+		Limit: int(limit),
+		Page:  int(page),
+	}
+
+	projectsPage, err := p.service.GetUsersOwnedProjectsPage(ctx, cursor)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	pageToSend := console.ProjectInfoPage{
+		Limit:       projectsPage.Limit,
+		Offset:      projectsPage.Offset,
+		PageCount:   projectsPage.PageCount,
+		CurrentPage: projectsPage.CurrentPage,
+		TotalCount:  projectsPage.TotalCount,
+	}
+
+	for _, project := range projectsPage.Projects {
+		pageToSend.Projects = append(pageToSend.Projects, project.GetMinimal())
+	}
+
+	err = json.NewEncoder(w).Encode(pageToSend)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}

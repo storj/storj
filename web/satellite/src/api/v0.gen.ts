@@ -69,14 +69,6 @@ export class Project {
     defaultPlacement: number;
 }
 
-export class ProjectInfo {
-    name: string;
-    description: string;
-    storageLimit: MemorySize;
-    bandwidthLimit: MemorySize;
-    createdAt: Time;
-}
-
 export class ResponseUser {
     id: UUID;
     fullName: string;
@@ -94,11 +86,19 @@ export class ResponseUser {
     mfaRecoveryCodeCount: number;
 }
 
+export class UpsertProjectInfo {
+    name: string;
+    description: string;
+    storageLimit: MemorySize;
+    bandwidthLimit: MemorySize;
+    createdAt: Time;
+}
+
 export class projectsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/projects';
 
-    public async createProject(request: ProjectInfo): Promise<Project> {
+    public async createProject(request: UpsertProjectInfo): Promise<Project> {
         const path = `${this.ROOT_PATH}/create`;
         const response = await this.http.post(path, JSON.stringify(request));
         if (response.ok) {
@@ -108,7 +108,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async updateProject(request: ProjectInfo, id: UUID): Promise<Project> {
+    public async updateProject(request: UpsertProjectInfo, id: UUID): Promise<Project> {
         const path = `${this.ROOT_PATH}/update/${id}`;
         const response = await this.http.patch(path, JSON.stringify(request));
         if (response.ok) {

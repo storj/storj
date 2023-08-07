@@ -149,7 +149,7 @@ func TestService(t *testing.T) {
 
 			t.Run("CreateProject", func(t *testing.T) {
 				// Creating a project with a previously used name should fail
-				createdProject, err := service.CreateProject(userCtx1, console.ProjectInfo{
+				createdProject, err := service.CreateProject(userCtx1, console.UpsertProjectInfo{
 					Name: up1Proj.Name,
 				})
 				require.Error(t, err)
@@ -169,7 +169,7 @@ func TestService(t *testing.T) {
 				userCtx, err := sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 
-				p, err := service.CreateProject(userCtx, console.ProjectInfo{
+				p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
 					Name:        "eu-project",
 					Description: "project with eu1 default placement",
 					CreatedAt:   time.Now(),
@@ -188,7 +188,7 @@ func TestService(t *testing.T) {
 				_, userCtx1 := getOwnerAndCtx(ctx, up1Proj)
 
 				// Updating own project should work
-				updatedProject, err := service.UpdateProject(userCtx1, up1Proj.ID, console.ProjectInfo{
+				updatedProject, err := service.UpdateProject(userCtx1, up1Proj.ID, console.UpsertProjectInfo{
 					Name:           updatedName,
 					Description:    updatedDescription,
 					StorageLimit:   updatedStorageLimit,
@@ -207,7 +207,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 
 				// Updating someone else project details should not work
-				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.ProjectInfo{
+				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
 					Name:           "newName",
 					Description:    "TestUpdate",
 					StorageLimit:   memory.Size(100),
@@ -226,7 +226,7 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Proj)
 				require.NoError(t, err)
 
-				updateInfo := console.ProjectInfo{
+				updateInfo := console.UpsertProjectInfo{
 					Name:           "a b c",
 					Description:    "1 2 3",
 					StorageLimit:   memory.Size(123),
@@ -266,7 +266,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
 
 				// attempting to update a project with a previously used name should fail
-				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.ProjectInfo{
+				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
 					Name: up1Proj.Name,
 				})
 				require.Error(t, err)
@@ -276,7 +276,7 @@ func TestService(t *testing.T) {
 				_, err = service.AddProjectMembers(userCtx1, up1Proj.ID, []string{user2.Email})
 				require.NoError(t, err)
 				// Members should not be able to update project.
-				_, err = service.UpdateProject(userCtx2, up1Proj.ID, console.ProjectInfo{
+				_, err = service.UpdateProject(userCtx2, up1Proj.ID, console.UpsertProjectInfo{
 					Name: updatedName,
 				})
 				require.Error(t, err)
@@ -765,7 +765,7 @@ func TestPaidTier(t *testing.T) {
 		require.Equal(t, usageConfig.Segment.Paid, *proj1.SegmentLimit)
 
 		// expect new project to be created with paid tier usage limits
-		proj2, err := service.CreateProject(userCtx, console.ProjectInfo{Name: "Project 2"})
+		proj2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "Project 2"})
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
 	})
@@ -821,7 +821,7 @@ func TestUpdateProjectExceedsLimits(t *testing.T) {
 		require.Equal(t, usageConfig.Segment.Free, *proj.SegmentLimit)
 
 		// update project name should succeed
-		_, err = service.UpdateProject(userCtx1, projectID, console.ProjectInfo{
+		_, err = service.UpdateProject(userCtx1, projectID, console.UpsertProjectInfo{
 			Name:        updatedName,
 			Description: updatedDescription,
 		})
@@ -838,7 +838,7 @@ func TestUpdateProjectExceedsLimits(t *testing.T) {
 		require.NoError(t, err)
 
 		// try to update project name should succeed
-		_, err = service.UpdateProject(userCtx1, projectID, console.ProjectInfo{
+		_, err = service.UpdateProject(userCtx1, projectID, console.UpsertProjectInfo{
 			Name:        "updatedName",
 			Description: "updatedDescription",
 		})
@@ -2020,7 +2020,7 @@ func TestServiceGenMethods(t *testing.T) {
 				updatedStorageLimit := memory.Size(100)
 				updatedBandwidthLimit := memory.Size(100)
 
-				info := console.ProjectInfo{
+				info := console.UpsertProjectInfo{
 					Name:           updatedName,
 					Description:    updatedDescription,
 					StorageLimit:   updatedStorageLimit,
@@ -2076,7 +2076,7 @@ func TestServiceGenMethods(t *testing.T) {
 			})
 
 			// create empty project for easy deletion
-			p, err := s.CreateProject(tt.ctx, console.ProjectInfo{
+			p, err := s.CreateProject(tt.ctx, console.UpsertProjectInfo{
 				Name:        "foo",
 				Description: "bar",
 			})

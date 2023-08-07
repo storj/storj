@@ -590,6 +590,14 @@ func TestProjects(t *testing.T) {
 			require.Contains(t, body, "storageLimit")
 		}
 
+		{ // Get_OwnedProjects - HTTP
+			var projects console.ProjectInfoPage
+			resp, body := test.request(http.MethodGet, "/projects/paged?limit=6&page=1", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.NotEmpty(t, projects.Projects)
+		}
+
 		{ // Get_OwnedProjects
 			resp, body := test.request(http.MethodPost, "/graphql",
 				test.toJSON(map[string]interface{}{

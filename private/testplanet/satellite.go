@@ -261,7 +261,7 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	project, err := system.API.Console.Service.CreateProject(ctx, console.ProjectInfo{
+	project, err := system.API.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
 		Name: name,
 	})
 	if err != nil {

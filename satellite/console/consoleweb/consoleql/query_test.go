@@ -188,7 +188,7 @@ func TestGraphqlQuery(t *testing.T) {
 			return result.Data
 		}
 
-		createdProject, err := service.CreateProject(userCtx, console.ProjectInfo{
+		createdProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
 			Name: "TestProject",
 		})
 		require.NoError(t, err)
@@ -396,7 +396,7 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundKey2)
 		})
 
-		project2, err := service.CreateProject(userCtx, console.ProjectInfo{
+		project2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
 			Name:        "Project2",
 			Description: "Test desc",
 		})
