@@ -844,12 +844,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		status = metabase.ObjectStatus(req.Status)
 	}
 
-	cursor := metabase.IterateCursor{
-		Key: metabase.ObjectKey(req.EncryptedCursor),
-		// TODO: set to a the version from the protobuf request when it supports this
-	}
-	if len(cursor.Key) != 0 {
-		cursor.Key = prefix + cursor.Key
+	cursorKey := metabase.ObjectKey(req.EncryptedCursor)
+	cursorVersion := metabase.Version(0)
+	cursorStreamID := uuid.UUID{}
+	if len(cursorKey) != 0 {
+		cursorKey = prefix + cursorKey
 
 		// TODO this is a workaround to avoid duplicates while listing objects by libuplink.
 		// because version is not part of cursor yet and we can have object with version higher
@@ -858,7 +857,9 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		// fix as we still want to avoid this problem for older libuplink versions.
 		//
 		// it should be set in case of pending and committed objects
-		cursor.Version = metabase.MaxVersion
+		cursorVersion = metabase.MaxVersion
+		// for the same reasons as above we need to set maximum UUID as a cursor stream id
+		cursorStreamID = uuid.Max()
 	}
 
 	includeCustomMetadata := true
@@ -875,10 +876,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if endpoint.config.TestListingQuery {
 		result, err := endpoint.metabase.ListObjects(ctx,
 			metabase.ListObjects{
-				ProjectID:             keyInfo.ProjectID,
-				BucketName:            string(req.Bucket),
-				Prefix:                prefix,
-				Cursor:                metabase.ListObjectsCursor(cursor),
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     cursorKey,
+					Version: cursorVersion,
+				},
 				Recursive:             req.Recursive,
 				Limit:                 limit,
 				Status:                status,
@@ -898,12 +902,46 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 		resp.More = result.More
 	} else {
+		if status == metabase.Pending && endpoint.config.UsePendingObjectsTable {
+			err = endpoint.metabase.IteratePendingObjects(ctx, metabase.IteratePendingObjects{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.PendingObjectsCursor{
+					Key:      cursorKey,
+					StreamID: cursorStreamID,
+				},
+				Recursive:             req.Recursive,
+				BatchSize:             limit + 1,
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			}, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
+				entry := metabase.PendingObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.pendingObjectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+				resp.More = it.Next(ctx, &entry)
+				return nil
+			})
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+		}
+
+		// we always need results from both tables for now
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 			metabase.IterateObjectsWithStatus{
-				ProjectID:             keyInfo.ProjectID,
-				BucketName:            string(req.Bucket),
-				Prefix:                prefix,
-				Cursor:                cursor,
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.IterateCursor{
+					Key:     cursorKey,
+					Version: cursorVersion,
+				},
 				Recursive:             req.Recursive,
 				BatchSize:             limit + 1,
 				Status:                status,
@@ -918,7 +956,9 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					}
 					resp.Items = append(resp.Items, item)
 				}
-				resp.More = it.Next(ctx, &entry)
+
+				// we need to take into account also potential results from IteratePendingObjects
+				resp.More = resp.More || it.Next(ctx, &entry)
 				return nil
 			},
 		)
@@ -1457,6 +1497,87 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		}
 		item.StreamId = &satStreamID
 	}
+
+	return item, nil
+}
+
+func (endpoint *Endpoint) pendingObjectEntryToProtoListItem(ctx context.Context, bucket []byte,
+	entry metabase.PendingObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
+	includeSystem, includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
+
+	item = &pb.ObjectListItem{
+		EncryptedObjectKey: []byte(entry.ObjectKey),
+		Status:             pb.Object_UPLOADING,
+	}
+
+	expiresAt := time.Time{}
+	if entry.ExpiresAt != nil {
+		expiresAt = *entry.ExpiresAt
+	}
+
+	if includeSystem {
+		item.ExpiresAt = expiresAt
+		item.CreatedAt = entry.CreatedAt
+	}
+
+	if includeMetadata {
+		var nonce storj.Nonce
+		if len(entry.EncryptedMetadataNonce) > 0 {
+			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		streamMeta := &pb.StreamMeta{}
+		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
+		if err != nil {
+			return nil, err
+		}
+
+		if entry.Encryption != (storj.EncryptionParameters{}) {
+			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
+		}
+
+		if entry.EncryptedMetadataEncryptedKey != nil {
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+				KeyNonce:     entry.EncryptedMetadataNonce,
+			}
+		}
+
+		metadataBytes, err := pb.Marshal(streamMeta)
+		if err != nil {
+			return nil, err
+		}
+
+		item.EncryptedMetadata = metadataBytes
+		item.EncryptedMetadataNonce = nonce
+		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
+	}
+
+	// Add Stream ID to list items if listing is for pending objects.
+	// The client requires the Stream ID to use in the MultipartInfo.
+	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:             bucket,
+		EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), []byte(entry.ObjectKey)...),
+		Version:            1,
+		CreationDate:       entry.CreatedAt,
+		ExpirationDate:     expiresAt,
+		StreamId:           entry.StreamID[:],
+		MultipartObject:    true,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
+			BlockSize:   int64(entry.Encryption.BlockSize),
+		},
+		Placement:              int32(placement),
+		UsePendingObjectsTable: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	item.StreamId = &satStreamID
 
 	return item, nil
 }

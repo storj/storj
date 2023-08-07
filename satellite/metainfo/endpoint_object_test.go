@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
@@ -660,6 +661,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 					iterator := project.ListUploads(ctx, bucketName, &tt.options)
 					require.True(t, iterator.Next())
 					require.Equal(t, uploadInfo.UploadID, iterator.Item().UploadID)
+					require.NoError(t, iterator.Err())
 
 					err = project.AbortUpload(ctx, bucketName, "multipart-object", iterator.Item().UploadID)
 					require.NoError(t, err)
@@ -667,6 +669,139 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 		})
 
+	})
+}
+
+func TestEndpoint_Object_No_StorageNodes_UsePendingObjectsTable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.UsePendingObjectsTable = true
+				},
+			),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				// we need to not encrypt paths because one of tests is creating object
+				// manually in DB directly. With path encryption listing would skip such object.
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		bucketName := "testbucket"
+		deleteBucket := func() error {
+			_, err := project.DeleteBucketWithObjects(ctx, bucketName)
+			return err
+		}
+
+		t.Run("UploadID check", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			_, err = project.CreateBucket(ctx, bucketName)
+			require.NoError(t, err)
+
+			for _, tt := range []struct {
+				expires time.Time
+				options uplink.ListUploadsOptions
+			}{
+				{
+					options: uplink.ListUploadsOptions{System: false, Custom: false},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: true, Custom: false},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: true, Custom: true},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: false, Custom: true},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: false, Custom: false},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: true, Custom: false},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: true, Custom: true},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: false, Custom: true},
+				},
+			} {
+				t.Run(fmt.Sprintf("expires:%v;system:%v;custom:%v", !tt.expires.IsZero(), tt.options.System, tt.options.Custom), func(t *testing.T) {
+					objectKey := "multipart-object"
+					uploadInfo, err := project.BeginUpload(ctx, bucketName, objectKey, &uplink.UploadOptions{
+						Expires: tt.expires,
+					})
+					require.NoError(t, err)
+
+					iterator := project.ListUploads(ctx, bucketName, &tt.options)
+					require.True(t, iterator.Next())
+					require.Equal(t, uploadInfo.UploadID, iterator.Item().UploadID)
+					require.NoError(t, iterator.Err())
+
+					err = project.AbortUpload(ctx, bucketName, objectKey, iterator.Item().UploadID)
+					require.NoError(t, err)
+				})
+			}
+		})
+
+		t.Run("object in pending_object and object tables", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			_, err = project.CreateBucket(ctx, bucketName)
+			require.NoError(t, err)
+
+			// pending object in objects table
+			_, err := planet.Satellites[0].Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  metabase.ObjectKey("objects_table"),
+					StreamID:   testrand.UUID(),
+					Version:    metabase.NextVersion,
+				},
+				Encryption:             metabasetest.DefaultEncryption,
+				UsePendingObjectsTable: false,
+			})
+			require.NoError(t, err)
+
+			// pending object in pending_objects table
+			_, err = project.BeginUpload(ctx, bucketName, "pending_object_table", nil)
+			require.NoError(t, err)
+
+			keys := []string{}
+			iterator := project.ListUploads(ctx, bucketName, nil)
+			for iterator.Next() {
+				keys = append(keys, iterator.Item().Key)
+			}
+			require.NoError(t, iterator.Err())
+			require.ElementsMatch(t, []string{
+				"objects_table",
+				"pending_object_table",
+			}, keys)
+
+			iterator = project.ListUploads(ctx, bucketName, nil)
+			for iterator.Next() {
+				require.NoError(t, project.AbortUpload(ctx, bucketName, iterator.Item().Key, iterator.Item().UploadID))
+			}
+			require.NoError(t, iterator.Err())
+
+			iterator = project.ListUploads(ctx, bucketName, nil)
+			require.False(t, iterator.Next())
+			require.NoError(t, iterator.Err())
+		})
 	})
 }
 
