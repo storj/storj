@@ -323,3 +323,58 @@ func firstPendingObjectIterateCursor(recursive bool, cursor PendingObjectsCursor
 		Inclusive: true,
 	}
 }
+
+func iteratePendingObjectsByKeyNew(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, PendingObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := opts.Cursor
+
+	if cursor.StreamID.IsZero() {
+		cursor.StreamID = uuid.UUID{}
+	}
+
+	it := &pendingObjectsIterator{
+		db: db,
+
+		projectID:             opts.ProjectID,
+		bucketName:            []byte(opts.BucketName),
+		prefix:                "",
+		prefixLimit:           "",
+		batchSize:             opts.BatchSize,
+		recursive:             true,
+		includeCustomMetadata: true,
+		includeSystemMetadata: true,
+
+		curIndex: 0,
+		cursor: pendingObjectIterateCursor{
+			Key:      opts.ObjectKey,
+			StreamID: opts.Cursor.StreamID,
+		},
+		doNextQuery: doNextQueryPendingStreamsByKey,
+	}
+
+	return iteratePendingObjects(ctx, it, fn)
+
+}
+
+func doNextQueryPendingStreamsByKey(ctx context.Context, it *pendingObjectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return it.db.db.QueryContext(ctx, `
+			SELECT
+				object_key, stream_id, encryption,
+				created_at, expires_at,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+			FROM pending_objects
+			WHERE
+				project_id = $1 AND bucket_name = $2
+				AND object_key = $3
+				AND stream_id > $4::BYTEA
+			ORDER BY stream_id ASC
+			LIMIT $5
+			`, it.projectID, it.bucketName,
+		[]byte(it.cursor.Key),
+		it.cursor.StreamID,
+		it.batchSize,
+	)
+}

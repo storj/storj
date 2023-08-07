@@ -577,6 +577,28 @@ func (step IteratePendingObjectsByKey) Check(ctx *testcontext.Context, t *testin
 	require.Zero(t, diff)
 }
 
+// IteratePendingObjectsByKeyNew is for testing metabase.IteratePendingObjectsByKeyNew.
+type IteratePendingObjectsByKeyNew struct {
+	Opts metabase.IteratePendingObjectsByKey
+
+	Result   []metabase.PendingObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step IteratePendingObjectsByKeyNew) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	var collector PendingObjectsCollector
+
+	err := db.IteratePendingObjectsByKeyNew(ctx, step.Opts, collector.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	result := []metabase.PendingObjectEntry(collector)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
 // IterateObjectsWithStatus is for testing metabase.IterateObjectsWithStatus.
 type IterateObjectsWithStatus struct {
 	Opts metabase.IterateObjectsWithStatus

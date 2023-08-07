@@ -180,3 +180,14 @@ func (db *DB) IteratePendingObjects(ctx context.Context, opts IteratePendingObje
 	}
 	return iterateAllPendingObjects(ctx, db, opts, fn)
 }
+
+// IteratePendingObjectsByKeyNew iterates through all streams of pending objects with the same ObjectKey.
+// TODO should be refactored to IteratePendingObjectsByKey after full transition to pending_objects table.
+func (db *DB) IteratePendingObjectsByKeyNew(ctx context.Context, opts IteratePendingObjectsByKey, fn func(context.Context, PendingObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return err
+	}
+	return iteratePendingObjectsByKeyNew(ctx, db, opts, fn)
+}
