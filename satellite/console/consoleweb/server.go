@@ -358,6 +358,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter.HandleFunc("/create/{projectID}", apiKeysController.CreateAPIKey).Methods(http.MethodPost, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.HandleFunc("/delete-by-ids", apiKeysController.DeleteByIDs).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)

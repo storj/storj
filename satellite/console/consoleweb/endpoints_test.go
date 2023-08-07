@@ -463,6 +463,25 @@ func TestAPIKeys(t *testing.T) {
 			require.Contains(t, body, "keyInfo")
 			require.NotNil(t, response.KeyInfo)
 		}
+
+		{ // Delete_APIKeys_By_IDs
+			var response *console.CreateAPIKeyResponse
+			path := "/api-keys/create/" + test.defaultProjectID()
+			resp, body := test.request(http.MethodPost, path,
+				test.toJSON(map[string]interface{}{
+					"name": "testCreatedKey1",
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &response))
+
+			path = "/api-keys/delete-by-ids"
+			resp, body = test.request(http.MethodDelete, path,
+				test.toJSON(map[string]interface{}{
+					"ids": []string{response.KeyInfo.ID.String()},
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Empty(t, body)
+		}
 	})
 }
 
