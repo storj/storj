@@ -753,8 +753,9 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 						object_key   = $3 AND
 						stream_id    = $5
 					RETURNING
-						project_id, bucket_name, object_key, $4::INT as version, stream_id,
-						`+committedStatus+` as status, $6::INT as segment_count, $7::INT as total_plain_size, $8::INT as total_encrypted_size, $9::INT as fixed_segment_size, NULL as zombie_deletion_deadline,
+						project_id, bucket_name, object_key, $4::INT4 as version, stream_id,
+						`+committedStatus+` as status, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size, $9::INT4 as fixed_segment_size,
+						NULL::timestamp as zombie_deletion_deadline,
 						CASE
 							WHEN encryption = 0 AND $10 <> 0 THEN $10
 							WHEN encryption = 0 AND $10 = 0 THEN NULL
@@ -765,8 +766,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				), object_to_commit AS (
 					SELECT
 						project_id, bucket_name, object_key, version, stream_id,
-						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
-						encryption,
+						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size,
+						zombie_deletion_deadline, encryption,
 						CASE
 							WHEN $14::BOOL = true THEN $11
 							ELSE delete_pending_object.encrypted_metadata_nonce
