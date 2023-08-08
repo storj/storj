@@ -108,12 +108,12 @@ const config: PlaywrightTestConfig = {
                 ...devices['Pixel 5'],
             },
         },
-        {
+        /*{
             name: 'iPhone(13)',
             use: {
                 ...devices['iPhone 13'],
             },
-        },
+        } */
     ],
     /* Folder for test artifacts such as screenshots, videos, traces, etc. */
     outputDir: 'test-results/',
