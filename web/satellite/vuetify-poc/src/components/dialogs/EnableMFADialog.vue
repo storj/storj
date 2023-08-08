@@ -162,8 +162,9 @@ import QRCode from 'qrcode';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useNotify } from '@/utils/hooks';
 
 const rules = [
     (value: string) => (!!value || 'Can\'t be empty'),
@@ -176,6 +177,7 @@ const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const canvas = ref<HTMLCanvasElement>();
 const innerContent = ref<Component | null>(null);
@@ -240,6 +242,7 @@ function enable(): void {
 
             analyticsStore.eventTriggered(AnalyticsEvent.MFA_ENABLED);
         } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
             isError.value = true;
         }
     });
@@ -253,7 +256,7 @@ async function showCodes() {
         await usersStore.generateUserMFARecoveryCodes();
         step.value = 2;
     } catch (error) {
-        /* empty */
+        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
     }
 }
 
@@ -267,7 +270,7 @@ watch(canvas, async val => {
     try {
         await QRCode.toCanvas(canvas.value, qrLink.value);
     } catch (error) {
-        /* empty */
+        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
     }
 });
 

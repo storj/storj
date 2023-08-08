@@ -120,7 +120,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/types/router';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -140,6 +141,7 @@ const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const { isLoading, withLoading } = useLoading();
 const router = useRouter();
+const notify = useNotify();
 
 const props = defineProps<{
     modelValue: boolean,
@@ -167,8 +169,10 @@ async function onChangePassword(): Promise<void> {
         try {
             await auth.changePassword(oldPassword.value, newPassword.value);
 
+            notify.success('Password successfully changed!');
             analyticsStore.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
         } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
             return;
         }
 
@@ -180,7 +184,9 @@ async function onChangePassword(): Promise<void> {
                 // TODO: this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
                 location.reload();
             }, DELAY_BEFORE_REDIRECT);
-        } catch (error) { /* empty */ }
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        }
 
         emit('update:modelValue', false);
     });

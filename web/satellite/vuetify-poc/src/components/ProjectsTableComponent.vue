@@ -131,7 +131,8 @@ import { ProjectRole } from '@/types/projectMembers';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
@@ -150,6 +151,7 @@ const decliningIds = ref(new Set<string>());
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
+const notify = useNotify();
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
@@ -186,10 +188,18 @@ async function declineInvitation(item: ProjectItemModel): Promise<void> {
     try {
         await projectsStore.respondToInvitation(item.id, ProjectInvitationResponse.Decline);
         analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
-    } catch { /* empty */ }
+    } catch (error) {
+        error.message = `Failed to decline project invitation. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);
+    }
 
-    await projectsStore.getUserInvitations().catch(_ => {});
-    await projectsStore.getProjects().catch(_ => {});
+    try {
+        await projectsStore.getUserInvitations();
+        await projectsStore.getProjects();
+    } catch (error) {
+        error.message = `Failed to reload projects and invitations list. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);
+    }
 
     decliningIds.value.delete(item.id);
 }

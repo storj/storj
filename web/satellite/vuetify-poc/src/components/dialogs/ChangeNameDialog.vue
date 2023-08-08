@@ -93,8 +93,9 @@ import {
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { UpdatedUser } from '@/types/users';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useNotify } from '@/utils/hooks';
 
 const rules = [
     (value: string) => (!!value || 'Can\'t be empty'),
@@ -103,6 +104,7 @@ const rules = [
 const analyticsStore = useAnalyticsStore();
 const userStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const props = defineProps<{
     modelValue: boolean,
@@ -129,8 +131,10 @@ async function onChangeName(): Promise<void> {
         try {
             await userStore.updateUser(new UpdatedUser(name.value, name.value));
 
+            notify.success('Account info successfully updated!');
             analyticsStore.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
         } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
             return;
         }
 

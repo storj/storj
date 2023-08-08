@@ -134,8 +134,9 @@ import {
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useNotify } from '@/utils/hooks';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -144,6 +145,7 @@ import TeamTableComponent from '@poc/components/TeamTableComponent.vue';
 const analyticsStore = useAnalyticsStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const notify = useNotify();
 
 const isLoading = ref<boolean>(false);
 const dialog = ref<boolean>(false);
@@ -167,7 +169,10 @@ async function onAddUsersClick(): Promise<void> {
 
     try {
         await pmStore.inviteMembers([email.value], selectedProjectID.value);
-    } catch (_) {
+        notify.notify('Invites sent!');
+    } catch (error) {
+        error.message = `Error adding project members. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
         return;
     }
@@ -176,7 +181,10 @@ async function onAddUsersClick(): Promise<void> {
 
     try {
         await pmStore.getProjectMembers(1, selectedProjectID.value);
-    } catch (error) { /* empty */ }
+    } catch (error) {
+        error.message = `Unable to fetch project members. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+    }
 
     dialog.value = false;
     isLoading.value = false;

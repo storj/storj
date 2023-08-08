@@ -6,9 +6,11 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -33,6 +35,55 @@ func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	return &APIKeys{
 		log:     log,
 		service: service,
+	}
+}
+
+// CreateAPIKey creates new API key for given project.
+func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["projectID"]; !ok {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(idParam)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+	name := string(bodyBytes)
+
+	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	response := console.CreateAPIKeyResponse{
+		Key:     key.Serialize(),
+		KeyInfo: info,
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		keys.log.Error("failed to write json create api key response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
 	}
 }
 

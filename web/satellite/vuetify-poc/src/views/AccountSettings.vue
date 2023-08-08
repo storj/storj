@@ -175,6 +175,8 @@ import {
 
 import { User, UserSettings } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
@@ -183,6 +185,7 @@ import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';
 import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
 
 const usersStore = useUsersStore();
+const notify = useNotify();
 
 const isChangePasswordDialogShown = ref<boolean>(false);
 const isChangeNameDialogShown = ref<boolean>(false);
@@ -208,7 +211,7 @@ async function toggleEnableMFADialog() {
         await usersStore.generateUserMFASecret();
         isEnableMFADialogShown.value = true;
     } catch (error) {
-    /* empty */
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
 }
 
