@@ -17,20 +17,17 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
      * @param emails
      */
     public async delete(projectId: string, emails: string[]): Promise<void> {
-        const query =
-            `mutation($projectId: String!, $emails:[String!]!) {
-                deleteProjectMembers(
-                    publicId: $projectId,
-                    email: $emails
-                ) {publicId}
-            }`;
+        const path = `${this.ROOT_PATH}/${projectId}/members?emails=${encodeURIComponent(emails.toString())}`;
+        const response = await this.http.delete(path);
+        if (!response.ok) {
+            const result = await response.json();
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Failed to delete project members and invitations',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const variables = {
-            projectId,
-            emails,
-        };
-
-        await this.mutate(query, variables);
     }
 
     /**
