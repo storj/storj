@@ -19,7 +19,9 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
@@ -368,6 +370,30 @@ func TestBuckets(t *testing.T) {
 						}`}))
 			require.Contains(t, body, "bucketUsagePage")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			params := url.Values{
+				"projectID": {test.defaultProjectID()},
+				"before":    {time.Now().Add(time.Second).Format(apigen.DateFormat)},
+				"limit":     {"1"},
+				"search":    {""},
+				"page":      {"1"},
+			}
+
+			resp, body = test.request(http.MethodGet, "/buckets/usage-totals?"+params.Encode(), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			var page accounting.BucketUsagePage
+			require.NoError(t, json.Unmarshal([]byte(body), &page))
+			require.Empty(t, page.BucketUsages)
+
+			const bucketName = "my-bucket"
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+
+			resp, body = test.request(http.MethodGet, "/buckets/usage-totals?"+params.Encode(), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			require.NoError(t, json.Unmarshal([]byte(body), &page))
+			require.NotEmpty(t, page.BucketUsages)
+			require.Equal(t, bucketName, page.BucketUsages[0].BucketName)
 		}
 	})
 }
