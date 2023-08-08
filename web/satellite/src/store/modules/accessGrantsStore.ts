@@ -13,7 +13,7 @@ import {
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
-import { AccessGrantsApiGql } from '@/api/accessGrants';
+import { AccessGrantsHttpApi } from '@/api/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
@@ -36,7 +36,7 @@ class AccessGrantsState {
 }
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
-    const api = new AccessGrantsApiGql();
+    const api = new AccessGrantsHttpApi();
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
