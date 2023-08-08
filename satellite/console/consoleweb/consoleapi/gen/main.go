@@ -35,7 +35,7 @@ func main() {
 			MethodName:  "GenCreateProject",
 			RequestName: "createProject",
 			Response:    &console.Project{},
-			Request:     console.ProjectInfo{},
+			Request:     console.UpsertProjectInfo{},
 		})
 
 		g.Patch("/update/{id}", &apigen.Endpoint{
@@ -44,7 +44,7 @@ func main() {
 			MethodName:  "GenUpdateProject",
 			RequestName: "updateProject",
 			Response:    console.Project{},
-			Request:     console.ProjectInfo{},
+			Request:     console.UpsertProjectInfo{},
 			PathParams: []apigen.Param{
 				apigen.NewParam("id", uuid.UUID{}),
 			},

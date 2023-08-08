@@ -22,7 +22,7 @@
                         size="small"
                         color="default"
                         :disabled="isLoading"
-                        @click="closeDialog"
+                        @click="model = false"
                     />
                 </v-row>
             </v-card-item>
@@ -56,7 +56,7 @@
                     </v-card-item>
                     <v-divider class="mx-8" />
                     <v-card-item class="px-8 pt-4 pb-0">
-                        <v-form v-model="formValid" class="pt-1" :onsubmit="enable">
+                        <v-form v-model="formValid" class="pt-2">
                             <v-text-field
                                 v-model="confirmPasscode"
                                 variant="outlined"
@@ -97,7 +97,7 @@
                         block
                         :disabled="isLoading"
                         :loading="isLoading"
-                        @click="closeDialog"
+                        @click="model = false"
                     >
                         Cancel
                     </v-btn>
@@ -130,7 +130,7 @@
                         color="primary"
                         variant="flat"
                         block
-                        @click="closeDialog"
+                        @click="model = false"
                     >
                         Done
                     </v-btn>
@@ -260,11 +260,6 @@ async function showCodes() {
     }
 }
 
-function closeDialog() {
-    model.value = false;
-    isError.value = false;
-}
-
 watch(canvas, async val => {
     if (!val) return;
     try {
@@ -283,5 +278,6 @@ watch(innerContent, newContent => {
     // dialog has been closed
     step.value = 0;
     confirmPasscode.value = '';
+    isError.value = false;
 });
 </script>

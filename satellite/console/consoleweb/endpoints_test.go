@@ -463,6 +463,25 @@ func TestAPIKeys(t *testing.T) {
 			require.Contains(t, body, "keyInfo")
 			require.NotNil(t, response.KeyInfo)
 		}
+
+		{ // Delete_APIKeys_By_IDs
+			var response *console.CreateAPIKeyResponse
+			path := "/api-keys/create/" + test.defaultProjectID()
+			resp, body := test.request(http.MethodPost, path,
+				test.toJSON(map[string]interface{}{
+					"name": "testCreatedKey1",
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &response))
+
+			path = "/api-keys/delete-by-ids"
+			resp, body = test.request(http.MethodDelete, path,
+				test.toJSON(map[string]interface{}{
+					"ids": []string{response.KeyInfo.ID.String()},
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Empty(t, body)
+		}
 	})
 }
 
@@ -569,6 +588,14 @@ func TestProjects(t *testing.T) {
 			resp, body := test.request(http.MethodGet, `/projects/`+test.defaultProjectID()+`/usage-limits`, nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			require.Contains(t, body, "storageLimit")
+		}
+
+		{ // Get_OwnedProjects - HTTP
+			var projects console.ProjectInfoPage
+			resp, body := test.request(http.MethodGet, "/projects/paged?limit=6&page=1", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.NotEmpty(t, projects.Projects)
 		}
 
 		{ // Get_OwnedProjects

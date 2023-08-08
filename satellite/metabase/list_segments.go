@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
 
@@ -21,10 +20,6 @@ type ListSegments struct {
 	Limit    int
 
 	Range *StreamRange
-
-	// This causes ListSegments to update the first Segment in the response
-	// with the ancestor info if it exists and server side copy is enabled.
-	UpdateFirstWithAncestor bool
 }
 
 // ListSegmentsResult result of listing segments.
@@ -119,69 +114,6 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			return ListSegmentsResult{}, nil
 		}
 		return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
-	}
-
-	if db.config.ServerSideCopy {
-		copies := make([]Segment, 0, len(result.Segments))
-		copiesPositions := make([]int64, 0, len(result.Segments))
-		for _, segment := range result.Segments {
-			if segment.PiecesInAncestorSegment() {
-				copies = append(copies, segment)
-				copiesPositions = append(copiesPositions, int64(segment.Position.Encode()))
-			}
-		}
-
-		if len(copies) > 0 {
-			index := 0
-			err = withRows(db.db.QueryContext(ctx, `
-					SELECT
-						root_piece_id,
-						remote_alias_pieces
-					FROM segments as segments
-					LEFT JOIN segment_copies as copies
-					ON copies.ancestor_stream_id = segments.stream_id
-					WHERE
-						copies.stream_id = $1 AND segments.position IN (SELECT position FROM UNNEST($2::INT8[]) as position)
-					ORDER BY segments.stream_id, segments.position ASC
-				`, opts.StreamID, pgutil.Int8Array(copiesPositions)))(func(rows tagsql.Rows) error {
-
-				for rows.Next() {
-					var aliasPieces AliasPieces
-					err = rows.Scan(
-						&copies[index].RootPieceID,
-						&aliasPieces,
-					)
-					if err != nil {
-						return Error.New("failed to scan segments: %w", err)
-					}
-
-					copies[index].Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-					if err != nil {
-						return Error.New("failed to convert aliases to pieces: %w", err)
-					}
-					index++
-				}
-				return nil
-			})
-			if err != nil {
-				return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
-			}
-
-			if index != len(copies) {
-				return ListSegmentsResult{}, Error.New("number of ancestor segments is different than copies: want %d got %d",
-					len(copies), index)
-			}
-		}
-
-		// we have to update the first segment because DownloadObject uses this call
-		// and we only need to do the first segment because it only uses the extra
-		// information for the first segment.
-		if len(result.Segments) > 0 && opts.UpdateFirstWithAncestor {
-			err = db.updateWithAncestorSegment(ctx, &result.Segments[0])
-			if err != nil {
-				return ListSegmentsResult{}, err
-			}
-		}
 	}
 
 	if len(result.Segments) > opts.Limit {

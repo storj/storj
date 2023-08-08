@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -240,7 +241,7 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		testGETransferQueue := func(node storj.NodeID) {
+		testGETransferQueue := func(node storj.NodeID, segmentsToTransfer int) {
 			_, err = planet.Satellites[0].Overlay.DB.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 				NodeID:          node,
 				ExitInitiatedAt: time.Now().UTC(),
@@ -251,26 +252,21 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 			_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 			require.NoError(t, err)
 
-			// we should get only one item from GE queue as we have only one remote segments
+			// we should get two items from GE queue as we have remote segment and its copy
 			items, err := planet.Satellites[0].DB.GracefulExit().GetIncomplete(ctx, node, 100, 0)
 			require.NoError(t, err)
-			require.Len(t, items, 1)
+			require.Len(t, items, segmentsToTransfer)
 
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 
-			// find non copy remote segment
-			segment := metabase.Segment{}
-			for _, s := range segments {
-				if len(s.Pieces) > 0 {
-					if !segment.StreamID.IsZero() {
-						t.Fatal("we should have only one remote non copy segment")
-					}
-					segment = s
+			for _, segment := range segments {
+				if !segment.Inline() {
+					require.True(t, slices.ContainsFunc(items, func(item *gracefulexit.TransferQueueItem) bool {
+						return item.StreamID == segment.StreamID
+					}))
 				}
 			}
-			require.True(t, !segment.StreamID.IsZero())
-			require.Equal(t, segment.StreamID, items[0].StreamID)
 		}
 
 		// upload inline and remote and make copies
@@ -282,15 +278,15 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		testGETransferQueue(planet.StorageNodes[0].ID())
+		testGETransferQueue(planet.StorageNodes[0].ID(), 2)
 
-		// delete original objects to promote copies as new ancestors
+		// delete original objects
 		for _, size := range []memory.Size{memory.KiB, 10 * memory.KiB} {
 			_, err = project.DeleteObject(ctx, "my-bucket", "my-object-"+size.String())
 			require.NoError(t, err)
 		}
 
-		testGETransferQueue(planet.StorageNodes[1].ID())
+		testGETransferQueue(planet.StorageNodes[1].ID(), 1)
 	})
 }
 

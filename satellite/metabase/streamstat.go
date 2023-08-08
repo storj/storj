@@ -31,7 +31,7 @@ func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPie
 	err = withRows(db.db.QueryContext(ctx, `
 		SELECT remote_alias_pieces
 		FROM   segments
-		WHERE  stream_id IN (SELECT $1 UNION SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1) AND remote_alias_pieces IS NOT null
+		WHERE  stream_id = $1 AND remote_alias_pieces IS NOT null
 	`, opts.StreamID))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var aliasPieces AliasPieces

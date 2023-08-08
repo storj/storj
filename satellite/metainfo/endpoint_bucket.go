@@ -264,7 +264,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 	deletedCount, err := endpoint.deleteBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	err = endpoint.deleteBucket(ctx, bucketName, projectID)
@@ -276,7 +276,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 			return bucketName, 0, nil
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	return bucketName, deletedCount, nil

@@ -131,7 +131,7 @@ func TestOIDC(t *testing.T) {
 
 		authed := console.WithUser(ctx, user)
 
-		project, err := sat.API.Console.Service.CreateProject(authed, console.ProjectInfo{
+		project, err := sat.API.Console.Service.CreateProject(authed, console.UpsertProjectInfo{
 			Name: "test",
 		})
 		require.NoError(t, err)

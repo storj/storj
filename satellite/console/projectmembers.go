@@ -53,10 +53,9 @@ type ProjectMembersPage struct {
 	Order          ProjectMemberOrder
 	OrderDirection OrderDirection
 	Offset         uint64
-
-	PageCount   uint
-	CurrentPage uint
-	TotalCount  uint64
+	PageCount      uint
+	CurrentPage    uint
+	TotalCount     uint64
 }
 
 // ProjectMemberOrder is used for querying project members in specified order.

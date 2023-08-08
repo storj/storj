@@ -217,6 +217,45 @@ func (keys *APIKeys) GetAllAPIKeyNames(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteByIDs deletes API keys by given IDs.
+func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		IDs []string `json:"ids"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var keyIDs []uuid.UUID
+	for _, id := range data.IDs {
+		keyID, err := uuid.FromString(id)
+		if err != nil {
+			keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		keyIDs = append(keyIDs, keyID)
+	}
+
+	err = keys.service.DeleteAPIKeys(ctx, keyIDs)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
 // DeleteByNameAndProjectID deletes specific API key by it's name and project ID.
 // ID here may be project.publicID or project.ID.
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {

@@ -55,6 +55,9 @@ fi
 storj-up env set satellite-api STORJ_DATABASE_OPTIONS_MIGRATION_UNSAFE="full"
 storj-up local satellite-api,storagenode -d "$TMP_BIN"
 
+# TODO remove when metainfo.server-side-copy-duplicate-metadata will be dropped
+storj-up env set satellite-api STORJ_METAINFO_SERVER_SIDE_COPY_DUPLICATE_METADATA="true"
+
 # start the services
 docker compose up -d
 if [ "$DB" == "cockroach" ]

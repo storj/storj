@@ -206,7 +206,7 @@ func TestGraphqlMutation(t *testing.T) {
 		var projectIDField string
 		var projectPublicIDField string
 		t.Run("Create project mutation", func(t *testing.T) {
-			projectInfo := console.ProjectInfo{
+			projectInfo := console.UpsertProjectInfo{
 				Name:        "Project name",
 				Description: "desc",
 			}

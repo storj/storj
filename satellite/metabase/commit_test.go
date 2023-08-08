@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -3760,46 +3758,6 @@ func TestCommitObject(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
-		})
-
-		t.Run("OnDelete", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			// check deleted segments
-			obj := metabasetest.RandObjectStream()
-
-			_, expectedSegments := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 3)
-
-			expectedDeletedSegments := []metabase.DeletedSegmentInfo{}
-			for _, segment := range expectedSegments {
-				expectedDeletedSegments = append(expectedDeletedSegments, metabase.DeletedSegmentInfo{
-					RootPieceID: segment.RootPieceID,
-					Pieces:      segment.Pieces,
-				})
-			}
-
-			obj.Version++
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
-				Version: obj.Version,
-			}.Check(ctx, t, db)
-
-			deletedSegments := []metabase.DeletedSegmentInfo{}
-			metabasetest.CommitObject{
-				Opts: metabase.CommitObject{
-					ObjectStream: obj,
-					Encryption:   metabasetest.DefaultEncryption,
-					OnDelete: func(segments []metabase.DeletedSegmentInfo) {
-						deletedSegments = append(deletedSegments, segments...)
-					},
-				},
-			}.Check(ctx, t, db)
-
-			require.Equal(t, expectedDeletedSegments, deletedSegments)
 		})
 
 		t.Run("use pending objects table", func(t *testing.T) {

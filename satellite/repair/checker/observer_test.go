@@ -191,7 +191,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 	})
 }
 
-func TestIgnoringCopiedSegmentsObserver(t *testing.T) {
+func TestObserver_CheckSegmentCopy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -241,15 +241,16 @@ func TestIgnoringCopiedSegmentsObserver(t *testing.T) {
 		_, err = rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
-		// check that injured segment in repair queue streamID is same that in original segment.
-		injuredSegment, err := repairQueue.Select(ctx)
-		require.NoError(t, err)
-		require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
+		// check that repair queue has original segment and copied one as it has exactly the same metadata
+		for _, segment := range segmentsAfterCopy {
+			injuredSegment, err := repairQueue.Select(ctx)
+			require.NoError(t, err)
+			require.Equal(t, segment.StreamID, injuredSegment.StreamID)
+		}
 
-		// check that repair queue has only original segment, and not copied one.
 		injuredSegments, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, injuredSegments)
+		require.Equal(t, 2, injuredSegments)
 	})
 }
 

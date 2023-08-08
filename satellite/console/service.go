@@ -1601,7 +1601,7 @@ func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor Projects
 }
 
 // CreateProject is a method for creating new project.
-func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
+func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "create project")
 	if err != nil {
@@ -1664,7 +1664,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 }
 
 // GenCreateProject is a method for creating new project for generated api.
-func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, httpError api.HTTPError) {
+func (s *Service) GenCreateProject(ctx context.Context, projectInfo UpsertProjectInfo) (p *Project, httpError api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -1809,7 +1809,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 // UpdateProject is a method for updating project name and description by id.
 // projectID here may be project.PublicID or project.ID.
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject ProjectInfo) (p *Project, err error) {
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
@@ -1899,7 +1899,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 }
 
 // GenUpdateProject is a method for updating project name and description by id for generated api.
-func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (p *Project, httpError api.HTTPError) {
+func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo UpsertProjectInfo) (p *Project, httpError api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -2953,7 +2953,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 }
 
 // checkProjectName is used to check if user has used project name before.
-func (s *Service) checkProjectName(ctx context.Context, projectInfo ProjectInfo, userID uuid.UUID) (passesNameCheck bool, err error) {
+func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjectInfo, userID uuid.UUID) (passesNameCheck bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	passesCheck := true
 

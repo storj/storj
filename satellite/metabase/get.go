@@ -41,11 +41,6 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
-// PiecesInAncestorSegment returns true if remote alias pieces are to be found in an ancestor segment.
-func (s Segment) PiecesInAncestorSegment() bool {
-	return s.EncryptedSize != 0 && len(s.InlineData) == 0 && len(s.Pieces) == 0
-}
-
 // Expired checks if segment is expired relative to now.
 func (s Segment) Expired(now time.Time) bool {
 	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
@@ -270,13 +265,6 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	segment.StreamID = opts.StreamID
 	segment.Position = opts.Position
 
-	if db.config.ServerSideCopy {
-		err = db.updateWithAncestorSegment(ctx, &segment)
-		if err != nil {
-			return Segment{}, err
-		}
-	}
-
 	return segment, nil
 }
 
@@ -341,50 +329,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		}
 	}
 
-	if db.config.ServerSideCopy {
-		err = db.updateWithAncestorSegment(ctx, &segment)
-		if err != nil {
-			return Segment{}, err
-		}
-	}
-
 	return segment, nil
-}
-
-func (db *DB) updateWithAncestorSegment(ctx context.Context, segment *Segment) (err error) {
-	if !segment.PiecesInAncestorSegment() {
-		return nil
-	}
-
-	var aliasPieces AliasPieces
-
-	err = db.db.QueryRowContext(ctx, `
-			SELECT
-				root_piece_id,
-				repaired_at,
-				remote_alias_pieces
-			FROM segments
-			WHERE
-				stream_id IN (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
-				AND position = $2
-			`, segment.StreamID, segment.Position.Encode()).Scan(
-		&segment.RootPieceID,
-		&segment.RepairedAt,
-		&aliasPieces,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrSegmentNotFound.New("segment missing")
-		}
-		return Error.New("unable to query segment: %w", err)
-	}
-
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Error.New("unable to convert aliases to pieces: %w", err)
-	}
-
-	return nil
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.

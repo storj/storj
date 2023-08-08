@@ -114,13 +114,23 @@ type Project struct {
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 }
 
-// ProjectInfo holds data needed to create/update Project.
-type ProjectInfo struct {
+// UpsertProjectInfo holds data needed to create/update Project.
+type UpsertProjectInfo struct {
 	Name           string      `json:"name"`
 	Description    string      `json:"description"`
 	StorageLimit   memory.Size `json:"storageLimit"`
 	BandwidthLimit memory.Size `json:"bandwidthLimit"`
 	CreatedAt      time.Time   `json:"createdAt"`
+}
+
+// ProjectInfo holds data sent via user facing http endpoints.
+type ProjectInfo struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	OwnerID     uuid.UUID `json:"ownerId"`
+	Description string    `json:"description"`
+	MemberCount int       `json:"memberCount"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // ProjectsCursor holds info for project
@@ -146,6 +156,19 @@ type ProjectsPage struct {
 	TotalCount  int64
 }
 
+// ProjectInfoPage is similar to ProjectsPage
+// except the Projects field is ProjectInfo and is sent over HTTP API.
+type ProjectInfoPage struct {
+	Projects []ProjectInfo `json:"projects"`
+
+	Limit  int   `json:"limit"`
+	Offset int64 `json:"offset"`
+
+	PageCount   int   `json:"pageCount"`
+	CurrentPage int   `json:"currentPage"`
+	TotalCount  int64 `json:"totalCount"`
+}
+
 // ValidateNameAndDescription validates project name and description strings.
 // Project name must have more than 0 and less than 21 symbols.
 // Project description can't have more than hundred symbols.
@@ -163,4 +186,16 @@ func ValidateNameAndDescription(name string, description string) error {
 	}
 
 	return nil
+}
+
+// GetMinimal returns a ProjectInfo copy of a project.
+func (p Project) GetMinimal() ProjectInfo {
+	return ProjectInfo{
+		ID:          p.PublicID,
+		Name:        p.Name,
+		OwnerID:     p.OwnerID,
+		Description: p.Description,
+		MemberCount: p.MemberCount,
+		CreatedAt:   p.CreatedAt,
+	}
 }
