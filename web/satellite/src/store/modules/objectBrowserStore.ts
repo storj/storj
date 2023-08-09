@@ -458,8 +458,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             }
         }
 
-        // If file size exceeds 1 GB, show warning notification
-        if (body.size > (1024 * 1024 * 1024)) {
+        // If file size exceeds 5 GB, show warning notification
+        if (body.size > (5 * 1024 * 1024 * 1024)) {
             appStore.setLargeUploadWarningNotification(true);
         }
 
@@ -540,10 +540,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         if (error.name === 'AbortError' && item.status === UploadingStatus.Cancelled) return;
 
         const config = useConfigStore();
-
         if (config.state.config.newUploadModalEnabled) {
             item.status = UploadingStatus.Failed;
             item.failedMessage = FailedUploadMessage.Failed;
+
+            // If file size exceeds 1 GB, show warning notification.
+            if (item.Size > (1024 * 1024 * 1024)) {
+                const appStore = useAppStore();
+                appStore.setLargeUploadWarningNotification(true);
+            }
         }
 
         const { notifyError } = useNotificationsStore();

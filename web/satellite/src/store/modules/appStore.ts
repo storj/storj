@@ -32,7 +32,6 @@ class AppState {
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
     public error: ErrorPageState = new ErrorPageState();
-    public isLargeUploadNotificationShown = true;
     public isLargeUploadWarningNotificationShown = false;
     public activeChangeLimit: LimitToChange = LimitToChange.Storage;
     public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
@@ -148,10 +147,6 @@ export const useAppStore = defineStore('app', () => {
         state.isLargeUploadWarningNotificationShown = value;
     }
 
-    function setLargeUploadNotification(value: boolean): void {
-        state.isLargeUploadNotificationShown = value;
-    }
-
     function setGalleryView(value: boolean): void {
         state.isGalleryView = value;
     }
@@ -217,7 +212,6 @@ export const useAppStore = defineStore('app', () => {
         setHasShownPricingPlan,
         setUploadingModal,
         setLargeUploadWarningNotification,
-        setLargeUploadNotification,
         setShareModalType,
         closeDropdowns,
         setErrorPage,

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="notification-wrap__content" :class="{ 'notification-wrap__warning-colors': warningNotification}">
+    <div class="notification-wrap__content" :class="{ 'notification-wrap__info-colors': infoNotification }">
         <component :is="notificationIcon" class="notification-wrap__content__icon" />
         <div class="notification-wrap__content__middle">
             <p class="text"><b>{{ wordingBold }}</b> {{ wording }}</p>
@@ -16,11 +16,11 @@
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 const props = defineProps<{
-  wordingBold: string;
-  wording: string;
-  notificationIcon: string;
-  warningNotification: boolean;
-  onCloseClick: () => void;
+    wordingBold: string;
+    wording: string;
+    notificationIcon: string;
+    infoNotification: boolean;
+    onCloseClick: () => void;
 }>();
 
 </script>
@@ -69,9 +69,9 @@ const props = defineProps<{
             }
         }
 
-        &__warning-colors {
-            background-color: #fec;
-            border: 1px solid #ffd78a;
+        &__info-colors {
+            background-color: var(--c-blue-2);
+            border: 1px solid #a5beff;
         }
     }
 </style>
