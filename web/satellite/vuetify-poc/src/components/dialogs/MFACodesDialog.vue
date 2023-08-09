@@ -10,12 +10,12 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 pr-0 pb-5 pt-0">
-                <v-row align="start" justify="space-between" class="ma-0">
-                    <v-row align="center" class="ma-0 pt-5">
-                        <img class="flex-shrink-0" src="@poc/assets/icon-mfa.svg" alt="MFA">
-                        <v-card-title class="font-weight-bold ml-4">Two-Factor Recovery Codes</v-card-title>
-                    </v-row>
+            <v-card-item class="pl-7 py-4">
+                <template #prepend>
+                    <img class="d-block" src="@poc/assets/icon-mfa.svg" alt="MFA">
+                </template>
+                <v-card-title class="font-weight-bold">Two-Factor Recovery Codes</v-card-title>
+                <template #append>
                     <v-btn
                         icon="$close"
                         variant="text"
@@ -23,7 +23,7 @@
                         color="default"
                         @click="model = false"
                     />
-                </v-row>
+                </template>
             </v-card-item>
             <v-divider class="mx-8" />
             <v-card-item class="px-8 py-4">
