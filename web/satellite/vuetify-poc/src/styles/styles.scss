@@ -297,3 +297,18 @@ table {
   border-radius: 2px;
   min-height: 5px;
 }
+
+// Alerts
+.v-alert-title {
+  font-weight: bold !important;
+  letter-spacing: 0 !important;
+}
+.v-alert__prepend {
+  margin-top: 12px;
+}
+.v-alert__append, .v-alert__close {
+  margin-top: 4px;
+}
+.v-alert__close .v-btn {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
