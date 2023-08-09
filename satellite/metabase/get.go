@@ -32,6 +32,9 @@ func (obj *Object) IsMigrated() bool {
 	return obj.TotalPlainSize <= 0
 }
 
+// PendingObject pending object metadata.
+type PendingObject RawPendingObject
+
 // Segment segment metadata.
 // TODO define separated struct.
 type Segment RawSegment
@@ -378,14 +381,6 @@ func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUI
 	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, Committed)
 }
 
-// TestingAllPendingObjects gets all objects from bucket.
-// Use only for testing purposes.
-func (db *DB) TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, Pending)
-}
-
 func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, status ObjectStatus) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -446,6 +441,23 @@ func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err erro
 
 	for _, o := range rawObjects {
 		objects = append(objects, Object(o))
+	}
+
+	return objects, nil
+}
+
+// TestingAllPendingObjects gets all pending objects.
+// Use only for testing purposes.
+func (db *DB) TestingAllPendingObjects(ctx context.Context) (objects []PendingObject, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rawObjects, err := db.testingGetAllPendingObjects(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, o := range rawObjects {
+		objects = append(objects, PendingObject(o))
 	}
 
 	return objects, nil

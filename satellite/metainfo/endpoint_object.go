@@ -1086,7 +1086,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
-					})
+					}, pbStreamID.UsePendingObjectsTable)
 			}
 		}
 	} else {
@@ -1510,11 +1510,17 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
 // TODO: see note on DeleteObjectAnyStatus.
-func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream, usePendingObjectTable bool) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,
 	}
-	result, err := endpoint.metabase.DeletePendingObject(ctx, req)
+
+	var result metabase.DeleteObjectResult
+	if usePendingObjectTable {
+		result, err = endpoint.metabase.DeletePendingObjectNew(ctx, req)
+	} else {
+		result, err = endpoint.metabase.DeletePendingObject(ctx, req)
+	}
 	if err != nil {
 		return nil, err
 	}

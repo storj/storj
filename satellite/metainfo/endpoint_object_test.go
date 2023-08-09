@@ -1583,11 +1583,43 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 				ObjectKey:  metabase.ObjectKey(encryptedKey),
 				Version:    metabase.DefaultVersion,
 				StreamID:   streamID,
-			})
+			}, false)
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 	}
 	testDeleteObject(t, createPendingObject, deletePendingObject)
+}
+
+func TestEndpoint_AbortMultipartUpload_UsePendingObjectsTable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UsePendingObjectsTable = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		_, err = project.CreateBucket(ctx, "testbucket")
+		require.NoError(t, err)
+
+		uploadInfo, err := project.BeginUpload(ctx, "testbucket", "key", nil)
+		require.NoError(t, err)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		err = project.AbortUpload(ctx, "testbucket", "key", uploadInfo.UploadID)
+		require.NoError(t, err)
+
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 0)
+	})
 }
 
 func testDeleteObject(t *testing.T,

@@ -243,6 +243,50 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	return result, nil
 }
 
+// DeletePendingObjectNew deletes a pending object.
+// TODO DeletePendingObjectNew will replace DeletePendingObject when objects table will be free from pending objects.
+func (db *DB) DeletePendingObjectNew(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	err = withRows(db.db.QueryContext(ctx, `
+			WITH deleted_objects AS (
+				DELETE FROM pending_objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					stream_id    = $4
+				RETURNING
+					stream_id, created_at, expires_at,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id
+			)
+			SELECT * FROM deleted_objects
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID))(func(rows tagsql.Rows) error {
+		result.Objects, err = db.scanPendingObjectDeletion(ctx, opts.Location(), rows)
+		return err
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	if len(result.Objects) == 0 {
+		return DeleteObjectResult{}, ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Objects))
+
+	return result, nil
+}
+
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAllVersions) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -317,7 +361,6 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 
 func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)
 
@@ -341,16 +384,11 @@ func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, r
 		objects = append(objects, object)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, Error.New("unable to delete object: %w", err)
-	}
-
 	return objects, nil
 }
 
 func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows) (objects []Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)
 
@@ -370,14 +408,36 @@ func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows)
 		objects = append(objects, object)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, Error.New("unable to delete object: %w", err)
-	}
-
 	if len(objects) == 0 {
 		objects = nil
 	}
 
+	return objects, nil
+}
+
+func (db *DB) scanPendingObjectDeletion(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objects = make([]Object, 0, 10)
+
+	var object Object
+	for rows.Next() {
+		object.ProjectID = location.ProjectID
+		object.BucketName = location.BucketName
+		object.ObjectKey = location.ObjectKey
+
+		err = rows.Scan(&object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			encryptionParameters{&object.Encryption},
+		)
+		if err != nil {
+			return nil, Error.New("unable to delete pending object: %w", err)
+		}
+
+		object.Status = Pending
+		objects = append(objects, object)
+	}
 	return objects, nil
 }
 

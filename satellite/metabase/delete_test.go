@@ -263,6 +263,281 @@ func TestDeletePendingObject(t *testing.T) {
 	})
 }
 
+func TestDeletePendingObjectNew(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
+
+		for _, test := range metabasetest.InvalidObjectStreams(obj) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.DeletePendingObjectNew{
+					Opts: metabase.DeletePendingObject{
+						ObjectStream: test.ObjectStream,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("object missing", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: obj,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("non existing object version", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    33,
+						StreamID:   obj.StreamID,
+					},
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("delete committed object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: object.ObjectStream,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("without segments with wrong StreamID", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    obj.Version,
+						StreamID:   uuid.UUID{33},
+					},
+				},
+				Result:   metabase.DeleteObjectResult{},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("without segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := obj
+			obj.Version = metabase.NextVersion
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			object := metabase.RawObject{
+				ObjectStream: obj,
+				CreatedAt:    now,
+				Status:       metabase.Pending,
+				Encryption:   metabasetest.DefaultEncryption,
+			}
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: obj,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{metabase.Object(object)},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("with segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := obj
+			obj.Version = metabase.NextVersion
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  testrand.PieceID(),
+					Pieces: metabase.Pieces{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
+
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+
+					EncryptedSize:          1024,
+					PlainSize:              512,
+					PlainOffset:            0,
+					Redundancy:             metabasetest.DefaultRedundancy,
+					UsePendingObjectsTable: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: obj,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
+							Encryption:   metabasetest.DefaultEncryption,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("with inline segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := obj
+			obj.Version = metabase.NextVersion
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+
+					InlineData: testrand.Bytes(1024),
+
+					PlainSize:              512,
+					PlainOffset:            0,
+					UsePendingObjectsTable: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeletePendingObjectNew{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: obj,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
+							Encryption:   metabasetest.DefaultEncryption,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestDeleteObjectExactVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
