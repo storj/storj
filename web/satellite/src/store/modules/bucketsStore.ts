@@ -13,7 +13,7 @@ import {
 import { SignatureV4 } from '@smithy/signature-v4';
 
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
-import { BucketsApiGql } from '@/api/buckets';
+import { BucketsHttpApi } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -53,7 +53,7 @@ export class BucketsState {
 export const useBucketsStore = defineStore('buckets', () => {
     const state = reactive<BucketsState>(new BucketsState());
 
-    const api: BucketsApi = new BucketsApiGql();
+    const api: BucketsApi = new BucketsHttpApi();
 
     function setBucketsSearch(search: string): void {
         state.cursor.search = search;
