@@ -179,6 +179,22 @@ Freezes a user account so no uploads or downloads may occur.
 
 Unfreezes a user account so uploads and downloads may resume.
 
+#### PATCH /api/users/{user-email}/geofence
+
+Sets the account level geofence for the user.
+
+Example request:
+
+```json
+{
+  "region": "US"
+}
+```
+
+#### DELETE /api/users/{user-email}/geofence
+
+Removes the account level geofence for the user.
+
 ### OAuth Client Management
 
 Manages oauth clients known to the Satellite.
