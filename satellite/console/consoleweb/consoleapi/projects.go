@@ -165,6 +165,45 @@ func (p *Projects) GetPagedProjects(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateProject handles updating projects.
+func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var payload console.UpsertProjectInfo
+
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	_, err = p.service.UpdateProject(ctx, id, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetMembersAndInvitations returns the project's members and invitees.
 func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -457,6 +496,7 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
 	var payload struct {
