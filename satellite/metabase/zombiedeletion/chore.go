@@ -80,10 +80,17 @@ func (chore *Chore) deleteZombieObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting zombie objects")
 
-	return chore.metabase.DeleteZombieObjects(ctx, metabase.DeleteZombieObjects{
+	opts := metabase.DeleteZombieObjects{
 		DeadlineBefore:     chore.nowFn(),
 		InactiveDeadline:   chore.nowFn().Add(-chore.config.InactiveFor),
 		BatchSize:          chore.config.ListLimit,
 		AsOfSystemInterval: chore.config.AsOfSystemInterval,
-	})
+	}
+
+	err = chore.metabase.DeleteZombieObjects(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	return chore.metabase.DeleteInactivePendingObjects(ctx, opts)
 }

@@ -516,6 +516,20 @@ func (step DeleteZombieObjects) Check(ctx *testcontext.Context, t testing.TB, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+// DeleteInactivePendingObjects is for testing metabase.DeleteInactivePendingObjects.
+type DeleteInactivePendingObjects struct {
+	Opts metabase.DeleteZombieObjects
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteInactivePendingObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.DeleteInactivePendingObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 // IterateCollector is for testing metabase.IterateCollector.
 type IterateCollector []metabase.ObjectEntry
 
