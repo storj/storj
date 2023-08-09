@@ -32,18 +32,36 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 
 	deleteBatchSizeLimit.Ensure(&opts.BatchSize)
 
-	for {
+	// TODO we may think about doing pending and committed objects in parallel
+	deletedBatchCount := int64(opts.BatchSize)
+	for deletedBatchCount > 0 {
 		if err := ctx.Err(); err != nil {
 			return deletedObjectCount, err
 		}
 
-		deletedBatchCount, err := db.deleteBucketObjects(ctx, opts)
+		deletedBatchCount, err = db.deleteBucketObjects(ctx, opts)
 		deletedObjectCount += deletedBatchCount
 
-		if err != nil || deletedBatchCount == 0 {
+		if err != nil {
 			return deletedObjectCount, err
 		}
 	}
+
+	deletedBatchCount = int64(opts.BatchSize)
+	for deletedBatchCount > 0 {
+		if err := ctx.Err(); err != nil {
+			return deletedObjectCount, err
+		}
+
+		deletedBatchCount, err = db.deleteBucketPendingObjects(ctx, opts)
+		deletedObjectCount += deletedBatchCount
+
+		if err != nil {
+			return deletedObjectCount, err
+		}
+	}
+
+	return deletedObjectCount, nil
 }
 
 func (db *DB) deleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
@@ -94,6 +112,57 @@ func (db *DB) deleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 
 	mon.Meter("object_delete").Mark64(deletedObjectCount)
 	mon.Meter("segment_delete").Mark64(deletedSegmentCount)
+
+	return deletedObjectCount, nil
+}
+
+func (db *DB) deleteBucketPendingObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+
+	// TODO handle number of deleted segments
+	switch db.impl {
+	case dbutil.Cockroach:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM pending_objects
+			WHERE project_id = $1 AND bucket_name = $2 LIMIT $3
+			RETURNING pending_objects.stream_id
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT COUNT(1) FROM deleted_objects
+	`
+	case dbutil.Postgres:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM pending_objects
+			WHERE stream_id IN (
+				SELECT stream_id FROM pending_objects
+				WHERE project_id = $1 AND bucket_name = $2
+				LIMIT $3
+			)
+			RETURNING pending_objects.stream_id
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT COUNT(1) FROM deleted_objects
+	`
+	default:
+		return 0, Error.New("unhandled database: %v", db.impl)
+	}
+
+	err = db.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize).Scan(&deletedObjectCount)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	mon.Meter("object_delete").Mark64(deletedObjectCount)
 
 	return deletedObjectCount, nil
 }

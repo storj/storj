@@ -238,6 +238,53 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
+
+		t.Run("pending and committed objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateObject(ctx, t, db, obj1, 2)
+
+			obj1.ObjectKey = "some key"
+			obj1.Version = metabase.NextVersion
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:    obj1.Location().Bucket(),
+					BatchSize: 2,
+				},
+				Deleted: 2,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+
+			// object only in pending_objects table
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:    obj1.Location().Bucket(),
+					BatchSize: 2,
+				},
+				Deleted: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 	})
 }
 
