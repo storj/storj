@@ -656,7 +656,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	if err != nil {
 		sendJSONError(w, "unable to get project details",
 			err.Error(), http.StatusInternalServerError)
-		return
+		return false
 	}
 
 	// If user is paid tier, check the usage limit, otherwise it is ok to delete it.
@@ -664,7 +664,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	if err != nil {
 		sendJSONError(w, "unable to project owner tier",
 			err.Error(), http.StatusInternalServerError)
-		return
+		return false
 	}
 	if paid {
 		// check current month usage and do not allow deletion if usage exists

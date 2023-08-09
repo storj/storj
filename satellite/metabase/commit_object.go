@@ -264,8 +264,9 @@ func convertToFinalSegments(segmentsInDatabase []segmentInfoForCommit) (commit [
 // updateSegmentOffsets updates segment offsets that didn't match the database state.
 func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, updates []segmentToCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(updates) == 0 {
-		return
+		return nil
 	}
 
 	// We may be able to skip this, if the database state have been already submitted

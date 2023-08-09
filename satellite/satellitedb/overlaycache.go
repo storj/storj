@@ -363,7 +363,7 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 		LIMIT $4
 	`, now.Add(-offlineWindow), now.Add(-cutoff), now.Add(-cooldown), limit)
 	if err != nil {
-		return
+		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -374,7 +374,7 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 		err = rows.Scan(&idBytes, &email)
 		nodeID, err = storj.NodeIDFromBytes(idBytes)
 		if err != nil {
-			return
+			return nil, Error.Wrap(err)
 		}
 		nodes[nodeID] = email
 	}

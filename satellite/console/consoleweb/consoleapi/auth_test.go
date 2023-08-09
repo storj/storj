@@ -199,14 +199,12 @@ func TestDeleteAccount(t *testing.T) {
 		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "")
 		authController.DeleteAccount(rr, r)
 
-		//nolint:bodyclose
 		result := rr.Result()
-		defer func() {
-			err := result.Body.Close()
-			require.NoError(t, err)
-		}()
 
 		body, err := io.ReadAll(result.Body)
+		require.NoError(t, err)
+
+		err = result.Body.Close()
 		require.NoError(t, err)
 
 		return result.StatusCode, body
