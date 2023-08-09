@@ -105,10 +105,10 @@
                         <IconProject />
                     </template>
                     <v-list-item-title link class="text-body-2 ml-3">
-                        {{ selectedProject.name }}
+                        Project
                     </v-list-item-title>
                     <v-list-item-subtitle class="ml-3">
-                        {{ selectedProject.description }}
+                        {{ selectedProject.name }}
                     </v-list-item-subtitle>
                     <template #append>
                         <img src="@poc/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
