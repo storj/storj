@@ -20,6 +20,7 @@
                     :error="enterError"
                     role-description="passphrase"
                     is-password
+                    :autocomplete="autocompleteValue"
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -97,6 +98,20 @@ const isLoading = ref<boolean>(false);
 const isWarningState = ref<boolean>(false);
 
 /**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${selectedProjectID.value.toLowerCase()} new-password`;
+});
+
+/**
+ * Returns selected project ID from store.
+ */
+const selectedProjectID = computed((): string => {
+    return projectsStore.state.selectedProject.id;
+});
+
+/**
  * Returns chosen bucket name from store.
  */
 const bucketName = computed((): string => {
@@ -145,7 +160,7 @@ async function onContinue(): Promise<void> {
 
     try {
         bucketsStore.setPassphrase(passphrase.value);
-        await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+        await bucketsStore.setS3Client(selectedProjectID.value);
         const count: number = await bucketsStore.getObjectsCount(bucketName.value);
         if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
             isWarningState.value = true;

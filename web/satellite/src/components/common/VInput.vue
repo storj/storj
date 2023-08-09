@@ -30,6 +30,7 @@
             :cols="40"
             :maxlength="maxSymbols"
             :disabled="disabled"
+            :autocomplete="autocomplete"
             wrap="hard"
             @input="onInput"
             @change="onInput"
@@ -45,6 +46,7 @@
             :style="style.inputStyle"
             :maxlength="maxSymbols"
             :disabled="disabled"
+            :autocomplete="autocomplete"
             @input="onInput"
             @change="onInput"
             @focus="showPasswordStrength"
@@ -96,6 +98,7 @@ const props = withDefaults(defineProps<{
     isWhite?: boolean,
     withIcon?: boolean,
     disabled?: boolean,
+    autocomplete?: string,
 }>(), {
     additionalLabel: '',
     initValue: '',
@@ -114,6 +117,7 @@ const props = withDefaults(defineProps<{
     isWhite: false,
     withIcon: false,
     disabled: false,
+    autocomplete: 'off',
 });
 
 const emit = defineEmits(['showPasswordStrength', 'hidePasswordStrength', 'setData']);

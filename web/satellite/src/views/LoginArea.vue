@@ -83,6 +83,7 @@
                             placeholder="Password"
                             :error="passwordError"
                             is-password
+                            :autocomplete="autocompleteValue"
                             role-description="password"
                             @setData="setPassword"
                         />
@@ -221,6 +222,13 @@ const usersStore = useUsersStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${satelliteName.value.substring(0, 2).toLowerCase()} current-password`;
+});
 
 /**
  * Name of the current satellite.

@@ -61,6 +61,7 @@
                                 role-description="passphrase"
                                 placeholder="Passphrase"
                                 :error="passphraseErr"
+                                :autocomplete="autocompleteValue"
                                 is-password
                                 @setData="setPassphrase"
                             />
@@ -88,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Validator } from '@/utils/validation';
@@ -155,6 +156,13 @@ const oauthData = ref<{
     response_type?: string;
     scope?: string;
 }>({});
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${selectedProjectID.value.toLowerCase()} new-password`;
+});
 
 function slugify(name: string): string {
     name = name.toLowerCase();

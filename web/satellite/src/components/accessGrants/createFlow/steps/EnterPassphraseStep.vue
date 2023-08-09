@@ -8,7 +8,8 @@
             <VInput
                 label="Encryption Passphrase"
                 placeholder="Enter Encryption Passphrase"
-                :is-password="true"
+                is-password
+                :autocomplete="autocompleteValue"
                 :init-value="passphrase"
                 @setData="setPassphrase"
             />
@@ -50,6 +51,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import { useProjectsStore } from '@/store/modules/projectsStore';
+
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
 import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -68,7 +71,17 @@ const props = withDefaults(defineProps<{
     isNewPassphrase: false,
 });
 
+const projectsStore = useProjectsStore();
+
 const isPassphraseSaved = ref<boolean>(false);
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    const projectID = projectsStore.state.selectedProject.id;
+    return `section-${projectID?.toLowerCase()} new-password`;
+});
 
 /**
  * Indicates if continue button is disabled.

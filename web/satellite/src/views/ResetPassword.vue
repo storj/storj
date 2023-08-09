@@ -95,8 +95,8 @@ import KeyIcon from '@/../static/images/resetPassword/success.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
+const { config } = useConfigStore().state;
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
@@ -172,7 +172,6 @@ async function onResetClick(): Promise<void> {
  */
 function validateFields(): boolean {
     let isNoErrors = true;
-    const config = configStore.state.config;
 
     if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid password';
@@ -205,7 +204,7 @@ function hidePasswordStrength(): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = configStore.state.config.homepageURL;
+    window.location.href = config.homepageURL;
 }
 
 /**

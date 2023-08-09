@@ -14,6 +14,7 @@
                     label="Old Password"
                     placeholder="Old Password"
                     is-password
+                    :autocomplete="autocompleteValue"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -62,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
@@ -80,8 +81,8 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
+const { config } = useConfigStore().state;
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
@@ -96,6 +97,13 @@ const oldPasswordError = ref<string>('');
 const newPasswordError = ref<string>('');
 const confirmationPasswordError = ref<string>('');
 const isPasswordStrengthShown = ref<boolean>(false);
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${config.satelliteName.substring(0, 2).toLowerCase()} current-password`;
+});
 
 /**
  * Enables password strength info container.
@@ -144,8 +152,6 @@ async function onUpdateClick(): Promise<void> {
         oldPasswordError.value = 'Invalid old password. Must be 6 or more characters';
         hasError = true;
     }
-
-    const config = configStore.state.config;
 
     if (newPassword.value.length < config.passwordMinimumLength) {
         newPasswordError.value = `Invalid password. Use ${config.passwordMinimumLength} or more characters`;

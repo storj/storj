@@ -19,6 +19,7 @@
                     :error="enterError"
                     role-description="passphrase"
                     is-password
+                    :autocomplete="autocompleteValue"
                     @setData="setPassphrase"
                 />
                 <div class="modal__buttons">
@@ -45,13 +46,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -62,9 +64,24 @@ import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 
 const enterError = ref<string>('');
 const passphrase = ref<string>('');
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${selectedProjectID.value.toLowerCase()} new-password`;
+});
+
+/**
+ * Returns selected project ID from store.
+ */
+const selectedProjectID = computed((): string => {
+    return projectsStore.state.selectedProject.id;
+});
 
 /**
  * Sets passphrase.
