@@ -111,16 +111,16 @@ type ProjectUsageByDay struct {
 
 // BucketUsage consist of total bucket usage for period.
 type BucketUsage struct {
-	ProjectID  uuid.UUID
-	BucketName string
+	ProjectID  uuid.UUID `json:"projectID"`
+	BucketName string    `json:"bucketName"`
 
-	Storage      float64
-	Egress       float64
-	ObjectCount  int64
-	SegmentCount int64
+	Storage      float64 `json:"storage"`
+	Egress       float64 `json:"egress"`
+	ObjectCount  int64   `json:"objectCount"`
+	SegmentCount int64   `json:"segmentCount"`
 
-	Since  time.Time
-	Before time.Time
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
 }
 
 // BucketUsageCursor holds info for bucket usage
@@ -133,15 +133,15 @@ type BucketUsageCursor struct {
 
 // BucketUsagePage represents bucket usage page result.
 type BucketUsagePage struct {
-	BucketUsages []BucketUsage
+	BucketUsages []BucketUsage `json:"bucketUsages"`
 
-	Search string
-	Limit  uint
-	Offset uint64
+	Search string `json:"search"`
+	Limit  uint   `json:"limit"`
+	Offset uint64 `json:"offset"`
 
-	PageCount   uint
-	CurrentPage uint
-	TotalCount  uint64
+	PageCount   uint   `json:"pageCount"`
+	CurrentPage uint   `json:"currentPage"`
+	TotalCount  uint64 `json:"totalCount"`
 }
 
 // BucketUsageRollup is total bucket usage info
