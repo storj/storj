@@ -9,6 +9,7 @@
             prepend-inner-icon="mdi-magnify"
             single-line
             hide-details
+            clearable
         />
 
         <v-data-table

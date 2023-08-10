@@ -115,32 +115,6 @@
                 </v-list-item>
             </v-list>
         </v-card>
-
-        <v-card
-            variant="flat"
-            :border="true"
-            class="mx-auto my-6"
-        >
-            <v-list lines="three" select-strategy="classic">
-                <v-list-subheader class="mb-2">Notifications</v-list-subheader>
-
-                <v-divider />
-
-                <v-list-item value="notifications" color="default">
-                    <template #append="{ isActive }">
-                        <v-list-item-action start>
-                            <v-checkbox-btn :model-value="isActive" />
-                        </v-list-item-action>
-                    </template>
-
-                    <v-list-item-title>Product newsletter</v-list-item-title>
-
-                    <v-list-item-subtitle>
-                        Notify me about product updates.
-                    </v-list-item-subtitle>
-                </v-list-item>
-            </v-list>
-        </v-card>
     </v-container>
 
     <ChangePasswordDialog
@@ -181,7 +155,6 @@ import {
     VListItemSubtitle,
     VListItemAction,
     VBtn,
-    VCheckboxBtn,
 } from 'vuetify/components';
 
 import { User, UserSettings } from '@/types/users';

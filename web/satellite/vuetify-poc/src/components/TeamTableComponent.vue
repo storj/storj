@@ -9,6 +9,7 @@
             prepend-inner-icon="mdi-magnify"
             single-line
             hide-details
+            clearable
         />
 
         <v-data-table
@@ -18,8 +19,6 @@
             :items="projectMembers"
             :search="search"
             class="elevation-1"
-            show-select
-            hover
         >
             <template #item.name="{ item }">
                 <span class="font-weight-bold">

@@ -23,6 +23,7 @@ html {
 .v-navigation-drawer {
   // box-shadow: 0 3px 4px rgba(var(--v-theme-on-surface), 0.05) !important;
   box-shadow: 15px 0 30px 0 rgba(0,0,0,.03) !important;
+  transform: translateX(0) !important;
   // box-shadow: 15px 0 30px 0 rgba(var(--v-theme-on-surface), 0.03) !important;
 }
 .v-app-bar.v-toolbar {
