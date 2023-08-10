@@ -125,6 +125,7 @@ pipeline {
             sh 'psql -U postgres -c \'create database teststorj;\''
 
             sh 'storj-sim network setup'
+			sh 'echo "console.rate-limit.burst: 10000" >> $(storj-sim network env SATELLITE_0_DIR)/config.yaml'
 
             sh '''
                 nohup authservice run \
