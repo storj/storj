@@ -6,11 +6,11 @@
         <div v-if="isLoading" class="d-flex align-center justify-center w-100 h-100">
             <v-progress-circular color="primary" indeterminate size="64" />
         </div>
-        <template v-else>
+        <session-wrapper v-else>
             <default-bar show-nav-drawer-button />
             <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
             <default-view />
-        </template>
+        </session-wrapper>
     </v-app>
 </template>
 
@@ -34,6 +34,8 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+
+import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 
 const router = useRouter();
 const route = useRoute();

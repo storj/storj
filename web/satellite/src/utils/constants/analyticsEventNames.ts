@@ -62,6 +62,7 @@ export enum AnalyticsEvent {
 
 export enum AnalyticsErrorEventSource {
     ACCESS_GRANTS_PAGE = 'Access grants page',
+    ACCOUNT_PAGE = 'Account page',
     ACCOUNT_SETTINGS_AREA = 'Account settings area',
     BILLING_HISTORY_TAB = 'Billing history tab',
     BILLING_COUPONS_TAB = 'Billing coupons tab',

@@ -19,12 +19,15 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+
+export interface UseSessionTimeoutOptions {
+    showEditSessionTimeoutModal: () => void;
+}
 
 const RESET_ACTIVITY_EVENTS: readonly string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 export const INACTIVITY_MODAL_DURATION = 60000;
 
-export function useSessionTimeout() {
+export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
     const initialized = ref<boolean>(false);
 
     const inactivityTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -132,22 +135,19 @@ export function useSessionTimeout() {
     /**
      * Adds DOM event listeners and starts session timers.
      */
-    function setupSessionTimers(): void {
+    async function setupSessionTimers(): Promise<void> {
         if (initialized.value || !configStore.state.config.inactivityTimerEnabled) return;
 
         const expiresAt = LocalData.getSessionExpirationDate();
-
-        if (expiresAt) {
-            RESET_ACTIVITY_EVENTS.forEach((eventName: string) => {
-                document.addEventListener(eventName, onSessionActivity, false);
-            });
-
-            if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
-                refreshSession();
-            }
-
-            restartSessionTimers();
+        if (!expiresAt || expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
+            await refreshSession();
         }
+
+        RESET_ACTIVITY_EVENTS.forEach((eventName: string) => {
+            document.addEventListener(eventName, onSessionActivity, false);
+        });
+
+        restartSessionTimers();
 
         initialized.value = true;
     }
@@ -177,7 +177,7 @@ export function useSessionTimeout() {
             }, INACTIVITY_MODAL_DURATION);
         }, sessionDuration.value - INACTIVITY_MODAL_DURATION);
 
-        if (!debugTimerShown.value) return;
+        if (!configStore.state.config.inactivityTimerViewerEnabled) return;
 
         const debugTimer = () => {
             const expiresAt = LocalData.getSessionExpirationDate();
@@ -221,7 +221,7 @@ export function useSessionTimeout() {
         isSessionRefreshing.value = false;
 
         if (manual && !usersStore.state.settings.sessionDuration) {
-            appStore.updateActiveModal(MODALS.editSessionTimeout);
+            opts.showEditSessionTimeoutModal();
         }
     }
 

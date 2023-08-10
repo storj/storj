@@ -3,8 +3,10 @@
 
 <template>
     <v-app>
-        <default-bar />
-        <default-view />
+        <session-wrapper>
+            <default-bar />
+            <default-view />
+        </session-wrapper>
     </v-app>
 </template>
 
@@ -18,6 +20,8 @@ import DefaultView from './View.vue';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+
+import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 
 const usersStore = useUsersStore();
 const notify = useNotify();

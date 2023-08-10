@@ -19,13 +19,18 @@ import { useRouter } from 'vue-router';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useSessionTimeout, INACTIVITY_MODAL_DURATION } from '@/composables/useSessionTimeout';
 import { RouteConfig } from '@/types/router';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
 
 const analyticsStore = useAnalyticsStore();
+const appStore = useAppStore();
 
-const sessionTimeout = useSessionTimeout();
+const sessionTimeout = useSessionTimeout({
+    showEditSessionTimeoutModal: () => appStore.updateActiveModal(MODALS.editSessionTimeout),
+});
 const router = useRouter();
 
 /**
