@@ -465,8 +465,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         // Upload 4 parts at a time.
         const queueSize = 4;
-        // Part size must be 64MB or higher, depending on file size.
-        const partSize = Math.max(64 * 1024 * 1024, Math.floor(body.size / queueSize));
+        // For now use a 64mb part size. This may be configurable in the future to enhance performance.
+        const partSize = 64 * 1024 * 1024;
 
         const upload = new Upload({
             client: state.s3,
