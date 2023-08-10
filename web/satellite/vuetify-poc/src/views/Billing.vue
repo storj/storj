@@ -128,31 +128,12 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" sm="4">
-                        <v-card title="Credit Card" variant="flat" :border="true" rounded="xlg">
-                            <v-card-text>
-                                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">Visa</v-chip>
-                                <!-- <v-chip rounded color="primary" variant="tonal" class="font-weight-bold mr-2">Default</v-chip> -->
-                                <v-divider class="my-4" />
-                                <p>Card Number</p>
-                                <v-chip rounded color="default" variant="text" class="pl-0 font-weight-bold mt-2">**** **** **** 2759</v-chip>
-                                <v-divider class="my-4" />
-                                <p>Exp. Date</p>
-                                <v-chip rounded color="default" variant="text" class="pl-0 font-weight-bold mt-2">12/27</v-chip>
-                                <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">Edit</v-btn>
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">Remove</v-btn>
-                            </v-card-text>
-                        </v-card>
+                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" sm="4">
+                        <CreditCardComponent :card="card" />
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="Add Card" variant="flat" :border="true" rounded="xlg">
-                            <v-card-text>
-                                <!-- <v-chip rounded color="info" variant="tonal" class="font-weight-bold mr-2">Visa</v-chip> -->
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Add New Card</v-btn>
-                            </v-card-text>
-                        </v-card>
+                        <AddCreditCardComponent />
                     </v-col>
                 </v-row>
             </v-window-item>
@@ -244,7 +225,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -264,9 +245,24 @@ import {
 } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
+import { useLoading } from '@/composables/useLoading';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { CreditCard } from '@/types/payments';
+
+import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
+import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
+
 const tab = ref<string>('Overview');
 const search = ref<string>('');
 const selected = ref([]);
+
+const billingStore = useBillingStore();
+
+const { isLoading, withLoading } = useLoading();
+
+const creditCards = computed((): CreditCard[] => {
+    return billingStore.state.creditCards;
+});
 
 const sortBy = [{ key: 'date', order: 'asc' }];
 const headers = [
@@ -301,4 +297,10 @@ function getColor(status: string): string {
     if (status === 'Pending') return 'warning';
     return 'error';
 }
+
+onMounted(() => {
+    withLoading(async () => {
+        await billingStore.getCreditCards();
+    });
+});
 </script>
