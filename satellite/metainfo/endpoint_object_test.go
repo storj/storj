@@ -2429,8 +2429,8 @@ func TestPlacements(t *testing.T) {
 				StorageNode: func(index int, config *storagenode.Config) {
 					if index%2 == 0 {
 						tags := &pb.NodeTagSet{
-							NodeId:    testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
-							Timestamp: time.Now().Unix(),
+							NodeId:   testidentity.MustPregeneratedSignedIdentity(index+1, storj.LatestIDVersion()).ID.Bytes(),
+							SignedAt: time.Now().Unix(),
 							Tags: []*pb.Tag{
 								{
 									Name:  "certified",

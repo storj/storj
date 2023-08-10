@@ -167,7 +167,7 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 				continue
 			}
 
-			ts := time.Unix(verifiedTags.Timestamp, 0)
+			ts := time.Unix(verifiedTags.SignedAt, 0)
 			for _, vt := range verifiedTags.Tags {
 				tags = append(tags, nodeselection.NodeTag{
 					NodeID:   nodeID,

@@ -1,6 +1,6 @@
 module storj.io/storj/testsuite/ui
 
-go 1.18
+go 1.19
 
 replace storj.io/storj => ../../
 
@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230719104100-cb5eec2edc30
+	storj.io/common v0.0.0-20230810121656-3e42ad28fcf6
 	storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297
 	storj.io/private v0.0.0-20230703113355-ccd4db5ae659
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
@@ -62,7 +62,7 @@ require (
 	github.com/go-oauth2/oauth2/v4 v4.4.2 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/ncw/directio v1.0.5 // indirect
 	github.com/nsqio/go-nsq v1.0.8 // indirect
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
-	github.com/onsi/ginkgo/v2 v2.2.0 // indirect
+	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/oschwald/maxminddb-golang v1.12.0 // indirect
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d // indirect
 	github.com/outcaste-io/ristretto v0.1.1-0.20220420003845-bd658a460d49 // indirect
@@ -152,10 +152,8 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.14.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
-	github.com/quic-go/quic-go v0.32.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
+	github.com/quic-go/quic-go v0.37.4 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -208,14 +206,14 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
-	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.9.0 // indirect
+	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/api v0.118.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect

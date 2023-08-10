@@ -101,8 +101,8 @@ func signTags(ctx context.Context, cfg Config, tagPairs []string) (string, error
 		return "", errs.New("Wrong NodeID format: %v", err)
 	}
 	tagSet := &pb.NodeTagSet{
-		NodeId:    nodeID.Bytes(),
-		Timestamp: time.Now().Unix(),
+		NodeId:   nodeID.Bytes(),
+		SignedAt: time.Now().Unix(),
 	}
 
 	for _, tag := range tagPairs {
@@ -170,7 +170,7 @@ func inspect(ctx context.Context, s string) error {
 			return err
 		}
 
-		fmt.Println("Timestamp:         ", time.Unix(tags.Timestamp, 0).Format(time.RFC3339))
+		fmt.Println("SignedAt:          ", time.Unix(tags.SignedAt, 0).Format(time.RFC3339))
 		fmt.Println("NodeID:            ", nodeID.String())
 		fmt.Println("Tags:")
 		for _, tag := range tags.Tags {
