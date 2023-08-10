@@ -101,6 +101,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -113,11 +114,19 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
+const usersStore = useUsersStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
 const isLoading = ref<boolean>(false);
+
+/**
+ * Indicates if user is in paid tier.
+ */
+const isUserInPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
+});
 
 /**
  * Returns wallet from store.
@@ -171,7 +180,12 @@ async function claimWalletClick(): Promise<void> {
  */
 function onAddTokensClick(): void {
     analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-    appStore.updateActiveModal(MODALS.addTokenFunds);
+
+    if (!isUserInPaidTier.value) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    } else {
+        appStore.updateActiveModal(MODALS.addTokenFunds);
+    }
 }
 
 onMounted(async (): Promise<void> => {
