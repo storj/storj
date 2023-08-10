@@ -27,6 +27,7 @@ export default defineConfig({
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
             '@poc': fileURLToPath(new URL('./vuetify-poc/src', import.meta.url)),
+            'stream': 'stream-browserify', // Passphrase mnemonic generation will not work without this
         },
         extensions: [
             '.js',

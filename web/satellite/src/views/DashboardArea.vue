@@ -71,19 +71,11 @@
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                         <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
                             <UploadNotification
-                                v-if="isLargeUploadNotificationShown && !isLargeUploadWarningNotificationShown && isBucketsView"
-                                wording-bold="The web browser is best for uploads up to 1GB."
-                                wording="To upload larger files, check our recommendations"
-                                :notification-icon="CloudIcon"
-                                :warning-notification="false"
-                                :on-close-click="onNotificationCloseClick"
-                            />
-                            <UploadNotification
                                 v-if="isLargeUploadWarningNotificationShown"
                                 wording-bold="Trying to upload a large file?"
                                 wording="Check the recommendations for your use case"
                                 :notification-icon="WarningIcon"
-                                :warning-notification="true"
+                                info-notification
                                 :on-close-click="onWarningNotificationCloseClick"
                             />
                         </div>
@@ -167,7 +159,6 @@ import ProjectInvitationBanner from '@/components/notifications/ProjectInvitatio
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
 
-import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
 const analyticsStore = useAnalyticsStore();
@@ -380,13 +371,6 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 });
 
 /**
- * Indicates whether the large upload notification should be shown.
- */
-const isLargeUploadNotificationShown = computed((): boolean => {
-    return appStore.state.isLargeUploadNotificationShown;
-});
-
-/**
  * Indicates whether the large upload warning notification should be shown (file uploading exceeds 1GB).
  */
 const isLargeUploadWarningNotificationShown = computed((): boolean => {
@@ -413,21 +397,6 @@ const isCreateProjectPage = computed((): boolean => {
 const isDashboardPage = computed((): boolean => {
     return route.name === RouteConfig.ProjectDashboard.name;
 });
-
-/**
- * Indicates if current route is the bucketsView page.
- */
-const isBucketsView = computed((): boolean => {
-    return route.name === RouteConfig.BucketsManagement.name;
-});
-
-/**
- * Closes upload notification and persists state in local storage.
- */
-function onNotificationCloseClick(): void {
-    appStore.setLargeUploadNotification(false);
-    LocalData.setLargeUploadNotificationDismissed();
-}
 
 /**
  * Closes upload large files warning notification.
@@ -696,10 +665,6 @@ onMounted(async () => {
             }
         }
     });
-
-    if (LocalData.getLargeUploadNotificationDismissed()) {
-        appStore.setLargeUploadNotification(false);
-    }
 
     try {
         await Promise.all([

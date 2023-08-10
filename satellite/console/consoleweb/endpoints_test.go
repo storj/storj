@@ -787,6 +787,13 @@ func TestProjects(t *testing.T) {
 			require.Contains(t, body, "error")
 			// TODO: this should return a better error
 			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+			resp, body = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+				test.toJSON(map[string]interface{}{
+					"name": "My Second Project with a long name",
+				}))
+			require.Contains(t, body, "error")
+			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		}
 
 		{ // Post_ProjectRename
@@ -805,6 +812,12 @@ func TestProjects(t *testing.T) {
 							}
 						}`}))
 			require.Contains(t, body, "updateProject")
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+				test.toJSON(map[string]interface{}{
+					"name": "new name",
+				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 	})

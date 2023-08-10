@@ -9,10 +9,8 @@ export class LocalData {
     private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
-    private static sessionTimeoutBannerAcknowledged = 'sessionTimeoutBannerAcknowledged';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
-    private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
     private static projectTableViewEnabled = 'projectTableViewEnabled';
@@ -23,10 +21,6 @@ export class LocalData {
 
     public static setSelectedProjectId(id: string): void {
         localStorage.setItem(LocalData.selectedProjectId, id);
-    }
-
-    public static removeSelectedProjectId(): void {
-        localStorage.removeItem(LocalData.selectedProjectId);
     }
 
     public static getDemoBucketCreatedStatus(): string | null {
@@ -85,14 +79,6 @@ export class LocalData {
     public static getServerSideEncryptionModalHidden(): boolean {
         const value = localStorage.getItem(LocalData.serverSideEncryptionModalHidden);
         return value === 'true';
-    }
-
-    public static getLargeUploadNotificationDismissed(): boolean {
-        return Boolean(localStorage.getItem(LocalData.largeUploadNotificationDismissed));
-    }
-
-    public static setLargeUploadNotificationDismissed(): void {
-        localStorage.setItem(LocalData.largeUploadNotificationDismissed, 'true');
     }
 
     public static getSessionExpirationDate(): Date | null {

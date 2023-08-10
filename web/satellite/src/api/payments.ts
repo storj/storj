@@ -148,7 +148,7 @@ export class PaymentsHttpApi implements PaymentsApi {
      */
     public async removeCreditCard(cardId: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards/${cardId}`;
-        const response = await this.client.delete(path);
+        const response = await this.client.delete(path, null);
 
         if (response.ok) {
             return;

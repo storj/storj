@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
 import {
     AccessGrant,
     AccessGrantCursor,
@@ -13,10 +12,10 @@ import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
 
 /**
- * AccessGrantsApiGql is a graphql implementation of Access Grants API.
+ * AccessGrantsHttpApi is a http implementation of Access Grants API.
  * Exposes all access grants-related functionality
  */
-export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
+export class AccessGrantsHttpApi implements AccessGrantsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/api-keys';
 
@@ -78,20 +77,16 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async delete(ids: string[]): Promise<void> {
-        const query =
-            `mutation($id: [String!]!) {
-                deleteAPIKeys(id: $id) {
-                    id
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/delete-by-ids`;
+        const response = await this.client.delete(path, JSON.stringify({ ids }));
 
-        const variables = {
-            id: ids,
-        };
-
-        const response = await this.mutate(query, variables);
-
-        return response.data.deleteAPIKeys;
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not delete access grants',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
     }
 
     /**
@@ -126,7 +121,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      */
     public async deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
         const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&publicID=${projectID}`;
-        const response = await this.client.delete(path);
+        const response = await this.client.delete(path, null);
 
         if (response.ok || response.status === 204) {
             return;

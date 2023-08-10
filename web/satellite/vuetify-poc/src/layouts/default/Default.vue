@@ -31,6 +31,7 @@ import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 
@@ -44,6 +45,7 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 
 const isLoading = ref<boolean>(true);
 
@@ -109,5 +111,7 @@ onBeforeMount(async () => {
     }
 
     selectProject(route.params.projectId as string);
+
+    if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
 });
 </script>
