@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeebo/errs/v2"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -275,17 +276,18 @@ func (cache *redisLiveAccounting) fillUsage(ctx context.Context, projects map[uu
 			return accounting.ErrGetProjectLimitCache.Wrap(err)
 		}
 
+		// Note, because we are using a cache, it might be empty and not contain the
+		// information we are looking for -- or they might be still empty for some reason.
+
 		for i, projectID := range projectIDs {
-			segmentUsageValue := segmentResult[i].(string)
-			segmentsUsage, err := strconv.ParseInt(segmentUsageValue, 10, 64)
+			segmentsUsage, err := parseAnyAsInt64(segmentResult[i])
 			if err != nil {
-				return accounting.ErrUnexpectedValue.New("cannot parse the value as int64; val=%q", segmentResult[i])
+				return errs.Wrap(err)
 			}
 
-			storageUsageValue := storageResult[i].(string)
-			storageUsage, err := strconv.ParseInt(storageUsageValue, 10, 64)
+			storageUsage, err := parseAnyAsInt64(storageResult[i])
 			if err != nil {
-				return accounting.ErrUnexpectedValue.New("cannot parse the value as int64; val=%q", storageResult[i])
+				return errs.Wrap(err)
 			}
 
 			projects[projectID] = accounting.Usage{
@@ -320,6 +322,24 @@ func (cache *redisLiveAccounting) fillUsage(ctx context.Context, projects map[uu
 	}
 
 	return projects, nil
+}
+
+func parseAnyAsInt64(v any) (int64, error) {
+	if v == nil {
+		return 0, nil
+	}
+
+	s, ok := v.(string)
+	if !ok {
+		return 0, accounting.ErrUnexpectedValue.New("cannot parse the value as int64; val=%q", v)
+	}
+
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, accounting.ErrUnexpectedValue.New("cannot parse the value as int64; val=%q", v)
+	}
+
+	return i, nil
 }
 
 // Close the DB connection.
