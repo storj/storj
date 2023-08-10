@@ -4,120 +4,115 @@
 <template>
     <div class="dashboard">
         <BrandedLoader v-if="isLoading" />
-        <div v-else class="dashboard__wrap">
-            <div class="dashboard__wrap__main-area">
-                <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
-                <MobileNavigation v-if="!isNavigationHidden" class="dashboard__wrap__main-area__mobile-navigation" />
-                <div
-                    class="dashboard__wrap__main-area__content-wrap"
-                    :class="{ 'no-nav': isNavigationHidden }"
-                >
-                    <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
-                            <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
+        <SessionWrapper v-else>
+            <template #default="session">
+                <div class="dashboard__wrap">
+                    <div class="dashboard__wrap__main-area">
+                        <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
+                        <MobileNavigation v-if="!isNavigationHidden" class="dashboard__wrap__main-area__mobile-navigation" />
+                        <div
+                            class="dashboard__wrap__main-area__content-wrap"
+                            :class="{ 'no-nav': isNavigationHidden }"
+                        >
+                            <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
+                                <BetaSatBar v-if="isBetaSatellite" />
+                                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                                <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
+                                    <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
 
-                            <UpgradeNotification
-                                v-if="isPaidTierBannerShown"
-                                :open-add-p-m-modal="togglePMModal"
-                            />
+                                    <UpgradeNotification
+                                        v-if="isPaidTierBannerShown"
+                                        :open-add-p-m-modal="togglePMModal"
+                                    />
 
-                            <v-banner
-                                v-if="isAccountFrozen && !isLoading && dashboardContent"
-                                severity="critical"
-                                :dashboard-ref="dashboardContent"
-                            >
-                                <template #text>
-                                    <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
-                                    <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                                </template>
-                            </v-banner>
+                                    <v-banner
+                                        v-if="isAccountFrozen && !isLoading && dashboardContent"
+                                        severity="critical"
+                                        :dashboard-ref="dashboardContent"
+                                    >
+                                        <template #text>
+                                            <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                                            <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                                        </template>
+                                    </v-banner>
 
-                            <v-banner
-                                v-if="isAccountWarned && !isLoading && dashboardContent"
-                                severity="warning"
-                                :dashboard-ref="dashboardContent"
-                            >
-                                <template #text>
-                                    <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
-                                    <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                                </template>
-                            </v-banner>
+                                    <v-banner
+                                        v-if="isAccountWarned && !isLoading && dashboardContent"
+                                        severity="warning"
+                                        :dashboard-ref="dashboardContent"
+                                    >
+                                        <template #text>
+                                            <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
+                                            <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                                        </template>
+                                    </v-banner>
 
-                            <v-banner
-                                v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
-                                severity="critical"
-                                :on-click="() => setIsHundredLimitModalShown(true)"
-                                :dashboard-ref="dashboardContent"
-                            >
-                                <template #text>
-                                    <p class="medium">{{ limitState.hundredLabel }}</p>
-                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                                </template>
-                            </v-banner>
-                            <v-banner
-                                v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
-                                severity="warning"
-                                :on-click="() => setIsEightyLimitModalShown(true)"
-                                :dashboard-ref="dashboardContent"
-                            >
-                                <template #text>
-                                    <p class="medium">{{ limitState.eightyLabel }}</p>
-                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                                </template>
-                            </v-banner>
-                        </div>
-                        <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
-                        <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
-                            <UploadNotification
-                                v-if="isLargeUploadWarningNotificationShown"
-                                wording-bold="Trying to upload a large file?"
-                                wording="Check the recommendations for your use case"
-                                :notification-icon="WarningIcon"
-                                info-notification
-                                :on-close-click="onWarningNotificationCloseClick"
-                            />
+                                    <v-banner
+                                        v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
+                                        severity="critical"
+                                        :on-click="() => setIsHundredLimitModalShown(true)"
+                                        :dashboard-ref="dashboardContent"
+                                    >
+                                        <template #text>
+                                            <p class="medium">{{ limitState.hundredLabel }}</p>
+                                            <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                        </template>
+                                    </v-banner>
+                                    <v-banner
+                                        v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
+                                        severity="warning"
+                                        :on-click="() => setIsEightyLimitModalShown(true)"
+                                        :dashboard-ref="dashboardContent"
+                                    >
+                                        <template #text>
+                                            <p class="medium">{{ limitState.eightyLabel }}</p>
+                                            <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                        </template>
+                                    </v-banner>
+                                </div>
+                                <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
+                                <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
+                                    <UploadNotification
+                                        v-if="isLargeUploadWarningNotificationShown"
+                                        wording-bold="Trying to upload a large file?"
+                                        wording="Check the recommendations for your use case"
+                                        :notification-icon="WarningIcon"
+                                        info-notification
+                                        :on-close-click="onWarningNotificationCloseClick"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
-            <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
-        </div>
-        <limit-warning-modal
-            v-if="isHundredLimitModalShown && !isLoading"
-            severity="critical"
-            :on-close="() => setIsHundredLimitModalShown(false)"
-            :title="limitState.hundredModalTitle"
-            :limit-type="limitState.hundredModalLimitType"
-            :on-upgrade="togglePMModal"
-        />
-        <limit-warning-modal
-            v-if="isEightyLimitModalShown && !isLoading"
-            severity="warning"
-            :on-close="() => setIsEightyLimitModalShown(false)"
-            :title="limitState.eightyModalTitle"
-            :limit-type="limitState.eightyModalLimitType"
-            :on-upgrade="togglePMModal"
-        />
-        <AllModals />
-        <ObjectsUploadingModal v-if="isObjectsUploadModal" />
-        <!-- IMPORTANT! Make sure these 2 modals are positioned as the last elements here so that they are shown on top of everything else -->
-        <InactivityModal
-            v-if="inactivityModalShown"
-            :on-continue="() => refreshSession(true)"
-            :on-logout="handleInactive"
-            :on-close="closeInactivityModal"
-            :initial-seconds="inactivityModalTime / 1000"
-        />
-        <SessionExpiredModal v-if="sessionExpiredModalShown" :on-redirect="redirectToLogin" />
+                <div v-if="session.debugTimerShown.value && !isLoading" class="dashboard__debug-timer">
+                    <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ session.debugTimerText.value }}</b></p>
+                </div>
+                <limit-warning-modal
+                    v-if="isHundredLimitModalShown && !isLoading"
+                    severity="critical"
+                    :on-close="() => setIsHundredLimitModalShown(false)"
+                    :title="limitState.hundredModalTitle"
+                    :limit-type="limitState.hundredModalLimitType"
+                    :on-upgrade="togglePMModal"
+                />
+                <limit-warning-modal
+                    v-if="isEightyLimitModalShown && !isLoading"
+                    severity="warning"
+                    :on-close="() => setIsEightyLimitModalShown(false)"
+                    :title="limitState.eightyModalTitle"
+                    :limit-type="limitState.eightyModalLimitType"
+                    :on-upgrade="togglePMModal"
+                />
+                <AllModals />
+                <ObjectsUploadingModal v-if="isObjectsUploadModal" />
+            </template>
+        </SessionWrapper>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -127,27 +122,21 @@ import { Project } from '@/types/projects';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
-import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import InactivityModal from '@/components/modals/InactivityModal.vue';
-import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
+import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
@@ -162,72 +151,31 @@ import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploa
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
 const analyticsStore = useAnalyticsStore();
-const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
-const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
-const notificationsStore = useNotificationsStore();
-const obStore = useObjectBrowserStore();
 
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
-const auth: AuthHttpApi = new AuthHttpApi();
-const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
-const inactivityModalTime = 60000;
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
-const inactivityTimerId = ref<ReturnType<typeof setTimeout> | null>();
-const sessionRefreshTimerId = ref<ReturnType<typeof setTimeout> | null>();
-const debugTimerId = ref<ReturnType<typeof setTimeout> | null>();
-const inactivityModalShown = ref<boolean>(false);
-const sessionExpiredModalShown = ref<boolean>(false);
-const isSessionActive = ref<boolean>(false);
-const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
 const isEightyLimitModalShown = ref<boolean>(false);
-const debugTimerText = ref<string>('');
 
 const dashboardContent = ref<HTMLElement | null>(null);
-
-/**
- * Returns the session duration from the store.
- */
-const sessionDuration = computed((): number => {
-    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
-    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
-    if (duration > maxTimeout) {
-        return maxTimeout;
-    }
-    return duration;
-});
-
-/**
- * Returns the session refresh interval from the store.
- */
-const sessionRefreshInterval = computed((): number => {
-    return sessionDuration.value / 2;
-});
 
 /**
  * Indicates whether objects upload modal should be shown.
  */
 const isObjectsUploadModal = computed((): boolean => {
     return configStore.state.config.newUploadModalEnabled && appStore.state.isUploadingModal;
-});
-
-/**
- * Indicates whether to display the session timer for debugging.
- */
-const debugTimerShown = computed((): boolean => {
-    return configStore.state.config.inactivityTimerViewerEnabled;
 });
 
 /**
@@ -415,81 +363,6 @@ function storeProject(projectID: string): void {
 }
 
 /**
- * Clears timers associated with session refreshing and inactivity.
- */
-function clearSessionTimers(): void {
-    [inactivityTimerId.value, sessionRefreshTimerId.value, debugTimerId.value].forEach(id => {
-        if (id !== null) clearTimeout(id);
-    });
-}
-
-/**
- * Adds DOM event listeners and starts session timers.
- */
-function setupSessionTimers(): void {
-    if (!configStore.state.config.inactivityTimerEnabled) return;
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        resetActivityEvents.forEach((eventName: string) => {
-            document.addEventListener(eventName, onSessionActivity, false);
-        });
-
-        if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
-            refreshSession();
-        }
-
-        restartSessionTimers();
-    }
-}
-
-/**
- * Restarts timers associated with session refreshing and inactivity.
- */
-function restartSessionTimers(): void {
-    sessionRefreshTimerId.value = setTimeout(async () => {
-        sessionRefreshTimerId.value = null;
-        if (isSessionActive.value) {
-            await refreshSession();
-        }
-    }, sessionRefreshInterval.value);
-
-    inactivityTimerId.value = setTimeout(async () => {
-        if (obStore.uploadingLength) {
-            await refreshSession();
-            return;
-        }
-
-        if (isSessionActive.value) return;
-        inactivityModalShown.value = true;
-        inactivityTimerId.value = setTimeout(async () => {
-            await clearStoreAndTimers();
-            notify.notify('Your session was timed out.');
-        }, inactivityModalTime);
-    }, sessionDuration.value - inactivityModalTime);
-
-    if (!debugTimerShown.value) return;
-
-    const debugTimer = () => {
-        const expiresAt = LocalData.getSessionExpirationDate();
-
-        if (expiresAt) {
-            const ms = Math.max(0, expiresAt.getTime() - Date.now());
-            const secs = Math.floor(ms/1000)%60;
-
-            debugTimerText.value = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
-
-            if (ms > 1000) {
-                debugTimerId.value = setTimeout(debugTimer, 1000);
-            }
-        }
-    };
-
-    debugTimer();
-}
-
-/**
  * Checks if stored project is in fetched projects array and selects it.
  * Selects first fetched project if check is not successful.
  * @param fetchedProjects - fetched projects array
@@ -505,85 +378,6 @@ function selectProject(fetchedProjects: Project[]): void {
 
     // Length of fetchedProjects array is checked before selectProject() function call.
     storeProject(fetchedProjects[0].id);
-}
-
-/**
- * Refreshes session and resets session timers.
- * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
- */
-async function refreshSession(manual = false): Promise<void> {
-    isSessionRefreshing.value = true;
-
-    try {
-        LocalData.setSessionExpirationDate(await auth.refreshSession());
-    } catch (error) {
-        error.message = (error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-        await handleInactive();
-        isSessionRefreshing.value = false;
-        return;
-    }
-
-    clearSessionTimers();
-    restartSessionTimers();
-    inactivityModalShown.value = false;
-    isSessionActive.value = false;
-    isSessionRefreshing.value = false;
-
-    if (manual && !usersStore.state.settings.sessionDuration) {
-        appStore.updateActiveModal(MODALS.editSessionTimeout);
-    }
-}
-
-/**
- * Redirects to log in screen.
- */
-function redirectToLogin(): void {
-    analyticsStore.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
-
-    sessionExpiredModalShown.value = false;
-}
-
-/**
- * Clears pinia stores and timers.
- */
-async function clearStoreAndTimers(): Promise<void> {
-    await Promise.all([
-        pmStore.clear(),
-        projectsStore.clear(),
-        usersStore.clear(),
-        agStore.stopWorker(),
-        agStore.clear(),
-        notificationsStore.clear(),
-        bucketsStore.clear(),
-        appStore.clear(),
-        billingStore.clear(),
-        abTestingStore.reset(),
-        obStore.clear(),
-    ]);
-
-    resetActivityEvents.forEach((eventName: string) => {
-        document.removeEventListener(eventName, onSessionActivity);
-    });
-    clearSessionTimers();
-    inactivityModalShown.value = false;
-    sessionExpiredModalShown.value = true;
-}
-
-/**
- * Performs logout and cleans event listeners and session timers.
- */
-async function handleInactive(): Promise<void> {
-    await clearStoreAndTimers();
-
-    try {
-        await auth.logout();
-    } catch (error) {
-        if (error instanceof ErrorUnauthorized) return;
-
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-    }
 }
 
 function setIsEightyLimitModalShown(value: boolean): void {
@@ -626,13 +420,6 @@ function togglePMModal(): void {
 }
 
 /**
- * Disables session inactivity modal visibility.
- */
-function closeInactivityModal(): void {
-    inactivityModalShown.value = false;
-}
-
-/**
  * Redirects to Billing Page.
  */
 async function redirectToBillingPage(): Promise<void> {
@@ -640,40 +427,16 @@ async function redirectToBillingPage(): Promise<void> {
 }
 
 /**
- * Resets inactivity timer and refreshes session if necessary.
- */
-async function onSessionActivity(): Promise<void> {
-    if (inactivityModalShown.value || isSessionActive.value) return;
-
-    if (sessionRefreshTimerId.value === null && !isSessionRefreshing.value) {
-        await refreshSession();
-    }
-
-    isSessionActive.value = true;
-}
-
-/**
  * Lifecycle hook after initial render.
  * Pre-fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction(({ name, after, args }) => {
-        if (name === 'clear') clearSessionTimers();
-        else if (name === 'updateSettings') {
-            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
-                after((_) => refreshSession());
-            }
-        }
-    });
-
     try {
         await Promise.all([
             usersStore.getUser(),
             abTestingStore.fetchValues(),
             usersStore.getSettings(),
         ]);
-
-        setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
@@ -750,13 +513,6 @@ onMounted(async () => {
     }
 
     appStore.changeState(FetchState.LOADED);
-});
-
-onBeforeUnmount(() => {
-    clearSessionTimers();
-    resetActivityEvents.forEach((eventName: string) => {
-        document.removeEventListener(eventName, onSessionActivity);
-    });
 });
 </script>
 

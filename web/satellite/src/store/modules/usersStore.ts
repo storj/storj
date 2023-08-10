@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { computed, reactive, readonly } from 'vue';
 
 import {
     DisableMFARequest,
@@ -15,9 +15,11 @@ import {
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
 
+export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
+
 export class UsersState {
     public user: User = new User();
-    public settings: UserSettings = new UserSettings();
+    public settings: Readonly<UserSettings> = DEFAULT_USER_SETTINGS;
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }
@@ -92,7 +94,7 @@ export const useUsersStore = defineStore('users', () => {
 
     function clear() {
         state.user = new User();
-        state.settings = new UserSettings();
+        state.settings = DEFAULT_USER_SETTINGS;
         state.userMFASecret = '';
         state.userMFARecoveryCodes = [];
     }

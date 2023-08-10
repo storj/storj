@@ -7,49 +7,43 @@
         <LoaderImage class="loading-icon" />
     </div>
     <div v-else class="all-dashboard">
-        <div class="all-dashboard__bars">
-            <BetaSatBar v-if="isBetaSatellite" />
-            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-        </div>
+        <SessionWrapper>
+            <div class="all-dashboard__bars">
+                <BetaSatBar v-if="isBetaSatellite" />
+                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+            </div>
 
-        <heading class="all-dashboard__heading" />
+            <heading class="all-dashboard__heading" />
 
-        <div class="all-dashboard__content" :class="{ 'no-x-padding': isMyProjectsPage }">
-            <div class="all-dashboard__content__divider" />
+            <div class="all-dashboard__content" :class="{ 'no-x-padding': isMyProjectsPage }">
+                <div class="all-dashboard__content__divider" />
 
-            <router-view />
+                <router-view />
 
-            <limit-warning-modal
-                v-if="isHundredLimitModalShown && !isLoading"
-                severity="critical"
-                :on-close="() => setIsHundredLimitModalShown(false)"
-                :title="limitState.hundredModalTitle"
-                :limit-type="limitState.hundredModalLimitType"
-                :on-upgrade="togglePMModal"
-            />
-            <limit-warning-modal
-                v-if="isEightyLimitModalShown && !isLoading"
-                severity="warning"
-                :on-close="() => setIsEightyLimitModalShown(false)"
-                :title="limitState.eightyModalTitle"
-                :limit-type="limitState.eightyModalLimitType"
-                :on-upgrade="togglePMModal"
-            />
-            <AllModals />
-        </div>
-        <InactivityModal
-            v-if="inactivityModalShown"
-            :on-continue="() => refreshSession(true)"
-            :on-logout="handleInactive"
-            :on-close="closeInactivityModal"
-            :initial-seconds="inactivityModalTime / 1000"
-        />
-        <SessionExpiredModal v-if="sessionExpiredModalShown" :on-redirect="redirectToLogin" />
+                <limit-warning-modal
+                    v-if="isHundredLimitModalShown && !isLoading"
+                    severity="critical"
+                    :on-close="() => setIsHundredLimitModalShown(false)"
+                    :title="limitState.hundredModalTitle"
+                    :limit-type="limitState.hundredModalLimitType"
+                    :on-upgrade="togglePMModal"
+                />
+                <limit-warning-modal
+                    v-if="isEightyLimitModalShown && !isLoading"
+                    severity="warning"
+                    :on-close="() => setIsEightyLimitModalShown(false)"
+                    :title="limitState.eightyModalTitle"
+                    :limit-type="limitState.eightyModalLimitType"
+                    :on-upgrade="togglePMModal"
+                />
+                <AllModals />
+            </div>
+        </SessionWrapper>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -61,25 +55,18 @@ import { useNotify } from '@/utils/hooks';
 import { RouteConfig } from '@/types/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
-import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
-import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
-import InactivityModal from '@/components/modals/InactivityModal.vue';
-import SessionExpiredModal from '@/components/modals/SessionExpiredModal.vue';
+import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
@@ -93,63 +80,21 @@ const notify = useNotify();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
-const bucketsStore = useBucketsStore();
-const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
-const notificationsStore = useNotificationsStore();
-const obStore = useObjectBrowserStore();
 
-const auth: AuthHttpApi = new AuthHttpApi();
-
-const inactivityModalTime = 60000;
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
-const inactivityTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
-const sessionRefreshTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
-const debugTimerId = ref<ReturnType<typeof setTimeout> | null>(null);
-const debugTimerText = ref<string>('');
-const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
-const inactivityModalShown = ref<boolean>(false);
-const sessionExpiredModalShown = ref<boolean>(false);
-const isSessionActive = ref<boolean>(false);
-const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
 const isEightyLimitModalShown = ref<boolean>(false);
 
-/**
- * Returns the session duration from the store.
- */
-const sessionDuration = computed((): number => {
-    const duration =  (usersStore.state.settings.sessionDuration?.fullSeconds || configStore.state.config.inactivityTimerDuration) * 1000;
-    const maxTimeout = 2.1427e+9; // 24.8 days https://developer.mozilla.org/en-US/docs/Web/API/setTimeout#maximum_delay_value
-    if (duration > maxTimeout) {
-        return maxTimeout;
-    }
-    return duration;
-});
-
 const isMyProjectsPage = computed((): boolean => {
     return route.path === RouteConfig.AllProjectsDashboard.path;
-});
-
-/**
- * Returns the session refresh interval from the store.
- */
-const sessionRefreshInterval = computed((): number => {
-    return sessionDuration.value / 2;
-});
-
-/**
- * Indicates whether to display the session timer for debugging.
- */
-const debugTimerShown = computed((): boolean => {
-    return configStore.state.config.inactivityTimerViewerEnabled;
 });
 
 /**
@@ -264,57 +209,6 @@ function setIsHundredLimitModalShown(value: boolean): void {
 }
 
 /**
- * Redirects to log in screen.
- */
-function redirectToLogin(): void {
-    analyticsStore.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
-
-    sessionExpiredModalShown.value = false;
-}
-
-/**
- * Clears pinia stores and timers.
- */
-async function clearStoreAndTimers(): Promise<void> {
-    await Promise.all([
-        pmStore.clear(),
-        projectsStore.clear(),
-        usersStore.clear(),
-        agStore.stopWorker(),
-        agStore.clear(),
-        notificationsStore.clear(),
-        bucketsStore.clear(),
-        appStore.clear(),
-        billingStore.clear(),
-        abTestingStore.reset(),
-        obStore.clear(),
-    ]);
-
-    resetActivityEvents.forEach((eventName: string) => {
-        document.removeEventListener(eventName, onSessionActivity);
-    });
-    clearSessionTimers();
-    inactivityModalShown.value = false;
-    sessionExpiredModalShown.value = true;
-}
-
-/**
- * Performs logout and cleans event listeners and session timers.
- */
-async function handleInactive(): Promise<void> {
-    await clearStoreAndTimers();
-
-    try {
-        await auth.logout();
-    } catch (error) {
-        if (error instanceof ErrorUnauthorized) return;
-
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-    }
-}
-
-/**
  * Generates new MFA recovery codes and toggles popup visibility.
  */
 async function generateNewMFARecoveryCodes(): Promise<void> {
@@ -334,13 +228,6 @@ function toggleMFARecoveryModal(): void {
 }
 
 /**
- * Disables session inactivity modal visibility.
- */
-function closeInactivityModal(): void {
-    inactivityModalShown.value = false;
-}
-
-/**
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
@@ -353,143 +240,16 @@ function togglePMModal(): void {
 }
 
 /**
- * Clears timers associated with session refreshing and inactivity.
- */
-function clearSessionTimers(): void {
-    [inactivityTimerId.value, sessionRefreshTimerId.value, debugTimerId.value].forEach(id => {
-        if (id !== null) clearTimeout(id);
-    });
-}
-
-/**
- * Adds DOM event listeners and starts session timers.
- */
-function setupSessionTimers(): void {
-    if (!configStore.state.config.inactivityTimerEnabled) return;
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        resetActivityEvents.forEach((eventName: string) => {
-            document.addEventListener(eventName, onSessionActivity, false);
-        });
-
-        if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
-            refreshSession();
-        }
-
-        restartSessionTimers();
-    }
-}
-
-/**
- * Restarts timers associated with session refreshing and inactivity.
- */
-function restartSessionTimers(): void {
-    sessionRefreshTimerId.value = setTimeout(async () => {
-        sessionRefreshTimerId.value = null;
-        if (isSessionActive.value) {
-            await refreshSession();
-        }
-    }, sessionRefreshInterval.value);
-
-    inactivityTimerId.value = setTimeout(async () => {
-        if (obStore.uploadingLength) {
-            await refreshSession();
-            return;
-        }
-
-        if (isSessionActive.value) return;
-        inactivityModalShown.value = true;
-        inactivityTimerId.value = setTimeout(async () => {
-            await clearStoreAndTimers();
-            notify.notify('Your session was timed out.');
-        }, inactivityModalTime);
-    }, sessionDuration.value - inactivityModalTime);
-
-    if (!debugTimerShown.value) return;
-
-    const debugTimer = () => {
-        const expiresAt = LocalData.getSessionExpirationDate();
-
-        if (expiresAt) {
-            const ms = Math.max(0, expiresAt.getTime() - Date.now());
-            const secs = Math.floor(ms / 1000) % 60;
-
-            debugTimerText.value = `${Math.floor(ms / 60000)}:${(secs < 10 ? '0' : '') + secs}`;
-
-            if (ms > 1000) {
-                debugTimerId.value = setTimeout(debugTimer, 1000);
-            }
-        }
-    };
-
-    debugTimer();
-}
-
-/**
- * Refreshes session and resets session timers.
- * @param manual - whether the user manually refreshed session. i.e.: clicked "Stay Logged In".
- */
-async function refreshSession(manual = false): Promise<void> {
-    isSessionRefreshing.value = true;
-
-    try {
-        LocalData.setSessionExpirationDate(await auth.refreshSession());
-    } catch (error) {
-        error.message = (error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message;
-        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-        await handleInactive();
-        isSessionRefreshing.value = false;
-        return;
-    }
-
-    clearSessionTimers();
-    restartSessionTimers();
-    inactivityModalShown.value = false;
-    isSessionActive.value = false;
-    isSessionRefreshing.value = false;
-
-    if (manual && !usersStore.state.settings.sessionDuration) {
-        appStore.updateActiveModal(MODALS.editSessionTimeout);
-    }
-}
-
-/**
- * Resets inactivity timer and refreshes session if necessary.
- */
-async function onSessionActivity(): Promise<void> {
-    if (inactivityModalShown.value || isSessionActive.value) return;
-
-    if (sessionRefreshTimerId.value === null && !isSessionRefreshing.value) {
-        await refreshSession();
-    }
-
-    isSessionActive.value = true;
-}
-
-/**
  * Lifecycle hook after initial render.
  * Pre-fetches user`s and project information.
  */
 onMounted(async () => {
-    usersStore.$onAction(({ name, after, args }) => {
-        if (name === 'clear') clearSessionTimers();
-        else if (name === 'updateSettings') {
-            if (args[0].sessionDuration && args[0].sessionDuration !== usersStore.state.settings.sessionDuration?.nanoseconds) {
-                after((_) => refreshSession());
-            }
-        }
-    });
-
     try {
         await Promise.all([
             usersStore.getUser(),
             abTestingStore.fetchValues(),
             usersStore.getSettings(),
         ]);
-
-        setupSessionTimers();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
@@ -551,13 +311,6 @@ onMounted(async () => {
         analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
     }
-});
-
-onBeforeUnmount(() => {
-    clearSessionTimers();
-    resetActivityEvents.forEach((eventName: string) => {
-        document.removeEventListener(eventName, onSessionActivity);
-    });
 });
 </script>
 
