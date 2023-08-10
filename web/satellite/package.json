@@ -35,7 +35,7 @@
     "vue": "3.3.2",
     "vue-datepicker-next": "1.0.3",
     "vue-router": "4.2.0",
-    "vuetify": "3.3.10"
+    "vuetify": "3.3.12"
   },
   "devDependencies": {
     "@types/filesystem": "0.0.32",
@@ -60,7 +60,7 @@
     "stylelint-config-standard-vue": "1.0.0",
     "stylelint-scss": "5.0.1",
     "typescript": "4.9.5",
-    "vite": "4.3.9",
+    "vite": "4.4.9",
     "vite-plugin-compression": "0.5.1",
     "vite-plugin-require": "1.1.10",
     "vite-plugin-vuetify": "1.0.2",

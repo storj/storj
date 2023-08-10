@@ -1,16 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * src/styles/styles.scss
- *
- * Storj Stylesheet
- * Work in progress
- *
- */
-
- @use './settings';
- @import 'static/styles/variables';
+@import 'static/styles/variables';
 
 html {
   overflow-y: auto !important;

@@ -7,9 +7,9 @@
  * Framework documentation: https://vuetifyjs.com`
  */
 
+import 'vuetify/styles';
 import '@mdi/font/css/materialdesignicons.css';
 import { createVuetify } from 'vuetify';
-import { VDataTable } from 'vuetify/labs/VDataTable';
 import { md3 } from 'vuetify/blueprints';
 
 import '../styles/styles.scss';
@@ -70,9 +70,6 @@ export default createVuetify({
                 },
             },
         },
-    },
-    components: {
-        VDataTable,
     },
     defaults: {
         global: {

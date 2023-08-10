@@ -1,36 +1,9 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * src/styles/settings.scss
- *
- * Configures SASS variables and Vuetify overwrites
- */
+$font-family: 'Inter', sans-serif;
 
-
-// Warning
-// Duplicated CSS
-// Placing actual styles or importing a regular stylesheet
-// into the settings file will cause them to be
-// duplicated everywhere the file is imported.
-
-// Only put variables, mixins, and functions in the settings file,
-// styles should be placed in the main stylesheet or loaded another way.
-
-
-// Use SASS https://vuetifyjs.com/en/features/sass-variables/
-
-// @use 'vuetify' with (
-//   // $utilities: false,
-//   $color-pack: false,
-//   $body-font-family: 'Inter',
-// );
-
-//  To obtain settings from Vuetify, you must forward its variables from within your local stylesheet
-@forward 'vuetify' with (
-  // $utilities: false,
+@use 'vuetify/settings' with (
   $color-pack: false,
-  $body-font-family: 'Inter',
-  // $button-text-letter-spacing: 'none',
-  // $button-height: 40px,
+  $body-font-family: $font-family,
 );
