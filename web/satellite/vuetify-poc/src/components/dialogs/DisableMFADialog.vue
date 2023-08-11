@@ -41,6 +41,7 @@
                         :rules="rules"
                         :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
                         :label="useRecoveryCode ? 'Recovery code' : '2FA Code'"
+                        hide-details="auto"
                         required
                         autofocus
                     />

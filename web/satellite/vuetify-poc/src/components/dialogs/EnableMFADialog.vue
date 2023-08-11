@@ -65,6 +65,7 @@
                                 :rules="rules"
                                 :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
                                 label="2FA Code"
+                                hide-details="auto"
                                 required
                                 autofocus
                             />
