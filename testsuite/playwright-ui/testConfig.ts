@@ -2,10 +2,11 @@
 // See LICENSE for copying information.
 
 export const testConfig = {
-    host: `http://127.0.0.1`,
-    port: `:10000`,
-    username: `test@storj.io`,
+    // host: `http://127.0.0.1`,
+    host: `http://nightly.storj.rodeo`,
+    // port: `:10000`,
+    port: ``,
+	username: `test@storj.io`,
     password: `123a123`,
     waitForElement: 120000,
-
 };
