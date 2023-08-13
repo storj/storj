@@ -74,7 +74,7 @@ export default createVuetify({
     defaults: {
         global: {
             // ripple: false,
-            hideDetails: true,
+            hideDetails: 'auto',
         },
         VDataTable: {
             fixedHeader: true,
