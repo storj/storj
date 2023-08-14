@@ -126,7 +126,7 @@ lint:
 		-v ${GOPATH}/pkg:/go/pkg \
 		-v ${PWD}:/storj \
 		-w /storj \
-		storjlabs/ci-slim \
+		storjlabs/ci:slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
 .PHONY: .lint/testsuite/ui
