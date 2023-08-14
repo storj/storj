@@ -7,7 +7,7 @@ import { useAppStore } from '@poc/store/appStore';
 
 const routes: RouteRecordRaw[] = [
     {
-        path: '/vuetifypoc',
+        path: '/',
         redirect: { path: '/projects' }, // redirect
     },
     {
@@ -77,7 +77,7 @@ const routes: RouteRecordRaw[] = [
 ];
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory(import.meta.env.VITE_VUETIFY_PREFIX),
     routes,
 });
 
