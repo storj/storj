@@ -3,8 +3,8 @@
 
 // @ts-ignore
 import os from 'node:os';
-import {GenerateCustomLayoutSimpleMeta} from './slackReporter';
-import { PlaywrightTestConfig, devices} from '@playwright/test';
+import generateCustomLayoutSimpleMeta from './slackReporter';
+import {PlaywrightTestConfig, devices, ReporterDescription} from '@playwright/test';
 
 // require('dotenv').config();
 
@@ -17,106 +17,104 @@ const metadata: Record<string, string> = {
   kernel: os.version(),
 };
 
-// Match pixel comparison at least 95 % to avoid flaky tests but ensure enough confidence
+enum Reporter {
+    HTML = 'html',
+    List = 'list',
+    CI = 'github'
+}
+ /**
+     * Customize reporters.
+     * By default, we want to have a standard list reporting and a pretty HTML output.
+     * In CI pipelines, we want to have an annotated report visible on the GitHub Actions page.
+     */
+ const addReporter = (): ReporterDescription[] => {
+        const defaultReporter: ReporterDescription[] = [
+            [Reporter.List],
+            [Reporter.HTML],
+        ];
+
+        if (isPipeline) {
+            return defaultReporter.concat([[Reporter.CI]]);
+        }
+
+        return defaultReporter;
+    }
+const isPipeline = !!process.env.CI;
 const threshold = 0.95;
 
 const config: PlaywrightTestConfig = {
-    testDir: './tests',                                   /* directory where tests are located.  */
-    timeout: 10 * 1000,                                 /* Maximum time one test can run for.  */
+     expect: {
+         timeout: 4000,                                    /* Maximum time expect() should wait for the condition to be met. */
+         toMatchSnapshot: {threshold},                   /* only require the screenshots to be the same within a certain threshold */
+     },                                   /* directory where tests are located.  */
+     fullyParallel: false,                                 /* Maximum time one test can run for.  */
+     outputDir: 'test-results/',
+     projects: [
+         {
+             name: 'chromium',
+                use: {
+                    ...devices['Desktop Chrome'],
+                },
+         },
 
-    expect: {
-        timeout: 4000,                                    /* Maximum time expect() should wait for the condition to be met. */
-        toMatchSnapshot: {threshold},                   /* only require the screenshots to be the same within a certain threshold */
-    },
+         {
+            name: 'firefox',
+                use: {
+                    ...devices['Desktop Firefox'],
+                },
+         },
 
-    fullyParallel: false,                                /* Run tests in files in parallel */
+         {
+             name: 'safari',
+                use: {
+                    ...devices['Desktop Safari'],
+                },
+         },
 
-    retries: process.env.CI ? 1 : 0,                    /* Retry on CI only */
+         {
+             name: 'Edge',
+                use: {
+                 ...devices['Desktop Edge'],
+                },
+         },   /* Test against mobile viewports. */
 
-    workers: process.env.CI ? 1 : undefined,                    /* Opt out of parallel tests on CI. */
+         {
+            name: 'Android',
+                use: {
+                    ...devices['Pixel 5'],
+                },
+         },
+        ],                                /* Run tests in files in parallel */
 
-    reporter: [
-        [
-            "./node_modules/playwright-slack-report/dist/src/SlackReporter.js",
-            {
-                channels: ["#team-integrations-console-alerts", "team-qa-github"], // provide one or more Slack channels
+        reporter: [
+            [
+                "./node_modules/playwright-slack-report/dist/src/SlackReporter.js", {
+                channels: ["#team-integrations-console-alerts"], // provide one or more Slack channels
                 sendResults: "always", // "always" , "on-failure", "off"
             },
-        ],
-        [
-            "allure-playwright",
-            {
-                detail: true,
-                outputFolder: "allure-report/",
-                suiteTitle: false,
+            ],
+            ["list"],
+            ["dot"],
+        ],                    /* Retry on CI only */
 
-            },
-        ],
-        ["list"],
-		[
-            "html",
-            {
-                open: "never",
-                outputFolder: "./html-report/",
-            }
-        ],
+        retries: process.env.CI ? 1 : 0,                    /* Opt out of parallel tests on CI. */
 
-  ],
-    use: {                                              /* Shared settings for all the projects below. */
-        actionTimeout: 0,                                 /* Maximum time each action can take. */
-        // baseURL: 'http://nightly.storj.rodeo/',     /* Base URL to use in actions like `await page.goto('/')`. */
-         baseURL: 'http://127.0.0.1:10000',
-        // headless: process.env.CI ? false : true,       /* Starts the UI tests in headed mode, so we can watch execution in development */
-        ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
-        trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
-        screenshot: 'only-on-failure',
+        testDir: './tests',
 
-        launchOptions: {
-            slowMo: process.env.CI ? 0 : 0,
-        },
-    },
-    /* Configure projects for major browsers */
-    projects: [
-        {
-            name: 'chromium',
-            use: {
-                ...devices['Desktop Chrome'],
-            },
-        },
+        timeout: 10 * 1000,
 
-        {
-            name: 'firefox',
-            use: {
-                ...devices['Desktop Firefox'],
+        use: {                                              /* Shared settings for all the projects below. */
+            actionTimeout: 0,                                 /* Maximum time each action can take. */
+            baseURL: 'http://127.0.0.1:10000',
+            ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
+            trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
+            launchOptions: {
+                slowMo: process.env.CI ? 0 : 0,
             },
         },
+        /* Folder for test artifacts such as screenshots, videos, traces, etc. */
+        workers: process.env.CI ? 1 : undefined,
+    };
 
-        {
-            name: 'safari',
-            use: {
-                ...devices['Desktop Safari'],
-            },
-        },
-        {
-            name: 'Edge',
-            ...devices['Desktop Edge'],
-        },
-        /* Test against mobile viewports. */
-        {
-            name: 'Android',
-            use: {
-                ...devices['Pixel 5'],
-            },
-        },
-        /*{
-            name: 'iPhone(13)',
-            use: {
-                ...devices['iPhone 13'],
-            },
-        } */
-    ],
-    /* Folder for test artifacts such as screenshots, videos, traces, etc. */
-    outputDir: 'test-results/',
-};
 
 export default config;

@@ -3,3 +3,4 @@ test-results/
 allure-results/
 allure-report/
 html-report/
+*.js
