@@ -98,7 +98,7 @@ func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.T
 func (cache *ReliabilityCache) OutOfPlacementPieces(ctx context.Context, created time.Time, pieces metabase.Pieces, placement storj.PlacementConstraint) (_ metabase.Pieces, err error) {
 	defer mon.Task()(&ctx)(nil)
 
-	if len(pieces) == 0 || placement == storj.EveryCountry {
+	if len(pieces) == 0 {
 		return metabase.Pieces{}, nil
 	}
 

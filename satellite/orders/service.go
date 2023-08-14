@@ -147,12 +147,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	if segment.Placement != storj.EveryCountry {
-		filter := service.placementRules(segment.Placement)
-		for id, node := range nodes {
-			if !filter.MatchInclude(node) {
-				delete(nodes, id)
-			}
+	filter := service.placementRules(segment.Placement)
+	for id, node := range nodes {
+		if !filter.MatchInclude(node) {
+			delete(nodes, id)
 		}
 	}
 

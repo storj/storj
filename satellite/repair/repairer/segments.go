@@ -717,22 +717,20 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 		}
 	}
 
-	if repairer.doPlacementCheck && placement != storj.EveryCountry {
-		result.OutOfPlacementPiecesSet = map[uint16]bool{}
+	result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
-		nodeFilters := repairer.placementRules(segment.Placement)
-		checkPlacement := func(reliable []nodeselection.SelectedNode) {
-			for _, node := range reliable {
-				if nodeFilters.MatchInclude(&node) {
-					continue
-				}
-
-				result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
+	nodeFilters := repairer.placementRules(segment.Placement)
+	checkPlacement := func(reliable []nodeselection.SelectedNode) {
+		for _, node := range reliable {
+			if nodeFilters.MatchInclude(&node) {
+				continue
 			}
+
+			result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
 		}
-		checkPlacement(online)
-		checkPlacement(offline)
 	}
+	checkPlacement(online)
+	checkPlacement(offline)
 
 	result.NumUnhealthyRetrievable = len(result.ClumpedPiecesSet) + len(result.OutOfPlacementPiecesSet)
 	if len(result.ClumpedPiecesSet) != 0 && len(result.OutOfPlacementPiecesSet) != 0 {

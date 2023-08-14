@@ -215,3 +215,13 @@ func NewExcludeFilter(filter NodeFilter) ExcludeFilter {
 }
 
 var _ NodeFilter = ExcludeFilter{}
+
+// AnyFilter matches all the nodes.
+type AnyFilter struct{}
+
+// MatchInclude implements NodeFilter interface.
+func (a AnyFilter) MatchInclude(node *SelectedNode) bool {
+	return true
+}
+
+var _ NodeFilter = AnyFilter{}

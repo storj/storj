@@ -355,7 +355,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	}
 
 	numOutOfPlacementPieces := 0
-	if fork.doPlacementCheck && segment.Placement != storj.EveryCountry {
+	if fork.doPlacementCheck {
 		outOfPlacementPieces, err := fork.nodesCache.OutOfPlacementPieces(ctx, segment.CreatedAt, segment.Pieces, segment.Placement)
 		if err != nil {
 			fork.totalStats.remoteSegmentsFailedToCheck++

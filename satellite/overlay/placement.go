@@ -41,7 +41,9 @@ func (d *ConfigurablePlacementRule) String() string {
 // Set implements pflag.Value.
 func (d *ConfigurablePlacementRule) Set(s string) error {
 	if d.placements == nil {
-		d.placements = make(map[storj.PlacementConstraint]nodeselection.NodeFilter)
+		d.placements = map[storj.PlacementConstraint]nodeselection.NodeFilter{
+			storj.EveryCountry: nodeselection.AnyFilter{},
+		}
 	}
 	d.AddLegacyStaticRules()
 	return d.AddPlacementFromString(s)
@@ -57,7 +59,8 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 // NewPlacementRules creates a fully initialized NewPlacementRules.
 func NewPlacementRules() *ConfigurablePlacementRule {
 	return &ConfigurablePlacementRule{
-		placements: make(map[storj.PlacementConstraint]nodeselection.NodeFilter),
+		placements: map[storj.PlacementConstraint]nodeselection.NodeFilter{
+			storj.EveryCountry: nodeselection.AnyFilter{}},
 	}
 }
 
@@ -152,9 +155,6 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 
 // CreateFilters implements PlacementCondition.
 func (d *ConfigurablePlacementRule) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
-	if constraint == storj.EveryCountry {
-		return nodeselection.NodeFilters{}
-	}
 	if filters, found := d.placements[constraint]; found {
 		return filters
 	}
