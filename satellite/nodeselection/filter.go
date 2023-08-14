@@ -196,3 +196,22 @@ func (t TagFilter) MatchInclude(node *SelectedNode) bool {
 }
 
 var _ NodeFilter = TagFilter{}
+
+// ExcludeFilter excludes only the matched nodes.
+type ExcludeFilter struct {
+	matchToExclude NodeFilter
+}
+
+// MatchInclude implements NodeFilter interface.
+func (e ExcludeFilter) MatchInclude(node *SelectedNode) bool {
+	return !e.matchToExclude.MatchInclude(node)
+}
+
+// NewExcludeFilter creates filter, nodes matching the given filter will be excluded.
+func NewExcludeFilter(filter NodeFilter) ExcludeFilter {
+	return ExcludeFilter{
+		matchToExclude: filter,
+	}
+}
+
+var _ NodeFilter = ExcludeFilter{}

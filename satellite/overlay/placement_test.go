@@ -124,6 +124,18 @@ func TestPlacementFromString(t *testing.T) {
 		require.Equal(t, nodeselection.GetAnnotation(filters, "autoExcludeSubnet"), "off")
 
 	})
+	t.Run("exclude", func(t *testing.T) {
+		p := NewPlacementRules()
+		err := p.AddPlacementFromString(`11:exclude(country("GB"))`)
+		require.NoError(t, err)
+		filters := p.placements[storj.PlacementConstraint(11)]
+		require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			CountryCode: location.UnitedKingdom,
+		}))
+		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			CountryCode: location.Germany,
+		}))
+	})
 
 	t.Run("legacy geofencing rules", func(t *testing.T) {
 		p := NewPlacementRules()

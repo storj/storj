@@ -126,6 +126,9 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 				key: value,
 			}, nil
 		},
+		"exclude": func(filter nodeselection.NodeFilter) (nodeselection.NodeFilter, error) {
+			return nodeselection.NewExcludeFilter(filter), nil
+		},
 	}
 	for _, definition := range strings.Split(definitions, ";") {
 		definition = strings.TrimSpace(definition)
