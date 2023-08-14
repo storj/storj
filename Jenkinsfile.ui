@@ -16,6 +16,8 @@ pipeline {
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
         PLAYWRIGHT_BROWSERS_PATH= '/ms-playwright'
+        SLACK_BOT_USER_OAUTH_TOKEN = credentials('SLACK_BOT_USER_OAUTH_TOKEN')
+
     }
     stages {
         stage('Checkout') {
