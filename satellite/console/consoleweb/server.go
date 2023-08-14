@@ -101,14 +101,14 @@ type Config struct {
 	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"true"`
-	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"false"`
+	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
-	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"false"`
+	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"true"`
 	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 
