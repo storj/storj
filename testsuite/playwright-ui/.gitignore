@@ -2,3 +2,4 @@ node_modules/
 test-results/
 allure-results/
 allure-report/
+html-report/
