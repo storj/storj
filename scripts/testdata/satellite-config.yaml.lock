@@ -272,7 +272,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frontend-enable: true
 
 # whether to show new gallery view
-# console.gallery-view-enabled: false
+# console.gallery-view-enabled: true
 
 # url link for gateway credentials requests
 # console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
@@ -293,7 +293,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
 # indicates whether limit card section of the UI is enabled
-# console.limits-area-enabled: false
+# console.limits-area-enabled: true
 
 # url link for linksharing requests within the application
 # console.linksharing-url: https://link.storjsatelliteshare.io
