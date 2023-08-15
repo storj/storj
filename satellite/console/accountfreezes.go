@@ -77,6 +77,18 @@ const (
 	Warning AccountFreezeEventType = 1
 )
 
+// String returns a string representation of this event.
+func (et AccountFreezeEventType) String() string {
+	switch et {
+	case Freeze:
+		return "Freeze"
+	case Warning:
+		return "Warning"
+	default:
+		return ""
+	}
+}
+
 // AccountFreezeService encapsulates operations concerning account freezes.
 type AccountFreezeService struct {
 	freezeEventsDB AccountFreezeEvents
