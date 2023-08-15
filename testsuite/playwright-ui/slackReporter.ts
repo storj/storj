@@ -14,8 +14,9 @@ export default function generateCustomLayoutSimpleMeta(    summaryResults: Summa
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `\n*${key}* :\t${value}`,
-                },
+                    // text: `\n*${key}* :\t${value}`,
+				 	text: `*${key}*`,
+				},
             });
         }
     }
@@ -30,6 +31,6 @@ export default function generateCustomLayoutSimpleMeta(    summaryResults: Summa
                         : `😭${summaryResults.failed} failure(s) out of ${summaryResults.tests.length} tests`,
             },
         },
-        ...meta,
+       // ...meta,
     ];
 }

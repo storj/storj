@@ -93,7 +93,6 @@ const config: PlaywrightTestConfig = {
                 sendResults: "always", // "always" , "on-failure", "off"
             },
             ],
-            ["list"],
             ["dot"],
         ],                    /* Retry on CI only */
 
