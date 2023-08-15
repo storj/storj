@@ -6,6 +6,7 @@ package piecestore_test
 import (
 	"bytes"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -345,88 +346,126 @@ func TestDownload(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		pieceID := storj.PieceID{1}
-		expectedData, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+		data, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+
+		// upload another piece that we will trash
+		trashPieceID := storj.PieceID{3}
+		trashPieceData, _, _ := uploadPiece(t, ctx, trashPieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
+		err := planet.StorageNodes[0].Storage2.Store.Trash(ctx, planet.Satellites[0].ID(), trashPieceID)
+		require.NoError(t, err)
+		_, err = planet.StorageNodes[0].Storage2.Store.Stat(ctx, planet.Satellites[0].ID(), trashPieceID)
+		require.Equal(t, true, errs.Is(err, os.ErrNotExist))
+
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
 
 		for _, tt := range []struct {
+			name    string
 			pieceID storj.PieceID
 			action  pb.PieceAction
-			errs    []string
+			// downloadData is data we are trying to download
+			downloadData []byte
+			errs         []string
+			finalChecks  func()
 		}{
 			{ // should successfully download data
-				pieceID: pieceID,
-				action:  pb.PieceAction_GET,
+				name:         "download successful",
+				pieceID:      pieceID,
+				action:       pb.PieceAction_GET,
+				downloadData: data,
+			},
+			{ // should restore from trash and successfully download data
+				name:         "restore trash and successfully download",
+				pieceID:      trashPieceID,
+				action:       pb.PieceAction_GET,
+				downloadData: trashPieceData,
+				finalChecks: func() {
+					blobInfo, err := planet.StorageNodes[0].Storage2.Store.Stat(ctx, planet.Satellites[0].ID(), trashPieceID)
+					require.NoError(t, err)
+					require.Equal(t, trashPieceID.Bytes(), blobInfo.BlobRef().Key)
+				},
 			},
 			{ // should err with piece ID not specified
-				pieceID: storj.PieceID{},
-				action:  pb.PieceAction_GET,
-				errs:    []string{"missing piece id"},
+				name:         "piece id not specified",
+				pieceID:      storj.PieceID{},
+				action:       pb.PieceAction_GET,
+				downloadData: data,
+				errs:         []string{"missing piece id"},
 			},
 			{ // should err with piece ID not specified
-				pieceID: storj.PieceID{2},
-				action:  pb.PieceAction_GET,
-				errs:    []string{"file does not exist", "The system cannot find the path specified"},
+				name:         "file does not exist",
+				pieceID:      storj.PieceID{2},
+				action:       pb.PieceAction_GET,
+				downloadData: data,
+				errs:         []string{"file does not exist", "The system cannot find the path specified"},
 			},
 			{ // should err with invalid action
-				pieceID: pieceID,
-				action:  pb.PieceAction_PUT,
-				errs:    []string{"expected get or get repair or audit action got PUT"},
+				name:         "invalid action",
+				pieceID:      pieceID,
+				downloadData: data,
+				action:       pb.PieceAction_PUT,
+				errs:         []string{"expected get or get repair or audit action got PUT"},
 			},
 		} {
 			tt := tt
-			serialNumber := testrand.SerialNumber()
+			t.Run(tt.name, func(t *testing.T) {
+				serialNumber := testrand.SerialNumber()
 
-			orderLimit, piecePrivateKey := GenerateOrderLimit(
-				t,
-				planet.Satellites[0].ID(),
-				planet.StorageNodes[0].ID(),
-				tt.pieceID,
-				tt.action,
-				serialNumber,
-				24*time.Hour,
-				24*time.Hour,
-				int64(len(expectedData)),
-			)
-			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-			require.NoError(t, err)
-
-			downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, int64(len(expectedData)))
-			require.NoError(t, err)
-
-			buffer := make([]byte, len(expectedData))
-			n, readErr := downloader.Read(buffer)
-
-			if len(tt.errs) > 0 {
-			} else {
-				require.NoError(t, readErr)
-				require.Equal(t, expectedData, buffer[:n])
-			}
-
-			closeErr := downloader.Close()
-			err = errs.Combine(readErr, closeErr)
-
-			switch len(tt.errs) {
-			case 0:
+				orderLimit, piecePrivateKey := GenerateOrderLimit(
+					t,
+					planet.Satellites[0].ID(),
+					planet.StorageNodes[0].ID(),
+					tt.pieceID,
+					tt.action,
+					serialNumber,
+					24*time.Hour,
+					24*time.Hour,
+					int64(len(tt.downloadData)),
+				)
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 				require.NoError(t, err)
-			case 1:
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.errs[0])
-			case 2:
-				require.Error(t, err)
-				require.Conditionf(t, func() bool {
-					return strings.Contains(err.Error(), tt.errs[0]) ||
-						strings.Contains(err.Error(), tt.errs[1])
-				}, "expected error to contain %q or %q, but it does not: %v", tt.errs[0], tt.errs[1], err)
-			default:
-				require.FailNow(t, "unexpected number of error cases")
-			}
 
-			// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
-			hash, originalLimit := downloader.GetHashAndLimit()
-			require.Nil(t, hash)
-			require.Nil(t, originalLimit)
+				downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, int64(len(tt.downloadData)))
+				require.NoError(t, err)
+
+				buffer := make([]byte, len(data))
+				n, readErr := downloader.Read(buffer)
+
+				if len(tt.errs) > 0 {
+				} else {
+					require.NoError(t, readErr)
+					require.Equal(t, tt.downloadData, buffer[:n])
+				}
+
+				closeErr := downloader.Close()
+				err = errs.Combine(readErr, closeErr)
+
+				switch len(tt.errs) {
+				case 0:
+					require.NoError(t, err)
+				case 1:
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tt.errs[0])
+				case 2:
+					require.Error(t, err)
+					require.Conditionf(t, func() bool {
+						return strings.Contains(err.Error(), tt.errs[0]) ||
+							strings.Contains(err.Error(), tt.errs[1])
+					}, "expected error to contain %q or %q, but it does not: %v", tt.errs[0], tt.errs[1], err)
+				default:
+					require.FailNow(t, "unexpected number of error cases")
+				}
+
+				// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
+				hash, originalLimit := downloader.GetHashAndLimit()
+				require.Nil(t, hash)
+				require.Nil(t, originalLimit)
+
+				if tt.finalChecks != nil {
+					tt.finalChecks()
+				}
+			})
 		}
 	})
 }

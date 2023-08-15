@@ -319,6 +319,16 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
+// TryRestoreTrashPiece attempts to restore a piece from the trash.
+// It returns nil if the piece was restored, or an error if the piece was not in the trash.
+func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.blobs.TryRestoreTrashPiece(ctx, blobstore.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}))
+}
+
 // Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)

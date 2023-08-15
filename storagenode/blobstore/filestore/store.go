@@ -154,7 +154,15 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (key
 	return keysRestored, Error.Wrap(err)
 }
 
-// // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
+// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
+// It returns nil if the piece was restored, or an error if the piece was not
+// in the trash or could not be restored.
+func (store *blobStore) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.dir.TryRestoreTrashPiece(ctx, ref))
+}
+
+// EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
 func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)

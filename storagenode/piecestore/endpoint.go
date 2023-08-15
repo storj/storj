@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"sync"
@@ -666,11 +667,30 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		if os.IsNotExist(err) {
-			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
-			return rpcstatus.Wrap(rpcstatus.NotFound, err)
+		if !errs.Is(err, fs.ErrNotExist) {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
+
+		// check if the file is in trash, if so, restore it and
+		// continue serving the download request.
+		tryRestoreErr := endpoint.store.TryRestoreTrashPiece(ctx, limit.SatelliteId, limit.PieceId)
+		if tryRestoreErr != nil {
+			if !errs.Is(tryRestoreErr, fs.ErrNotExist) {
+				// file is not in trash, and we don't want to return a file rename error,
+				// so we return the original "file does not exist" error
+				tryRestoreErr = err
+			}
+			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
+			return rpcstatus.Wrap(rpcstatus.NotFound, tryRestoreErr)
+		}
+		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String()), monkit.NewSeriesTag("piece_id", limit.PieceId.String())).Mark(1)
+		endpoint.log.Warn("file found in trash", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.String("Remote Address", remoteAddr))
+
+		// try to open the file again
+		pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works

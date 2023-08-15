@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -468,6 +469,35 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 	})
 	errorsEncountered.Add(err)
 	return keysRestored, errorsEncountered.Err()
+}
+
+// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
+// It returns nil if the piece was restored, or an error if the piece was not
+// in the trash or could not be restored.
+func (dir *Dir) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	blobsBasePath, err := dir.blobToBasePath(ref)
+	if err != nil {
+		return err
+	}
+
+	trashBasePath, err := dir.refToDirPath(ref, dir.trashdir())
+	if err != nil {
+		return err
+	}
+
+	// ensure the dirs exist for blobs path
+	blobsVerPath := blobPathForFormatVersion(blobsBasePath, MaxFormatVersionSupported)
+	err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return err
+	}
+
+	trashVerPath := blobPathForFormatVersion(trashBasePath, MaxFormatVersionSupported)
+
+	// move back to blobsdir
+	return rename(trashVerPath, blobsVerPath)
 }
 
 // EmptyTrash walks the trash files for the given namespace and deletes any

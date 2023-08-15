@@ -157,6 +157,14 @@ func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref blobstore.
 	return slow.blobs.StatWithStorageFormat(ctx, ref, formatVer)
 }
 
+// TryRestoreTrashPiece attempts to restore a piece from trash.
+func (slow *SlowBlobs) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) error {
+	if err := slow.sleep(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+	return slow.blobs.TryRestoreTrashPiece(ctx, ref)
+}
+
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
 // If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
