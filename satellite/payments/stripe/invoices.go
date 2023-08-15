@@ -151,6 +151,41 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 	return nil
 }
 
+// AttemptPayOverdueInvoicesWithTokens attempts to pay a user's open, overdue invoices with tokens only.
+func (invoices *invoices) AttemptPayOverdueInvoicesWithTokens(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	stripeInvoices, err := invoices.service.getInvoices(ctx, customerID, time.Unix(0, 0))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if len(stripeInvoices) == 0 {
+		return nil
+	}
+
+	// first check users token balance
+	monetaryTokenBalance, err := invoices.service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		invoices.service.log.Error("error getting token balance", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	if monetaryTokenBalance.BaseUnits() == 0 {
+		return Error.New("User has no tokens")
+	}
+	err = invoices.service.PayInvoicesWithTokenBalance(ctx, userID, customerID, stripeInvoices)
+	if err != nil {
+		invoices.service.log.Error("error paying invoice(s) with token balance", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
 // AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
 func (invoices *invoices) attemptPayOverdueInvoicesWithCC(ctx context.Context, stripeInvoices []stripe.Invoice) (err error) {
 	var errGrp errs.Group

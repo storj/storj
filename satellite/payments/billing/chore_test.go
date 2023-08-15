@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
@@ -19,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/billing"
@@ -239,6 +241,115 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 				require.Equal(t, usageLimitsConfig.Segment.Paid, *p.SegmentLimit)
 			}
 		})
+	})
+}
+
+func TestChore_PayInvoiceObserver(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		invoicesDB := sat.Core.Payments.Accounts.Invoices()
+		stripeClient := sat.API.Payments.StripeClient
+		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
+		ts := makeTimestamp()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "choreobserver@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		cus, err := customerDB.GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// setup storjscan wallet
+		address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		userID := user.ID
+		err = sat.DB.Wallets().Add(ctx, userID, address)
+		require.NoError(t, err)
+
+		choreObservers := billing.ChoreObservers{
+			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+			PayInvoices: console.NewInvoiceTokenPaymentObserver(db.Console(), sat.Core.Payments.Accounts),
+		}
+
+		amount := int64(2000)  // $20
+		amount2 := int64(1000) // $10
+		transaction := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount, ts, `{"fake": "transaction"}`)
+		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
+		paymentTypes := []billing.PaymentType{
+			newFakePaymentType(billing.StorjScanSource,
+				[]billing.Transaction{transaction},
+				[]billing.Transaction{},
+				[]billing.Transaction{transaction2},
+				[]billing.Transaction{},
+			),
+		}
+		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db.Billing(), time.Hour, false, 0, choreObservers)
+		ctx.Go(func() error {
+			return chore.Run(ctx)
+		})
+		defer ctx.Check(chore.Close)
+
+		// create invoice
+		item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount,
+			Currency: stripe.String(string(stripe.CurrencyUSD)),
+			Customer: &cus,
+		})
+		require.NoError(t, err)
+
+		fullAmount := amount + amount2
+		items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &item.ID,
+			Amount:      &fullAmount,
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		})
+		inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &cus,
+			InvoiceItems: items,
+		})
+		require.NoError(t, err)
+
+		inv, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, nil)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		invoices, err := invoicesDB.List(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, invoices)
+		require.Equal(t, inv.ID, invoices[0].ID)
+		require.Equal(t, inv.ID, invoices[0].ID)
+		require.Equal(t, string(inv.Status), invoices[0].Status)
+
+		chore.TransactionCycle.TriggerWait()
+
+		// user balance would've been the value of amount ($20) but
+		// PayInvoiceObserver will use this to pay part of this user's invoice.
+		balance, err := db.Billing().GetBalance(ctx, user.ID)
+		require.NoError(t, err)
+		require.Zero(t, balance.BaseUnits())
+
+		invoices, err = invoicesDB.List(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, invoices)
+		// invoice remains unpaid since only $20 was paid.
+		require.Equal(t, string(stripe.InvoiceStatusOpen), invoices[0].Status)
+
+		chore.TransactionCycle.TriggerWait()
+
+		// the second transaction of $10 reflects at this point and
+		// is used to pay for the remaining invoice balance.
+		invoices, err = invoicesDB.List(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, invoices)
+		require.Equal(t, string(stripe.InvoiceStatusPaid), invoices[0].Status)
 	})
 }
 
