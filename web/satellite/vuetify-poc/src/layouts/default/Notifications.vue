@@ -8,7 +8,6 @@
         location="top right"
         z-index="99999"
         variant="text"
-        contained
     >
         <v-alert
             v-for="item in notifications"
