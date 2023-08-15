@@ -525,6 +525,14 @@ func (c *cmdCp) parallelCopy(
 			break
 		}
 
+		if i == 0 && bar != nil {
+			info, err := src.Info(ctx)
+			if err == nil {
+				bar.SetTotal(info.ContentLength, false)
+				bar.EnableTriggerComplete()
+			}
+		}
+
 		wh, err := dst.NextPart(ctx, chunk)
 		if err != nil {
 			_ = rh.Close()
@@ -546,12 +554,8 @@ func (c *cmdCp) parallelCopy(
 
 			var w io.Writer = wh
 			if bar != nil {
-				bar.SetTotal(rh.Info().ContentLength, false)
-				bar.EnableTriggerComplete()
 				pw := bar.ProxyWriter(w)
-				defer func() {
-					_ = pw.Close()
-				}()
+				defer func() { _ = pw.Close() }()
 				w = pw
 			}
 
