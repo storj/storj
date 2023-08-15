@@ -395,9 +395,11 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 }
 
 // KnownReliable filters a set of nodes to reliable nodes. List is split into online and offline nodes.
-func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
+	var on, off []*nodeselection.SelectedNode
+	var err error
 	for {
-		online, offline, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
+		on, off, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -406,11 +408,18 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.Node
 		}
 		break
 	}
-
-	return online, offline, err
+	err = cache.addNodeTags(ctx, append(on, off...))
+	deref := func(nodes []*nodeselection.SelectedNode) []nodeselection.SelectedNode {
+		var res []nodeselection.SelectedNode
+		for _, node := range nodes {
+			res = append(res, *node)
+		}
+		return res
+	}
+	return deref(on), deref(off), err
 }
 
-func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []*nodeselection.SelectedNode, offline []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -435,9 +444,9 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 			}
 
 			if node.Online {
-				online = append(online, node)
+				online = append(online, &node)
 			} else {
-				offline = append(offline, node)
+				offline = append(offline, &node)
 			}
 		}
 		return nil
@@ -447,9 +456,11 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 }
 
 // Reliable returns all nodes that are reliable, online and offline.
-func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
+	var on, off []*nodeselection.SelectedNode
+	var err error
 	for {
-		online, offline, err = cache.reliable(ctx, onlineWindow, asOfSystemInterval)
+		on, off, err = cache.reliable(ctx, onlineWindow, asOfSystemInterval)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -458,11 +469,18 @@ func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSyste
 		}
 		break
 	}
-
-	return online, offline, nil
+	err = cache.addNodeTags(ctx, append(on, off...))
+	deref := func(nodes []*nodeselection.SelectedNode) []nodeselection.SelectedNode {
+		var res []nodeselection.SelectedNode
+		for _, node := range nodes {
+			res = append(res, *node)
+		}
+		return res
+	}
+	return deref(on), deref(off), err
 }
 
-func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []*nodeselection.SelectedNode, offline []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(cache.db.Query(ctx, `
@@ -482,9 +500,9 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 			}
 
 			if node.Online {
-				online = append(online, node)
+				online = append(online, &node)
 			} else {
-				offline = append(offline, node)
+				offline = append(offline, &node)
 			}
 		}
 		return nil

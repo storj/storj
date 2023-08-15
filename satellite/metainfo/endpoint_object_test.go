@@ -2403,13 +2403,14 @@ func TestListUploads(t *testing.T) {
 	})
 }
 
-func TestPlacements(t *testing.T) {
+func TestNodeTagPlacement(t *testing.T) {
 	ctx := testcontext.New(t)
 
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 
 	placementRules := overlay.ConfigurablePlacementRule{}
-	err := placementRules.Set(fmt.Sprintf(`16:tag("%s", "certified","true")`, satelliteIdentity.ID()))
+	tag := fmt.Sprintf(`tag("%s", "certified","true")`, satelliteIdentity.ID())
+	err := placementRules.Set(fmt.Sprintf(`0:exclude(%s);16:%s`, tag, tag))
 	require.NoError(t, err)
 
 	testplanet.Run(t,
@@ -2457,16 +2458,6 @@ func TestPlacements(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
-			// create buckets with different placement (placement 16 is configured above)
-			createGeofencedBucket(t, ctx, buckets, projectID, "constrained", 16)
-
-			objectNo := 10
-			for i := 0; i < objectNo; i++ {
-				// upload an object to one of the global buckets
-				err := uplink.Upload(ctx, satellite, "constrained", "testobject"+strconv.Itoa(i), make([]byte, 10240))
-				require.NoError(t, err)
-			}
-
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 			metainfoClient, err := uplink.DialMetainfo(ctx, satellite, apiKey)
 			require.NoError(t, err)
@@ -2474,28 +2465,55 @@ func TestPlacements(t *testing.T) {
 				_ = metainfoClient.Close()
 			}()
 
-			objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-				Bucket: []byte("constrained"),
-			})
-			require.NoError(t, err)
-			require.Len(t, objects, objectNo)
+			nodeIndex := map[storj.NodeID]int{}
+			for ix, node := range planet.StorageNodes {
+				nodeIndex[node.Identity.ID] = ix
+			}
+			testPlacement := func(bucketName string, placement int, allowedNodes func(int) bool) {
 
-			for _, listedObject := range objects {
-				o, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
-					Bucket:             []byte("constrained"),
-					EncryptedObjectKey: listedObject.EncryptedObjectKey,
+				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storj.PlacementConstraint(placement))
+
+				objectNo := 10
+				for i := 0; i < objectNo; i++ {
+
+					err := uplink.Upload(ctx, satellite, bucketName, "testobject"+strconv.Itoa(i), make([]byte, 10240))
+					require.NoError(t, err)
+				}
+
+				objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
+					Bucket: []byte(bucketName),
 				})
 				require.NoError(t, err)
+				require.Len(t, objects, objectNo)
 
-				for _, limit := range o.DownloadedSegments[0].Limits {
-					if limit != nil {
-						// starting from 2 (first identity used for satellite, SN with even index are fine)
-						for i := 2; i < 11; i += 2 {
-							require.NotEqual(t, testidentity.MustPregeneratedSignedIdentity(i, storj.LatestIDVersion()).ID, limit.Limit.StorageNodeId)
+				for _, listedObject := range objects {
+					for i := 0; i < 5; i++ {
+						o, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+							Bucket:             []byte(bucketName),
+							EncryptedObjectKey: listedObject.EncryptedObjectKey,
+						})
+						require.NoError(t, err)
+
+						for _, limit := range o.DownloadedSegments[0].Limits {
+							if limit != nil {
+								ix := nodeIndex[limit.Limit.StorageNodeId]
+								require.True(t, allowedNodes(ix))
+							}
 						}
 					}
 				}
 			}
+			t.Run("upload to constrained", func(t *testing.T) {
+				testPlacement("constrained", 16, func(i int) bool {
+					return i%2 == 0
+				})
+			})
+			t.Run("upload to generic excluding constrained", func(t *testing.T) {
+				testPlacement("generic", 0, func(i int) bool {
+					return i%2 == 1
+				})
+			})
+
 		},
 	)
 }
