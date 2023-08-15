@@ -648,8 +648,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 type piecesCheckResult struct {
 	ExcludeNodeIDs []storj.NodeID
 
-	MissingPiecesSet        map[uint16]bool
-	ClumpedPiecesSet        map[uint16]bool
+	MissingPiecesSet map[uint16]bool
+	ClumpedPiecesSet map[uint16]bool
+
+	// piece which are out of placement (both offline and online)
 	OutOfPlacementPiecesSet map[uint16]bool
 
 	NumUnhealthyRetrievable       int
@@ -662,6 +664,20 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	pieces := segment.Pieces
 
 	allNodeIDs := make([]storj.NodeID, len(pieces))
+	for i, piece := range pieces {
+		allNodeIDs[i] = piece.StorageNode
+	}
+
+	online, offline, err := repairer.overlay.KnownReliable(ctx, allNodeIDs)
+	if err != nil {
+		return piecesCheckResult{}, overlayQueryError.New("error identifying missing pieces: %w", err)
+	}
+	return repairer.classifySegmentPiecesWithNodes(ctx, segment, allNodeIDs, online, offline)
+}
+
+func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Context, segment metabase.Segment, allNodeIDs []storj.NodeID, online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode) (result piecesCheckResult, err error) {
+	pieces := segment.Pieces
+
 	nodeIDPieceMap := map[storj.NodeID]uint16{}
 	result.MissingPiecesSet = map[uint16]bool{}
 	for i, p := range pieces {
@@ -671,11 +687,6 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	}
 
 	result.ExcludeNodeIDs = allNodeIDs
-
-	online, offline, err := repairer.overlay.KnownReliable(ctx, allNodeIDs)
-	if err != nil {
-		return piecesCheckResult{}, overlayQueryError.New("error identifying missing pieces: %w", err)
-	}
 
 	nodeFilters := repairer.placementRules(segment.Placement)
 
@@ -733,14 +744,16 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	checkPlacement(online)
 	checkPlacement(offline)
 
-	result.NumUnhealthyRetrievable = len(result.ClumpedPiecesSet) + len(result.OutOfPlacementPiecesSet)
-	if len(result.ClumpedPiecesSet) != 0 && len(result.OutOfPlacementPiecesSet) != 0 {
-		// verify that some of clumped pieces and out of placement pieces are not the same
-		unhealthyRetrievableSet := map[uint16]bool{}
-		maps.Copy(unhealthyRetrievableSet, result.ClumpedPiecesSet)
-		maps.Copy(unhealthyRetrievableSet, result.OutOfPlacementPiecesSet)
-		result.NumUnhealthyRetrievable = len(unhealthyRetrievableSet)
+	// verify that some of clumped pieces and out of placement pieces are not the same
+	unhealthyRetrievableSet := map[uint16]bool{}
+	maps.Copy(unhealthyRetrievableSet, result.ClumpedPiecesSet)
+	maps.Copy(unhealthyRetrievableSet, result.OutOfPlacementPiecesSet)
+
+	// offline nodes are not retrievable
+	for _, node := range offline {
+		delete(unhealthyRetrievableSet, nodeIDPieceMap[node.ID])
 	}
+	result.NumUnhealthyRetrievable = len(unhealthyRetrievableSet)
 
 	return result, nil
 }
