@@ -521,6 +521,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		choreObservers := billing.ChoreObservers{
 			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade),
+			PayInvoices: console.NewInvoiceTokenPaymentObserver(peer.DB.Console(), peer.Payments.Accounts),
 		}
 
 		peer.Payments.BillingChore = billing.NewChore(

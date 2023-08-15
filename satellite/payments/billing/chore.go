@@ -22,6 +22,7 @@ type Observer interface {
 // ChoreObservers holds functionality to process confirmed transactions using different types of observers.
 type ChoreObservers struct {
 	UpgradeUser Observer
+	PayInvoices Observer
 }
 
 // ChoreErr is billing chore err class.
@@ -87,16 +88,21 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					break
 				}
 
-				if chore.observers.UpgradeUser == nil {
-					continue
+				if chore.observers.UpgradeUser != nil {
+					err = chore.observers.UpgradeUser.Process(ctx, transaction)
+					if err != nil {
+						// we don't want to halt storing transactions if upgrade user observer fails
+						// because this chore is designed to store new transactions.
+						// So auto upgrading user is a side effect which shouldn't interrupt the main process.
+						chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
+					}
 				}
 
-				err = chore.observers.UpgradeUser.Process(ctx, transaction)
-				if err != nil {
-					// we don't want to halt storing transactions if upgrade user observer fails
-					// because this chore is designed to store new transactions.
-					// So auto upgrading user is a side effect which shouldn't interrupt the main process.
-					chore.log.Error("error upgrading user", zap.Error(ChoreErr.Wrap(err)))
+				if chore.observers.PayInvoices != nil {
+					err = chore.observers.PayInvoices.Process(ctx, transaction)
+					if err != nil {
+						chore.log.Error("error paying invoices", zap.Error(ChoreErr.Wrap(err)))
+					}
 				}
 			}
 		}
@@ -109,4 +115,10 @@ func (chore *Chore) Close() (err error) {
 	defer mon.Task()(nil)(&err)
 	chore.TransactionCycle.Close()
 	return nil
+}
+
+// TestSetPaymentTypes is used in tests to change the payment
+// types this chore tracks.
+func (chore *Chore) TestSetPaymentTypes(types []PaymentType) {
+	chore.paymentTypes = types
 }

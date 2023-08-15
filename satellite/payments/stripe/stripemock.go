@@ -954,6 +954,11 @@ func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNot
 		for _, invoice := range invoices {
 			if invoice.ID == *params.Invoice {
 				invoice.AmountRemaining -= *params.Lines[0].UnitAmount
+				invoice.AmountDue -= *params.Lines[0].UnitAmount
+				invoice.Lines.Data[0].Amount -= *params.Lines[0].UnitAmount
+				if invoice.AmountRemaining <= 0 {
+					invoice.Status = stripe.InvoiceStatusPaid
+				}
 			}
 		}
 	}
