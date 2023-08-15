@@ -660,7 +660,6 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 	defer mon.Task()(&ctx)(&err)
 
 	pieces := segment.Pieces
-	placement := segment.Placement
 
 	allNodeIDs := make([]storj.NodeID, len(pieces))
 	nodeIDPieceMap := map[storj.NodeID]uint16{}
@@ -678,11 +677,13 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 		return piecesCheckResult{}, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 
+	nodeFilters := repairer.placementRules(segment.Placement)
+
 	// remove online nodes from missing pieces
 	for _, onlineNode := range online {
 		// count online nodes in excluded countries only if country is not excluded by segment
 		// placement, those nodes will be counted with out of placement check
-		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && placement.AllowedCountry(onlineNode.CountryCode) {
+		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && nodeFilters.MatchInclude(&onlineNode) {
 			result.NumHealthyInExcludedCountries++
 		}
 
@@ -719,7 +720,7 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 
 	result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
-	nodeFilters := repairer.placementRules(segment.Placement)
+	nodeFilters = repairer.placementRules(segment.Placement)
 	checkPlacement := func(reliable []nodeselection.SelectedNode) {
 		for _, node := range reliable {
 			if nodeFilters.MatchInclude(&node) {
