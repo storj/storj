@@ -57,7 +57,7 @@
                             <v-divider class="my-2" />
 
                             <!-- Project Settings -->
-                            <v-list-item link rounded="lg">
+                            <v-list-item link rounded="lg" :to="`/projects/${selectedProject.id}/settings`">
                                 <template #prepend>
                                     <IconSettings />
                                 </template>

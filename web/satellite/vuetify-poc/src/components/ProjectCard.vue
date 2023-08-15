@@ -16,7 +16,7 @@
 
                         <v-menu activator="parent" location="end" transition="scale-transition">
                             <v-list class="pa-2">
-                                <v-list-item link rounded="lg">
+                                <v-list-item link rounded="lg" :to="`/projects/${item.id}/settings`">
                                     <template #prepend>
                                         <icon-settings />
                                     </template>

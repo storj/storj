@@ -72,7 +72,7 @@
                         <v-menu activator="parent" location="bottom end" transition="scale-transition">
                             <v-list class="pa-0">
                                 <template v-if="item.raw.role === ProjectRole.Owner">
-                                    <v-list-item link>
+                                    <v-list-item link :to="`/projects/${item.raw.id}/settings`">
                                         <template #prepend>
                                             <icon-settings />
                                         </template>

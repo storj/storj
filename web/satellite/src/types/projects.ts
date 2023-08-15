@@ -278,3 +278,8 @@ export enum LimitToChange {
     Storage = 'Storage',
     Bandwidth = 'Bandwidth',
 }
+
+export enum FieldToChange {
+    Name = 'Name',
+    Description = 'Description',
+}
