@@ -117,7 +117,7 @@
 
                 <v-divider class="my-2" />
 
-                <v-list-item link router-link to="dashboard" class="my-1 py-3" rounded="lg" @click="() => trackPageVisitEvent('/dashboard')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => trackPageVisitEvent('/dashboard')">
                     <template #prepend>
                         <IconDashboard />
                     </template>
@@ -126,7 +126,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="buckets" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/buckets')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/buckets`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/buckets')">
                     <template #prepend>
                         <IconBucket />
                     </template>
@@ -135,7 +135,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="bucket" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/bucket')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/bucket`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/bucket')">
                     <template #prepend>
                         <IconBrowse />
                     </template>
@@ -144,7 +144,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="access" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/access')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/access')">
                     <template #prepend>
                         <IconAccess />
                     </template>
@@ -153,7 +153,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link to="team" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/team')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/team`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/team')">
                     <template #prepend>
                         <IconTeam />
                     </template>
