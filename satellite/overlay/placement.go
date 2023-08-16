@@ -66,8 +66,8 @@ func NewPlacementRules() *ConfigurablePlacementRule {
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d *ConfigurablePlacementRule) AddLegacyStaticRules() {
-	d.placements[storj.EEA] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(nodeselection.EeaCountries)}
-	d.placements[storj.EU] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(nodeselection.EuCountries)}
+	d.placements[storj.EEA] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(nodeselection.EeaCountriesWithoutEu...).With(nodeselection.EuCountries...))}
+	d.placements[storj.EU] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(nodeselection.EuCountries...))}
 	d.placements[storj.US] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.UnitedStates))}
 	d.placements[storj.DE] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.Germany))}
 	d.placements[storj.NR] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))}
@@ -84,19 +84,52 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 		"country": func(countries ...string) (nodeselection.NodeFilters, error) {
 			var set location.Set
 			for _, country := range countries {
-				code := location.ToCountryCode(country)
-				if code == location.None {
-					return nil, errs.New("invalid country code %q", code)
+				apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+					return modified.With(code...)
 				}
-				set.Include(code)
+				if country[0] == '!' {
+					apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+						return modified.Without(code...)
+					}
+					country = country[1:]
+				}
+				switch strings.ToLower(country) {
+				case "all", "*", "any":
+					set = location.NewFullSet()
+				case "none":
+					set = apply(set, location.None)
+				case "eu":
+					set = apply(set, nodeselection.EuCountries...)
+				case "eea":
+					set = apply(set, nodeselection.EuCountries...)
+					set = apply(set, nodeselection.EeaCountriesWithoutEu...)
+				default:
+					code := location.ToCountryCode(country)
+					if code == location.None {
+						return nil, errs.New("invalid country code %q", code)
+					}
+					set = apply(set, code)
+				}
 			}
 			return nodeselection.NodeFilters{nodeselection.NewCountryFilter(set)}, nil
+		},
+		"placement": func(ix int64) nodeselection.NodeFilter {
+			return d.placements[storj.PlacementConstraint(ix)]
 		},
 		"all": func(filters ...nodeselection.NodeFilters) (nodeselection.NodeFilters, error) {
 			res := nodeselection.NodeFilters{}
 			for _, filter := range filters {
 				res = append(res, filter...)
 			}
+			return res, nil
+		},
+		mito.OpAnd: func(env map[any]any, a, b any) (any, error) {
+			filter1, ok1 := a.(nodeselection.NodeFilter)
+			filter2, ok2 := b.(nodeselection.NodeFilter)
+			if !ok1 || !ok2 {
+				return nil, errs.New("&& is supported only between NodeFilter instances")
+			}
+			res := nodeselection.NodeFilters{filter1, filter2}
 			return res, nil
 		},
 		"tag": func(nodeIDstr string, key string, value any) (nodeselection.NodeFilters, error) {
