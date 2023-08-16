@@ -125,21 +125,7 @@
             <v-window-item>
                 <v-row>
                     <v-col cols="12" sm="4">
-                        <v-card title="STORJ Token" variant="flat" :border="true" rounded="xlg">
-                            <v-card-text>
-                                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
-                                <!-- <v-chip rounded color="success" variant="tonal" class="font-weight-bold mr-2">Primary</v-chip> -->
-                                <v-divider class="my-4" />
-                                <p>Deposit Address</p>
-                                <v-chip rounded color="default" variant="text" class="font-weight-bold mt-2 pl-0">0x0683 . . . 2759</v-chip>
-                                <v-divider class="my-4" />
-                                <p>Total Balance</p>
-                                <v-chip rounded color="success" variant="outlined" class="font-weight-bold mt-2">$5,284</v-chip>
-                                <v-divider class="my-4" />
-                                <v-btn variant="flat" color="success" size="small" class="mr-2">+ Add STORJ Tokens</v-btn>
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">View Transactions</v-btn>
-                            </v-card-text>
-                        </v-card>
+                        <StorjTokenCardComponent @historyClicked="goToTransactionsTab" />
                     </v-col>
 
                     <v-col v-for="(card, i) in creditCards" :key="i" cols="12" sm="4">
@@ -253,8 +239,6 @@ import {
     VChip,
     VDivider,
     VBtn,
-    VExpansionPanels,
-    VExpansionPanel,
     VTextField,
     VProgressCircular,
     VIcon,
@@ -273,8 +257,9 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
 import UsageAndChargesComponent from '@poc/components/billing/UsageAndChargesComponent.vue';
+import StorjTokenCardComponent from '@poc/components/StorjTokenCardComponent.vue';
 
-const tab = ref<string>('Overview');
+const tab = ref(0);
 const search = ref<string>('');
 const selected = ref([]);
 
@@ -382,6 +367,10 @@ const isCouponActive = computed((): boolean => {
     const c = coupon.value;
     return !!c && (c.duration === 'forever' || (!!c.expiresAt && now < c.expiresAt.getTime()));
 });
+
+function goToTransactionsTab() {
+    tab.value = 2;
+}
 
 function getColor(status: string): string {
     if (status === 'Paid') return 'success';
