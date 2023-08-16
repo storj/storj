@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
@@ -140,6 +141,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
 			err := service.store.VerifyStorageDirWithTimeout(ctx, service.contact.Local().ID, timeout)
 			if err != nil {
+				if errs2.IsCanceled(err) {
+					return nil
+				}
 				if errs.Is(err, context.DeadlineExceeded) {
 					if service.Config.VerifyDirWarnOnly {
 						service.log.Error("timed out while verifying readability of storage directory", zap.Duration("timeout", timeout))
@@ -161,6 +165,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
 			err := service.store.CheckWritabilityWithTimeout(ctx, timeout)
 			if err != nil {
+				if errs2.IsCanceled(err) {
+					return nil
+				}
 				if errs.Is(err, context.DeadlineExceeded) {
 					if service.Config.VerifyDirWarnOnly {
 						service.log.Error("timed out while verifying writability of storage directory", zap.Duration("timeout", timeout))
