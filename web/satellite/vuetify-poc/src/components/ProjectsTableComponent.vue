@@ -21,17 +21,21 @@
             item-key="path"
         >
             <template #item.name="{ item }">
-                <div>
-                    <v-btn
-                        class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
-                        variant="text"
-                        height="40"
-                        color="default"
-                        @click="openProject(item.raw)"
-                    >
-                        <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                        {{ item.raw.name }}
-                    </v-btn>
+                <v-btn
+                    v-if="item.raw.role !== ProjectRole.Invited"
+                    class="rounded-lg pl-1 pr-4 justify-start font-weight-bold"
+                    variant="text"
+                    height="40"
+                    color="default"
+                    block
+                    @click="openProject(item.raw)"
+                >
+                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    {{ item.raw.name }}
+                </v-btn>
+                <div v-else class="pl-1 pr-4 d-flex align-center justify-start font-weight-bold">
+                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    <span class="text-no-wrap">{{ item.raw.name }}</span>
                 </div>
             </template>
 
