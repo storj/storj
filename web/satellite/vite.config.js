@@ -48,6 +48,7 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),
+                '@poc': resolve(__dirname, './vuetify-poc/src'),
                 'stream': 'stream-browserify',
                 'util': 'util/',
             },
@@ -60,9 +61,6 @@ export default defineConfig(({ mode }) => {
                 output: {
                     experimentalMinChunkSize: 50*1024,
                 },
-                external: [
-                    /vuetify-poc/,
-                ],
             },
             chunkSizeWarningLimit: 3000,
         },

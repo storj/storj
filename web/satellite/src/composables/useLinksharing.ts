@@ -19,14 +19,14 @@ export function useLinksharing() {
 
     const worker = computed((): Worker | null => agStore.state.accessGrantsWebWorker);
 
-    async function generateFileOrFolderShareURL(path: string, isFolder = false): Promise<string> {
-        const fullPath = `${bucketsStore.state.fileComponentBucketName}/${path}`;
+    async function generateFileOrFolderShareURL(bucketName: string, path: string, isFolder = false): Promise<string> {
+        const fullPath = `${bucketName}/${path}`;
         const type = isFolder ? 'folder' : 'object';
         return generateShareURL(fullPath, type);
     }
 
-    async function generateBucketShareURL(): Promise<string> {
-        return generateShareURL(bucketsStore.state.fileComponentBucketName, 'bucket');
+    async function generateBucketShareURL(bucketName: string): Promise<string> {
+        return generateShareURL(bucketName, 'bucket');
     }
 
     async function generateShareURL(path: string, type: string): Promise<string> {
@@ -39,10 +39,10 @@ export function useLinksharing() {
         return `${configStore.state.config.publicLinksharingURL}/${credentials.accessKeyId}/${encodeURIComponent(path.trim())}`;
     }
 
-    async function generateObjectPreviewAndMapURL(path: string): Promise<string> {
+    async function generateObjectPreviewAndMapURL(bucketName: string, path: string): Promise<string> {
         if (!worker.value) throw new Error(WORKER_ERR_MSG);
 
-        path = bucketsStore.state.fileComponentBucketName + '/' + path;
+        path = bucketName + '/' + path;
         const now = new Date();
         const inOneDay = new Date(now.setDate(now.getDate() + 1));
         const creds: EdgeCredentials = await generateCredentials(bucketsStore.state.apiKey, path, inOneDay);

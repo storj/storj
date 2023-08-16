@@ -123,6 +123,7 @@ import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrow
 import { useAppStore } from '@/store/modules/appStore';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -134,6 +135,8 @@ import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
+
 const notify = useNotify();
 const { generateFileOrFolderShareURL, generateObjectPreviewAndMapURL } = useLinksharing();
 
@@ -239,7 +242,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(filePath.value);
+        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, filePath.value);
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
@@ -304,7 +307,8 @@ async function copy(): Promise<void> {
 async function getSharedLink(): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
     try {
-        objectLink.value = await generateFileOrFolderShareURL(filePath.value);
+        objectLink.value = await generateFileOrFolderShareURL(
+            bucketsStore.state.fileComponentBucketName, filePath.value);
     } catch (error) {
         error.message = `Unable to get sharing URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);

@@ -77,6 +77,15 @@
                         />
                     </template>
                     <v-list class="pa-0">
+                        <v-list-item link @click="() => showShareBucketDialog(item.raw.name)">
+                            <template #prepend>
+                                <icon-share size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Share bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
                         <v-list-item link @click="() => showDeleteBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-trash />
@@ -91,13 +100,14 @@
         </v-data-table-server>
     </v-card>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
-    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="() => openBucket(selectedBucketName)" />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
+    <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle } from 'vuetify/components';
+import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
 import { BucketPage, BucketCursor } from '@/types/buckets';
@@ -112,8 +122,10 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
+import IconShare from '@poc/components/icons/IconShare.vue';
 import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
+import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -126,9 +138,14 @@ const areBucketsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const selected = ref([]);
+
+const shareBucketName = ref<string>('');
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const bucketToDelete = ref<string>('');
 const isBucketPassphraseDialogOpen = ref(false);
+const isShareBucketDialogShown = ref<boolean>(false);
+
+let passphraseDialogCallback: () => void = () => {};
 
 const headers = [
     {
@@ -228,6 +245,7 @@ async function openBucket(bucketName: string): Promise<void> {
         router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketsStore.state.fileComponentBucketName}`);
         return;
     }
+    passphraseDialogCallback = () => openBucket(selectedBucketName.value);
     isBucketPassphraseDialogOpen.value = true;
 }
 
@@ -235,7 +253,7 @@ async function openBucket(bucketName: string): Promise<void> {
  * Displays the Delete Bucket dialog.
  */
 function showDeleteBucketDialog(bucketName: string): void {
-    bucketToDelete.value = bucketName;
+    shareBucketName.value = bucketName;
     isDeleteBucketDialogShown.value = true;
 }
 
@@ -250,6 +268,20 @@ watch(() => search.value, () => {
         fetchBuckets();
     }, 500); // 500ms delay for every new call.
 });
+
+/**
+ * Displays the Share Bucket dialog.
+ */
+function showShareBucketDialog(bucketName: string): void {
+    shareBucketName.value = bucketName;
+    if (promptForPassphrase.value) {
+        bucketsStore.setFileComponentBucketName(bucketName);
+        isBucketPassphraseDialogOpen.value = true;
+        passphraseDialogCallback = () => isShareBucketDialogShown.value = true;
+        return;
+    }
+    isShareBucketDialogShown.value = true;
+}
 
 onMounted(() => {
     fetchBuckets();

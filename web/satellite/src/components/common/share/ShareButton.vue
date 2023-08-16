@@ -4,29 +4,39 @@
 <template>
     <a
         class="share-button"
-        :href="item.link"
+        :href="config.getLink(link)"
         target="_blank"
         rel="noopener noreferrer"
-        :aria-label="item.label"
+        :aria-label="props.option"
         :style="style"
     >
-        <component :is="item.image" />
-        <span>{{ item.label }}</span>
+        <component :is="config.icon" width="12" height="12" />
+        <span>{{ props.option }}</span>
     </a>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { ShareButtonConfig } from '@/types/browser';
+import { ShareOptions, SHARE_BUTTON_CONFIGS, ShareButtonConfig } from '@/types/browser';
 
-const props = defineProps<{ item: ShareButtonConfig }>();
+const props = defineProps<{
+    option: ShareOptions;
+    link: string;
+}>();
 
 /**
  * Returns share button background color.
  */
 const style = computed((): Record<string, string> => {
-    return { 'background-color': props.item.color };
+    return { 'background-color': config.value.color };
+});
+
+/**
+ * Returns the configuration for this button's share option.
+ */
+const config = computed((): ShareButtonConfig => {
+    return SHARE_BUTTON_CONFIGS[props.option];
 });
 </script>
 
@@ -45,8 +55,6 @@ const style = computed((): Record<string, string> => {
         font-family: 'font_regular', sans-serif;
 
         svg {
-            width: 12px;
-            height: 12px;
             margin-right: 5px;
         }
     }

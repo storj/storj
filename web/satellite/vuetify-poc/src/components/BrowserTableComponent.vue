@@ -98,7 +98,7 @@
                                 </v-tooltip>
                             </v-btn>
                             <v-btn icon size="small" color="white">
-                                <img src="@poc/assets/icon-share.svg" width="22" alt="Share">
+                                <icon-share size="22" />
                                 <v-tooltip
                                     activator="parent"
                                     location="bottom"
@@ -171,6 +171,8 @@ import textIcon from '@poc/assets/icon-text-tonal.svg';
 import zipIcon from '@poc/assets/icon-zip-tonal.svg';
 import spreadsheetIcon from '@poc/assets/icon-spreadsheet-tonal.svg';
 import fileIcon from '@poc/assets/icon-file-tonal.svg';
+
+import IconShare from '@poc/components/icons/IconShare.vue';
 
 const search = ref<string>('');
 const selected = ref([]);

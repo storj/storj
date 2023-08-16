@@ -57,6 +57,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ShareType } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -74,6 +75,8 @@ enum ButtonStates {
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
+
 const { generateFileOrFolderShareURL, generateBucketShareURL } = useLinksharing();
 const notify = useNotify();
 
@@ -120,9 +123,13 @@ onMounted(async (): Promise<void> => {
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
     try {
         if (shareType.value === ShareType.Bucket) {
-            link.value = await generateBucketShareURL();
+            link.value = await generateBucketShareURL(bucketsStore.state.fileComponentBucketName);
         } else {
-            link.value = await generateFileOrFolderShareURL(filePath.value, shareType.value === ShareType.Folder);
+            link.value = await generateFileOrFolderShareURL(
+                bucketsStore.state.fileComponentBucketName,
+                filePath.value,
+                shareType.value === ShareType.Folder,
+            );
         }
     } catch (error) {
         error.message = `Unable to get sharing URL. ${error.message}`;
