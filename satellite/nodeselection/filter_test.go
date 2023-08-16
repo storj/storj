@@ -73,7 +73,7 @@ func TestCriteria_NodeIDAndSubnet(t *testing.T) {
 }
 
 func TestCriteria_Geofencing(t *testing.T) {
-	eu := NodeFilters{}.WithCountryFilter(EuCountries)
+	eu := NodeFilters{}.WithCountryFilter(location.NewSet(EuCountries...))
 	us := NodeFilters{}.WithCountryFilter(location.NewSet(location.UnitedStates))
 
 	cases := []struct {
