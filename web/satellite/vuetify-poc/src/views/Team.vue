@@ -56,7 +56,7 @@
 
                             <v-divider />
 
-                            <v-form v-model="valid" class="pa-7 pb-4">
+                            <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onAddUsersClick">
                                 <v-row>
                                     <v-col>
                                         <p>Invite team members to join you in this project.</p>
@@ -163,13 +163,14 @@ const selectedProjectID = computed((): string => projectsStore.state.selectedPro
  * Tries to add users related to entered emails list to current project.
  */
 async function onAddUsersClick(): Promise<void> {
-    if (isLoading.value) return;
+    if (isLoading.value || !valid.value) return;
 
     isLoading.value = true;
 
     try {
         await pmStore.inviteMembers([email.value], selectedProjectID.value);
         notify.notify('Invites sent!');
+        email.value = '';
     } catch (error) {
         error.message = `Error adding project members. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);

@@ -56,7 +56,7 @@
                     </v-card-item>
                     <v-divider class="mx-8" />
                     <v-card-item class="px-8 pt-4 pb-0">
-                        <v-form v-model="formValid" class="pt-2">
+                        <v-form v-model="formValid" class="pt-2" @submit.prevent>
                             <v-text-field
                                 v-model="confirmPasscode"
                                 variant="outlined"
@@ -277,6 +277,10 @@ watch(confirmPasscode, () => {
 watch(innerContent, newContent => {
     if (newContent) return;
     // dialog has been closed
+    if (step.value === 2) {
+        // recovery codes/success step
+        notify.success('2FA successfully enabled');
+    }
     step.value = 0;
     confirmPasscode.value = '';
     isError.value = false;

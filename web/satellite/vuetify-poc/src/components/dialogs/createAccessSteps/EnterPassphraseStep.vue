@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8">
+    <v-form ref="form" class="pa-8" @submit.prevent>
         <v-row>
             <v-col cols="12">
                 <p v-if="passphraseType === CreateAccessStep.EnterMyPassphrase">

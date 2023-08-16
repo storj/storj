@@ -29,7 +29,7 @@
 
             <v-divider />
             <v-card-item class="px-7 py-5">
-                <v-form v-model="formValid">
+                <v-form v-model="formValid" @submit.prevent="onChangeName">
                     <v-col cols="12" class="px-0">
                         <v-text-field
                             v-model="name"

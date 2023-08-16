@@ -32,7 +32,7 @@
             </v-card-item>
             <v-divider class="mx-8" />
             <v-card-item class="px-8 pt-4 pb-0">
-                <v-form v-model="formValid" class="pt-2">
+                <v-form v-model="formValid" class="pt-2" @submit.prevent="disable">
                     <v-text-field
                         v-model="confirmCode"
                         variant="outlined"
