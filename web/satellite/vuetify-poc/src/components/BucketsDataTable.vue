@@ -64,23 +64,51 @@
                     {{ item.raw.since.toLocaleString() }}
                 </span>
             </template>
+            <template #item.actions="{ item }">
+                <v-menu location="bottom end" transition="scale-transition">
+                    <template #activator="{ props: activatorProps }">
+                        <v-btn
+                            icon="mdi-dots-vertical"
+                            color="default"
+                            variant="text"
+                            size="small"
+                            density="comfortable"
+                            v-bind="activatorProps"
+                        />
+                    </template>
+                    <v-list class="pa-0">
+                        <v-list-item link @click="() => showDeleteBucketDialog(item.raw.name)">
+                            <template #prepend>
+                                <icon-trash />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Delete bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </template>
         </v-data-table-server>
     </v-card>
+    <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn } from 'vuetify/components';
+import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
 import { BucketPage, BucketCursor } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { tableSizeOptions } from '@/types/common';
+
+import IconTrash from '@poc/components/icons/IconTrash.vue';
+import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -92,6 +120,8 @@ const areBucketsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const selected = ref([]);
+const isDeleteBucketDialogShown = ref<boolean>(false);
+const bucketToDelete = ref<string>('');
 
 const headers = [
     {
@@ -105,6 +135,7 @@ const headers = [
     { title: 'Objects', key: 'objectCount', sortable: false },
     { title: 'Segments', key: 'segmentCount', sortable: false },
     { title: 'Date Created', key: 'createdAt', sortable: false },
+    { key: 'actions', width: '0', sortable: false },
 ];
 
 /**
@@ -164,6 +195,14 @@ watch(() => search.value, () => {
  */
 function openBucket(bucketName: string): void {
     router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketName}`);
+}
+
+/**
+ * Displays the Delete Bucket dialog.
+ */
+function showDeleteBucketDialog(bucketName: string): void {
+    bucketToDelete.value = bucketName;
+    isDeleteBucketDialogShown.value = true;
 }
 
 onMounted(() => {

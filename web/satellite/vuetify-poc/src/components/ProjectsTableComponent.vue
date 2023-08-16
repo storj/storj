@@ -94,7 +94,7 @@
                                 </template>
                                 <v-list-item v-else link @click="declineInvitation(item.raw)">
                                     <template #prepend>
-                                        <img src="@poc/assets/icon-trash.svg" alt="Decline">
+                                        <icon-trash />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
                                         Decline
@@ -137,6 +137,7 @@ import { useNotify } from '@/utils/hooks';
 
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
+import IconTrash from '@poc/components/icons/IconTrash.vue';
 
 const props = defineProps<{
     items: ProjectItemModel[],

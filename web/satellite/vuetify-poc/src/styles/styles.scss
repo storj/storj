@@ -313,3 +313,8 @@ table {
 .v-alert__close .v-btn {
   color: rgb(var(--v-theme-on-surface)) !important;
 }
+
+.bg-on-surface-variant {
+  background-color: rgb(var(--v-theme-on-surface-variant)) !important;
+  color: rgb(var(--v-theme-surface-variant)) !important;
+}
