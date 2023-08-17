@@ -4,6 +4,7 @@
 package repairer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -57,7 +58,8 @@ func TestClassify(t *testing.T) {
 		c := &overlay.ConfigurablePlacementRule{}
 		require.NoError(t, c.Set("10:country(\"GB\")"))
 		s := SegmentRepairer{
-			placementRules: c.CreateFilters,
+			placementRules:   c.CreateFilters,
+			doPlacementCheck: true,
 		}
 
 		pieces := createPieces(online, offline, 1, 2, 3, 4, 7, 8)
@@ -82,7 +84,8 @@ func TestClassify(t *testing.T) {
 		c := &overlay.ConfigurablePlacementRule{}
 		require.NoError(t, c.Set("10:country(\"GB\")"))
 		s := SegmentRepairer{
-			placementRules: c.CreateFilters,
+			placementRules:   c.CreateFilters,
+			doPlacementCheck: true,
 		}
 
 		pieces := createPieces(online, offline, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -96,6 +99,65 @@ func TestClassify(t *testing.T) {
 		require.Equal(t, 5, result.NumUnhealthyRetrievable)
 		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
 		require.Equal(t, 0, numHealthy)
+
+	})
+
+	t.Run("normal declumping (subnet check)", func(t *testing.T) {
+		var online, offline = generateNodes(10, func(ix int) bool {
+			return ix < 5
+		}, func(ix int, node *nodeselection.SelectedNode) {
+			node.LastNet = fmt.Sprintf("127.0.%d.0", ix/2)
+		})
+
+		c := overlay.NewPlacementRules()
+		s := SegmentRepairer{
+			placementRules: c.CreateFilters,
+			doDeclumping:   true,
+		}
+
+		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
+		pieces := createPieces(online, offline, 0, 1, 2, 3, 4, 5, 6)
+		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces}, allNodeIDs(pieces), online, offline)
+		require.NoError(t, err)
+
+		// offline nodes
+		require.Equal(t, 2, len(result.MissingPiecesSet))
+		require.Equal(t, 4, len(result.ClumpedPiecesSet))
+		require.Equal(t, 0, len(result.OutOfPlacementPiecesSet))
+		require.Equal(t, 2, result.NumUnhealthyRetrievable)
+		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
+		require.Equal(t, 3, numHealthy)
+
+	})
+
+	t.Run("decumpling but with no subnet filter", func(t *testing.T) {
+		var online, offline = generateNodes(10, func(ix int) bool {
+			return ix < 5
+		}, func(ix int, node *nodeselection.SelectedNode) {
+			node.LastNet = fmt.Sprintf("127.0.%d.0", ix/2)
+			node.CountryCode = location.UnitedKingdom
+		})
+
+		c := overlay.NewPlacementRules()
+		require.NoError(t, c.Set(fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
+
+		s := SegmentRepairer{
+			placementRules: c.CreateFilters,
+			doDeclumping:   true,
+		}
+
+		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
+		pieces := createPieces(online, offline, 0, 1, 2, 3, 4, 5, 6)
+		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces, Placement: 10}, allNodeIDs(pieces), online, offline)
+		require.NoError(t, err)
+
+		// offline nodes
+		require.Equal(t, 2, len(result.MissingPiecesSet))
+		require.Equal(t, 0, len(result.ClumpedPiecesSet))
+		require.Equal(t, 0, len(result.OutOfPlacementPiecesSet))
+		require.Equal(t, 0, result.NumUnhealthyRetrievable)
+		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
+		require.Equal(t, 5, numHealthy)
 
 	})
 
