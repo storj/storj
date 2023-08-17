@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container v-if="hasObjects">
         <PageTitleComponent title="Browse Files" />
 
         <BrowserBreadcrumbsComponent />
@@ -33,11 +33,16 @@
 
         <BrowserTableComponent />
     </v-container>
+
+    <EnterBucketPassphraseDialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="getObjects" />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { VContainer, VCol, VRow, VBtn } from 'vuetify/components';
+import { useRoute } from 'vue-router';
+
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -46,6 +51,30 @@ import BrowserTableComponent from '@poc/components/BrowserTableComponent.vue';
 import BrowserNewFolderDialog from '@poc/components/dialogs/BrowserNewFolderDialog.vue';
 import IconUpload from '@poc/components/icons/IconUpload.vue';
 import IconFolder from '@poc/components/icons/IconFolder.vue';
+import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
+
+const bucketsStore = useBucketsStore();
+const route = useRoute();
 
 const snackbar = ref<boolean>(false);
+const isBucketPassphraseDialogOpen = ref(false);
+const hasObjects = ref(false);
+
+const bucketName = computed(() => {
+    return bucketsStore.state.fileComponentBucketName;
+});
+
+function getObjects() {
+    hasObjects.value = true;
+}
+
+onMounted(() => {
+    if (!bucketName.value) {
+        // navigated here via direct link or reloaded this page
+        bucketsStore.setFileComponentBucketName(route.params['bucketName'] as string);
+        isBucketPassphraseDialogOpen.value = true;
+        return;
+    }
+    getObjects();
+});
 </script>

@@ -91,6 +91,7 @@
         </v-data-table-server>
     </v-card>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="() => openBucket(selectedBucketName)" />
 </template>
 
 <script setup lang="ts">
@@ -106,10 +107,15 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { tableSizeOptions } from '@/types/common';
+import { RouteConfig } from '@/types/router';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
+import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
@@ -122,6 +128,7 @@ const searchTimer = ref<NodeJS.Timeout>();
 const selected = ref([]);
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const bucketToDelete = ref<string>('');
+const isBucketPassphraseDialogOpen = ref(false);
 
 const headers = [
     {
@@ -153,6 +160,27 @@ const page = computed((): BucketPage => {
 });
 
 /**
+ * Returns condition if user has to be prompt for passphrase from store.
+ */
+const promptForPassphrase = computed((): boolean => {
+    return bucketsStore.state.promptForPassphrase;
+});
+
+/**
+ * Returns selected bucket's name from store.
+ */
+const selectedBucketName = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
+});
+
+/**
+ * Returns edge credentials from store.
+ */
+const edgeCredentials = computed((): EdgeCredentials => {
+    return bucketsStore.state.edgeCredentials;
+});
+
+/**
  * Fetches bucket using api.
  */
 async function fetchBuckets(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
@@ -179,6 +207,39 @@ function onUpdatePage(page: number): void {
 }
 
 /**
+ * Navigates to bucket page.
+ */
+async function openBucket(bucketName: string): Promise<void> {
+    if (!bucketName) {
+        return;
+    }
+    bucketsStore.setFileComponentBucketName(bucketName);
+    if (!promptForPassphrase.value) {
+        if (!edgeCredentials.value.accessKeyId) {
+            try {
+                await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+            } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
+                return;
+            }
+        }
+
+        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketsStore.state.fileComponentBucketName}`);
+        return;
+    }
+    isBucketPassphraseDialogOpen.value = true;
+}
+
+/**
+ * Displays the Delete Bucket dialog.
+ */
+function showDeleteBucketDialog(bucketName: string): void {
+    bucketToDelete.value = bucketName;
+    isDeleteBucketDialogShown.value = true;
+}
+
+/**
  * Handles update table search.
  */
 watch(() => search.value, () => {
@@ -189,21 +250,6 @@ watch(() => search.value, () => {
         fetchBuckets();
     }, 500); // 500ms delay for every new call.
 });
-
-/**
- * Navigates to bucket page.
- */
-function openBucket(bucketName: string): void {
-    router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketName}`);
-}
-
-/**
- * Displays the Delete Bucket dialog.
- */
-function showDeleteBucketDialog(bucketName: string): void {
-    bucketToDelete.value = bucketName;
-    isDeleteBucketDialogShown.value = true;
-}
 
 onMounted(() => {
     fetchBuckets();
