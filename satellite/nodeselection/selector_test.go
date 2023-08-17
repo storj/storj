@@ -248,12 +248,9 @@ func TestSelectFiltered(t *testing.T) {
 	selector := nodeselection.SelectByID(nodes)
 
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}), 3)
 
 	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{firstID, secondID})), 1)
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithAutoExcludeSubnets()), 2)
-	assert.Len(t, selector.Select(3, nodeselection.NodeFilters{}.WithExcludedIDs([]storj.NodeID{thirdID}).WithAutoExcludeSubnets()), 1)
 }
 
 func TestSelectFilteredMulti(t *testing.T) {

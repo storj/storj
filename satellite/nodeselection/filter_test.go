@@ -17,23 +17,6 @@ import (
 	"storj.io/common/testrand"
 )
 
-func TestNodeFilter_AutoExcludeSubnet(t *testing.T) {
-
-	criteria := NodeFilters{}.WithAutoExcludeSubnets()
-
-	assert.True(t, criteria.MatchInclude(&SelectedNode{
-		LastNet: "192.168.0.1",
-	}))
-
-	assert.False(t, criteria.MatchInclude(&SelectedNode{
-		LastNet: "192.168.0.1",
-	}))
-
-	assert.True(t, criteria.MatchInclude(&SelectedNode{
-		LastNet: "192.168.1.1",
-	}))
-}
-
 func TestCriteria_ExcludeNodeID(t *testing.T) {
 	included := testrand.NodeID()
 	excluded := testrand.NodeID()
@@ -47,29 +30,29 @@ func TestCriteria_ExcludeNodeID(t *testing.T) {
 	assert.True(t, criteria.MatchInclude(&SelectedNode{
 		ID: included,
 	}))
-
 }
 
-func TestCriteria_NodeIDAndSubnet(t *testing.T) {
-	excluded := testrand.NodeID()
+func TestCriteria_ExcludedNodeNetworks(t *testing.T) {
+	criteria := NodeFilters{}
+	criteria = append(criteria, ExcludedNodeNetworks{
+		&SelectedNode{
+			LastNet: "192.168.1.0",
+		}, &SelectedNode{
+			LastNet: "192.168.2.0",
+		},
+	})
 
-	criteria := NodeFilters{}.
-		WithExcludedIDs([]storj.NodeID{excluded}).
-		WithAutoExcludeSubnets()
-
-	// due to node id criteria
 	assert.False(t, criteria.MatchInclude(&SelectedNode{
-		ID:      excluded,
-		LastNet: "192.168.0.1",
+		LastNet: "192.168.1.0",
 	}))
 
-	// should be included as previous one excluded and
-	// not stored for subnet exclusion
+	assert.False(t, criteria.MatchInclude(&SelectedNode{
+		LastNet: "192.168.2.0",
+	}))
+
 	assert.True(t, criteria.MatchInclude(&SelectedNode{
-		ID:      testrand.NodeID(),
-		LastNet: "192.168.0.2",
+		LastNet: "192.168.3.0",
 	}))
-
 }
 
 func TestCriteria_Geofencing(t *testing.T) {
@@ -135,7 +118,6 @@ func BenchmarkNodeFilterFullTable(b *testing.B) {
 	filters = append(filters, NodeFilterFunc(func(node *SelectedNode) bool {
 		return true
 	}))
-	filters = filters.WithAutoExcludeSubnets()
 	benchmarkFilter(b, filters)
 }
 

@@ -215,7 +215,7 @@ func TestGetNodes(t *testing.T) {
 		}
 		placementRules := overlay.NewPlacementRules()
 		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
-		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), overlay.AutoExcludeSubnet, overlay.AutoExcludeSubnetOFF))
+		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
 
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
@@ -526,7 +526,7 @@ func TestGetNodesDistinct(t *testing.T) {
 			&mockDB,
 			highStaleness,
 			config,
-			nodeselection.NodeFilters{}.WithAutoExcludeSubnets(),
+			nodeselection.NodeFilters{},
 			overlay.NewPlacementRules().CreateFilters,
 		)
 		require.NoError(t, err)

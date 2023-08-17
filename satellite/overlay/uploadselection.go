@@ -13,14 +13,6 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
-const (
-	// AutoExcludeSubnet is placement annotation key to turn off subnet restrictions.
-	AutoExcludeSubnet = "autoExcludeSubnet"
-
-	// AutoExcludeSubnetOFF is the value of AutoExcludeSubnet to disable subnet restrictions.
-	AutoExcludeSubnetOFF = "off"
-)
-
 // UploadSelectionDB implements the database for upload selection cache.
 //
 // architecture: Database
@@ -105,7 +97,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	}
 
 	placementRules := cache.placementRules(req.Placement)
-	useSubnetExclusion := nodeselection.GetAnnotation(placementRules, AutoExcludeSubnet) != AutoExcludeSubnetOFF
+	useSubnetExclusion := nodeselection.GetAnnotation(placementRules, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF
 
 	filters := nodeselection.NodeFilters{placementRules}
 	if len(req.ExcludedIDs) > 0 {
