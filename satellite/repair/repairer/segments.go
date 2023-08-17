@@ -702,7 +702,9 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 		delete(result.MissingPiecesSet, pieceNum)
 	}
 
-	if repairer.doDeclumping {
+	nodeFilters = repairer.placementRules(segment.Placement)
+
+	if repairer.doDeclumping && nodeselection.GetAnnotation(nodeFilters, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
 		lastNets := make([]string, 0, len(allNodeIDs))
@@ -731,18 +733,19 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 
 	result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
-	nodeFilters = repairer.placementRules(segment.Placement)
-	checkPlacement := func(reliable []nodeselection.SelectedNode) {
-		for _, node := range reliable {
-			if nodeFilters.MatchInclude(&node) {
-				continue
-			}
+	if repairer.doPlacementCheck {
+		checkPlacement := func(reliable []nodeselection.SelectedNode) {
+			for _, node := range reliable {
+				if nodeFilters.MatchInclude(&node) {
+					continue
+				}
 
-			result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
+				result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
+			}
 		}
+		checkPlacement(online)
+		checkPlacement(offline)
 	}
-	checkPlacement(online)
-	checkPlacement(offline)
 
 	// verify that some of clumped pieces and out of placement pieces are not the same
 	unhealthyRetrievableSet := map[uint16]bool{}
