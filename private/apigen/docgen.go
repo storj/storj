@@ -66,13 +66,13 @@ func (api *API) generateDocumentation() string {
 			requestType := reflect.TypeOf(endpoint.Request)
 			if requestType != nil {
 				wf("**Request body:**\n\n")
-				wf("```json\n%s\n```\n\n", getTypeNameRecursively(requestType, 0))
+				wf("```typescript\n%s\n```\n\n", getTypeNameRecursively(requestType, 0))
 			}
 
 			responseType := reflect.TypeOf(endpoint.Response)
 			if responseType != nil {
 				wf("**Response body:**\n\n")
-				wf("```json\n%s\n```\n\n", getTypeNameRecursively(responseType, 0))
+				wf("```typescript\n%s\n```\n\n", getTypeNameRecursively(responseType, 0))
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 		if typeName != "unknown" {
 			toReturn := typeName
 			if len(elaboration) > 0 {
-				toReturn += " (" + elaboration + ")"
+				toReturn += " // " + elaboration
 			}
 			return toReturn
 		}
@@ -150,7 +150,7 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 		typeName, elaboration := getDocType(t)
 		toReturn := typeName
 		if len(elaboration) > 0 {
-			toReturn += " (" + elaboration + ")"
+			toReturn += " // " + elaboration
 		}
 		return toReturn
 	}

@@ -12,20 +12,20 @@ Creates new Project with given info
 
 **Request body:**
 
-```json
+```typescript
 {
 	name: string
 	description: string
-	storageLimit: string (Amount of memory formatted as `15 GB`)
-	bandwidthLimit: string (Amount of memory formatted as `15 GB`)
-	createdAt: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+	storageLimit: string // Amount of memory formatted as `15 GB`
+	bandwidthLimit: string // Amount of memory formatted as `15 GB`
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```
 
 **Response body:**
 
-```json
+```typescript
 unknown
 ```
 
@@ -43,36 +43,36 @@ Updates project with given info
 
 **Request body:**
 
-```json
+```typescript
 {
 	name: string
 	description: string
-	storageLimit: string (Amount of memory formatted as `15 GB`)
-	bandwidthLimit: string (Amount of memory formatted as `15 GB`)
-	createdAt: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+	storageLimit: string // Amount of memory formatted as `15 GB`
+	bandwidthLimit: string // Amount of memory formatted as `15 GB`
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```
 
 **Response body:**
 
-```json
+```typescript
 {
-	id: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
-	publicId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	publicId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string
 	userAgent: 	string
-	ownerId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+	ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	rateLimit: number
 	burstLimit: number
 	maxBuckets: number
-	createdAt: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	memberCount: number
-	storageLimit: string (Amount of memory formatted as `15 GB`)
-	bandwidthLimit: string (Amount of memory formatted as `15 GB`)
-	userSpecifiedStorageLimit: string (Amount of memory formatted as `15 GB`)
-	userSpecifiedBandwidthLimit: string (Amount of memory formatted as `15 GB`)
+	storageLimit: string // Amount of memory formatted as `15 GB`
+	bandwidthLimit: string // Amount of memory formatted as `15 GB`
+	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
+	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 	segmentLimit: number
 	defaultPlacement: number
 }
@@ -99,24 +99,24 @@ Gets all projects user has
 
 **Response body:**
 
-```json
+```typescript
 [
 	{
-		id: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
-		publicId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		publicId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 		name: string
 		description: string
 		userAgent: 		string
-		ownerId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+		ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 		rateLimit: number
 		burstLimit: number
 		maxBuckets: number
-		createdAt: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		memberCount: number
-		storageLimit: string (Amount of memory formatted as `15 GB`)
-		bandwidthLimit: string (Amount of memory formatted as `15 GB`)
-		userSpecifiedStorageLimit: string (Amount of memory formatted as `15 GB`)
-		userSpecifiedBandwidthLimit: string (Amount of memory formatted as `15 GB`)
+		storageLimit: string // Amount of memory formatted as `15 GB`
+		bandwidthLimit: string // Amount of memory formatted as `15 GB`
+		userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
+		userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
 		segmentLimit: number
 		defaultPlacement: number
 	}
@@ -142,9 +142,9 @@ Gets project's single bucket usage by bucket ID
 
 **Response body:**
 
-```json
+```typescript
 {
-	projectID: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+	projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	bucketName: string
 	totalStoredData: number
 	totalSegments: number
@@ -153,8 +153,8 @@ Gets project's single bucket usage by bucket ID
 	repairEgress: number
 	getEgress: number
 	auditEgress: number
-	since: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
-	before: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+	since: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	before: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```
@@ -175,10 +175,10 @@ Gets project's all buckets usage
 
 **Response body:**
 
-```json
+```typescript
 [
 	{
-		projectID: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+		projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 		bucketName: string
 		totalStoredData: number
 		totalSegments: number
@@ -187,8 +187,8 @@ Gets project's all buckets usage
 		repairEgress: number
 		getEgress: number
 		auditEgress: number
-		since: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
-		before: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+		since: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		before: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	}
 
 ]
@@ -219,16 +219,16 @@ Gets API keys by project ID
 
 **Response body:**
 
-```json
+```typescript
 {
 	apiKeys: 	[
 		{
-			id: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
-			projectId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
-			projectPublicId: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			projectId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			projectPublicId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			userAgent: 			string
 			name: string
-			createdAt: string (Date timestamp formatted as `2006-01-02T15:00:00Z`)
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		}
 
 	]
@@ -253,7 +253,7 @@ Creates new macaroon API key with given info
 
 **Request body:**
 
-```json
+```typescript
 {
 	projectID: string
 	name: string
@@ -263,7 +263,7 @@ Creates new macaroon API key with given info
 
 **Response body:**
 
-```json
+```typescript
 {
 	key: string
 	keyInfo: unknown
@@ -291,9 +291,9 @@ Gets User by request context
 
 **Response body:**
 
-```json
+```typescript
 {
-	id: string (UUID formatted as `00000000-0000-0000-0000-000000000000`)
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	fullName: string
 	shortName: string
 	email: string
