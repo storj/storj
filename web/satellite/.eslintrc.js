@@ -26,6 +26,7 @@ module.exports = {
         'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
         'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
 
+        'no-tabs': 'warn',
         'indent': ['warn', 4],
         'vue/html-indent': ['warn', 4],
 
