@@ -37,9 +37,20 @@
             <v-window-item>
                 <v-row>
                     <v-col cols="12" sm="4">
-                        <v-card title="Total Cost" subtitle="Estimated for June 2023" variant="flat" :border="true" rounded="xlg">
+                        <v-card
+                            title="Total Cost"
+                            :subtitle="`Estimated for ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
+                            variant="flat"
+                            :border="true"
+                            rounded="xlg"
+                        >
                             <v-card-text>
-                                <v-chip rounded color="success" variant="outlined" class="font-weight-bold mb-2">$24</v-chip>
+                                <div v-if="isLoading" class="pb-2 text-center">
+                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
+                                </div>
+                                <v-chip v-else rounded color="success" variant="outlined" class="font-weight-bold mb-2">
+                                    {{ centsToDollars(priceSummary) }}
+                                </v-chip>
                                 <v-divider class="my-4" />
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2">View Billing History</v-btn>
                                 <!-- <v-btn variant="tonal" color="default" size="small" class="mr-2">Payment Methods</v-btn> -->
@@ -50,7 +61,12 @@
                     <v-col cols="12" sm="4">
                         <v-card title="STORJ Token Balance" subtitle="Your STORJ Token Wallet" variant="flat" :border="true" rounded="xlg">
                             <v-card-text>
-                                <v-chip rounded color="success" variant="outlined" class="font-weight-bold mb-2">$5,284</v-chip>
+                                <div v-if="isLoading" class="pb-2 text-center">
+                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
+                                </div>
+                                <v-chip v-else rounded color="success" variant="outlined" class="font-weight-bold mb-2">
+                                    {{ formattedTokenBalance }}
+                                </v-chip>
                                 <v-divider class="my-4" />
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Add STORJ Tokens</v-btn>
                                 <!-- <v-btn variant="tonal" color="default" size="small" class="mr-2">View Transactions</v-btn> -->
@@ -59,12 +75,46 @@
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="Coupon / Free Usage" subtitle="Active / No Expiration" variant="flat" :border="true" rounded="xlg">
+                        <v-card
+                            v-if="isLoading"
+                            class="d-flex align-center justify-center"
+                            height="200"
+                            rounded="xlg"
+                            border
+                        >
+                            <v-progress-circular color="primary" size="48" indeterminate />
+                        </v-card>
+                        <v-card
+                            v-else-if="coupon"
+                            :title="`Coupon / ${coupon.name}`"
+                            :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
+                            rounded="xlg"
+                            border
+                        >
                             <v-card-text>
-                                <v-chip rounded color="success" variant="outlined" class="font-weight-bold mb-2">$1.65 off</v-chip>
+                                <v-chip
+                                    :color="isCouponActive ? 'success' : 'error'"
+                                    variant="outlined"
+                                    class="font-weight-bold mb-2"
+                                    rounded
+                                >
+                                    {{ couponDiscount }}
+                                </v-chip>
                                 <v-divider class="my-4" />
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Add Coupon</v-btn>
                             </v-card-text>
+                        </v-card>
+                        <v-card
+                            v-else
+                            class="billing__new-coupon-card d-flex align-center justify-center"
+                            color="primary"
+                            variant="text"
+                            height="200"
+                            link
+                            border
+                        >
+                            <v-icon icon="mdi-plus" class="mr-1" size="small" />
+                            <span class="text-decoration-underline mr-1">Apply New Coupon</span>
                         </v-card>
                     </v-col>
                 </v-row>
@@ -242,12 +292,18 @@ import {
     VExpansionPanels,
     VExpansionPanel,
     VTextField,
+    VProgressCircular,
+    VIcon,
 } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { CreditCard } from '@/types/payments';
+import { Coupon, CouponDuration, CreditCard } from '@/types/payments';
+import { centsToDollars } from '@/utils/strings';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
@@ -259,6 +315,7 @@ const selected = ref([]);
 const billingStore = useBillingStore();
 
 const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const creditCards = computed((): CreditCard[] => {
     return billingStore.state.creditCards;
@@ -292,6 +349,63 @@ const invoices = [
     },
 ];
 
+/**
+ * Returns price summary of all project usages.
+ */
+const priceSummary = computed((): number => {
+    return billingStore.state.projectCharges.getPrice();
+});
+
+/**
+ * Returns STORJ token balance from store.
+ */
+const formattedTokenBalance = computed((): string => {
+    return billingStore.state.balance.formattedCoins;
+});
+
+/**
+ * Returns the coupon applied to the user's account.
+ */
+const coupon = computed((): Coupon | null => {
+    return billingStore.state.coupon;
+});
+
+/**
+ * Returns the expiration date of the coupon.
+ */
+const couponExpiration = computed((): string => {
+    const c = coupon.value;
+    if (!c) return '';
+
+    const exp = c.expiresAt;
+    if (!exp || c.duration === CouponDuration.Forever) {
+        return 'No Expiration';
+    }
+    return `Expires on ${exp.getDate()} ${SHORT_MONTHS_NAMES[exp.getMonth()]} ${exp.getFullYear()}`;
+});
+
+/**
+ * Returns the coupon's discount amount.
+ */
+const couponDiscount = computed((): string => {
+    const c = coupon.value;
+    if (!c) return '';
+
+    if (c.percentOff !== 0) {
+        return `${parseFloat(c.percentOff.toFixed(2)).toString()}% off`;
+    }
+    return `$${(c.amountOff / 100).toFixed(2).replace('.00', '')} off`;
+});
+
+/**
+ * Returns the whether the coupon is active.
+ */
+const isCouponActive = computed((): boolean => {
+    const now = Date.now();
+    const c = coupon.value;
+    return !!c && (c.duration === 'forever' || (!!c.expiresAt && now < c.expiresAt.getTime()));
+});
+
 function getColor(status: string): string {
     if (status === 'Paid') return 'success';
     if (status === 'Pending') return 'warning';
@@ -300,7 +414,24 @@ function getColor(status: string): string {
 
 onMounted(() => {
     withLoading(async () => {
-        await billingStore.getCreditCards();
+        try {
+            await Promise.all([
+                billingStore.getProjectUsageAndChargesCurrentRollup(),
+                billingStore.getBalance(),
+                billingStore.getCoupon(),
+                billingStore.getCreditCards(),
+            ]);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
+        }
     });
 });
 </script>
+
+<style scoped lang="scss">
+.billing__new-coupon-card {
+    border-width: 2px;
+    border-style: dashed;
+    box-shadow: none !important;
+}
+</style>
