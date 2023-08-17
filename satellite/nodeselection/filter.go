@@ -45,6 +45,13 @@ func GetAnnotation(filter NodeFilter, name string) string {
 	if annotated, ok := filter.(AnnotatedNodeFilter); ok {
 		return annotated.Annotations[name]
 	}
+	if filters, ok := filter.(NodeFilters); ok {
+		for _, filter := range filters {
+			if annotated, ok := filter.(AnnotatedNodeFilter); ok {
+				return annotated.Annotations[name]
+			}
+		}
+	}
 	return ""
 }
 
@@ -82,11 +89,6 @@ func (n NodeFilters) WithCountryFilter(permit location.Set) NodeFilters {
 	return append(n, NewCountryFilter(permit))
 }
 
-// WithAutoExcludeSubnets is a helper to create a new filter with additional AutoExcludeSubnets.
-func (n NodeFilters) WithAutoExcludeSubnets() NodeFilters {
-	return append(n, NewAutoExcludeSubnets())
-}
-
 // WithExcludedIDs is a helper to create a new filter with additional WithExcludedIDs.
 func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
@@ -113,32 +115,6 @@ func (p *CountryFilter) MatchInclude(node *SelectedNode) bool {
 
 var _ NodeFilter = &CountryFilter{}
 
-// AutoExcludeSubnets pick at most one node from network.
-//
-// Stateful!!! should be re-created for each new selection request.
-// It should only be used as the last filter.
-type AutoExcludeSubnets struct {
-	seenSubnets map[string]struct{}
-}
-
-// NewAutoExcludeSubnets creates an initialized AutoExcludeSubnets.
-func NewAutoExcludeSubnets() *AutoExcludeSubnets {
-	return &AutoExcludeSubnets{
-		seenSubnets: map[string]struct{}{},
-	}
-}
-
-// MatchInclude implements NodeFilter interface.
-func (a *AutoExcludeSubnets) MatchInclude(node *SelectedNode) bool {
-	if _, found := a.seenSubnets[node.LastNet]; found {
-		return false
-	}
-	a.seenSubnets[node.LastNet] = struct{}{}
-	return true
-}
-
-var _ NodeFilter = &AutoExcludeSubnets{}
-
 // ExcludedNetworks will exclude nodes with specified networks.
 type ExcludedNetworks []string
 
@@ -153,6 +129,21 @@ func (e ExcludedNetworks) MatchInclude(node *SelectedNode) bool {
 }
 
 var _ NodeFilter = ExcludedNetworks{}
+
+// ExcludedNodeNetworks exclude nodes which has same net as the one of the specified.
+type ExcludedNodeNetworks []*SelectedNode
+
+// MatchInclude implements NodeFilter interface.
+func (e ExcludedNodeNetworks) MatchInclude(node *SelectedNode) bool {
+	for _, n := range e {
+		if node.LastNet == n.LastNet {
+			return false
+		}
+	}
+	return true
+}
+
+var _ NodeFilter = ExcludedNodeNetworks{}
 
 // ExcludedIDs can blacklist NodeIDs.
 type ExcludedIDs []storj.NodeID

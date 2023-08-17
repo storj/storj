@@ -12,6 +12,14 @@ import (
 	"storj.io/common/storj"
 )
 
+const (
+	// AutoExcludeSubnet is placement annotation key to turn off subnet restrictions.
+	AutoExcludeSubnet = "autoExcludeSubnet"
+
+	// AutoExcludeSubnetOFF is the value of AutoExcludeSubnet to disable subnet restrictions.
+	AutoExcludeSubnetOFF = "off"
+)
+
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
@@ -114,8 +122,13 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*SelectedN
 
 	// Get all the remaining reputable nodes.
 	reputableCount := totalCount - len(selected)
-	selected = append(selected,
-		reputableNodes.Select(reputableCount, request.NodeFilters)...)
+
+	filters := request.NodeFilters
+	if GetAnnotation(filters, AutoExcludeSubnet) != AutoExcludeSubnetOFF {
+		filters = append(append(NodeFilters{}, request.NodeFilters...), ExcludedNodeNetworks(selected))
+	}
+
+	selected = append(selected, reputableNodes.Select(reputableCount, filters)...)
 
 	if len(selected) < totalCount {
 		return selected, ErrNotEnoughNodes.New("requested from cache %d, found %d", totalCount, len(selected))
