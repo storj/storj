@@ -29,24 +29,30 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @throws Error
      */
     public async create(projectFields: ProjectFields): Promise<Project> {
-        const query =
-            `mutation($name: String!, $description: String!) {
-                createProject(
-                    input: {
-                        name: $name,
-                        description: $description,
-                    }
-                ) {publicId}
-            }`;
-
-        const variables = {
+        const data = {
             name: projectFields.name,
             description: projectFields.description,
         };
 
-        const response = await this.mutate(query, variables);
+        const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data));
+        const result = await response.json();
+        if (response.ok) {
+            return new Project(
+                result.id,
+                result.name,
+                result.description,
+                result.createdAt,
+                result.ownerId,
+                false,
+                result.memberCount,
+            );
+        }
 
-        return new Project(response.data.createProject.publicId, variables.name, variables.description, '', projectFields.ownerId);
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Could not create project',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
