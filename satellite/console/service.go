@@ -766,18 +766,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, ErrRegToken.Wrap(err)
 	}
 
-	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if verified != nil {
-		mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	} else if len(unverified) != 0 {
-		mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	}
-
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -787,7 +775,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		userID, err := uuid.New()
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		newUser := &User{
@@ -825,13 +813,40 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser,
 		)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
+		}
+
+		verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+		if err != nil {
+			return err
+		}
+
+		if verified != nil {
+			err = tx.Users().Delete(ctx, u.ID)
+			if err != nil {
+				return err
+			}
+			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+			return ErrEmailUsed.New(emailUsedErrMsg)
+		}
+
+		for _, other := range unverified {
+			// We compare IDs because a parallel user creation transaction for the same
+			// email could have created a record at the same time as ours.
+			if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+				err = tx.Users().Delete(ctx, u.ID)
+				if err != nil {
+					return err
+				}
+				mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+				return ErrEmailUsed.New(emailUsedErrMsg)
+			}
 		}
 
 		if registrationToken != nil {
 			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 			if err != nil {
-				return Error.Wrap(err)
+				return err
 			}
 		}
 

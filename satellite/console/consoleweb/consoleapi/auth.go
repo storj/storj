@@ -313,7 +313,9 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			secret,
 		)
 		if err != nil {
-			a.serveJSONError(ctx, w, err)
+			if !console.ErrEmailUsed.Has(err) {
+				a.serveJSONError(ctx, w, err)
+			}
 			return
 		}
 
