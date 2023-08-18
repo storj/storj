@@ -555,16 +555,23 @@ func TestProjects(t *testing.T) {
 			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
 		}
 
-		{ // Get_User_Projects
+		{ // Create_Project
+			name := "a name"
+			description := "a description"
+			resp, body := test.request(http.MethodPost, "/projects", test.toJSON(map[string]interface{}{
+				"name":        name,
+				"description": description,
+			}))
+			require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-			var projects []struct {
-				ID          uuid.UUID `json:"id"`
-				Name        string    `json:"name"`
-				OwnerID     uuid.UUID `json:"ownerId"`
-				Description string    `json:"description"`
-				MemberCount int       `json:"memberCount"`
-				CreatedAt   time.Time `json:"createdAt"`
-			}
+			var createdProject console.ProjectInfo
+			require.NoError(t, json.Unmarshal([]byte(body), &createdProject))
+			require.Equal(t, name, createdProject.Name)
+			require.Equal(t, description, createdProject.Description)
+		}
+
+		{ // Get_User_Projects
+			var projects []console.ProjectInfo
 			resp, body := test.request(http.MethodGet, "/projects", nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			require.NoError(t, json.Unmarshal([]byte(body), &projects))

@@ -204,6 +204,43 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateProject handles creating projects.
+func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var payload console.UpsertProjectInfo
+
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if payload.Name == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("project name cannot be empty"))
+		return
+	}
+
+	project, err := p.service.CreateProject(ctx, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	err = json.NewEncoder(w).Encode(project.GetMinimal())
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // GetMembersAndInvitations returns the project's members and invitees.
 func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
