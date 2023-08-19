@@ -9,7 +9,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -101,7 +104,8 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 		return Error.New("expected page size to be positive; got %d", pageSize)
 	}
 
-	var pageCursor, pageEnd uuid.UUID
+	var pageCursor uuid.UUID
+	selected := make([]uuid.UUID, pageSize)
 	aost := db.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
 	for {
 		// Select the ID beginning this page of records
@@ -118,47 +122,42 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 			return Error.Wrap(err)
 		}
 
-		// Select the ID ending this page of records
-		err = db.db.QueryRowContext(ctx, `
+		// Select page of records
+		rows, err := db.db.QueryContext(ctx, `
 			SELECT id FROM webapp_sessions
 			`+aost+`
-			WHERE id > $1
-			ORDER BY id LIMIT 1 OFFSET $2
-		`, pageCursor, pageSize).Scan(&pageEnd)
+			WHERE id >= $1 ORDER BY id LIMIT $2
+		`, pageCursor, pageSize)
 		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return Error.Wrap(err)
-			}
-			// Since this is the last page, we want to return all remaining records
-			_, err = db.db.ExecContext(ctx, `
-				DELETE FROM webapp_sessions
-				WHERE id IN (
-					SELECT id FROM webapp_sessions
-					`+aost+`
-					WHERE id >= $1 AND expires_at < $2
-					ORDER BY id
-				)
-			`, pageCursor, now)
 			return Error.Wrap(err)
 		}
 
-		// Delete all expired records in the range between the beginning and ending IDs
+		var i int
+		for i = 0; rows.Next(); i++ {
+			if err = rows.Scan(&selected[i]); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+		if err = errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return Error.Wrap(err)
+		}
+
+		// Delete all expired records in the page
 		_, err = db.db.ExecContext(ctx, `
 			DELETE FROM webapp_sessions
-			WHERE id IN (
-				SELECT id FROM webapp_sessions
-				`+aost+`
-				WHERE id BETWEEN $1 AND $2
-				AND expires_at < $3
-				ORDER BY id
-			)
-		`, pageCursor, pageEnd, now)
+			WHERE id = ANY($1)
+			AND expires_at < $2
+		`, pgutil.UUIDArray(selected[:i]), now)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+
+		if i < pageSize {
+			return nil
 		}
 
 		// Advance the cursor to the next page
-		pageCursor = pageEnd
+		pageCursor = selected[i-1]
 	}
 }
 

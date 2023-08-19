@@ -16,6 +16,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -212,7 +213,8 @@ func (users *users) DeleteUnverifiedBefore(
 		return Error.New("expected page size to be positive; got %d", pageSize)
 	}
 
-	var pageCursor, pageEnd uuid.UUID
+	var pageCursor uuid.UUID
+	selected := make([]uuid.UUID, pageSize)
 	aost := users.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
 	for {
 		// Select the ID beginning this page of records
@@ -229,42 +231,42 @@ func (users *users) DeleteUnverifiedBefore(
 			return Error.Wrap(err)
 		}
 
-		// Select the ID ending this page of records
-		err = users.db.QueryRowContext(ctx, `
+		// Select page of records
+		rows, err := users.db.QueryContext(ctx, `
 			SELECT id FROM users
 			`+aost+`
-			WHERE id >= $1
-			ORDER BY id LIMIT 1 OFFSET $2
-		`, pageCursor, pageSize).Scan(&pageEnd)
-		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return Error.Wrap(err)
-			}
-			// Since this is the last page, we want to return all remaining IDs
-			pageEnd = uuid.Max()
-		}
-
-		// Delete all old, unverified users in the range between the beginning and ending IDs
-		_, err = users.db.ExecContext(ctx, `
-			DELETE FROM users
-			WHERE id IN (
-				SELECT id FROM users
-				`+aost+`
-				WHERE id >= $1 AND id <= $2
-				AND users.status = $3 AND users.created_at < $4
-				ORDER BY id
-			)
-		`, pageCursor, pageEnd, console.Inactive, before)
+			WHERE id >= $1 ORDER BY id LIMIT $2
+		`, pageCursor, pageSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		if pageEnd == uuid.Max() {
+		var i int
+		for i = 0; rows.Next(); i++ {
+			if err = rows.Scan(&selected[i]); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+		if err = errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return Error.Wrap(err)
+		}
+
+		// Delete all old, unverified users in the page
+		_, err = users.db.ExecContext(ctx, `
+			DELETE FROM users
+			WHERE id = ANY($1)
+			AND status = $2 AND created_at < $3
+		`, pgutil.UUIDArray(selected[:i]), console.Inactive, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if i < pageSize {
 			return nil
 		}
 
 		// Advance the cursor to the next page
-		pageCursor = pageEnd
+		pageCursor = selected[i-1]
 	}
 }
 
