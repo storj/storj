@@ -1659,6 +1659,33 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return Error.Wrap(err)
 		}
 
+		limit, err := tx.Users().GetProjectLimit(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		projects, err := tx.Projects().GetOwn(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		// We check again for project name duplication and whether the project limit
+		// has been exceeded in case a parallel project creation transaction created
+		// a project at the same time as this one.
+		var numBefore int
+		for _, other := range projects {
+			if other.CreatedAt.Before(p.CreatedAt) || (other.CreatedAt.Equal(p.CreatedAt) && other.ID.Less(p.ID)) {
+				if other.Name == p.Name {
+					return errs.Combine(ErrProjName.New(projNameErrMsg), tx.Projects().Delete(ctx, p.ID))
+				}
+				numBefore++
+			}
+		}
+		if numBefore >= limit {
+			s.analytics.TrackProjectLimitError(user.ID, user.Email)
+			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
+		}
+
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID)
 		if err != nil {
 			return Error.Wrap(err)
@@ -1683,68 +1710,17 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo UpsertProjec
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create project")
+	p, err = s.CreateProject(ctx, projectInfo)
 	if err != nil {
+		status := http.StatusInternalServerError
+		if _, ctxErr := GetUser(ctx); ctxErr != nil {
+			status = http.StatusUnauthorized
+		}
 		return nil, api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    ErrProjLimit.Wrap(err),
-		}
-	}
-
-	newProjectLimits, err := s.getUserProjectLimits(ctx, user.ID)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    ErrProjLimit.Wrap(err),
-		}
-	}
-
-	var projectID uuid.UUID
-	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		storageLimit := memory.Size(newProjectLimits.Storage)
-		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:      projectInfo.Description,
-				Name:             projectInfo.Name,
-				OwnerID:          user.ID,
-				UserAgent:        user.UserAgent,
-				StorageLimit:     &storageLimit,
-				BandwidthLimit:   &bandwidthLimit,
-				SegmentLimit:     &newProjectLimits.Segment,
-				DefaultPlacement: user.DefaultPlacement,
-			},
-		)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		projectID = p.ID
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
+			Status: status,
 			Err:    err,
 		}
 	}
-
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1)
 
 	return p, httpError
 }
