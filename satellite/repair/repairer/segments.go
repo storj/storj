@@ -668,14 +668,14 @@ func (repairer *SegmentRepairer) classifySegmentPieces(ctx context.Context, segm
 		allNodeIDs[i] = piece.StorageNode
 	}
 
-	online, offline, err := repairer.overlay.KnownReliable(ctx, allNodeIDs)
+	selectedNodes, err := repairer.overlay.GetNodes(ctx, allNodeIDs)
 	if err != nil {
 		return piecesCheckResult{}, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
-	return repairer.classifySegmentPiecesWithNodes(ctx, segment, allNodeIDs, online, offline)
+	return repairer.classifySegmentPiecesWithNodes(ctx, segment, allNodeIDs, selectedNodes)
 }
 
-func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Context, segment metabase.Segment, allNodeIDs []storj.NodeID, online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode) (result piecesCheckResult, err error) {
+func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Context, segment metabase.Segment, allNodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) (result piecesCheckResult, err error) {
 	pieces := segment.Pieces
 
 	nodeIDPieceMap := map[storj.NodeID]uint16{}
@@ -688,21 +688,27 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 
 	result.ExcludeNodeIDs = allNodeIDs
 
+	if len(selectedNodes) != len(pieces) {
+		repairer.log.Error("GetNodes returned an invalid result", zap.Any("pieces", pieces), zap.Any("selectedNodes", selectedNodes), zap.Error(err))
+		return piecesCheckResult{}, overlayQueryError.New("GetNodes returned an invalid result")
+	}
+
 	nodeFilters := repairer.placementRules(segment.Placement)
 
 	// remove online nodes from missing pieces
-	for _, onlineNode := range online {
+	for _, node := range selectedNodes {
+		if !node.Online || node.Suspended {
+			continue
+		}
 		// count online nodes in excluded countries only if country is not excluded by segment
 		// placement, those nodes will be counted with out of placement check
-		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && nodeFilters.Match(&onlineNode) {
+		if _, excluded := repairer.excludedCountryCodes[node.CountryCode]; excluded && nodeFilters.Match(&node) {
 			result.NumHealthyInExcludedCountries++
 		}
 
-		pieceNum := nodeIDPieceMap[onlineNode.ID]
+		pieceNum := nodeIDPieceMap[node.ID]
 		delete(result.MissingPiecesSet, pieceNum)
 	}
-
-	nodeFilters = repairer.placementRules(segment.Placement)
 
 	if repairer.doDeclumping && !nodeselection.AllowSameSubnet(nodeFilters) {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
@@ -711,8 +717,11 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 
 		reliablePieces := metabase.Pieces{}
 
-		collectLastNets := func(reliable []nodeselection.SelectedNode) {
-			for _, node := range reliable {
+		collectClumpedPieces := func(onlineness bool) {
+			for _, node := range selectedNodes {
+				if node.Online != onlineness {
+					continue
+				}
 				pieceNum := nodeIDPieceMap[node.ID]
 				reliablePieces = append(reliablePieces, metabase.Piece{
 					Number:      pieceNum,
@@ -721,8 +730,10 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 				lastNets = append(lastNets, node.LastNet)
 			}
 		}
-		collectLastNets(online)
-		collectLastNets(offline)
+		// go over online nodes first, so that if we have to remove clumped pieces, we prefer
+		// to remove offline ones over online ones.
+		collectClumpedPieces(true)
+		collectClumpedPieces(false)
 
 		clumpedPieces := repair.FindClumpedPieces(reliablePieces, lastNets)
 		result.ClumpedPiecesSet = map[uint16]bool{}
@@ -734,17 +745,13 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 	result.OutOfPlacementPiecesSet = map[uint16]bool{}
 
 	if repairer.doPlacementCheck {
-		checkPlacement := func(reliable []nodeselection.SelectedNode) {
-			for _, node := range reliable {
-				if nodeFilters.Match(&node) {
-					continue
-				}
-
-				result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
+		for _, node := range selectedNodes {
+			if nodeFilters.Match(&node) {
+				continue
 			}
+
+			result.OutOfPlacementPiecesSet[nodeIDPieceMap[node.ID]] = true
 		}
-		checkPlacement(online)
-		checkPlacement(offline)
 	}
 
 	// verify that some of clumped pieces and out of placement pieces are not the same
@@ -753,8 +760,10 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 	maps.Copy(unhealthyRetrievableSet, result.OutOfPlacementPiecesSet)
 
 	// offline nodes are not retrievable
-	for _, node := range offline {
-		delete(unhealthyRetrievableSet, nodeIDPieceMap[node.ID])
+	for _, node := range selectedNodes {
+		if !node.Online {
+			delete(unhealthyRetrievableSet, nodeIDPieceMap[node.ID])
+		}
 	}
 	result.NumUnhealthyRetrievable = len(unhealthyRetrievableSet)
 

@@ -20,7 +20,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
@@ -118,38 +117,39 @@ func TestOnlineOffline(t *testing.T) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
 
-		online, offline, err := service.KnownReliable(ctx, []storj.NodeID{
+		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, offline)
-		require.Len(t, online, 1)
+		require.Len(t, selectedNodes, 1)
+		require.True(t, selectedNodes[0].Online)
 
-		online, offline, err = service.KnownReliable(ctx, []storj.NodeID{
+		selectedNodes, err = service.GetNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, offline)
-		require.Len(t, online, 3)
+		require.Len(t, selectedNodes, 3)
+		for i := 0; i < 3; i++ {
+			require.True(t, selectedNodes[i].Online, i)
+			require.Equal(t, planet.StorageNodes[i].ID(), selectedNodes[i].ID, i)
+		}
 
 		unreliableNodeID := storj.NodeID{1, 2, 3, 4}
-		online, offline, err = service.KnownReliable(ctx, []storj.NodeID{
+		selectedNodes, err = service.GetNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			unreliableNodeID,
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)
-		require.Empty(t, offline)
-		require.Len(t, online, 2)
-
-		require.False(t, slices.ContainsFunc(online, func(node nodeselection.SelectedNode) bool {
-			return node.ID == unreliableNodeID
-		}))
-		require.False(t, slices.ContainsFunc(offline, func(node nodeselection.SelectedNode) bool {
-			return node.ID == unreliableNodeID
-		}))
+		require.Len(t, selectedNodes, 3)
+		require.True(t, selectedNodes[0].Online)
+		require.False(t, selectedNodes[1].Online)
+		require.True(t, selectedNodes[2].Online)
+		require.Equal(t, planet.StorageNodes[0].ID(), selectedNodes[0].ID)
+		require.Equal(t, storj.NodeID{}, selectedNodes[1].ID)
+		require.Equal(t, planet.StorageNodes[2].ID(), selectedNodes[2].ID)
 	})
 }
 

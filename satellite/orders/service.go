@@ -528,7 +528,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment 
 func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, bucket metabase.BucketLocation, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// should this use KnownReliable or similar?
 	node, err := service.overlay.Get(ctx, nodeID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)

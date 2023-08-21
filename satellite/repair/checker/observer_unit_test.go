@@ -57,11 +57,8 @@ func TestObserverForkProcess(t *testing.T) {
 		}
 
 		o.nodesCache.state.Store(&reliabilityState{
-			reliableAll: mapNodes(nodes, func(node nodeselection.SelectedNode) bool {
+			nodeByID: mapNodes(nodes, func(node nodeselection.SelectedNode) bool {
 				return true
-			}),
-			reliableOnline: mapNodes(nodes, func(node nodeselection.SelectedNode) bool {
-				return node.Online == true
 			}),
 			created: time.Now(),
 		})

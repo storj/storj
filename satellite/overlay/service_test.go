@@ -6,7 +6,6 @@ package overlay_test
 import (
 	"context"
 	"fmt"
-	"sort"
 	"testing"
 	"time"
 
@@ -383,7 +382,7 @@ func TestNodeInfo(t *testing.T) {
 	})
 }
 
-func TestKnownReliable(t *testing.T) {
+func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -428,8 +427,8 @@ func TestKnownReliable(t *testing.T) {
 		err = oc.TestSuspendNodeOffline(ctx, planet.StorageNodes[3].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that only storage nodes #4 and #5 are reliable
-		online, _, err := service.KnownReliable(ctx, []storj.NodeID{
+		// Check that the results of GetNodes match expectations.
+		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -438,20 +437,26 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[5].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, online, 2)
+		require.Len(t, selectedNodes, 6)
+		require.False(t, selectedNodes[0].Online)
+		require.Zero(t, selectedNodes[0]) // node was disqualified
+		require.False(t, selectedNodes[1].Online)
+		require.False(t, selectedNodes[1].Suspended)
+		require.True(t, selectedNodes[2].Online)
+		require.True(t, selectedNodes[2].Suspended)
+		require.True(t, selectedNodes[3].Online)
+		require.True(t, selectedNodes[3].Suspended)
+		require.True(t, selectedNodes[4].Online)
+		require.False(t, selectedNodes[4].Suspended)
+		require.True(t, selectedNodes[5].Online)
+		require.False(t, selectedNodes[5].Suspended)
 
-		// Sort the storage nodes for predictable checks
-		expectedReliable := []storj.NodeURL{
-			planet.StorageNodes[4].NodeURL(),
-			planet.StorageNodes[5].NodeURL(),
-		}
-		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })
-		sort.Slice(online, func(i, j int) bool { return online[i].ID.Less(online[j].ID) })
-
-		// Assert the reliable nodes are the expected ones
-		for i, node := range online {
-			assert.Equal(t, expectedReliable[i].ID, node.ID)
-			assert.Equal(t, expectedReliable[i].Address, node.Address.Address)
+		// Assert the returned nodes are the expected ones
+		for i, node := range selectedNodes {
+			if i == 0 {
+				continue
+			}
+			assert.Equal(t, planet.StorageNodes[i].ID(), node.ID)
 		}
 	})
 }

@@ -205,7 +205,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
 }
 
-func TestGetNodes(t *testing.T) {
+func TestSelectNodes(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		var nodeSelectionConfig = overlay.NodeSelectionConfig{
 			NewNodeFraction:  0.2,
@@ -765,6 +765,16 @@ func (m *mockdb) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow
 
 // Get satisfies nodeevents.DB interface.
 func (m *mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
+	panic("implement me")
+}
+
+// GetNodes satisfies nodeevents.DB interface.
+func (m *mockdb) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+	panic("implement me")
+}
+
+// GetParticipatingNodes satisfies nodeevents.DB interface.
+func (m *mockdb) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 

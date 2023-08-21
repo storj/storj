@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -19,7 +18,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/version"
 	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 )
@@ -62,10 +60,15 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
-	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error)
-	// Reliable returns all nodes that are reliable (separated by whether they are currently online or offline).
-	Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error)
+	// GetNodes gets records for all specified nodes as of the given system interval. The
+	// onlineWindow is used to determine whether each node is marked as Online. The results are
+	// returned in a slice of the same length as the input nodeIDs, and each index of the returned
+	// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
+	// or exited, the corresponding returned SelectedNode will have a zero value.
+	GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+	// excluding nodes that have been disqualified or gracefully exited).
+	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -486,20 +489,25 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 	return count, err
 }
 
-// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
-func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (onlineNodes []nodeselection.SelectedNode, offlineNodes []nodeselection.SelectedNode, err error) {
+// GetNodes gets records for all specified nodes. The configured OnlineWindow is used to determine
+// whether each node is marked as Online. The results are returned in a slice of the same length as
+// the input nodeIDs, and each index of the returned list corresponds to the same index in nodeIDs.
+// If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
+// will have a zero value.
+func (service *Service) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO add as of system time
-	return service.db.KnownReliable(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
+	return service.db.GetNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
 }
 
-// Reliable returns all nodes that are reliable (separated by whether they are currently online or offline).
-func (service *Service) Reliable(ctx context.Context) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+// excluding nodes that have been disqualified or gracefully exited).
+func (service *Service) GetParticipatingNodes(ctx context.Context) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add as of system tim.
-	return service.db.Reliable(ctx, service.config.Node.OnlineWindow, 0)
+	// TODO add as of system time.
+	return service.db.GetParticipatingNodes(ctx, service.config.Node.OnlineWindow, 0)
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
@@ -658,28 +666,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	mon.Event("unnecessary_node_check_in")
 
 	return nil
-}
-
-// GetMissingPieces returns the list of offline nodes and the corresponding pieces.
-func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO this method will be removed completely in subsequent change
-	var nodeIDs storj.NodeIDList
-	missingPiecesMap := map[storj.NodeID]uint16{}
-	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.StorageNode)
-		missingPiecesMap[p.StorageNode] = p.Number
-	}
-	onlineNodes, _, err := service.KnownReliable(ctx, nodeIDs)
-	if err != nil {
-		return nil, Error.New("error getting nodes %s", err)
-	}
-
-	for _, node := range onlineNodes {
-		delete(missingPiecesMap, node.ID)
-	}
-	return maps.Values(missingPiecesMap), nil
 }
 
 // DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.

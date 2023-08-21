@@ -394,47 +394,31 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 	return err
 }
 
-// KnownReliable filters a set of nodes to reliable nodes. List is split into online and offline nodes.
-func (cache *overlaycache) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
-	var on, off []*nodeselection.SelectedNode
-	var err error
-	for {
-		on, off, err = cache.knownReliable(ctx, nodeIDs, onlineWindow, asOfSystemInterval)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return nil, nil, err
-		}
-		break
-	}
-	err = cache.addNodeTags(ctx, append(on, off...))
-	deref := func(nodes []*nodeselection.SelectedNode) []nodeselection.SelectedNode {
-		var res []nodeselection.SelectedNode
-		for _, node := range nodes {
-			res = append(res, *node)
-		}
-		return res
-	}
-	return deref(on), deref(off), err
-}
-
-func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []*nodeselection.SelectedNode, offline []*nodeselection.SelectedNode, err error) {
+// GetNodes gets records for all specified nodes as of the given system interval. The
+// onlineWindow is used to determine whether each node is marked as Online. The results are
+// returned in a slice of the same length as the input nodeIDs, and each index of the returned
+// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
+// or exited, the corresponding returned SelectedNode will have a zero value.
+func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var nodes []*nodeselection.SelectedNode
+
 	if len(nodeIDs) == 0 {
-		return nil, nil, Error.New("no ids provided")
+		return nil, Error.New("no ids provided")
 	}
 
 	err = withRows(cache.db.Query(ctx, `
-		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $2 as online, exit_initiated_at IS NOT NULL as exiting
-		FROM nodes
+		SELECT n.id, n.address, n.last_net, n.last_ip_port, n.country_code,
+			n.last_contact_success > $2 AS online,
+			(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
+			n.disqualified IS NOT NULL AS disqualified,
+			n.exit_initiated_at IS NOT NULL AS exiting,
+			n.exit_finished_at IS NOT NULL AS exited
+		FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ordinal)
+			LEFT OUTER JOIN nodes n ON input.node_id = n.id
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-		WHERE id = any($1::bytea[])
-			AND disqualified IS NULL
-			AND unknown_audit_suspended IS NULL
-			AND offline_suspended IS NULL
-			AND exit_finished_at IS NULL
+		ORDER BY input.ordinal
 	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -443,53 +427,43 @@ func (cache *overlaycache) knownReliable(ctx context.Context, nodeIDs storj.Node
 				return err
 			}
 
-			if node.Online {
-				online = append(online, &node)
-			} else {
-				offline = append(offline, &node)
-			}
+			nodes = append(nodes, &node)
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return online, offline, Error.Wrap(err)
+	err = cache.addNodeTags(ctx, nodes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	records = make([]nodeselection.SelectedNode, len(nodes))
+	for i := 0; i < len(nodes); i++ {
+		records[i] = *nodes[i]
+	}
+
+	return records, Error.Wrap(err)
 }
 
-// Reliable returns all nodes that are reliable, online and offline.
-func (cache *overlaycache) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) ([]nodeselection.SelectedNode, []nodeselection.SelectedNode, error) {
-	var on, off []*nodeselection.SelectedNode
-	var err error
-	for {
-		on, off, err = cache.reliable(ctx, onlineWindow, asOfSystemInterval)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return nil, nil, err
-		}
-		break
-	}
-	err = cache.addNodeTags(ctx, append(on, off...))
-	deref := func(nodes []*nodeselection.SelectedNode) []nodeselection.SelectedNode {
-		var res []nodeselection.SelectedNode
-		for _, node := range nodes {
-			res = append(res, *node)
-		}
-		return res
-	}
-	return deref(on), deref(off), err
-}
-
-func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []*nodeselection.SelectedNode, offline []*nodeselection.SelectedNode, err error) {
+// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+// excluding nodes that have been disqualified or gracefully exited).
+func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var nodes []*nodeselection.SelectedNode
+
 	err = withRows(cache.db.Query(ctx, `
-		SELECT id, address, last_net, last_ip_port, country_code, last_contact_success > $1 as online, exit_initiated_at IS NOT NULL as exiting
+		SELECT id, address, last_net, last_ip_port, country_code,
+			last_contact_success > $1 AS online,
+			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+			false AS disqualified,
+			exit_initiated_at IS NOT NULL AS exiting,
+			false AS exited
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		WHERE disqualified IS NULL
-			AND unknown_audit_suspended IS NULL
-			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 	`, time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
@@ -498,35 +472,82 @@ func (cache *overlaycache) reliable(ctx context.Context, onlineWindow, asOfSyste
 			if err != nil {
 				return err
 			}
-
-			if node.Online {
-				online = append(online, &node)
-			} else {
-				offline = append(offline, &node)
-			}
+			nodes = append(nodes, &node)
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return online, offline, Error.Wrap(err)
+	err = cache.addNodeTags(ctx, nodes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	records = make([]nodeselection.SelectedNode, len(nodes))
+	for i := 0; i < len(nodes); i++ {
+		records[i] = *nodes[i]
+	}
+
+	return records, Error.Wrap(err)
+}
+
+// nullNodeID represents a NodeID that may be null.
+type nullNodeID struct {
+	NodeID storj.NodeID
+	Valid  bool
+}
+
+// Scan implements the sql.Scanner interface.
+func (n *nullNodeID) Scan(value any) error {
+	if value == nil {
+		n.NodeID = storj.NodeID{}
+		n.Valid = false
+		return nil
+	}
+	err := n.NodeID.Scan(value)
+	if err != nil {
+		n.Valid = false
+		return err
+	}
+	n.Valid = true
+	return nil
 }
 
 func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
-	var lastIPPort sql.NullString
-	err := rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &node.CountryCode, &node.Online, &node.Exiting)
+	var nodeID nullNodeID
+	var address, lastNet, lastIPPort, countryCode sql.NullString
+	var online, suspended, disqualified, exiting, exited sql.NullBool
+	err := rows.Scan(&nodeID, &address, &lastNet, &lastIPPort, &countryCode,
+		&online, &suspended, &disqualified, &exiting, &exited)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
 	}
 
+	// If node ID was null, no record was found for the specified ID. For our purposes
+	// here, we will treat that as equivalent to a node being DQ'd or exited.
+	if !nodeID.Valid {
+		// return an empty record
+		return nodeselection.SelectedNode{}, nil
+	}
+	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
+	if disqualified.Bool || exited.Bool {
+		return nodeselection.SelectedNode{}, nil
+	}
+	node.ID = nodeID.NodeID
+	node.Address.Address = address.String
+	node.LastNet = lastNet.String
 	if lastIPPort.Valid {
 		node.LastIPPort = lastIPPort.String
 	}
-	// node.Suspended is always false for now, but that will change in a coming
-	// commit; we need to include suspended nodes in return values from
-	// Reliable() and KnownReliable() (in case they are in excluded countries,
-	// are out of placement, are on clumped IP networks, etc).
+	if countryCode.Valid {
+		node.CountryCode = location.ToCountryCode(countryCode.String)
+	}
+	node.Online = online.Bool
+	node.Suspended = suspended.Bool
+	node.Exiting = exiting.Bool
 	return node, nil
 }
 
