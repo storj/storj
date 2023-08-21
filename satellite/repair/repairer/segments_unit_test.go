@@ -130,7 +130,7 @@ func TestClassify(t *testing.T) {
 
 	})
 
-	t.Run("decumpling but with no subnet filter", func(t *testing.T) {
+	t.Run("declumping but with no subnet filter", func(t *testing.T) {
 		var online, offline = generateNodes(10, func(ix int) bool {
 			return ix < 5
 		}, func(ix int, node *nodeselection.SelectedNode) {

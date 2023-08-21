@@ -20,6 +20,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/queue"
@@ -342,7 +343,10 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	var clumpedPieces metabase.Pieces
 	var lastNets []string
-	if fork.doDeclumping {
+
+	nodeFilter := fork.nodesCache.placementRules(segment.Placement)
+
+	if fork.doDeclumping && !nodeselection.AllowSameSubnet(nodeFilter) {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
 		lastNets, err = fork.nodesCache.PiecesNodesLastNetsInOrder(ctx, segment.CreatedAt, pieces)

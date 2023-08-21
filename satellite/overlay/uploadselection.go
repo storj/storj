@@ -97,7 +97,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	}
 
 	placementRules := cache.placementRules(req.Placement)
-	useSubnetExclusion := nodeselection.GetAnnotation(placementRules, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF
+	useSubnetExclusion := !nodeselection.AllowSameSubnet(placementRules)
 
 	filters := nodeselection.NodeFilters{placementRules}
 	if len(req.ExcludedIDs) > 0 {
