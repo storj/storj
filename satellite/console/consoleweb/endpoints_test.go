@@ -500,16 +500,80 @@ func TestWrongUser(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
-		user := test.defaultUser()
-		_ = user
-		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
-		test.login(user2.email, user2.password)
+		authorizedUser := test.defaultUser()
+		unauthorizedUser := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		test.login(unauthorizedUser.email, unauthorizedUser.password)
 
-		{ // Get_ProjectUsageLimitById
-			resp, body := test.request(http.MethodGet, `/projects/`+test.defaultProjectID()+`/usage-limits`, nil)
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		type endpointTest struct {
+			endpoint string
+			method   string
+			body     interface{}
+		}
+
+		baseProjectsUrl := "/projects"
+		baseProjectIdUrl := fmt.Sprintf("%s/%s", baseProjectsUrl, test.defaultProjectID())
+		getProjectResourceUrl := func(resource string) string {
+			return fmt.Sprintf("%s/%s", baseProjectIdUrl, resource)
+		}
+
+		testCases := []endpointTest{
+			{
+				endpoint: baseProjectIdUrl,
+				method:   http.MethodPatch,
+				body: map[string]interface{}{
+					"name": "new name",
+				},
+			},
+			{
+				endpoint: getProjectResourceUrl("members") + "?emails=" + "some@email.com",
+				method:   http.MethodDelete,
+			},
+			{
+				endpoint: getProjectResourceUrl("salt"),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: getProjectResourceUrl("members"),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: getProjectResourceUrl("invite"),
+				method:   http.MethodPost,
+				body: map[string]interface{}{
+					"emails": []string{"some@email.com"},
+				},
+			},
+			{
+				endpoint: getProjectResourceUrl("usage-limits"),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: getProjectResourceUrl("daily-usage") + "?from=100000000&to=200000000000",
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: "/api-keys/create/" + test.defaultProjectID(),
+				method:   http.MethodPost,
+				body:     "name",
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(fmt.Sprintf("Unauthorized on %s", testCase.endpoint), func(t *testing.T) {
+				resp, body := test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
+				require.Contains(t, body, "not authorized")
+				require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			})
+		}
+
+		// login with correct user to make sure they have access.
+		test.login(authorizedUser.email, authorizedUser.password)
+		for _, testCase := range testCases {
+			t.Run(fmt.Sprintf("Authorized on %s", testCase.endpoint), func(t *testing.T) {
+				resp, body := test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
+				require.NotContains(t, body, "not authorized")
+				require.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
+			})
 		}
 	})
 }

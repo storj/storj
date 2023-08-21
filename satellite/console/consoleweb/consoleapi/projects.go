@@ -262,6 +262,10 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 
 	project, err := p.service.GetProject(ctx, publicID)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
@@ -424,6 +428,10 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	_, err = p.service.InviteProjectMembers(ctx, id, data.Emails)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
@@ -590,6 +598,10 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 
 	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, emails)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }

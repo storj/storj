@@ -64,7 +64,7 @@ func (ul *UsageLimits) ProjectUsageLimits(w http.ResponseWriter, r *http.Request
 	usageLimits, err := ul.service.GetProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		switch {
-		case console.ErrUnauthorized.Has(err):
+		case console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err):
 			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		case accounting.ErrInvalidArgument.Has(err):
@@ -140,7 +140,7 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 
 	dailyUsage, err := ul.service.GetDailyProjectUsage(ctx, projectID, since, before)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}

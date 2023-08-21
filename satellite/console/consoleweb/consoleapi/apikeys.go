@@ -67,7 +67,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
