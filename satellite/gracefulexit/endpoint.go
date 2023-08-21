@@ -404,6 +404,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 	request := &overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
 		ExcludedIDs:    excludedIDs,
+		Placement:      segment.Placement,
 	}
 
 	newNodes, err := endpoint.overlay.FindStorageNodesForGracefulExit(ctx, *request)
