@@ -228,6 +228,8 @@ func TestPlacementFromString(t *testing.T) {
 		rules1 := NewPlacementRules()
 		err := rules1.AddPlacementFromString(`
 						10:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","selected","true");
+						11:annotated(placement(10),annotation("autoExcludeSubnet","off"));
+						12:placement(11) && country("US");
 						0:exclude(placement(10));
 						1:country("EU") && exclude(placement(10));
 						2:country("EEA") && exclude(placement(10));
@@ -289,6 +291,16 @@ func TestPlacementFromString(t *testing.T) {
 			assert.False(t, rules1.CreateFilters(placement).MatchInclude(node))
 		}
 		assert.False(t, rules1.CreateFilters(6).MatchInclude(node))
+
+		// check if annotation present on 11,12, but not on other
+		for i := 0; i < 20; i++ {
+			subnetDisabled := nodeselection.GetAnnotation(rules1.CreateFilters(storj.PlacementConstraint(i)), nodeselection.AutoExcludeSubnet) == nodeselection.AutoExcludeSubnetOFF
+			if i == 11 || i == 12 {
+				require.True(t, subnetDisabled, "Placement filter should be disabled for %d", i)
+			} else {
+				require.False(t, subnetDisabled, "Placement filter should be enabled for %d", i)
+			}
+		}
 
 	})
 
