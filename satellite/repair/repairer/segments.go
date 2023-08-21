@@ -704,7 +704,7 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 
 	nodeFilters = repairer.placementRules(segment.Placement)
 
-	if repairer.doDeclumping && nodeselection.GetAnnotation(nodeFilters, nodeselection.AutoExcludeSubnet) != nodeselection.AutoExcludeSubnetOFF {
+	if repairer.doDeclumping && !nodeselection.AllowSameSubnet(nodeFilters) {
 		// if multiple pieces are on the same last_net, keep only the first one. The rest are
 		// to be considered retrievable but unhealthy.
 		lastNets := make([]string, 0, len(allNodeIDs))
