@@ -113,7 +113,6 @@ export enum AnalyticsErrorEventSource {
     PROJECT_MEMBERS_HEADER = 'Project members page header',
     PROJECT_MEMBERS_PAGE = 'Project members page',
     OVERALL_APP_WRAPPER_ERROR = 'Overall app wrapper error',
-    OVERALL_GRAPHQL_ERROR = 'Overall graphQL error',
     OVERALL_SESSION_EXPIRED_ERROR = 'Overall session expired error',
     ALL_PROJECT_DASHBOARD = 'All projects dashboard error',
     ONBOARDING_OVERVIEW_STEP = 'Onboarding Overview step error',

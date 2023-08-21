@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
 import {
     DataStamp,
     Project,
@@ -18,7 +17,7 @@ import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
 
-export class ProjectsApiGql extends BaseGql implements ProjectsApi {
+export class ProjectsHttpApi implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/projects';
 
@@ -113,27 +112,6 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             message: result.error || 'Can not update project',
             requestID: response.headers.get('x-request-id'),
         });
-    }
-
-    /**
-     * Delete project.
-     *
-     * @param projectId - project ID
-     * @throws Error
-     */
-    public async delete(projectId: string): Promise<void> {
-        const query =
-            `mutation($projectId: String!) {
-                deleteProject(
-                    publicId: $projectId
-                ) {name}
-            }`;
-
-        const variables = {
-            projectId: projectId,
-        };
-
-        await this.mutate(query, variables);
     }
 
     /**

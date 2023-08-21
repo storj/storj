@@ -73,7 +73,7 @@ export class HttpClient {
      * @param path
      * @param body serialized JSON
      */
-    public async delete(path: string, body: string | null): Promise<Response> {
+    public async delete(path: string, body: string | null = null): Promise<Response> {
         return this.sendJSON('DELETE', path, body);
     }
 

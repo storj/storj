@@ -31,13 +31,6 @@ export interface ProjectsApi {
      * @throws Error
      */
     update(projectId: string, updateProjectFields: ProjectFields, updateProjectLimits: ProjectLimits): Promise<void>;
-    /**
-     * Delete project.
-     *
-     * @param projectId - project ID
-     * @throws Error
-     */
-    delete(projectId: string): Promise<void>;
 
     /**
      * Get project limits.

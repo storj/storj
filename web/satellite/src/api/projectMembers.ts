@@ -1,12 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
 import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
 
-export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
+export class ProjectMembersHttpApi implements ProjectMembersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/projects';
 

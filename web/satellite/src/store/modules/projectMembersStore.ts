@@ -12,7 +12,7 @@ import {
     ProjectMembersApi,
     ProjectMembersPage,
 } from '@/types/projectMembers';
-import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
@@ -26,7 +26,7 @@ export class ProjectMembersState {
 export const useProjectMembersStore = defineStore('projectMembers', () => {
     const state = reactive<ProjectMembersState>(new ProjectMembersState());
 
-    const api: ProjectMembersApi = new ProjectMembersApiGql();
+    const api: ProjectMembersApi = new ProjectMembersHttpApi();
 
     async function inviteMembers(emails: string[], projectID: string): Promise<void> {
         await api.invite(projectID, emails);

@@ -4,7 +4,7 @@
 import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
-import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
@@ -35,7 +35,7 @@ describe('actions', () => {
         testProjectMembersPage.totalCount = 1;
         testProjectMembersPage.pageCount = 1;
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -96,7 +96,7 @@ describe('actions', () => {
         expect(store.state.page.projectMembers[0].isSelected()).toBe(true);
         expect(store.state.selectedProjectMembersEmails.length).toBe(1);
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'get')
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'get')
             .mockImplementation(() => Promise.resolve(testProjectMembersPage));
 
         await store.getProjectMembers(FIRST_PAGE, selectedProject.id);
@@ -131,7 +131,7 @@ describe('actions', () => {
     it('delete project members', async function () {
         const store = useProjectMembersStore();
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockReturnValue(Promise.resolve());
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'delete').mockReturnValue(Promise.resolve());
 
         try {
             await store.deleteProjectMembers(selectedProject.id);
@@ -144,7 +144,7 @@ describe('actions', () => {
     it('delete project member throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'delete').mockImplementation(() => {
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'delete').mockImplementation(() => {
             throw TEST_ERROR;
         });
 
@@ -165,7 +165,7 @@ describe('actions', () => {
     it('fetch project members', async function () {
         const store = useProjectMembersStore();
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'get').mockReturnValue(
             Promise.resolve(new ProjectMembersPage(
                 [projectMember1],
                 [],
@@ -191,7 +191,7 @@ describe('actions', () => {
     it('fetch project members throws error when api call fails', async function () {
         const store = useProjectMembersStore();
 
-        vi.spyOn(ProjectMembersApiGql.prototype, 'get').mockImplementation(() => {
+        vi.spyOn(ProjectMembersHttpApi.prototype, 'get').mockImplementation(() => {
             throw TEST_ERROR;
         });
 

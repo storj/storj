@@ -17,8 +17,7 @@ export enum ProjectMemberOrderBy {
 }
 
 /**
- * ProjectMembersApi is a graphql implementation of ProjectMembers API.
- * Exposes all ProjectMembers-related functionality
+ * ProjectMembersApi exposes all ProjectMembers-related functionality
  */
 export interface ProjectMembersApi {
 

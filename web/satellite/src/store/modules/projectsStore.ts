@@ -17,7 +17,7 @@ import {
     ProjectInvitation,
     ProjectInvitationResponse,
 } from '@/types/projects';
-import { ProjectsApiGql } from '@/api/projects';
+import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
@@ -42,7 +42,7 @@ export class ProjectsState {
 export const useProjectsStore = defineStore('projects', () => {
     const state = reactive<ProjectsState>(new ProjectsState());
 
-    const api: ProjectsApi = new ProjectsApiGql();
+    const api: ProjectsApi = new ProjectsHttpApi();
 
     async function getProjects(): Promise<Project[]> {
         const projects = await api.get();

@@ -4,7 +4,7 @@
 import { vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
-import { ProjectsApiGql } from '@/api/projects';
+import { ProjectsHttpApi } from '@/api/projects';
 import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
@@ -48,7 +48,7 @@ describe('actions', () => {
     it('success fetch projects', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'get').mockReturnValue(
             Promise.resolve(projects),
         );
 
@@ -60,7 +60,7 @@ describe('actions', () => {
     it('fetch throws an error when api call fails', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'get').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsHttpApi.prototype, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.getProjects();
@@ -73,7 +73,7 @@ describe('actions', () => {
     it('success create project', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'create').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'create').mockReturnValue(
             Promise.resolve(project),
         );
 
@@ -86,7 +86,7 @@ describe('actions', () => {
     it('create throws an error when create api call fails', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'create').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsHttpApi.prototype, 'create').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.createProject(new ProjectFields());
@@ -100,7 +100,7 @@ describe('actions', () => {
     it('success update project name', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -116,7 +116,7 @@ describe('actions', () => {
     it('success update project description', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -132,7 +132,7 @@ describe('actions', () => {
     it('success get project limits', async () => {
         const store = useProjectsStore();
 
-        vi.spyOn(ProjectsApiGql.prototype, 'getLimits').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'getLimits').mockReturnValue(
             Promise.resolve(limits),
         );
 
