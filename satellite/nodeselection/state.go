@@ -20,6 +20,11 @@ const (
 	AutoExcludeSubnetOFF = "off"
 )
 
+// AllowSameSubnet is a short to check if Subnet exclusion is disabled == allow pick nodes from the same subnet.
+func AllowSameSubnet(filter NodeFilter) bool {
+	return GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF
+}
+
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
