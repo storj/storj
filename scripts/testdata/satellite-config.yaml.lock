@@ -172,7 +172,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 
-# server address of the graphql api gateway and frontend app
+# server address of the http api gateway and frontend app
 # console.address: :10100
 
 # indicates if all projects dashboard should be used

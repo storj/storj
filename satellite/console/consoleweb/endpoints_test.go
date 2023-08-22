@@ -334,43 +334,6 @@ func TestBuckets(t *testing.T) {
 		}
 
 		{ // get bucket usages
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"before":    "2021-05-12T18:32:30.533Z",
-						"limit":     7,
-						"search":    "",
-						"page":      1,
-					},
-					"query": `
-						query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-							project(id: $projectId) {
-								bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {
-									bucketUsages {
-										bucketName
-										storage
-										egress
-										objectCount
-										segmentCount
-										since
-										before
-										__typename
-									}
-									search
-									limit
-									offset
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-							__typename
-							}
-						}`}))
-			require.Contains(t, body, "bucketUsagePage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
 			params := url.Values{
 				"projectID": {test.defaultProjectID()},
 				"before":    {time.Now().Add(time.Second).Format(apigen.DateFormat)},
@@ -379,7 +342,7 @@ func TestBuckets(t *testing.T) {
 				"page":      {"1"},
 			}
 
-			resp, body = test.request(http.MethodGet, "/buckets/usage-totals?"+params.Encode(), nil)
+			resp, body := test.request(http.MethodGet, "/buckets/usage-totals?"+params.Encode(), nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			var page accounting.BucketUsagePage
 			require.NoError(t, json.Unmarshal([]byte(body), &page))
@@ -405,66 +368,6 @@ func TestAPIKeys(t *testing.T) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
 		test.login(user.email, user.password)
-
-		{ // Post_GenerateApiKey
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"name":      user.email,
-					},
-					"query": `
-						mutation ($projectId: String!, $name: String!) {
-							createAPIKey(projectID: $projectId, name: $name) {
-								key
-								keyInfo {
-									id
-									name
-									createdAt
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "createAPIKey")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Get_APIKeyInfoByProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"orderDirection": 1,
-						"projectId":      test.defaultProjectID(),
-						"limit":          6,
-						"search":         ``,
-						"page":           1,
-						"order":          1,
-					},
-					"query": `
-						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-							project(id: $projectId) {
-								apiKeys(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
-									apiKeys {
-										id
-										name
-										createdAt
-										__typename
-									}
-									search
-									limit
-									order
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "apiKeysPage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
 
 		{ // Get_ProjectAPIKeys
 			var projects console.APIKeyPage
@@ -517,26 +420,7 @@ func TestProjects(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
-		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
 		test.login(user.email, user.password)
-
-		{ // Get_ProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"query": `
-						{
-							myProjects {
-								name
-								id
-								description
-								createdAt
-								ownerId
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, test.defaultProjectID())
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
 
 		{ // Get_Salt
 			projectID := test.defaultProjectID()
@@ -578,45 +462,6 @@ func TestProjects(t *testing.T) {
 			require.NotEmpty(t, projects)
 		}
 
-		{ // Get_ProjectInfo
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"before":    "2021-05-12T18:32:30.533Z",
-						"limit":     7,
-						"search":    "",
-						"page":      1,
-					},
-					"query": `
-						query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-							project(id: $projectId) {
-								bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {
-									bucketUsages {
-										bucketName
-										storage
-										egress
-										objectCount
-										segmentCount
-										since
-										before
-										__typename
-									}
-									search
-									limit
-									offset
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-							__typename
-							}
-						}`}))
-			require.Contains(t, body, "bucketUsagePage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
 		{ // Get_ProjectUsageLimitById
 			resp, body := test.request(http.MethodGet, `/projects/`+test.defaultProjectID()+`/usage-limits`, nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -631,171 +476,8 @@ func TestProjects(t *testing.T) {
 			require.NotEmpty(t, projects.Projects)
 		}
 
-		{ // Get_OwnedProjects
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"limit": 7,
-						"page":  1,
-					},
-					"query": `
-						query ($limit: Int!, $page: Int!) {
-							ownedProjects(cursor: {limit: $limit, page: $page}) {
-								projects {
-									id
-									name
-									ownerId
-									description
-									createdAt
-									memberCount
-									__typename
-								}
-								limit
-								offset
-								pageCount
-								currentPage
-								totalCount
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "projectsPage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Get_ProjectMembersByProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						`orderDirection`: 1,
-						`projectId`:      test.defaultProjectID(),
-						`limit`:          6,
-						`search`:         ``,
-						`page`:           1,
-						`order`:          1,
-					},
-					"query": `
-						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-							project(id: $projectId) {
-								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
-									projectMembers {
-										user {
-											id
-											fullName
-											shortName
-											email
-											__typename
-										}
-										joinedAt
-										__typename
-									}
-									search
-									limit
-									order
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "projectMembersAndInvitationsPage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Post_AddUserToProject
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							addProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "addProjectMembers")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Post_RemoveUserFromProject
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							deleteProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "deleteProjectMembers")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Post_AddMultipleUsersToProjectWhere1UserIsInvalid
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email, "invalid@mail.test"},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							addProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "addProjectMembers")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Post_AddMultipleUsersToProjectWhereUserIsAlreadyAMember
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email, user.email},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							addProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "error")
-			// TODO: this should return a better error
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
 		{ // Post_ProjectRenameInvalid
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						`projectId`:   `e4a929a6-cc69-4920-ad06-c84f3c943928`,
-						`name`:        `My Second Project`,
-						`description`: `___`,
-					},
-					"query": `
-						mutation ($projectId: String!, $name: String!, $description: String!) {
-							updateProject(id: $projectId, projectFields: {name: $name, description: $description}, projectLimits: {storageLimit: "1000", bandwidthLimit: "1000"}) {
-								name
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "error")
-			// TODO: this should return a better error
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-
-			resp, body = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+			resp, body := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
 				test.toJSON(map[string]interface{}{
 					"name": "My Second Project with a long name",
 				}))
@@ -804,24 +486,7 @@ func TestProjects(t *testing.T) {
 		}
 
 		{ // Post_ProjectRename
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						`projectId`:   test.defaultProjectID(),
-						`name`:        `Test`,
-						`description`: `Misc`,
-					},
-					"query": `
-						mutation ($projectId: String!, $name: String!, $description: String!) {
-							updateProject(id: $projectId, projectFields: {name: $name, description: $description}, projectLimits: {storageLimit: "1000", bandwidthLimit: "1000"}) {
-								name
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "updateProject")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
 				test.toJSON(map[string]interface{}{
 					"name": "new name",
 				}))
@@ -840,188 +505,8 @@ func TestWrongUser(t *testing.T) {
 		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
 		test.login(user2.email, user2.password)
 
-		{ // Get_ProjectInfo
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"before":    "2021-05-12T18:32:30.533Z",
-						"limit":     7,
-						"search":    "",
-						"page":      1,
-					},
-					"query": `
-						query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-							project(id: $projectId) {
-								bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {
-									bucketUsages {
-										bucketName
-										storage
-										egress
-										objectCount
-										segmentCount
-										since
-										before
-										__typename
-									}
-									search
-									limit
-									offset
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-							__typename
-							}
-						}`}))
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
 		{ // Get_ProjectUsageLimitById
 			resp, body := test.request(http.MethodGet, `/projects/`+test.defaultProjectID()+`/usage-limits`, nil)
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
-		{ // Get_ProjectMembersByProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						`orderDirection`: 1,
-						`projectId`:      test.defaultProjectID(),
-						`limit`:          6,
-						`search`:         ``,
-						`page`:           1,
-						`order`:          1,
-					},
-					"query": `
-						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-							project(id: $projectId) {
-								membersAndInvitations(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
-									projectMembers {
-										user {
-											id
-											fullName
-											shortName
-											email
-											__typename
-										}
-										joinedAt
-										__typename
-									}
-									search
-									limit
-									order
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
-		{ // Post_AddUserToProject
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							addProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
-		{ // Post_RemoveUserFromProject
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"emails":    []string{user2.email},
-					},
-					"query": `
-						mutation ($projectId: String!, $emails: [String!]!) {
-							deleteProjectMembers(projectID: $projectId, email: $emails) {
-								id
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		}
-
-		{ // Post_ProjectRename
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						`projectId`:   test.defaultProjectID(),
-						`name`:        `Test`,
-						`description`: `Misc`,
-					},
-					"query": `
-						mutation ($projectId: String!, $name: String!, $description: String!) {
-							updateProject(id: $projectId, projectFields: {name: $name, description: $description}, projectLimits: {storageLimit: "1000", bandwidthLimit: "1000"}) {
-								name
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "not authorized")
-			// TODO: wrong error code
-			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-		}
-
-		{ // get bucket usages
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"before":    "2021-05-12T18:32:30.533Z",
-						"limit":     7,
-						"search":    "",
-						"page":      1,
-					},
-					"query": `
-						query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-							project(id: $projectId) {
-								bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {
-									bucketUsages {
-										bucketName
-										storage
-										egress
-										objectCount
-										segmentCount
-										since
-										before
-										__typename
-									}
-									search
-									limit
-									offset
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-							__typename
-							}
-						}`}))
 			require.Contains(t, body, "not authorized")
 			// TODO: wrong error code
 			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
