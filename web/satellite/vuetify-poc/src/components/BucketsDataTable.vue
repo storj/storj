@@ -253,7 +253,7 @@ async function openBucket(bucketName: string): Promise<void> {
  * Displays the Delete Bucket dialog.
  */
 function showDeleteBucketDialog(bucketName: string): void {
-    shareBucketName.value = bucketName;
+    bucketToDelete.value = bucketName;
     isDeleteBucketDialogShown.value = true;
 }
 

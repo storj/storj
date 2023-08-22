@@ -213,11 +213,12 @@ async function fetchBuckets(): Promise<void> {
 /**
  * Sets local worker with worker instantiated in store.
  */
-watch(() => agStore.state.accessGrantsWebWorker, value => {
-    worker.value = value;
-    if (!value) return;
-    value.onerror = (error: ErrorEvent) => {
+watch(model, shown => {
+    if (!shown) return;
+    worker.value = agStore.state.accessGrantsWebWorker;
+    if (!worker.value) return;
+    worker.value.onerror = (error: ErrorEvent) => {
         notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
     };
-}, { immediate: true });
+});
 </script>
