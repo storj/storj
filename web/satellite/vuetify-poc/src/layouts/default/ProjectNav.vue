@@ -79,7 +79,7 @@
                             </v-list-item>
 
                             <!-- Create New Project -->
-                            <v-list-item link rounded="lg">
+                            <v-list-item link rounded="lg" @click="isCreateProjectDialogShown = true">
                                 <template #prepend>
                                     <IconNew />
                                 </template>
@@ -231,10 +231,12 @@
             </v-list>
         </v-sheet>
     </v-navigation-drawer>
+
+    <create-project-dialog v-model="isCreateProjectDialogShown" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VNavigationDrawer,
     VSheet,
@@ -265,9 +267,12 @@ import IconDocs from '@poc/components/icons/IconDocs.vue';
 import IconForum from '@poc/components/icons/IconForum.vue';
 import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
+import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
+
+const isCreateProjectDialogShown = ref<boolean>(false);
 
 /**
  * Returns the selected project from the store.

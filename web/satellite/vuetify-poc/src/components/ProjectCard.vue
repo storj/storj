@@ -53,7 +53,9 @@
             </v-card-item>
             <v-card-text class="flex-grow-0">
                 <v-divider class="mt-1 mb-4" />
-                <v-btn v-if="!item" color="primary" size="small" class="mr-2">Create Project</v-btn>
+                <v-btn v-if="!item" color="primary" size="small" class="mr-2" @click="emit('createClick')">
+                    Create Project
+                </v-btn>
                 <template v-else-if="item?.role === ProjectRole.Invited">
                     <v-btn color="primary" size="small" class="mr-2" :disabled="isDeclining" @click="emit('joinClick')">
                         Join Project
@@ -111,7 +113,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    (event: 'joinClick'): void;
+    'joinClick': [];
+    'createClick': [];
 }>();
 
 const analyticsStore = useAnalyticsStore();
