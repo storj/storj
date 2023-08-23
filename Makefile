@@ -464,7 +464,9 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 			zip -r "$${zipname}.zip" "$${filename}" \
 		; fi \
 	; done
-	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
+	cd "release/${TAG}" \
+		&& sha256sum *.zip > sha256sums \
+		&& gsutil -m cp -r *.zip sha256sums "gs://storj-v3-alpha-builds/${TAG}/"
 
 .PHONY: draft-release
 draft-release:
