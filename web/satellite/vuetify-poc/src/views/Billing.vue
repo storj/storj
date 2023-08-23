@@ -119,43 +119,7 @@
                     </v-col>
                 </v-row>
 
-                <v-row>
-                    <v-col>
-                        <h4 class="mt-4">Costs per project</h4>
-                    </v-col>
-                </v-row>
-
-                <v-row>
-                    <v-col>
-                        <v-card rounded="lg" variant="flat" :border="true" class="mb-4">
-                            <v-expansion-panels>
-                                <v-expansion-panel
-                                    title="My First Project"
-                                    text="Costs..."
-                                    rounded="lg"
-                                />
-                            </v-expansion-panels>
-                        </v-card>
-                        <v-card rounded="lg" variant="flat" :border="true" class="mb-4">
-                            <v-expansion-panels>
-                                <v-expansion-panel
-                                    title="Storj Labs"
-                                    text="Costs..."
-                                    rounded="lg"
-                                />
-                            </v-expansion-panels>
-                        </v-card>
-                        <v-card rounded="lg" variant="flat" :border="true" class="mb-4">
-                            <v-expansion-panels>
-                                <v-expansion-panel
-                                    title="Pictures"
-                                    text="Costs..."
-                                    rounded="lg"
-                                />
-                            </v-expansion-panels>
-                        </v-card>
-                    </v-col>
-                </v-row>
+                <usage-and-charges-component :project-ids="projectIDs" />
             </v-window-item>
 
             <v-window-item>
@@ -304,15 +268,18 @@ import { Coupon, CouponDuration, CreditCard } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
+import UsageAndChargesComponent from '@poc/components/billing/UsageAndChargesComponent.vue';
 
 const tab = ref<string>('Overview');
 const search = ref<string>('');
 const selected = ref([]);
 
 const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -348,6 +315,16 @@ const invoices = [
         invoice: 'Invoice',
     },
 ];
+
+/**
+ * projectIDs is an array of all of the project IDs for which there exist project usage charges.
+ */
+const projectIDs = computed((): string[] => {
+    return projectsStore.state.projects
+        .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
+        .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
+        .map(proj => proj.id);
+});
 
 /**
  * Returns price summary of all project usages.
@@ -420,6 +397,9 @@ onMounted(() => {
                 billingStore.getBalance(),
                 billingStore.getCoupon(),
                 billingStore.getCreditCards(),
+                projectsStore.getProjects(),
+                billingStore.getProjectUsageAndChargesCurrentRollup(),
+                billingStore.getProjectUsagePriceModel(),
             ]);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
