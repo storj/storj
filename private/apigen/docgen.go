@@ -4,6 +4,8 @@
 package apigen
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"reflect"
@@ -37,9 +39,22 @@ func (api *API) generateDocumentation() string {
 	wf("**Description:** %s\n\n", api.Description)
 	wf("**Version:** `%s`\n\n", api.Version)
 
+	wf("**List of endpoints:**\n")
+	getEndpointLink := func(group, endpoint string) string {
+		hash := md5.Sum([]byte(group + endpoint))
+		return "e-" + hex.EncodeToString(hash[:])
+	}
+	for _, group := range api.EndpointGroups {
+		wf("* %s\n", group.Name)
+		for _, endpoint := range group.endpoints {
+			wf("  * [%s](#%s)\n", endpoint.Name, getEndpointLink(group.Name, endpoint.Name))
+		}
+	}
+	wf("\n")
+
 	for _, group := range api.EndpointGroups {
 		for _, endpoint := range group.endpoints {
-			wf("## %s\n\n", endpoint.Name)
+			wf("<h2 id='%s'>%s</h2>\n\n", getEndpointLink(group.Name, endpoint.Name), endpoint.Name)
 			wf("%s\n\n", endpoint.Description)
 			wf("`%s /%s%s`\n\n", endpoint.Method, group.Prefix, endpoint.Path)
 
