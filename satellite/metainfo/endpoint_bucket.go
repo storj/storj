@@ -55,6 +55,37 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}, nil
 }
 
+// GetBucketLocation responds with the location that the bucket's placement is
+// annotated with (if any) and any error encountered.
+func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBucketLocationRequest) (resp *pb.GetBucketLocationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	p, err := endpoint.buckets.GetBucketPlacement(ctx, req.GetName(), keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get the bucket's placement")
+	}
+
+	return &pb.GetBucketLocationResponse{
+		Location: []byte(endpoint.overlay.GetLocationFromPlacement(p)),
+	}, nil
+}
+
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

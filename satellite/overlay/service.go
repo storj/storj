@@ -791,6 +791,12 @@ func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (nodes
 	return service.db.GetNodeTags(ctx, id)
 }
 
+// GetLocationFromPlacement returns the value for `nodeselection.Location` that
+// placement is currently annotated with.
+func (service *Service) GetLocationFromPlacement(placement storj.PlacementConstraint) string {
+	return nodeselection.GetAnnotation(service.placementRules(placement), nodeselection.Location)
+}
+
 // ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.
 func ResolveIPAndNetwork(ctx context.Context, target string, config NodeSelectionConfig, lastNetFunc LastNetFunc) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)

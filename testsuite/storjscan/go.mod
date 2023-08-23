@@ -8,8 +8,8 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/sync v0.2.0
-	storj.io/common v0.0.0-20230810121656-3e42ad28fcf6
+	golang.org/x/sync v0.3.0
+	storj.io/common v0.0.0-20230824112457-9233ce5adb92
 	storj.io/private v0.0.0-20230703113355-ccd4db5ae659
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
@@ -102,8 +102,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/otp v1.3.0 // indirect
 	github.com/prometheus/tsdb v0.7.1 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
-	github.com/quic-go/quic-go v0.37.4 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.2 // indirect
+	github.com/quic-go/quic-go v0.38.0 // indirect
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rjeczalik/notify v0.9.1 // indirect
@@ -141,12 +141,12 @@ require (
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.7.0 // indirect
+	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect

@@ -12,14 +12,6 @@ import (
 	"storj.io/common/storj"
 )
 
-const (
-	// AutoExcludeSubnet is placement annotation key to turn off subnet restrictions.
-	AutoExcludeSubnet = "autoExcludeSubnet"
-
-	// AutoExcludeSubnetOFF is the value of AutoExcludeSubnet to disable subnet restrictions.
-	AutoExcludeSubnetOFF = "off"
-)
-
 // AllowSameSubnet is a short to check if Subnet exclusion is disabled == allow pick nodes from the same subnet.
 func AllowSameSubnet(filter NodeFilter) bool {
 	return GetAnnotation(filter, AutoExcludeSubnet) == AutoExcludeSubnetOFF

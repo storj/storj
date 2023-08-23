@@ -49,18 +49,18 @@ require (
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.7.0
+	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.7.0
-	golang.org/x/sync v0.2.0
-	golang.org/x/sys v0.10.0
-	golang.org/x/term v0.8.0
-	golang.org/x/text v0.9.0
+	golang.org/x/sync v0.3.0
+	golang.org/x/sys v0.11.0
+	golang.org/x/term v0.11.0
+	golang.org/x/text v0.12.0
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20230810121656-3e42ad28fcf6
+	storj.io/common v0.0.0-20230824112457-9233ce5adb92
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
 	storj.io/private v0.0.0-20230703113355-ccd4db5ae659
@@ -111,8 +111,8 @@ require (
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
-	github.com/quic-go/quic-go v0.37.4 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.2 // indirect
+	github.com/quic-go/quic-go v0.38.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect

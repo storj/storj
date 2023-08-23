@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,6 +167,7 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 
 	})
+
 	t.Run("annotation usage", func(t *testing.T) {
 		t.Run("normal", func(t *testing.T) {
 			t.Parallel()
@@ -207,8 +209,20 @@ func TestPlacementFromString(t *testing.T) {
 			require.Equal(t, "foo", nodeselection.GetAnnotation(filters, "bar"))
 			require.Equal(t, "", nodeselection.GetAnnotation(filters, "kossuth"))
 		})
+		t.Run("location", func(t *testing.T) {
+			p := NewPlacementRules()
+			s := fmt.Sprintf(`11:annotated(annotated(country("GB"),annotation("%s","test-location")),annotation("%s","%s"))`, nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
+			require.NoError(t, p.AddPlacementFromString(s))
+			filters := p.placements[storj.PlacementConstraint(11)]
+			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedKingdom,
+			}))
 
+			require.Equal(t, nodeselection.AutoExcludeSubnetOFF, nodeselection.GetAnnotation(filters, nodeselection.AutoExcludeSubnet))
+			require.Equal(t, "test-location", nodeselection.GetAnnotation(filters, nodeselection.Location))
+		})
 	})
+
 	t.Run("exclude", func(t *testing.T) {
 		p := NewPlacementRules()
 		err := p.AddPlacementFromString(`11:exclude(country("GB"))`)
