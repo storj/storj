@@ -258,7 +258,7 @@ const placeHolderDisplayable = computed((): boolean => {
  * Returns current path without object key.
  */
 const currentPath = computed((): string => {
-    return route.path.replace(RouteConfig.Buckets.with(RouteConfig.UploadFile).path, '');
+    return decodeURIComponent(route.path.replace(RouteConfig.Buckets.with(RouteConfig.UploadFile).path, ''));
 });
 
 /**
