@@ -2,21 +2,34 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8">
+    <v-form ref="form" class="pa-8 pb-4">
         <v-row>
             <v-col cols="12">
                 <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p>
-                <v-radio-group v-model="passphraseOption" :rules="[ RequiredRule ]" hide-details="auto">
-                    <v-radio v-if="isPromptForPassphrase" label="Enter your project passphrase" :value="PassphraseOption.SetMyProjectPassphrase">
-                        <template #label>
-                            Enter your project passphrase
-                            <info-tooltip>
-                                You will enter your encryption passphrase on the next step.
-                                Make sure it's the same one you use for this project.
-                                This will allow you to manage existing data you have uploaded with the same passphrase.
-                            </info-tooltip>
-                        </template>
-                    </v-radio>
+                <v-radio-group v-model="passphraseOption" hide-details="auto">
+                    <template v-if="isPromptForPassphrase">
+                        <v-radio v-if="isPromptForPassphrase" label="Enter your project passphrase" :value="PassphraseOption.SetMyProjectPassphrase">
+                            <template #label>
+                                Enter my project passphrase
+                                <info-tooltip>
+                                    You will enter your encryption passphrase on the next step.
+                                    Make sure it's the same one you use for this project.
+                                    This will allow you to manage existing data you have uploaded with the same passphrase.
+                                </info-tooltip>
+                            </template>
+                        </v-radio>
+                        <v-text-field
+                            v-model="passphrase"
+                            class="mt-3"
+                            variant="outlined"
+                            label="Enter Encryption Passphrase"
+                            :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
+                            :type="isPassphraseVisible ? 'text' : 'password'"
+                            :rules="passphraseRules"
+                            @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
+                        />
+                        <v-divider class="my-4" />
+                    </template>
                     <v-radio v-else :value="PassphraseOption.UseExistingPassphrase">
                         <template #label>
                             Use the current passphrase
@@ -62,7 +75,7 @@
             </v-col>
             <v-expand-transition>
                 <v-col v-show="areAdvancedOptionsShown" cols="12">
-                    <v-alert type="warning" variant="tonal" rounded="xlg">
+                    <v-alert class="mb-4" type="warning" variant="tonal" rounded="xlg">
                         Creating a new passphrase for this access will prevent it from accessing any data
                         that has been uploaded with the current passphrase.
                     </v-alert>
@@ -83,12 +96,14 @@ import {
     VBtn,
     VExpandTransition,
     VAlert,
+    VTextField,
+    VDivider,
 } from 'vuetify/components';
 
 import { PassphraseOption } from '@/types/createAccessGrant';
 import { CreateAccessStepComponent } from '@poc/types/createAccessGrant';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { RequiredRule } from '@poc/types/common';
+import { RequiredRule, ValidationRule } from '@poc/types/common';
 
 import InfoTooltip from '@poc/components/dialogs/createAccessSteps/InfoTooltip.vue';
 
@@ -99,6 +114,9 @@ const emit = defineEmits<{
 
 const form = ref<VForm | null>(null);
 const passphraseOption = ref<PassphraseOption>();
+const passphrase = ref<string>('');
+const isPassphraseVisible = ref<boolean>(false);
+const areAdvancedOptionsShown = ref<boolean>(false);
 
 watch(passphraseOption, value => value && emit('selectOption', value));
 
@@ -109,8 +127,6 @@ const bucketsStore = useBucketsStore();
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
-const areAdvancedOptionsShown = ref<boolean>(isPromptForPassphrase.value);
-
 /**
  * Indicates whether an option in the Advanced menu has been selected.
  */
@@ -119,15 +135,33 @@ const isAdvancedOptionSelected = computed<boolean>(() => {
         || passphraseOption.value === PassphraseOption.GenerateNewPassphrase;
 });
 
+const passphraseRules = computed<ValidationRule<string>[]>(() => {
+    const required = passphraseOption.value === PassphraseOption.SetMyProjectPassphrase;
+    return [ v => !required || !!v || 'Required' ];
+});
+
 defineExpose<CreateAccessStepComponent>({
     title: 'Access Encryption',
     validate: () => {
         form.value?.validate();
-        return !!form.value?.isValid;
+        const passphraseRequired = passphraseOption.value === PassphraseOption.SetMyProjectPassphrase;
+        return !!form.value?.isValid && (!passphraseRequired || !!passphrase.value);
+    },
+    onEnter: () => {
+        if (passphraseOption.value) return;
+        passphraseOption.value = isPromptForPassphrase.value ?
+            PassphraseOption.SetMyProjectPassphrase :
+            PassphraseOption.UseExistingPassphrase;
     },
     onExit: () => {
-        if (passphraseOption.value !== PassphraseOption.UseExistingPassphrase) return;
-        emit('passphraseChanged', bucketsStore.state.passphrase);
+        switch (passphraseOption.value) {
+        case PassphraseOption.UseExistingPassphrase:
+            emit('passphraseChanged', bucketsStore.state.passphrase);
+            break;
+        case PassphraseOption.SetMyProjectPassphrase:
+            emit('passphraseChanged', passphrase.value);
+            break;
+        }
     },
 });
 </script>

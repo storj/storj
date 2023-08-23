@@ -69,14 +69,6 @@
                     />
                 </v-window-item>
 
-                <v-window-item :value="CreateAccessStep.EnterMyPassphrase">
-                    <enter-passphrase-step
-                        :ref="stepInfos[CreateAccessStep.EnterMyPassphrase].ref"
-                        :passphrase-type="CreateAccessStep.EnterMyPassphrase"
-                        @passphrase-changed="newPass => passphrase = newPass"
-                    />
-                </v-window-item>
-
                 <v-window-item :value="CreateAccessStep.EnterNewPassphrase">
                     <enter-passphrase-step
                         :ref="stepInfos[CreateAccessStep.EnterNewPassphrase].ref"
@@ -320,16 +312,13 @@ const stepInfos: Record<CreateAccessStep, StepInfo> = {
             switch (passphraseOption.value) {
             case PassphraseOption.EnterNewPassphrase: return CreateAccessStep.EnterNewPassphrase;
             case PassphraseOption.GenerateNewPassphrase: return CreateAccessStep.PassphraseGenerated;
-            case PassphraseOption.SetMyProjectPassphrase: return CreateAccessStep.EnterMyPassphrase;
             default: return CreateAccessStep.ConfirmDetails;
             }
         },
     ),
 
-    [CreateAccessStep.EnterMyPassphrase]: new StepInfo(
-        CreateAccessStep.AccessEncryption,
-        CreateAccessStep.ConfirmDetails,
-    ),
+    [CreateAccessStep.EnterMyPassphrase]: new StepInfo(), // unused
+
     [CreateAccessStep.EnterNewPassphrase]: new StepInfo(
         CreateAccessStep.AccessEncryption,
         CreateAccessStep.ConfirmDetails,
@@ -344,7 +333,6 @@ const stepInfos: Record<CreateAccessStep, StepInfo> = {
             switch (passphraseOption.value) {
             case PassphraseOption.EnterNewPassphrase: return CreateAccessStep.EnterNewPassphrase;
             case PassphraseOption.GenerateNewPassphrase: return CreateAccessStep.PassphraseGenerated;
-            case PassphraseOption.SetMyProjectPassphrase: return CreateAccessStep.EnterMyPassphrase;
             default: return CreateAccessStep.AccessEncryption;
             }
         },
@@ -570,6 +558,13 @@ watch(innerContent, async (comp: Component): Promise<void> => {
         return;
     }
 
+    worker.value = agStore.state.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        };
+    }
+
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
@@ -583,14 +578,6 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     isFetching.value = false;
 
     stepInfos[step.value].ref.value?.onEnter?.();
-});
-
-onMounted(() => {
-    worker.value = agStore.state.accessGrantsWebWorker;
-    if (!worker.value) return;
-    worker.value.onerror = (error: ErrorEvent) => {
-        notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
-    };
 });
 </script>
 
