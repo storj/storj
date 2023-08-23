@@ -13,6 +13,7 @@ import (
 )
 
 // MustWriteTS writes generated TypeScript code into a file.
+// If an error occurs, it panics.
 func (a *API) MustWriteTS(path string) {
 	f := newTSGenFile(path, a)
 

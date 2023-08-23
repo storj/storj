@@ -22,6 +22,7 @@ import (
 const DateFormat = "2006-01-02T15:04:05.999Z"
 
 // MustWriteGo writes generated Go code into a file.
+// If an error occurs, it panics.
 func (a *API) MustWriteGo(path string) {
 	generated, err := a.generateGo()
 	if err != nil {
