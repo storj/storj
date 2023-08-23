@@ -20,6 +20,6 @@ export class LoginPage extends LoginPageObjects {
     async loginToApplication(): Promise<void> {
         await this.page.locator(LoginPageObjects.EMAIL_EDITBOX_ID).fill(testConfig.username);
         await this.page.locator(LoginPageObjects.PASSWORD_EDITBOX_ID).fill(testConfig.password);
-        await this.page.locator('div').filter({ hasText: /^Sign In$/ }).click();
+        await this.page.locator('span').filter({hasText: 'Sign In'}).click();
     }
 }

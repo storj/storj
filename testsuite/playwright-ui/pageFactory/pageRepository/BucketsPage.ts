@@ -17,6 +17,10 @@ export class BucketsPage extends BucketsPageObjects {
         await this.page.getByText(name).click();
     }
 
+    async verifyBucketNotVisible(name: string): Promise<void> {
+        await expect(this.page.getByText(name)).toBeHidden();
+    }
+
     async enterPassphrase(phrase: string): Promise<void> {
         await this.page.locator(BucketsPageObjects.ENCRYPTION_PASSPHRASE_XPATH).fill(phrase)
     }
@@ -33,7 +37,7 @@ export class BucketsPage extends BucketsPageObjects {
             this.page.waitForEvent('download'),
             this.page.locator(BucketsPageObjects.DOWNLOAD_BUTTON_XPATH).click()
         ]);
-        await expect(this.page.locator(BucketsPageObjects.DOWNLOAD_NOTIFICATION)).toBeVisible();
+        await expect(this.page.getByText('Keep this download link private.If you want to share, use the Share option.')).toBeVisible();
 
     }
 
@@ -63,6 +67,10 @@ export class BucketsPage extends BucketsPageObjects {
 
     async closeModal(): Promise<void> {
         await this.page.locator(BucketsPageObjects.CLOSE_MODAL_BUTTON_XPATH).click();
+    }
+
+    async closeFilePreview(): Promise<void> {
+        await this.page.locator(BucketsPageObjects.CLOSE_FILE_PREVIEW_BUTTON_XPATH).click()
     }
 
     async openFileDropdownByName(name: string): Promise<void> {
@@ -112,7 +120,6 @@ export class BucketsPage extends BucketsPageObjects {
             mimeType: format,
             buffer: Buffer.from('Test,T')
         });
-        await expect(this.page.locator(`//*[contains(text(),'${name}')]`)).toBeVisible();
     }
 
     async dragAndDropFolder(folder: string, filename: string, format: string): Promise<void> {

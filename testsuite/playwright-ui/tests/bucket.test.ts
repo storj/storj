@@ -4,7 +4,11 @@
 import test from '@lib/BaseTest';
 
 test.describe('Filebrowser + edge services', () => {
-    test.beforeEach(async ({loginPage, dashboardPage, allProjectsPage}, testInfo) => {
+    test.beforeEach(async ({
+                               loginPage,
+                               dashboardPage,
+                               allProjectsPage
+                           }, testInfo) => {
         console.log(`Running ${testInfo.title}`);
 
         const projectName = 'testproject'
@@ -17,12 +21,14 @@ test.describe('Filebrowser + edge services', () => {
 
     // This test check file download, upload using drag and drop function and basic link-sharing features
 
-    test('File download and upload', async ({navigationMenu, bucketsPage}) => {
+    test('File download and upload', async ({
+                                                navigationMenu,
+                                                bucketsPage
+                                            }) => {
         const bucketName = 'uitest1';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
 
-        await bucketsPage.closeModal();
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
         await bucketsPage.enterPassphrase(bucketPassphrase);
@@ -34,26 +40,28 @@ test.describe('Filebrowser + edge services', () => {
         // Checks if the link-sharing buttons work
         await bucketsPage.verifyObjectMapIsVisible();
         await bucketsPage.clickShareButton();
-        await bucketsPage.clickCopyLinkButton();
+        await bucketsPage.clickCopyButtonShareBucketModal();
         await bucketsPage.closeModal();
+        await bucketsPage.closeFilePreview();
 
         // Delete old file and upload new with the same file name
         await bucketsPage.deleteFileByName(fileName);
         await bucketsPage.dragAndDropFile(fileName, 'text/csv');
         await bucketsPage.verifyObjectMapIsVisible();
         await bucketsPage.clickShareButton();
-        await bucketsPage.clickCopyLinkButton();
+        await bucketsPage.clickCopyButtonShareBucketModal();
     });
 
     // This test check folder creation, upload using drag and drop function
-    test('Folder creation and folder drag and drop upload', async ({navigationMenu, bucketsPage}) => {
+    test('Folder creation and folder drag and drop upload', async ({
+                                                                       navigationMenu,
+                                                                       bucketsPage
+                                                                   }) => {
 
         const bucketName = 'testbucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
         const folderName = 'test_folder';
-
-        await bucketsPage.closeModal();
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
@@ -69,12 +77,14 @@ test.describe('Filebrowser + edge services', () => {
         await bucketsPage.deleteFileByName(folderName);
 
     });
-    test('Share bucket and bucket details page', async ({navigationMenu, bucketsPage, page}) => {
+    test('Share bucket and bucket details page', async ({
+                                                            navigationMenu,
+                                                            bucketsPage,
+                                                            page
+                                                        }) => {
         const bucketName = 'sharebucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test1.jpeg';
-
-        await bucketsPage.closeModal();
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketByName(bucketName);
@@ -84,7 +94,7 @@ test.describe('Filebrowser + edge services', () => {
 
         // Checks the image preview of the tiny apple png file
         await bucketsPage.verifyImagePreviewIsVisible();
-        await bucketsPage.closeModal();
+        await bucketsPage.closeFilePreview();
 
         // Checks for Bucket Detail Header and correct bucket name
         await bucketsPage.openBucketSettings();
@@ -100,11 +110,12 @@ test.describe('Filebrowser + edge services', () => {
                  - compare image from linksharing to original
          */
     });
-    test('Create and delete bucket', async ({dashboardPage, navigationMenu, bucketsPage}) => {
+    test('Create and delete bucket', async ({
+                                                navigationMenu,
+                                                bucketsPage
+                                            }) => {
         const bucketName = 'testdelete';
-        const bucketPassphrase = 'qazwsx';
 
-        await dashboardPage.enterOwnPassphraseModal(bucketPassphrase);
         await navigationMenu.clickOnBuckets();
 
         await bucketsPage.clickNewBucketButton();
@@ -115,7 +126,6 @@ test.describe('Filebrowser + edge services', () => {
         await bucketsPage.clickDeleteBucketButton();
         await bucketsPage.enterBucketNameDeleteBucket(bucketName);
         await bucketsPage.clickConfirmDeleteButton();
+        await bucketsPage.verifyBucketNotVisible(bucketName);
     });
-
-
 });

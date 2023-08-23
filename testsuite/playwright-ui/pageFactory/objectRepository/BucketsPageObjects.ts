@@ -5,13 +5,14 @@ export class BucketsPageObjects {
     protected static ENCRYPTION_PASSPHRASE_XPATH = `//input[@id='Encryption Passphrase']`;
     protected static CONTINUE_BUTTON_PASSPHRASE_MODAL_XPATH = `//div[contains(@class, 'container') and contains(.//span, ' Continue ->')]`;
     protected static DOWNLOAD_BUTTON_XPATH = `//div[contains(@class, 'container') and contains(.//span, ' Download')]`;
-    protected static SHARE_BUTTON_XPATH = ` //div[contains(@class, 'container') and contains(.//span, ' Share')]`;
-    protected static DOWNLOAD_NOTIFICATION = `//p[contains(text(),'Do not share download link with other people. If you want to share this data bet')]`;
+    protected static SHARE_BUTTON_XPATH = `div:nth-child(4) > .button-icon`;
+    protected static DOWNLOAD_NOTIFICATION = `//p[contains(text(),'Keep this download link private.If you want to share, use the Share option.')]`;
     protected static OBJECT_MAP_TEXT_XPATH = `//div[contains(text(),'Nodes storing this file')]`;
     protected static OBJECT_MAP_IMAGE_XPATH = `//*[contains(@class, 'object-map')]`;
     protected static COPY_LINK_BUTTON_XPATH = `//div[contains(@class, 'container') and contains(.//span, ' Copy Link')]`;
     protected static COPIED_TEXT = `Copied!`;
     protected static CLOSE_MODAL_BUTTON_XPATH = `.mask__wrapper__container__close`;
+    protected static CLOSE_FILE_PREVIEW_BUTTON_XPATH = `//body/div[@id='app']/div[2]/div[1]/div[2]/div[5]/div[1]`
     protected static NEW_FOLDER_BUTTON_TEXT = `New Folder`;
     protected static NEW_FOLDER_NAME_FIELD_XPATH = `//input[@id='Folder name']`;
     protected static CREATE_FOLDER_BUTTON_TEXT = `Create Folder`;
