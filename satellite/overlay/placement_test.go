@@ -166,16 +166,47 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 
 	})
-	t.Run("annotated", func(t *testing.T) {
-		p := NewPlacementRules()
-		err := p.AddPlacementFromString(`11:annotated(country("GB"),annotation("autoExcludeSubnet","off"))`)
-		require.NoError(t, err)
-		filters := p.placements[storj.PlacementConstraint(11)]
-		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
-			CountryCode: location.UnitedKingdom,
-		}))
+	t.Run("annotation usage", func(t *testing.T) {
+		t.Run("normal", func(t *testing.T) {
+			t.Parallel()
+			p := NewPlacementRules()
+			err := p.AddPlacementFromString(`11:annotated(country("GB"),annotation("autoExcludeSubnet","off"))`)
+			require.NoError(t, err)
+			filters := p.placements[storj.PlacementConstraint(11)]
+			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedKingdom,
+			}))
 
-		require.Equal(t, nodeselection.GetAnnotation(filters, "autoExcludeSubnet"), "off")
+			require.Equal(t, nodeselection.GetAnnotation(filters, "autoExcludeSubnet"), "off")
+		})
+		t.Run("with &&", func(t *testing.T) {
+			t.Parallel()
+			p := NewPlacementRules()
+			err := p.AddPlacementFromString(`11:country("GB") && annotation("foo","bar") && annotation("bar","foo")`)
+			require.NoError(t, err)
+
+			filters := p.placements[storj.PlacementConstraint(11)]
+			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedKingdom,
+			}))
+			require.Equal(t, "bar", nodeselection.GetAnnotation(filters, "foo"))
+			require.Equal(t, "foo", nodeselection.GetAnnotation(filters, "bar"))
+			require.Equal(t, "", nodeselection.GetAnnotation(filters, "kossuth"))
+		})
+		t.Run("chained", func(t *testing.T) {
+			t.Parallel()
+			p := NewPlacementRules()
+			err := p.AddPlacementFromString(`11:annotated(annotated(country("GB"),annotation("foo","bar")),annotation("bar","foo"))`)
+			require.NoError(t, err)
+			filters := p.placements[storj.PlacementConstraint(11)]
+			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				CountryCode: location.UnitedKingdom,
+			}))
+
+			require.Equal(t, "bar", nodeselection.GetAnnotation(filters, "foo"))
+			require.Equal(t, "foo", nodeselection.GetAnnotation(filters, "bar"))
+			require.Equal(t, "", nodeselection.GetAnnotation(filters, "kossuth"))
+		})
 
 	})
 	t.Run("exclude", func(t *testing.T) {

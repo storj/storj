@@ -151,15 +151,16 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 			}
 			return res, nil
 		},
-		"annotated": func(filter nodeselection.NodeFilter, kv map[string]string) (nodeselection.AnnotatedNodeFilter, error) {
+		"annotated": func(filter nodeselection.NodeFilter, kv ...nodeselection.Annotation) (nodeselection.AnnotatedNodeFilter, error) {
 			return nodeselection.AnnotatedNodeFilter{
 				Filter:      filter,
 				Annotations: kv,
 			}, nil
 		},
-		"annotation": func(key string, value string) (map[string]string, error) {
-			return map[string]string{
-				key: value,
+		"annotation": func(key string, value string) (nodeselection.Annotation, error) {
+			return nodeselection.Annotation{
+				Key:   key,
+				Value: value,
 			}, nil
 		},
 		"exclude": func(filter nodeselection.NodeFilter) (nodeselection.NodeFilter, error) {

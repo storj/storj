@@ -15,10 +15,50 @@ type NodeFilter interface {
 	MatchInclude(node *SelectedNode) bool
 }
 
+// NodeFilterWithAnnotation is a NodeFilter with additional annotations.
+type NodeFilterWithAnnotation interface {
+	NodeFilter
+	GetAnnotation(name string) string
+}
+
+// Annotation can be used as node filters in 'XX && annotation('...')' like struct.
+type Annotation struct {
+	Key   string
+	Value string
+}
+
+// MatchInclude implements NodeFilter.
+func (a Annotation) MatchInclude(node *SelectedNode) bool {
+	return true
+}
+
+// GetAnnotation implements NodeFilterWithAnnotation.
+func (a Annotation) GetAnnotation(name string) string {
+	if a.Key == name {
+		return a.Value
+	}
+	return ""
+}
+
+var _ NodeFilterWithAnnotation = Annotation{}
+
 // AnnotatedNodeFilter is just a NodeFilter with additional annotations.
 type AnnotatedNodeFilter struct {
 	Filter      NodeFilter
-	Annotations map[string]string
+	Annotations []Annotation
+}
+
+// GetAnnotation implements NodeFilterWithAnnotation.
+func (a AnnotatedNodeFilter) GetAnnotation(name string) string {
+	for _, a := range a.Annotations {
+		if a.Key == name {
+			return a.Value
+		}
+	}
+	if annotated, ok := a.Filter.(NodeFilterWithAnnotation); ok {
+		return annotated.GetAnnotation(name)
+	}
+	return ""
 }
 
 // MatchInclude implements NodeFilter.
@@ -27,35 +67,27 @@ func (a AnnotatedNodeFilter) MatchInclude(node *SelectedNode) bool {
 }
 
 // WithAnnotation adds annotations to a NodeFilter.
-func WithAnnotation(filter NodeFilter, name string, value string) NodeFilter {
-	if anf, ok := filter.(AnnotatedNodeFilter); ok {
-		anf.Annotations[name] = value
-		return anf
-	}
+func WithAnnotation(filter NodeFilter, name string, value string) NodeFilterWithAnnotation {
 	return AnnotatedNodeFilter{
 		Filter: filter,
-		Annotations: map[string]string{
-			name: value,
+		Annotations: []Annotation{
+			{
+				Key:   name,
+				Value: value,
+			},
 		},
 	}
 }
 
 // GetAnnotation retrieves annotation from AnnotatedNodeFilter.
 func GetAnnotation(filter NodeFilter, name string) string {
-	if annotated, ok := filter.(AnnotatedNodeFilter); ok {
-		return annotated.Annotations[name]
-	}
-	if filters, ok := filter.(NodeFilters); ok {
-		for _, filter := range filters {
-			if annotated, ok := filter.(AnnotatedNodeFilter); ok {
-				return annotated.Annotations[name]
-			}
-		}
+	if annotated, ok := filter.(NodeFilterWithAnnotation); ok {
+		return annotated.GetAnnotation(name)
 	}
 	return ""
 }
 
-var _ NodeFilter = AnnotatedNodeFilter{}
+var _ NodeFilterWithAnnotation = AnnotatedNodeFilter{}
 
 // NodeFilters is a collection of multiple node filters (all should vote with true).
 type NodeFilters []NodeFilter
@@ -94,7 +126,20 @@ func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
 }
 
-var _ NodeFilter = NodeFilters{}
+// GetAnnotation implements NodeFilterWithAnnotation.
+func (n NodeFilters) GetAnnotation(name string) string {
+	for _, filter := range n {
+		if annotated, ok := filter.(NodeFilterWithAnnotation); ok {
+			value := annotated.GetAnnotation(name)
+			if value != "" {
+				return value
+			}
+		}
+	}
+	return ""
+}
+
+var _ NodeFilterWithAnnotation = NodeFilters{}
 
 // CountryFilter can select nodes based on the condition of the country code.
 type CountryFilter struct {

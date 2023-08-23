@@ -55,6 +55,20 @@ func TestCriteria_ExcludedNodeNetworks(t *testing.T) {
 	}))
 }
 
+func TestAnnotations(t *testing.T) {
+	k := WithAnnotation(NodeFilters{}, "foo", "bar")
+	require.Equal(t, "bar", k.GetAnnotation("foo"))
+
+	k = NodeFilters{WithAnnotation(NodeFilters{}, "foo", "bar")}
+	require.Equal(t, "bar", k.GetAnnotation("foo"))
+
+	k = Annotation{
+		Key:   "foo",
+		Value: "bar",
+	}
+	require.Equal(t, "bar", k.GetAnnotation("foo"))
+}
+
 func TestCriteria_Geofencing(t *testing.T) {
 	eu := NodeFilters{}.WithCountryFilter(location.NewSet(EuCountries...))
 	us := NodeFilters{}.WithCountryFilter(location.NewSet(location.UnitedStates))
