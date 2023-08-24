@@ -91,18 +91,18 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
-import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
-import ProjectInvitationItem from '@/views/all-dashboard/components/ProjectInvitationItem.vue';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import ProjectsTable from '@/views/all-dashboard/components/ProjectsTable.vue';
-import AllProjectsDashboardBanners from '@/views/all-dashboard/components/AllProjectsDashboardBanners.vue';
 import { useResize } from '@/composables/resize';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
+import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
+import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
+import ProjectInvitationItem from '@/views/all-dashboard/components/ProjectInvitationItem.vue';
+import ProjectsTable from '@/views/all-dashboard/components/ProjectsTable.vue';
+import AllProjectsDashboardBanners from '@/views/all-dashboard/components/AllProjectsDashboardBanners.vue';
 import VButton from '@/components/common/VButton.vue';
 import VChip from '@/components/common/VChip.vue';
 

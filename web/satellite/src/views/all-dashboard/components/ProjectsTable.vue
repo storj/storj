@@ -33,9 +33,9 @@ import { computed } from 'vue';
 
 import { Project, ProjectInvitation } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+
 import ProjectTableItem from '@/views/all-dashboard/components/ProjectTableItem.vue';
 import ProjectTableInvitationItem from '@/views/all-dashboard/components/ProjectTableInvitationItem.vue';
-
 import VTable from '@/components/common/VTable.vue';
 
 const projectsStore = useProjectsStore();

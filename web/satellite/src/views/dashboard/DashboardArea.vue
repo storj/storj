@@ -27,48 +27,31 @@
 
                                     <v-banner
                                         v-if="isAccountFrozen && !isLoading && dashboardContent"
+                                        title="Your account was frozen due to billing issues."
+                                        message="Please update your payment information."
+                                        link-text="To Billing Page"
                                         severity="critical"
                                         :dashboard-ref="dashboardContent"
-                                    >
-                                        <template #text>
-                                            <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
-                                            <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                                        </template>
-                                    </v-banner>
+                                        :on-link-click="redirectToBillingPage"
+                                    />
 
                                     <v-banner
                                         v-if="isAccountWarned && !isLoading && dashboardContent"
+                                        title="Your account will be frozen soon due to billing issues."
+                                        message="Please update your payment information."
+                                        link-text="To Billing Page"
                                         severity="warning"
                                         :dashboard-ref="dashboardContent"
-                                    >
-                                        <template #text>
-                                            <p class="medium">Your account will be frozen soon due to billing issues. Please update your payment information.</p>
-                                            <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-                                        </template>
-                                    </v-banner>
+                                        :on-link-click="redirectToBillingPage"
+                                    />
 
-                                    <v-banner
-                                        v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
-                                        severity="critical"
-                                        :on-click="() => setIsHundredLimitModalShown(true)"
+                                    <limit-warning-banners
+                                        v-if="dashboardContent"
+                                        :reached-thresholds="reachedThresholds"
                                         :dashboard-ref="dashboardContent"
-                                    >
-                                        <template #text>
-                                            <p class="medium">{{ limitState.hundredLabel }}</p>
-                                            <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                                        </template>
-                                    </v-banner>
-                                    <v-banner
-                                        v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
-                                        severity="warning"
-                                        :on-click="() => setIsEightyLimitModalShown(true)"
-                                        :dashboard-ref="dashboardContent"
-                                    >
-                                        <template #text>
-                                            <p class="medium">{{ limitState.eightyLabel }}</p>
-                                            <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-                                        </template>
-                                    </v-banner>
+                                        :on-upgrade-click="togglePMModal"
+                                        :on-banner-click="thresh => limitModalThreshold = thresh"
+                                    />
                                 </div>
                                 <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                                 <div class="dashboard__wrap__main-area__content-wrap__container__content banners-bottom">
@@ -89,19 +72,10 @@
                     <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ session.debugTimerText.value }}</b></p>
                 </div>
                 <limit-warning-modal
-                    v-if="isHundredLimitModalShown && !isLoading"
-                    severity="critical"
-                    :on-close="() => setIsHundredLimitModalShown(false)"
-                    :title="limitState.hundredModalTitle"
-                    :limit-type="limitState.hundredModalLimitType"
-                    :on-upgrade="togglePMModal"
-                />
-                <limit-warning-modal
-                    v-if="isEightyLimitModalShown && !isLoading"
-                    severity="warning"
-                    :on-close="() => setIsEightyLimitModalShown(false)"
-                    :title="limitState.eightyModalTitle"
-                    :limit-type="limitState.eightyModalLimitType"
+                    v-if="limitModalThreshold && !isLoading"
+                    :reached-thresholds="reachedThresholds"
+                    :threshold="limitModalThreshold"
+                    :on-close="() => limitModalThreshold = null"
                     :on-upgrade="togglePMModal"
                 />
                 <AllModals />
@@ -112,13 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, toRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/types/router';
 import { CouponType } from '@/types/coupons';
-import { Project } from '@/types/projects';
+import { LimitThreshold, LimitType, Project, LimitThresholdsReached } from '@/types/projects';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -130,9 +104,10 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
+import { DEFAULT_PROJECT_LIMITS, useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { Memory } from '@/utils/bytesSize';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -147,6 +122,7 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
+import LimitWarningBanners from '@/views/dashboard/components/LimitWarningBanners.vue';
 
 import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
 
@@ -166,8 +142,7 @@ const route = useRoute();
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
-const isHundredLimitModalShown = ref<boolean>(false);
-const isEightyLimitModalShown = ref<boolean>(false);
+const limitModalThreshold = ref<LimitThreshold | null>(null);
 
 const dashboardContent = ref<HTMLElement | null>(null);
 
@@ -193,77 +168,60 @@ const isAccountWarned = computed((): boolean => {
 });
 
 /**
- * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+ * Returns which limit thresholds have been reached by which usage limit type.
  */
-type LimitedState = {
-    eightyIsShown: boolean;
-    hundredIsShown: boolean;
-    eightyLabel: string;
-    eightyModalLimitType: string;
-    eightyModalTitle: string;
-    hundredLabel: string;
-    hundredModalTitle: string;
-    hundredModalLimitType: string;
-}
-
-const limitState = computed((): LimitedState => {
-    const result: LimitedState = {
-        eightyIsShown: false,
-        hundredIsShown: false,
-        eightyLabel: '',
-        eightyModalLimitType: '',
-        eightyModalTitle: '',
-        hundredLabel: '',
-        hundredModalTitle: '',
-        hundredModalLimitType: '',
+const reachedThresholds = computed((): LimitThresholdsReached => {
+    const reached: LimitThresholdsReached = {
+        Eighty: [],
+        Hundred: [],
+        CustomEighty: [],
+        CustomHundred: [],
     };
 
-    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
-        return result;
-    }
-
     const currentLimits = projectsStore.state.currentLimits;
+    const config = configStore.state.config;
 
-    const limitTypeArr = [
-        { name: 'egress', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
-        { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
-        { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
-    ];
+    if (isAccountFrozen.value || currentLimits === DEFAULT_PROJECT_LIMITS) return reached;
 
-    const hundredPercent = [] as string[];
-    const eightyPercent = [] as string[];
+    type LimitInfo = {
+        used: number;
+        currentLimit: number;
+        paidLimit?: number;
+    };
 
-    limitTypeArr.forEach((limitType) => {
-        if (limitType.usedPercent >= 80) {
-            if (limitType.usedPercent >= 100) {
-                hundredPercent.push(limitType.name);
-            } else {
-                eightyPercent.push(limitType.name);
+    const info: Record<LimitType, LimitInfo> = {
+        Storage: {
+            used: currentLimits.storageUsed,
+            currentLimit: currentLimits.storageLimit,
+            paidLimit: parseConfigLimit(config.defaultPaidStorageLimit),
+        },
+        Egress: {
+            used: currentLimits.bandwidthUsed,
+            currentLimit: currentLimits.bandwidthLimit,
+            paidLimit: parseConfigLimit(config.defaultPaidBandwidthLimit),
+        },
+        Segment: {
+            used: currentLimits.segmentUsed,
+            currentLimit: currentLimits.segmentLimit,
+        },
+    };
+
+    (Object.entries(info) as [LimitType, LimitInfo][]).forEach(([limitType, info]) => {
+        const maxLimit = (isPaidTier.value && info.paidLimit) ? Math.max(info.currentLimit, info.paidLimit) : info.currentLimit;
+        if (info.used >= maxLimit) {
+            reached.Hundred.push(limitType);
+        } else if (info.used >= 0.8 * maxLimit) {
+            reached.Eighty.push(limitType);
+        } else if (isPaidTier.value) {
+            if (info.used >= info.currentLimit) {
+                reached.CustomHundred.push(limitType);
+            } else if (info.used >= 0.8 * info.currentLimit) {
+                reached.CustomEighty.push(limitType);
             }
         }
     });
 
-    if (eightyPercent.length !== 0) {
-        result.eightyIsShown = true;
-
-        const eightyPercentString = eightyPercent.join(' and ');
-
-        result.eightyLabel = `You've used 80% of your ${eightyPercentString} limit. Avoid interrupting your usage by upgrading your account.`;
-        result.eightyModalTitle = `80% ${eightyPercentString} limit used`;
-        result.eightyModalLimitType = eightyPercentString;
-    }
-
-    if (hundredPercent.length !== 0) {
-        result.hundredIsShown = true;
-
-        const hundredPercentString = hundredPercent.join(' and ');
-
-        result.hundredLabel = `URGENT: You’ve reached the ${hundredPercentString} limit for your project. Upgrade to avoid any service interruptions.`;
-        result.hundredModalTitle = `URGENT: You’ve reached the ${hundredPercentString} limit for your project.`;
-        result.hundredModalLimitType = hundredPercentString;
-    }
-
-    return result;
+    return reached;
 });
 
 /**
@@ -275,7 +233,7 @@ const isNavigationHidden = computed((): boolean => {
 
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !usersStore.state.user.paidTier
+    return !isPaidTier.value
         && !isOnboardingTour.value
         && joinedWhileAgo.value
         && isDashboardPage.value;
@@ -347,6 +305,20 @@ const isDashboardPage = computed((): boolean => {
 });
 
 /**
+ * Returns whether user is in the paid tier.
+ */
+const isPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
+});
+
+/**
+ * Returns the URL for the general request page from the store.
+ */
+const requestURL = computed((): string => {
+    return configStore.state.config.generalRequestURL;
+});
+
+/**
  * Closes upload large files warning notification.
  */
 function onWarningNotificationCloseClick(): void {
@@ -380,14 +352,6 @@ function selectProject(fetchedProjects: Project[]): void {
     storeProject(fetchedProjects[0].id);
 }
 
-function setIsEightyLimitModalShown(value: boolean): void {
-    isEightyLimitModalShown.value = value;
-}
-
-function setIsHundredLimitModalShown(value: boolean): void {
-    isHundredLimitModalShown.value = value;
-}
-
 /**
  * Toggles MFA recovery modal visibility.
  */
@@ -411,12 +375,8 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
-    isHundredLimitModalShown.value = false;
-    isEightyLimitModalShown.value = false;
-
-    if (!usersStore.state.user.paidTier) {
-        appStore.updateActiveModal(MODALS.upgradeAccount);
-    }
+    if (isPaidTier.value) return;
+    appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
 /**
@@ -424,6 +384,14 @@ function togglePMModal(): void {
  */
 async function redirectToBillingPage(): Promise<void> {
     await router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingPaymentMethods)).path);
+}
+
+/**
+ * Parses limit value from config, returning it as a byte amount.
+ */
+function parseConfigLimit(limit: string): number {
+    const [value, unit] = limit.split(' ');
+    return parseFloat(value) * Memory[unit === 'B' ? 'Bytes' : unit];
 }
 
 /**

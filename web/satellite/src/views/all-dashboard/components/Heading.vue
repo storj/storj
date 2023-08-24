@@ -117,7 +117,6 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useNotify } from '@/utils/hooks';
-import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
@@ -135,6 +134,7 @@ import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
+import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';

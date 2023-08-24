@@ -276,3 +276,18 @@ export enum FieldToChange {
     Name = 'Name',
     Description = 'Description',
 }
+
+export enum LimitThreshold {
+    Hundred = 'Hundred',
+    Eighty = 'Eighty',
+    CustomHundred = 'CustomHundred',
+    CustomEighty = 'CustomEighty',
+}
+
+export enum LimitType {
+    Storage = 'Storage',
+    Egress = 'Egress',
+    Segment = 'Segment',
+}
+
+export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;

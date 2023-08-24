@@ -17,8 +17,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import ErrorPage from '@/views/ErrorPage.vue';
 
+import ErrorPage from '@/views/ErrorPage.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 

@@ -96,3 +96,17 @@ export function centsToDollars(cents: number) {
 export function bytesToBase10String(amountInBytes: number) {
     return Size.toBase10String(amountInBytes);
 }
+
+/**
+ * Returns a human-friendly form of an array, inserting commas and "and"s where necessary.
+ * @param arr - the array
+ */
+export function humanizeArray(arr: string[]): string {
+    const len = arr.length;
+    switch (len) {
+    case 0: return '';
+    case 1: return arr[0];
+    case 2: return arr.join(' and ');
+    default: return `${arr.slice(0, len-1).join(', ')}, and ${arr[len-1]}`;
+    }
+}

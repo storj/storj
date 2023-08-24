@@ -20,22 +20,6 @@
 
                 <router-view />
 
-                <limit-warning-modal
-                    v-if="isHundredLimitModalShown && !isLoading"
-                    severity="critical"
-                    :on-close="() => setIsHundredLimitModalShown(false)"
-                    :title="limitState.hundredModalTitle"
-                    :limit-type="limitState.hundredModalLimitType"
-                    :on-upgrade="togglePMModal"
-                />
-                <limit-warning-modal
-                    v-if="isEightyLimitModalShown && !isLoading"
-                    severity="warning"
-                    :on-close="() => setIsEightyLimitModalShown(false)"
-                    :title="limitState.eightyModalTitle"
-                    :limit-type="limitState.eightyModalLimitType"
-                    :on-upgrade="togglePMModal"
-                />
                 <AllModals />
             </div>
         </SessionWrapper>
@@ -43,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -56,7 +40,6 @@ import { RouteConfig } from '@/types/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { CouponType } from '@/types/coupons';
-import Heading from '@/views/all-dashboard/components/Heading.vue';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -66,11 +49,11 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
+import Heading from '@/views/all-dashboard/components/Heading.vue';
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
-import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -90,92 +73,8 @@ const projectsStore = useProjectsStore();
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
-const isHundredLimitModalShown = ref<boolean>(false);
-const isEightyLimitModalShown = ref<boolean>(false);
-
 const isMyProjectsPage = computed((): boolean => {
     return route.path === RouteConfig.AllProjectsDashboard.path;
-});
-
-/**
- * Indicates if account was frozen due to billing issues.
- */
-const isAccountFrozen = computed((): boolean => {
-    return usersStore.state.user.freezeStatus.frozen;
-});
-
-/**
- * Returns all needed information for limit modal when bandwidth or storage close to limits.
- */
- type LimitedState = {
-    eightyIsShown: boolean;
-    hundredIsShown: boolean;
-    eightyLabel: string;
-    eightyModalLimitType: string;
-    eightyModalTitle: string;
-    hundredLabel: string;
-    hundredModalTitle: string;
-    hundredModalLimitType: string;
-}
-
-const limitState = computed((): LimitedState => {
-    const result: LimitedState = {
-        eightyIsShown: false,
-        hundredIsShown: false,
-        eightyLabel: '',
-        eightyModalLimitType: '',
-        eightyModalTitle: '',
-        hundredLabel: '',
-        hundredModalTitle: '',
-        hundredModalLimitType: '',
-    };
-
-    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
-        return result;
-    }
-
-    const currentLimits = projectsStore.state.currentLimits;
-
-    const limitTypeArr = [
-        { name: 'egress', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
-        { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
-        { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
-    ];
-
-    const hundredPercent: string[] = [];
-    const eightyPercent: string[] = [];
-
-    limitTypeArr.forEach((limitType) => {
-        if (limitType.usedPercent >= 80) {
-            if (limitType.usedPercent >= 100) {
-                hundredPercent.push(limitType.name);
-            } else {
-                eightyPercent.push(limitType.name);
-            }
-        }
-    });
-
-    if (eightyPercent.length !== 0) {
-        result.eightyIsShown = true;
-
-        const eightyPercentString = eightyPercent.join(' and ');
-
-        result.eightyLabel = `You've used 80% of your ${eightyPercentString} limit. Avoid interrupting your usage by upgrading your account.`;
-        result.eightyModalTitle = `80% ${eightyPercentString} limit used`;
-        result.eightyModalLimitType = eightyPercentString;
-    }
-
-    if (hundredPercent.length !== 0) {
-        result.hundredIsShown = true;
-
-        const hundredPercentString = hundredPercent.join(' and ');
-
-        result.hundredLabel = `URGENT: You’ve reached the ${hundredPercentString} limit for your project. Upgrade to avoid any service interruptions.`;
-        result.hundredModalTitle = `URGENT: You’ve reached the ${hundredPercentString} limit for your project.`;
-        result.hundredModalLimitType = hundredPercentString;
-    }
-
-    return result;
 });
 
 /**
@@ -200,14 +99,6 @@ const showMFARecoveryCodeBar = computed((): boolean => {
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
-function setIsEightyLimitModalShown(value: boolean): void {
-    isEightyLimitModalShown.value = value;
-}
-
-function setIsHundredLimitModalShown(value: boolean): void {
-    isHundredLimitModalShown.value = value;
-}
-
 /**
  * Generates new MFA recovery codes and toggles popup visibility.
  */
@@ -225,18 +116,6 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  */
 function toggleMFARecoveryModal(): void {
     appStore.updateActiveModal(MODALS.mfaRecovery);
-}
-
-/**
- * Opens add payment method modal.
- */
-function togglePMModal(): void {
-    isHundredLimitModalShown.value = false;
-    isEightyLimitModalShown.value = false;
-
-    if (!usersStore.state.user.paidTier) {
-        appStore.updateActiveModal(MODALS.upgradeAccount);
-    }
 }
 
 /**

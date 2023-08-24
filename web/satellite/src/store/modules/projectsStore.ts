@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { computed, reactive, readonly } from 'vue';
 
 import {
     DataStamp,
@@ -20,14 +20,15 @@ import {
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
-const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
-const defaultSelectedInvitation = new ProjectInvitation('', '', '', '', new Date());
+const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
+const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
+export const DEFAULT_PROJECT_LIMITS = readonly(new ProjectLimits());
 
 export class ProjectsState {
     public projects: Project[] = [];
-    public selectedProject: Project = defaultSelectedProject;
-    public currentLimits: ProjectLimits = new ProjectLimits();
-    public totalLimits: ProjectLimits = new ProjectLimits();
+    public selectedProject: Project = DEFAULT_PROJECT;
+    public currentLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
+    public totalLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
     public allocatedBandwidthChartData: DataStamp[] = [];
@@ -36,7 +37,7 @@ export class ProjectsState {
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
     public invitations: ProjectInvitation[] = [];
-    public selectedInvitation: ProjectInvitation = defaultSelectedInvitation;
+    public selectedInvitation: ProjectInvitation = DEFAULT_INVITATION;
 }
 
 export const useProjectsStore = defineStore('projects', () => {
@@ -73,7 +74,7 @@ export const useProjectsStore = defineStore('projects', () => {
             return;
         }
 
-        state.selectedProject = defaultSelectedProject;
+        state.selectedProject = DEFAULT_PROJECT;
     }
 
     async function getOwnedProjects(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
@@ -175,7 +176,10 @@ export const useProjectsStore = defineStore('projects', () => {
         );
         await api.update(state.selectedProject.id, project, limit);
 
-        state.currentLimits.storageLimit = limitsToUpdate.storageLimit;
+        state.currentLimits = readonly({
+            ...state.currentLimits,
+            storageLimit: limitsToUpdate.storageLimit,
+        });
     }
 
     async function updateProjectBandwidthLimit(limitsToUpdate: ProjectLimits): Promise<void> {
@@ -192,7 +196,10 @@ export const useProjectsStore = defineStore('projects', () => {
         );
         await api.update(state.selectedProject.id, project, limit);
 
-        state.currentLimits.bandwidthLimit = limitsToUpdate.bandwidthLimit;
+        state.currentLimits = readonly({
+            ...state.currentLimits,
+            bandwidthLimit: limitsToUpdate.bandwidthLimit,
+        });
     }
 
     async function getProjectLimits(projectID: string): Promise<void> {
@@ -225,8 +232,8 @@ export const useProjectsStore = defineStore('projects', () => {
 
     function clear(): void {
         state.projects = [];
-        state.selectedProject = defaultSelectedProject;
-        state.currentLimits = new ProjectLimits();
+        state.selectedProject = DEFAULT_PROJECT;
+        state.currentLimits = DEFAULT_PROJECT_LIMITS;
         state.totalLimits = new ProjectLimits();
         state.storageChartData = [];
         state.allocatedBandwidthChartData = [];
@@ -234,7 +241,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state.chartDataSince = new Date();
         state.chartDataBefore = new Date();
         state.invitations = [];
-        state.selectedInvitation = defaultSelectedInvitation;
+        state.selectedInvitation = DEFAULT_INVITATION;
     }
 
     function projectsCount(userID: string): number {

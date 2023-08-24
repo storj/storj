@@ -8,9 +8,9 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { RouteConfig } from '@/types/router';
+
 import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
-
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessGrantFlow from '@/components/accessGrants/createFlow/CreateAccessGrantFlow.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
@@ -48,7 +48,7 @@ import NewSettingsArea from '@/components/account/NewSettingsArea.vue';
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
-const DashboardArea = () => import('@/views/DashboardArea.vue');
+const DashboardArea = () => import('@/views/dashboard/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
 const RegisterArea = () => import('@/views/registration/RegisterArea.vue');
