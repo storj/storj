@@ -121,9 +121,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     @font-face {
@@ -133,9 +131,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     @font-face {
@@ -145,9 +141,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     a {

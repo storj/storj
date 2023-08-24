@@ -13,7 +13,6 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import router from '../router';
 
-import { loadFonts } from './webfontloader';
 import vuetify from './vuetify';
 
 import NotificatorPlugin from '@/utils/plugins/notificator';
@@ -22,7 +21,6 @@ const pinia = createPinia();
 setActivePinia(pinia);
 
 export function registerPlugins(app: App<Element>) {
-    loadFonts();
     app
         .use(vuetify)
         .use(router)
