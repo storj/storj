@@ -5,6 +5,7 @@ package apigen
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 	"strings"
 
@@ -13,9 +14,18 @@ import (
 
 // API represents specific API's configuration.
 type API struct {
-	Version        string
-	Description    string
-	PackageName    string
+	// Version is the corresponding version of the API.
+	// It's concatenated to the BasePath, so assuming the base path is "/api" and the version is "v1"
+	// the API paths will begin with `/api/v1`.
+	// When empty, the version doesn't appear in the API paths. If it starts or ends with one or more
+	// "/", they are stripped from the API endpoint paths.
+	Version     string
+	Description string
+	// The package name to use for the Go generated code.
+	PackageName string
+	// BasePath is the  base path for the API endpoints. E.g. "/api".
+	// It doesn't require to begin with "/". When empty, "/" is used.
+	BasePath       string
 	Auth           api.Auth
 	EndpointGroups []*EndpointGroup
 }
@@ -30,6 +40,14 @@ func (a *API) Group(name, prefix string) *EndpointGroup {
 	a.EndpointGroups = append(a.EndpointGroups, group)
 
 	return group
+}
+
+func (a *API) endpointBasePath() string {
+	if strings.HasPrefix(a.BasePath, "/") {
+		return path.Join(a.BasePath, a.Version)
+	}
+
+	return "/" + path.Join(a.BasePath, a.Version)
 }
 
 // StringBuilder is an extension of strings.Builder that allows for writing formatted lines.

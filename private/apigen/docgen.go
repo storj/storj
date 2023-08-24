@@ -58,7 +58,7 @@ func (api *API) generateDocumentation() string {
 		for _, endpoint := range group.endpoints {
 			wf("<h3 id='%s'>%s (<a href='#list-of-endpoints'>go to full list</a>)</h3>\n\n", getEndpointLink(group.Name, endpoint.Name), endpoint.Name)
 			wf("%s\n\n", endpoint.Description)
-			wf("`%s /%s%s`\n\n", endpoint.Method, group.Prefix, endpoint.Path)
+			wf("`%s %s/%s%s`\n\n", endpoint.Method, api.endpointBasePath(), group.Prefix, endpoint.Path)
 
 			if len(endpoint.QueryParams) > 0 {
 				wf("**Query Params:**\n\n")
@@ -140,7 +140,6 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 		elemType := t.Elem()
 		if elemType.Kind() == reflect.Uint8 { // treat []byte as string in docs
 			return prefix + "string"
-
 		}
 		return fmt.Sprintf("%s[\n%s\n%s]\n", prefix, getTypeNameRecursively(elemType, level+1), prefix)
 	case reflect.Struct:

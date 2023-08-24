@@ -4,15 +4,16 @@
 
 **Version:** `v0`
 
-**List of endpoints:**
+<h2 id='list-of-endpoints'>List of Endpoints</h2>
+
 * TestAPI
-  * [](#e-31104e2390954bdc113e2444e69a0667)
+  * [](#testapi-)
 
-<h2 id='e-31104e2390954bdc113e2444e69a0667'></h2>
+<h3 id='testapi-'> (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 
 
-`POST /testapi/{path}`
+`POST /api/v0/testapi/{path}`
 
 **Query Params:**
 

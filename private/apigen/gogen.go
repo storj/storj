@@ -101,7 +101,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 	for _, group := range a.EndpointGroups {
 		i("github.com/zeebo/errs")
-		pf("var Err%sAPI = errs.Class(\"%s %s api\")", cases.Title(language.Und).String(group.Prefix), a.PackageName, group.Prefix)
+		pf(
+			"var Err%sAPI = errs.Class(\"%s %s api\")",
+			cases.Title(language.Und).String(group.Prefix),
+			a.PackageName,
+			group.Prefix,
+		)
 	}
 
 	pf("")
@@ -168,10 +173,16 @@ func (a *API) generateGo() ([]byte, error) {
 		pf("auth: auth,")
 		pf("}")
 		pf("")
-		pf("%sRouter := router.PathPrefix(\"/api/v0/%s\").Subrouter()", group.Prefix, group.Prefix)
+		pf("%sRouter := router.PathPrefix(\"%s/%s\").Subrouter()", group.Prefix, a.endpointBasePath(), group.Prefix)
 		for _, endpoint := range group.endpoints {
 			handlerName := "handle" + endpoint.MethodName
-			pf("%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")", group.Prefix, endpoint.Path, handlerName, endpoint.Method)
+			pf(
+				"%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")",
+				group.Prefix,
+				endpoint.Path,
+				handlerName,
+				endpoint.Method,
+			)
 		}
 		pf("")
 		pf("return handler")
@@ -243,7 +254,11 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("")
 			pf("err = json.NewEncoder(w).Encode(retVal)")
 			pf("if err != nil {")
-			pf("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, cases.Title(language.Und).String(group.Prefix))
+			pf(
+				"h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))",
+				endpoint.MethodName,
+				cases.Title(language.Und).String(group.Prefix),
+			)
 			pf("}")
 			pf("}")
 		}

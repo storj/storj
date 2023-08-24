@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	a := &apigen.API{PackageName: "example", Version: "v0"}
+	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
 
 	g := a.Group("TestAPI", "testapi")
 
