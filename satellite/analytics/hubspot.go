@@ -33,10 +33,8 @@ const (
 	professionalFormID = "cc693502-9d55-4204-ae61-406a19148cfe"
 	// This form(ID) is the personal account form.
 	basicFormID = "77cfa709-f533-44b8-bf3a-ed1278ca3202"
-	// The hubspot lifecycle stage of business accounts (Product Qualified Lead).
-	businessLifecycleStage = "66198674"
-	// The hubspot lifecycle stage of personal accounts.
-	personalLifecycleStage = "other"
+	// The hubspot lifecycle stage of all new accounts (Product Qualified Lead).
+	lifecycleStage = "66198674"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
@@ -148,6 +146,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		newField("account_created", "true"),
 		newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
 		newField("signup_partner", fields.UserAgent),
+		newField("lifecyclestage", lifecycleStage),
 	}
 
 	properties := map[string]interface{}{
@@ -164,7 +163,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	var formURL string
 
 	if fields.Type == Professional {
-		formFields = append(formFields, newField("lifecyclestage", businessLifecycleStage))
 		formFields = append(formFields, newField("company", fields.CompanyName))
 		formFields = append(formFields, newField("storage_needs", fields.StorageNeeds))
 
@@ -172,8 +170,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 
 		formURL = fmt.Sprintf(hubspotFormTemplate, professionalFormID)
 	} else {
-		formFields = append(formFields, newField("lifecyclestage", personalLifecycleStage))
-
 		formURL = fmt.Sprintf(hubspotFormTemplate, basicFormID)
 	}
 
