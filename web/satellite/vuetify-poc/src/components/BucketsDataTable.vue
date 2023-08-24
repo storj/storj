@@ -77,6 +77,15 @@
                         />
                     </template>
                     <v-list class="pa-0">
+                        <v-list-item link @click="() => showBucketDetailsModal(item.raw.name)">
+                            <template #prepend>
+                                <icon-details size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                View Bucket Details
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-divider />
                         <v-list-item link @click="() => showShareBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-share size="18" />
@@ -102,6 +111,7 @@
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
+    <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
 </template>
 
 <script setup lang="ts">
@@ -123,9 +133,11 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconShare from '@poc/components/icons/IconShare.vue';
+import IconDetails from '@poc/components/icons/IconDetails.vue';
 import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
+import BucketDetailsDialog from '@poc/components/dialogs/BucketDetailsDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -139,11 +151,13 @@ const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const selected = ref([]);
 
+const bucketDetailsName = ref<string>('');
 const shareBucketName = ref<string>('');
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const bucketToDelete = ref<string>('');
 const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
+const isBucketDetailsDialogShown = ref<boolean>(false);
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -247,6 +261,14 @@ async function openBucket(bucketName: string): Promise<void> {
     }
     passphraseDialogCallback = () => openBucket(selectedBucketName.value);
     isBucketPassphraseDialogOpen.value = true;
+}
+
+/**
+ * Displays the Bucket Details dialog.
+ */
+function showBucketDetailsModal(bucketName: string): void {
+    bucketDetailsName.value = bucketName;
+    isBucketDetailsDialogShown.value = true;
 }
 
 /**
