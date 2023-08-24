@@ -14,19 +14,21 @@ import (
 )
 
 func main() {
-	a := &apigen.API{PackageName: "example"}
+	a := &apigen.API{PackageName: "example", Version: "v0"}
 
 	g := a.Group("TestAPI", "testapi")
 
 	g.Post("/{path}", &apigen.Endpoint{
 		MethodName: "GenTestAPI",
 		Response: struct {
-			ID        uuid.UUID
-			Date      time.Time
-			PathParam string
-			Body      string
+			ID        uuid.UUID `json:"id"`
+			Date      time.Time `json:"date"`
+			PathParam string    `json:"pathParam"`
+			Body      string    `json:"body"`
 		}{},
-		Request: struct{ Content string }{},
+		Request: struct {
+			Content string `json:"content"`
+		}{},
 		QueryParams: []apigen.Param{
 			apigen.NewParam("id", uuid.UUID{}),
 			apigen.NewParam("date", time.Time{}),
@@ -37,4 +39,6 @@ func main() {
 	})
 
 	a.MustWriteGo("api.gen.go")
+	a.MustWriteTS("client-api.gen.ts")
+	a.MustWriteDocs("apidocs.gen.md")
 }

@@ -31,10 +31,10 @@ type (
 	auth     struct{}
 	service  struct{}
 	response = struct {
-		ID        uuid.UUID
-		Date      time.Time
-		PathParam string
-		Body      string
+		ID        uuid.UUID `json:"id"`
+		Date      time.Time `json:"date"`
+		PathParam string    `json:"pathParam"`
+		Body      string    `json:"body"`
 	}
 )
 
@@ -44,7 +44,15 @@ func (a auth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth
 
 func (a auth) RemoveAuthCookie(w http.ResponseWriter) {}
 
-func (s service) GenTestAPI(ctx context.Context, pathParam string, id uuid.UUID, date time.Time, body struct{ Content string }) (*response, api.HTTPError) {
+func (s service) GenTestAPI(
+	ctx context.Context,
+	pathParam string,
+	id uuid.UUID,
+	date time.Time,
+	body struct {
+		Content string `json:"content"`
+	},
+) (*response, api.HTTPError) {
 	return &response{
 		ID:        id,
 		Date:      date,
@@ -118,10 +126,11 @@ func TestAPIServer(t *testing.T) {
 	var actual map[string]string
 	require.NoError(t, json.Unmarshal(resp, &actual))
 
-	for _, key := range []string{"ID", "Date", "PathParam", "Body"} {
+	for _, key := range []string{"id", "date", "pathParam", "body"} {
 		require.Contains(t, actual, key)
 	}
-	require.Equal(t, expected.ID.String(), actual["ID"])
-	require.Equal(t, expected.Date.Format(apigen.DateFormat), actual["Date"])
-	require.Equal(t, expected.Body, actual["Body"])
+	require.Equal(t, expected.ID.String(), actual["id"])
+	require.Equal(t, expected.Date.Format(apigen.DateFormat), actual["date"])
+	require.Equal(t, expected.PathParam, actual["pathParam"])
+	require.Equal(t, expected.Body, actual["body"])
 }
