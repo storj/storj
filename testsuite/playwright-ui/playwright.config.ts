@@ -22,23 +22,24 @@ enum Reporter {
     List = 'list',
     CI = 'github'
 }
- /**
-     * Customize reporters.
-     * By default, we want to have a standard list reporting and a pretty HTML output.
-     * In CI pipelines, we want to have an annotated report visible on the GitHub Actions page.
-     */
- const addReporter = (): ReporterDescription[] => {
-        const defaultReporter: ReporterDescription[] = [
-            [Reporter.List],
-            [Reporter.HTML],
-        ];
+/**
+  * Customize reporters.
+  * By default, we want to have a standard list reporting and a pretty HTML output.
+  * In CI pipelines, we want to have an annotated report visible on the GitHub Actions page.
+*/
+const addReporter = (): ReporterDescription[] => {
+    const defaultReporter: ReporterDescription[] = [
+        [Reporter.List],
+        [Reporter.HTML],
+    ];
 
-        if (isPipeline) {
-            return defaultReporter.concat([[Reporter.CI]]);
-        }
-
-        return defaultReporter;
+    if (isPipeline) {
+        return defaultReporter.concat([[Reporter.CI]]);
     }
+
+    return defaultReporter;
+}
+
 const isPipeline = !!process.env.CI;
 const threshold = 0.95;
 
@@ -97,18 +98,16 @@ const config: PlaywrightTestConfig = {
         ],                    /* Retry on CI only */
 
         retries: process.env.CI ? 1 : 0,                    /* Opt out of parallel tests on CI. */
-
         testDir: './tests',
-
         timeout: 10 * 1000,
-
         use: {                                              /* Shared settings for all the projects below. */
             actionTimeout: 0,                                 /* Maximum time each action can take. */
             baseURL: 'http://127.0.0.1:10000',
             ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
             trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
             launchOptions: {
-                slowMo: process.env.CI ? 0 : 0,
+            slowMo: process.env.CI ? 0 : 0,
+            headless: true,
             },
         },
         /* Folder for test artifacts such as screenshots, videos, traces, etc. */
