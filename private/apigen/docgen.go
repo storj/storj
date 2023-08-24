@@ -4,11 +4,10 @@
 package apigen
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -39,10 +38,13 @@ func (api *API) generateDocumentation() string {
 	wf("**Description:** %s\n\n", api.Description)
 	wf("**Version:** `%s`\n\n", api.Version)
 
-	wf("**List of endpoints:**\n")
+	wf("<h2 id='list-of-endpoints'>List of Endpoints</h2>\n\n")
 	getEndpointLink := func(group, endpoint string) string {
-		hash := md5.Sum([]byte(group + endpoint))
-		return "e-" + hex.EncodeToString(hash[:])
+		fullName := group + "-" + endpoint
+		fullName = strings.ReplaceAll(fullName, " ", "-")
+		var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
+		fullName = nonAlphanumericRegex.ReplaceAllString(fullName, "")
+		return strings.ToLower(fullName)
 	}
 	for _, group := range api.EndpointGroups {
 		wf("* %s\n", group.Name)
@@ -54,7 +56,7 @@ func (api *API) generateDocumentation() string {
 
 	for _, group := range api.EndpointGroups {
 		for _, endpoint := range group.endpoints {
-			wf("<h2 id='%s'>%s</h2>\n\n", getEndpointLink(group.Name, endpoint.Name), endpoint.Name)
+			wf("<h3 id='%s'>%s (<a href='#list-of-endpoints'>go to full list</a>)</h3>\n\n", getEndpointLink(group.Name, endpoint.Name), endpoint.Name)
 			wf("%s\n\n", endpoint.Description)
 			wf("`%s /%s%s`\n\n", endpoint.Method, group.Prefix, endpoint.Path)
 

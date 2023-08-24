@@ -4,22 +4,23 @@
 
 **Version:** `v0`
 
-**List of endpoints:**
-* ProjectManagement
-  * [Create new Project](#e-530e988a949a9982f67b860e2581db77)
-  * [Update Project](#e-4c85eac5d7ee95019c2749891fb6b6fb)
-  * [Delete Project](#e-e490e9360a328ecb5ec9eaf60d410904)
-  * [Get Projects](#e-e920a99c4ea7ec5ef4a43c6d2408a118)
-  * [Get Project's Single Bucket Usage](#e-ca2c2de1415034f3a51eeb756b8fce9f)
-  * [Get Project's All Buckets Usage](#e-bed3c2be3abb8400f944adf3a8f2624c)
-  * [Get Project's API Keys](#e-954acbeb1e1a1fff8d97908ef9232ddc)
-* APIKeyManagement
-  * [Create new macaroon API key](#e-fa1da2b3de26abd107d6aecf6eb39aee)
-  * [Delete API Key](#e-bf858e3fbef055f83e996a7f6889eac5)
-* UserManagement
-  * [Get User](#e-490618f71b154e91e7e446ae28c2d004)
+<h2 id='list-of-endpoints'>List of Endpoints</h2>
 
-<h2 id='e-530e988a949a9982f67b860e2581db77'>Create new Project</h2>
+* ProjectManagement
+  * [Create new Project](#projectmanagement-create-new-project)
+  * [Update Project](#projectmanagement-update-project)
+  * [Delete Project](#projectmanagement-delete-project)
+  * [Get Projects](#projectmanagement-get-projects)
+  * [Get Project's Single Bucket Usage](#projectmanagement-get-projects-single-bucket-usage)
+  * [Get Project's All Buckets Usage](#projectmanagement-get-projects-all-buckets-usage)
+  * [Get Project's API Keys](#projectmanagement-get-projects-api-keys)
+* APIKeyManagement
+  * [Create new macaroon API key](#apikeymanagement-create-new-macaroon-api-key)
+  * [Delete API Key](#apikeymanagement-delete-api-key)
+* UserManagement
+  * [Get User](#usermanagement-get-user)
+
+<h3 id='projectmanagement-create-new-project'>Create new Project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Creates new Project with given info
 
@@ -44,7 +45,7 @@ Creates new Project with given info
 unknown
 ```
 
-<h2 id='e-4c85eac5d7ee95019c2749891fb6b6fb'>Update Project</h2>
+<h3 id='projectmanagement-update-project'>Update Project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Updates project with given info
 
@@ -94,7 +95,7 @@ Updates project with given info
 
 ```
 
-<h2 id='e-e490e9360a328ecb5ec9eaf60d410904'>Delete Project</h2>
+<h3 id='projectmanagement-delete-project'>Delete Project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Deletes project by id
 
@@ -106,7 +107,7 @@ Deletes project by id
 |---|---|---|
 | `id` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
-<h2 id='e-e920a99c4ea7ec5ef4a43c6d2408a118'>Get Projects</h2>
+<h3 id='projectmanagement-get-projects'>Get Projects (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets all projects user has
 
@@ -140,7 +141,7 @@ Gets all projects user has
 
 ```
 
-<h2 id='e-ca2c2de1415034f3a51eeb756b8fce9f'>Get Project's Single Bucket Usage</h2>
+<h3 id='projectmanagement-get-projects-single-bucket-usage'>Get Project's Single Bucket Usage (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets project's single bucket usage by bucket ID
 
@@ -174,7 +175,7 @@ Gets project's single bucket usage by bucket ID
 
 ```
 
-<h2 id='e-bed3c2be3abb8400f944adf3a8f2624c'>Get Project's All Buckets Usage</h2>
+<h3 id='projectmanagement-get-projects-all-buckets-usage'>Get Project's All Buckets Usage (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets project's all buckets usage
 
@@ -210,7 +211,7 @@ Gets project's all buckets usage
 
 ```
 
-<h2 id='e-954acbeb1e1a1fff8d97908ef9232ddc'>Get Project's API Keys</h2>
+<h3 id='projectmanagement-get-projects-api-keys'>Get Project's API Keys (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets API keys by project ID
 
@@ -260,7 +261,7 @@ Gets API keys by project ID
 
 ```
 
-<h2 id='e-fa1da2b3de26abd107d6aecf6eb39aee'>Create new macaroon API key</h2>
+<h3 id='apikeymanagement-create-new-macaroon-api-key'>Create new macaroon API key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Creates new macaroon API key with given info
 
@@ -286,7 +287,7 @@ Creates new macaroon API key with given info
 
 ```
 
-<h2 id='e-bf858e3fbef055f83e996a7f6889eac5'>Delete API Key</h2>
+<h3 id='apikeymanagement-delete-api-key'>Delete API Key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Deletes macaroon API key by id
 
@@ -298,7 +299,7 @@ Deletes macaroon API key by id
 |---|---|---|
 | `id` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
-<h2 id='e-490618f71b154e91e7e446ae28c2d004'>Get User</h2>
+<h3 id='usermanagement-get-user'>Get User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets User by request context
 
