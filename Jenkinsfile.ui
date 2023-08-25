@@ -148,7 +148,7 @@ pipeline {
             '''
 
                 dir("testsuite/playwright-ui") {
-                    sh 'storj-sim network test --no-gateways -- npm run test-debug'
+                    sh 'storj-sim network test --no-gateways -- npm run test'
                 }
             }
             post {
