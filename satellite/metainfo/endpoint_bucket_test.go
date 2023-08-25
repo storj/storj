@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
@@ -21,7 +22,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 )
@@ -295,5 +299,64 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, storj.EU, placement)
 
+	})
+}
+
+func TestGetBucketLocation(t *testing.T) {
+	placementRules := overlay.NewPlacementRules()
+	err := placementRules.AddPlacementFromString(fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
+		nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = *placementRules
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		satellite := planet.Satellites[0]
+
+		// not existing bucket
+		_, err := satellite.API.Metainfo.Endpoint.GetBucketLocation(ctx, &pb.GetBucketLocationRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: []byte("test-bucket"),
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+
+		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		// bucket without location
+		response, err := satellite.API.Metainfo.Endpoint.GetBucketLocation(ctx, &pb.GetBucketLocationRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: []byte("test-bucket"),
+		})
+		require.NoError(t, err)
+		require.Empty(t, response.Location)
+
+		_, err = satellite.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Name:      "test-bucket",
+			Placement: storj.PlacementConstraint(40),
+		})
+		require.NoError(t, err)
+
+		// bucket with location
+		response, err = satellite.API.Metainfo.Endpoint.GetBucketLocation(ctx, &pb.GetBucketLocationRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: []byte("test-bucket"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte("Poland"), response.Location)
 	})
 }
