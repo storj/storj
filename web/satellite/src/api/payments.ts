@@ -15,7 +15,7 @@ import {
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
-    PaymentWithConfirmations,
+    PaymentWithConfirmations, PaymentHistoryParam, PaymentHistoryPage,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -215,8 +215,13 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @returns list of payments history items
      * @throws Error
      */
-    public async paymentsHistory(): Promise<PaymentsHistoryItem[]> {
-        const path = `${this.ROOT_PATH}/billing-history`;
+    public async paymentsHistory(param: PaymentHistoryParam): Promise<PaymentHistoryPage> {
+        let path = `${this.ROOT_PATH}/invoice-history?limit=${param.limit}`;
+        if (param.startingAfter) {
+            path = `${path}&starting_after=${param.startingAfter}`;
+        } else if (param.endingBefore) {
+            path = `${path}&ending_before=${param.endingBefore}`;
+        }
         const response = await this.client.get(path);
 
         if (!response.ok) {
@@ -227,9 +232,10 @@ export class PaymentsHttpApi implements PaymentsApi {
             });
         }
 
-        const paymentsHistoryItems = await response.json();
-        if (paymentsHistoryItems) {
-            return paymentsHistoryItems.map(item =>
+        const pageJson = await response.json();
+        let items: PaymentsHistoryItem[] = [];
+        if (pageJson.items) {
+            items = pageJson.items.map(item =>
                 new PaymentsHistoryItem(
                     item.id,
                     item.description,
@@ -245,7 +251,11 @@ export class PaymentsHttpApi implements PaymentsApi {
             );
         }
 
-        return [];
+        return new PaymentHistoryPage(
+            items,
+            pageJson.next,
+            pageJson.previous,
+        );
     }
 
     /**

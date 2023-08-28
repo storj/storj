@@ -6,12 +6,11 @@ import {
     Coupon,
     CreditCard,
     PaymentsApi,
-    PaymentsHistoryItem,
     ProjectUsagePriceModel,
     TokenDeposit,
     NativePaymentHistoryItem,
     Wallet,
-    ProjectCharges,
+    ProjectCharges, PaymentHistoryParam, PaymentHistoryPage,
 } from '@/types/payments';
 
 /**
@@ -56,8 +55,8 @@ export class PaymentsMock implements PaymentsApi {
         throw new Error('Method not implemented');
     }
 
-    paymentsHistory(): Promise<PaymentsHistoryItem[]> {
-        return Promise.resolve([]);
+    paymentsHistory(param: PaymentHistoryParam): Promise<PaymentHistoryPage> {
+        return Promise.resolve(new PaymentHistoryPage([]));
     }
 
     nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {

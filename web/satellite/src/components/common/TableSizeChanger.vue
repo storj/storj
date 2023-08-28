@@ -40,6 +40,7 @@ const appStore = useAppStore();
 const props = defineProps<{
   selected: number | null;
   itemCount: number;
+  simplePagination?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -53,7 +54,7 @@ const options = computed((): {label:string, value:number}[] => {
         { label: '50', value: 50 },
         { label: '100', value: 100 },
     ];
-    if (props.itemCount < 1000) {
+    if (props.itemCount < 1000 && !props.simplePagination) {
         return [{ label: 'All', value: props.itemCount }, ...opts];
     }
     return opts;

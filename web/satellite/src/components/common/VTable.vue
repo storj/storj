@@ -19,11 +19,15 @@
         <div class="table-footer">
             <table-pagination
                 class="table-footer__pagination"
+                :simple-pagination="simplePagination"
                 :total-page-count="totalPageCount"
                 :total-items-count="totalItemsCount"
                 :items-label="itemsLabel"
                 :limit="limit"
+                :on-page-size-changed="onPageSizeChanged"
                 :on-page-change="onPageChange"
+                :on-next-clicked="onNextClicked"
+                :on-previous-clicked="onPreviousClicked"
             />
         </div>
     </div>
@@ -40,19 +44,27 @@ const props = withDefaults(defineProps<{
     limit?: number,
     totalItemsCount?: number,
     onPageChange?: PageChangeCallback | null;
+    onNextClicked?: (() => Promise<void>) | null;
+    onPreviousClicked?: (() => Promise<void>) | null;
+    onPageSizeChanged?: ((size: number) => Promise<void>) | null;
     totalPageCount?: number,
     selectable?: boolean,
     selected?: boolean,
     showSelect?: boolean,
+    simplePagination?: boolean,
 }>(), {
     selectable: false,
     selected: false,
     showSelect: false,
+    simplePagination: false,
     totalPageCount: 0,
     itemsLabel: 'items',
     limit: 0,
     totalItemsCount: 0,
     onPageChange: null,
+    onNextClicked: null,
+    onPreviousClicked: null,
+    onPageSizeChanged: null,
 });
 
 const emit = defineEmits(['selectAllClicked']);

@@ -5,6 +5,15 @@ import { formatPrice, decimalShift } from '@/utils/strings';
 import { JSONRepresentable } from '@/types/json';
 
 /**
+ * Page parameters for listing payments history.
+ */
+export interface PaymentHistoryParam {
+    limit: number;
+    startingAfter: string;
+    endingBefore: string;
+}
+
+/**
  * Exposes all payments-related functionality
  */
 export interface PaymentsApi {
@@ -68,7 +77,7 @@ export interface PaymentsApi {
      * @returns list of payments history items
      * @throws Error
      */
-    paymentsHistory(): Promise<PaymentsHistoryItem[]>;
+    paymentsHistory(param: PaymentHistoryParam): Promise<PaymentHistoryPage>;
 
     /**
      * Returns a list of invoices, transactions and all others payments history items for payment account.
@@ -184,6 +193,18 @@ export class PaymentAmountOption {
         public value: number,
         public label: string = '',
     ) { }
+}
+
+/**
+ * PaymentHistoryPage holds a paged list of PaymentsHistoryItem.
+ */
+export class PaymentHistoryPage {
+    public constructor(
+        public readonly items: PaymentsHistoryItem[],
+        public readonly hasNext = false,
+        public readonly hasPrevious = false,
+    ) {
+    }
 }
 
 /**

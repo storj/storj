@@ -6,7 +6,26 @@
         <span v-if="totalItemsCount > 0" class="pagination-container__label">{{ totalItemsCount }} {{ itemsLabel }}</span>
         <span v-else class="pagination-container__label">No {{ itemsLabel }}</span>
 
-        <div v-if="totalPageCount > 1" class="pagination-container__pages">
+        <div v-if="simplePagination" class="pagination-container__pages">
+            <span
+                tabindex="0"
+                class="pagination-container__pages__button"
+                @click="prevPage"
+                @keyup.enter="prevPage"
+            >
+                <PaginationRightIcon class="pagination-container__pages__button__image reversed" />
+            </span>
+
+            <span
+                tabindex="0"
+                class="pagination-container__pages__button"
+                @click="nextPage"
+                @keyup.enter="nextPage"
+            >
+                <PaginationRightIcon class="pagination-container__pages__button__image" />
+            </span>
+        </div>
+        <div v-else-if="totalPageCount > 1" class="pagination-container__pages">
             <template v-for="page of pageItems">
                 <span
                     v-if="page.type === 'prev'"
@@ -58,7 +77,8 @@
         <div v-else class="pagination-container__pages-placeholder" />
 
         <table-size-changer
-            v-if="limit && totalPageCount && totalItemsCount > 10"
+            v-if="(limit && totalPageCount && totalItemsCount > 10) || simplePagination"
+            simple-pagination
             :item-count="totalItemsCount"
             :selected="pageSize"
             @change="sizeChanged"
@@ -89,13 +109,21 @@ const props = withDefaults(defineProps<{
   totalPageCount?: number;
   limit?: number;
   totalItemsCount?: number;
+  simplePagination?: boolean;
   onPageChange?: PageChangeCallback | null;
+  onNextClicked?: (() => Promise<void>) | null;
+  onPreviousClicked?: (() => Promise<void>) | null;
+  onPageSizeChanged?: ((size: number) => Promise<void>) | null;
 }>(), {
     itemsLabel: 'items',
     totalPageCount: 0,
     limit: 0,
     totalItemsCount: 0,
+    simplePagination: false,
     onPageChange: null,
+    onNextClicked: null,
+    onPreviousClicked: null,
+    onPageSizeChanged: null,
 });
 
 const currentPageNumber = ref<number>(1);
@@ -160,11 +188,18 @@ const isLastPage = computed((): boolean => {
 });
 
 function sizeChanged(size: number) {
-    // if the new size is large enough to cause the page index to  be out of range
-    // we calculate an appropriate new page index.
-    const maxPage = Math.ceil(Math.ceil(props.totalItemsCount / size));
-    const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
     withLoading(async () => {
+        if (props.simplePagination) {
+            if (!props.onPageSizeChanged) {
+                return;
+            }
+            await props.onPageSizeChanged(size);
+            pageSize.value = size;
+        }
+        // if the new size is large enough to cause the page index to  be out of range
+        // we calculate an appropriate new page index.
+        const maxPage = Math.ceil(Math.ceil(props.totalItemsCount / size));
+        const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
         if (!props.onPageChange) {
             return;
         }
@@ -197,6 +232,10 @@ async function goToPage(index: number) {
  */
 async function nextPage(): Promise<void> {
     await withLoading(async () => {
+        if (props.simplePagination && props.onNextClicked) {
+            await props.onNextClicked();
+            return;
+        }
         if (isLastPage.value || !props.onPageChange) {
             return;
         }
@@ -210,6 +249,10 @@ async function nextPage(): Promise<void> {
  */
 async function prevPage(): Promise<void> {
     await withLoading(async () => {
+        if (props.simplePagination && props.onPreviousClicked) {
+            await props.onPreviousClicked();
+            return;
+        }
         if (isFirstPage.value || !props.onPageChange) {
             return;
         }

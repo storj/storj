@@ -10,10 +10,9 @@ import {
     CreditCard,
     DateRange,
     NativePaymentHistoryItem,
+    PaymentHistoryPage,
+    PaymentHistoryParam,
     PaymentsApi,
-    PaymentsHistoryItem,
-    PaymentsHistoryItemStatus,
-    PaymentsHistoryItemType,
     PaymentStatus,
     PaymentWithConfirmations,
     ProjectCharges,
@@ -25,7 +24,7 @@ import { PaymentsHttpApi } from '@/api/payments';
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
-    public paymentsHistory: PaymentsHistoryItem[] = [];
+    public paymentsHistory: PaymentHistoryPage = new PaymentHistoryPage([]);
     public pendingPaymentsWithConfirmations: PaymentWithConfirmations[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public projectCharges: ProjectCharges = new ProjectCharges();
@@ -121,8 +120,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.creditCards = state.creditCards.filter(card => card.id !== cardId);
     }
 
-    async function getPaymentsHistory(): Promise<void> {
-        state.paymentsHistory = await api.paymentsHistory();
+    async function getPaymentsHistory(params: PaymentHistoryParam): Promise<void> {
+        state.paymentsHistory = await api.paymentsHistory(params);
     }
 
     async function getNativePaymentsHistory(): Promise<void> {
@@ -191,7 +190,7 @@ export const useBillingStore = defineStore('billing', () => {
     function clear(): void {
         state.balance = new AccountBalance();
         state.creditCards = [];
-        state.paymentsHistory = [];
+        state.paymentsHistory = new PaymentHistoryPage([]);
         state.nativePaymentsHistory = [];
         state.projectCharges = new ProjectCharges();
         state.usagePriceModel = new ProjectUsagePriceModel();
@@ -206,18 +205,6 @@ export const useBillingStore = defineStore('billing', () => {
         return state.balance.sum > 0 || state.creditCards.length > 0;
     });
 
-    const isTransactionProcessing = computed((): boolean => {
-        return state.balance.sum === 0 &&
-            state.paymentsHistory.some((item: PaymentsHistoryItem) => {
-                return item.amount >= 50 && item.type === PaymentsHistoryItemType.Transaction &&
-                    (
-                        item.status === PaymentsHistoryItemStatus.Pending ||
-                        item.status === PaymentsHistoryItemStatus.Paid ||
-                        item.status === PaymentsHistoryItemStatus.Completed
-                    );
-            });
-    });
-
     const isBalancePositive = computed((): boolean => {
         return state.balance.sum > 0;
     });
@@ -225,7 +212,6 @@ export const useBillingStore = defineStore('billing', () => {
     return {
         state,
         canUserCreateFirstProject,
-        isTransactionProcessing,
         isBalancePositive,
         getBalance,
         getWallet,
