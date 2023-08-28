@@ -6,14 +6,14 @@
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>
 
-* TestAPI
-  * [](#testapi-)
+* Documents
+  * [Update Content](#documents-update-content)
 
-<h3 id='testapi-'> (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='documents-update-content'>Update Content (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 
 
-`POST /api/v0/testapi/{path}`
+`POST /api/v0/docs/{path}`
 
 **Query Params:**
 

@@ -44,7 +44,7 @@ func (a auth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth
 
 func (a auth) RemoveAuthCookie(w http.ResponseWriter) {}
 
-func (s service) GenTestAPI(
+func (s service) UpdateContent(
 	ctx context.Context,
 	pathParam string,
 	id uuid.UUID,
@@ -98,7 +98,7 @@ func TestAPIServer(t *testing.T) {
 	defer ctx.Cleanup()
 
 	router := mux.NewRouter()
-	example.NewTestAPI(zaptest.NewLogger(t), monkit.Package(), service{}, router, auth{})
+	example.NewDocuments(zaptest.NewLogger(t), monkit.Package(), service{}, router, auth{})
 
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -114,7 +114,7 @@ func TestAPIServer(t *testing.T) {
 	}
 
 	resp, err := send(ctx, http.MethodPost,
-		fmt.Sprintf("%s/api/v0/testapi/%s?id=%s&date=%s",
+		fmt.Sprintf("%s/api/v0/docs/%s?id=%s&date=%s",
 			server.URL,
 			expected.PathParam,
 			url.QueryEscape(expected.ID.String()),

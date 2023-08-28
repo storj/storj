@@ -16,10 +16,11 @@ import (
 func main() {
 	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
 
-	g := a.Group("TestAPI", "testapi")
+	g := a.Group("Documents", "docs")
 
 	g.Post("/{path}", &apigen.Endpoint{
-		MethodName: "GenTestAPI",
+		Name:       "Update Content",
+		MethodName: "UpdateContent",
 		Response: struct {
 			ID        uuid.UUID `json:"id"`
 			Date      time.Time `json:"date"`

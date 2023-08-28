@@ -15,9 +15,9 @@ export class  {
     body: string;
 }
 
-export class testapiHttpApiV0 {
+export class docsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/api/v0/testapi';
+    private readonly ROOT_PATH: string = '/api/v0/docs';
 
     public async (request: , path: string, id: UUID, date: Time): Promise<> {
         const path = `${this.ROOT_PATH}/${path}?id=${id}&date=${date}`;

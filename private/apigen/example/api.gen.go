@@ -20,10 +20,10 @@ import (
 
 const dateLayout = "2006-01-02T15:04:05.999Z"
 
-var ErrTestapiAPI = errs.Class("example testapi api")
+var ErrDocsAPI = errs.Class("example docs api")
 
-type TestAPIService interface {
-	GenTestAPI(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
+type DocumentsService interface {
+	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
 		Content string "json:\"content\""
 	}) (*struct {
 		ID        uuid.UUID "json:\"id\""
@@ -33,29 +33,29 @@ type TestAPIService interface {
 	}, api.HTTPError)
 }
 
-// TestAPIHandler is an api handler that exposes all testapi related functionality.
-type TestAPIHandler struct {
+// DocumentsHandler is an api handler that exposes all docs related functionality.
+type DocumentsHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
-	service TestAPIService
+	service DocumentsService
 	auth    api.Auth
 }
 
-func NewTestAPI(log *zap.Logger, mon *monkit.Scope, service TestAPIService, router *mux.Router, auth api.Auth) *TestAPIHandler {
-	handler := &TestAPIHandler{
+func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, router *mux.Router, auth api.Auth) *DocumentsHandler {
+	handler := &DocumentsHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
 
-	testapiRouter := router.PathPrefix("/api/v0/testapi").Subrouter()
-	testapiRouter.HandleFunc("/{path}", handler.handleGenTestAPI).Methods("POST")
+	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
+	docsRouter.HandleFunc("/{path}", handler.handleUpdateContent).Methods("POST")
 
 	return handler
 }
 
-func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request) {
+func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -107,7 +107,7 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	retVal, httpErr := h.service.GenTestAPI(ctx, path, id, date, payload)
+	retVal, httpErr := h.service.UpdateContent(ctx, path, id, date, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -115,6 +115,6 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenTestAPI response", zap.Error(ErrTestapiAPI.Wrap(err)))
+		h.log.Debug("failed to write json UpdateContent response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
