@@ -58,9 +58,7 @@ const historyPage = computed((): PaymentHistoryPage => {
 });
 
 const historyItems = computed((): PaymentsHistoryItem[] => {
-    return historyPage.value.items.filter((item: PaymentsHistoryItem) => {
-        return item.status !== PaymentsHistoryItemStatus.Draft;
-    });
+    return historyPage.value.items;
 });
 
 async function fetchHistory(endingBefore = '', startingAfter = ''): Promise<void> {
@@ -81,18 +79,18 @@ async function sizeChanged(size: number) {
 }
 
 async function nextClicked(): Promise<void> {
-    const length = historyPage.value.items.length;
+    const length = historyItems.value.length;
     if (!historyPage.value.hasNext || !length) {
         return;
     }
-    await fetchHistory('', historyPage.value.items[length - 1].id);
+    await fetchHistory('', historyItems.value[length - 1].id);
 }
 
 async function previousClicked(): Promise<void> {
-    if (!historyPage.value.hasPrevious || !historyPage.value.items.length) {
+    if (!historyPage.value.hasPrevious || !historyItems.value.length) {
         return;
     }
-    await fetchHistory(historyPage.value.items[0].id, '');
+    await fetchHistory(historyItems.value[0].id, '');
 }
 
 onMounted(() => {
