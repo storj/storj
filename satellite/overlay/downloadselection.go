@@ -147,7 +147,7 @@ func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.No
 func (state *DownloadSelectionCacheState) FilteredIPs(nodes []storj.NodeID, filter nodeselection.NodeFilter) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
-		if n, exists := state.byID[nodeID]; exists && filter.MatchInclude(n) {
+		if n, exists := state.byID[nodeID]; exists && filter.Match(n) {
 			xs[nodeID] = n.LastIPPort
 		}
 	}

@@ -149,7 +149,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 
 	filter := service.placementRules(segment.Placement)
 	for id, node := range nodes {
-		if !filter.MatchInclude(node) {
+		if !filter.Match(node) {
 			delete(nodes, id)
 		}
 	}

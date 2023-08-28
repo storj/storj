@@ -522,7 +522,7 @@ func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces 
 			Tags:        tags,
 		}
 
-		if !filter.MatchInclude(node) {
+		if !filter.Match(node) {
 			return false, nil
 		}
 	}

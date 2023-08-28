@@ -23,11 +23,11 @@ func TestCriteria_ExcludeNodeID(t *testing.T) {
 
 	criteria := NodeFilters{}.WithExcludedIDs([]storj.NodeID{excluded})
 
-	assert.False(t, criteria.MatchInclude(&SelectedNode{
+	assert.False(t, criteria.Match(&SelectedNode{
 		ID: excluded,
 	}))
 
-	assert.True(t, criteria.MatchInclude(&SelectedNode{
+	assert.True(t, criteria.Match(&SelectedNode{
 		ID: included,
 	}))
 }
@@ -42,15 +42,15 @@ func TestCriteria_ExcludedNodeNetworks(t *testing.T) {
 		},
 	})
 
-	assert.False(t, criteria.MatchInclude(&SelectedNode{
+	assert.False(t, criteria.Match(&SelectedNode{
 		LastNet: "192.168.1.0",
 	}))
 
-	assert.False(t, criteria.MatchInclude(&SelectedNode{
+	assert.False(t, criteria.Match(&SelectedNode{
 		LastNet: "192.168.2.0",
 	}))
 
-	assert.True(t, criteria.MatchInclude(&SelectedNode{
+	assert.True(t, criteria.Match(&SelectedNode{
 		LastNet: "192.168.3.0",
 	}))
 }
@@ -113,7 +113,7 @@ func TestCriteria_Geofencing(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			assert.Equal(t, c.expected, c.criteria.MatchInclude(&SelectedNode{
+			assert.Equal(t, c.expected, c.criteria.Match(&SelectedNode{
 				CountryCode: c.country,
 			}))
 		})
@@ -146,7 +146,7 @@ func benchmarkFilter(b *testing.B, filters NodeFilters) {
 	c := 0
 	for j := 0; j < b.N; j++ {
 		for n := 0; n < len(nodes); n++ {
-			if filters.MatchInclude(nodes[n]) {
+			if filters.Match(nodes[n]) {
 				c++
 			}
 		}

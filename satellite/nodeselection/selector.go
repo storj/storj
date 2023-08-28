@@ -25,7 +25,7 @@ func (nodes SelectByID) Select(n int, nodeFilter NodeFilter) []*SelectedNode {
 	for _, idx := range mathrand.Perm(len(nodes)) {
 		node := nodes[idx]
 
-		if !nodeFilter.MatchInclude(node) {
+		if !nodeFilter.Match(node) {
 			continue
 		}
 
@@ -83,7 +83,7 @@ func (subnets SelectBySubnet) Select(n int, filter NodeFilter) []*SelectedNode {
 
 		rs := NewRandomOrder(len(subnet.Nodes))
 		for rs.Next() {
-			if filter.MatchInclude(subnet.Nodes[rs.At()]) {
+			if filter.Match(subnet.Nodes[rs.At()]) {
 				selected = append(selected, subnet.Nodes[rs.At()].Clone())
 				break
 			}

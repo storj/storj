@@ -109,7 +109,7 @@ func (cache *ReliabilityCache) OutOfPlacementPieces(ctx context.Context, created
 	var outOfPlacementPieces metabase.Pieces
 	nodeFilters := cache.placementRules(placement)
 	for _, p := range pieces {
-		if node, ok := state.reliableAll[p.StorageNode]; ok && !nodeFilters.MatchInclude(&node) {
+		if node, ok := state.reliableAll[p.StorageNode]; ok && !nodeFilters.Match(&node) {
 			outOfPlacementPieces = append(outOfPlacementPieces, p)
 		}
 	}

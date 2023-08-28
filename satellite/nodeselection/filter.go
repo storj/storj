@@ -12,7 +12,7 @@ import (
 
 // NodeFilter can decide if a Node should be part of the selection or not.
 type NodeFilter interface {
-	MatchInclude(node *SelectedNode) bool
+	Match(node *SelectedNode) bool
 }
 
 // NodeFilterWithAnnotation is a NodeFilter with additional annotations.
@@ -27,8 +27,8 @@ type Annotation struct {
 	Value string
 }
 
-// MatchInclude implements NodeFilter.
-func (a Annotation) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter.
+func (a Annotation) Match(node *SelectedNode) bool {
 	return true
 }
 
@@ -61,9 +61,9 @@ func (a AnnotatedNodeFilter) GetAnnotation(name string) string {
 	return ""
 }
 
-// MatchInclude implements NodeFilter.
-func (a AnnotatedNodeFilter) MatchInclude(node *SelectedNode) bool {
-	return a.Filter.MatchInclude(node)
+// Match implements NodeFilter.
+func (a AnnotatedNodeFilter) Match(node *SelectedNode) bool {
+	return a.Filter.Match(node)
 }
 
 // WithAnnotation adds annotations to a NodeFilter.
@@ -95,21 +95,21 @@ type NodeFilters []NodeFilter
 // NodeFilterFunc is helper to use func as NodeFilter.
 type NodeFilterFunc func(node *SelectedNode) bool
 
-// MatchInclude implements NodeFilter interface.
-func (n NodeFilterFunc) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (n NodeFilterFunc) Match(node *SelectedNode) bool {
 	return n(node)
 }
 
 // ExcludeAllFilter will never select any node.
 type ExcludeAllFilter struct{}
 
-// MatchInclude implements NodeFilter interface.
-func (ExcludeAllFilter) MatchInclude(node *SelectedNode) bool { return false }
+// Match implements NodeFilter interface.
+func (ExcludeAllFilter) Match(node *SelectedNode) bool { return false }
 
-// MatchInclude implements NodeFilter interface.
-func (n NodeFilters) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (n NodeFilters) Match(node *SelectedNode) bool {
 	for _, filter := range n {
-		if !filter.MatchInclude(node) {
+		if !filter.Match(node) {
 			return false
 		}
 	}
@@ -153,8 +153,8 @@ func NewCountryFilter(permit location.Set) NodeFilter {
 	}
 }
 
-// MatchInclude implements NodeFilter interface.
-func (p *CountryFilter) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
 }
 
@@ -163,8 +163,8 @@ var _ NodeFilter = &CountryFilter{}
 // ExcludedNetworks will exclude nodes with specified networks.
 type ExcludedNetworks []string
 
-// MatchInclude implements NodeFilter interface.
-func (e ExcludedNetworks) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (e ExcludedNetworks) Match(node *SelectedNode) bool {
 	for _, id := range e {
 		if id == node.LastNet {
 			return false
@@ -178,8 +178,8 @@ var _ NodeFilter = ExcludedNetworks{}
 // ExcludedNodeNetworks exclude nodes which has same net as the one of the specified.
 type ExcludedNodeNetworks []*SelectedNode
 
-// MatchInclude implements NodeFilter interface.
-func (e ExcludedNodeNetworks) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (e ExcludedNodeNetworks) Match(node *SelectedNode) bool {
 	for _, n := range e {
 		if node.LastNet == n.LastNet {
 			return false
@@ -193,8 +193,8 @@ var _ NodeFilter = ExcludedNodeNetworks{}
 // ExcludedIDs can blacklist NodeIDs.
 type ExcludedIDs []storj.NodeID
 
-// MatchInclude implements NodeFilter interface.
-func (e ExcludedIDs) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (e ExcludedIDs) Match(node *SelectedNode) bool {
 	for _, id := range e {
 		if id == node.ID {
 			return false
@@ -221,8 +221,8 @@ func NewTagFilter(id storj.NodeID, name string, value []byte) TagFilter {
 	}
 }
 
-// MatchInclude implements NodeFilter interface.
-func (t TagFilter) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (t TagFilter) Match(node *SelectedNode) bool {
 	for _, tag := range node.Tags {
 		if tag.Name == t.name && bytes.Equal(tag.Value, t.value) && tag.Signer == t.signer {
 			return true
@@ -238,9 +238,9 @@ type ExcludeFilter struct {
 	matchToExclude NodeFilter
 }
 
-// MatchInclude implements NodeFilter interface.
-func (e ExcludeFilter) MatchInclude(node *SelectedNode) bool {
-	return !e.matchToExclude.MatchInclude(node)
+// Match implements NodeFilter interface.
+func (e ExcludeFilter) Match(node *SelectedNode) bool {
+	return !e.matchToExclude.Match(node)
 }
 
 // NewExcludeFilter creates filter, nodes matching the given filter will be excluded.
@@ -255,8 +255,8 @@ var _ NodeFilter = ExcludeFilter{}
 // AnyFilter matches all the nodes.
 type AnyFilter struct{}
 
-// MatchInclude implements NodeFilter interface.
-func (a AnyFilter) MatchInclude(node *SelectedNode) bool {
+// Match implements NodeFilter interface.
+func (a AnyFilter) Match(node *SelectedNode) bool {
 	return true
 }
 

@@ -694,7 +694,7 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 	for _, onlineNode := range online {
 		// count online nodes in excluded countries only if country is not excluded by segment
 		// placement, those nodes will be counted with out of placement check
-		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && nodeFilters.MatchInclude(&onlineNode) {
+		if _, excluded := repairer.excludedCountryCodes[onlineNode.CountryCode]; excluded && nodeFilters.Match(&onlineNode) {
 			result.NumHealthyInExcludedCountries++
 		}
 
@@ -736,7 +736,7 @@ func (repairer *SegmentRepairer) classifySegmentPiecesWithNodes(ctx context.Cont
 	if repairer.doPlacementCheck {
 		checkPlacement := func(reliable []nodeselection.SelectedNode) {
 			for _, node := range reliable {
-				if nodeFilters.MatchInclude(&node) {
+				if nodeFilters.Match(&node) {
 					continue
 				}
 

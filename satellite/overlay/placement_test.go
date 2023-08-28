@@ -33,12 +33,12 @@ func TestPlacementFromString(t *testing.T) {
 			filters := p.placements[storj.PlacementConstraint(11)]
 			require.NotNil(t, filters)
 			for _, code := range shouldBeExcluded {
-				require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				require.False(t, filters.Match(&nodeselection.SelectedNode{
 					CountryCode: code,
 				}), "%s shouldn't be included in placement %s", code, placementDef)
 			}
 			for _, code := range shouldBeIncluded {
-				require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+				require.True(t, filters.Match(&nodeselection.SelectedNode{
 					CountryCode: code,
 				}), "%s is not included in placement %s", code, placementDef)
 			}
@@ -57,7 +57,7 @@ func TestPlacementFromString(t *testing.T) {
 		require.NoError(t, err)
 		filters := p.placements[storj.PlacementConstraint(11)]
 		require.NotNil(t, filters)
-		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
 			Tags: nodeselection.NodeTags{
 				{
 					Signer: signer,
@@ -66,7 +66,7 @@ func TestPlacementFromString(t *testing.T) {
 				},
 			},
 		}))
-		require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
 	})
@@ -76,7 +76,7 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`1:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar");2:exclude(placement(1))`)
 		require.NoError(t, err)
 
-		require.True(t, p.placements[storj.PlacementConstraint(1)].MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, p.placements[storj.PlacementConstraint(1)].Match(&nodeselection.SelectedNode{
 			Tags: nodeselection.NodeTags{
 				{
 					Signer: signer,
@@ -87,7 +87,7 @@ func TestPlacementFromString(t *testing.T) {
 		}))
 
 		placement2 := p.placements[storj.PlacementConstraint(2)]
-		require.False(t, placement2.MatchInclude(&nodeselection.SelectedNode{
+		require.False(t, placement2.Match(&nodeselection.SelectedNode{
 			Tags: nodeselection.NodeTags{
 				{
 					Signer: signer,
@@ -96,7 +96,7 @@ func TestPlacementFromString(t *testing.T) {
 				},
 			},
 		}))
-		require.True(t, placement2.MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, placement2.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
 
@@ -112,7 +112,7 @@ func TestPlacementFromString(t *testing.T) {
 			require.NoError(t, err)
 			filters := p.placements[storj.PlacementConstraint(11)]
 			require.NotNil(t, filters)
-			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 				Tags: nodeselection.NodeTags{
 					{
@@ -122,10 +122,10 @@ func TestPlacementFromString(t *testing.T) {
 					},
 				},
 			}))
-			require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
-			require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.Germany,
 				Tags: nodeselection.NodeTags{
 					{
@@ -150,19 +150,19 @@ func TestPlacementFromString(t *testing.T) {
 
 		filters := p.placements[storj.PlacementConstraint(11)]
 		require.NotNil(t, filters)
-		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.UnitedKingdom,
 		}))
-		require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
 
 		filters = p.placements[storj.PlacementConstraint(12)]
 		require.NotNil(t, filters)
-		require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.UnitedKingdom,
 		}))
-		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
 
@@ -175,7 +175,7 @@ func TestPlacementFromString(t *testing.T) {
 			err := p.AddPlacementFromString(`11:annotated(country("GB"),annotation("autoExcludeSubnet","off"))`)
 			require.NoError(t, err)
 			filters := p.placements[storj.PlacementConstraint(11)]
-			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
 
@@ -188,7 +188,7 @@ func TestPlacementFromString(t *testing.T) {
 			require.NoError(t, err)
 
 			filters := p.placements[storj.PlacementConstraint(11)]
-			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
 			require.Equal(t, "bar", nodeselection.GetAnnotation(filters, "foo"))
@@ -201,7 +201,7 @@ func TestPlacementFromString(t *testing.T) {
 			err := p.AddPlacementFromString(`11:annotated(annotated(country("GB"),annotation("foo","bar")),annotation("bar","foo"))`)
 			require.NoError(t, err)
 			filters := p.placements[storj.PlacementConstraint(11)]
-			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
 
@@ -214,7 +214,7 @@ func TestPlacementFromString(t *testing.T) {
 			s := fmt.Sprintf(`11:annotated(annotated(country("GB"),annotation("%s","test-location")),annotation("%s","%s"))`, nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)
 			require.NoError(t, p.AddPlacementFromString(s))
 			filters := p.placements[storj.PlacementConstraint(11)]
-			require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, filters.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
 
@@ -228,10 +228,10 @@ func TestPlacementFromString(t *testing.T) {
 		err := p.AddPlacementFromString(`11:exclude(country("GB"))`)
 		require.NoError(t, err)
 		filters := p.placements[storj.PlacementConstraint(11)]
-		require.False(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.UnitedKingdom,
 		}))
-		require.True(t, filters.MatchInclude(&nodeselection.SelectedNode{
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
 	})
@@ -242,25 +242,25 @@ func TestPlacementFromString(t *testing.T) {
 
 		t.Run("nr", func(t *testing.T) {
 			nr := p.placements[storj.NR]
-			require.True(t, nr.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, nr.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
-			require.False(t, nr.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, nr.Match(&nodeselection.SelectedNode{
 				CountryCode: location.Russia,
 			}))
-			require.False(t, nr.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, nr.Match(&nodeselection.SelectedNode{
 				CountryCode: 0,
 			}))
 		})
 		t.Run("us", func(t *testing.T) {
 			us := p.placements[storj.US]
-			require.True(t, us.MatchInclude(&nodeselection.SelectedNode{
+			require.True(t, us.Match(&nodeselection.SelectedNode{
 				CountryCode: location.UnitedStates,
 			}))
-			require.False(t, us.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, us.Match(&nodeselection.SelectedNode{
 				CountryCode: location.Germany,
 			}))
-			require.False(t, us.MatchInclude(&nodeselection.SelectedNode{
+			require.False(t, us.Match(&nodeselection.SelectedNode{
 				CountryCode: 0,
 			}))
 		})
@@ -305,10 +305,10 @@ func TestPlacementFromString(t *testing.T) {
 			filter2 := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
 				old := placement.AllowedCountry(country)
-				result1 := filter1.MatchInclude(&nodeselection.SelectedNode{
+				result1 := filter1.Match(&nodeselection.SelectedNode{
 					CountryCode: country,
 				})
-				result2 := filter2.MatchInclude(&nodeselection.SelectedNode{
+				result2 := filter2.Match(&nodeselection.SelectedNode{
 					CountryCode: country,
 				})
 				assert.Equal(t, old, result1, "old placement doesn't match string based configuration for placement %d and country %s", placement, country)
@@ -317,8 +317,8 @@ func TestPlacementFromString(t *testing.T) {
 		}
 
 		// make sure that new rules exclude location.None from NR
-		assert.False(t, rules1.CreateFilters(storj.NR).MatchInclude(&nodeselection.SelectedNode{}))
-		assert.False(t, rules2.CreateFilters(storj.NR).MatchInclude(&nodeselection.SelectedNode{}))
+		assert.False(t, rules1.CreateFilters(storj.NR).Match(&nodeselection.SelectedNode{}))
+		assert.False(t, rules2.CreateFilters(storj.NR).Match(&nodeselection.SelectedNode{}))
 
 		// make sure tagged nodes (even from EU) matches only the special placement
 		node := &nodeselection.SelectedNode{
@@ -333,9 +333,9 @@ func TestPlacementFromString(t *testing.T) {
 		}
 
 		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
-			assert.False(t, rules1.CreateFilters(placement).MatchInclude(node))
+			assert.False(t, rules1.CreateFilters(placement).Match(node))
 		}
-		assert.False(t, rules1.CreateFilters(6).MatchInclude(node))
+		assert.False(t, rules1.CreateFilters(6).Match(node))
 
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
