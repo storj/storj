@@ -25,6 +25,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/private/version"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -745,4 +746,184 @@ func generatedSelectedNodes(b *testing.B, nodeNo int) []*nodeselection.SelectedN
 		nodes[i] = &node
 	}
 	return nodes
+}
+
+// GetOnlineNodesForAuditRepair satisfies nodeevents.DB interface.
+func (m *mockdb) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*overlay.NodeReputation, error) {
+	panic("implement me")
+}
+
+// SelectStorageNodes satisfies nodeevents.DB interface.
+func (m *mockdb) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) ([]*nodeselection.SelectedNode, error) {
+	panic("implement me")
+}
+
+// SelectAllStorageNodesDownload satisfies nodeevents.DB interface.
+func (m *mockdb) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error) {
+	panic("implement me")
+}
+
+// Get satisfies nodeevents.DB interface.
+func (m *mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
+	panic("implement me")
+}
+
+// KnownReliable satisfies nodeevents.DB interface.
+func (m *mockdb) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+	panic("implement me")
+}
+
+// Reliable satisfies nodeevents.DB interface.
+func (m *mockdb) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
+	panic("implement me")
+}
+
+// UpdateReputation satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) error {
+	panic("implement me")
+}
+
+// UpdateNodeInfo satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
+	panic("implement me")
+}
+
+// UpdateCheckIn satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
+	panic("implement me")
+}
+
+// SetNodeContained satisfies nodeevents.DB interface.
+func (m *mockdb) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+	panic("implement me")
+}
+
+// SetAllContainedNodes satisfies nodeevents.DB interface.
+func (m *mockdb) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
+	panic("implement me")
+}
+
+// AllPieceCounts satisfies nodeevents.DB interface.
+func (m *mockdb) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+	panic("implement me")
+}
+
+// UpdatePieceCounts satisfies nodeevents.DB interface.
+func (m *mockdb) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
+	panic("implement me")
+}
+
+// UpdateExitStatus satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (_ *overlay.NodeDossier, err error) {
+	panic("implement me")
+}
+
+// GetExitingNodes satisfies nodeevents.DB interface.
+func (m *mockdb) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
+	panic("implement me")
+}
+
+// GetGracefulExitCompletedByTimeFrame satisfies nodeevents.DB interface.
+func (m *mockdb) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+	panic("implement me")
+}
+
+// GetGracefulExitIncompleteByTimeFrame satisfies nodeevents.DB interface.
+func (m *mockdb) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	panic("implement me")
+}
+
+// GetExitStatus satisfies nodeevents.DB interface.
+func (m *mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
+	panic("implement me")
+}
+
+// GetNodesNetwork satisfies nodeevents.DB interface.
+func (m *mockdb) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+	panic("implement me")
+}
+
+// GetNodesNetworkInOrder satisfies nodeevents.DB interface.
+func (m *mockdb) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+	panic("implement me")
+}
+
+// DisqualifyNode satisfies nodeevents.DB interface.
+func (m *mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
+	panic("implement me")
+}
+
+// GetOfflineNodesForEmail satisfies nodeevents.DB interface.
+func (m *mockdb) GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
+	panic("implement me")
+}
+
+// UpdateLastOfflineEmail satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
+	panic("implement me")
+}
+
+// DQNodesLastSeenBefore satisfies nodeevents.DB interface.
+func (m *mockdb) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
+	panic("implement me")
+}
+
+// TestSuspendNodeUnknownAudit satisfies nodeevents.DB interface.
+func (m *mockdb) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+	panic("implement me")
+}
+
+// TestUnsuspendNodeUnknownAudit satisfies nodeevents.DB interface.
+func (m *mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+	panic("implement me")
+}
+
+// TestVetNode satisfies nodeevents.DB interface.
+func (m *mockdb) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	panic("implement me")
+}
+
+// TestUnvetNode satisfies nodeevents.DB interface.
+func (m *mockdb) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	panic("implement me")
+}
+
+// TestSuspendNodeOffline satisfies nodeevents.DB interface.
+func (m *mockdb) TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+	panic("implement me")
+}
+
+// TestNodeCountryCode satisfies nodeevents.DB interface.
+func (m *mockdb) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	panic("implement me")
+}
+
+// TestUpdateCheckInDirectUpdate satisfies nodeevents.DB interface.
+func (m *mockdb) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	panic("implement me")
+}
+
+// OneTimeFixLastNets satisfies nodeevents.DB interface.
+func (m *mockdb) OneTimeFixLastNets(ctx context.Context) error {
+	panic("implement me")
+}
+
+// IterateAllContactedNodes satisfies nodeevents.DB interface.
+func (m *mockdb) IterateAllContactedNodes(ctx context.Context, f func(context.Context, *nodeselection.SelectedNode) error) error {
+	panic("implement me")
+}
+
+// IterateAllNodeDossiers satisfies nodeevents.DB interface.
+func (m *mockdb) IterateAllNodeDossiers(ctx context.Context, f func(context.Context, *overlay.NodeDossier) error) error {
+	panic("implement me")
+}
+
+// UpdateNodeTags satisfies nodeevents.DB interface.
+func (m *mockdb) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags) error {
+	panic("implement me")
+}
+
+// GetNodeTags satisfies nodeevents.DB interface.
+func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
+	panic("implement me")
 }

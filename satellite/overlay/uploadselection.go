@@ -23,7 +23,7 @@ type UploadSelectionDB interface {
 
 // UploadSelectionCacheConfig is a configuration for upload selection cache.
 type UploadSelectionCacheConfig struct {
-	Disabled  bool          `help:"disable node cache" default:"false"`
+	Disabled  bool          `help:"disable node cache" default:"false" deprecated:"true"`
 	Staleness time.Duration `help:"how stale the node selection cache can be" releaseDefault:"3m" devDefault:"5m" testDefault:"3m"`
 }
 

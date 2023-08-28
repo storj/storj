@@ -424,19 +424,11 @@ func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req
 	return service.UploadSelectionCache.GetNodes(ctx, req)
 }
 
-// FindStorageNodesForUpload searches the overlay network for nodes that meet the provided requirements for upload.
-//
-// When enabled it uses the cache to select nodes.
-// When the node selection from the cache fails, it falls back to the old implementation.
+// FindStorageNodesForUpload searches the for nodes in the cache that meet the provided requirements for upload.
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
 		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
-	}
-
-	// TODO excluding country codes on upload if cache is disabled is not implemented
-	if service.config.NodeSelectionCache.Disabled {
-		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
 
 	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
@@ -459,50 +451,6 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 			zap.Uint16("placement", uint16(req.Placement)))
 	}
 	return selectedNodes, err
-}
-
-// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria.
-//
-// This does not use a cache.
-func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*nodeselection.SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO: add sanity limits to requested node count
-	// TODO: add sanity limits to excluded nodes
-	totalNeededNodes := req.RequestedCount
-
-	excludedIDs := req.ExcludedIDs
-	// keep track of the network to make sure we only select nodes from different networks
-	var excludedNetworks []string
-	if len(excludedIDs) > 0 {
-		excludedNetworks, err = service.db.GetNodesNetwork(ctx, excludedIDs)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-
-	newNodeCount := 0
-	if preferences.NewNodeFraction > 0 {
-		newNodeCount = int(float64(totalNeededNodes) * preferences.NewNodeFraction)
-	}
-
-	criteria := NodeCriteria{
-		FreeDisk:           preferences.MinimumDiskSpace.Int64(),
-		ExcludedIDs:        excludedIDs,
-		ExcludedNetworks:   excludedNetworks,
-		MinimumVersion:     preferences.MinimumVersion,
-		OnlineWindow:       preferences.OnlineWindow,
-		AsOfSystemInterval: req.AsOfSystemInterval,
-	}
-	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	if len(nodes) < totalNeededNodes {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", totalNeededNodes, len(nodes), criteria)
-	}
-
-	return nodes, nil
 }
 
 // InsertOfflineNodeEvents inserts offline events into node events.
