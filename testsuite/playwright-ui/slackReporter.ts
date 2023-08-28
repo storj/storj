@@ -14,8 +14,8 @@ export default function generateCustomLayoutSimpleMeta(    summaryResults: Summa
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    // text: `\n*${key}* :\t${value}`,
-				 	text: `*${key}*`,
+                    text: `\n*${key}* :\t${value}`,
+				 	// text: `*${key}*`,
 				},
             });
         }
