@@ -9,6 +9,12 @@
                     :icon="ShareIcon"
                     :title="'Share ' + shareType"
                 />
+                <div class="modal__notification">
+                    <p class="modal__notification__msg">
+                        Sharing a {{ shareType.toLowerCase() }} will create a publicly shareable URL.
+                        Anyone with this link will be able to access your shared {{ shareType.toLowerCase() }}.
+                    </p>
+                </div>
                 <VLoader v-if="loading" width="40px" height="40px" />
                 <template v-else>
                     <h1 class="modal__title">Share via</h1>
@@ -22,26 +28,17 @@
                         readonly
                     >
                 </template>
-                <div class="modal__buttons">
-                    <VButton
-                        label="Cancel"
-                        height="52px"
-                        width="100%"
-                        border-radius="10px"
-                        font-size="14px"
-                        :on-press="closeModal"
-                        is-white
-                    />
-                    <VButton
-                        :label="copyButtonState === ButtonStates.Copy ? 'Copy link' : 'Copied'"
-                        height="52px"
-                        width="100%"
-                        border-radius="10px"
-                        font-size="14px"
-                        :on-press="onCopy"
-                        :is-green="copyButtonState === ButtonStates.Copied"
-                    />
-                </div>
+                <VButton
+                    class="modal__button"
+                    :label="copyButtonState === ButtonStates.Copy ? 'Copy link' : 'Link Copied'"
+                    height="52px"
+                    width="100%"
+                    border-radius="10px"
+                    font-size="14px"
+                    :icon="copyButtonState === ButtonStates.Copy ? 'none' : 'check'"
+                    :on-press="onCopy"
+                    :is-green="copyButtonState === ButtonStates.Copied"
+                />
             </div>
         </template>
     </VModal>
@@ -154,6 +151,21 @@ onMounted(async (): Promise<void> => {
         width: unset;
     }
 
+    &__notification {
+        margin-bottom: 16px;
+        border-radius: 10px;
+        border: 1px solid var(--c-yellow-2);
+        background: var(--c-yellow-1);
+        padding: 16px;
+
+        &__msg {
+            font-family: 'font-medium', sans-serif;
+            font-size: 14px;
+            line-height: 20px;
+            text-align: left;
+        }
+    }
+
     &__title {
         font-family: 'font_bold', sans-serif;
         font-size: 14px;
@@ -187,13 +199,8 @@ onMounted(async (): Promise<void> => {
         border-radius: 6px;
     }
 
-    &__buttons {
-        display: flex;
-        align-items: center;
-        column-gap: 16px;
-        padding-top: 16px;
+    &__button {
         margin-top: 16px;
-        border-top: 1px solid var(--c-grey-2);
     }
 }
 </style>
