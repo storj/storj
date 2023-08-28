@@ -102,7 +102,6 @@ const config: PlaywrightTestConfig = {
         retries: process.env.CI ? 1 : 0,                    /* Opt out of parallel tests on CI. */
         testDir: './tests',
         timeout: 10 * 1000,
-        headless: true,
         use: {                                              /* Shared settings for all the projects below. */
             actionTimeout: 0,                                 /* Maximum time each action can take. */
             baseURL: 'http://127.0.0.1:10000',
@@ -110,6 +109,7 @@ const config: PlaywrightTestConfig = {
             trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
             launchOptions: {
             slowMo: process.env.CI ? 0 : 0,
+            headless: true,
             },
         },
         /* Folder for test artifacts such as screenshots, videos, traces, etc. */
