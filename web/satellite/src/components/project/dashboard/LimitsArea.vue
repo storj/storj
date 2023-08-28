@@ -52,7 +52,7 @@
             color="#091c45"
             :used-value="projectPricePercentage"
             :used-title="`${projectPricePercentage.toFixed(0)}% Used`"
-            :used-info="`Free tier: ${centsToDollars(coupon?.amountOff)}`"
+            :used-info="`Free tier: ${centsToDollars(coupon.amountOff)}`"
             :available-title="`${remainingCouponAmount}% Available`"
             :action-title="freeTierActionTitle"
             :on-action="startUpgradeFlow"
@@ -68,9 +68,9 @@
             color="#091c45"
             :used-value="projectPricePercentage"
             :used-title="`${projectPricePercentage.toFixed(0)}% Used`"
-            :used-info="`Coupon: ${centsToDollars(coupon?.amountOff)} monthly`"
+            :used-info="`Coupon: ${centsToDollars(coupon.amountOff)} monthly`"
             :available-title="isPaidTier ?
-                `${centsToDollars(coupon?.amountOff)} per month` :
+                `${centsToDollars(coupon.amountOff)} per month` :
                 `${remainingCouponAmount}% Available`"
             action-title="View coupons"
             :on-action="navigateToCoupons"
@@ -141,6 +141,13 @@ const isFreeTierCoupon = computed((): boolean => {
  */
 const isPaidTier = computed((): boolean => {
     return usersStore.state.user.paidTier;
+});
+
+/**
+ * Indicates if user is project owner.
+ */
+const isProjectOwner = computed((): boolean => {
+    return projectsStore.state.selectedProject.ownerId === usersStore.state.user.id;
 });
 
 /**
@@ -234,6 +241,8 @@ const segmentsAvailable = computed((): number => {
  */
 function usageActionTitle(usage: number, isSegment = false): string {
     switch (true) {
+    case !isProjectOwner.value:
+        return '';
     case !isPaidTier.value && usage < EIGHTY_PERCENT:
         return 'Need more?';
     case !isPaidTier.value && usage >= EIGHTY_PERCENT && usage < HUNDRED_PERCENT:
