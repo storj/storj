@@ -29,10 +29,12 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -2099,6 +2101,23 @@ func TestServiceGenMethods(t *testing.T) {
 	})
 }
 
+type EmailVerifier struct {
+	Data    consoleapi.ContextChannel
+	Context context.Context
+}
+
+func (v *EmailVerifier) SendEmail(ctx context.Context, msg *post.Message) error {
+	body := ""
+	for _, part := range msg.Parts {
+		body += part.Content
+	}
+	return v.Data.Send(v.Context, body)
+}
+
+func (v *EmailVerifier) FromAddress() post.Address {
+	return post.Address{}
+}
+
 func TestProjectInvitations(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -2212,6 +2231,29 @@ func TestProjectInvitations(t *testing.T) {
 			// inviting a project member should fail.
 			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
 			require.Error(t, err)
+
+			// test inviting unverified user.
+			sender := &EmailVerifier{Context: ctx}
+			sat.API.Mail.Service.Sender = sender
+
+			regToken, err := service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+
+			unverified, err := service.CreateUser(ctx, console.CreateUser{
+				FullName: "test user",
+				Email:    "test-unverified-email@test",
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			require.Zero(t, unverified.Status)
+
+			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{unverified.Email})
+			require.NoError(t, err)
+			require.Equal(t, unverified.Email, strings.ToLower(invites[0].Email))
+
+			body, err := sender.Data.Get(ctx)
+			require.NoError(t, err)
+			require.Contains(t, body, "/activation")
 		})
 
 		t.Run("get invitation", func(t *testing.T) {

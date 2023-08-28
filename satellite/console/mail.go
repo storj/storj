@@ -70,6 +70,21 @@ func (email *ExistingUserProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project on Storj"
 }
 
+// UnverifiedUserProjectInvitationEmail is mailservice template for project invitation email for unverified users.
+type UnverifiedUserProjectInvitationEmail struct {
+	InviterEmail   string
+	Region         string
+	ActivationLink string
+}
+
+// Template returns email template name.
+func (*UnverifiedUserProjectInvitationEmail) Template() string { return "UnverifiedUserInvite" }
+
+// Subject gets email subject.
+func (email *UnverifiedUserProjectInvitationEmail) Subject() string {
+	return "You were invited to join a project on Storj"
+}
+
 // NewUserProjectInvitationEmail is mailservice template for project invitation email for new users.
 type NewUserProjectInvitationEmail struct {
 	InviterEmail string

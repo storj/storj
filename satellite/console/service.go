@@ -3653,6 +3653,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 
 	var users []*User
 	var newUserEmails []string
+	var unverifiedUsers []User
 	for _, email := range emails {
 		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
@@ -3662,15 +3663,25 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
 		}
 
-		invitedUser, err := s.store.Users().GetByEmail(ctx, email)
+		invitedUser, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, email)
 		if err == nil {
-			_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
-			if err != nil && !ErrNoMembership.Has(err) {
-				return nil, Error.Wrap(err)
-			} else if err == nil {
-				return nil, ErrAlreadyMember.New("%s is already a member", email)
+			if invitedUser != nil {
+				_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
+				if err != nil && !ErrNoMembership.Has(err) {
+					return nil, Error.Wrap(err)
+				} else if err == nil {
+					return nil, ErrAlreadyMember.New("%s is already a member", email)
+				}
+				users = append(users, invitedUser)
+			} else {
+				oldest := User{}
+				for _, u := range unverified {
+					if u.CreatedAt.Before(oldest.CreatedAt) {
+						oldest = u
+					}
+				}
+				unverifiedUsers = append(unverifiedUsers, oldest)
 			}
-			users = append(users, invitedUser)
 		} else if errs.Is(err, sql.ErrNoRows) {
 			newUserEmails = append(newUserEmails, email)
 		} else {
@@ -3690,6 +3701,19 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			if err != nil {
 				return err
 			}
+
+			var isUnverified bool
+			for _, u := range unverifiedUsers {
+				if email == u.Email {
+					isUnverified = true
+					invites = append(invites, *invite)
+					break
+				}
+			}
+			if isUnverified {
+				continue
+			}
+
 			token, err := s.CreateInviteToken(ctx, isMember.project.PublicID, email, invite.CreatedAt)
 			if err != nil {
 				return err
@@ -3721,6 +3745,23 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			},
 		)
 	}
+	for _, u := range unverifiedUsers {
+		token, err := s.GenerateActivationToken(ctx, u.ID, u.Email)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		activationLink := fmt.Sprintf("%s/activation?token=%s", s.satelliteAddress, token)
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: u.Email}},
+			&UnverifiedUserProjectInvitationEmail{
+				InviterEmail:   user.Email,
+				Region:         s.satelliteName,
+				ActivationLink: activationLink,
+			},
+		)
+	}
+
 	for _, email := range newUserEmails {
 		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
 		s.mailService.SendRenderedAsync(
