@@ -14,40 +14,36 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { loadStripe } from '@stripe/stripe-js/pure';
+import {
+    Stripe,
+    StripeCardElement,
+    StripeCardElementChangeEvent,
+    TokenResult,
+} from '@stripe/stripe-js';
 
-import { LoadScript } from '@/utils/loadScript';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
-
-interface StripeResponse {
-    error: string
-    token: {
-        id: unknown
-        card: {
-            funding : string
-        }
-    }
-}
 
 const configStore = useConfigStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
-    onStripeResponseCallback: (tokenId: unknown) => void,
+    onStripeResponseCallback: (tokenId: unknown) => Promise<void>,
 }>(), {
-    onStripeResponseCallback: () => console.error('onStripeResponse is not reinitialized'),
+    onStripeResponseCallback: () => Promise.reject('onStripeResponse is not reinitialized'),
 });
 
 const isLoading = ref<boolean>(false);
 /**
- * Stripe elements is using to create 'Add Card' form.
+ * Stripe elements is used to create 'Add Card' form.
  */
-const cardElement = ref<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+const cardElement = ref<StripeCardElement>();
 /**
  * Stripe library.
  */
-const stripe = ref<any>(); // eslint-disable-line @typescript-eslint/no-explicit-any
+const stripe = ref<Stripe | null>(null);
 
 /**
  * Stripe initialization.
@@ -55,26 +51,32 @@ const stripe = ref<any>(); // eslint-disable-line @typescript-eslint/no-explicit
 async function initStripe(): Promise<void> {
     const stripePublicKey = configStore.state.config.stripePublicKey;
 
-    stripe.value = window['Stripe'](stripePublicKey);
-    if (!stripe.value) {
-        await notify.error('Unable to initialize stripe', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+    try {
+        stripe.value = await loadStripe(stripePublicKey);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
         return;
     }
 
-    const elements = stripe.value.elements();
+    if (!stripe.value) {
+        notify.error('Unable to initialize stripe', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        return;
+    }
+
+    const elements = stripe.value?.elements();
     if (!elements) {
-        await notify.error('Unable to instantiate elements', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        notify.error('Unable to instantiate elements', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
         return;
     }
 
     cardElement.value = elements.create('card');
     if (!cardElement.value) {
-        await notify.error('Unable to create card', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        notify.error('Unable to create card element', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
         return;
     }
 
-    cardElement.value.mount('#card-element');
-    cardElement.value.addEventListener('change', function (event): void {
+    cardElement.value?.mount('#card-element');
+    cardElement.value?.on('change', (event: StripeCardElementChangeEvent) => {
         const displayError: HTMLElement = document.getElementById('card-errors') as HTMLElement;
         if (event.error) {
             displayError.textContent = event.error.message;
@@ -90,24 +92,29 @@ async function initStripe(): Promise<void> {
  *
  * @param result stripe response
  */
-async function onStripeResponse(result: StripeResponse): Promise<void> {
+async function onStripeResponse(result: TokenResult): Promise<void> {
     if (result.error) {
         throw result.error;
     }
 
-    if (result.token.card.funding === 'prepaid') {
+    if (result.token.card?.funding === 'prepaid') {
         notify.error('Prepaid cards are not supported', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
         return;
     }
 
     await props.onStripeResponseCallback(result.token.id);
-    cardElement.value.clear();
+    cardElement.value?.clear();
 }
 
 /**
  * Fires stripe event after all inputs are filled.
  */
 async function onSubmit(): Promise<void> {
+    if (!(stripe.value && cardElement.value)) {
+        notify.error('Stripe is not initialized', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
+        return;
+    }
+
     if (isLoading.value) return;
 
     isLoading.value = true;
@@ -124,18 +131,7 @@ async function onSubmit(): Promise<void> {
 /**
  * Stripe library loading and initialization.
  */
-onMounted(async (): Promise<void> => {
-    if (!window['Stripe']) {
-        const script = new LoadScript('https://js.stripe.com/v3/',
-            () => { initStripe(); },
-            () => { notify.error('Stripe library not loaded', AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
-                script.remove();
-            },
-        );
-
-        return;
-    }
-
+onMounted(() => {
     initStripe();
 });
 
@@ -143,7 +139,7 @@ onMounted(async (): Promise<void> => {
  * Clears listeners.
  */
 onBeforeUnmount(() => {
-    cardElement.value?.removeEventListener('change');
+    cardElement.value?.off('change');
 });
 
 defineExpose({
@@ -177,5 +173,11 @@ defineExpose({
 
     .form-row {
         width: 100%;
+    }
+
+    #card-errors {
+        text-align: left;
+        font-family: 'font-medium', sans-serif;
+        color: var(--c-red-2);
     }
 </style>
