@@ -249,6 +249,7 @@ func TestPayments(t *testing.T) {
 				"/payments/cards",
 				"/payments/account/balance",
 				"/payments/billing-history",
+				"/payments/invoice-history",
 				"/payments/account/charges?from=1619827200&to=1620844320",
 			} {
 				resp, body := test.request(http.MethodGet, path, nil)
@@ -274,6 +275,12 @@ func TestPayments(t *testing.T) {
 		{ // Get_BillingHistory
 			resp, body := test.request(http.MethodGet, "/payments/billing-history", nil)
 			require.JSONEq(t, "[]", body)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_InvoiceHistory
+			resp, body := test.request(http.MethodGet, "/payments/invoice-history?limit=1", nil)
+			require.Contains(t, body, "items")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 

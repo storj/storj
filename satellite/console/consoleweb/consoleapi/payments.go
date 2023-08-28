@@ -342,6 +342,52 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// InvoiceHistory returns a paged list of invoice history items for payment account.
+func (p *Payments) InvoiceHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'limit' is required"))
+		return
+	}
+
+	limit, pErr := strconv.ParseUint(limitParam, 10, 32)
+	if pErr != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	startParam := query.Get("starting_after")
+	endParam := query.Get("ending_before")
+
+	history, err := p.service.Payments().InvoiceHistory(ctx, console.BillingHistoryCursor{
+		Limit:         int(limit),
+		StartingAfter: startParam,
+		EndingBefore:  endParam,
+	})
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(history)
+	if err != nil {
+		p.log.Error("failed to write json history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // ApplyCouponCode applies a coupon code to the user's account.
 func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

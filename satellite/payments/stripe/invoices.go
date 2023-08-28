@@ -268,6 +268,61 @@ func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (in
 	return invoicesList, nil
 }
 
+func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, cursor payments.InvoiceCursor) (page *payments.InvoicePage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	page = &payments.InvoicePage{}
+	params := &stripe.InvoiceListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+	}
+
+	params.Limit = stripe.Int64(int64(cursor.Limit))
+	params.Single = true
+	if cursor.StartingAfter != "" {
+		page.Previous = true
+		params.StartingAfter = stripe.String(cursor.StartingAfter)
+	} else if cursor.EndingBefore != "" {
+		params.EndingBefore = stripe.String(cursor.EndingBefore)
+	}
+
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		total := stripeInvoice.Total
+		for _, line := range stripeInvoice.Lines.Data {
+			// If amount is negative, this is a coupon or a credit line item.
+			// Add them to the total.
+			if line.Amount < 0 {
+				total -= line.Amount
+			}
+		}
+
+		page.Invoices = append(page.Invoices, payments.Invoice{
+			ID:          stripeInvoice.ID,
+			CustomerID:  stripeInvoice.Customer.ID,
+			Description: stripeInvoice.Description,
+			Amount:      total,
+			Status:      string(stripeInvoice.Status),
+			Link:        stripeInvoice.InvoicePDF,
+			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+		})
+	}
+
+	if err = invoicesIterator.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	page.Next = invoicesIterator.Meta().HasMore || cursor.EndingBefore != ""
+	return page, nil
+}
+
 // ListWithDiscounts returns a list of invoices and coupon usages for a given payment account.
 func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUID) (invoicesList []payments.Invoice, couponUsages []payments.CouponUsage, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -410,6 +465,10 @@ func convertStatus(stripestatus stripe.InvoiceStatus) string {
 
 // isInvoiceFailed returns whether an invoice has failed.
 func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
+	if invoice.Status != stripe.InvoiceStatusOpen {
+		return false
+	}
+
 	if invoice.DueDate > 0 {
 		// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
 		invoices.service.log.Info("Skipping invoice marked for manual payment",

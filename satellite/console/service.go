@@ -571,6 +571,45 @@ func (payment Payments) BillingHistory(ctx context.Context) (billingHistory []*B
 	return billingHistory, nil
 }
 
+// InvoiceHistory returns a paged list of invoices for payment account.
+func (payment Payments) InvoiceHistory(ctx context.Context, cursor BillingHistoryCursor) (history *BillingHistoryPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "get invoice history")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	page, err := payment.service.accounts.Invoices().ListPaged(ctx, user.ID, payments.InvoiceCursor{
+		Limit:         cursor.Limit,
+		StartingAfter: cursor.StartingAfter,
+		EndingBefore:  cursor.EndingBefore,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var historyItems []BillingHistoryItem
+	for _, invoice := range page.Invoices {
+		historyItems = append(historyItems, BillingHistoryItem{
+			ID:          invoice.ID,
+			Description: invoice.Description,
+			Amount:      invoice.Amount,
+			Status:      invoice.Status,
+			Link:        invoice.Link,
+			End:         invoice.End,
+			Start:       invoice.Start,
+			Type:        Invoice,
+		})
+	}
+
+	return &BillingHistoryPage{
+		Items:    historyItems,
+		Next:     page.Next,
+		Previous: page.Previous,
+	}, nil
+}
+
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
 func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
