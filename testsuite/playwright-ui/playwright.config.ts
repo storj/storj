@@ -104,12 +104,12 @@ const config: PlaywrightTestConfig = {
         timeout: 10 * 1000,
         use: {                                              /* Shared settings for all the projects below. */
             actionTimeout: 0,                                 /* Maximum time each action can take. */
-            baseURL: 'http://127.0.0.1:10000',
+            // baseURL: 'http://127.0.0.1:10000',
             ignoreHTTPSErrors: true,                          /* suppress the errors relative to serving web data   */
             trace: 'on-first-retry',                          /* Collect trace when retrying the failed test. */
             launchOptions: {
-            slowMo: process.env.CI ? 0 : 0,
-            headless: true,
+                slowMo: process.env.CI ? 0 : 0,
+                headless: true,
             },
         },
         /* Folder for test artifacts such as screenshots, videos, traces, etc. */

@@ -10,7 +10,7 @@
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate && npm run allure:local",
     "test": "npx playwright test ./tests/",
-    "test-debug": "npx playwright test ./tests/ --trace on",
+    "test-debug": "npx playwright test ./tests/bucket.test.ts --project=chromium --trace on",
     "browser-debug": "DEBUG=pw:browser* npx playwright test",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
