@@ -2,14 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" class="rounded-xlg">
+    <v-card variant="flat" :border="true" rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
             prepend-inner-icon="mdi-magnify"
             single-line
+            variant="solo-filled"
+            flat
             hide-details
             clearable
+            density="comfortable"
+            rounded="lg"
+            class="mx-2 mt-2"
         />
 
         <v-data-table-server
@@ -22,6 +27,7 @@
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             item-value="name"
             class="elevation-1"
+            hover
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
         >

@@ -17,8 +17,6 @@ import '../styles/styles.scss';
 
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
-    // Use blueprint for Material Design 2
-    // blueprint: md2,
     // Use blueprint for Material Design 3
     blueprint: md3,
     theme: {
@@ -27,6 +25,7 @@ export default createVuetify({
                 colors: {
                     primary: '#0149FF',
                     secondary: '#0218A7',
+                    background: '#FFF',
                     info: '#537CFF',
                     success: '#00AC26',
                     warning: '#FF8A00',
@@ -49,13 +48,10 @@ export default createVuetify({
                 colors: {
                     primary: '#0149FF',
                     secondary: '#537CFF',
-                    // background: '#010923',
-                    // background: '#0c121d',
                     background: '#0d1116',
+                    // background: '#101418',
                     error: '#FF458B',
                     error2: '#FF0149',
-                    // surface: '#010923',
-                    // surface: '#0c121d', dark bluish
                     surface: '#0d1116',
                     purple: '#7B61FF',
                     blue6:  '#091c45',
@@ -82,16 +78,20 @@ export default createVuetify({
             noDataText: 'Results not found',
         },
         VBtn: {
-            // elevation: 1,
             density: 'default',
-            // height: 48,
             rounded: 'lg',
-            // textTransform: 'none',
             class: 'text-capitalize font-weight-bold',
             style: 'letter-spacing:0;',
         },
         VTooltip: {
             transition: 'fade-transition',
+        },
+        VSelect: {
+            rounded: 'lg',
+        },
+        VTextField: {
+            rounded: 'lg',
+            variant: 'outlined',
         },
     },
 });

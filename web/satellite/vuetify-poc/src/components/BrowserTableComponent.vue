@@ -2,14 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" class="rounded-xlg">
+    <v-card variant="flat" :border="true" rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
             prepend-inner-icon="mdi-magnify"
             single-line
+            variant="solo-filled"
+            flat
             hide-details
             clearable
+            density="comfortable"
+            rounded="lg"
+            class="mx-2 mt-2"
         />
 
         <v-data-table
@@ -21,6 +26,7 @@
             class="elevation-1"
             item-key="path"
             show-select
+            hover
         >
             <template #item.name="{ item }">
                 <div>
@@ -33,6 +39,34 @@
                     >
                         <img :src="icons.get(item.raw.icon) || fileIcon" alt="Item icon" class="mr-3">
                         {{ item.raw.name }}
+                    </v-btn>
+                </div>
+            </template>
+
+            <template #item.actions>
+                <div class="text-no-wrap">
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        size="small"
+                        class="mr-1 text-caption"
+                        density="comfortable"
+                        icon
+                    >
+                        <icon-download />
+                        <v-tooltip activator="parent" location="start">Download</v-tooltip>
+                    </v-btn>
+
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        size="small"
+                        class="mr-1 text-caption"
+                        density="comfortable"
+                        icon
+                    >
+                        <browser-actions-menu />
+                        <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                 </div>
             </template>
@@ -159,6 +193,7 @@ import {
     VToolbarTitle,
     VTooltip,
     VCarouselItem,
+    VIcon,
 } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
@@ -173,6 +208,8 @@ import spreadsheetIcon from '@poc/assets/icon-spreadsheet-tonal.svg';
 import fileIcon from '@poc/assets/icon-file-tonal.svg';
 
 import IconShare from '@poc/components/icons/IconShare.vue';
+import IconDownload from '@poc/components/icons/IconDownload.vue';
+import BrowserActionsMenu from '@poc/components/BrowserActionsMenu.vue';
 
 const search = ref<string>('');
 const selected = ref([]);
@@ -206,6 +243,7 @@ const headers = [
     { title: 'Type', key:'type' },
     { title: 'Size', key: 'size' },
     { title: 'Date', key: 'date' },
+    { title: '', key: 'actions', sortable: false, width: 0 },
 ];
 const files = [
     {

@@ -7,8 +7,8 @@
             v-if="showNavDrawerButton"
             variant="text"
             color="default"
-            class="ml-1"
-            size="x-small"
+            class="ml-3 mr-2"
+            size="small"
             density="comfortable"
             @click.stop="appStore.toggleNavigationDrawer()"
         />
@@ -40,7 +40,7 @@
                         border
                         inset
                         density="comfortable"
-                        class="pa-1"
+                        rounded="xl"
                     >
                         <v-tooltip text="Light Theme" location="bottom">
                             <template #activator="{ props: darkProps }">
@@ -48,7 +48,7 @@
                                     v-bind="darkProps"
                                     icon="mdi-weather-sunny"
                                     size="small"
-                                    rounded="xl"
+                                    class="px-5"
                                     aria-label="Toggle Light Theme"
                                     @click="toggleTheme('light')"
                                 />
@@ -61,7 +61,7 @@
                                     v-bind="lightProps"
                                     icon="mdi-weather-night"
                                     size="small"
-                                    rounded="xl"
+                                    class="px-5"
                                     aria-label="Toggle Dark Theme"
                                     @click="toggleTheme('dark')"
                                 />
@@ -75,7 +75,6 @@
                         variant="outlined"
                         color="default"
                         class="ml-4 font-weight-medium"
-                        density="comfortable"
                     >
                         <template #append>
                             <img src="@poc/assets/icon-dropdown.svg" alt="Account Dropdown">

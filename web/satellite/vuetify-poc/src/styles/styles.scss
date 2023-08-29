@@ -22,15 +22,11 @@ html {
 
 .v-navigation-drawer {
   // box-shadow: 0 3px 4px rgba(var(--v-theme-on-surface), 0.05) !important;
-  box-shadow: 15px 0 30px 0 rgba(0,0,0,.03) !important;
   transform: translateX(0) !important;
-  // box-shadow: 15px 0 30px 0 rgba(var(--v-theme-on-surface), 0.03) !important;
 }
 .v-app-bar.v-toolbar {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   // box-shadow: 0 1px 3px rgba(var(--v-theme-on-surface), 0.05) !important;
-  box-shadow: 15px 0 30px 0 rgba(0,0,0,.03) !important;
-  // box-shadow: 15px 0 30px 0 rgba(var(--v-theme-on-surface), 0.03) !important;
 }
 
 // Toggle visibility class
@@ -51,19 +47,12 @@ html {
 // Button Shadow
 .v-btn--variant-outlined, .v-btn--elevated, .v-btn--variant-flat  {
   box-shadow: rgba(50, 50, 93, 0.07) 0px 2px 5px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1px 0px !important;
-  // box-shadow: rgba(50, 50, 93, 0.1) 0px 0px 0px 1px inset, rgba(50, 50, 93, 0.1) 0px 2px 5px 0px, rgba(0, 0, 0, 0.07) 0px 1px 1px 0px !important;
 }
-// .v-btn.v-theme--light {
-//   box-shadow: 0 1px 2px #eee;
-// }
-// .v-btn.v-theme--dark {
-//   box-shadow: 0 1px 2px #000;
-// }
 
 // Button Outlines
 .v-btn.v-theme--light.text-default.v-btn--variant-outlined {
   border-color: rgba(var(--v-border-color), 0.2);
-  // border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgb(var(--v-theme-surface));
 }
 .v-btn.v-theme--light.text-default.v-btn--variant-outlined:hover {
   border-color: #9da3a7;
@@ -86,6 +75,7 @@ html {
 }
 
 // Button Sizes
+/*
 .v-btn--size-x-small {
   --v-btn-height: 2rem;
   padding-left: 12px;
@@ -111,14 +101,26 @@ html {
   padding-left: 24px;
   padding-right: 24px;
 }
+*/
+
+.v-btn--size-default {
+  --v-btn-size: 0.8rem;
+  --v-btn-height: 44px;
+}
+
+.v-btn--size-large {
+  --v-btn-size: 0.875rem;
+  --v-btn-height: 48px;
+}
 
 // Button Icon
+/*
 .v-btn--icon {
     padding: 4px;
     height: auto;
     width: auto;
 }
-
+*/
 
 // Menu border
 .v-menu > .v-overlay__content {
@@ -128,7 +130,7 @@ html {
 
 // Menu list item
 .v-list-item--active .v-list-item-title {
-  font-weight: 700;
+  font-weight: 700 !important;
 }
 
 // Menu list item active background
@@ -138,30 +140,15 @@ html {
 
 
 // Card Light Theme
-.v-card.v-theme--dark {
-//  background: #000b2f;
-//  background: #101823;
-//  background: #0d1116;
-  background: --v-theme-surface;
-//  box-shadow: 0 2px 2px #000b2f;
-// border-bottom-width: 2px !important;
-//  box-shadow: 0 2px 2px #00000047;
-//  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 4px 0px, rgba(0, 0, 0, 0.15) 0px 6px 16px -8px;
-//  border-color: #d9d7d7;
-  box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1.5px 0px !important;
+.v-card.v-theme--light {
+  border: 1px solid #e0e0e0;
+  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 0px 0px;
 }
 
 // Card Dark Theme
-.v-card.v-theme--light {
-  // background: #f6f7fa;
-  // border-bottom-width: 2px !important;
-  // box-shadow: 0 2px 2px #eee;
-  // box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 4px 0px, rgba(0, 0, 0, 0.15) 0px 6px 16px -8px;
-  // border: 1px solid #d8dee3;
-  border: 1px solid #e0e0e0;
-  // border: none;
-  // box-shadow: rgb(224, 224, 224) 0px 0px 0px 1px, rgba(0, 0, 0, 0.07) 0px 2px 4px 0px, rgba(0, 0, 0, 0.05) 0px 1px 1.5px 0px !important;
-  box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1.5px 0px !important;
+.v-card.v-theme--dark {
+  background: --v-theme-surface;
+  box-shadow: rgba(255, 255, 255, 0.07) 0px 1px 0px 0px;
 }
 
 // Cards Padding
@@ -234,6 +221,17 @@ html {
 .v-data-table-footer {
   border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
+.v-data-table-footer .v-field__field {
+  height: 2.25rem;
+}
+.v-data-table-footer .v-field {
+  padding-right: 0.5rem;
+}
+.v-data-table-footer .v-field__input {
+  padding-top: 0;
+  font-size: 14px;
+  line-height: 1;
+}
 
 // Table Fonts
 table {
@@ -250,7 +248,6 @@ table {
   --v-field-padding-start: 8px;
   padding-left: 16px;
 }
-
 
 // Links
 .link {
