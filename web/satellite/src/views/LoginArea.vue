@@ -241,7 +241,8 @@ const satelliteName = computed((): string => {
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return configStore.state.config.partneredSatellites;
+    const satellites = configStore.state.config.partneredSatellites;
+    return satellites.filter(s => s.name !== satelliteName.value);
 });
 
 /**
