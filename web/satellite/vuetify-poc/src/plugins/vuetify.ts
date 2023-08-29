@@ -80,7 +80,7 @@ export default createVuetify({
         VBtn: {
             density: 'default',
             rounded: 'lg',
-            class: 'text-capitalize font-weight-bold',
+            class: 'text-none font-weight-bold',
             style: 'letter-spacing:0;',
         },
         VTooltip: {

@@ -2,19 +2,20 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="hasObjects">
-        <PageTitleComponent title="Browse Files" />
+    <v-container>
+        <page-title-component title="Browse Files" />
 
-        <BrowserBreadcrumbsComponent />
+        <browser-breadcrumbs-component />
 
         <v-col>
             <v-row class="mt-2 mb-4">
                 <v-btn
                     color="primary"
                     min-width="120"
+                    :disabled="isContentDisabled"
                     @click="snackbar = true"
                 >
-                    <BrowserSnackbarComponent :on-cancel="() => { snackbar = false }" />
+                    <browser-snackbar-component :on-cancel="() => { snackbar = false }" />
                     <IconUpload />
                     Upload
                 </v-btn>
@@ -23,26 +24,36 @@
                     variant="outlined"
                     color="default"
                     class="mx-4"
+                    :disabled="isContentDisabled"
                 >
-                    <IconFolder />
+                    <icon-folder />
                     New Folder
-                    <BrowserNewFolderDialog />
+                    <browser-new-folder-dialog />
                 </v-btn>
             </v-row>
         </v-col>
 
-        <BrowserTableComponent />
+        <browser-table-component :loading="isLoading" :force-empty="isContentDisabled" />
     </v-container>
 
-    <EnterBucketPassphraseDialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="getObjects" />
+    <enter-bucket-passphrase-dialog
+        v-if="!isLoading"
+        v-model="isBucketPassphraseDialogOpen"
+        @passphrase-entered="initObjectStore"
+    />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { VContainer, VCol, VRow, VBtn } from 'vuetify/components';
-import { useRoute } from 'vue-router';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -54,27 +65,93 @@ import IconFolder from '@poc/components/icons/IconFolder.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 
 const bucketsStore = useBucketsStore();
+const obStore = useObjectBrowserStore();
+const projectsStore = useProjectsStore();
+
+const router = useRouter();
 const route = useRoute();
+const notify = useNotify();
 
+const isLoading = ref<boolean>(true);
+const isContentDisabled = ref<boolean>(true);
 const snackbar = ref<boolean>(false);
-const isBucketPassphraseDialogOpen = ref(false);
-const hasObjects = ref(false);
+const isBucketPassphraseDialogOpen = ref<boolean>(bucketsStore.state.promptForPassphrase);
 
-const bucketName = computed(() => {
-    return bucketsStore.state.fileComponentBucketName;
-});
+/**
+ * Returns the name of the selected bucket.
+ */
+const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
 
-function getObjects() {
-    hasObjects.value = true;
+/**
+ * Returns edge credentials from store.
+ */
+const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeCredentials);
+
+/**
+ * Returns ID of selected project from store.
+ */
+const projectId = computed<string>(() => projectsStore.state.selectedProject.id);
+
+/**
+ * Returns whether the user should be prompted to enter the passphrase.
+ */
+const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
+
+/**
+ * Initializes object browser store.
+ */
+function initObjectStore(): void {
+    obStore.init({
+        endpoint: edgeCredentials.value.endpoint,
+        accessKey: edgeCredentials.value.accessKeyId,
+        secretKey: edgeCredentials.value.secretKey,
+        bucket: bucketName.value,
+        browserRoot: '', // unused
+    });
+    isContentDisabled.value = false;
 }
 
-onMounted(() => {
-    if (!bucketName.value) {
-        // navigated here via direct link or reloaded this page
-        bucketsStore.setFileComponentBucketName(route.params['bucketName'] as string);
-        isBucketPassphraseDialogOpen.value = true;
+watch(isBucketPassphraseDialogOpen, isOpen => {
+    if (isOpen || !isPromptForPassphrase.value) return;
+    router.push(`/projects/${projectId.value}/dashboard`);
+});
+
+watch(() => route.params.browserPath, browserPath => {
+    if (browserPath === undefined) return;
+
+    let bucketName = '', filePath = '';
+    if (typeof browserPath === 'string') {
+        bucketName = browserPath;
+    } else {
+        bucketName = browserPath[0];
+        filePath = browserPath.slice(1).join('/');
+    }
+
+    bucketsStore.setFileComponentBucketName(bucketName);
+    bucketsStore.setFileComponentPath(filePath);
+}, { immediate: true });
+
+/**
+ * Initializes file browser.
+ */
+onMounted(async () => {
+    const dashboardURL = `/projects/${projectId.value}/dashboard`;
+
+    try {
+        await bucketsStore.getAllBucketsNames(projectId.value);
+    } catch (error) {
+        error.message = `Error fetching bucket names. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
     }
-    getObjects();
+
+    if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
+        router.push(dashboardURL);
+        return;
+    }
+
+    if (!isPromptForPassphrase.value) initObjectStore();
+
+    isLoading.value = false;
 });
 </script>

@@ -56,8 +56,6 @@ const isLoading = ref<boolean>(true);
  * all projects dashboard if no such project exists.
  */
 async function selectProject(projectId: string): Promise<void> {
-    isLoading.value = true;
-
     let projects: Project[];
     try {
         projects = await projectsStore.getProjects();
@@ -74,17 +72,22 @@ async function selectProject(projectId: string): Promise<void> {
         return;
     }
     projectsStore.selectProject(projectId);
-
-    isLoading.value = false;
 }
 
-watch(() => route.params.projectId, async newId => selectProject(newId as string));
+watch(() => route.params.projectId, async newId => {
+    if (newId === undefined) return;
+    isLoading.value = true;
+    await selectProject(newId as string);
+    isLoading.value = false;
+});
 
 /**
  * Lifecycle hook after initial render.
  * Pre-fetches user`s and project information.
  */
 onBeforeMount(async () => {
+    isLoading.value = true;
+
     try {
         await Promise.all([
             usersStore.getUser(),
@@ -112,8 +115,10 @@ onBeforeMount(async () => {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
-    selectProject(route.params.projectId as string);
+    await selectProject(route.params.projectId as string);
 
     if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
+
+    isLoading.value = false;
 });
 </script>

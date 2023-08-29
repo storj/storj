@@ -53,6 +53,11 @@ module.exports = {
                     'pattern': '@/../static/**',
                     'position': 'after',
                 },
+                {
+                    'group': 'internal',
+                    'pattern': '@poc/assets/**',
+                    'position': 'after',
+                },
             ],
             'newlines-between': 'always',
         }],

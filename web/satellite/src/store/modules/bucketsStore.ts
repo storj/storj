@@ -46,6 +46,7 @@ export class BucketsState {
     public passphrase = '';
     public promptForPassphrase = true;
     public fileComponentBucketName = '';
+    public fileComponentPath = '';
     public leaveRoute = '';
     public enterPassphraseCallback: (() => void) | null = null;
 }
@@ -210,6 +211,10 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentBucketName = bucketName;
     }
 
+    function setFileComponentPath(path: string): void {
+        state.fileComponentPath = path;
+    }
+
     function setEnterPassphraseCallback(fn: (() => void) | null): void {
         state.enterPassphraseCallback = fn;
     }
@@ -304,6 +309,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setPassphrase,
         setApiKey,
         setFileComponentBucketName,
+        setFileComponentPath,
         setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
