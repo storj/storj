@@ -58,32 +58,8 @@
                 {{ getFormattedDate(item.raw.browserObject) }}
             </template>
 
-            <template #item.actions>
-                <div class="text-no-wrap">
-                    <v-btn
-                        variant="outlined"
-                        color="default"
-                        size="small"
-                        class="mr-1 text-caption"
-                        density="comfortable"
-                        icon
-                    >
-                        <icon-download />
-                        <v-tooltip activator="parent" location="start">Download</v-tooltip>
-                    </v-btn>
-
-                    <v-btn
-                        variant="outlined"
-                        color="default"
-                        size="small"
-                        class="mr-1 text-caption"
-                        density="comfortable"
-                        icon
-                    >
-                        <browser-actions-menu />
-                        <v-icon icon="mdi-dots-horizontal" />
-                    </v-btn>
-                </div>
+            <template #item.actions="{ item }: ItemSlotProps">
+                <browser-row-actions :file="item.raw.browserObject" />
             </template>
         </v-data-table-server>
 
@@ -209,7 +185,6 @@ import {
     VToolbarTitle,
     VTooltip,
     VCarouselItem,
-    VIcon,
 } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
@@ -222,8 +197,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconShare from '@poc/components/icons/IconShare.vue';
-import IconDownload from '@poc/components/icons/IconDownload.vue';
-import BrowserActionsMenu from '@poc/components/BrowserActionsMenu.vue';
+import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 
 import folderIcon from '@poc/assets/icon-folder-tonal.svg';
 import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';

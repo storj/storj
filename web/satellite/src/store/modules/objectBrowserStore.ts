@@ -666,7 +666,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         clearAllSelectedFiles();
     }
 
-    async function download(file): Promise<void> {
+    async function download(file: BrowserObject): Promise<void> {
         assertIsInitialized(state);
 
         const url = await getSignedUrl(state.s3, new GetObjectCommand({
