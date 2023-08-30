@@ -139,37 +139,7 @@
             </v-window-item>
 
             <v-window-item>
-                <v-card variant="flat" :border="true" rounded="xlg">
-                    <v-text-field
-                        v-model="search"
-                        label="Search"
-                        prepend-inner-icon="mdi-magnify"
-                        single-line
-                        hide-details
-                    />
-
-                    <v-data-table
-                        v-model="selected"
-                        :sort-by="sortBy"
-                        :headers="headers"
-                        :items="invoices"
-                        :search="search"
-                        class="elevation-1"
-                        show-select
-                        hover
-                    >
-                        <template #item.date="{ item }">
-                            <span class="font-weight-bold">
-                                {{ item.raw.date }}
-                            </span>
-                        </template>
-                        <template #item.status="{ item }">
-                            <v-chip :color="getColor(item.raw.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
-                                {{ item.raw.status }}
-                            </v-chip>
-                        </template>
-                    </v-data-table>
-                </v-card>
+                <token-transactions-table-component />
             </v-window-item>
 
             <v-window-item>
@@ -229,6 +199,7 @@ import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
 import BillingHistoryTab from '@poc/components/billing/BillingHistoryTab.vue';
 import UsageAndChargesComponent from '@poc/components/billing/UsageAndChargesComponent.vue';
 import StorjTokenCardComponent from '@poc/components/StorjTokenCardComponent.vue';
+import TokenTransactionsTableComponent from '@poc/components/TokenTransactionsTableComponent.vue';
 
 const tab = ref(0);
 const search = ref<string>('');
