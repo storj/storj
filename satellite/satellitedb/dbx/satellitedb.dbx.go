@@ -579,6 +579,7 @@ CREATE TABLE repair_queue (
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	segment_health double precision NOT NULL DEFAULT 1,
+	placement integer,
 	PRIMARY KEY ( stream_id, position )
 );
 CREATE TABLE reputations (
@@ -892,6 +893,7 @@ CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
@@ -1270,6 +1272,7 @@ CREATE TABLE repair_queue (
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	segment_health double precision NOT NULL DEFAULT 1,
+	placement integer,
 	PRIMARY KEY ( stream_id, position )
 );
 CREATE TABLE reputations (
@@ -1583,6 +1586,7 @@ CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
@@ -6410,6 +6414,7 @@ type RepairQueue struct {
 	UpdatedAt     time.Time
 	InsertedAt    time.Time
 	SegmentHealth float64
+	Placement     *int
 }
 
 func (RepairQueue) _Table() string { return "repair_queue" }
@@ -6419,11 +6424,13 @@ type RepairQueue_Create_Fields struct {
 	UpdatedAt     RepairQueue_UpdatedAt_Field
 	InsertedAt    RepairQueue_InsertedAt_Field
 	SegmentHealth RepairQueue_SegmentHealth_Field
+	Placement     RepairQueue_Placement_Field
 }
 
 type RepairQueue_Update_Fields struct {
 	AttemptedAt RepairQueue_AttemptedAt_Field
 	UpdatedAt   RepairQueue_UpdatedAt_Field
+	Placement   RepairQueue_Placement_Field
 }
 
 type RepairQueue_StreamId_Field struct {
@@ -6552,6 +6559,38 @@ func (f RepairQueue_SegmentHealth_Field) value() interface{} {
 }
 
 func (RepairQueue_SegmentHealth_Field) _Column() string { return "segment_health" }
+
+type RepairQueue_Placement_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func RepairQueue_Placement(v int) RepairQueue_Placement_Field {
+	return RepairQueue_Placement_Field{_set: true, _value: &v}
+}
+
+func RepairQueue_Placement_Raw(v *int) RepairQueue_Placement_Field {
+	if v == nil {
+		return RepairQueue_Placement_Null()
+	}
+	return RepairQueue_Placement(*v)
+}
+
+func RepairQueue_Placement_Null() RepairQueue_Placement_Field {
+	return RepairQueue_Placement_Field{_set: true, _null: true}
+}
+
+func (f RepairQueue_Placement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RepairQueue_Placement_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_Placement_Field) _Column() string { return "placement" }
 
 type Reputation struct {
 	Id                          []byte

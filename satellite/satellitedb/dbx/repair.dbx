@@ -17,6 +17,8 @@ model repair_queue (
 	// segment_health corresponds to the importance of this segment getting repaired.
 	// Lower health segments should be repaired first. See repair.SegmentHealth for more details.
 	field segment_health float64 (default 1)
+	// placement of the segment to be repaired.
+	field placement int (nullable, updatable)
 
 	// this index is used for efficient deletes of old entries.
 	index (
@@ -28,6 +30,11 @@ model repair_queue (
 	index (
 		name repair_queue_num_healthy_pieces_attempted_at_index
 		fields segment_health attempted_at
+	)
+
+	// this index is used for efficient deletes of old entries.
+	index (
+		fields placement
 	)
 )
 

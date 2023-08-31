@@ -2422,6 +2422,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 						PRIMARY KEY ( node_id, name, signer ));`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add (indexed) placement to repair_queue",
+				Version:     242,
+				Action: migrate.SQL{
+					`ALTER TABLE repair_queue ADD COLUMN placement integer;`,
+					`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
