@@ -107,6 +107,7 @@ type Config struct {
 	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"true"`
 	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
+	ObjectBrowserPaginationEnabled  bool       `help:"whether to use object browser pagination" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -727,6 +728,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 		GalleryViewEnabled:              server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
+		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

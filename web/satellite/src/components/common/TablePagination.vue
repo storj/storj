@@ -105,15 +105,15 @@ interface PaginationControlItem {
 const { withLoading } = useLoading();
 
 const props = withDefaults(defineProps<{
-  itemsLabel?: string,
-  totalPageCount?: number;
-  limit?: number;
-  totalItemsCount?: number;
-  simplePagination?: boolean;
-  onPageChange?: PageChangeCallback | null;
-  onNextClicked?: (() => Promise<void>) | null;
-  onPreviousClicked?: (() => Promise<void>) | null;
-  onPageSizeChanged?: ((size: number) => Promise<void>) | null;
+    itemsLabel?: string,
+    totalPageCount?: number;
+    limit?: number;
+    totalItemsCount?: number;
+    simplePagination?: boolean;
+    onPageChange?: PageChangeCallback | null;
+    onNextClicked?: (() => Promise<void>) | null;
+    onPreviousClicked?: (() => Promise<void>) | null;
+    onPageSizeChanged?: ((size: number) => Promise<void> | void) | null;
 }>(), {
     itemsLabel: 'items',
     totalPageCount: 0,
@@ -196,7 +196,7 @@ function sizeChanged(size: number) {
             await props.onPageSizeChanged(size);
             pageSize.value = size;
         }
-        // if the new size is large enough to cause the page index to  be out of range
+        // if the new size is large enough to cause the page index to be out of range
         // we calculate an appropriate new page index.
         const maxPage = Math.ceil(Math.ceil(props.totalItemsCount / size));
         const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
@@ -209,8 +209,8 @@ function sizeChanged(size: number) {
     });
 }
 
-async function goToPage(index: number) {
-    if (index === currentPageNumber.value) {
+async function goToPage(index?: number): Promise<void> {
+    if (index === undefined || index === currentPageNumber.value) {
         return;
     }
     if (index < 1) {
@@ -219,7 +219,7 @@ async function goToPage(index: number) {
         index = props.totalPageCount ?? 1;
     }
     await withLoading(async () => {
-        if (!props.onPageChange) {
+        if (!props.onPageChange || index === undefined) {
             return;
         }
         await props.onPageChange(index, pageSize.value);
@@ -303,21 +303,21 @@ async function prevPage(): Promise<void> {
             color: var(--c-grey-6);
             text-align: center;
             line-height: 24px;
-            width: 24px;
-            height: 24px;
+            padding: 2px 5px;
             margin-left: 2px;
             box-sizing: border-box;
+            border: 1px solid transparent;
             cursor: pointer;
 
             &:hover {
-                border: 1px solid var(--c-grey-3);
+                border-color: var(--c-grey-3);
                 border-radius: 5px;
                 line-height: 22px;
             }
 
             &.selected {
                 background: var(--c-grey-2);
-                border: 1px solid var(--c-grey-3);
+                border-color: var(--c-grey-3);
                 border-radius: 5px;
                 line-height: 22px;
             }

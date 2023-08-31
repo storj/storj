@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
@@ -24,16 +24,26 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
+const configStore = useConfigStore();
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
+
+/**
+ * Indicates if pagination should be used.
+ */
+const isPaginationEnabled = computed((): boolean => {
+    return configStore.state.config.objectBrowserPaginationEnabled;
+});
 
 /**
  * Indicates if upload cancel popup is visible.
@@ -107,11 +117,22 @@ watch(passphrase, async () => {
     });
 
     try {
-        await Promise.all([
+        let promises: Promise<void>[] = [
             bucketsStore.getBuckets(bucketPage.value.currentPage, projectID),
-            obStore.list(''),
-            obStore.getObjectCount(),
-        ]);
+        ];
+
+        if (isPaginationEnabled.value) {
+            promises.push(obStore.initList(''));
+        } else {
+            promises = [
+                ...promises,
+                obStore.list(''),
+                obStore.getObjectCount(),
+            ];
+        }
+
+        await Promise.all(promises);
+        obStore.setCursor({ limit: DEFAULT_PAGE_LIMIT, page: 1 });
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
     }

@@ -13,16 +13,19 @@ import {
     PutObjectCommand,
     _Object,
     GetObjectCommand,
+    paginateListObjectsV2,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
 import { SignatureV4 } from '@smithy/signature-v4';
+import { ListObjectsV2CommandInput } from '@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 const listCache = new Map();
 
@@ -62,6 +65,18 @@ export type PreviewCache = {
     lastModified: number,
 }
 
+export const MAX_KEY_COUNT = 500;
+
+export type ObjectBrowserCursor = {
+    page: number,
+    limit: number,
+}
+
+export type ObjectRange = {
+    start: number,
+    end: number,
+}
+
 export class FilesState {
     s3: S3Client | null = null;
     accessKey: null | string = null;
@@ -69,6 +84,10 @@ export class FilesState {
     bucket = '';
     browserRoot = '/';
     files: BrowserObject[] = [];
+    cursor: ObjectBrowserCursor = { limit: DEFAULT_PAGE_LIMIT, page: 1 };
+    continuationTokens: Map<number, string> = new Map<number, string>();
+    totalObjectCount = 0;
+    activeObjectsRange: ObjectRange = { start: 1, end: 500 };
     uploadChain: Promise<void> = Promise.resolve();
     uploading: UploadingBrowserObject[] = [];
     selectedAnchorFile: BrowserObject | null = null;
@@ -113,6 +132,8 @@ declare global {
 export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
 
+    const config = useConfigStore();
+
     const sortedFiles = computed(() => {
         // key-specific sort cases
         const fns = {
@@ -140,19 +161,34 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         ];
     });
 
+    const displayedObjects = computed(() => {
+        let end = state.cursor.limit * state.cursor.page;
+        let start = end - state.cursor.limit;
+
+        // We check if current active range is not initial and recalculate slice indexes.
+        if (state.activeObjectsRange.end !== MAX_KEY_COUNT) {
+            end -= state.activeObjectsRange.start;
+            start = end - state.cursor.limit;
+        }
+
+        return sortedFiles.value.slice(start, end);
+    });
+
     const isInitialized = computed(() => {
         return state.s3 !== null;
     });
 
     const uploadingLength = computed(() => {
-        const config = useConfigStore();
-
         if (config.state.config.newUploadModalEnabled) {
             return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
         }
 
         return state.uploading.length;
     });
+
+    function setCursor(cursor: ObjectBrowserCursor): void {
+        state.cursor = cursor;
+    }
 
     function init({
         accessKey,
@@ -232,8 +268,66 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Prefix: path,
         }));
 
-        let { Contents, CommonPrefixes } = response;
+        const { Contents, CommonPrefixes } = response;
 
+        processFetchedObjects(path, Contents, CommonPrefixes);
+    }
+
+    async function initList(path = state.path): Promise<void> {
+        assertIsInitialized(state);
+
+        const input: ListObjectsV2CommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+        };
+
+        const paginator = paginateListObjectsV2({ client: state.s3, pageSize: MAX_KEY_COUNT }, input);
+
+        let iteration = 1;
+        let keyCount = 0;
+
+        for await (const response of paginator) {
+            if (iteration === 1) {
+                const { Contents, CommonPrefixes } = response;
+
+                processFetchedObjects(path, Contents, CommonPrefixes);
+            }
+
+            keyCount += response.KeyCount ?? 0;
+
+            if (!response.NextContinuationToken) break;
+
+            state.continuationTokens.set(MAX_KEY_COUNT * (iteration + 1), response.NextContinuationToken);
+            iteration++;
+        }
+
+        state.totalObjectCount = keyCount;
+    }
+
+    async function listByToken(path: string, key: number, continuationToken?: string): Promise<void> {
+        assertIsInitialized(state);
+
+        const input: ListObjectsV2CommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+            ContinuationToken: continuationToken,
+        };
+
+        const response = await state.s3.send(new ListObjectsV2Command(input));
+
+        const { Contents, CommonPrefixes } = response;
+
+        processFetchedObjects(path, Contents, CommonPrefixes);
+
+        state.activeObjectsRange = {
+            start: key === 1 ? key : key - MAX_KEY_COUNT,
+            end: key === 1 ? MAX_KEY_COUNT : key,
+        };
+    }
+
+    function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): void {
         if (Contents === undefined) {
             Contents = [];
         }
@@ -294,7 +388,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     async function back(): Promise<void> {
-        const getParentDirectory = (path) => {
+        const getParentDirectory = (path: string) => {
             let i = path.length - 2;
 
             while (path[i - 1] !== '/' && i > 0) {
@@ -420,7 +514,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         assertIsInitialized(state);
 
         const appStore = useAppStore();
-        const config = useConfigStore();
         const { notifyError } = useNotificationsStore();
 
         const params = {
@@ -517,7 +610,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            await list();
+            if (config.state.config.objectBrowserPaginationEnabled) {
+                await initList();
+            } else {
+                await list();
+            }
 
             const uploadedFiles = state.files.filter(f => f.type === 'file');
             if (uploadedFiles.length === 1 && !key.includes('/') && state.openModalOnFirstUpload) {
@@ -539,7 +636,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     function handleUploadError(item: UploadingBrowserObject, error: Error): void {
         if (error.name === 'AbortError' && item.status === UploadingStatus.Cancelled) return;
 
-        const config = useConfigStore();
         if (config.state.config.newUploadModalEnabled) {
             item.status = UploadingStatus.Failed;
             item.failedMessage = FailedUploadMessage.Failed;
@@ -561,7 +657,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function createFolder(name): Promise<void> {
+    async function createFolder(name: string): Promise<void> {
         assertIsInitialized(state);
 
         await state.s3.send(new PutObjectCommand({
@@ -570,7 +666,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: '',
         }));
 
-        list();
+        if (config.state.config.objectBrowserPaginationEnabled) {
+            initList();
+        } else {
+            list();
+        }
     }
 
     async function deleteObject(path: string, file?: _Object | BrowserObject, isFolder = false): Promise<void> {
@@ -585,13 +685,17 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Key: path + file.Key,
         }));
 
-        const config = useConfigStore();
         if (config.state.config.newUploadModalEnabled) {
             state.uploading = state.uploading.filter(f => f.Key !== file.Key);
         }
 
         if (!isFolder) {
-            await list();
+            if (config.state.config.objectBrowserPaginationEnabled) {
+                await initList();
+            } else {
+                await list();
+            }
+
             removeFileFromToBeDeleted(file);
         }
     }
@@ -599,7 +703,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function deleteFolder(file: BrowserObject, path: string): Promise<void> {
         assertIsInitialized(state);
 
-        async function recurse(filePath) {
+        async function recurse(filePath: string) {
             assertIsInitialized(state);
 
             let { Contents, CommonPrefixes } = await state.s3.send(new ListObjectsCommand({
@@ -631,14 +735,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             await Promise.all([thread(), thread(), thread()]);
 
             for (const { Prefix } of CommonPrefixes) {
-                await recurse(Prefix);
+                await recurse(Prefix ?? '');
             }
         }
 
         await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
 
         removeFileFromToBeDeleted(file);
-        await list();
+        if (config.state.config.objectBrowserPaginationEnabled) {
+            await initList();
+        } else {
+            await list();
+        }
     }
 
     async function deleteSelected(): Promise<void> {
@@ -770,6 +878,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.bucket = '';
         state.browserRoot = '/';
         state.files = [];
+        state.cursor = { limit: DEFAULT_PAGE_LIMIT, page: 1 };
+        state.continuationTokens = new Map<number, string>();
+        state.totalObjectCount = 0;
+        state.activeObjectsRange = { start: 1, end: 500 };
         state.uploadChain = Promise.resolve();
         state.uploading = [];
         state.selectedAnchorFile = null;
@@ -788,12 +900,16 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     return {
         state,
         sortedFiles,
+        displayedObjects,
         isInitialized,
         uploadingLength,
         init,
         reinit,
         list,
+        initList,
+        listByToken,
         back,
+        setCursor,
         sort,
         getObjectCount,
         upload,

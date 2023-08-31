@@ -46,7 +46,7 @@ const props = withDefaults(defineProps<{
     onPageChange?: PageChangeCallback | null;
     onNextClicked?: (() => Promise<void>) | null;
     onPreviousClicked?: (() => Promise<void>) | null;
-    onPageSizeChanged?: ((size: number) => Promise<void>) | null;
+    onPageSizeChanged?: ((size: number) => Promise<void> | void) | null;
     totalPageCount?: number,
     selectable?: boolean,
     selected?: boolean,

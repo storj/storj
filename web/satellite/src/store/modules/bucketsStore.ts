@@ -9,6 +9,7 @@ import {
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
+    ListObjectsV2CommandOutput,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -147,7 +148,7 @@ export const useBucketsStore = defineStore('buckets', () => {
             throw new Error(error.message);
         };
 
-        await worker.postMessage({
+        worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
             'isUpload': true,
@@ -238,17 +239,19 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function getObjectsCount(name: string): Promise<number> {
+        const maxKeys = 1000; // Default max keys count.
         const abortController = new AbortController();
 
         const request = state.s3Client.send(new ListObjectsV2Command({
             Bucket: name,
+            MaxKeys: maxKeys,
         }), { abortSignal: abortController.signal });
 
         const timeout = setTimeout(() => {
             abortController.abort();
         }, 10000); // abort request in 10 seconds.
 
-        let response;
+        let response: ListObjectsV2CommandOutput;
         try {
             response = await request;
             clearTimeout(timeout);
@@ -262,7 +265,9 @@ export const useBucketsStore = defineStore('buckets', () => {
             throw error;
         }
 
-        return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
+        if (!response || response.KeyCount === undefined) return 0;
+
+        return response.IsTruncated ? maxKeys : response.KeyCount;
     }
 
     function clearS3Data(): void {

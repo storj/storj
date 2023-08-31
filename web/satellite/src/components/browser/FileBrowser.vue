@@ -99,11 +99,22 @@
                     />
 
                     <TooManyObjectsBanner
-                        v-if="files.length >= NUMBER_OF_DISPLAYED_OBJECTS && isTooManyObjectsBanner"
+                        v-if="!isPaginationEnabled && files.length >= NUMBER_OF_DISPLAYED_OBJECTS && isTooManyObjectsBanner"
                         :on-close="closeTooManyObjectsBanner"
                     />
 
-                    <v-table items-label="objects" :total-items-count="files.length" selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
+                    <v-table
+                        items-label="objects"
+                        selectable
+                        :selected="allFilesSelected"
+                        :limit="isPaginationEnabled ? cursor.limit : 0"
+                        :total-page-count="isPaginationEnabled ? pageCount : 0"
+                        :total-items-count="isPaginationEnabled ? fetchedObjectsCount : files.length"
+                        show-select
+                        class="file-browser-table"
+                        :on-page-change="isPaginationEnabled ? changePageAndLimit : null"
+                        @selectAllClicked="toggleSelectAllFiles"
+                    >
                         <template #head>
                             <file-browser-header />
                         </template>
@@ -141,7 +152,8 @@
                                         <v-button
                                             width="60px"
                                             font-size="14px"
-                                            label="Cancel" :is-deletion="true"
+                                            label="Cancel"
+                                            is-deletion
                                             :on-press="() => cancelUpload(file.Key)"
                                         />
                                     </th>
@@ -203,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, onBeforeUnmount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
@@ -216,11 +228,17 @@ import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    MAX_KEY_COUNT,
+    ObjectBrowserCursor,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -260,10 +278,38 @@ const routePath = ref(calculateRoutePath());
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 
 /**
+ * Calculates page count depending on object count and page limit.
+ */
+const pageCount = computed((): number => {
+    return Math.ceil(fetchedObjectsCount.value / cursor.value.limit);
+});
+
+/**
+ * Returns fetched object count from store.
+ */
+const fetchedObjectsCount = computed((): number => {
+    return obStore.state.totalObjectCount;
+});
+
+/**
+ * Returns table cursor from store.
+ */
+const cursor = computed((): ObjectBrowserCursor => {
+    return obStore.state.cursor;
+});
+
+/**
  * Check if the s3 client has been initialized in the store.
  */
 const isInitialized = computed((): boolean => {
     return obStore.isInitialized;
+});
+
+/**
+ * Indicates if pagination should be used.
+ */
+const isPaginationEnabled = computed((): boolean => {
+    return configStore.state.config.objectBrowserPaginationEnabled;
 });
 
 /**
@@ -298,9 +344,7 @@ const currentPath = computed((): string => {
  * Return locked files number.
  */
 const lockedFilesCount = computed((): number => {
-    const ownObjectsCount = obStore.state.objectsCount;
-
-    return objectsCount.value - ownObjectsCount;
+    return objectsCount.value - (isPaginationEnabled.value ? fetchedObjectsCount.value : obStore.state.objectsCount);
 });
 
 /**
@@ -373,7 +417,7 @@ const allFilesSelected = computed((): boolean => {
 });
 
 const files = computed((): BrowserObject[] => {
-    return obStore.sortedFiles;
+    return isPaginationEnabled.value ? obStore.displayedObjects : obStore.sortedFiles;
 });
 
 /**
@@ -396,6 +440,30 @@ const folders = computed((): BrowserObject[] => {
 const bucket = computed((): string => {
     return bucketsStore.state.fileComponentBucketName;
 });
+
+/**
+ * Changes table page and limit.
+ */
+function changePageAndLimit(page: number, limit: number): void {
+    obStore.setCursor({ limit, page });
+
+    const lastObjectOnPage = page * limit;
+    const activeRange = obStore.state.activeObjectsRange;
+
+    if (lastObjectOnPage > activeRange.start && lastObjectOnPage <= activeRange.end) {
+        return;
+    }
+
+    const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
+
+    const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
+    if (!tokenToBeFetched) {
+        obStore.listByToken(routePath.value, 1, tokenToBeFetched);
+        return;
+    }
+
+    obStore.listByToken(routePath.value, tokenKey, tokenToBeFetched);
+}
 
 /**
  * Closes multiple passphrase banner.
@@ -427,7 +495,12 @@ async function onBack(): Promise<void> {
 async function onRouteChange(): Promise<void> {
     routePath.value = calculateRoutePath();
     obStore.closeDropdown();
-    await list(routePath.value);
+
+    if (isPaginationEnabled.value) {
+        await obStore.initList(routePath.value);
+    } else {
+        await list(routePath.value);
+    }
 }
 
 /**
@@ -487,7 +560,6 @@ async function list(path: string): Promise<void> {
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
-
 }
 
 /**
@@ -585,16 +657,24 @@ onBeforeMount(async () => {
     fetchingFilesSpinner.value = true;
 
     try {
-        await Promise.all([
-            list(''),
-            obStore.getObjectCount(),
-        ]);
+        if (isPaginationEnabled.value) {
+            await obStore.initList('');
+        } else {
+            await Promise.all([
+                list(''),
+                obStore.getObjectCount(),
+            ]);
+        }
     } catch (err) {
         notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
 
     // remove the spinner after files have been fetched
     fetchingFilesSpinner.value = false;
+});
+
+onBeforeUnmount(() => {
+    obStore.setCursor({ limit: DEFAULT_PAGE_LIMIT, page: 1 });
 });
 </script>
 
