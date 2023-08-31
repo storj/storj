@@ -20,6 +20,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
+	backofficeui "storj.io/storj/satellite/admin/back-office/ui"
 	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -42,10 +43,11 @@ const (
 
 // Config defines configuration for debug server.
 type Config struct {
-	Address          string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
-	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
-	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
-	Groups           Groups
+	Address             string `help:"admin peer http listening address"                                                                                                                  releaseDefault:"" devDefault:""`
+	StaticDir           string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets"                                     releaseDefault:"" devDefault:""`
+	StaticDirBackOffice string `help:"an alternate directory path which contains the static assets for the currently in development back-office. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	AllowedOauthHost    string `help:"the oauth host allowed to bypass token authentication."`
+	Groups              Groups
 
 	AuthorizationToken string `internal:"true"`
 }
@@ -91,7 +93,17 @@ type Server struct {
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, freezeAccounts *console.AccountFreezeService, accounts payments.Accounts, console consoleweb.Config, config Config) *Server {
+func NewServer(
+	log *zap.Logger,
+	listener net.Listener,
+	db DB,
+	buckets *buckets.Service,
+	restKeys *restkeys.Service,
+	freezeAccounts *console.AccountFreezeService,
+	accounts payments.Accounts,
+	console consoleweb.Config,
+	config Config,
+) *Server {
 	server := &Server{
 		log: log,
 
@@ -159,6 +171,17 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
+	// Temporary path until the new back-office is implemented and we can remove the current admin UI.
+	if config.StaticDirBackOffice == "" {
+		root.PathPrefix("/back-office").Handler(
+			http.StripPrefix("/back-office/", http.FileServer(http.FS(backofficeui.Assets))),
+		).Methods("GET")
+	} else {
+		root.PathPrefix("/back-office").Handler(
+			http.StripPrefix("/back-office/", http.FileServer(http.Dir(config.StaticDirBackOffice))),
+		).Methods("GET")
+	}
+
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
 	if config.StaticDir == "" {
@@ -214,7 +237,6 @@ func (server *Server) SetAllowedOauthHost(host string) {
 func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			if r.Host != server.config.AllowedOauthHost {
 				// not behind the proxy; use old authentication method.
 				if server.config.AuthorizationToken == "" {

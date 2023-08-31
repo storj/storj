@@ -25,6 +25,9 @@
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
 
+# an alternate directory path which contains the static assets for the currently in development back-office. When empty, it uses the embedded assets
+# admin.static-dir-back-office: ""
+
 # enable analytics reporting
 # analytics.enabled: false
 
