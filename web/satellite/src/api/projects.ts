@@ -44,6 +44,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.ownerId,
                 false,
                 result.memberCount,
+                result.edgeURLOverrides,
             );
         }
 
@@ -80,6 +81,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.ownerId,
             false,
             p.memberCount,
+            p.edgeURLOverrides,
         ));
     }
 
@@ -259,6 +261,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 p.ownerId,
                 false,
                 p.memberCount,
+                p.edgeURLOverrides,
             ));
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);

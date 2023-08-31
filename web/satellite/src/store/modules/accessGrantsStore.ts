@@ -15,6 +15,7 @@ import {
 import { SortDirection } from '@/types/common';
 import { AccessGrantsHttpApi } from '@/api/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 class AccessGrantsState {
@@ -41,6 +42,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
     const configStore = useConfigStore();
+    const projectsStore = useProjectsStore();
 
     async function startWorker(): Promise<void> {
         // TODO(vitalii): create an issue here https://github.com/vitejs/vite
@@ -111,8 +113,9 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         await api.deleteByNameAndProjectID(name, projectID);
     }
 
-    async function getEdgeCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
-        const url = optionalURL || configStore.state.config.gatewayCredentialsRequestURL;
+    async function getEdgeCredentials(accessGrant: string, isPublic?: boolean): Promise<EdgeCredentials> {
+        const url = projectsStore.state.selectedProject.edgeURLOverrides?.authService
+            || configStore.state.config.gatewayCredentialsRequestURL;
         const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, url, isPublic);
 
         state.edgeCredentials = credentials;

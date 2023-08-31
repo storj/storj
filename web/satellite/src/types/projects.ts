@@ -107,6 +107,7 @@ export class Project {
         public ownerId: string = '',
         public isSelected: boolean = false,
         public memberCount: number = 0,
+        public edgeURLOverrides?: EdgeURLOverrides,
     ) {}
 
     /**
@@ -117,6 +118,15 @@ export class Project {
         return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
     }
 }
+
+/**
+ * EdgeURLOverrides contains overrides for edge service URLs.
+ */
+export type EdgeURLOverrides = {
+    authService?: string;
+    publicLinksharing?: string;
+    internalLinksharing?: string;
+};
 
 /**
  * ProjectFields is a type, used for creating and updating project.
