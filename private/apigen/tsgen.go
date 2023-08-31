@@ -104,7 +104,15 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		returnStmt += ";"
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.RequestName, funcArgs, returnType)
-		f.pf("\t\tconst path = `%s`;", path)
+		if len(method.QueryParams) > 0 {
+			f.pf("\t\tconst u = new URL(`%s`);", path)
+			for _, p := range method.QueryParams {
+				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
+			}
+			f.pf("\t\tconst path = u.toString();")
+		} else {
+			f.pf("\t\tconst path = `%s`;", path)
+		}
 
 		if method.Request != nil {
 			f.pf("\t\tconst response = await this.http.%s(path, JSON.stringify(request));", strings.ToLower(method.Method))
@@ -141,15 +149,8 @@ func (f *tsGenFile) getArgsAndPath(method *fullEndpoint) (funcArgs, path string)
 		path += fmt.Sprintf("/${%s}", p.Name)
 	}
 
-	for i, p := range method.QueryParams {
-		if i == 0 {
-			path += "?"
-		} else {
-			path += "&"
-		}
-
+	for _, p := range method.QueryParams {
 		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
-		path += fmt.Sprintf("%s=${%s}", p.Name, p.Name)
 	}
 
 	path = strings.ReplaceAll(path, "//", "/")

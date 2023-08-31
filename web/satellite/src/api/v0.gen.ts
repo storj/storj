@@ -139,7 +139,12 @@ export class projectsHttpApiV0 {
     }
 
     public async getBucketRollup(projectID: UUID, bucket: string, since: Time, before: Time): Promise<BucketUsageRollup> {
-        const path = `${this.ROOT_PATH}/bucket-rollup?projectID=${projectID}&bucket=${bucket}&since=${since}&before=${before}`;
+        const u = new URL(`${this.ROOT_PATH}/bucket-rollup`);
+        u.searchParams.set('projectID', projectID);
+        u.searchParams.set('bucket', bucket);
+        u.searchParams.set('since', since);
+        u.searchParams.set('before', before);
+        const path = u.toString();
         const response = await this.http.get(path);
         if (response.ok) {
             return response.json().then((body) => body as BucketUsageRollup);
@@ -149,7 +154,11 @@ export class projectsHttpApiV0 {
     }
 
     public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<Array<BucketUsageRollup>> {
-        const path = `${this.ROOT_PATH}/bucket-rollups?projectID=${projectID}&since=${since}&before=${before}`;
+        const u = new URL(`${this.ROOT_PATH}/bucket-rollups`);
+        u.searchParams.set('projectID', projectID);
+        u.searchParams.set('since', since);
+        u.searchParams.set('before', before);
+        const path = u.toString();
         const response = await this.http.get(path);
         if (response.ok) {
             return response.json().then((body) => body as Array<BucketUsageRollup>);
@@ -159,7 +168,13 @@ export class projectsHttpApiV0 {
     }
 
     public async getAPIKeys(projectID: UUID, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
-        const path = `${this.ROOT_PATH}/apikeys/${projectID}?search=${search}&limit=${limit}&page=${page}&order=${order}&orderDirection=${orderDirection}`;
+        const u = new URL(`${this.ROOT_PATH}/apikeys/${projectID}`);
+        u.searchParams.set('search', search);
+        u.searchParams.set('limit', limit);
+        u.searchParams.set('page', page);
+        u.searchParams.set('order', order);
+        u.searchParams.set('orderDirection', orderDirection);
+        const path = u.toString();
         const response = await this.http.get(path);
         if (response.ok) {
             return response.json().then((body) => body as APIKeyPage);

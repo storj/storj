@@ -20,7 +20,10 @@ export class docsHttpApiV0 {
     private readonly ROOT_PATH: string = '/api/v0/docs';
 
     public async (request: , path: string, id: UUID, date: Time): Promise<> {
-        const path = `${this.ROOT_PATH}/${path}?id=${id}&date=${date}`;
+        const u = new URL(`${this.ROOT_PATH}/${path}`);
+        u.searchParams.set('id', id);
+        u.searchParams.set('date', date);
+        const path = u.toString();
         const response = await this.http.post(path, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as );
