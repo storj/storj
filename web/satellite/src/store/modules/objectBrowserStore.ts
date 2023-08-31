@@ -363,6 +363,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Prefix: string;
         }): BrowserObject => ({
             Key: Prefix.slice(path.length, -1),
+            path: path,
             LastModified: new Date(),
             Size: 0,
             type: 'folder',
@@ -371,6 +372,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         const makeFileRelative = (file) => ({
             ...file,
             Key: file.Key.slice(path.length),
+            path: path,
             type: 'file',
         });
 
@@ -804,7 +806,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     function removeFileFromToBeDeleted(file): void {
         state.filesToBeDeleted = state.filesToBeDeleted.filter(
-            singleFile => singleFile.Key !== file.Key,
+            singleFile => !(singleFile.Key === file.Key && singleFile.path === file.path),
         );
     }
 

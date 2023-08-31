@@ -9,7 +9,7 @@
         :persistent="isLoading"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4 share-dialog__header">
+            <v-card-item class="pl-7 py-4 pos-relative">
                 <template #prepend>
                     <v-sheet
                         class="bg-on-surface-variant d-flex justify-center align-center"
@@ -194,24 +194,17 @@ watch(() => innerContent.value, async (comp: Component | null): Promise<void> =>
 </script>
 
 <style scoped lang="scss">
-.share-dialog {
+.share-dialog__content {
+    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
-    &__header {
-        position: relative;
+    &--loading {
+        opacity: 0.3;
+        transition: opacity 0s;
+        pointer-events: none;
     }
 
-    &__content {
-        transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
-
-        &--loading {
-            opacity: 0.3;
-            transition: opacity 0s;
-            pointer-events: none;
-        }
-
-        &__icon {
-            margin-right: 5.5px;
-        }
+    &__icon {
+        margin-right: 5.5px;
     }
 }
 </style>

@@ -35,39 +35,48 @@
             @update:page="onPageChange"
             @update:itemsPerPage="onLimitChange"
         >
-            <template #item.name="{ item }: ItemSlotProps">
-                <v-btn
-                    class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
-                    variant="text"
-                    height="40"
-                    color="default"
-                    block
-                    @click="onFileClick(item.raw.browserObject)"
-                >
-                    <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
-                    {{ item.raw.browserObject.Key }}
-                </v-btn>
-            </template>
+            <template #item="{ props: rowProps }">
+                <v-data-table-row class="pos-relative" v-bind="rowProps">
+                    <template #item.name="{ item }: ItemSlotProps">
+                        <v-btn
+                            class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
+                            variant="text"
+                            height="40"
+                            color="default"
+                            block
+                            @click="onFileClick(item.raw.browserObject)"
+                        >
+                            <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
+                            {{ item.raw.browserObject.Key }}
+                        </v-btn>
+                    </template>
 
-            <template #item.type="{ item }: ItemSlotProps">
-                {{ item.raw.typeInfo.title }}
-            </template>
+                    <template #item.type="{ item }: ItemSlotProps">
+                        {{ item.raw.typeInfo.title }}
+                    </template>
 
-            <template #item.size="{ item }: ItemSlotProps">
-                {{ getFormattedSize(item.raw.browserObject) }}
-            </template>
+                    <template #item.size="{ item }: ItemSlotProps">
+                        {{ getFormattedSize(item.raw.browserObject) }}
+                    </template>
 
-            <template #item.date="{ item }: ItemSlotProps">
-                {{ getFormattedDate(item.raw.browserObject) }}
-            </template>
+                    <template #item.date="{ item }: ItemSlotProps">
+                        {{ getFormattedDate(item.raw.browserObject) }}
+                    </template>
 
-            <template #item.actions="{ item }: ItemSlotProps">
-                <browser-row-actions :file="item.raw.browserObject" />
+                    <template #item.actions="{ item }: ItemSlotProps">
+                        <browser-row-actions
+                            :file="item.raw.browserObject"
+                            @delete-folder-click="() => onDeleteFolderClick(item.raw.browserObject)"
+                        />
+                    </template>
+                </v-data-table-row>
             </template>
         </v-data-table-server>
 
         <file-preview-dialog v-model="previewDialog" />
     </v-card>
+
+    <delete-folder-dialog v-if="folderToDelete" v-model="isDeleteFolderDialogShown" :folder="folderToDelete" />
 </template>
 
 <script setup lang="ts">
@@ -78,7 +87,7 @@ import {
     VTextField,
     VBtn,
 } from 'vuetify/components';
-import { VDataTableServer } from 'vuetify/labs/components';
+import { VDataTableServer, VDataTableRow } from 'vuetify/labs/components';
 
 import {
     BrowserObject,
@@ -97,6 +106,7 @@ import { tableSizeOptions } from '@/types/common';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
+import DeleteFolderDialog from '@poc/components/dialogs/DeleteFolderDialog.vue';
 
 import folderIcon from '@poc/assets/icon-folder-tonal.svg';
 import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
@@ -154,6 +164,8 @@ const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
+const folderToDelete = ref<BrowserObject>();
+const isDeleteFolderDialogShown = ref<boolean>(false);
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
@@ -187,7 +199,7 @@ const fileInfo: BrowserObjectTypeInfo = { title: 'File', icon: fileIcon };
 const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
 
 /**
- * Returns the name of the current path within the selected bucket.
+ * Returns the current path within the selected bucket.
  */
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
@@ -385,6 +397,21 @@ async function fetchFiles(): Promise<void> {
     isFetching.value = false;
 }
 
+/**
+ * Handles delete button click event for folder rows.
+ */
+function onDeleteFolderClick(folder: BrowserObject): void {
+    folderToDelete.value = folder;
+    isDeleteFolderDialogShown.value = true;
+}
+
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 </script>
+
+<style scoped lang="scss">
+.browser-table__loader-overlay :deep(.v-overlay__scrim) {
+    opacity: 1;
+    bottom: 0.8px;
+}
+</style>

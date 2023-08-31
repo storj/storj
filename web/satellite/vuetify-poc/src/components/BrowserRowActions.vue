@@ -70,7 +70,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item density="comfortable" link rounded="lg" base-color="error">
+                    <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="onDeleteClick">
                         <template #prepend>
                             <icon-trash bold />
                         </template>
@@ -82,10 +82,24 @@
             </v-menu>
         </v-btn>
     </div>
+
+    <v-overlay
+        v-model="isDeleting"
+        scrim="surface"
+        contained
+        persistent
+        no-click-animation
+        class="align-center justify-center browser-table__loader-overlay"
+    >
+        <div class="d-flex align-center">
+            <v-progress-circular size="23" width="2" color="error" indeterminate />
+            <p class="ml-3 text-subtitle-1 font-weight-medium text-error">Deleting...</p>
+        </div>
+    </v-overlay>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
     VMenu,
     VList,
@@ -97,11 +111,13 @@ import {
     VIcon,
     VBtn,
     VTooltip,
+    VOverlay,
 } from 'vuetify/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconDownload from '@poc/components/icons/IconDownload.vue';
 import IconShare from '@poc/components/icons/IconShare.vue';
@@ -109,13 +125,26 @@ import IconPreview from '@poc/components/icons/IconPreview.vue';
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
 const props = defineProps<{
     file: BrowserObject;
 }>();
 
+const emit = defineEmits<{
+    deleteFolderClick: [];
+}>();
+
 const isDownloading = ref<boolean>(false);
+
+const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
+
+const isDeleting = computed((): boolean => {
+    return obStore.state.filesToBeDeleted.some(
+        file => file.Key === props.file.Key && file.path === props.file.path,
+    );
+});
 
 async function onDownloadClick(): Promise<void> {
     isDownloading.value = true;
@@ -124,6 +153,20 @@ async function onDownloadClick(): Promise<void> {
         notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     });
     isDownloading.value = false;
+}
+
+async function onDeleteClick(): Promise<void> {
+    if (props.file.type === 'folder') {
+        emit('deleteFolderClick');
+        return;
+    }
+
+    obStore.addFileToBeDeleted(props.file);
+    await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', props.file).catch((err: Error) => {
+        err.message = `Error deleting ${props.file.type}. ${err.message}`;
+        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    });
+    obStore.removeFileFromToBeDeleted(props.file);
 }
 </script>
 

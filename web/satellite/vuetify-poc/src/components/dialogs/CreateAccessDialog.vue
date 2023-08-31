@@ -10,7 +10,7 @@
         :persistent="isCreating"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4 create-access-dialog__header">
+            <v-card-item class="pl-7 py-4 pos-relative">
                 <template #prepend>
                     <img class="d-block" :src="STEP_ICON_AND_TITLE[step].icon">
                 </template>
@@ -582,20 +582,13 @@ watch(innerContent, async (comp: Component): Promise<void> => {
 </script>
 
 <style scoped lang="scss">
-.create-access-dialog {
+.create-access-dialog__window {
+    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
-    &__header {
-        position: relative;
-    }
-
-    &__window {
-        transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
-
-        &--loading {
-            opacity: 0.3;
-            transition: opacity 0s;
-            pointer-events: none;
-        }
+    &--loading {
+        opacity: 0.3;
+        transition: opacity 0s;
+        pointer-events: none;
     }
 }
 </style>

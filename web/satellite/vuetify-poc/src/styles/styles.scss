@@ -166,8 +166,11 @@ html {
 
 // Overlay behind modals/dialogs opacity and color
 .v-overlay__scrim {
-  background: #000;
   opacity: 0.75;
+}
+
+.v-theme--dark .v-overlay__scrim {
+  --v-theme-on-surface: 0,0,0;
 }
 
 // Align the checkboxes in the tables
@@ -314,4 +317,9 @@ table {
 .bg-on-surface-variant {
   background-color: rgb(var(--v-theme-on-surface-variant)) !important;
   color: rgb(var(--v-theme-surface-variant)) !important;
+}
+
+// Positions
+.pos-relative {
+  position: relative !important;
 }
