@@ -317,18 +317,33 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 		Customer:   &customerID,
 	}
 
+	// stripe will initially fetch this number of invoices.
+	// Calling iter.Next() at the end will fetch another batch
+	// if there's more.
 	params.Limit = stripe.Int64(int64(cursor.Limit))
-	params.Single = true
 	if cursor.StartingAfter != "" {
 		page.Previous = true
 		params.StartingAfter = stripe.String(cursor.StartingAfter)
 	} else if cursor.EndingBefore != "" {
+		page.Next = true
 		params.EndingBefore = stripe.String(cursor.EndingBefore)
 	}
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
+
+		if stripeInvoice.Status != stripe.InvoiceStatusOpen && stripeInvoice.Status != stripe.InvoiceStatusPaid {
+			continue
+		}
+
+		if len(page.Invoices) == cursor.Limit {
+			// in this case, cursor.EndingBefore was
+			// not provided, so we have to check if
+			// there's a (cursor.Limit+1)th invoice.
+			page.Next = true
+			break
+		}
 
 		total := stripeInvoice.Total
 		for _, line := range stripeInvoice.Lines.Data {
@@ -348,13 +363,16 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
+
+		if page.Next && len(page.Invoices) >= cursor.Limit {
+			break
+		}
 	}
 
 	if err = invoicesIterator.Err(); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	page.Next = invoicesIterator.Meta().HasMore || cursor.EndingBefore != ""
 	return page, nil
 }
 
