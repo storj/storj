@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -93,17 +92,6 @@ func TestGetProjectMembersAndInvitationsOrdering(t *testing.T) {
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
 		members[user.ID] = *user
 
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
 		tests := []struct {
 			order, orderDir int
 		}{
@@ -134,24 +122,10 @@ func TestGetProjectMembersAndInvitationsOrdering(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			addr := planet.Satellites[0].API.Console.Listener.Addr().String()
-
-			url := fmt.Sprintf("http://%s/api/v0/projects/%s/members", addr, p.String())
-			url += fmt.Sprintf("?limit=100&page=1&order=%d&order-direction=%d", tt.order, tt.orderDir)
-
-			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+			endpoint := fmt.Sprintf("projects/%s/members?limit=100&page=1&order=%d&order-direction=%d", p.String(), tt.order, tt.orderDir)
+			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
-
-			req.AddCookie(&cookie)
-
-			client := http.Client{}
-			res, err := client.Do(req)
-			require.NoError(t, err)
-			require.NotNil(t, res)
-
-			body, err := io.ReadAll(res.Body)
-			require.NoError(t, err)
-			require.NoError(t, res.Body.Close())
+			require.Equal(t, http.StatusOK, status)
 
 			var membersAndInvitations consoleapi.ProjectMembersPage
 			require.NoError(t, json.Unmarshal(body, &membersAndInvitations))
@@ -231,17 +205,6 @@ func TestGetProjectMembersAndInvitationsSearch(t *testing.T) {
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
 		members[user.ID] = *user
 
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
 		tests := []struct {
 			search                            string
 			expectedMembers, expectedInvitees int
@@ -279,26 +242,14 @@ func TestGetProjectMembersAndInvitationsSearch(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			addr := planet.Satellites[0].API.Console.Listener.Addr().String()
-
-			endpoint := fmt.Sprintf("http://%s/api/v0/projects/%s/members?limit=100&page=1&order=1&order-direction=1&", addr, p.String())
+			endpoint := fmt.Sprintf("projects/%s/members?limit=100&page=1&order=1&order-direction=1&", p.String())
 			params := url.Values{}
 			params.Add("search", tt.search)
 			endpoint += params.Encode()
 
-			req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
-
-			req.AddCookie(&cookie)
-
-			client := http.Client{}
-			res, err := client.Do(req)
-			require.NoError(t, err)
-			require.NotNil(t, res)
-
-			body, err := io.ReadAll(res.Body)
-			require.NoError(t, err)
-			require.NoError(t, res.Body.Close())
+			require.Equal(t, http.StatusOK, status)
 
 			var membersAndInvitations consoleapi.ProjectMembersPage
 			require.NoError(t, json.Unmarshal(body, &membersAndInvitations))
@@ -334,42 +285,19 @@ func TestGetProjectMembersAndInvitationsLimitAndPage(t *testing.T) {
 		members, _ := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
 		members[user.ID] = *user
 
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		addr := planet.Satellites[0].API.Console.Listener.Addr().String()
-
 		limit := 1
 		page := 1
 		var previousResult console.ProjectMembersPage
 		for i := 0; i < 2; i++ {
-			endpoint := fmt.Sprintf("http://%s/api/v0/projects/%s/members?order=1&order-direction=1&", addr, p.String())
+			endpoint := fmt.Sprintf("projects/%s/members?order=1&order-direction=1&", p.String())
 			params := url.Values{}
 			params.Add("limit", fmt.Sprint(limit))
 			params.Add("page", fmt.Sprint(page))
 			endpoint += params.Encode()
 
-			req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
-
-			req.AddCookie(&cookie)
-
-			client := http.Client{}
-			res, err := client.Do(req)
-			require.NoError(t, err)
-			require.NotNil(t, res)
-
-			body, err := io.ReadAll(res.Body)
-			require.NoError(t, err)
-			require.NoError(t, res.Body.Close())
+			require.Equal(t, http.StatusOK, status)
 
 			var membersAndInvitations console.ProjectMembersPage
 			require.NoError(t, json.Unmarshal(body, &membersAndInvitations))
@@ -401,19 +329,6 @@ func TestDeleteProjectMembers(t *testing.T) {
 
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
 
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		addr := planet.Satellites[0].API.Console.Listener.Addr().String()
-
 		var emails string
 		var firstAppendDone bool
 		for _, m := range members {
@@ -431,27 +346,15 @@ func TestDeleteProjectMembers(t *testing.T) {
 			emails += e
 		}
 
-		endpoint := fmt.Sprintf("http://%s/api/v0/projects/%s/members?", addr, p.String())
+		endpoint := fmt.Sprintf("projects/%s/members?", p.String())
 		params := url.Values{}
 		params.Add("emails", emails)
 		endpoint += params.Encode()
 
-		req, err := http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
 		require.NoError(t, err)
-
-		req.AddCookie(&cookie)
-
-		client := http.Client{}
-		res, err := client.Do(req)
-		require.NoError(t, err)
-		require.NotNil(t, res)
-
-		body, err := io.ReadAll(res.Body)
-		require.NoError(t, err)
-		require.NoError(t, res.Body.Close())
+		require.Equal(t, http.StatusOK, status)
 		require.NotContains(t, string(body), "error")
-
-		require.Equal(t, http.StatusOK, res.StatusCode)
 
 		page, err := sat.DB.Console().ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, p, console.ProjectMembersCursor{Limit: 1, Page: 1})
 		require.NoError(t, err)
@@ -459,24 +362,14 @@ func TestDeleteProjectMembers(t *testing.T) {
 		require.Equal(t, user.ID, page.ProjectMembers[0].MemberID)
 
 		// test error
-		endpoint = fmt.Sprintf("http://%s/api/v0/projects/%s/members?", addr, p.String())
+		endpoint = fmt.Sprintf("projects/%s/members?", p.String())
 		params = url.Values{}
 		params.Add("emails", "nonmember@storj.test")
 		endpoint += params.Encode()
 
-		req, err = http.NewRequestWithContext(ctx, "DELETE", endpoint, nil)
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
 		require.NoError(t, err)
-
-		req.AddCookie(&cookie)
-
-		client = http.Client{}
-		res, err = client.Do(req)
-		require.NoError(t, err)
-		require.NotNil(t, res)
-
-		body, err = io.ReadAll(res.Body)
-		require.NoError(t, err)
-		require.NoError(t, res.Body.Close())
+		require.Equal(t, http.StatusInternalServerError, status)
 		require.Contains(t, string(body), "error")
 	})
 }

@@ -6,7 +6,6 @@ package consoleapi_test
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -42,46 +41,16 @@ func TestABMethodsOnError(t *testing.T) {
 		user, err := sat.AddUser(ctx, newUser, 1)
 		require.NoError(t, err)
 
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "ab/values", nil)
 		require.NoError(t, err)
-
-		client := http.Client{}
-
-		req, err := http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/ab/values", nil)
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		req.AddCookie(&cookie)
-
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		defer func() {
-			err = resp.Body.Close()
-			require.NoError(t, err)
-		}()
+		require.Equal(t, http.StatusInternalServerError, status)
 
 		values, err := service.GetABValues(ctx, *user)
 		require.Error(t, err)
 		require.Nil(t, values)
 
-		req, err = http.NewRequestWithContext(ctx, "POST", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/ab/hit/upgrade-account", nil)
+		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "ab/hit/upgrade-account", nil)
 		require.NoError(t, err)
-		req.AddCookie(&cookie)
-
-		hitResp, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, hitResp.StatusCode)
-		defer func() {
-			err = hitResp.Body.Close()
-			require.NoError(t, err)
-		}()
+		require.Equal(t, http.StatusOK, status)
 	})
 }

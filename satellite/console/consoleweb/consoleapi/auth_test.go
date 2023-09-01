@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs/v2"
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
@@ -32,6 +33,50 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 )
+
+func doRequestWithAuth(
+	ctx context.Context,
+	t *testing.T,
+	sat *testplanet.Satellite,
+	user *console.User,
+	method string,
+	endpoint string,
+	body io.Reader,
+) (responseBody []byte, statusCode int, err error) {
+	fullURL := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/" + endpoint
+
+	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	req.AddCookie(&http.Cookie{
+		Name:    "_tokenKey",
+		Path:    "/",
+		Value:   tokenInfo.Token.String(),
+		Expires: time.Now().AddDate(0, 0, 1),
+	})
+
+	result, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() {
+		err = errs.Combine(err, result.Body.Close())
+	}()
+
+	responseBody, err = io.ReadAll(result.Body)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return responseBody, result.StatusCode, nil
+}
 
 func TestAuth_Register(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -287,10 +332,7 @@ func TestMFAEndpoints(t *testing.T) {
 			RecoveryCode string `json:"recoveryCode"`
 		}
 
-		doRequest := func(urlSuffix string, passcode string, recoveryCode string) *http.Response {
-			urlLink := sat.ConsoleURL() + "/api/v0/auth/mfa" + urlSuffix
-			var buf io.Reader
-
+		doRequest := func(endpointSuffix string, passcode string, recoveryCode string) (responseBody []byte, status int) {
 			body := &data{
 				Passcode:     passcode,
 				RecoveryCode: recoveryCode,
@@ -298,74 +340,54 @@ func TestMFAEndpoints(t *testing.T) {
 
 			bodyBytes, err := json.Marshal(body)
 			require.NoError(t, err)
-			buf = bytes.NewBuffer(bodyBytes)
+			buf := bytes.NewBuffer(bodyBytes)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlLink, buf)
+			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/mfa"+endpointSuffix, buf)
 			require.NoError(t, err)
 
-			req.AddCookie(&http.Cookie{
-				Name:    "_tokenKey",
-				Path:    "/",
-				Value:   tokenInfo.Token.String(),
-				Expires: time.Now().AddDate(0, 0, 1),
-			})
-
-			req.Header.Set("Content-Type", "application/json")
-
-			result, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-
-			return result
+			return responseBody, status
 		}
 
 		// Expect failure because MFA is not enabled.
-		result := doRequest("/generate-recovery-codes", "", "")
-		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status := doRequest("/generate-recovery-codes", "", "")
+		require.Equal(t, http.StatusUnauthorized, status)
 
 		// Expect failure due to not having generated a secret key.
-		result = doRequest("/enable", "123456", "")
-		require.Equal(t, http.StatusBadRequest, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/enable", "123456", "")
+		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect success when generating a secret key.
-		result = doRequest("/generate-secret-key", "", "")
-		require.Equal(t, http.StatusOK, result.StatusCode)
+		body, status := doRequest("/generate-secret-key", "", "")
+		require.Equal(t, http.StatusOK, status)
 
 		var key string
-		err = json.NewDecoder(result.Body).Decode(&key)
+		err = json.Unmarshal(body, &key)
 		require.NoError(t, err)
 
-		require.NoError(t, result.Body.Close())
-
 		// Expect failure due to prodiving empty passcode.
-		result = doRequest("/enable", "", "")
-		require.Equal(t, http.StatusBadRequest, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/enable", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect failure due to providing invalid passcode.
 		badCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Hour))
 		require.NoError(t, err)
-		result = doRequest("/enable", badCode, "")
-		require.Equal(t, http.StatusBadRequest, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/enable", badCode, "")
+		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect success when providing valid passcode.
 		goodCode, err := console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		result = doRequest("/enable", goodCode, "")
-		require.Equal(t, http.StatusOK, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/enable", goodCode, "")
+		require.Equal(t, http.StatusOK, status)
 
 		// Expect 10 recovery codes to be generated.
-		result = doRequest("/generate-recovery-codes", "", "")
-		require.Equal(t, http.StatusOK, result.StatusCode)
+		body, status = doRequest("/generate-recovery-codes", "", "")
+		require.Equal(t, http.StatusOK, status)
 
 		var codes []string
-		err = json.NewDecoder(result.Body).Decode(&codes)
+		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
 		require.Len(t, codes, console.MFARecoveryCodeCount)
-		require.NoError(t, result.Body.Close())
 
 		// Expect no token due to missing passcode.
 		newToken, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
@@ -409,49 +431,40 @@ func TestMFAEndpoints(t *testing.T) {
 		}
 
 		// Expect failure due to disabling MFA with no passcode.
-		result = doRequest("/disable", "", "")
-		require.Equal(t, http.StatusBadRequest, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/disable", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect failure due to disabling MFA with invalid passcode.
-		result = doRequest("/disable", badCode, "")
-		require.Equal(t, http.StatusBadRequest, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/disable", badCode, "")
+		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect failure when disabling due to providing both passcode and recovery code.
-		result = doRequest("/generate-recovery-codes", "", "")
-		err = json.NewDecoder(result.Body).Decode(&codes)
+		body, _ = doRequest("/generate-recovery-codes", "", "")
+		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
-		require.NoError(t, result.Body.Close())
 
-		result = doRequest("/disable", goodCode, codes[0])
-		require.Equal(t, http.StatusConflict, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/disable", goodCode, codes[0])
+		require.Equal(t, http.StatusConflict, status)
 
 		// Expect success when disabling MFA with valid passcode.
-		result = doRequest("/disable", goodCode, "")
-		require.Equal(t, http.StatusOK, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/disable", goodCode, "")
+		require.Equal(t, http.StatusOK, status)
 
 		// Expect success when disabling MFA with valid recovery code.
-		result = doRequest("/generate-secret-key", "", "")
-		err = json.NewDecoder(result.Body).Decode(&key)
+		body, _ = doRequest("/generate-secret-key", "", "")
+		err = json.Unmarshal(body, &key)
 		require.NoError(t, err)
-		require.NoError(t, result.Body.Close())
 
 		goodCode, err = console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		result = doRequest("/enable", goodCode, "")
-		require.NoError(t, result.Body.Close())
+		doRequest("/enable", goodCode, "")
 
-		result = doRequest("/generate-recovery-codes", "", "")
-		err = json.NewDecoder(result.Body).Decode(&codes)
+		body, _ = doRequest("/generate-recovery-codes", "", "")
+		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
-		require.NoError(t, result.Body.Close())
 
-		result = doRequest("/disable", "", codes[0])
-		require.Equal(t, http.StatusOK, result.StatusCode)
-		require.NoError(t, result.Body.Close())
+		_, status = doRequest("/disable", "", codes[0])
+		require.Equal(t, http.StatusOK, status)
 	})
 }
 

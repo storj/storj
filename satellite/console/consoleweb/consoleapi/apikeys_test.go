@@ -5,10 +5,8 @@ package consoleapi_test
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -56,49 +54,24 @@ func Test_DeleteAPIKeyByNameAndProjectID(t *testing.T) {
 			Secret:    secret,
 		}
 
-		// we are using full name as a password
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		client := http.Client{}
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		deleteTestFunc := func(request *http.Request) func(t *testing.T) {
+		deleteTestFunc := func(endpointSuffix string) func(t *testing.T) {
 			return func(t *testing.T) {
 				created, err := sat.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
 				require.NoError(t, err)
 
-				request.AddCookie(&cookie)
-
-				result, err := client.Do(request)
+				endpoint := "api-keys/delete-by-name?name=" + apikey.Name
+				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, result.StatusCode)
+				require.Equal(t, http.StatusOK, status)
 
 				keyAfterDelete, err := sat.DB.Console().APIKeys().Get(ctx, created.ID)
 				require.Error(t, err)
 				require.Nil(t, keyAfterDelete)
-
-				defer func() {
-					err = result.Body.Close()
-					require.NoError(t, err)
-				}()
 			}
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&projectID="+project.ID.String(), nil)
-		require.NoError(t, err)
-		t.Run("delete by name and projectID", deleteTestFunc(req))
-
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&publicID="+project.PublicID.String(), nil)
-		require.NoError(t, err)
-		t.Run("delete by name and publicID", deleteTestFunc(req))
+		t.Run("delete by name and projectID", deleteTestFunc("&projectID="+project.ID.String()))
+		t.Run("delete by name and publicID", deleteTestFunc("&publicID="+project.PublicID.String()))
 	})
 }
 
@@ -125,20 +98,6 @@ func Test_GetAllAPIKeyNamesByProjectID(t *testing.T) {
 
 		project, err := sat.AddProject(ctx, user.ID, "apikeytest")
 		require.NoError(t, err)
-
-		// we are using full name as a password
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		client := http.Client{}
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
 
 		secret, err := macaroon.NewSecret()
 		require.NoError(t, err)
@@ -170,17 +129,10 @@ func Test_GetAllAPIKeyNamesByProjectID(t *testing.T) {
 		created1, err := sat.DB.Console().APIKeys().Create(ctx, key1.Head(), apikey1)
 		require.NoError(t, err)
 
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/api-key-names?projectID="+project.ID.String(), nil)
+		endpoint := "api-keys/api-key-names?projectID=" + project.ID.String()
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
-
-		request.AddCookie(&cookie)
-
-		result, err := client.Do(request)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
 
 		var output []string
 
@@ -190,10 +142,5 @@ func Test_GetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.Equal(t, 2, len(output))
 		require.Equal(t, created.Name, output[0])
 		require.Equal(t, created1.Name, output[1])
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
 	})
 }

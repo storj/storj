@@ -6,7 +6,6 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"testing"
@@ -71,36 +70,9 @@ func Test_TotalUsageLimits(t *testing.T) {
 		err = sat.DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project2.ID, expectedLimit)
 		require.NoError(t, err)
 
-		// we are using full name as a password
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects/usage-limits", nil)
 		require.NoError(t, err)
-
-		client := http.Client{}
-
-		req, err := http.NewRequestWithContext(
-			ctx,
-			"GET",
-			"http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/projects/usage-limits",
-			nil,
-		)
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		req.AddCookie(&cookie)
-
-		result, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
 
 		var output console.ProjectUsageLimits
 
@@ -111,11 +83,6 @@ func Test_TotalUsageLimits(t *testing.T) {
 		require.Equal(t, int64(0), output.StorageUsed)
 		require.Equal(t, int64(expectedLimit*3), output.BandwidthLimit)
 		require.Equal(t, int64(expectedLimit*3), output.StorageLimit)
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
 	})
 }
 
@@ -185,36 +152,10 @@ func Test_DailyUsage(t *testing.T) {
 		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
-		// we are using full name as a password
-		tokenInfo, err := satelliteSys.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		endpoint := fmt.Sprintf("projects/%s/daily-usage?from=%s&to=%s", projectID.String(), since, before)
+		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
-
-		client := http.DefaultClient
-
-		req, err := http.NewRequestWithContext(
-			ctx,
-			"GET",
-			fmt.Sprintf("http://%s/api/v0/projects/%s/daily-usage?from=%s&to=%s", planet.Satellites[0].API.Console.Listener.Addr().String(), projectID.String(), since, before),
-			nil,
-		)
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		req.AddCookie(&cookie)
-
-		result, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
 
 		var output accounting.ProjectDailyUsage
 
@@ -224,10 +165,5 @@ func Test_DailyUsage(t *testing.T) {
 		require.GreaterOrEqual(t, output.StorageUsage[0].Value, 15*memory.KiB)
 		require.GreaterOrEqual(t, output.AllocatedBandwidthUsage[0].Value, 5*memory.KiB)
 		require.GreaterOrEqual(t, output.SettledBandwidthUsage[0].Value, 5*memory.KiB)
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
 	})
 }

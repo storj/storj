@@ -5,10 +5,8 @@ package consoleapi_test
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -63,29 +61,10 @@ func Test_AllBucketNames(t *testing.T) {
 		_, err = sat.API.Buckets.Service.CreateBucket(ctx, bucket2)
 		require.NoError(t, err)
 
-		// we are using full name as a password
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-		require.NoError(t, err)
-
-		client := http.Client{}
-
-		testRequest := func(req *http.Request) {
-			expire := time.Now().AddDate(0, 0, 1)
-			cookie := http.Cookie{
-				Name:    "_tokenKey",
-				Path:    "/",
-				Value:   tokenInfo.Token.String(),
-				Expires: expire,
-			}
-
-			req.AddCookie(&cookie)
-
-			result, err := client.Do(req)
+		testRequest := func(endpointSuffix string) {
+			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "buckets/bucket-names"+endpointSuffix, nil)
 			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, result.StatusCode)
-
-			body, err := io.ReadAll(result.Body)
-			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
 
 			var output []string
 
@@ -94,21 +73,12 @@ func Test_AllBucketNames(t *testing.T) {
 
 			require.Equal(t, bucket1.Name, output[0])
 			require.Equal(t, bucket2.Name, output[1])
-
-			defer func() {
-				err = result.Body.Close()
-				require.NoError(t, err)
-			}()
 		}
 
 		// test using Project.ID
-		req, err := http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/buckets/bucket-names?projectID="+project.ID.String(), nil)
-		require.NoError(t, err)
-		testRequest(req)
+		testRequest("?projectID=" + project.ID.String())
 
 		// test using Project.PublicID
-		req, err = http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/buckets/bucket-names?publicID="+project.PublicID.String(), nil)
-		require.NoError(t, err)
-		testRequest(req)
+		testRequest("?publicID=" + project.PublicID.String())
 	})
 }
