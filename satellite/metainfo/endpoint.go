@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -298,12 +299,16 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 
 // convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
 func (endpoint *Endpoint) convertMetabaseErr(err error) error {
-	if rpcstatus.Code(err) != rpcstatus.Unknown {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, context.Canceled):
+		return rpcstatus.Error(rpcstatus.Canceled, "context canceled")
+	case errors.Is(err, context.DeadlineExceeded):
+		return rpcstatus.Error(rpcstatus.DeadlineExceeded, "context deadline exceeded")
+	case rpcstatus.Code(err) != rpcstatus.Unknown:
 		// it's already RPC error
 		return err
-	}
-
-	switch {
 	case metabase.ErrObjectNotFound.Has(err):
 		message := strings.TrimPrefix(err.Error(), string(metabase.ErrObjectNotFound))
 		message = strings.TrimPrefix(message, ": ")
