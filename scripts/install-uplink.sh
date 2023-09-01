@@ -117,9 +117,7 @@ esac
 
 if [ "$download_only" = true ]; then
   cd -
-  cd $download_path
-  cp $tmp_dir/$unzip_dir/uplink uplink.new
-  mv uplink.new uplink
+  install -m 755 $tmp_dir/$unzip_dir/uplink $download_path/uplink
   echo "Downloaded and unzipped to $download_path"
   exit 0
 fi
@@ -129,15 +127,10 @@ cd $unzip_dir
 # Install uplink
 case "$OS" in
   'linux'|'freebsd')
-    cp uplink /usr/bin/uplink.new
-    chmod 755 /usr/bin/uplink.new
-    chown root:root /usr/bin/uplink.new
-    mv /usr/bin/uplink.new /usr/bin/uplink
+    install -m 755 -o root -g root uplink /usr/bin/uplink
     ;;
   'darwin')
-    cp uplink /usr/local/bin/uplink.new
-    chmod 755 /usr/local/bin/uplink.new
-    mv /usr/local/bin/uplink.new /usr/local/bin/uplink
+    install -m 755 uplink /usr/local/bin/uplink
     ;;
   *) echo 'OS not supported'; exit 2 ;;
 esac
