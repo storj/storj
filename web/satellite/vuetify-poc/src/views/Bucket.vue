@@ -2,7 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container
+        class="bucket-view"
+        @dragover.prevent="isDragging = true"
+    >
+        <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="upload" />
         <page-title-component title="Browse Files" />
 
         <browser-breadcrumbs-component />
@@ -53,7 +57,8 @@ import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -63,16 +68,19 @@ import BrowserNewFolderDialog from '@poc/components/dialogs/BrowserNewFolderDial
 import IconUpload from '@poc/components/icons/IconUpload.vue';
 import IconFolder from '@poc/components/icons/IconFolder.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
+import DropzoneDialog from '@poc/components/dialogs/DropzoneDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
+const analyticsStore = useAnalyticsStore();
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(true);
+const isDragging = ref<boolean>(false);
 const isContentDisabled = ref<boolean>(true);
 const snackbar = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(bucketsStore.state.promptForPassphrase);
@@ -109,6 +117,20 @@ function initObjectStore(): void {
         browserRoot: '', // unused
     });
     isContentDisabled.value = false;
+}
+
+/**
+ * Upload the current selected or dragged-and-dropped file.
+ */
+async function upload(e: Event): Promise<void> {
+    if (isDragging.value) {
+        isDragging.value = false;
+    }
+
+    await obStore.upload({ e });
+    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    const target = e.target as HTMLInputElement;
+    target.value = '';
 }
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
@@ -155,3 +177,9 @@ onMounted(async () => {
     isLoading.value = false;
 });
 </script>
+
+<style scoped lang="scss">
+.bucket-view {
+    height: 100%;
+}
+</style>
