@@ -3664,28 +3664,27 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		}
 
 		invitedUser, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, email)
-		if err == nil {
-			if invitedUser != nil {
-				_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
-				if err != nil && !ErrNoMembership.Has(err) {
-					return nil, Error.Wrap(err)
-				} else if err == nil {
-					return nil, ErrAlreadyMember.New("%s is already a member", email)
-				}
-				users = append(users, invitedUser)
-			} else {
-				oldest := User{}
-				for _, u := range unverified {
-					if u.CreatedAt.Before(oldest.CreatedAt) {
-						oldest = u
-					}
-				}
-				unverifiedUsers = append(unverifiedUsers, oldest)
-			}
-		} else if errs.Is(err, sql.ErrNoRows) {
-			newUserEmails = append(newUserEmails, email)
-		} else {
+		if err != nil {
 			return nil, Error.Wrap(err)
+		}
+		if invitedUser != nil {
+			_, err = s.isProjectMember(ctx, invitedUser.ID, projectID)
+			if err != nil && !ErrNoMembership.Has(err) {
+				return nil, Error.Wrap(err)
+			} else if err == nil {
+				return nil, ErrAlreadyMember.New("%s is already a member", email)
+			}
+			users = append(users, invitedUser)
+		} else if len(unverified) > 0 {
+			oldest := unverified[0]
+			for _, u := range unverified {
+				if u.CreatedAt.Before(oldest.CreatedAt) {
+					oldest = u
+				}
+			}
+			unverifiedUsers = append(unverifiedUsers, oldest)
+		} else {
+			newUserEmails = append(newUserEmails, email)
 		}
 	}
 
