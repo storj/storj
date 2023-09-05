@@ -70,6 +70,56 @@ func TestProjectGet(t *testing.T) {
 	})
 }
 
+func TestProjectGetByAnyID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		address := sat.Admin.Admin.Listener.Addr()
+		project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+
+		testGetProject := func(pid string) {
+			link := "http://" + address.String() + "/api/projects/" + pid
+			expected := fmt.Sprintf(
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","rateLimit":null,"burstLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"defaultPlacement":0}`,
+				project.ID.String(),
+				project.PublicID.String(),
+				project.Name,
+				project.Description,
+				project.OwnerID.String(),
+				project.CreatedAt.Format(time.RFC3339Nano),
+			)
+			assertGet(ctx, t, link, expected, planet.Satellites[0].Config.Console.AuthToken)
+
+		}
+
+		// should work with either public or private ID
+		t.Run("Get by public ID", func(t *testing.T) {
+			testGetProject(project.PublicID.String())
+		})
+		t.Run("Get by private ID", func(t *testing.T) {
+			testGetProject(project.ID.String())
+		})
+		// should work even if provided UUID does not contain dashes
+		t.Run("Get by public ID no dashes", func(t *testing.T) {
+			publicIDNoDashes := strings.ReplaceAll(project.PublicID.String(), "-", "")
+			testGetProject(publicIDNoDashes)
+		})
+		t.Run("Get by private ID no dashes", func(t *testing.T) {
+			privateIDNoDashes := strings.ReplaceAll(project.ID.String(), "-", "")
+			testGetProject(privateIDNoDashes)
+		})
+	})
+}
+
 func TestProjectLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

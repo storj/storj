@@ -29,10 +29,15 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -60,7 +65,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.db.Console().APIKeys().GetByNameAndProjectID(ctx, input.Name, projectUUID)
+	_, err = server.db.Console().APIKeys().GetByNameAndProjectID(ctx, input.Name, project.ID)
 	if err == nil {
 		sendJSONError(w, "api-key with given name already exists",
 			"", http.StatusConflict)
@@ -83,7 +88,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	apikey := console.APIKeyInfo{
 		Name:      input.Name,
-		ProjectID: projectUUID,
+		ProjectID: project.ID,
 		Secret:    secret,
 	}
 
@@ -248,10 +253,15 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -262,7 +272,7 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, projectUUID)
+	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, project.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "API key with specified name does not exist",
 			"", http.StatusNotFound)
@@ -293,10 +303,15 @@ func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -304,7 +319,7 @@ func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 	var apiKeys []console.APIKeyInfo
 	for i := uint(1); true; i++ {
 		page, err := server.db.Console().APIKeys().GetPagedByProjectID(
-			ctx, projectUUID, console.APIKeyCursor{
+			ctx, project.ID, console.APIKeyCursor{
 				Limit:          apiKeysPerPage,
 				Page:           i,
 				Order:          console.KeyName,

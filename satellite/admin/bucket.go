@@ -21,7 +21,7 @@ func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID
 		return project, bucket, fmt.Errorf("project-uuid missing")
 	}
 
-	project.UUID, err = uuid.FromString(projectUUIDString)
+	project.UUID, err = uuidFromString(projectUUIDString)
 	if err != nil {
 		return project, bucket, fmt.Errorf("project-uuid is not a valid uuid")
 	}
