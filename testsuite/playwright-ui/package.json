@@ -10,7 +10,7 @@
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate && npm run allure:local",
     "test": "npx playwright test ./tests/",
-    "test-debug": "npx playwright test ./tests/login.test.ts --trace on",
+    "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/login.test.ts --trace on",
     "browser-debug": "DEBUG=pw:browser* npx playwright test",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
@@ -18,7 +18,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@playwright/test": "^1.36.2",
+    "@playwright/test": "^1.37.1",
     "allure-commandline": "^2.23.0",
     "allure-playwright": "^2.4.0",
     "mocha-multi-reporters": "^1.5.1",
@@ -26,7 +26,7 @@
     "rimraf": "^4.0.4"
   },
   "dependencies": {
-    "@playwright/test": "^1.36.2",
+    "@playwright/test": "^1.37.1",
     "@slack/socket-mode": "^1.3.2",
     "@slack/types": "^2.8.0",
     "@slack/web-api": "^6.8.0",
