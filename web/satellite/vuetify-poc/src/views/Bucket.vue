@@ -13,17 +13,60 @@
 
         <v-col>
             <v-row class="mt-2 mb-4">
-                <v-btn
-                    color="primary"
-                    min-width="120"
-                    :disabled="isContentDisabled"
-                    @click="snackbar = true"
-                >
-                    <browser-snackbar-component :on-cancel="() => { snackbar = false }" />
-                    <IconUpload />
-                    Upload
-                </v-btn>
+                <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
+                    <template #activator="{ props }">
+                        <v-btn
+                            color="primary"
+                            min-width="120"
+                            :disabled="isContentDisabled"
+                            v-bind="props"
+                        >
+                            <browser-snackbar-component :on-cancel="() => { snackbar = false }" />
+                            <IconUpload />
+                            Upload
+                        </v-btn>
+                    </template>
+                    <v-list class="pa-2">
+                        <v-list-item rounded="lg" @click.stop="buttonFileUpload">
+                            <template #prepend>
+                                <IconFile />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Upload File
+                            </v-list-item-title>
+                        </v-list-item>
 
+                        <v-divider class="my-2" />
+
+                        <v-list-item class="mt-1" rounded="lg" @click.stop="buttonFolderUpload">
+                            <template #prepend>
+                                <icon-folder />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Upload Folder
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+
+                <input
+                    ref="fileInput"
+                    type="file"
+                    aria-roledescription="file-upload"
+                    hidden
+                    multiple
+                    @change="upload"
+                >
+                <input
+                    ref="folderInput"
+                    type="file"
+                    aria-roledescription="folder-upload"
+                    hidden
+                    multiple
+                    webkitdirectory
+                    mozdirectory
+                    @change="upload"
+                >
                 <v-btn
                     variant="outlined"
                     color="default"
@@ -50,7 +93,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VContainer, VCol, VRow, VBtn } from 'vuetify/components';
+import {
+    VContainer,
+    VCol,
+    VRow,
+    VBtn,
+    VMenu,
+    VList,
+    VListItem,
+    VListItemTitle,
+    VDivider,
+} from 'vuetify/components';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -67,6 +120,7 @@ import BrowserTableComponent from '@poc/components/BrowserTableComponent.vue';
 import BrowserNewFolderDialog from '@poc/components/dialogs/BrowserNewFolderDialog.vue';
 import IconUpload from '@poc/components/icons/IconUpload.vue';
 import IconFolder from '@poc/components/icons/IconFolder.vue';
+import IconFile from '@poc/components/icons/IconFile.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 import DropzoneDialog from '@poc/components/dialogs/DropzoneDialog.vue';
 
@@ -79,6 +133,9 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
+const folderInput = ref<HTMLInputElement>();
+const fileInput = ref<HTMLInputElement>();
+const menu = ref<boolean>(false);
 const isLoading = ref<boolean>(true);
 const isDragging = ref<boolean>(false);
 const isContentDisabled = ref<boolean>(true);
@@ -104,6 +161,26 @@ const projectId = computed<string>(() => projectsStore.state.selectedProject.id)
  * Returns whether the user should be prompted to enter the passphrase.
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
+
+/**
+ * Open the operating system's file system for file upload.
+ */
+async function buttonFileUpload(): Promise<void> {
+    menu.value = false;
+    const fileInputElement = fileInput.value as HTMLInputElement;
+    fileInputElement.showPicker();
+    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+}
+
+/**
+ * Open the operating system's file system for folder upload.
+ */
+async function buttonFolderUpload(): Promise<void> {
+    menu.value = false;
+    const folderInputElement = folderInput.value as HTMLInputElement;
+    folderInputElement.showPicker();
+    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+}
 
 /**
  * Initializes object browser store.
