@@ -37,9 +37,6 @@ resource.syso
 
 .build
 
-# Test debug output
-*.test.*
-
 # storj-up automatically generates these files and should not be commit
 /docker-compose.yaml
 /.history/
