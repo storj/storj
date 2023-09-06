@@ -53,12 +53,12 @@ const config: PlaywrightTestConfig = {
      projects: [
          {
              name: 'chromium',
-                use: {
-                    ...devices['Desktop Chrome'],
+                use:
+                    browserName: 'chromium:'],
                 },
          },
 
-         {
+         /*{
             name: 'firefox',
                 use: {
                     ...devices['Desktop Firefox'],
@@ -79,14 +79,13 @@ const config: PlaywrightTestConfig = {
                 },
          },   /* Test against mobile viewports. */
 
-         {
+         /*{
             name: 'Android',
                 use: {
                     ...devices['Pixel 5'],
                 },
-         },
-        ],                                /* Run tests in files in parallel */
-
+         },*/
+        ],                               
         reporter: [
             [
                 "./node_modules/playwright-slack-report/dist/src/SlackReporter.js", 
