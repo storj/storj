@@ -4,6 +4,8 @@
 package overlay
 
 import (
+	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -47,9 +49,18 @@ func (c *ConfigurablePlacementRule) Type() string {
 
 // Parse creates the PlacementDefinitions from the string rules.
 func (c ConfigurablePlacementRule) Parse() (*PlacementDefinitions, error) {
+	placement := c.PlacementRules
+	if _, err := os.Stat(placement); err == nil {
+		// it's a a file, let's read it
+		raw, err := os.ReadFile(placement)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		placement = string(raw)
+	}
 	d := NewPlacementDefinitions()
 	d.AddLegacyStaticRules()
-	err := d.AddPlacementFromString(c.PlacementRules)
+	err := d.AddPlacementFromString(placement)
 	return d, err
 }
 
@@ -194,4 +205,15 @@ func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstrain
 	return nodeselection.NodeFilters{
 		nodeselection.ExcludeAllFilter{},
 	}
+}
+
+// ConfiguredPlacements returns with all the placement IDs which has placement definition.
+func (d *PlacementDefinitions) ConfiguredPlacements() (res []storj.PlacementConstraint) {
+	for k := range d.placements {
+		res = append(res, k)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i] < res[j]
+	})
+	return res
 }
