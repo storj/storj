@@ -52,41 +52,35 @@ const config: PlaywrightTestConfig = {
      outputDir: 'test-results/',
      projects: [
          {
-             name: 'chromium',
-                use: {
-                    browserName: 'chromium',
-                },
-         },
-
-         /*{
-            name: 'firefox',
-                use: {
-                    ...devices['Desktop Firefox'],
-                },
-         },
-
-         {
-             name: 'safari',
-                use: {
-                    ...devices['Desktop Safari'],
-                },
-         },
-
-         {
-             name: 'Edge',
-                use: {
-                 ...devices['Desktop Edge'],
-                },
-         },   /* Test against mobile viewports. */
-
-         /*{
-            name: 'Android',
-                use: {
-                    ...devices['Pixel 5'],
-                },
-         },*/
-        ],
-            reporter: [
+            name: 'chromium-hd',
+            use: {
+                viewport: { width: 1280, height: 720 },
+                browserName: 'chromium',
+            },
+        },
+        {
+          name: 'chromium-fhd',
+          use: {
+            viewport: { width: 1920, height: 1080 },
+            browserName: 'chromium',
+          },
+        },
+        {
+          name: 'firefox-hd',
+          use: {
+            viewport: { width: 1280, height: 720 },
+            browserName: 'firefox',
+          },
+        },
+        {
+          name: 'webkit-hd',
+          use: {
+            viewport: { width: 1280, height: 720 },
+            browserName: 'webkit',
+          },
+        },
+    ],
+        reporter: [
             [
                 "./node_modules/playwright-slack-report/dist/src/SlackReporter.js", 
                 {
@@ -96,6 +90,7 @@ const config: PlaywrightTestConfig = {
                 },
             ],
             ["dot"],
+            ["html"],
         ],                    /* Retry on CI only */
 
         retries: process.env.CI ? 1 : 0,                    /* Opt out of parallel tests on CI. */
