@@ -52,7 +52,7 @@ func TestObserverForkProcess(t *testing.T) {
 			statsCollector: make(map[string]*observerRSStats),
 			nodesCache: &ReliabilityCache{
 				staleness:      time.Hour,
-				placementRules: overlay.NewPlacementRules().CreateFilters,
+				placementRules: overlay.NewPlacementDefinitions().CreateFilters,
 			},
 		}
 
@@ -144,11 +144,13 @@ func TestObserverForkProcess(t *testing.T) {
 
 		placements := overlay.ConfigurablePlacementRule{}
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
-		o.nodesCache.placementRules = placements.CreateFilters
+		parsed, err := placements.Parse()
+		require.NoError(t, err)
+		o.nodesCache.placementRules = parsed.CreateFilters
 
 		q := queue.MockRepairQueue{}
 		fork := createFork(o, &q)
-		err := fork.process(ctx, &rangedloop.Segment{
+		err = fork.process(ctx, &rangedloop.Segment{
 			Placement: 10,
 			Pieces:    createPieces(nodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
 			Redundancy: storj.RedundancyScheme{

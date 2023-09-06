@@ -4,6 +4,12 @@
 package nodeselection
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 )
@@ -38,6 +44,10 @@ func (a Annotation) GetAnnotation(name string) string {
 	return ""
 }
 
+func (a Annotation) String() string {
+	return fmt.Sprintf(`annotation("%s","%s")`, a.Key, a.Value)
+}
+
 var _ NodeFilterWithAnnotation = Annotation{}
 
 // AnnotatedNodeFilter is just a NodeFilter with additional annotations.
@@ -62,6 +72,14 @@ func (a AnnotatedNodeFilter) GetAnnotation(name string) string {
 // Match implements NodeFilter.
 func (a AnnotatedNodeFilter) Match(node *SelectedNode) bool {
 	return a.Filter.Match(node)
+}
+
+func (a AnnotatedNodeFilter) String() string {
+	var annotationStr []string
+	for _, annotation := range a.Annotations {
+		annotationStr = append(annotationStr, annotation.String())
+	}
+	return fmt.Sprintf("%s && %s", a.Filter, strings.Join(annotationStr, " && "))
 }
 
 // WithAnnotation adds annotations to a NodeFilter.
@@ -124,6 +142,15 @@ func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
 }
 
+func (n NodeFilters) String() string {
+	var res []string
+	for _, filter := range n {
+		res = append(res, fmt.Sprintf("%s", filter))
+	}
+	sort.Strings(res)
+	return strings.Join(res, " && ")
+}
+
 // GetAnnotation implements NodeFilterWithAnnotation.
 func (n NodeFilters) GetAnnotation(name string) string {
 	for _, filter := range n {
@@ -145,15 +172,66 @@ type CountryFilter struct {
 }
 
 // NewCountryFilter creates a new CountryFilter.
-func NewCountryFilter(permit location.Set) NodeFilter {
+func NewCountryFilter(permit location.Set) *CountryFilter {
 	return &CountryFilter{
 		permit: permit,
 	}
 }
 
+// NewCountryFilterFromString parses country definitions like 'hu','!hu','*','none' and creates a CountryFilter.
+func NewCountryFilterFromString(countries []string) (*CountryFilter, error) {
+	var set location.Set
+	for _, country := range countries {
+		apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+			return modified.With(code...)
+		}
+		if country[0] == '!' {
+			apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+				return modified.Without(code...)
+			}
+			country = country[1:]
+		}
+		switch strings.ToLower(country) {
+		case "all", "*", "any":
+			set = location.NewFullSet()
+		case "none":
+			set = apply(set, location.None)
+		case "eu":
+			set = apply(set, EuCountries...)
+		case "eea":
+			set = apply(set, EuCountries...)
+			set = apply(set, EeaCountriesWithoutEu...)
+		default:
+			code := location.ToCountryCode(country)
+			if code == location.None {
+				return nil, errs.New("invalid country code %q", code)
+			}
+			set = apply(set, code)
+		}
+	}
+	return NewCountryFilter(set), nil
+}
+
 // Match implements NodeFilter interface.
 func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
+}
+
+func (p *CountryFilter) String() string {
+	var included, excluded []string
+	for country, iso := range location.CountryISOCode {
+		if p.permit.Contains(location.CountryCode(country)) {
+			included = append(included, iso)
+		} else {
+			excluded = append(excluded, "!"+iso)
+		}
+	}
+	if len(excluded) < len(included) {
+		sort.Strings(excluded)
+		return fmt.Sprintf(`country("*","%s")`, strings.Join(excluded, `","`))
+	}
+	sort.Strings(included)
+	return fmt.Sprintf(`country("%s")`, strings.Join(included, `","`))
 }
 
 var _ NodeFilter = &CountryFilter{}
@@ -234,6 +312,10 @@ func (t TagFilter) Match(node *SelectedNode) bool {
 	return false
 }
 
+func (t TagFilter) String() string {
+	return fmt.Sprintf(`tag("%s","%s","%s")`, t.signer, t.name, string(t.value))
+}
+
 var _ NodeFilter = TagFilter{}
 
 // ExcludeFilter excludes only the matched nodes.
@@ -244,6 +326,10 @@ type ExcludeFilter struct {
 // Match implements NodeFilter interface.
 func (e ExcludeFilter) Match(node *SelectedNode) bool {
 	return !e.matchToExclude.Match(node)
+}
+
+func (e ExcludeFilter) String() string {
+	return fmt.Sprintf("exclude(%s)", e.matchToExclude)
 }
 
 // NewExcludeFilter creates filter, nodes matching the given filter will be excluded.

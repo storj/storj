@@ -110,7 +110,11 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, planet.Satellites[0].Config.Placement.CreateFilters)
+
+				placement, err := planet.Satellites[0].Config.Placement.Parse()
+				require.NoError(t, err)
+
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 				require.NoError(t, err)
 				require.False(t, ok)
 
@@ -129,7 +133,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.NotNil(t, segments[0].RepairedAt)
 				require.Len(t, segments[0].Pieces, tc.piecesAfterRepair)
 
-				ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, planet.Satellites[0].Config.Placement.CreateFilters)
+				ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 				require.NoError(t, err)
 				require.True(t, ok)
 
@@ -236,8 +240,11 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 
+			placement, err := planet.Satellites[0].Config.Placement.Parse()
+			require.NoError(t, err)
+
 			require.Equal(t, storj.PlacementConstraint(10), segments[0].Placement)
-			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, planet.Satellites[0].Config.Placement.CreateFilters)
+			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 			require.NoError(t, err)
 			require.True(t, ok)
 
@@ -347,8 +354,11 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		placement, err := planet.Satellites[0].Config.Placement.Parse()
+		require.NoError(t, err)
+
 		// confirm that some pieces are out of placement
-		ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, planet.Satellites[0].Config.Placement.CreateFilters)
+		ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 		require.NoError(t, err)
 		require.False(t, ok)
 
@@ -367,7 +377,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		require.NotNil(t, segments[0].RepairedAt)
 		require.Len(t, segments[0].Pieces, 4)
 
-		ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, planet.Satellites[0].Config.Placement.CreateFilters)
+		ok, err = allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
 		require.NoError(t, err)
 		require.True(t, ok)
 	})

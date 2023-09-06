@@ -203,12 +203,12 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	// setup dependencies for verification
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), overlay.NewPlacementRules().CreateFilters, "", "", satelliteCfg.Overlay)
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), overlay.NewPlacementDefinitions().CreateFilters, "", "", satelliteCfg.Overlay)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlayService, orders.NewNoopDB(), overlay.NewPlacementRules().CreateFilters, satelliteCfg.Orders)
+	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlayService, orders.NewNoopDB(), overlay.NewPlacementDefinitions().CreateFilters, satelliteCfg.Orders)
 	if err != nil {
 		return Error.Wrap(err)
 	}
