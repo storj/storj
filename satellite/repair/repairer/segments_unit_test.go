@@ -45,7 +45,7 @@ func TestClassify(t *testing.T) {
 		c := &overlay.ConfigurablePlacementRule{}
 		require.NoError(t, c.Set(""))
 		s := SegmentRepairer{
-			placementRules: c.CreateFilters,
+			placementRules: overlay.NewPlacementDefinitions().CreateFilters,
 		}
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
 		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces}, allNodeIDs(pieces), selectedNodes)
@@ -69,8 +69,11 @@ func TestClassify(t *testing.T) {
 
 		})
 
-		c := &overlay.ConfigurablePlacementRule{}
-		require.NoError(t, c.Set("10:country(\"GB\")"))
+		c, err := overlay.ConfigurablePlacementRule{
+			PlacementRules: `10:country("GB")`,
+		}.Parse()
+		require.NoError(t, err)
+
 		s := SegmentRepairer{
 			placementRules:   c.CreateFilters,
 			doPlacementCheck: true,
@@ -96,8 +99,11 @@ func TestClassify(t *testing.T) {
 			node.CountryCode = location.Germany
 		})
 
-		c := &overlay.ConfigurablePlacementRule{}
-		require.NoError(t, c.Set("10:country(\"GB\")"))
+		c, err := overlay.ConfigurablePlacementRule{
+			PlacementRules: `10:country("GB")`,
+		}.Parse()
+		require.NoError(t, err)
+
 		s := SegmentRepairer{
 			placementRules:   c.CreateFilters,
 			doPlacementCheck: true,
@@ -124,7 +130,7 @@ func TestClassify(t *testing.T) {
 			node.LastNet = fmt.Sprintf("127.0.%d.0", ix/2)
 		})
 
-		c := overlay.NewPlacementRules()
+		c := overlay.NewPlacementDefinitions()
 		s := SegmentRepairer{
 			placementRules: c.CreateFilters,
 			doDeclumping:   true,
@@ -154,8 +160,10 @@ func TestClassify(t *testing.T) {
 			node.CountryCode = location.UnitedKingdom
 		})
 
-		c := overlay.NewPlacementRules()
-		require.NoError(t, c.Set(fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
+		c, err := overlay.ConfigurablePlacementRule{
+			PlacementRules: fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
+		}.Parse()
+		require.NoError(t, err)
 
 		s := SegmentRepairer{
 			placementRules: c.CreateFilters,

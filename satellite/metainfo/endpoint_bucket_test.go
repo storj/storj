@@ -303,16 +303,14 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 }
 
 func TestGetBucketLocation(t *testing.T) {
-	placementRules := overlay.NewPlacementRules()
-	err := placementRules.AddPlacementFromString(fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
-		nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
-	require.NoError(t, err)
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Placement = *placementRules
+				config.Placement = overlay.ConfigurablePlacementRule{
+					PlacementRules: fmt.Sprintf(`40:annotated(annotated(country("PL"),annotation("%s","Poland")),annotation("%s","%s"))`,
+						nodeselection.Location, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -31,7 +31,7 @@ func TestDownloadSelectionCacheState_Refresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
-			overlay.NewPlacementRules().CreateFilters,
+			overlay.NewPlacementDefinitions().CreateFilters,
 			downloadSelectionCacheConfig,
 		)
 		require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestDownloadSelectionCacheState_GetNodeIPs(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
-			overlay.NewPlacementRules().CreateFilters,
+			overlay.NewPlacementDefinitions().CreateFilters,
 			downloadSelectionCacheConfig,
 		)
 		require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestDownloadSelectionCache_GetNodes(t *testing.T) {
 		// create new cache and select nodes
 		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
-			overlay.NewPlacementRules().CreateFilters,
+			overlay.NewPlacementDefinitions().CreateFilters,
 			overlay.DownloadSelectionCacheConfig{
 				Staleness:      time.Hour,
 				OnlineWindow:   time.Hour,
