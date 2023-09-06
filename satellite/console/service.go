@@ -1928,6 +1928,30 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	return project, nil
 }
 
+// RequestLimitIncrease is a method for requesting limit increase for a project.
+func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID, info LimitRequestInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "request limit increase", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
+		ProjectName:  project.Name,
+		LimitType:    info.LimitType,
+		CurrentLimit: info.CurrentLimit.String(),
+		DesiredLimit: info.DesiredLimit.String(),
+	})
+
+	return nil
+}
+
 // GenUpdateProject is a method for updating project name and description by id for generated api.
 func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo UpsertProjectInfo) (p *Project, httpError api.HTTPError) {
 	var err error

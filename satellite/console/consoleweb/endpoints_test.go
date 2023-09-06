@@ -661,6 +661,15 @@ func TestWrongUser(t *testing.T) {
 				method:   http.MethodGet,
 			},
 			{
+				endpoint: getProjectResourceUrl("limit-increase"),
+				method:   http.MethodPost,
+				body: map[string]interface{}{
+					"limitType":    "storage",
+					"currentLimit": "100000000",
+					"desiredLimit": "200000000",
+				},
+			},
+			{
 				endpoint: getProjectResourceUrl("invite"),
 				method:   http.MethodPost,
 				body: map[string]interface{}{

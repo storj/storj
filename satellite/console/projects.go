@@ -169,6 +169,13 @@ type ProjectInfoPage struct {
 	TotalCount  int64 `json:"totalCount"`
 }
 
+// LimitRequestInfo holds data needed to request limit increase.
+type LimitRequestInfo struct {
+	LimitType    string      `json:"limitType"`
+	CurrentLimit memory.Size `json:"currentLimit"`
+	DesiredLimit memory.Size `json:"desiredLimit"`
+}
+
 // ValidateNameAndDescription validates project name and description strings.
 // Project name must have more than 0 and less than 21 symbols.
 // Project description can't have more than hundred symbols.

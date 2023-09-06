@@ -204,6 +204,58 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RequestLimitIncrease handles requesting limit increase for projects.
+func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var payload console.LimitRequestInfo
+
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if payload.LimitType == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing limit type"))
+		return
+	}
+	if payload.DesiredLimit == 0 {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing desired limit"))
+		return
+	}
+	if payload.CurrentLimit == 0 {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing current limit"))
+		return
+	}
+
+	err = p.service.RequestLimitIncrease(ctx, id, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // CreateProject handles creating projects.
 func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -93,6 +93,7 @@ const (
 	eventResendInviteClicked          = "Resend Invite Clicked"
 	eventCopyInviteLinkClicked        = "Copy Invite Link Clicked"
 	eventRemoveProjectMemberCLicked   = "Remove Member Clicked"
+	eventLimitIncreaseRequested       = "Limit Increase Requested"
 )
 
 var (
@@ -126,6 +127,14 @@ type FreezeTracker interface {
 
 	// TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
 	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string)
+}
+
+// LimitRequestInfo holds data needed to request limit increase.
+type LimitRequestInfo struct {
+	ProjectName  string
+	LimitType    string
+	CurrentLimit string
+	DesiredLimit string
 }
 
 // Service for sending analytics.
@@ -353,6 +362,27 @@ func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventAccountFrozen,
+		Properties: props,
+	})
+}
+
+// TrackRequestLimitIncrease sends a limit increase request to Segment.
+func (service *Service) TrackRequestLimitIncrease(userID uuid.UUID, email string, info LimitRequestInfo) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("satellite", service.satelliteName)
+	props.Set("project", info.ProjectName)
+	props.Set("type", info.LimitType)
+	props.Set("currentLimit", info.CurrentLimit)
+	props.Set("desiredLimit", info.DesiredLimit)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventLimitIncreaseRequested,
 		Properties: props,
 	})
 }
