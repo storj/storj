@@ -5,6 +5,9 @@ package nodeselection
 
 import (
 	"bytes"
+	"fmt"
+	"sort"
+	"strings"
 
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
@@ -40,6 +43,10 @@ func (a Annotation) GetAnnotation(name string) string {
 	return ""
 }
 
+func (a Annotation) String() string {
+	return fmt.Sprintf(`annotation("%s","%s")`, a.Key, a.Value)
+}
+
 var _ NodeFilterWithAnnotation = Annotation{}
 
 // AnnotatedNodeFilter is just a NodeFilter with additional annotations.
@@ -64,6 +71,14 @@ func (a AnnotatedNodeFilter) GetAnnotation(name string) string {
 // Match implements NodeFilter.
 func (a AnnotatedNodeFilter) Match(node *SelectedNode) bool {
 	return a.Filter.Match(node)
+}
+
+func (a AnnotatedNodeFilter) String() string {
+	var annotationStr []string
+	for _, annotation := range a.Annotations {
+		annotationStr = append(annotationStr, annotation.String())
+	}
+	return fmt.Sprintf("%s && %s", a.Filter, strings.Join(annotationStr, " && "))
 }
 
 // WithAnnotation adds annotations to a NodeFilter.
@@ -126,6 +141,15 @@ func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 	return append(n, ExcludedIDs(ds))
 }
 
+func (n NodeFilters) String() string {
+	var res []string
+	for _, filter := range n {
+		res = append(res, fmt.Sprintf("%s", filter))
+	}
+	sort.Strings(res)
+	return strings.Join(res, " && ")
+}
+
 // GetAnnotation implements NodeFilterWithAnnotation.
 func (n NodeFilters) GetAnnotation(name string) string {
 	for _, filter := range n {
@@ -156,6 +180,23 @@ func NewCountryFilter(permit location.Set) NodeFilter {
 // Match implements NodeFilter interface.
 func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
+}
+
+func (p *CountryFilter) String() string {
+	var included, excluded []string
+	for country, iso := range location.CountryISOCode {
+		if p.permit.Contains(country) {
+			included = append(included, iso)
+		} else {
+			excluded = append(excluded, "!"+iso)
+		}
+	}
+	if len(excluded) < len(included) {
+		sort.Strings(excluded)
+		return fmt.Sprintf(`country("*","%s")`, strings.Join(excluded, `","`))
+	}
+	sort.Strings(included)
+	return fmt.Sprintf(`country("%s")`, strings.Join(included, `","`))
 }
 
 var _ NodeFilter = &CountryFilter{}
@@ -231,6 +272,10 @@ func (t TagFilter) Match(node *SelectedNode) bool {
 	return false
 }
 
+func (t TagFilter) String() string {
+	return fmt.Sprintf(`tag("%s","%s","%s")`, t.signer, t.name, string(t.value))
+}
+
 var _ NodeFilter = TagFilter{}
 
 // ExcludeFilter excludes only the matched nodes.
@@ -241,6 +286,10 @@ type ExcludeFilter struct {
 // Match implements NodeFilter interface.
 func (e ExcludeFilter) Match(node *SelectedNode) bool {
 	return !e.matchToExclude.Match(node)
+}
+
+func (e ExcludeFilter) String() string {
+	return fmt.Sprintf("exclude(%s)", e.matchToExclude)
 }
 
 // NewExcludeFilter creates filter, nodes matching the given filter will be excluded.

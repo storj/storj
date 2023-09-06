@@ -67,6 +67,12 @@ func TestAnnotations(t *testing.T) {
 		Value: "bar",
 	}
 	require.Equal(t, "bar", k.GetAnnotation("foo"))
+
+	// annotation can be used as pure filters
+	l := Annotation{Key: "foo", Value: "bar"}
+	require.True(t, l.Match(&SelectedNode{}))
+
+	require.Equal(t, `annotation("foo","bar")`, l.String())
 }
 
 func TestCriteria_Geofencing(t *testing.T) {

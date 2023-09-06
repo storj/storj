@@ -29,7 +29,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, overlay.NewPlacementRules().CreateFilters, "", "", overlay.Config{
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, overlay.NewPlacementDefinitions().CreateFilters, "", "", overlay.Config{
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},
@@ -40,7 +40,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, overlay.NewPlacementRules().CreateFilters, []string{})
+	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, overlay.NewPlacementDefinitions().CreateFilters, []string{})
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
@@ -82,7 +82,7 @@ func TestReliabilityCache_OutOfPlacementPieces(t *testing.T) {
 		overlayService := planet.Satellites[0].Overlay.Service
 		config := planet.Satellites[0].Config.Checker
 
-		rules := overlay.NewPlacementRules()
+		rules := overlay.NewPlacementDefinitions()
 		rules.AddLegacyStaticRules()
 		cache := checker.NewReliabilityCache(overlayService, config.ReliabilityCacheStaleness, rules.CreateFilters, []string{})
 
