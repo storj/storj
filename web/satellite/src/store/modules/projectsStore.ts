@@ -6,6 +6,7 @@ import { computed, reactive, readonly } from 'vue';
 
 import {
     DataStamp,
+    LimitToChange,
     Project,
     ProjectFields,
     ProjectLimits,
@@ -180,6 +181,18 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     }
 
+    async function requestLimitIncrease(limitToRequest: LimitToChange, limit: number): Promise<void> {
+        let curLimit = state.currentLimits.bandwidthLimit.toString();
+        if (limitToRequest === LimitToChange.Storage) {
+            curLimit = state.currentLimits.storageLimit.toString();
+        }
+        await api.requestLimitIncrease(state.selectedProject.id, {
+            limitType: limitToRequest,
+            currentLimit: curLimit,
+            desiredLimit: limit.toString(),
+        });
+    }
+
     async function updateProjectBandwidthLimit(limitsToUpdate: ProjectLimits): Promise<void> {
         const project = new ProjectFields(
             state.selectedProject.name,
@@ -281,6 +294,7 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProjectDescription,
         updateProjectStorageLimit,
         updateProjectBandwidthLimit,
+        requestLimitIncrease,
         getProjectLimits,
         getTotalLimits,
         getProjectSalt,

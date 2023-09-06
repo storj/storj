@@ -3,6 +3,7 @@
 
 import {
     DataStamp,
+    LimitRequestInfo,
     Project,
     ProjectFields,
     ProjectInvitation,
@@ -147,6 +148,28 @@ export class ProjectsHttpApi implements ProjectsApi {
             limits.segmentUsed,
         );
 
+    }
+
+    /**
+     * Request limit increase.
+     *
+     * @param projectId - project ID
+     * @param info - request information
+     * @throws Error
+     */
+    public async requestLimitIncrease(projectId: string, info: LimitRequestInfo): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/limit-increase`;
+        const response = await this.http.post(path, JSON.stringify(info));
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not request increase',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**

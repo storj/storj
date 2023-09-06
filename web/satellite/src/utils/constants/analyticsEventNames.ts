@@ -81,6 +81,7 @@ export enum AnalyticsErrorEventSource {
     ADD_PROJECT_MEMBER_MODAL = 'Add project member modal',
     ADD_TOKEN_FUNDS_MODAL = 'Add token funds modal',
     CHANGE_PROJECT_LIMIT_MODAL = 'Change project limit modal',
+    REQUEST_PROJECT_LIMIT_MODAL = 'Request project limit modal',
     CHANGE_PASSWORD_MODAL = 'Change password modal',
     CREATE_PROJECT_MODAL = 'Create project modal',
     CREATE_PROJECT_PASSPHRASE_MODAL = 'Create project passphrase modal',

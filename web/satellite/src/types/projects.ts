@@ -41,6 +41,15 @@ export interface ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits>;
 
     /**
+     * Request limit increase.
+     *
+     * @param projectId - project ID
+     * @param info - request information
+     * @throws Error
+     */
+    requestLimitIncrease(projectId: string, info: LimitRequestInfo): Promise<void>;
+
+    /**
      * Get project salt
      *
      * @param projectID - project ID
@@ -266,6 +275,15 @@ export class ProjectInvitation {
 export enum ProjectInvitationResponse {
     Decline,
     Accept,
+}
+
+/**
+ * LimitRequestInfo holds data needed to request limit increase.
+ */
+export interface LimitRequestInfo {
+    limitType: string
+    currentLimit: string
+    desiredLimit: string
 }
 
 /**

@@ -76,14 +76,13 @@
                 </div>
                 <p class="modal__info">
                     If you need more storage,
-                    <a
+                    <span
                         class="modal__info__link"
-                        href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
-                        target="_blank"
                         rel="noopener noreferrer"
+                        @click="openRequestLimitModal"
                     >
                         request limit increase.
-                    </a>
+                    </span>
                 </p>
                 <div class="modal__buttons">
                     <VButton
@@ -123,6 +122,7 @@ import { Dimensions, Memory } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -186,6 +186,10 @@ const measurementOptions = computed((): string[] => {
 const isBandwidthUpdating = computed((): boolean => {
     return activeLimit.value === LimitToChange.Bandwidth;
 });
+
+function openRequestLimitModal(): void {
+    appStore.updateActiveModal(MODALS.requestProjectLimitIncrease);
+}
 
 /**
  * Sets active dimension and recalculates limit values.
@@ -460,6 +464,7 @@ onMounted(() => {
             text-decoration: underline !important;
             text-underline-position: under;
             color: var(--c-blue-6);
+            cursor: pointer;
 
             &:visited {
                 color: var(--c-blue-6);
