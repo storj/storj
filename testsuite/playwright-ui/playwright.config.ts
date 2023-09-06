@@ -53,8 +53,8 @@ const config: PlaywrightTestConfig = {
      projects: [
          {
              name: 'chromium',
-                use:
-                    browserName: 'chromium:'],
+                use: {
+                    browserName: 'chromium',
                 },
          },
 
@@ -85,8 +85,8 @@ const config: PlaywrightTestConfig = {
                     ...devices['Pixel 5'],
                 },
          },*/
-        ],                               
-        reporter: [
+        ],
+            reporter: [
             [
                 "./node_modules/playwright-slack-report/dist/src/SlackReporter.js", 
                 {
