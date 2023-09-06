@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -652,7 +653,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement)
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, overlay.NewPlacementRules().CreateFilters(segments[0].Placement))
 				require.NoError(t, err)
 				require.False(t, ok)
 
@@ -675,13 +676,15 @@ func TestObserver_PlacementCheck(t *testing.T) {
 	})
 }
 
-func allPiecesInPlacement(ctx context.Context, overlay *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint) (bool, error) {
+func allPiecesInPlacement(ctx context.Context, overlay *overlay.Service, pieces metabase.Pieces, filter nodeselection.NodeFilter) (bool, error) {
 	for _, piece := range pieces {
 		nodeDossier, err := overlay.Get(ctx, piece.StorageNode)
 		if err != nil {
 			return false, err
 		}
-		if !placement.AllowedCountry(nodeDossier.CountryCode) {
+		if !filter.Match(&nodeselection.SelectedNode{
+			CountryCode: nodeDossier.CountryCode,
+		}) {
 			return false, nil
 		}
 	}

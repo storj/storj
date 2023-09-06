@@ -304,15 +304,13 @@ func TestPlacementFromString(t *testing.T) {
 			filter1 := rules1.CreateFilters(placement)
 			filter2 := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
-				old := placement.AllowedCountry(country)
 				result1 := filter1.Match(&nodeselection.SelectedNode{
 					CountryCode: country,
 				})
 				result2 := filter2.Match(&nodeselection.SelectedNode{
 					CountryCode: country,
 				})
-				assert.Equal(t, old, result1, "old placement doesn't match string based configuration for placement %d and country %s", placement, country)
-				assert.Equal(t, old, result2, "old placement doesn't match code based configuration for placement %d and country %s", placement, country)
+				assert.Equal(t, result1, result2, "default legacy rules do not match string based configuration for placement %d and country %s", placement, country)
 			}
 		}
 
