@@ -18,6 +18,8 @@ var (
 	ErrCardNotFound = errs.Class("card not found")
 	// ErrDefaultCard is returned when a user tries to delete their default card.
 	ErrDefaultCard = errs.Class("default card")
+	// ErrDuplicateCard is returned when a user tries to add duplicate card.
+	ErrDuplicateCard = errs.Class("duplicate card")
 )
 
 // creditCards is an implementation of payments.CreditCards.
@@ -91,6 +93,27 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
 	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	listParams := &stripe.PaymentMethodListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
+	}
+
+	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
+	for paymentMethodsIterator.Next() {
+		stripeCard := paymentMethodsIterator.PaymentMethod()
+
+		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
+			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
+			stripeCard.Card.ExpYear == card.Card.ExpYear {
+			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+		}
+	}
+
+	if err = paymentMethodsIterator.Err(); err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 

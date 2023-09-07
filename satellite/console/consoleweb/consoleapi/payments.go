@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 var (
@@ -206,6 +207,11 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if stripe.ErrDuplicateCard.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		}
 

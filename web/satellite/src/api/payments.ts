@@ -133,9 +133,14 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
+        const result = await response.json();
+        const errorMsg = result.error.includes('duplicate card') ?
+            'This card is already on file for your account' :
+            'Can not add credit card';
+
         throw new APIError({
             status: response.status,
-            message: 'Can not add credit card',
+            message: errorMsg,
             requestID: response.headers.get('x-request-id'),
         });
     }

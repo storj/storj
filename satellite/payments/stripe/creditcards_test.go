@@ -85,6 +85,35 @@ func TestCreditCards_Add(t *testing.T) {
 	})
 }
 
+func TestCreditCards_AddDuplicateCard(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		u, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@storj.test",
+		}, 1)
+		require.NoError(t, err)
+
+		cardToken := "testToken"
+
+		card, err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, u.ID, cardToken)
+		require.NoError(t, err)
+		require.NotEmpty(t, card)
+
+		card, err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, u.ID, cardToken)
+		require.Error(t, err)
+		require.True(t, stripe.ErrDuplicateCard.Has(err))
+		require.Empty(t, card)
+
+		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
+		require.NoError(t, err)
+		require.Len(t, cards, 1)
+	})
+}
+
 func TestCreditCards_Remove(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,

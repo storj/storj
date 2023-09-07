@@ -446,6 +446,7 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 			Brand:       "Mastercard",
 			Last4:       "4444",
 			Description: randID,
+			Fingerprint: "fingerprint" + *params.Card.Token,
 		},
 		Type: stripe.PaymentMethodTypeCard,
 	}
