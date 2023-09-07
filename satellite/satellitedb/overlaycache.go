@@ -49,7 +49,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			return reputable, new, err
 		}
 
-		err = cache.addNodeTags(ctx, append(reputable, new...))
+		err = cache.addNodeTagsFromFullScan(ctx, append(reputable, new...))
 		if err != nil {
 			return reputable, new, err
 		}
@@ -145,7 +145,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 			return nodes, err
 		}
 
-		err = cache.addNodeTags(ctx, nodes)
+		err = cache.addNodeTagsFromFullScan(ctx, nodes)
 		if err != nil {
 			return nodes, err
 		}
@@ -402,8 +402,6 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var nodes []*nodeselection.SelectedNode
-
 	if len(nodeIDs) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -414,34 +412,37 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
 			n.disqualified IS NOT NULL AS disqualified,
 			n.exit_initiated_at IS NOT NULL AS exiting,
-			n.exit_finished_at IS NOT NULL AS exited
+			n.exit_finished_at IS NOT NULL AS exited,
+            node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer
 		FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ordinal)
 			LEFT OUTER JOIN nodes n ON input.node_id = n.id
+            LEFT JOIN node_tags on node_tags.node_id = n.id
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		ORDER BY input.ordinal
 	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			node, err := scanSelectedNode(rows)
+			node, tag, err := scanSelectedNodeWithTag(rows)
 			if err != nil {
 				return err
 			}
 
-			nodes = append(nodes, &node)
+			// just a joined new tag to the previous entry
+			if len(records) > 0 && !tag.NodeID.IsZero() && records[len(records)-1].ID == tag.NodeID {
+				records[len(records)-1].Tags = append(records[len(records)-1].Tags, tag)
+				continue
+			}
+
+			if tag.Name != "" {
+				node.Tags = append(node.Tags, tag)
+			}
+
+			records = append(records, node)
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-
-	err = cache.addNodeTags(ctx, nodes)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	records = make([]nodeselection.SelectedNode, len(nodes))
-	for i := 0; i < len(nodes); i++ {
-		records[i] = *nodes[i]
 	}
 
 	return records, Error.Wrap(err)
@@ -480,7 +481,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 		return nil, Error.Wrap(err)
 	}
 
-	err = cache.addNodeTags(ctx, nodes)
+	err = cache.addNodeTagsFromFullScan(ctx, nodes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -549,6 +550,91 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	node.Suspended = suspended.Bool
 	node.Exiting = exiting.Bool
 	return node, nil
+}
+
+func scanSelectedNodeWithTag(rows tagsql.Rows) (nodeselection.SelectedNode, nodeselection.NodeTag, error) {
+	var node nodeselection.SelectedNode
+	node.Address = &pb.NodeAddress{}
+	var nodeID nullNodeID
+	var address, lastNet, lastIPPort, countryCode sql.NullString
+	var online, suspended, disqualified, exiting, exited sql.NullBool
+
+	var tag nodeselection.NodeTag
+	var name []byte
+	signedAt := &time.Time{}
+	signer := nullNodeID{}
+
+	err := rows.Scan(&nodeID, &address, &lastNet, &lastIPPort, &countryCode,
+		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer)
+	if err != nil {
+		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, err
+	}
+
+	// If node ID was null, no record was found for the specified ID. For our purposes
+	// here, we will treat that as equivalent to a node being DQ'd or exited.
+	if !nodeID.Valid {
+		// return an empty record
+		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, nil
+	}
+	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
+	if disqualified.Bool || exited.Bool {
+		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, nil
+	}
+	node.ID = nodeID.NodeID
+	node.Address.Address = address.String
+	node.LastNet = lastNet.String
+	if lastIPPort.Valid {
+		node.LastIPPort = lastIPPort.String
+	}
+	if countryCode.Valid {
+		node.CountryCode = location.ToCountryCode(countryCode.String)
+	}
+	node.Online = online.Bool
+	node.Suspended = suspended.Bool
+	node.Exiting = exiting.Bool
+
+	if len(name) > 0 {
+		tag.Name = string(name)
+		tag.SignedAt = *signedAt
+		if signer.Valid {
+			tag.Signer = signer.NodeID
+		}
+		tag.NodeID = node.ID
+	}
+
+	return node, tag, nil
+}
+
+func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
+	rows, err := cache.db.All_NodeTags(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	tagsByNode := map[storj.NodeID]nodeselection.NodeTags{}
+	for _, row := range rows {
+		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		signerID, err := storj.NodeIDFromBytes(row.Signer)
+		if err != nil {
+			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+		}
+		tagsByNode[nodeID] = append(tagsByNode[nodeID], nodeselection.NodeTag{
+			NodeID:   nodeID,
+			Name:     row.Name,
+			Value:    row.Value,
+			SignedAt: row.SignedAt,
+			Signer:   signerID,
+		})
+
+	}
+
+	for _, node := range nodes {
+		node.Tags = tagsByNode[node.ID]
+	}
+	return nil
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
@@ -1620,36 +1706,4 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 		})
 	}
 	return tags, err
-}
-
-func (cache *overlaycache) addNodeTags(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
-	rows, err := cache.db.All_NodeTags(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	tagsByNode := map[storj.NodeID]nodeselection.NodeTags{}
-	for _, row := range rows {
-		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
-		if err != nil {
-			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
-		}
-		signerID, err := storj.NodeIDFromBytes(row.Signer)
-		if err != nil {
-			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
-		}
-		tagsByNode[nodeID] = append(tagsByNode[nodeID], nodeselection.NodeTag{
-			NodeID:   nodeID,
-			Name:     row.Name,
-			Value:    row.Value,
-			SignedAt: row.SignedAt,
-			Signer:   signerID,
-		})
-
-	}
-
-	for _, node := range nodes {
-		node.Tags = tagsByNode[node.ID]
-	}
-	return nil
 }

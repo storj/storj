@@ -6,6 +6,7 @@ package satellitedb_test
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"net"
 	"strconv"
@@ -709,4 +710,99 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 	}
 
 	return disp
+}
+
+func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
+	signer := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		cache := db.OverlayCache()
+
+		// GIVEN
+
+		var ids []storj.NodeID
+		for i := 0; i < 10; i++ {
+			address := fmt.Sprintf("127.0.0.%d", i)
+			checkInInfo := overlay.NodeCheckInInfo{
+				IsUp:        true,
+				NodeID:      testidentity.MustPregeneratedIdentity(i+1, storj.LatestIDVersion()).ID,
+				Address:     &pb.NodeAddress{Address: address},
+				LastIPPort:  address + ":1234",
+				LastNet:     "127.0.0.0",
+				CountryCode: location.Romania,
+				Version:     &pb.NodeVersion{Version: "v0.0.0"},
+			}
+
+			ids = append(ids, checkInInfo.NodeID)
+
+			checkin := time.Now().UTC()
+			if i%2 == 0 {
+				checkin = checkin.Add(-50 * time.Hour)
+			}
+			err := cache.UpdateCheckIn(ctx, checkInInfo, checkin, overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
+			tags := nodeselection.NodeTags{}
+
+			if i%2 == 0 {
+				tags = append(tags, nodeselection.NodeTag{
+					SignedAt: time.Now(),
+					Signer:   signer.ID,
+					NodeID:   checkInInfo.NodeID,
+					Name:     "index",
+					Value:    []byte{byte(i)},
+				})
+			}
+			if i%4 == 0 {
+				tags = append(tags, nodeselection.NodeTag{
+					SignedAt: time.Now(),
+					Signer:   signer.ID,
+					NodeID:   checkInInfo.NodeID,
+					Name:     "selected",
+					Value:    []byte("true"),
+				})
+			}
+
+			if len(tags) > 0 {
+				require.NoError(t, err)
+				err = cache.UpdateNodeTags(ctx, tags)
+				require.NoError(t, err)
+			}
+
+		}
+
+		// WHEN
+		nodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+		require.NoError(t, err)
+
+		// THEN
+		require.Len(t, nodes, 10)
+
+		checkTag := func(tags nodeselection.NodeTags, name string, value []byte) {
+			tag1, err := tags.FindBySignerAndName(signer.ID, name)
+			require.NoError(t, err)
+			require.Equal(t, name, tag1.Name)
+			require.Equal(t, value, tag1.Value)
+			require.Equal(t, signer.ID, tag1.Signer)
+			require.True(t, time.Since(tag1.SignedAt) < 1*time.Hour)
+		}
+
+		for _, node := range nodes {
+			ipParts := strings.Split(node.Address.Address, ".")
+			ix, err := strconv.Atoi(ipParts[3])
+			require.NoError(t, err)
+
+			if ix%4 == 0 {
+				require.Len(t, node.Tags, 2)
+				checkTag(node.Tags, "selected", []byte("true"))
+				checkTag(node.Tags, "index", []byte{byte(ix)})
+			} else if ix%2 == 0 {
+				checkTag(node.Tags, "index", []byte{byte(ix)})
+				require.Len(t, node.Tags, 1)
+			} else {
+				require.Len(t, node.Tags, 0)
+			}
+		}
+	})
 }
