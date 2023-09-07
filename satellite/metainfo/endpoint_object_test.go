@@ -925,6 +925,19 @@ func TestEndpoint_Object_No_StorageNodes_UsePendingObjectsTable(t *testing.T) {
 				})
 			}
 		})
+
+		t.Run("override on upload with segments", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			for i := 0; i < 5; i++ {
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test-object", testrand.Bytes(1*memory.KiB))
+				require.NoError(t, err)
+			}
+
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 1)
+		})
 	})
 }
 

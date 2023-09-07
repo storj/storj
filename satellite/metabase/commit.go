@@ -12,7 +12,6 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -729,14 +728,25 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		if opts.UsePendingObjectsTable {
-			opts.Version = 1
-
-			// we remove from deletion list object with version 1 as we will
-			// override/update instead deleting and inserting new one.
-			index := slices.Index(versionsToDelete, opts.Version)
-			if index != -1 {
-				versionsToDelete = slices.Delete(versionsToDelete, index, index+1)
+			// remove existing object(s) before inserting new one
+			// TODO after switching to pending_objects table completely we should
+			// be able to just delete all objects under this key and avoid
+			// selecting versions from above
+			for _, version := range versionsToDelete {
+				_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+					ObjectLocation: ObjectLocation{
+						ProjectID:  opts.ProjectID,
+						BucketName: opts.BucketName,
+						ObjectKey:  opts.ObjectKey,
+					},
+					Version: version,
+				}, tx)
+				if err != nil {
+					return Error.New("failed to delete existing object: %w", err)
+				}
 			}
+
+			opts.Version = 1
 
 			args = append(args,
 				opts.EncryptedMetadataNonce,
@@ -792,18 +802,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 				)
 				SELECT * FROM object_to_commit
-				ON CONFLICT (project_id, bucket_name, object_key, version)
-				DO UPDATE SET (
-					stream_id,
-					status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
-					encryption,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
-				) = (SELECT
-						stream_id,
-						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
-						encryption,
-						encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
-					FROM object_to_commit)
+				-- we don't want ON CONFLICT clause to update existign object
+				-- as this way we may miss removing old object segments
 				RETURNING
 					created_at, expires_at,
 					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
@@ -813,6 +813,15 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 				encryptionParameters{&object.Encryption},
 			)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+					// TODO maybe we should check message if 'encryption' label is there
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
+				return Error.New("failed to update object: %w", err)
+			}
 		} else {
 			metadataColumns := ""
 			if opts.OverrideEncryptedMetadata {
@@ -860,28 +869,28 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 				encryptionParameters{&object.Encryption},
 			)
-		}
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-			} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-				// TODO maybe we should check message if 'encryption' label is there
-				return ErrInvalidRequest.New("Encryption is missing")
-			}
-			return Error.New("failed to update object: %w", err)
-		}
-
-		for _, version := range versionsToDelete {
-			_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
-				ObjectLocation: ObjectLocation{
-					ProjectID:  opts.ProjectID,
-					BucketName: opts.BucketName,
-					ObjectKey:  opts.ObjectKey,
-				},
-				Version: version,
-			}, tx)
 			if err != nil {
-				return Error.New("failed to delete existing object: %w", err)
+				if errors.Is(err, sql.ErrNoRows) {
+					return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+					// TODO maybe we should check message if 'encryption' label is there
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
+				return Error.New("failed to update object: %w", err)
+			}
+
+			for _, version := range versionsToDelete {
+				_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+					ObjectLocation: ObjectLocation{
+						ProjectID:  opts.ProjectID,
+						BucketName: opts.BucketName,
+						ObjectKey:  opts.ObjectKey,
+					},
+					Version: version,
+				}, tx)
+				if err != nil {
+					return Error.New("failed to delete existing object: %w", err)
+				}
 			}
 		}
 

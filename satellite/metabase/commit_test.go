@@ -4285,6 +4285,19 @@ func TestCommitObject(t *testing.T) {
 					}.Check(ctx, t, db)
 					obj.Version++
 
+					expectedInlineData := testrand.Bytes(8)
+					expectedEncryptedKey := testrand.Bytes(32)
+					expectedEncryptedKeyNonce := testrand.Bytes(32)
+					metabasetest.CommitInlineSegment{
+						Opts: metabase.CommitInlineSegment{
+							ObjectStream:           obj,
+							InlineData:             expectedInlineData,
+							EncryptedKey:           expectedEncryptedKey,
+							EncryptedKeyNonce:      expectedEncryptedKeyNonce,
+							UsePendingObjectsTable: true,
+						},
+					}.Check(ctx, t, db)
+
 					metabasetest.CommitObject{
 						Opts: metabase.CommitObject{
 							ObjectStream: obj,
@@ -4301,11 +4314,23 @@ func TestCommitObject(t *testing.T) {
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{
 							{
-								ObjectStream: obj,
-								CreatedAt:    now,
-								Status:       metabase.Committed,
+								ObjectStream:       obj,
+								CreatedAt:          now,
+								Status:             metabase.Committed,
+								SegmentCount:       1,
+								TotalEncryptedSize: int64(len(expectedInlineData)),
 
 								Encryption: metabasetest.DefaultEncryption,
+							},
+						},
+						Segments: []metabase.RawSegment{
+							{
+								StreamID:          obj.StreamID,
+								EncryptedKey:      expectedEncryptedKey,
+								EncryptedKeyNonce: expectedEncryptedKeyNonce,
+								EncryptedSize:     int32(len(expectedInlineData)),
+								InlineData:        expectedInlineData,
+								CreatedAt:         time.Now(),
 							},
 						},
 					}.Check(ctx, t, db)
