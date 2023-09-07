@@ -63,8 +63,26 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !req.ExpiresAt.IsZero() && !req.ExpiresAt.After(time.Now()) {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
+	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	if !req.ExpiresAt.IsZero() {
+		if req.ExpiresAt.Before(now) {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid expiration time, cannot be in the past")
+		}
+		if maxObjectTTL != nil && req.ExpiresAt.After(now.Add(*maxObjectTTL)) {
+			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid expiration time, cannot be longer than %v", maxObjectTTL)
+		}
+	}
+
+	var expiresAt time.Time
+	if !req.ExpiresAt.IsZero() {
+		expiresAt = req.ExpiresAt
+	} else if maxObjectTTL != nil {
+		ttl := now.Add(*maxObjectTTL)
+		expiresAt = ttl
 	}
 
 	// we can do just basic name validation because later we are checking bucket in DB
@@ -75,7 +93,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	objectKeyLength := len(req.EncryptedObjectKey)
 	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength))
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
 	err = endpoint.checkUploadLimits(ctx, keyInfo.ProjectID)
@@ -114,20 +132,14 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	var expiresAt *time.Time
-	if req.ExpiresAt.IsZero() {
-		expiresAt = nil
-	} else {
-		expiresAt = &req.ExpiresAt
-	}
-
 	var nonce []byte
 	if !req.EncryptedMetadataNonce.IsZero() {
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
 	usePendingObjectsTable := endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID)
-	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+
+	opts := metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -135,7 +147,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			StreamID:   streamID,
 			Version:    metabase.NextVersion,
 		},
-		ExpiresAt:  expiresAt,
 		Encryption: encryptionParameters,
 
 		EncryptedMetadata:             req.EncryptedMetadata,
@@ -143,7 +154,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadataNonce:        nonce,
 
 		UsePendingObjectsTable: usePendingObjectsTable,
-	})
+	}
+	if !expiresAt.IsZero() {
+		opts.ExpiresAt = &expiresAt
+	}
+
+	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, opts)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -153,7 +169,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedObjectKey:   []byte(object.ObjectKey),
 		Version:              int64(object.Version),
 		CreationDate:         object.CreatedAt,
-		ExpirationDate:       req.ExpiresAt, // TODO make ExpirationDate nullable
+		ExpirationDate:       expiresAt, // TODO make ExpirationDate nullable
 		StreamId:             object.StreamID[:],
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
@@ -176,6 +192,25 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		StreamId:           satStreamID,
 		RedundancyScheme:   endpoint.defaultRS,
 	}, nil
+}
+
+func (endpoint *Endpoint) getMaxObjectTTL(ctx context.Context, header *pb.RequestHeader) (_ *time.Duration, err error) {
+	key, err := getAPIKey(ctx, header)
+	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "Invalid API credentials: %v", err)
+	}
+
+	ttl, err := key.GetMaxObjectTTL(ctx)
+	if err != nil {
+		endpoint.log.Error("unable to get max object TTL", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get max object TTL")
+	}
+
+	if ttl != nil && *ttl <= 0 {
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid MaxObjectTTL in API key: %v", ttl)
+	}
+
+	return ttl, nil
 }
 
 // CommitObject commits an object when all its segments have already been committed.

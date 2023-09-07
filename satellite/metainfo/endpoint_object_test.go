@@ -24,6 +24,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/nodetag"
 	"storj.io/common/pb"
@@ -606,7 +607,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 			_, err = metainfoClient.BeginObject(ctx, params)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "Invalid expiration time")
+			require.Contains(t, err.Error(), "invalid expiration time")
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		})
 
@@ -978,6 +979,119 @@ func TestEndpoint_Object_UploadLimit(t *testing.T) {
 			request.EncryptedObjectKey = []byte("single-objectB")
 			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
+		})
+	})
+}
+
+func TestEndpoint_BeginObject_MaxObjectTTL(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+		bucketName := "testbucket"
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
+
+		t.Run("object upload with max object ttl", func(t *testing.T) {
+			now := time.Now()
+
+			zero := 0 * time.Hour
+			oneHour := time.Hour
+			minusOneHour := -oneHour
+
+			type TestCases struct {
+				maxObjectTTL       *time.Duration
+				expiresAt          time.Time
+				expectedExpiration time.Time
+				expectedErr        bool
+			}
+
+			for _, tc := range []TestCases{
+				{
+					maxObjectTTL:       nil,
+					expiresAt:          time.Time{},
+					expectedExpiration: time.Time{},
+					expectedErr:        false,
+				},
+				{
+					maxObjectTTL:       &oneHour,
+					expiresAt:          time.Time{},
+					expectedExpiration: now.Add(time.Hour),
+					expectedErr:        false,
+				},
+				{
+					maxObjectTTL:       &oneHour,
+					expiresAt:          now.Add(30 * time.Minute),
+					expectedExpiration: now.Add(30 * time.Minute),
+					expectedErr:        false,
+				},
+				{
+					maxObjectTTL:       &oneHour,
+					expiresAt:          now.Add(2 * time.Hour),
+					expectedExpiration: time.Time{},
+					expectedErr:        true,
+				},
+				{
+					maxObjectTTL:       &zero,
+					expiresAt:          time.Time{},
+					expectedExpiration: time.Time{},
+					expectedErr:        true,
+				},
+				{
+					maxObjectTTL:       &minusOneHour,
+					expiresAt:          time.Time{},
+					expectedExpiration: time.Time{},
+					expectedErr:        true,
+				},
+			} {
+				t.Run("", func(t *testing.T) {
+					restrictedAPIKey := apiKey
+					if tc.maxObjectTTL != nil {
+						restrictedAPIKey, err = restrictedAPIKey.Restrict(macaroon.Caveat{
+							MaxObjectTtl: tc.maxObjectTTL,
+						})
+					}
+					require.NoError(t, err)
+
+					objectKey := testrand.Bytes(10)
+
+					beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: restrictedAPIKey.SerializeRaw(),
+						},
+						Bucket:             []byte(bucketName),
+						EncryptedObjectKey: objectKey,
+						ExpiresAt:          tc.expiresAt,
+						EncryptionParameters: &pb.EncryptionParameters{
+							CipherSuite: pb.CipherSuite_ENC_AESGCM,
+						},
+					})
+					if tc.expectedErr {
+						require.Error(t, err)
+						return
+					}
+					require.NoError(t, err)
+
+					satStreamID := &internalpb.StreamID{}
+					err = pb.Unmarshal(beginResp.StreamId, satStreamID)
+					require.NoError(t, err)
+					require.WithinDuration(t, tc.expectedExpiration, satStreamID.ExpirationDate, time.Minute)
+
+					listResp, err := endpoint.ListPendingObjectStreams(ctx, &pb.ListPendingObjectStreamsRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: restrictedAPIKey.SerializeRaw(),
+						},
+						Bucket:             []byte(bucketName),
+						EncryptedObjectKey: objectKey,
+					})
+					require.NoError(t, err)
+					require.Len(t, listResp.Items, 1)
+					require.WithinDuration(t, tc.expectedExpiration, listResp.Items[0].ExpiresAt, time.Minute)
+				})
+			}
 		})
 	})
 }

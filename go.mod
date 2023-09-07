@@ -61,11 +61,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20230906110953-ed8a53d568d8
+	storj.io/common v0.0.0-20230907123639-5fd0608fd947
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
 	storj.io/private v0.0.0-20230824104110-1eac532af65a
-	storj.io/uplink v1.11.1-0.20230905131215-412de374f05c
+	storj.io/uplink v1.11.1-0.20230907104623-a2e90d4e0c18
 )
 
 require (
@@ -140,5 +140,5 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	storj.io/picobuf v0.0.1 // indirect
+	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 )
