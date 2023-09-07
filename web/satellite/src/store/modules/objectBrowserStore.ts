@@ -292,6 +292,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 const { Contents, CommonPrefixes } = response;
 
                 processFetchedObjects(path, Contents, CommonPrefixes);
+
+                state.activeObjectsRange = { start: 1, end: MAX_KEY_COUNT };
             }
 
             keyCount += response.KeyCount ?? 0;
@@ -305,7 +307,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.totalObjectCount = keyCount;
     }
 
-    async function listByToken(path: string, key: number, continuationToken?: string): Promise<void> {
+    async function listByToken(path: string, key: number, continuationToken: string): Promise<void> {
         assertIsInitialized(state);
 
         const input: ListObjectsV2CommandInput = {
@@ -321,10 +323,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         processFetchedObjects(path, Contents, CommonPrefixes);
 
-        state.activeObjectsRange = {
-            start: key === 1 ? key : key - MAX_KEY_COUNT,
-            end: key === 1 ? MAX_KEY_COUNT : key,
-        };
+        state.activeObjectsRange = { start: key - MAX_KEY_COUNT, end: key };
     }
 
     function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): void {

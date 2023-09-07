@@ -30,7 +30,10 @@
             hover
             must-sort
             :loading="isFetching || loading"
-            :items-length="allFiles.length"
+            :items-length="isPaginationEnabled ? totalObjectCount : allFiles.length"
+            :items-per-page-options="isPaginationEnabled ? tableSizeOptions(totalObjectCount, true) : undefined"
+            @update:page="onPageChange"
+            @update:itemsPerPage="onLimitChange"
         >
             <template #item.name="{ item }: ItemSlotProps">
                 <v-btn
@@ -77,13 +80,20 @@ import {
 } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    MAX_KEY_COUNT,
+    ObjectBrowserCursor,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { tableSizeOptions } from '@/types/common';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -131,6 +141,7 @@ const props = defineProps<{
     loading?: boolean;
 }>();
 
+const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -181,11 +192,28 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 /**
+ * Returns total object count from store.
+ */
+const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBrowserPaginationEnabled);
+
+/**
+ * Returns total object count from store.
+ */
+const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
+
+/**
+ * Returns table cursor from store.
+ */
+const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
+
+/**
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
-    return obStore.state.files.map<BrowserObjectWrapper>(file => {
+
+    const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
+    return objects.map<BrowserObjectWrapper>(file => {
         const lowerName = file.Key.toLowerCase();
         const dotIdx = lowerName.indexOf('.');
         const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1);
@@ -243,10 +271,42 @@ const tableFiles = computed<BrowserObjectWrapper[]>(() => {
         });
     }
 
-    if (opts.itemsPerPage === -1) return files;
+    if (opts.itemsPerPage === -1 || isPaginationEnabled.value) return files;
 
     return files.slice((opts.page - 1) * opts.itemsPerPage, opts.page * opts.itemsPerPage);
 });
+
+/**
+ * Handles page change event.
+ */
+function onPageChange(page: number): void {
+    obStore.setCursor({ page, limit: options.value?.itemsPerPage ?? 10 });
+
+    const lastObjectOnPage = page * cursor.value.limit;
+    const activeRange = obStore.state.activeObjectsRange;
+
+    if (lastObjectOnPage > activeRange.start && lastObjectOnPage <= activeRange.end) {
+        return;
+    }
+
+    const path = filePath.value ? filePath.value + '/' : '';
+    const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
+
+    const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
+    if (!tokenToBeFetched) {
+        obStore.initList(path);
+        return;
+    }
+
+    obStore.listByToken(path, tokenKey, tokenToBeFetched);
+}
+
+/**
+ * Handles items per page change event.
+ */
+function onLimitChange(newLimit: number): void {
+    obStore.setCursor({ page: options.value?.page ?? 1, limit: newLimit });
+}
 
 /**
  * Returns the string form of the file's last modified date.
@@ -308,7 +368,14 @@ async function fetchFiles(): Promise<void> {
     isFetching.value = true;
 
     try {
-        await obStore.list(filePath.value ? filePath.value + '/' : '');
+        const path = filePath.value ? filePath.value + '/' : '';
+
+        if (isPaginationEnabled.value) {
+            await obStore.initList(path);
+        } else {
+            await obStore.list(path);
+        }
+
         selected.value = [];
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;

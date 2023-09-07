@@ -43,14 +43,14 @@ export type UUID = string
 export type MemorySize = string
 export type Time = string
 
-export function tableSizeOptions(itemCount: number): {title: string, value: number}[] {
+export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {title: string, value: number}[] {
     const opts = [
         { title: '10', value: 10 },
         { title: '25', value: 25 },
         { title: '50', value: 50 },
         { title: '100', value: 100 },
     ];
-    if (itemCount < 1000) {
+    if (itemCount < 1000 && !isObjectBrowser) {
         return [{ title: 'All', value: itemCount }, ...opts];
     }
     return opts;

@@ -458,7 +458,7 @@ function changePageAndLimit(page: number, limit: number): void {
 
     const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
     if (!tokenToBeFetched) {
-        obStore.listByToken(routePath.value, 1, tokenToBeFetched);
+        obStore.initList(routePath.value);
         return;
     }
 
