@@ -1987,6 +1987,6 @@ storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c h1:or/DtG5uaZpzimL61ahlgAA
 storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c/go.mod h1:JCuc3C0gzCJHQ4J6SOx/Yjg+QTpX0D+Fvs5H46FETCk=
 storj.io/private v0.0.0-20230824104110-1eac532af65a h1:x0OnU7z801JmR0XwFrFxmEBqcq+FDDuSn5jMbFoyfBo=
 storj.io/private v0.0.0-20230824104110-1eac532af65a/go.mod h1:6+MGr4KUXEBIOsOstFz1efPkA+8wVVfzsO8RpuAhhB4=
-storj.io/uplink v1.11.1-0.20230907104623-a2e90d4e0c18 h1:xAC4VhvSQpMbUesyvQGBEORTQ64ZBK3+RfJWWa9zVbY=
-storj.io/uplink v1.11.1-0.20230907104623-a2e90d4e0c18/go.mod h1:JOUmWW3FrzCkDK4wgrTonKrKTWafK7jRQA8zBb8mkxs=
+storj.io/uplink v1.11.1-0.20230907122241-39cbd8e765dc h1:B03iRQQ4N9zfDnBFPJK5jCLpcjU4XZJP8PPxyLkO7Zw=
+storj.io/uplink v1.11.1-0.20230907122241-39cbd8e765dc/go.mod h1:xj3uTha+PlDcb1Jyh8uH0CVb6MjwlWDBpssiGweLM7M=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=

@@ -29,6 +29,8 @@ type accessPermissions struct {
 
 	notBefore *time.Time
 	notAfter  *time.Time
+
+	maxObjectTTL *time.Duration
 }
 
 func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
@@ -65,6 +67,12 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700', 'none')",
 		nil, clingy.Transform(parseHumanDateNotAfter), clingy.Type("relative_date"), clingy.Optional).(*time.Time)
 
+	params.Break()
+
+	ap.maxObjectTTL = params.Flag("max-object-ttl",
+		"The object is automatically deleted after this period. (e.g. '1h30m', '24h', '720h')",
+		nil, clingy.Transform(time.ParseDuration), clingy.Type("period"), clingy.Optional).(*time.Duration)
+
 	if !prefixFlags {
 		ap.prefixes = params.Arg("prefix", "Key prefix access will be restricted to",
 			clingy.Transform(ulloc.Parse),
@@ -93,6 +101,7 @@ func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error
 		AllowUpload:   ap.AllowUpload(),
 		NotBefore:     ap.NotBefore(),
 		NotAfter:      ap.NotAfter(),
+		MaxObjectTTL:  ap.MaxObjectTTL(),
 	}
 
 	// if we aren't actually restricting anything, then we don't need to Share.
@@ -120,9 +129,10 @@ func defaulted[T any](val *T, def T) T {
 	return def
 }
 
-func (ap *accessPermissions) NotBefore() time.Time { return defaulted(ap.notBefore, time.Time{}) }
-func (ap *accessPermissions) NotAfter() time.Time  { return defaulted(ap.notAfter, time.Time{}) }
-func (ap *accessPermissions) AllowDelete() bool    { return !defaulted(ap.disallowDeletes, ap.readonly) }
-func (ap *accessPermissions) AllowList() bool      { return !defaulted(ap.disallowLists, ap.writeonly) }
-func (ap *accessPermissions) AllowDownload() bool  { return !defaulted(ap.disallowReads, ap.writeonly) }
-func (ap *accessPermissions) AllowUpload() bool    { return !defaulted(ap.disallowWrites, ap.readonly) }
+func (ap *accessPermissions) NotBefore() time.Time         { return defaulted(ap.notBefore, time.Time{}) }
+func (ap *accessPermissions) NotAfter() time.Time          { return defaulted(ap.notAfter, time.Time{}) }
+func (ap *accessPermissions) AllowDelete() bool            { return !defaulted(ap.disallowDeletes, ap.readonly) }
+func (ap *accessPermissions) AllowList() bool              { return !defaulted(ap.disallowLists, ap.writeonly) }
+func (ap *accessPermissions) AllowDownload() bool          { return !defaulted(ap.disallowReads, ap.writeonly) }
+func (ap *accessPermissions) AllowUpload() bool            { return !defaulted(ap.disallowWrites, ap.readonly) }
+func (ap *accessPermissions) MaxObjectTTL() *time.Duration { return ap.maxObjectTTL }
