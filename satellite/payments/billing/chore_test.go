@@ -250,6 +250,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
+		consoleDB := db.Console()
 		invoicesDB := sat.Core.Payments.Accounts.Invoices()
 		stripeClient := sat.API.Payments.StripeClient
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
@@ -271,9 +272,11 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		err = sat.DB.Wallets().Add(ctx, userID, address)
 		require.NoError(t, err)
 
+		freezeService := console.NewAccountFreezeService(consoleDB.AccountFreezeEvents(), consoleDB.Users(), consoleDB.Projects(), sat.Core.Analytics.Service)
+
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
-			PayInvoices: console.NewInvoiceTokenPaymentObserver(db.Console(), sat.Core.Payments.Accounts),
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+			PayInvoices: console.NewInvoiceTokenPaymentObserver(consoleDB, sat.Core.Payments.Accounts.Invoices(), freezeService),
 		}
 
 		amount := int64(2000)  // $20
@@ -328,6 +331,9 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.Equal(t, inv.ID, invoices[0].ID)
 		require.Equal(t, string(inv.Status), invoices[0].Status)
 
+		err = freezeService.FreezeUser(ctx, userID)
+		require.NoError(t, err)
+
 		chore.TransactionCycle.TriggerWait()
 
 		// user balance would've been the value of amount ($20) but
@@ -342,6 +348,11 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		// invoice remains unpaid since only $20 was paid.
 		require.Equal(t, string(stripe.InvoiceStatusOpen), invoices[0].Status)
 
+		// user remains frozen since payment is not complete.
+		frozen, err := freezeService.IsUserFrozen(ctx, userID)
+		require.NoError(t, err)
+		require.True(t, frozen)
+
 		chore.TransactionCycle.TriggerWait()
 
 		// the second transaction of $10 reflects at this point and
@@ -350,6 +361,11 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, invoices)
 		require.Equal(t, string(stripe.InvoiceStatusPaid), invoices[0].Status)
+
+		// user is not frozen since payment is complete.
+		frozen, err = freezeService.IsUserFrozen(ctx, userID)
+		require.NoError(t, err)
+		require.False(t, frozen)
 	})
 }
 
