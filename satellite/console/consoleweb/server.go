@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
-	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -215,6 +214,8 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
+	initAdditionalMimeTypes()
+
 	server := Server{
 		log:                             logger,
 		config:                          config,
@@ -1083,7 +1084,7 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
-	header.Set(contentType, mime.TypeByExtension(".txt"))
+	header.Set(contentType, typeByExtension(".txt"))
 	header.Set("X-Content-Type-Options", "nosniff")
 
 	_, err := w.Write([]byte(server.config.SEO))
@@ -1111,7 +1112,7 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 		}
 
 		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
-		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set(contentType, typeByExtension(extension))
 		w.Header().Set("Content-Encoding", "br")
 
 		newRequest := new(http.Request)
