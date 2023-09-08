@@ -56,8 +56,13 @@ const config: PlaywrightTestConfig = {
             use: {
                 viewport: { width: 1280, height: 720 },
                 browserName: 'chromium',
+                headless: true,
+                launchOptions: {
+                    // args: ["--headless","--no-sandbox","--use-angle=gl"]
+                    args: ["--no-sandbox"]
+                }
             },
-        },
+        },/*
         {
           name: 'chromium-fhd',
           use: {
@@ -78,7 +83,7 @@ const config: PlaywrightTestConfig = {
             viewport: { width: 1280, height: 720 },
             browserName: 'webkit',
           },
-        },
+        },*/
     ],
         reporter: [
             [
