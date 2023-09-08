@@ -270,6 +270,11 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 
 	err = p.service.Payments().MakeCreditCardDefault(ctx, string(cardID))
 	if err != nil {
+		if stripe.ErrCardNotFound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
@@ -302,6 +307,10 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	err = p.service.Payments().RemoveCreditCard(ctx, cardID)
 	if err != nil {
+		if stripe.ErrCardNotFound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
