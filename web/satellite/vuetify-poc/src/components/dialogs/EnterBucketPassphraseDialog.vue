@@ -45,12 +45,11 @@
                             <v-text-field
                                 v-model="passphrase"
                                 :base-color="isWarningState ? 'warning' : ''"
-
                                 label="Encryption Passphrase"
                                 :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
                                 :type="isPassphraseVisible ? 'text' : 'password'"
                                 variant="outlined"
-                                hide-details="auto"
+                                :hide-details="false"
                                 :rules="[ RequiredRule ]"
                                 @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
                             />

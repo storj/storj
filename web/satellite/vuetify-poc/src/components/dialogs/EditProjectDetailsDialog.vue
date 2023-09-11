@@ -37,6 +37,7 @@
                     :label="`Project ${field}`"
                     :counter="maxLength"
                     persistent-counter
+                    :hide-details="false"
                     autofocus
                 />
             </v-form>

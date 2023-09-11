@@ -25,7 +25,7 @@
                     density="compact"
                     color="primary"
                     label="Yes, I saved my encryption passphrase."
-                    hide-details="auto"
+                    :hide-details="false"
                     :rules="[ RequiredRule ]"
                 />
             </v-col>

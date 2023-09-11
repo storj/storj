@@ -14,7 +14,7 @@
                     multiple
                     chips
                     closable-chips
-                    hide-details="auto"
+                    :hide-details="false"
                     :rules="[ RequiredRule ]"
                 >
                     <template #prepend-item>
@@ -60,7 +60,7 @@
                     multiple
                     chips
                     closable-chips
-                    hide-details="auto"
+                    :hide-details="false"
                     :rules="bucketsRules"
                     :custom-filter="bucketFilter"
                 >
@@ -96,7 +96,7 @@
                     color="default"
                     label="End date"
                     return-object
-                    hide-details="auto"
+                    :hide-details="false"
                     :items="endDateItems"
                     :rules="[ RequiredRule ]"
                 >

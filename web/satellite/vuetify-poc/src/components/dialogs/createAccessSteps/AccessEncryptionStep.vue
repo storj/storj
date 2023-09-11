@@ -26,6 +26,7 @@
                             :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
                             :type="isPassphraseVisible ? 'text' : 'password'"
                             :rules="passphraseRules"
+                            :hide-details="false"
                             @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
                         />
                         <v-divider class="my-4" />

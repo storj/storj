@@ -46,6 +46,7 @@
                                 label="Project Name"
                                 :counter="MAX_NAME_LENGTH"
                                 persistent-counter
+                                :hide-details="false"
                                 autofocus
                             />
                             <v-btn
@@ -64,6 +65,7 @@
                                 v-model="description"
                                 variant="outlined"
                                 :rules="descriptionRules"
+                                :hide-details="false"
                                 label="Project Description (Optional)"
                                 :counter="MAX_DESCRIPTION_LENGTH"
                                 persistent-counter
@@ -103,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, Component } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,

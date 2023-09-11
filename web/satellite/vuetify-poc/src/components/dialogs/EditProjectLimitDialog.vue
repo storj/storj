@@ -38,6 +38,7 @@
                             density="compact"
                             type="number"
                             :rules="rules"
+                            :hide-details="false"
                             :model-value="inputText"
                             @update:model-value="updateInputText"
                         >

@@ -34,17 +34,16 @@
             <v-divider />
 
             <v-form v-model="formValid" class="pa-8 pb-3" @submit.prevent="onCreate">
-                <v-row>
-                    <v-col>
-                        <p>Buckets are used to store and organize your files.</p>
-
+                <v-row class="ma-0">
+                    <p>Buckets are used to store and organize your files.</p>
+                    <v-col class="px-0 flex-1-1-100">
                         <v-text-field
                             v-model="bucketName"
                             variant="outlined"
                             :rules="bucketNameRules"
                             label="Enter bucket name"
                             hint="Lowercase letters, numbers, hyphens (-), and periods (.)"
-                            hide-details="auto"
+                            :hide-details="false"
                             required
                             autofocus
                             class="mt-8 mb-3"

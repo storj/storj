@@ -40,6 +40,7 @@
                             type="password"
                             :rules="oldRules"
                             label="Current password"
+                            :hide-details="false"
                             required
                             autofocus
                         />
@@ -51,6 +52,7 @@
                             type="password"
                             :rules="newRules"
                             label="New password"
+                            :hide-details="false"
                             required
                         />
                     </v-col>
@@ -60,6 +62,7 @@
                             type="password"
                             :rules="repeatRules"
                             label="Repeat password"
+                            :hide-details="false"
                             required
                         />
                     </v-col>

@@ -41,7 +41,7 @@
                         :rules="rules"
                         :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
                         :label="useRecoveryCode ? 'Recovery code' : '2FA Code'"
-                        hide-details="auto"
+                        :hide-details="false"
                         required
                         autofocus
                     />
@@ -95,7 +95,6 @@ import {
     VDialog,
     VDivider,
     VForm,
-    VRow,
     VTextField,
 } from 'vuetify/components';
 

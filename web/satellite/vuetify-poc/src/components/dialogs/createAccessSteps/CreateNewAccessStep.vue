@@ -12,14 +12,14 @@
                     variant="outlined"
                     color="default"
                     autofocus
-                    hide-details="auto"
+                    :hide-details="false"
                     :rules="nameRules"
                 />
             </v-col>
 
             <v-col cols="12">
                 <h4 class="mb-2">Type</h4>
-                <v-input v-model="types" :rules="[ RequiredRule ]" hide-details="auto">
+                <v-input v-model="types" :rules="[ RequiredRule ]" :hide-details="false">
                     <div>
                         <v-checkbox
                             v-for="accessType in typeOrder"

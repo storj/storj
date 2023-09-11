@@ -36,6 +36,7 @@
                             variant="outlined"
                             :rules="rules"
                             label="Full name"
+                            :hide-details="false"
                             required
                             autofocus
                         />
