@@ -12,8 +12,8 @@ class AppState {
 export const useAppStore = defineStore('vuetifyApp', () => {
     const state = reactive<AppState>(new AppState());
 
-    function toggleNavigationDrawer(): void {
-        state.isNavigationDrawerShown = !state.isNavigationDrawerShown;
+    function toggleNavigationDrawer(isShown?: boolean): void {
+        state.isNavigationDrawerShown = isShown ?? !state.isNavigationDrawerShown;
     }
 
     function setPathBeforeAccountPage(path: string) {
