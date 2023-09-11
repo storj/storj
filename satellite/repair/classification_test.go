@@ -1,27 +1,23 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package repairer
+package repair
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
-	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
-func TestClassify(t *testing.T) {
-	ctx := testcontext.New(t)
-
+func TestClassifySegmentPieces(t *testing.T) {
 	getNodes := func(nodes []nodeselection.SelectedNode, pieces metabase.Pieces) (res []nodeselection.SelectedNode) {
 		for _, piece := range pieces {
 			for _, node := range nodes {
@@ -34,7 +30,6 @@ func TestClassify(t *testing.T) {
 		}
 		return res
 	}
-
 	t.Run("all online", func(t *testing.T) {
 		var selectedNodes = generateNodes(5, func(ix int) bool {
 			return true
@@ -44,17 +39,16 @@ func TestClassify(t *testing.T) {
 
 		c := &overlay.ConfigurablePlacementRule{}
 		require.NoError(t, c.Set(""))
-		s := SegmentRepairer{
-			placementRules: overlay.NewPlacementDefinitions().CreateFilters,
-		}
-		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
-		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces}, allNodeIDs(pieces), selectedNodes)
+		parsed, err := c.Parse()
 		require.NoError(t, err)
 
-		require.Equal(t, 0, len(result.MissingPiecesSet))
-		require.Equal(t, 0, len(result.ClumpedPiecesSet))
-		require.Equal(t, 0, len(result.OutOfPlacementPiecesSet))
-		require.Equal(t, 0, result.NumUnhealthyRetrievable)
+		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, parsed.CreateFilters(0))
+
+		require.Equal(t, 0, len(result.Missing))
+		require.Equal(t, 0, len(result.Clumped))
+		require.Equal(t, 0, len(result.OutOfPlacement))
+		require.Equal(t, 0, len(result.UnhealthyRetrievable))
 	})
 
 	t.Run("out of placement", func(t *testing.T) {
@@ -74,21 +68,14 @@ func TestClassify(t *testing.T) {
 		}.Parse()
 		require.NoError(t, err)
 
-		s := SegmentRepairer{
-			placementRules:   c.CreateFilters,
-			doPlacementCheck: true,
-			log:              zaptest.NewLogger(t),
-		}
-
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
-		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces, Placement: 10}, allNodeIDs(pieces), getNodes(selectedNodes, pieces))
-		require.NoError(t, err)
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10))
 
-		require.Equal(t, 0, len(result.MissingPiecesSet))
-		require.Equal(t, 0, len(result.ClumpedPiecesSet))
+		require.Equal(t, 0, len(result.Missing))
+		require.Equal(t, 0, len(result.Clumped))
 		// 1,2,3 are in Germany instead of GB
-		require.Equal(t, 3, len(result.OutOfPlacementPiecesSet))
-		require.Equal(t, 3, result.NumUnhealthyRetrievable)
+		require.Equal(t, 3, len(result.OutOfPlacement))
+		require.Equal(t, 3, len(result.UnhealthyRetrievable))
 	})
 
 	t.Run("out of placement and offline", func(t *testing.T) {
@@ -104,21 +91,15 @@ func TestClassify(t *testing.T) {
 		}.Parse()
 		require.NoError(t, err)
 
-		s := SegmentRepairer{
-			placementRules:   c.CreateFilters,
-			doPlacementCheck: true,
-		}
-
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces, Placement: 10}, allNodeIDs(pieces), getNodes(selectedNodes, pieces))
-		require.NoError(t, err)
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10))
 
 		// offline nodes
-		require.Equal(t, 5, len(result.MissingPiecesSet))
-		require.Equal(t, 0, len(result.ClumpedPiecesSet))
-		require.Equal(t, 10, len(result.OutOfPlacementPiecesSet))
-		require.Equal(t, 5, result.NumUnhealthyRetrievable)
-		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
+		require.Equal(t, 5, len(result.Missing))
+		require.Equal(t, 0, len(result.Clumped))
+		require.Equal(t, 10, len(result.OutOfPlacement))
+		require.Equal(t, 5, len(result.UnhealthyRetrievable))
+		numHealthy := len(pieces) - len(result.Missing) - len(result.UnhealthyRetrievable)
 		require.Equal(t, 0, numHealthy)
 
 	})
@@ -131,23 +112,17 @@ func TestClassify(t *testing.T) {
 		})
 
 		c := overlay.NewPlacementDefinitions()
-		s := SegmentRepairer{
-			placementRules: c.CreateFilters,
-			doDeclumping:   true,
-			log:            zaptest.NewLogger(t),
-		}
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces}, allNodeIDs(pieces), getNodes(selectedNodes, pieces))
-		require.NoError(t, err)
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(0))
 
 		// offline nodes
-		require.Equal(t, 2, len(result.MissingPiecesSet))
-		require.Equal(t, 3, len(result.ClumpedPiecesSet))
-		require.Equal(t, 0, len(result.OutOfPlacementPiecesSet))
-		require.Equal(t, 2, result.NumUnhealthyRetrievable)
-		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
+		require.Equal(t, 2, len(result.Missing))
+		require.Equal(t, 3, len(result.Clumped))
+		require.Equal(t, 0, len(result.OutOfPlacement))
+		require.Equal(t, 2, len(result.UnhealthyRetrievable))
+		numHealthy := len(pieces) - len(result.Missing) - len(result.UnhealthyRetrievable)
 		require.Equal(t, 3, numHealthy)
 
 	})
@@ -165,22 +140,16 @@ func TestClassify(t *testing.T) {
 		}.Parse()
 		require.NoError(t, err)
 
-		s := SegmentRepairer{
-			placementRules: c.CreateFilters,
-			doDeclumping:   true,
-		}
-
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result, err := s.classifySegmentPiecesWithNodes(ctx, metabase.Segment{Pieces: pieces, Placement: 10}, allNodeIDs(pieces), getNodes(selectedNodes, pieces))
-		require.NoError(t, err)
+		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(10))
 
 		// offline nodes
-		require.Equal(t, 2, len(result.MissingPiecesSet))
-		require.Equal(t, 0, len(result.ClumpedPiecesSet))
-		require.Equal(t, 0, len(result.OutOfPlacementPiecesSet))
-		require.Equal(t, 0, result.NumUnhealthyRetrievable)
-		numHealthy := len(pieces) - len(result.MissingPiecesSet) - result.NumUnhealthyRetrievable
+		require.Equal(t, 2, len(result.Missing))
+		require.Equal(t, 0, len(result.Clumped))
+		require.Equal(t, 0, len(result.OutOfPlacement))
+		require.Equal(t, 0, len(result.UnhealthyRetrievable))
+		numHealthy := len(pieces) - len(result.Missing) - len(result.UnhealthyRetrievable)
 		require.Equal(t, 5, numHealthy)
 
 	})
@@ -205,16 +174,7 @@ func createPieces(selectedNodes []nodeselection.SelectedNode, indexes ...int) (r
 			Number: uint16(index),
 		}
 		piece.StorageNode = selectedNodes[index].ID
-
 		res = append(res, piece)
-
 	}
 	return
-}
-
-func allNodeIDs(pieces metabase.Pieces) (res []storj.NodeID) {
-	for _, piece := range pieces {
-		res = append(res, piece.StorageNode)
-	}
-	return res
 }

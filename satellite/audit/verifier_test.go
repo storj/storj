@@ -1106,6 +1106,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.MaxExcessRateOptimalThreshold = 0.0
 				},
 				testplanet.ReconfigureRS(3, 5, 8, 10),
 				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
@@ -1138,7 +1139,8 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			nodesInExcluded = append(nodesInExcluded, remotePieces[i].StorageNode)
 		}
 
-		// make extra pieces after optimal bad
+		// make extra pieces after optimal bad, so we know there are exactly OptimalShares
+		// retrievable shares. numExcluded of them are in an excluded country.
 		for i := int(segment.Redundancy.OptimalShares); i < len(remotePieces); i++ {
 			err = planet.StopNodeAndUpdate(ctx, planet.FindNode(remotePieces[i].StorageNode))
 			require.NoError(t, err)
@@ -1167,17 +1169,29 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		require.NotEqual(t, segment.Pieces, segmentAfterRepair.Pieces)
 		require.Equal(t, 10, len(segmentAfterRepair.Pieces))
 
-		// check excluded area nodes still exist
-		for i, n := range nodesInExcluded {
-			var found bool
+		// the number of nodes that should still be online holding intact pieces, not in
+		// excluded countries
+		expectHealthyNodes := int(segment.Redundancy.OptimalShares) - numExcluded
+		// repair should make this many new pieces to get the segment up to OptimalShares
+		// shares, not counting excluded-country nodes
+		expectNewPieces := int(segment.Redundancy.OptimalShares) - expectHealthyNodes
+		// so there should be this many pieces after repair, not counting excluded-country
+		// nodes
+		expectPiecesAfterRepair := expectHealthyNodes + expectNewPieces
+		// so there should be this many excluded-country pieces left in the segment (we
+		// couldn't keep all of them, or we would have had more than TotalShares pieces).
+		expectRemainingExcluded := int(segment.Redundancy.TotalShares) - expectPiecesAfterRepair
+
+		found := 0
+		for _, nodeID := range nodesInExcluded {
 			for _, p := range segmentAfterRepair.Pieces {
-				if p.StorageNode == n {
-					found = true
+				if p.StorageNode == nodeID {
+					found++
 					break
 				}
 			}
-			require.True(t, found, fmt.Sprintf("node %s not in segment, but should be\n", segmentAfterRepair.Pieces[i].StorageNode.String()))
 		}
+		require.Equal(t, expectRemainingExcluded, found, "found wrong number of excluded-country pieces after repair")
 		nodesInPointer := make(map[storj.NodeID]bool)
 		for _, n := range segmentAfterRepair.Pieces {
 			// check for duplicates

@@ -47,13 +47,16 @@ func TestObserverForkProcess(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
+	placementRules := overlay.ConfigurablePlacementRule{}
+	parsed, err := placementRules.Parse()
+	require.NoError(t, err)
 	createDefaultObserver := func() *Observer {
 		o := &Observer{
 			statsCollector: make(map[string]*observerRSStats),
 			nodesCache: &ReliabilityCache{
-				staleness:      time.Hour,
-				placementRules: overlay.NewPlacementDefinitions().CreateFilters,
+				staleness: time.Hour,
 			},
+			placementRules: parsed.CreateFilters,
 		}
 
 		o.nodesCache.state.Store(&reliabilityState{
@@ -72,6 +75,7 @@ func TestObserverForkProcess(t *testing.T) {
 			rsStats:          make(map[string]*partialRSStats),
 			doDeclumping:     o.doDeclumping,
 			doPlacementCheck: o.doPlacementCheck,
+			placementRules:   o.placementRules,
 			getNodesEstimate: o.getNodesEstimate,
 			nodesCache:       o.nodesCache,
 			repairQueue:      queue.NewInsertBuffer(q, 1000),
@@ -146,7 +150,7 @@ func TestObserverForkProcess(t *testing.T) {
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
 		parsed, err := placements.Parse()
 		require.NoError(t, err)
-		o.nodesCache.placementRules = parsed.CreateFilters
+		o.placementRules = parsed.CreateFilters
 
 		q := queue.MockRepairQueue{}
 		fork := createFork(o, &q)

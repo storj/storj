@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
@@ -23,11 +21,8 @@ import (
 type ReliabilityCache struct {
 	overlay   *overlay.Service
 	staleness time.Duration
-	// define from which countries nodes should be marked as offline
-	excludedCountryCodes map[location.CountryCode]struct{}
-	mu                   sync.Mutex
-	state                atomic.Value // contains immutable *reliabilityState
-	placementRules       overlay.PlacementRules
+	mu        sync.Mutex
+	state     atomic.Value // contains immutable *reliabilityState
 }
 
 // reliabilityState.
@@ -37,19 +32,10 @@ type reliabilityState struct {
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration, placementRules overlay.PlacementRules, excludedCountries []string) *ReliabilityCache {
-	excludedCountryCodes := make(map[location.CountryCode]struct{})
-	for _, countryCode := range excludedCountries {
-		if cc := location.ToCountryCode(countryCode); cc != location.None {
-			excludedCountryCodes[cc] = struct{}{}
-		}
-	}
-
+func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *ReliabilityCache {
 	return &ReliabilityCache{
-		overlay:              overlay,
-		staleness:            staleness,
-		placementRules:       placementRules,
-		excludedCountryCodes: excludedCountryCodes,
+		overlay:   overlay,
+		staleness: staleness,
 	}
 }
 
@@ -75,69 +61,20 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 	return len(state.nodeByID), nil
 }
 
-// MissingPieces returns piece indices that are unreliable with the given staleness period.
-func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ metabase.Pieces, err error) {
-	state, err := cache.loadFast(ctx, created)
+// GetNodes gets the cached SelectedNode records (valid as of the given time) for each of
+// the requested node IDs, and returns them in order. If a node is not in the reliability
+// cache (that is, it is unknown or disqualified), an empty SelectedNode will be returned
+// for the index corresponding to that node ID.
+func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID) ([]nodeselection.SelectedNode, error) {
+	state, err := cache.loadFast(ctx, validUpTo)
 	if err != nil {
 		return nil, err
 	}
-	var unreliable metabase.Pieces
-	for _, p := range pieces {
-		node, ok := state.nodeByID[p.StorageNode]
-		if !ok || !node.Online || node.Suspended {
-			unreliable = append(unreliable, p)
-		} else if _, excluded := cache.excludedCountryCodes[node.CountryCode]; excluded {
-			unreliable = append(unreliable, p)
-		}
+	nodes := make([]nodeselection.SelectedNode, len(nodeIDs))
+	for i, nodeID := range nodeIDs {
+		nodes[i] = state.nodeByID[nodeID]
 	}
-	return unreliable, nil
-}
-
-// OutOfPlacementPieces checks which pieces are out of segment placement. Piece placement is defined by node location which is storing it.
-func (cache *ReliabilityCache) OutOfPlacementPieces(ctx context.Context, created time.Time, pieces metabase.Pieces, placement storj.PlacementConstraint) (_ metabase.Pieces, err error) {
-	defer mon.Task()(&ctx)(nil)
-
-	if len(pieces) == 0 {
-		return metabase.Pieces{}, nil
-	}
-
-	state, err := cache.loadFast(ctx, created)
-	if err != nil {
-		return nil, err
-	}
-	var outOfPlacementPieces metabase.Pieces
-	nodeFilters := cache.placementRules(placement)
-	for _, p := range pieces {
-		if node, ok := state.nodeByID[p.StorageNode]; ok && !nodeFilters.Match(&node) {
-			outOfPlacementPieces = append(outOfPlacementPieces, p)
-		}
-	}
-
-	return outOfPlacementPieces, nil
-}
-
-// PiecesNodesLastNetsInOrder returns the /24 subnet for each piece storage node, in order. If a
-// requested node is not in the database, an empty string will be returned corresponding to that
-// node's last_net.
-func (cache *ReliabilityCache) PiecesNodesLastNetsInOrder(ctx context.Context, created time.Time, pieces metabase.Pieces) (lastNets []string, err error) {
-	defer mon.Task()(&ctx)(nil)
-
-	if len(pieces) == 0 {
-		return []string{}, nil
-	}
-
-	state, err := cache.loadFast(ctx, created)
-	if err != nil {
-		return nil, err
-	}
-
-	lastNets = make([]string, len(pieces))
-	for i, piece := range pieces {
-		if node, ok := state.nodeByID[piece.StorageNode]; ok {
-			lastNets[i] = node.LastNet
-		}
-	}
-	return lastNets, nil
+	return nodes, nil
 }
 
 func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
