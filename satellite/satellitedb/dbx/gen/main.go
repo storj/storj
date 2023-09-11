@@ -35,7 +35,7 @@ func main() {
 		fmt.Println("schema out", string(schemaOut))
 		log.Fatal(err)
 	}
-	gogenArgs := append([]string{"golang", "--rx=false", "-d=pgx", "-d=pgxcockroach", "-p=dbx", "-t=templates"}, files...)
+	gogenArgs := append([]string{"golang", "-d=pgx", "-d=pgxcockroach", "-p=dbx", "-t=templates"}, files...)
 	gogenOut, err := exec.Command("dbx", gogenArgs...).CombinedOutput()
 	if err != nil {
 		fmt.Println("gogen out", string(gogenOut))

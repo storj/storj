@@ -205,7 +205,6 @@ func (obj *DB) Open(ctx context.Context) (*Tx, error) {
 		txMethods: obj.wrapTx(tx),
 	}, nil
 }
-
 func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 	tx, err := db.Open(ctx)
 	if err != nil {
