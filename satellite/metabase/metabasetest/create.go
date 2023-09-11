@@ -94,9 +94,8 @@ func CreatePendingObjectNew(ctx *testcontext.Context, t *testing.T, db *metabase
 			Encryption:             DefaultEncryption,
 			UsePendingObjectsTable: true,
 		},
-		Version: 1,
+		Version: metabase.PendingVersion,
 	}.Check(ctx, t, db)
-	obj.Version = 1
 
 	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{

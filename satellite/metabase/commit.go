@@ -99,7 +99,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 
 	if opts.UsePendingObjectsTable {
 		object.Status = Pending
-		object.Version = DefaultVersion
+		object.Version = PendingVersion
 
 		if err := db.db.QueryRowContext(ctx, `
 			INSERT INTO pending_objects (
@@ -683,6 +683,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
+		const versionArgIndex = 3
 		args := []interface{}{
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 			len(segments),
@@ -746,7 +747,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				}
 			}
 
-			opts.Version = 1
+			opts.Version = DefaultVersion
+			args[versionArgIndex] = opts.Version
 
 			args = append(args,
 				opts.EncryptedMetadataNonce,
