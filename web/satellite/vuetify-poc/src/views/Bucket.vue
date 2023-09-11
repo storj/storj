@@ -10,7 +10,6 @@
         <page-title-component title="Browse Files" />
 
         <browser-breadcrumbs-component />
-
         <v-col>
             <v-row class="mt-2 mb-4">
                 <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
@@ -21,7 +20,7 @@
                             :disabled="!isInitialized"
                             v-bind="props"
                         >
-                            <browser-snackbar-component :on-cancel="() => { snackbar = false }" />
+                            <browser-snackbar-component v-model="isObjectsUploadModal" />
                             <IconUpload />
                             Upload
                         </v-btn>
@@ -108,6 +107,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -124,6 +124,7 @@ const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
+const appStore = useAppStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -157,6 +158,13 @@ const projectId = computed<string>(() => projectsStore.state.selectedProject.id)
  * Returns whether the user should be prompted to enter the passphrase.
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
+
+/**
+ * Indicates whether objects upload modal should be shown.
+ */
+const isObjectsUploadModal = computed((): boolean => {
+    return appStore.state.isUploadingModal;
+});
 
 /**
  * Open the operating system's file system for file upload.
