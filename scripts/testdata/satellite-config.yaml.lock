@@ -337,6 +337,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true
 
+# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
+# console.placement-edge-url-overrides: ""
+
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: false
 

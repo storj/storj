@@ -187,48 +187,6 @@ func init() {
 	}
 }
 
-// Config keeps track of core console service configuration parameters.
-type Config struct {
-	PasswordCost                int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled     bool          `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit         int           `help:"default project limits for users" default:"1" testDefault:"5"`
-	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
-	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
-	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
-	ProjectInvitationExpiration time.Duration `help:"duration that project member invitations are valid for" default:"168h"`
-	UserBalanceForUpgrade       int64         `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	UsageLimits                 UsageLimitsConfig
-	Captcha                     CaptchaConfig
-	Session                     SessionConfig
-}
-
-// CaptchaConfig contains configurations for login/registration captcha system.
-type CaptchaConfig struct {
-	Login        MultiCaptchaConfig `json:"login"`
-	Registration MultiCaptchaConfig `json:"registration"`
-}
-
-// MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.
-type MultiCaptchaConfig struct {
-	Recaptcha SingleCaptchaConfig `json:"recaptcha"`
-	Hcaptcha  SingleCaptchaConfig `json:"hcaptcha"`
-}
-
-// SingleCaptchaConfig contains configurations abstract captcha system.
-type SingleCaptchaConfig struct {
-	Enabled   bool   `help:"whether or not captcha is enabled" default:"false" json:"enabled"`
-	SiteKey   string `help:"captcha site key" json:"siteKey"`
-	SecretKey string `help:"captcha secret key" json:"-"`
-}
-
-// SessionConfig contains configurations for session management.
-type SessionConfig struct {
-	InactivityTimerEnabled       bool          `help:"indicates if session can be timed out due inactivity" default:"true"`
-	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"600"`
-	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
-	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
-}
-
 // Payments separates all payment related functionality.
 type Payments struct {
 	service *Service
@@ -1612,6 +1570,24 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	}
 
 	return
+}
+
+// GetMinimalProject returns a ProjectInfo copy of a project.
+func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
+	info := ProjectInfo{
+		ID:          project.PublicID,
+		Name:        project.Name,
+		OwnerID:     project.OwnerID,
+		Description: project.Description,
+		MemberCount: project.MemberCount,
+		CreatedAt:   project.CreatedAt,
+	}
+
+	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
+		info.EdgeURLOverrides = &edgeURLs
+	}
+
+	return info
 }
 
 // GenGetUsersProjects is a method for querying all projects for generated api.

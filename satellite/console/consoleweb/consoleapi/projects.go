@@ -83,7 +83,7 @@ func (p *Projects) GetUserProjects(w http.ResponseWriter, r *http.Request) {
 
 	response := make([]console.ProjectInfo, 0)
 	for _, project := range projects {
-		response = append(response, project.GetMinimal())
+		response = append(response, p.service.GetMinimalProject(&project))
 	}
 
 	err = json.NewEncoder(w).Encode(response)
@@ -156,7 +156,7 @@ func (p *Projects) GetPagedProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, project := range projectsPage.Projects {
-		pageToSend.Projects = append(pageToSend.Projects, project.GetMinimal())
+		pageToSend.Projects = append(pageToSend.Projects, p.service.GetMinimalProject(&project))
 	}
 
 	err = json.NewEncoder(w).Encode(pageToSend)
@@ -287,7 +287,7 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(project.GetMinimal())
+	err = json.NewEncoder(w).Encode(p.service.GetMinimalProject(project))
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}

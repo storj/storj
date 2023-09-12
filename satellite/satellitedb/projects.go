@@ -68,13 +68,22 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
-		SELECT projects.id, projects.public_id, projects.name, projects.description, projects.owner_id, projects.rate_limit, projects.max_buckets, projects.created_at,
+		SELECT
+			projects.id,
+			projects.public_id,
+			projects.name,
+			projects.description,
+			projects.owner_id,
+			projects.rate_limit,
+			projects.max_buckets,
+			projects.created_at,
+			COALESCE(projects.default_placement, 0),
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
-			FROM projects
-			JOIN project_members ON projects.id = project_members.project_id
-			WHERE project_members.member_id = ?
-			ORDER BY name ASC
-		`), userID)
+		FROM projects
+		JOIN project_members ON projects.id = project_members.project_id
+		WHERE project_members.member_id = ?
+		ORDER BY name ASC
+	`), userID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +93,18 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 	var rateLimit, maxBuckets sql.NullInt32
 	projectsToSend := make([]console.Project, 0)
 	for rows.Next() {
-		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		err = rows.Scan(
+			&nextProject.ID,
+			&nextProject.PublicID,
+			&nextProject.Name,
+			&nextProject.Description,
+			&nextProject.OwnerID,
+			&rateLimit,
+			&maxBuckets,
+			&nextProject.CreatedAt,
+			&nextProject.DefaultPlacement,
+			&nextProject.MemberCount,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -366,14 +386,23 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 	}
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
-		SELECT id, public_id, name, description, owner_id, rate_limit, max_buckets, created_at,
+		SELECT
+			id,
+			public_id,
+			name,
+			description,
+			owner_id,
+			rate_limit,
+			max_buckets,
+			created_at,
+			COALESCE(default_placement, 0),
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
-			FROM projects
-			WHERE owner_id = ?
-			ORDER BY name ASC
-			OFFSET ? ROWS
-			LIMIT ?
-		`), ownerID, page.Offset, page.Limit+1) // add 1 to limit to see if there is another page
+		FROM projects
+		WHERE owner_id = ?
+		ORDER BY name ASC
+		OFFSET ? ROWS
+		LIMIT ?
+	`), ownerID, page.Offset, page.Limit+1) // add 1 to limit to see if there is another page
 	if err != nil {
 		return console.ProjectsPage{}, err
 	}
@@ -391,7 +420,18 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 		}
 		var rateLimit, maxBuckets sql.NullInt32
 		nextProject := &console.Project{}
-		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		err = rows.Scan(
+			&nextProject.ID,
+			&nextProject.PublicID,
+			&nextProject.Name,
+			&nextProject.Description,
+			&nextProject.OwnerID,
+			&rateLimit,
+			&maxBuckets,
+			&nextProject.CreatedAt,
+			&nextProject.DefaultPlacement,
+			&nextProject.MemberCount,
+		)
 		if err != nil {
 			return console.ProjectsPage{}, err
 		}

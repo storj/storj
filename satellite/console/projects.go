@@ -125,12 +125,13 @@ type UpsertProjectInfo struct {
 
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	OwnerID     uuid.UUID `json:"ownerId"`
-	Description string    `json:"description"`
-	MemberCount int       `json:"memberCount"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID               uuid.UUID         `json:"id"`
+	Name             string            `json:"name"`
+	OwnerID          uuid.UUID         `json:"ownerId"`
+	Description      string            `json:"description"`
+	MemberCount      int               `json:"memberCount"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
 }
 
 // ProjectsCursor holds info for project
@@ -193,16 +194,4 @@ func ValidateNameAndDescription(name string, description string) error {
 	}
 
 	return nil
-}
-
-// GetMinimal returns a ProjectInfo copy of a project.
-func (p Project) GetMinimal() ProjectInfo {
-	return ProjectInfo{
-		ID:          p.PublicID,
-		Name:        p.Name,
-		OwnerID:     p.OwnerID,
-		Description: p.Description,
-		MemberCount: p.MemberCount,
-		CreatedAt:   p.CreatedAt,
-	}
 }

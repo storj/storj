@@ -14,12 +14,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 )
@@ -371,5 +374,97 @@ func TestDeleteProjectMembers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Contains(t, string(body), "error")
+	})
+}
+
+func TestEdgeURLOverrides(t *testing.T) {
+	var (
+		noOverridePlacementID      storj.PlacementConstraint
+		partialOverridePlacementID storj.PlacementConstraint = 1
+		fullOverridePlacementID    storj.PlacementConstraint = 2
+
+		authServiceURL         = "auth.storj.io"
+		publicLinksharingURL   = "public-link.storj.io"
+		internalLinksharingURL = "link.storj.io"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				err := config.Console.PlacementEdgeURLOverrides.Set(
+					fmt.Sprintf(
+						`{
+							"%d": {"authService": "%s"},
+							"%d": {
+								"authService": "%s",
+								"publicLinksharing": "%s",
+								"internalLinksharing": "%s"
+							}
+						}`,
+						partialOverridePlacementID, authServiceURL,
+						fullOverridePlacementID, authServiceURL, publicLinksharingURL, internalLinksharingURL,
+					),
+				)
+				require.NoError(t, err)
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+
+		user, err := sat.API.Console.Service.GetUser(ctx, project.OwnerID)
+		require.NoError(t, err)
+
+		for _, tt := range []struct {
+			name             string
+			placement        *storj.PlacementConstraint
+			expectedEdgeURLs *console.EdgeURLOverrides
+		}{
+			{"nil placement", nil, nil},
+			{"placement with no overrides", &noOverridePlacementID, nil},
+			{
+				"placement with partial override",
+				&partialOverridePlacementID,
+				&console.EdgeURLOverrides{AuthService: authServiceURL},
+			}, {
+				"placement with full override",
+				&fullOverridePlacementID,
+				&console.EdgeURLOverrides{
+					AuthService:         authServiceURL,
+					PublicLinksharing:   publicLinksharingURL,
+					InternalLinksharing: internalLinksharingURL,
+				},
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
+					"UPDATE projects SET default_placement = $1 WHERE id = $2",
+					tt.placement, project.ID,
+				)
+				require.NoError(t, err)
+
+				count, err := result.RowsAffected()
+				require.NoError(t, err)
+				require.EqualValues(t, 1, count)
+
+				body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects", nil)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, status)
+
+				var infos []console.ProjectInfo
+				require.NoError(t, json.Unmarshal(body, &infos))
+				require.NotEmpty(t, infos)
+
+				if tt.expectedEdgeURLs == nil {
+					require.Nil(t, infos[0].EdgeURLOverrides)
+					return
+				}
+				require.NotNil(t, infos[0].EdgeURLOverrides)
+				require.Equal(t, *tt.expectedEdgeURLs, *infos[0].EdgeURLOverrides)
+			})
+		}
 	})
 }
