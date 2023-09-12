@@ -114,7 +114,7 @@ watch(() => props.width, () => {
             font-size: 14px;
             line-height: 26px;
             text-align: center;
-            color: #fff;
+            color: var(--c-white);
             white-space: nowrap;
 
             &__bold {

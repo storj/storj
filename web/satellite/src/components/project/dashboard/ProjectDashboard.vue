@@ -67,16 +67,14 @@
                     <h3 class="project-dashboard__charts__container__header__title">Egress</h3>
                     <div class="project-dashboard__charts__container__header__right">
                         <span class="project-dashboard__charts__container__header__right__allocated-color" />
-                        <p class="project-dashboard__charts__container__header__right__allocated-label">Allocated</p>
-                        <span class="project-dashboard__charts__container__header__right__settled-color" />
-                        <p class="project-dashboard__charts__container__header__right__settled-label">Settled</p>
+                        <p class="project-dashboard__charts__container__header__right__allocated-label">Egress</p>
                         <VInfo class="project-dashboard__charts__container__header__right__info">
                             <template #icon>
                                 <InfoIcon />
                             </template>
                             <template #message>
                                 <p class="project-dashboard__charts__container__header__right__info__message">
-                                    The egress allocated takes few hours to be settled.
+                                    The most recent data points may change as traffic moves from "allocated" to "settled".
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
                                         href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
@@ -93,13 +91,12 @@
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
                     <h2 class="project-dashboard__charts__container__dimension">
-                        {{ getDimension([...settledBandwidthUsage, ...allocatedBandwidthUsage]) }}
+                        {{ getDimension(allocatedBandwidthUsage) }}
                     </h2>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
-                        :settled-data="settledBandwidthUsage"
-                        :allocated-data="allocatedBandwidthUsage"
+                        :data="allocatedBandwidthUsage"
                         :since="chartsSinceDate"
                         :before="chartsBeforeDate"
                     />
@@ -286,15 +283,6 @@ const estimatedCharges = computed((): number => {
 const storageUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
         projectsStore.state.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
-    );
-});
-
-/**
- * Returns settled bandwidth chart data from store.
- */
-const settledBandwidthUsage = computed((): DataStamp[] => {
-    return ChartUtils.populateEmptyUsage(
-        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -540,7 +528,7 @@ onBeforeUnmount((): void => {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 24px;
-                color: #000;
+                color: var(--c-black);
             }
         }
 
@@ -567,7 +555,7 @@ onBeforeUnmount((): void => {
                 font-size: 24px;
                 line-height: 31px;
                 letter-spacing: -0.02em;
-                color: #000;
+                color: var(--c-black);
             }
 
             &__buttons {
@@ -587,7 +575,7 @@ onBeforeUnmount((): void => {
 
             &__container {
                 width: calc((100% - 20px) / 2);
-                background-color: #fff;
+                background-color: var(--c-white);
                 box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 border-radius: 10px;
 
@@ -601,7 +589,7 @@ onBeforeUnmount((): void => {
                         font-family: 'font_medium', sans-serif;
                         font-size: 18px;
                         line-height: 27px;
-                        color: #000;
+                        color: var(--c-black);
                     }
 
                     &__right {
@@ -609,49 +597,19 @@ onBeforeUnmount((): void => {
                         align-items: center;
                         margin: 16px 16px 0 0;
 
-                        @media screen and (width <= 390px) {
-                            flex-direction: column;
-                            align-items: flex-end;
-                            row-gap: 5px;
-                        }
-
-                        &__allocated-color,
-                        &__settled-color {
+                        &__allocated-color {
                             width: 10px;
                             height: 10px;
                             border-radius: 2px;
-                        }
-
-                        &__allocated-color {
-                            background: var(--c-purple-2);
-                        }
-
-                        &__settled-color {
                             background: var(--c-purple-3);
                         }
 
-                        &__allocated-label,
-                        &__settled-label {
+                        &__allocated-label {
                             font-size: 14px;
                             line-height: 17px;
-                            color: #000;
+                            color: var(--c-black);
                             margin-left: 5px;
-                        }
-
-                        &__allocated-label {
-                            margin-right: 16px;
-
-                            @media screen and (width <= 390px) {
-                                margin-right: 0;
-                            }
-                        }
-
-                        &__settled-label {
                             margin-right: 11px;
-
-                            @media screen and (width <= 390px) {
-                                margin-right: 0;
-                            }
                         }
 
                         &__info {
@@ -662,14 +620,14 @@ onBeforeUnmount((): void => {
                                 font-size: 12px;
                                 line-height: 18px;
                                 text-align: center;
-                                color: #fff;
+                                color: var(--c-white);
 
                                 &__link {
                                     text-decoration: underline !important;
-                                    color: #fff;
+                                    color: var(--c-white);
 
                                     &:visited {
-                                        color: #fff;
+                                        color: var(--c-white);
                                     }
                                 }
                             }
@@ -692,7 +650,7 @@ onBeforeUnmount((): void => {
                     font-weight: 600;
                     font-size: 14px;
                     line-height: 20px;
-                    color: #000;
+                    color: var(--c-black);
                 }
             }
         }

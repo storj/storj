@@ -32,7 +32,6 @@ export class ProjectsState {
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
     public allocatedBandwidthChartData: DataStamp[] = [];
-    public settledBandwidthChartData: DataStamp[] = [];
     public storageChartData: DataStamp[] = [];
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
@@ -88,7 +87,6 @@ export const useProjectsStore = defineStore('projects', () => {
         const usage: ProjectsStorageBandwidthDaily = await api.getDailyUsage(state.selectedProject.id, payload.since, payload.before);
 
         state.allocatedBandwidthChartData = usage.allocatedBandwidth;
-        state.settledBandwidthChartData = usage.settledBandwidth;
         state.storageChartData = usage.storage;
         state.chartDataSince = payload.since;
         state.chartDataBefore = payload.before;
@@ -237,7 +235,6 @@ export const useProjectsStore = defineStore('projects', () => {
         state.totalLimits = new ProjectLimits();
         state.storageChartData = [];
         state.allocatedBandwidthChartData = [];
-        state.settledBandwidthChartData = [];
         state.chartDataSince = new Date();
         state.chartDataBefore = new Date();
         state.invitations = [];

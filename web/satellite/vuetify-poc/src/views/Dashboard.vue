@@ -24,15 +24,13 @@
             <v-col cols="12" md="6">
                 <v-card title="Bandwidth" variant="flat" :border="true" rounded="xlg">
                     <template v-if="!isDataFetching">
-                        <h4 class="pl-4">{{ getDimension([...settledBandwidthUsage, ...allocatedBandwidthUsage]) }}</h4>
+                        <h4 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h4>
                         <BandwidthChart
                             :width="chartWidth"
                             :height="170"
-                            :settled-data="settledBandwidthUsage"
-                            :allocated-data="allocatedBandwidthUsage"
+                            :data="allocatedBandwidthUsage"
                             :since="chartsSinceDate"
                             :before="chartsBeforeDate"
-                            is-vuetify
                         />
                     </template>
                 </v-card>
@@ -266,15 +264,6 @@ const chartsBeforeDate = computed((): Date => {
 const storageUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
         projectsStore.state.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
-    );
-});
-
-/**
- * Returns settled bandwidth chart data from store.
- */
-const settledBandwidthUsage = computed((): DataStamp[] => {
-    return ChartUtils.populateEmptyUsage(
-        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 

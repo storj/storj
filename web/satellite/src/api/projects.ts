@@ -119,7 +119,7 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Get project limits.
      *
-     * @param projectId- project ID
+     * @param projectId - project ID
      * @throws Error
      */
     public async getLimits(projectId: string): Promise<ProjectLimits> {
@@ -179,9 +179,9 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Get project daily usage for specific date range.
      *
-     * @param projectId- project ID
-     * @param start- since date
-     * @param end- before date
+     * @param projectId - project ID
+     * @param start - since date
+     * @param end - before date
      * @throws Error
      */
     public async getDailyUsage(projectId: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily> {
@@ -207,11 +207,6 @@ export class ProjectsHttpApi implements ProjectsApi {
                 return new DataStamp(el.value, date);
             }),
             usage.allocatedBandwidthUsage.map(el => {
-                const date = new Date(el.date);
-                date.setHours(0, 0, 0, 0);
-                return new DataStamp(el.value, date);
-            }),
-            usage.settledBandwidthUsage.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);

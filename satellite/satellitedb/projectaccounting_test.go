@@ -84,12 +84,17 @@ func Test_DailyUsage(t *testing.T) {
 			require.NoError(t, err)
 			err = satelliteSys.DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(firstBucketName), pb.PieceAction_GET, segment, 0, inFiveMinutes)
 			require.NoError(t, err)
-			err = planet.Satellites[0].DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(secondBucketName), pb.PieceAction_GET, segment, 0, inFiveMinutes)
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(secondBucketName), pb.PieceAction_GET, segment, 0, inFiveMinutes)
+			require.NoError(t, err)
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte(firstBucketName), pb.PieceAction_GET, segment, inFiveMinutes)
+			require.NoError(t, err)
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte(secondBucketName), pb.PieceAction_GET, segment, inFiveMinutes)
 			require.NoError(t, err)
 
 			usage1, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, now, inFiveMinutes, 0)
 			require.NoError(t, err)
 			require.Equal(t, 2*segment, usage1.StorageUsage[0].Value)
+			require.Equal(t, 2*segment, usage1.AllocatedBandwidthUsage[0].Value)
 			require.Equal(t, 2*segment, usage1.SettledBandwidthUsage[0].Value)
 		},
 	)
