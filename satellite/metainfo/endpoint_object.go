@@ -12,6 +12,7 @@ import (
 
 	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -359,13 +360,23 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	mbObject, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-		ObjectLocation: metabase.ObjectLocation{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-		},
-	})
+	objectLocation := metabase.ObjectLocation{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: string(req.Bucket),
+		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+	}
+
+	var mbObject metabase.Object
+	if req.Version == 0 {
+		mbObject, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+			ObjectLocation: objectLocation,
+		})
+	} else {
+		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+			ObjectLocation: objectLocation,
+			Version:        metabase.Version(req.Version),
+		})
+	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -1526,6 +1537,10 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	metadataBytes, err := pb.Marshal(streamMeta)
 	if err != nil {
 		return nil, err
+	}
+
+	if metabase.Version(int32(object.Version)) != object.Version {
+		return nil, errs.New("unable to convert version for protobuf object")
 	}
 
 	result := &pb.Object{

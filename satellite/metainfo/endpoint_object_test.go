@@ -110,6 +110,24 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
 
 				require.NotEmpty(t, object.StreamID)
+				require.EqualValues(t, item.Version, object.Version)
+
+				// get with version
+				object, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+					Bucket:             []byte(expectedBucketName),
+					EncryptedObjectKey: item.EncryptedObjectKey,
+					Version:            item.Version,
+				})
+				require.NoError(t, err)
+				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
+
+				// get with WRONG version, should return error
+				_, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+					Bucket:             []byte(expectedBucketName),
+					EncryptedObjectKey: item.EncryptedObjectKey,
+					Version:            item.Version + 1,
+				})
+				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
 
 			items, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
