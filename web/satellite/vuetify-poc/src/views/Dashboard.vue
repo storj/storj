@@ -9,32 +9,28 @@
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
                 <v-card ref="chartContainer" title="Storage" variant="flat" :border="true" rounded="xlg">
-                    <template v-if="!isDataFetching">
-                        <h4 class="pl-4">{{ getDimension(storageUsage) }}</h4>
-                        <StorageChart
-                            :width="chartWidth"
-                            :height="170"
-                            :data="storageUsage"
-                            :since="chartsSinceDate"
-                            :before="chartsBeforeDate"
-                        />
-                    </template>
+                    <h4 class="pl-4">{{ getDimension(storageUsage) }}</h4>
+                    <StorageChart
+                        :width="chartWidth"
+                        :height="170"
+                        :data="storageUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
+                    />
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
                 <v-card title="Bandwidth" variant="flat" :border="true" rounded="xlg">
-                    <template v-if="!isDataFetching">
-                        <h4 class="pl-4">{{ getDimension([...settledBandwidthUsage, ...allocatedBandwidthUsage]) }}</h4>
-                        <BandwidthChart
-                            :width="chartWidth"
-                            :height="170"
-                            :settled-data="settledBandwidthUsage"
+                    <h4 class="pl-4">{{ getDimension([...settledBandwidthUsage, ...allocatedBandwidthUsage]) }}</h4>
+                    <BandwidthChart
+                        :width="chartWidth"
+                        :height="170"
+                        :settled-data="settledBandwidthUsage"
                             :allocated-data="allocatedBandwidthUsage"
-                            :since="chartsSinceDate"
-                            :before="chartsBeforeDate"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
                             is-vuetify
-                        />
-                    </template>
+                    />
                 </v-card>
             </v-col>
         </v-row>
@@ -110,7 +106,6 @@ const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
 
-const isDataFetching = ref<boolean>(true);
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
 
@@ -329,8 +324,6 @@ onMounted(async (): Promise<void> => {
         ]);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-    } finally {
-        isDataFetching.value = false;
     }
 });
 
