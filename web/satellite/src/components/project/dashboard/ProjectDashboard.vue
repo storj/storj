@@ -479,7 +479,6 @@ onMounted(async (): Promise<void> => {
 
         await Promise.all([
             projectsStore.getDailyProjectData({ since: past, before: now }),
-            billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getCoupon(),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
@@ -489,6 +488,10 @@ onMounted(async (): Promise<void> => {
     } finally {
         isDataFetching.value = false;
     }
+
+    billingStore.getProjectUsageAndChargesCurrentRollup().catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+    });
 
     try {
         await bucketsStore.getBuckets(FIRST_PAGE, projectID);

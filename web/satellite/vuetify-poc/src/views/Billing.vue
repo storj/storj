@@ -119,7 +119,12 @@
                     </v-col>
                 </v-row>
 
-                <usage-and-charges-component :project-ids="projectIDs" />
+                <v-row v-if="isRollupLoading" justify="center" align="center">
+                    <v-col cols="auto">
+                        <v-progress-circular indeterminate />
+                    </v-col>
+                </v-row>
+                <usage-and-charges-component v-else :project-ids="projectIDs" />
             </v-window-item>
 
             <v-window-item>
@@ -179,11 +184,9 @@ import {
     VChip,
     VDivider,
     VBtn,
-    VTextField,
     VProgressCircular,
     VIcon,
 } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
@@ -210,6 +213,8 @@ const projectsStore = useProjectsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+
+const isRollupLoading = ref(true);
 
 const creditCards = computed((): CreditCard[] => {
     return billingStore.state.creditCards;
@@ -320,22 +325,28 @@ function getColor(status: string): string {
     return 'error';
 }
 
-onMounted(() => {
+onMounted(async () => {
     withLoading(async () => {
         try {
             await Promise.all([
-                billingStore.getProjectUsageAndChargesCurrentRollup(),
                 billingStore.getBalance(),
                 billingStore.getCoupon(),
                 billingStore.getCreditCards(),
                 projectsStore.getProjects(),
-                billingStore.getProjectUsageAndChargesCurrentRollup(),
                 billingStore.getProjectUsagePriceModel(),
             ]);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
         }
     });
+
+    try {
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
+    } finally {
+        isRollupLoading.value = false;
+    }
 });
 </script>
 

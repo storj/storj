@@ -53,7 +53,10 @@
                 </div>
             </div>
         </div>
-        <div class="cost-by-project">
+        <div v-if="isDataFetching">
+            <v-loader />
+        </div>
+        <div v-else class="cost-by-project">
             <h3 class="cost-by-project__title">Cost by Project</h3>
             <div class="cost-by-project__buttons">
                 <v-button
@@ -105,6 +108,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
@@ -182,13 +186,13 @@ onMounted(async () => {
     }
 
     try {
-        await billingStore.getProjectUsageAndChargesCurrentRollup();
         await billingStore.getProjectUsagePriceModel();
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+    } finally {
+        isDataFetching.value = false;
     }
-
-    isDataFetching.value = false;
 
     const rawDate = new Date();
     const currentYear = rawDate.getFullYear();
