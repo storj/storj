@@ -412,7 +412,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			object := metabase.RawObject{
@@ -444,7 +444,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitSegment{
@@ -498,7 +498,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{

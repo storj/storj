@@ -1717,7 +1717,7 @@ func (endpoint *Endpoint) pendingObjectEntryToProtoListItem(ctx context.Context,
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             bucket,
 		EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), []byte(entry.ObjectKey)...),
-		Version:            1,
+		Version:            int64(metabase.PendingVersion),
 		CreationDate:       entry.CreatedAt,
 		ExpirationDate:     expiresAt,
 		StreamId:           entry.StreamID[:],

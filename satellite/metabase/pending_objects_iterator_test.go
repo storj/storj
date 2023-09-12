@@ -94,7 +94,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			encryptedMetadata := testrand.Bytes(1024)
@@ -107,7 +107,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 			committed.Version++
 
@@ -644,7 +644,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					EncryptedMetadataNonce:        []byte{5},
 					UsePendingObjectsTable:        true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			// include custom metadata
@@ -700,7 +700,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					EncryptedMetadataNonce:        []byte{5},
 					UsePendingObjectsTable:        true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			var collector metabasetest.PendingObjectsCollector
@@ -816,7 +816,7 @@ func TestIteratePendingObjects(t *testing.T) {
 
 								UsePendingObjectsTable: true,
 							},
-							Version: 1,
+							Version: metabase.PendingVersion,
 						}.Check(ctx, t, db)
 					}
 					for _, batchSize := range []int{1, 2, 3} {
@@ -897,7 +897,7 @@ func TestIteratePendingObjects(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				objs = append(objs, metabase.PendingObjectEntry{
@@ -937,7 +937,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 				Encryption:             metabasetest.DefaultEncryption,
 				UsePendingObjectsTable: true,
 			},
-			Version: 1,
+			Version: metabase.PendingVersion,
 		}.Check(ctx, t, db)
 		obj.Version++
 

@@ -526,7 +526,7 @@ func TestDeleteInactivePendingObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			// zombie object with deadline time in the past
@@ -537,7 +537,7 @@ func TestDeleteInactivePendingObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
@@ -548,7 +548,7 @@ func TestDeleteInactivePendingObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteInactivePendingObjects{
@@ -588,7 +588,7 @@ func TestDeleteInactivePendingObjects(t *testing.T) {
 					ZombieDeletionDeadline: &now,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
@@ -680,7 +680,7 @@ func TestDeleteInactivePendingObjects(t *testing.T) {
 						// use default 24h zombie deletion deadline
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				for i := byte(0); i < 3; i++ {

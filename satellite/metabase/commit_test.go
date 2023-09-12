@@ -365,7 +365,7 @@ func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
 
 					UsePendingObjectsTable: true,
 				},
-				Version: metabase.DefaultVersion,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectNextVersion{
@@ -376,7 +376,7 @@ func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
 
 					UsePendingObjectsTable: true,
 				},
-				Version:  metabase.DefaultVersion,
+				Version:  metabase.PendingVersion,
 				ErrClass: &metabase.ErrObjectAlreadyExists,
 			}.Check(ctx, t, db)
 
@@ -415,7 +415,7 @@ func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
 
 					UsePendingObjectsTable: true,
 				},
-				Version: metabase.DefaultVersion,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			now2 := time.Now()
@@ -430,7 +430,7 @@ func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
 
 					UsePendingObjectsTable: true,
 				},
-				Version: metabase.DefaultVersion,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -487,7 +487,7 @@ func TestBeginObjectNextVersion_PendingObjects(t *testing.T) {
 
 					UsePendingObjectsTable: true,
 				},
-				Version: metabase.DefaultVersion,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1214,7 +1214,7 @@ func TestBeginSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.BeginSegment{
@@ -1256,7 +1256,7 @@ func TestBeginSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				for i := 0; i < 5; i++ {
@@ -1968,7 +1968,7 @@ func TestCommitSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				rootPieceID := testrand.PieceID()
@@ -2065,7 +2065,7 @@ func TestCommitSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				rootPieceID1 := testrand.PieceID()
@@ -2171,7 +2171,7 @@ func TestCommitSegment(t *testing.T) {
 						ExpiresAt:              &expectedExpiresAt,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.CommitSegment{
@@ -2242,7 +2242,7 @@ func TestCommitSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.CommitSegment{
@@ -2799,7 +2799,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				encryptedKey := testrand.Bytes(32)
@@ -2878,7 +2878,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				encryptedKey := testrand.Bytes(32)
@@ -2961,7 +2961,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.CommitInlineSegment{
@@ -3023,7 +3023,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.CommitInlineSegment{
@@ -3087,7 +3087,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						ExpiresAt:              &expectedExpiresAt,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 
 				metabasetest.CommitInlineSegment{
@@ -3776,7 +3776,7 @@ func TestCommitObject(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				now := time.Now()
 
@@ -3849,7 +3849,7 @@ func TestCommitObject(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 				now := time.Now()
@@ -3968,7 +3968,7 @@ func TestCommitObject(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 				now := time.Now()
@@ -4082,7 +4082,7 @@ func TestCommitObject(t *testing.T) {
 						Encryption:             metabasetest.DefaultEncryption,
 						UsePendingObjectsTable: true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 				now := time.Now()
@@ -4133,7 +4133,7 @@ func TestCommitObject(t *testing.T) {
 						EncryptedMetadataNonce:        expectedMetadataNonce,
 						UsePendingObjectsTable:        true,
 					},
-					Version: metabase.DefaultVersion,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 
@@ -4182,7 +4182,7 @@ func TestCommitObject(t *testing.T) {
 						EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 						UsePendingObjectsTable:        true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 
@@ -4232,7 +4232,7 @@ func TestCommitObject(t *testing.T) {
 						EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 						UsePendingObjectsTable:        true,
 					},
-					Version: 1,
+					Version: metabase.PendingVersion,
 				}.Check(ctx, t, db)
 				obj.Version++
 
@@ -4281,7 +4281,7 @@ func TestCommitObject(t *testing.T) {
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							UsePendingObjectsTable:        true,
 						},
-						Version: 1,
+						Version: metabase.PendingVersion,
 					}.Check(ctx, t, db)
 					obj.Version++
 

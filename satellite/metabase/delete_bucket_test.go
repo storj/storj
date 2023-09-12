@@ -252,7 +252,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteBucketObjects{
@@ -272,7 +272,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					UsePendingObjectsTable: true,
 				},
-				Version: 1,
+				Version: metabase.PendingVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteBucketObjects{
