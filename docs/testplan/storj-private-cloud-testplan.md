@@ -1,73 +1,58 @@
 
-# Storj Basic Testplan Template
+## Storj Private Cloud - Test Plan
 
-&nbsp;
+## Test Scenarios
 
-&nbsp;
+Some test ideas:
+- Upload and download some data
+- Server side copy and server side move
+- Multipart uploads
+- Versioning (replace and existing file)
+- Audit identifies a bad node and Repair finds new good nodes for the pieces (integration test inclusing audit reservoier sampling, audit job, reverifier, repair checker, repair worker)
+- Repair checker and repair worker performance with a million segments in the repair queue (repair queue needs to be ordered by null values first)
+- ranged loop performance (do we get better performance from running 2 range loops vs a single range?)
+- Upload, Download, List, Delete performance with a million segments in the DB.
+- Garbage collection especially the bloom filter creation. Needs to be run from a backup DB and can't be run from the live DB.
+- Storage nodes and customer accounting
+- Account upload and download limits (redis cache)
+- Customer signup with onboarding including creating an access grant
+- Token payments
+- Graceful exit
+- Node selection with geofencing, suspended nodes, disqualified nodes, offline nodes, nodes running outdated versions, nodes out of disk space
 
-## [Title]
-> Here we give the title for the Testplan, f.e if the feature is a **"New Button"**, the title could be **New Button Testplan**
-
-&nbsp;
-
-&nbsp;
-
-## [Background]
-> An introduction to the Testplan i.e what the Testplan is going to cover, or the feature to be implemented along with a link to the design document, figma design even if it is private
-
-&nbsp;
-
-&nbsp;
-
-## [Test Scenarios]
->What task or feature are we trying to test?  Label each scenario with an ID for easy tracking f.e 1. Example Feature
-
-&nbsp;
-
-&nbsp;
-
-## [Test Cases]
->Determine test cases for said scenario ex. positive and negative testing
->Label each test cases with an ID for easy tracking f.e Test Case X 1.1,
->Test Case Y 1.2, Test Case Z 1.3 etc.
-
-&nbsp;
-
-&nbsp;
-
-## [Description]
-> Here users describe what happens in the test cases f.e what the user does in each test and what the user should expect as end result
-> Can write this as a conditional statement f.e if user clicks this button, then modal should open
-
-&nbsp;
-
-&nbsp;
-
-## [Comments]
-> In this section users can input their own comments f.e improvements needed, actual outcomes for said tests etc and feature requests
-
+Bonus section (technically out of scope but still interresting questions for other tickets)
+- Should a private satellite require a stripe account for the billing section? How does the UI look like without a stripe account? How can the customer upgrade to a pro account without having to add a credit card.
+- Does the satellite need to be able to send out emails? For signup we have a simulation mode but for other features like project member invite we can't skip the email currently. (Other features with similar issues: storage node notifications, account freeze, password reset)
+- What is the plan for the initial vetting period? A brand new satellite with brand new nodes will not be able to upload any date because not enough vetted nodes. -> config change to upload to unvetted nodes. -> risk about uploading too much data to unvetted nodes by keeping this setting longer than nessesary)
 &nbsp;
 
 &nbsp;
 
 ## [Test Plan Table]
-> In this section users should move input from the previous four sections and fix it into a table 
 
-```
 
-| Test Scenario       | Test Case     | Test Description   | Comments       |
-| :----------------   | :------------ | :---------------   | :----------    |
-| 1. Test Scenario 1  | Test Case 1.1 | TC1.1 Description  | TC1.1 Comment  |
-|                     | Test Case 1.2 | TC1.2 Descriotion  | TC1.2 Comment  |
-| 2. Test Scenario 2  | Test Case 2.1 | TC2.1 Description  | TC2.1 Comment  |
-|                     | Test Case 2.2 | TC2.2 Descriotion  | TC2.2 Comment  |
-
-```
-
-&nbsp;
-
-&nbsp;
-
-## [Open Issues]
-> In this section, separate from comments, any issues can be brought up from the design document. Also, any questions/issues that could help the test plan in the future should be brought up as well.
-
+| Test Scenario               | Test Case                                      | Description                                                                                                                                                                                                                                                                              | Comments                                                  |
+|-----------------------------|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| Upload                      | Small file                                     | Do the upload for 1 KiB, 5 KiB, 1 MiB, 64 MiB files.                                                                                                                                                                                                                                     |                                                           |
+|                             | Big file                                       | Do the upload 1024Mb files                                                                                                                                                                                                                                                               |                                                           |
+|                             | Multipart upload                               | Upload big file to check the multipart upload                                                                                                                                                                                                                                            |                                                           |
+| Download                    | Inline segment                                 | User should download inline segment without any errors                                                                                                                                                                                                                                   |                                                           |
+|                             | Remote segment                                 | User should download remote segment without any errors                                                                                                                                                                                                                                   |                                                           |
+|                             | Copy 10000 Or More Segments                    | If a user uploads an object with 10000 segments or more and server side copies it from the source object to the destination object, it should be possible                                                                                                                                |                                                           |
+|                             | Copy inline segment                            | User should copy inline segment without any errors                                                                                                                                                                                                                                       |                                                           |
+|                             | Copy remote segment                            | User should copy remote segment without any errors                                                                                                                                                                                                                                       |                                                           |
+| Move                        | Move object                                    | Move object from one bucket to another bucket                                                                                                                                                                                                                                            |                                                           |
+| Versioning                  | Replace and existing file                      | User should be able to update existing file                                                                                                                                                                                                                                              |                                                           |
+| DB- Table Segment           | Expiration Date                                | If a user uses Server-side copy, then the source object and the destination object must have the same expiration date                                                                                                                                                                    | Might be redundant test because of segment table removing |
+| DB - Table `segment_copies` | Ancestor_stream_id negative                    | If a segment with `stream_id = S` hasn't been copied, then the `segment_copies` table has no row having  `ancestor_stream_id = S`                                                                                                                                                        | Might be redundant test because of segment table removing |
+|                             | Ancestor_stream_id positive                    | If a segment with `stream_id = S` has been copied, then the `segment_copies` table has at least one row having  `ancestor_stream_id = S`                                                                                                                                                 | Might be redundant test because of segment table removing |                                                          
+| Repair                      | Data repair                                    | Upload some data then kill some nodes and disqualify 1 node(should be enough storage nodes to upload repaired segments). Repaired segment should not contain any piece in the killed and DQ nodes. Downloads the data from new nodes and check that it's the same than the uploaded one. | This test should be in the code                           |
+| Token payments              | Multiple Transactions                          | If a user has a pending transaction and then performs another transaction with a higher nonce using the same address, the new transaction has to wait until the previous transaction with the lower nonce is confirmed (standard behavior of geth, nothing to test for us)               |                                                           |
+|                             | Invoice Generation                             | When an invoice is generated and "paid", coupons should be used first, followed by storj balance and then lastly credit card                                                                                                                                                             |                                                           |
+| Performance                 | Repair queue index has to be null value first. | https://storj.slack.com/archives/C01427KSZ1P/p1589815803066100                                                                                                                                                                                                                           |                                                           |
+| Garbage Collection          | Garbage Collection                             | Needs to be run from a backup DB and can't be run from the live DB                                                                                                                                                                                                                       |                                                           |
+| Accounting                  | Customer                                       | Generate the full invoice cycle                                                                                                                                                                                                                                                          |                                                           |
+|                             | Storage node                                   | Generate the invoice                                                                                                                                                                                                                                                                     |                                                           |
+| Account limits              | Upload                                         | Verify that limits are working                                                                                                                                                                                                                                                           |                                                           |
+|                             | Download                                       | Verify that limits are working                                                                                                                                                                                                                                                           |                                                           |
+| Signup                      | Customer signup                                | Customer signup with onboarding including creating an access grant                                                                                                                                                                                                                       |                                                           |
