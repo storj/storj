@@ -174,10 +174,15 @@ Disables the user's mfa.
 #### PUT /api/users/{user-email}/freeze
 
 Freezes a user account so no uploads or downloads may occur.
+This is a billing freeze the user can exit automatically by paying their invoice.
 
 #### DELETE /api/users/{user-email}/freeze
 
 Unfreezes a user account so uploads and downloads may resume.
+
+#### DELETE /api/users/{user-email}/warning
+
+Removes the warning status from a user's account.
 
 #### PATCH /api/users/{user-email}/geofence
 
