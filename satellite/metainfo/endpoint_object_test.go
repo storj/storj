@@ -1682,7 +1682,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			objectName := "file1"
 
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-			fmt.Println(apiKey)
+			t.Log(apiKey)
 			bucketsService := planet.Satellites[0].API.Buckets.Service
 
 			bucket := buckets.Bucket{

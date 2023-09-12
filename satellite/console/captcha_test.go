@@ -164,7 +164,7 @@ func TestForgotPasswordRecaptcha(t *testing.T) {
 
 			bodyBytes, err := io.ReadAll(result.Body)
 			require.NoError(t, err)
-			fmt.Println(string(bodyBytes))
+			t.Log(string(bodyBytes))
 
 			require.NoError(t, result.Body.Close())
 

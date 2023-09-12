@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -258,7 +257,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	err := quick.CheckEqual(expectedHandler, actualHandler, config)
 	if err != nil {
-		fmt.Printf("%+v\n", err)
+		t.Logf("%+v\n", err)
 		var cerr *quick.CheckEqualError
 		require.True(t, errors.As(err, &cerr))
 

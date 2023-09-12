@@ -4,7 +4,6 @@
 package gracefulexit_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -362,7 +361,7 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 		nodeID := generateNodeIDFromPostiveInt(t, i)
 		exitedNodeIDs = append(exitedNodeIDs, nodeID)
 		if _, ok := nodeIDsMap[nodeID]; ok {
-			fmt.Printf("this %v already exists\n", nodeID.Bytes())
+			t.Logf("this %v already exists\n", nodeID.Bytes())
 		}
 		nodeIDsMap[nodeID] = struct{}{}
 
@@ -430,7 +429,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 			nodeID := generateNodeIDFromPostiveInt(t, i)
 			exitedNodeIDs = append(exitedNodeIDs, nodeID)
 			if _, ok := nodeIDsMap[nodeID]; ok {
-				fmt.Printf("this %v already exists\n", nodeID.Bytes())
+				t.Logf("this %v already exists\n", nodeID.Bytes())
 			}
 			nodeIDsMap[nodeID] = struct{}{}
 
