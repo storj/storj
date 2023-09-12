@@ -594,7 +594,7 @@ func TestRetryBeginSegmentPieces(t *testing.T) {
 			SegmentID:         beginSegmentResp.SegmentID,
 			RetryPieceNumbers: []int{0, 1, 2, 3, 4, 5, 6},
 		})
-		rpctest.RequireStatus(t, err, rpcstatus.Internal, "metaclient: not enough nodes: not enough nodes: requested from cache 7, found 2")
+		rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "metaclient: not enough nodes: not enough nodes: requested from cache 7, found 2")
 
 		// This exchange should succeed.
 		exchangeSegmentPieceOrdersResp, err := metainfoClient.RetryBeginSegmentPieces(ctx, metaclient.RetryBeginSegmentPiecesParams{

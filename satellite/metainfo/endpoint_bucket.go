@@ -41,7 +41,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket metadata")
 	}
 
 	// override RS to fit satellite settings
@@ -111,7 +111,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	exists, err := endpoint.buckets.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to check if bucket exists")
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
 		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil, true); err != nil {
@@ -263,7 +263,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to delete bucket")
 	}
 
 	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil

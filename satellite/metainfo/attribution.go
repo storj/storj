@@ -131,7 +131,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		}
 	} else if !attribution.ErrBucketNotAttributed.Has(err) {
 		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return rpcstatus.Error(rpcstatus.Internal, "unable to get bucket attribution")
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -171,7 +171,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		})
 		if err != nil {
 			endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
-			return rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 		}
 	}
 

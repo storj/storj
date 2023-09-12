@@ -113,7 +113,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
@@ -123,7 +123,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	streamID, err := uuid.New()
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
 	}
 
 	// TODO this will work only with newest uplink
@@ -180,7 +180,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
 	}
 
 	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
@@ -268,7 +268,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
 	}
 
 	// for old uplinks get Encryption from StreamMeta
@@ -435,7 +435,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	object, err := endpoint.objectToProto(ctx, mbObject, segmentRS)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	endpoint.log.Info("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
@@ -562,14 +562,14 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
 		if err != nil {
 			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get encryption key nonce from metadata")
 		}
 
 		if segment.Inline() {
 			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize)
 			if err != nil {
 				endpoint.log.Error("internal", zap.Error(err))
-				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to update GET inline order")
 			}
 
 			// TODO we may think about fallback to encrypted size
@@ -609,7 +609,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				)
 			}
 			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create order limits")
 		}
 
 		// TODO we may think about fallback to encrypted size
@@ -656,13 +656,13 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	protoObject, err := endpoint.objectToProto(ctx, object, nil)
 	if err != nil {
 		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	segmentList, err := convertSegmentListResults(segments)
 	if err != nil {
 		endpoint.log.Error("unable to convert stream list", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to convert stream list")
 	}
 
 	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "object"))
@@ -869,7 +869,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
 	limit := int(req.Limit)
@@ -1120,7 +1120,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
 	cursor := metabase.StreamIDCursor{}
@@ -1132,7 +1132,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		cursor.StreamID, err = uuid.FromBytes(streamID.StreamId)
 		if err != nil {
 			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
 		}
 	}
 
@@ -1389,7 +1389,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	nodeIPMap, err := endpoint.overlay.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get node IPs from placement")
 	}
 
 	nodeIPs := make([][]byte, 0, len(nodeIPMap))
@@ -1450,7 +1450,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
 	}
 
 	var encryptedMetadataNonce []byte
@@ -1873,7 +1873,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 		}
 		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 		if err != nil {
@@ -1881,7 +1881,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 		}
 		if oldBucketPlacement != newBucketPlacement {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "copying object to bucket with different placement policy is not (yet) supported")
@@ -1902,7 +1902,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	response, err := convertBeginMoveObjectResults(result)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
@@ -1917,7 +1917,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
 	}
 
 	endpoint.log.Info("Object Move Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
@@ -2012,7 +2012,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to check bucket")
 	} else if !exists {
 		return nil, rpcstatus.Errorf(rpcstatus.NotFound, "target bucket not found: %s", req.NewBucket)
 	}
@@ -2098,7 +2098,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 		}
 		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 		if err != nil {
@@ -2106,7 +2106,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 		}
 		if oldBucketPlacement != newBucketPlacement {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "copying object to bucket with different placement policy is not (yet) supported")
@@ -2130,7 +2130,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	response, err := convertBeginCopyObjectResults(result)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
@@ -2145,7 +2145,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream ID")
 	}
 
 	endpoint.log.Info("Object Copy Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))
@@ -2207,7 +2207,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to check bucket")
 	} else if !exists {
 		return nil, rpcstatus.Errorf(rpcstatus.NotFound, "target bucket not found: %s", req.NewBucket)
 	}
@@ -2251,7 +2251,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	protoObject, err := endpoint.objectToProto(ctx, object, nil)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 
 	endpoint.log.Info("Object Copy Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))

@@ -329,7 +329,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 }
 
