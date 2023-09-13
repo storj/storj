@@ -26,6 +26,7 @@
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             item-value="name"
+            no-data-text="No results found"
             class="elevation-1"
             hover
             @update:itemsPerPage="onUpdateLimit"
@@ -292,7 +293,7 @@ watch(() => search.value, () => {
     clearTimeout(searchTimer.value);
 
     searchTimer.value = setTimeout(() => {
-        bucketsStore.setBucketsSearch(search.value);
+        bucketsStore.setBucketsSearch(search.value || '');
         fetchBuckets();
     }, 500); // 500ms delay for every new call.
 });

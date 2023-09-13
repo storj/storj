@@ -25,9 +25,9 @@
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             item-value="name"
+            no-data-text="No results found"
             select-strategy="all"
             class="elevation-1"
-            show-select
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
             @update:sortBy="onUpdateSortBy"
@@ -139,7 +139,7 @@ watch(() => search.value, () => {
     clearTimeout(searchTimer.value);
 
     searchTimer.value = setTimeout(() => {
-        agStore.setSearchQuery(search.value);
+        agStore.setSearchQuery(search.value || '');
         fetch();
     }, 500); // 500ms delay for every new call.
 });

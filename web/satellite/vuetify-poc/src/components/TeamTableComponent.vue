@@ -22,10 +22,10 @@
             :sort-by="sortBy"
             :headers="headers"
             :items="projectMembers"
+            no-data-text="No results found"
             :search="search"
             class="elevation-1"
             item-value="email"
-            show-select
             hover
         >
             <template #item.name="{ item }">

@@ -26,7 +26,7 @@
             :search="search"
             class="elevation-1"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject.Key"
-            show-select
+            no-data-text="No results found"
             hover
             must-sort
             :loading="isFetching || loading"

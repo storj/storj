@@ -8,6 +8,7 @@
             :headers="headers"
             :items="historyItems"
             :must-sort="false"
+            no-data-text="No results found"
             class="elevation-1"
             hover
         >
@@ -36,10 +37,7 @@
                 <div class="v-data-table-footer">
                     <v-row justify="end" align="center" class="pa-2">
                         <v-col cols="auto">
-                            <v-btn-group density="compact">
-                                <v-btn :disabled="!historyPage.hasPrevious" icon="mdi-chevron-left" @click="previousClicked" />
-                                <v-btn :disabled="!historyPage.hasNext" icon="mdi-chevron-right" @click="nextClicked" />
-                            </v-btn-group>
+                            <span class="caption">Items per page:</span>
                         </v-col>
                         <v-col cols="auto">
                             <v-select
@@ -50,6 +48,12 @@
                                 @update:model-value="sizeChanged"
                             />
                         </v-col>
+                        <v-col cols="auto">
+                            <v-btn-group density="compact">
+                                <v-btn :disabled="!historyPage.hasPrevious" icon="mdi-chevron-left" @click="previousClicked" />
+                                <v-btn :disabled="!historyPage.hasNext" icon="mdi-chevron-right" @click="nextClicked" />
+                            </v-btn-group>
+                        </v-col>
                     </v-row>
                 </div>
             </template>
@@ -59,7 +63,7 @@
 
 <script setup lang="ts">
 
-import { VBtn, VBtnGroup, VCard, VChip, VCol, VRow, VSelect, VWindowItem } from 'vuetify/components';
+import { VBtn, VBtnGroup, VCard, VChip, VCol, VRow, VSelect } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { VDataTable } from 'vuetify/labs/components';
 
@@ -67,7 +71,7 @@ import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { PaymentHistoryPage, PaymentsHistoryItem, PaymentsHistoryItemStatus } from '@/types/payments';
+import { PaymentHistoryPage, PaymentsHistoryItem } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
