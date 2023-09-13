@@ -4455,7 +4455,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 				},
-				ErrClass: &metabase.Error,
+				ErrClass: &metabase.ErrFailedPrecondition,
 				ErrText:  "size of part number 0 is below minimum threshold, got: 2.0 MiB, min: 5.0 MiB",
 			}.Check(ctx, t, db)
 
@@ -4656,7 +4656,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 				},
-				ErrClass: &metabase.Error,
+				ErrClass: &metabase.ErrFailedPrecondition,
 				ErrText:  "size of part number 2 is below minimum threshold, got: 1.0 MiB, min: 5.0 MiB",
 			}.Check(ctx, t, db)
 
@@ -4793,7 +4793,7 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 				},
-				ErrClass: &metabase.Error,
+				ErrClass: &metabase.ErrFailedPrecondition,
 				ErrText:  "exceeded maximum number of parts: 3",
 			}.Check(ctx, t, db)
 
