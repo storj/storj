@@ -6,6 +6,7 @@ COPY web/satellite/ /app
 # Need to clean up (or ignore) local folders like node_modules, etc...
 RUN npm install
 RUN npm run build
+RUN npm run build-vuetify
 
 # Fetch ca-certificates file for arch independent builds below
 FROM debian:buster-slim as ca-cert
