@@ -927,6 +927,8 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		}
 		params.Add("inviter", name)
 		params.Add("inviter_email", inviter.Email)
+
+		server.analytics.TrackInviteLinkClicked(inviter.Email, invite.Email)
 	}
 
 	proj, err := server.service.GetProjectNoAuth(ctx, invite.ProjectID)

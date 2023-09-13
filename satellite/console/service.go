@@ -3782,6 +3782,13 @@ func (s *Service) IsProjectInvitationExpired(invite *ProjectInvitation) bool {
 	return time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
 }
 
+// GetInvitesByEmail returns project invites by email.
+func (s *Service) GetInvitesByEmail(ctx context.Context, email string) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.store.ProjectInvitations().GetByEmail(ctx, email)
+}
+
 // GetInviteByToken returns a project invite given an invite token.
 func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
