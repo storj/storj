@@ -33,18 +33,22 @@
             @update:page="onUpdatePage"
         >
             <template #item.name="{ item }">
-                <div>
-                    <v-btn
-                        class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold text-lowercase"
-                        variant="text"
-                        height="40"
-                        color="default"
-                        @click="openBucket(item.raw.name)"
-                    >
-                        <img src="../assets/icon-bucket-tonal.svg" alt="Bucket" class="mr-3">
-                        {{ item.raw.name }}
-                    </v-btn>
-                </div>
+                <v-btn
+                    class="rounded-lg w-100 px-0 justify-start"
+                    variant="text"
+                    height="40"
+                    color="default"
+                    @click="openBucket(item.raw.name)"
+                >
+                    <template #prepend>
+                        <img class="d-none d-sm-block" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
+                    </template>
+                    <template #default>
+                        <div class="max-width">
+                            <p class="font-weight-bold text-lowercase white-space">{{ item.raw.name }}</p>
+                        </div>
+                    </template>
+                </v-btn>
             </template>
             <template #item.storage="{ item }">
                 <span>
@@ -122,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
@@ -165,23 +169,55 @@ const bucketToDelete = ref<string>('');
 const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
+const pageWidth = ref<number>(document.body.clientWidth);
 
 let passphraseDialogCallback: () => void = () => {};
 
-const headers = [
-    {
-        title: 'Name',
-        align: 'start',
-        key: 'name',
-        sortable: false,
-    },
-    { title: 'Storage', key: 'storage', sortable: false },
-    { title: 'Egress', key: 'egress', sortable: false },
-    { title: 'Objects', key: 'objectCount', sortable: false },
-    { title: 'Segments', key: 'segmentCount', sortable: false },
-    { title: 'Date Created', key: 'createdAt', sortable: false },
-    { key: 'actions', width: '0', sortable: false },
-];
+type DataTableHeader = {
+    key: string;
+    title: string;
+    align?: 'start' | 'end' | 'center';
+    sortable?: boolean;
+    width?: number | string;
+}
+
+const headers = computed<DataTableHeader[]>(() => {
+    const hdrs: DataTableHeader[] = [
+        {
+            title: 'Name',
+            align: 'start',
+            key: 'name',
+            sortable: false,
+        },
+        { title: 'Storage', key: 'storage', sortable: false },
+        { title: 'Egress', key: 'egress', sortable: false },
+        { title: 'Objects', key: 'objectCount', sortable: false },
+        { title: 'Segments', key: 'segmentCount', sortable: false },
+        { title: 'Date Created', key: 'createdAt', sortable: false },
+        { title: '', key: 'actions', width: '0', sortable: false },
+    ];
+
+    if (pageWidth.value <= 1400) {
+        ['segmentCount', 'objectCount'].forEach((key) => {
+            const index = hdrs.findIndex((el) => el.key === key);
+            if (index !== -1) hdrs.splice(index, 1);
+        });
+    }
+
+    if (pageWidth.value <= 1280) {
+        ['storage', 'egress'].forEach((key) => {
+            const index = hdrs.findIndex((el) => el.key === key);
+            if (index !== -1) hdrs.splice(index, 1);
+        });
+    }
+
+    if (pageWidth.value <= 780) {
+        const index = hdrs.findIndex((el) => el.key === 'createdAt');
+        if (index !== -1) hdrs.splice(index, 1);
+    }
+
+    return hdrs;
+});
 
 /**
  * Returns buckets cursor from store.
@@ -287,18 +323,6 @@ function showDeleteBucketDialog(bucketName: string): void {
 }
 
 /**
- * Handles update table search.
- */
-watch(() => search.value, () => {
-    clearTimeout(searchTimer.value);
-
-    searchTimer.value = setTimeout(() => {
-        bucketsStore.setBucketsSearch(search.value || '');
-        fetchBuckets();
-    }, 500); // 500ms delay for every new call.
-});
-
-/**
  * Displays the Share Bucket dialog.
  */
 function showShareBucketDialog(bucketName: string): void {
@@ -312,7 +336,65 @@ function showShareBucketDialog(bucketName: string): void {
     isShareBucketDialogShown.value = true;
 }
 
+/**
+ * Handles page width change.
+ */
+function resizeHandler(): void {
+    pageWidth.value = document.body.clientWidth;
+}
+
+/**
+ * Handles update table search.
+ */
+watch(() => search.value, () => {
+    clearTimeout(searchTimer.value);
+
+    searchTimer.value = setTimeout(() => {
+        bucketsStore.setBucketsSearch(search.value || '');
+        fetchBuckets();
+    }, 500); // 500ms delay for every new call.
+});
+
 onMounted(() => {
+    window.addEventListener('resize', resizeHandler);
+
     fetchBuckets();
 });
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', resizeHandler);
+});
 </script>
+
+<style scoped lang="scss">
+.max-width {
+    max-width: 500px;
+
+    @media screen and (width <= 780px) {
+        max-width: 450px;
+    }
+
+    @media screen and (width <= 620px) {
+        max-width: 350px;
+    }
+
+    @media screen and (width <= 490px) {
+        max-width: 250px;
+    }
+
+    @media screen and (width <= 385px) {
+        max-width: 185px;
+    }
+}
+
+.white-space {
+    white-space: break-spaces;
+    text-align: left;
+
+    @media screen and (width <= 780px) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+</style>
