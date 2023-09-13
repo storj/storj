@@ -67,6 +67,7 @@
                         <browser-row-actions
                             :file="item.raw.browserObject"
                             @delete-folder-click="() => onDeleteFolderClick(item.raw.browserObject)"
+                            @share-click="() => onShareClick(item.raw.browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -76,7 +77,18 @@
         <file-preview-dialog v-model="previewDialog" />
     </v-card>
 
-    <delete-folder-dialog v-if="folderToDelete" v-model="isDeleteFolderDialogShown" :folder="folderToDelete" />
+    <delete-folder-dialog
+        v-if="folderToDelete"
+        v-model="isDeleteFolderDialogShown"
+        :folder="folderToDelete"
+        @content-removed="folderToDelete = null"
+    />
+    <share-dialog
+        v-model="isShareDialogShown"
+        :bucket-name="bucketName"
+        :file="fileToShare || undefined"
+        @content-removed="fileToShare = null"
+    />
 </template>
 
 <script setup lang="ts">
@@ -107,6 +119,7 @@ import { tableSizeOptions } from '@/types/common';
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFolderDialog from '@poc/components/dialogs/DeleteFolderDialog.vue';
+import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 
 import folderIcon from '@poc/assets/icon-folder-tonal.svg';
 import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
@@ -164,8 +177,10 @@ const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
-const folderToDelete = ref<BrowserObject>();
+const folderToDelete = ref<BrowserObject | null>(null);
 const isDeleteFolderDialogShown = ref<boolean>(false);
+const fileToShare = ref<BrowserObject | null>(null);
+const isShareDialogShown = ref<boolean>(false);
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
@@ -403,6 +418,14 @@ async function fetchFiles(): Promise<void> {
 function onDeleteFolderClick(folder: BrowserObject): void {
     folderToDelete.value = folder;
     isDeleteFolderDialogShown.value = true;
+}
+
+/**
+ * Handles Share button click event.
+ */
+function onShareClick(file: BrowserObject): void {
+    fileToShare.value = file;
+    isShareDialogShown.value = true;
 }
 
 watch(filePath, fetchFiles, { immediate: true });

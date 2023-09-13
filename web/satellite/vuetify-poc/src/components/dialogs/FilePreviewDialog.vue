@@ -42,7 +42,7 @@
                                 Download
                             </v-tooltip>
                         </v-btn>
-                        <v-btn icon size="small" color="white">
+                        <v-btn icon size="small" color="white" @click="isShareDialogShown = true">
                             <icon-share size="22" />
                             <v-tooltip
                                 activator="parent"
@@ -90,6 +90,8 @@
             </v-carousel>
         </v-card>
     </v-dialog>
+
+    <share-dialog v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
 </template>
 
 <script setup lang="ts">
@@ -105,9 +107,7 @@ import {
     VToolbarTitle,
     VTooltip,
 } from 'vuetify/components';
-import { useRoute } from 'vue-router';
 
-import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
@@ -115,15 +115,14 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 
 import IconShare from '@poc/components/icons/IconShare.vue';
 import FilePreviewItem from '@poc/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
+import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 
-const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
-const route = useRoute();
-
 const isDownloading = ref<boolean>(false);
+const isShareDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
@@ -180,6 +179,13 @@ const filePath = computed((): string => {
  */
 const currentPath = computed((): string => {
     return obStore.state.path;
+});
+
+/**
+ * Returns the name of the current bucket from the store.
+ */
+const bucketName = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**

@@ -8,7 +8,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
+        <v-card rounded="xlg" ref="innerContent">
             <v-card-item class="pl-7 py-4">
                 <template #prepend>
                     <v-sheet
@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, Component, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -91,6 +91,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     'update:modelValue': [value: boolean],
+    'contentRemoved': [],
 }>();
 
 const model = computed<boolean>({
@@ -103,6 +104,8 @@ const bucketsStore = useBucketsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+
+const innerContent = ref<Component | null>(null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
@@ -120,4 +123,6 @@ async function onDeleteClick(): Promise<void> {
         model.value = false;
     });
 }
+
+watch(innerContent, comp => !comp && emit('contentRemoved'));
 </script>
