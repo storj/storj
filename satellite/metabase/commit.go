@@ -30,6 +30,8 @@ var (
 	ErrObjectNotFound = errs.Class("object not found")
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
+	// ErrFailedPrecondition is used to indicate that some conditions in the request has failed.
+	ErrFailedPrecondition = errs.Class("metabase: failed precondition")
 	// ErrConflict is used to indicate conflict with the request.
 	ErrConflict = errs.Class("metabase: conflict")
 )
@@ -931,7 +933,7 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 	}
 
 	if len(partSize) > db.config.MaxNumberOfParts {
-		return Error.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
+		return ErrFailedPrecondition.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
 	}
 
 	for part, size := range partSize {
@@ -941,7 +943,7 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 		}
 
 		if size < db.config.MinPartSize {
-			return Error.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
+			return ErrFailedPrecondition.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
 		}
 	}
 

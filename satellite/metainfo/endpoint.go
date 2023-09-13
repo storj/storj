@@ -321,6 +321,8 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	case metabase.ErrFailedPrecondition.Has(err):
+		return rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
 		return rpcstatus.Error(rpcstatus.AlreadyExists, err.Error())
 	case metabase.ErrPendingObjectMissing.Has(err):
