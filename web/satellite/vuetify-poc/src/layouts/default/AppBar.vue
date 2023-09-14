@@ -91,7 +91,7 @@
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">
-                            North America 1
+                            {{ satelliteName }}
                         </v-list-item-subtitle>
                     </v-list-item>
 
@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTheme } from 'vuetify';
 import {
@@ -171,6 +171,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();
@@ -185,6 +186,7 @@ const usersStore = useUsersStore();
 const notificationsStore = useNotificationsStore();
 const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const notify = useNotify();
@@ -195,6 +197,13 @@ const props = withDefaults(defineProps<{
     showNavDrawerButton: boolean;
 }>(), {
     showNavDrawerButton: false,
+});
+
+/**
+ * Returns the name of the current satellite.
+ */
+const satelliteName = computed<string>(() => {
+    return configStore.state.config.satelliteName;
 });
 
 function toggleTheme(newTheme: string): void {
