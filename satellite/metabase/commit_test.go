@@ -4336,6 +4336,59 @@ func TestCommitObject(t *testing.T) {
 					}.Check(ctx, t, db)
 				}
 			})
+
+			t.Run("upload with expiration time", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				now := time.Now()
+				expectedExpiresAt := now.Add(time.Hour).Truncate(time.Millisecond)
+
+				obj := obj
+				obj.Version = metabase.NextVersion
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             testrand.Bytes(memory.KiB),
+						EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+						EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+
+						ExpiresAt: &expectedExpiresAt,
+
+						UsePendingObjectsTable: true,
+					},
+					Version: metabase.PendingVersion,
+				}.Check(ctx, t, db)
+
+				obj.Version = metabase.DefaultVersion
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+
+						OverrideEncryptedMetadata:     true,
+						EncryptedMetadata:             nil,
+						EncryptedMetadataEncryptedKey: nil,
+						EncryptedMetadataNonce:        nil,
+
+						UsePendingObjectsTable: true,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects: []metabase.RawObject{
+						{
+							ObjectStream: obj,
+							CreatedAt:    now,
+							Status:       metabase.Committed,
+							SegmentCount: 0,
+							ExpiresAt:    &expectedExpiresAt,
+
+							Encryption: metabasetest.DefaultEncryption,
+						},
+					},
+				}.Check(ctx, t, db)
+			})
 		})
 	})
 }
