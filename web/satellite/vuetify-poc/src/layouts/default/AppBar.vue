@@ -80,6 +80,15 @@
                             <img src="@poc/assets/icon-dropdown.svg" alt="Account Dropdown">
                         </template>
                         My Account
+                        <v-chip
+                            class="ml-2 font-weight-bold"
+                            :color="isPaidTier ? 'success' : 'default'"
+                            variant="outlined"
+                            size="small"
+                            rounded
+                        >
+                            {{ isPaidTier ? 'Pro' : 'Free' }}
+                        </v-chip>
                     </v-btn>
                 </template>
 
@@ -155,6 +164,7 @@ import {
     VListItemTitle,
     VListItemSubtitle,
     VDivider,
+    VChip,
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
@@ -204,6 +214,13 @@ const props = withDefaults(defineProps<{
  */
 const satelliteName = computed<string>(() => {
     return configStore.state.config.satelliteName;
+});
+
+/*
+ * Returns user's paid tier status from store.
+ */
+const isPaidTier = computed<boolean>(() => {
+    return usersStore.state.user.paidTier;
 });
 
 function toggleTheme(newTheme: string): void {
