@@ -60,48 +60,47 @@
 
         <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
             <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
-                <CreditCardImage class="card-icon-default" />
+                <CreditCardImage />
                 <div class="edit_payment_method__container__close-cross-container-default" @click="onCloseClickDefault">
                     <CloseCrossIcon class="close-icon" />
                 </div>
                 <div class="edit_payment_method__header">Select Default Card</div>
-                <form v-for="card in creditCards" :key="card.id">
-                    <div class="change-default-input-container">
-                        <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
-                        <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
-                        <JCBIcon v-if="card.brand === 'jcb' " class="cardIcons jcb-icon" />
-                        <MastercardIcon v-if="card.brand === 'mastercard' " class="cardIcons mastercard-icon" />
-                        <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
-                        <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
-                        <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
-                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
-                        {{ card.last4 }}
-                        <input
-                            :id="card.id"
-                            v-model="defaultCreditCardSelection"
-                            :value="card.id"
-                            class="change-default-input"
-                            type="radio"
-                            name="defaultCreditCardSelection"
-                        >
-                    </div>
-                </form>
+                <label v-for="card in creditCards" :key="card.id" :for="card.id" class="change-default-input-container">
+                    <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
+                    <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
+                    <JCBIcon v-if="card.brand === 'jcb' " class="cardIcons jcb-icon" />
+                    <MastercardIcon v-if="card.brand === 'mastercard' " class="cardIcons mastercard-icon" />
+                    <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
+                    <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
+                    <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
+                    <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
+                    {{ card.last4 }}
+                    <input
+                        :id="card.id"
+                        v-model="defaultCreditCardSelection"
+                        :value="card.id"
+                        class="change-default-input"
+                        type="radio"
+                        name="defaultCreditCardSelection"
+                    >
+                </label>
                 <div class="default-card-button" @click="updatePaymentMethod">
                     Update Default Card
                 </div>
             </div>
             <div v-if="isRemovePaymentMethodsModalOpen" class="edit_payment_method__container">
-                <CreditCardImage class="card-icon" />
+                <CreditCardImage />
                 <div class="edit_payment_method__container__close-cross-container" @click="onCloseClick">
                     <CloseCrossIcon class="close-icon" />
                 </div>
                 <div class="edit_payment_method__header">Remove Credit Card</div>
-                <div v-if="!cardBeingEdited.isDefault" class="edit_payment_method__header-subtext">This is not your default payment card.</div>
-                <div v-if="cardBeingEdited.isDefault" class="edit_payment_method__header-subtext-default">This is your default payment card.</div>
+                <div v-if="cardBeingEdited.isDefault" class="edit_payment_method__header-subtext-default">This is your default payment card.<br>It can't be deleted.</div>
+                <div v-else class="edit_payment_method__header-subtext">This is not your default payment card.</div>
                 <div class="edit_payment_method__header-change-default" @click="changeDefault">
                     <a class="edit-card-text">Edit default card -></a>
                 </div>
                 <div
+                    v-if="!cardBeingEdited.isDefault"
                     class="remove-card-button"
                     @click="removePaymentMethod"
                     @mouseover="deleteHover = true"
@@ -330,6 +329,17 @@ async function prepQRCode(): Promise<void> {
 }
 
 async function updatePaymentMethod(): Promise<void> {
+    if (!defaultCreditCardSelection.value) {
+        notify.error('Default card is not selected', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        return;
+    }
+
+    const card = creditCards.value.find(c => c.id === defaultCreditCardSelection.value);
+    if (card && card.isDefault) {
+        notify.error('Chosen card is already default', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        return;
+    }
+
     try {
         await billingStore.makeCardDefault(defaultCreditCardSelection.value);
         notify.success('Default payment card updated');
@@ -485,6 +495,8 @@ function paginationController(page: number, limit: number): void {
 }
 
 onMounted((): void => {
+    defaultCreditCardSelection.value = creditCards.value.find(c => c.isDefault)?.id ?? '';
+
     if (route.query.action === 'token history') {
         showTransactionsTable();
     }
@@ -541,16 +553,17 @@ $align: center;
 }
 
 .change-default-input-container {
+    font-family: 'font_regular', sans-serif;
     display: $flex;
-    flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     padding: 16px;
     gap: 10px;
-    width: 300px;
-    height: 10px;
+    width: 100%;
+    box-sizing: border-box;
     border: 1px solid var(--c-grey-4);
     border-radius: 8px;
     margin: 7px auto auto;
+    cursor: pointer;
 }
 
 .change-default-input {
@@ -562,23 +575,15 @@ $align: center;
 
 .default-card-button {
     margin-top: 20px;
-    margin-bottom: 20px;
     cursor: pointer;
-    margin-left: 112px;
-    display: $flex;
-    grid-column: 1;
-    grid-row: 5;
-    width: 132px;
     height: 24px;
     padding: 16px;
-    gap: 8px;
     background: var(--c-blue-3);
     box-shadow: 0 0 1px rgb(9 28 69 / 80%);
     border-radius: 8px;
     font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 24px;
-    align-items: $align;
     letter-spacing: -0.02em;
     color: white;
 
@@ -589,16 +594,9 @@ $align: center;
 
 .remove-card-button {
     cursor: pointer;
-    margin-left: 130px;
-    margin-top: 15px;
-    margin-bottom: 21px;
-    grid-column: 1;
-    grid-row: 5;
-    width: 111px;
-    height: 24px;
     padding: 16px;
-    gap: 8px;
     background: #fff;
+    gap: 8px;
     border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 8px;
@@ -623,23 +621,16 @@ $align: center;
     cursor: pointer;
 }
 
-.card-icon {
-    margin-top: 20px;
-    margin-left: 168px;
-    grid-column: 1;
-    grid-row: 1;
-}
-
-.card-icon-default {
-    margin-top: 35px;
-    margin-bottom: 10px;
-    margin-left: 168px;
-}
-
 .change-default-modal-container {
-    width: 400px;
-    background: #f5f6fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 320px;
+    padding: 20px;
+    box-sizing: border-box;
+    background: var(--c-white);
     border-radius: 6px;
+    position: relative;
 }
 
 .edit_payment_method {
@@ -652,15 +643,10 @@ $align: center;
     justify-content: $align;
 
     &__header-change-default {
-        margin-top: -6px;
-        margin-left: 141px;
-        grid-column: 1;
-        grid-row: 4;
+        margin: 16px 0;
     }
 
     &__header {
-        grid-column: 1;
-        grid-row: 2;
         font-family: 'font_bold', sans-serif;
         font-size: 24px;
         line-height: 31px;
@@ -668,11 +654,11 @@ $align: center;
         letter-spacing: -0.02em;
         color: #1b2533;
         align-self: center;
+        margin-top: 16px;
     }
 
-    &__header-subtext {
-        grid-column: 1;
-        grid-row: 3;
+    &__header-subtext,
+    &__header-subtext-default {
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
@@ -680,49 +666,23 @@ $align: center;
         color: var(--c-grey-6);
     }
 
-    &__header-subtext-default {
-        margin-left: 94px;
-        font-family: 'font_regular', sans-serif;
-        font-size: 14px;
-        line-height: 20px;
-        color: var(--c-grey-6);
-    }
-
     &__container {
-        display: grid;
-        grid-template-columns: auto;
-        grid-template-rows: 1fr 60px 30px auto auto;
-        width: 400px;
-        background: #f5f6fa;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 320px;
+        padding: 20px;
+        box-sizing: border-box;
+        background: var(--c-white);
         border-radius: 6px;
+        position: relative;
 
-        &__close-cross-container {
-            margin-top: 22px;
-            margin-left: 357px;
-            grid-column: 1;
-            grid-row: 1;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
-            }
-        }
-
+        &__close-cross-container,
         &__close-cross-container-default {
             position: absolute;
-            margin-top: -58px;
-            margin-left: 357px;
-            grid-column: 1;
-            grid-row: 1;
-            height: 24px;
-            width: 24px;
+            top: 20px;
+            right: 20px;
             cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
-            }
         }
     }
 }
