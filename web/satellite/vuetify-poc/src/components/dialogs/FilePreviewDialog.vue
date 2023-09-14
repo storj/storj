@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" transition="fade-transition" class="preview-dialog" fullscreen theme="dark">
+    <v-dialog v-model="model" transition="fade-transition" class="preview-dialog" fullscreen theme="dark" persistent no-click-animation>
         <v-card class="preview-card">
             <v-carousel v-model="constCarouselIndex" hide-delimiters show-arrows="hover" height="100vh">
                 <template #prev>
