@@ -16,7 +16,7 @@
                         >
                             <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                                 <BetaSatBar v-if="isBetaSatellite" />
-                                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="toggleMFARecoveryModal" />
                                 <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
                                     <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
 
@@ -357,18 +357,6 @@ function selectProject(fetchedProjects: Project[]): void {
  */
 function toggleMFARecoveryModal(): void {
     appStore.updateActiveModal(MODALS.mfaRecovery);
-}
-
-/**
- * Generates new MFA recovery codes and toggles popup visibility.
- */
-async function generateNewMFARecoveryCodes(): Promise<void> {
-    try {
-        await usersStore.generateUserMFARecoveryCodes();
-        toggleMFARecoveryModal();
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
 }
 
 /**

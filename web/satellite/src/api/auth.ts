@@ -484,6 +484,36 @@ export class AuthHttpApi implements UsersApi {
     }
 
     /**
+     * Generate user's MFA recovery codes requiring a code.
+     *
+     * @throws Error
+     */
+    public async regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?:string): Promise<string[]> {
+        if (!passcode && !recoveryCode) {
+            throw new Error('Either passcode or recovery code should be provided');
+        }
+        const path = `${this.ROOT_PATH}/mfa/regenerate-recovery-codes`;
+        const body = {
+            passcode: passcode || null,
+            recoveryCode: recoveryCode || null,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        const result = await response.json();
+        const errMsg = result.error || 'Cannot regenerate MFA codes. Please try again later';
+        throw new APIError({
+            status: response.status,
+            message: errMsg,
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Used to reset user's password.
      *
      * @param token - user's password reset token

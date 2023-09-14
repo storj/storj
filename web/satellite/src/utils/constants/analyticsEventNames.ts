@@ -88,6 +88,7 @@ export enum AnalyticsErrorEventSource {
     CREATE_BUCKET_MODAL = 'Create bucket modal',
     DELETE_BUCKET_MODAL = 'Delete bucket modal',
     ENABLE_MFA_MODAL = 'Enable MFA modal',
+    MFA_CODES_MODAL = 'MFA codes modal',
     DISABLE_MFA_MODAL = 'Disable MFA modal',
     EDIT_PROFILE_MODAL = 'Edit profile modal',
     CREATE_FOLDER_MODAL = 'Create folder modal',

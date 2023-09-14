@@ -64,7 +64,7 @@
                             width="208px"
                             label="Regenerate Recovery Codes"
                             is-white
-                            :on-press="generateNewMFARecoveryCodes"
+                            :on-press="toggleMFACodesModal"
                             :is-disabled="isLoading"
                         />
                         <VButton
@@ -183,20 +183,6 @@ async function enableMFA(): Promise<void> {
         try {
             await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
-        }
-    });
-}
-
-/**
- * Toggles generate new MFA recovery codes popup visibility.
- */
-async function generateNewMFARecoveryCodes(): Promise<void> {
-    await withLoading(async () => {
-        try {
-            await usersStore.generateUserMFARecoveryCodes();
-            toggleMFACodesModal();
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }

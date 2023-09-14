@@ -70,6 +70,12 @@ export interface UsersApi {
      * @throws Error
      */
     generateUserMFARecoveryCodes(): Promise<string[]>;
+    /**
+     * Generate user's MFA recovery codes requiring a code.
+     *
+     * @throws Error
+     */
+    regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
 }
 
 /**
