@@ -43,6 +43,16 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 		UserAgent: uplinkCLIUserAgent,
 	}
 
+	userAgents, err := ex.Dynamic("client.user-agent")
+	if err != nil {
+		return nil, err
+	}
+	if len(userAgents) > 0 {
+		if ua := userAgents[len(userAgents)-1]; ua != "" {
+			config.UserAgent = ua
+		}
+	}
+
 	if opts.ConnectionPoolOptions != (rpcpool.Options{}) {
 		if err := transport.SetConnectionPool(ctx, &config, rpcpool.New(opts.ConnectionPoolOptions)); err != nil {
 			return nil, err
