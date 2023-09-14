@@ -162,13 +162,6 @@ onMounted(async () => {
     }
 
     try {
-        await billingStore.getCreditCards();
-    } catch (error) {
-        error.message = `Unable to get credit cards. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-    }
-
-    try {
         await projectsStore.getUserInvitations();
     } catch (error) {
         error.message = `Unable to get project invitations. ${error.message}`;

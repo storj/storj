@@ -30,11 +30,20 @@
             :dashboard-ref="parentRef"
             :on-link-click="redirectToBillingPage"
         />
+
+        <v-banner
+            v-if="isLowBalance && parentRef"
+            class="all-dashboard-banners__low-balance"
+            message="Your STORJ Token balance is low. Deposit more STORJ tokens or add a credit card to avoid interruptions in service."
+            link-text="Go to billing"
+            severity="warning"
+            :dashboard-ref="parentRef"
+            :on-link-click="redirectToBillingOverview"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -42,12 +51,14 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { RouteConfig } from '@/types/router';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
 const router = useRouter();
 
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 
@@ -67,6 +78,15 @@ const isAccountFrozen = computed((): boolean => {
  */
 const isAccountWarned = computed((): boolean => {
     return usersStore.state.user.freezeStatus.warned;
+});
+
+/**
+ * Indicates if low STORJ token balance banner is shown.
+ */
+const isLowBalance = computed((): boolean => {
+    return !billingStore.state.creditCards.length &&
+        billingStore.state.nativePaymentsHistory.length > 0 &&
+        billingStore.state.balance.sum < billingStore.state.projectCharges.getPrice();
 });
 
 /* whether the paid tier banner should be shown */
@@ -97,6 +117,13 @@ function togglePMModal(): void {
 async function redirectToBillingPage(): Promise<void> {
     await router.push(RouteConfig.AccountSettings.with(RouteConfig.Billing2.with(RouteConfig.BillingPaymentMethods2)).path);
 }
+
+/**
+ * Redirects to Billing Page Overview tab.
+ */
+async function redirectToBillingOverview(): Promise<void> {
+    await router.push(RouteConfig.AccountSettings.with(RouteConfig.Billing2.with(RouteConfig.BillingOverview2)).path);
+}
 </script>
 
 <style scoped lang="scss">
@@ -104,9 +131,9 @@ async function redirectToBillingPage(): Promise<void> {
     margin-bottom: 20px;
 
     &__upgrade,
-    &__project-limit,
     &__freeze,
-    &__warning {
+    &__warning,
+    &__low-balance {
         margin: 20px 0 0;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
     }

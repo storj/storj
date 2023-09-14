@@ -144,11 +144,14 @@ function routeToCoupons(): void {
 
 /**
  * Mounted lifecycle hook after initial render.
- * Fetches account balance.
+ * Fetches account balance and credit cards.
  */
 onMounted(async (): Promise<void> => {
     try {
-        await billingStore.getBalance();
+        await Promise.all([
+            billingStore.getBalance(),
+            billingStore.getCreditCards(),
+        ]);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
     }

@@ -201,18 +201,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.wallet = new Wallet();
     }
 
-    const canUserCreateFirstProject = computed((): boolean => {
-        return state.balance.sum > 0 || state.creditCards.length > 0;
-    });
-
-    const isBalancePositive = computed((): boolean => {
-        return state.balance.sum > 0;
-    });
-
     return {
         state,
-        canUserCreateFirstProject,
-        isBalancePositive,
         getBalance,
         getWallet,
         claimWallet,

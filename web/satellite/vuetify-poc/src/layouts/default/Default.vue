@@ -112,13 +112,6 @@ onBeforeMount(async () => {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
-    try {
-        await billingStore.getCreditCards();
-    } catch (error) {
-        error.message = `Unable to get credit cards. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-
     await selectProject(route.params.projectId as string);
 
     if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
