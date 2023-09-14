@@ -4,8 +4,6 @@
 package nodeselection
 
 import (
-	"bytes"
-
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 )
@@ -205,26 +203,31 @@ func (e ExcludedIDs) Match(node *SelectedNode) bool {
 
 var _ NodeFilter = ExcludedIDs{}
 
+// ValueMatch defines how to compare tag value with the defined one.
+type ValueMatch func(a []byte, b []byte) bool
+
 // TagFilter matches nodes with specific tags.
 type TagFilter struct {
 	signer storj.NodeID
 	name   string
 	value  []byte
+	match  ValueMatch
 }
 
 // NewTagFilter creates a new tag filter.
-func NewTagFilter(id storj.NodeID, name string, value []byte) TagFilter {
+func NewTagFilter(id storj.NodeID, name string, value []byte, match ValueMatch) TagFilter {
 	return TagFilter{
 		signer: id,
 		name:   name,
 		value:  value,
+		match:  match,
 	}
 }
 
 // Match implements NodeFilter interface.
 func (t TagFilter) Match(node *SelectedNode) bool {
 	for _, tag := range node.Tags {
-		if tag.Name == t.name && bytes.Equal(tag.Value, t.value) && tag.Signer == t.signer {
+		if tag.Name == t.name && t.match(tag.Value, t.value) && tag.Signer == t.signer {
 			return true
 		}
 	}

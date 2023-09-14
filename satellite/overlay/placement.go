@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -78,6 +79,8 @@ func (d *ConfigurablePlacementRule) AddPlacementRule(id storj.PlacementConstrain
 	d.placements[id] = filter
 }
 
+type stringNotMatch string
+
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
 func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) error {
 	env := map[any]any{
@@ -137,17 +140,24 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 			if err != nil {
 				return nil, err
 			}
+
 			var rawValue []byte
+			match := bytes.Equal
 			switch v := value.(type) {
 			case string:
 				rawValue = []byte(v)
 			case []byte:
 				rawValue = v
+			case stringNotMatch:
+				match = func(a, b []byte) bool {
+					return !bytes.Equal(a, b)
+				}
+				rawValue = []byte(v)
 			default:
 				return nil, errs.New("3rd argument of tag() should be string or []byte")
 			}
 			res := nodeselection.NodeFilters{
-				nodeselection.NewTagFilter(nodeID, key, rawValue),
+				nodeselection.NewTagFilter(nodeID, key, rawValue, match),
 			}
 			return res, nil
 		},
@@ -165,6 +175,12 @@ func (d *ConfigurablePlacementRule) AddPlacementFromString(definitions string) e
 		},
 		"exclude": func(filter nodeselection.NodeFilter) (nodeselection.NodeFilter, error) {
 			return nodeselection.NewExcludeFilter(filter), nil
+		},
+		"empty": func() string {
+			return ""
+		},
+		"notEmpty": func() any {
+			return stringNotMatch("")
 		},
 	}
 	for _, definition := range strings.Split(definitions, ";") {

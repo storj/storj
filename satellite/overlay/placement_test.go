@@ -52,23 +52,89 @@ func TestPlacementFromString(t *testing.T) {
 	})
 
 	t.Run("tag rule", func(t *testing.T) {
-		p := NewPlacementRules()
-		err := p.AddPlacementFromString(`11:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar")`)
-		require.NoError(t, err)
-		filters := p.placements[storj.PlacementConstraint(11)]
-		require.NotNil(t, filters)
-		require.True(t, filters.Match(&nodeselection.SelectedNode{
-			Tags: nodeselection.NodeTags{
+		tagged := func(key string, value string) nodeselection.NodeTags {
+			return nodeselection.NodeTags{
 				{
 					Signer: signer,
-					Name:   "foo",
-					Value:  []byte("bar"),
+					Name:   key,
+					Value:  []byte(value),
+				},
+			}
+		}
+
+		testCases := []struct {
+			name          string
+			placement     string
+			includedNodes []*nodeselection.SelectedNode
+			excludedNodes []*nodeselection.SelectedNode
+		}{
+			{
+				name:      "simple tag",
+				placement: `11:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar")`,
+				includedNodes: []*nodeselection.SelectedNode{
+					{
+						Tags: tagged("foo", "bar"),
+					},
+				},
+				excludedNodes: []*nodeselection.SelectedNode{
+					{
+						CountryCode: location.Germany,
+					},
 				},
 			},
-		}))
-		require.False(t, filters.Match(&nodeselection.SelectedNode{
-			CountryCode: location.Germany,
-		}))
+			{
+				name:      "tag not empty",
+				placement: `11:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo",notEmpty())`,
+				includedNodes: []*nodeselection.SelectedNode{
+					{
+						Tags: tagged("foo", "barx"),
+					},
+					{
+						Tags: tagged("foo", "bar"),
+					},
+				},
+				excludedNodes: []*nodeselection.SelectedNode{
+					{
+						Tags: tagged("foo", ""),
+					},
+					{
+						CountryCode: location.Germany,
+					},
+				},
+			},
+			{
+				name:      "tag empty",
+				placement: `11:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo",empty())`,
+				includedNodes: []*nodeselection.SelectedNode{
+					{
+						Tags: tagged("foo", ""),
+					},
+				},
+				excludedNodes: []*nodeselection.SelectedNode{
+					{
+						Tags: tagged("foo", "bar"),
+					},
+					{
+						CountryCode: location.Germany,
+					},
+				},
+			},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				p := NewPlacementRules()
+				err := p.AddPlacementFromString(tc.placement)
+				require.NoError(t, err)
+				filters := p.placements[storj.PlacementConstraint(11)]
+				require.NotNil(t, filters)
+				for _, i := range tc.includedNodes {
+					require.True(t, filters.Match(i), "%v should be included", i)
+				}
+				for _, e := range tc.excludedNodes {
+					require.False(t, filters.Match(e), "%v should be excluded", e)
+				}
+			})
+		}
 	})
 
 	t.Run("placement reuse", func(t *testing.T) {
@@ -272,15 +338,15 @@ func TestPlacementFromString(t *testing.T) {
 
 		rules1 := NewPlacementRules()
 		err := rules1.AddPlacementFromString(`
-						10:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","selected","true");
-						11:annotated(placement(10),annotation("autoExcludeSubnet","off"));
-						12:placement(11) && country("US");
-						0:exclude(placement(10));
-						1:country("EU") && exclude(placement(10));
-						2:country("EEA") && exclude(placement(10));
-						3:country("US") && exclude(placement(10));
-						4:country("DE") && exclude(placement(10));
-						6:country("*","!BY", "!RU", "!NONE") && exclude(placement(10))`)
+						10:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","selected",notEmpty());
+						11:placement(10) && annotation("autoExcludeSubnet","off") && annotation("location","do-not-use");
+						12:placement(10) && annotation("autoExcludeSubnet","off") && country("US") && annotation("location","us-select-1");
+						0:exclude(placement(10)) && annotation("location","global");
+						1:country("EU") && exclude(placement(10)) && annotation("location","eu-1");
+						2:country("EEA") && exclude(placement(10)) && annotation("location","eea-1");
+						3:country("US") && exclude(placement(10)) && annotation("location","us-1");
+						4:country("DE") && exclude(placement(10)) && annotation("location","de-1");
+						6:country("*","!BY", "!RU", "!NONE") && exclude(placement(10)) && annotation("location","custom-1");`)
 		require.NoError(t, err)
 
 		// for countries, it should be the same as above
@@ -334,6 +400,28 @@ func TestPlacementFromString(t *testing.T) {
 			assert.False(t, rules1.CreateFilters(placement).Match(node))
 		}
 		assert.False(t, rules1.CreateFilters(6).Match(node))
+
+		// any value is accepted
+		assert.True(t, rules1.CreateFilters(11).Match(&nodeselection.SelectedNode{
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "selected",
+					Value:  []byte("true,something"),
+				},
+			},
+		}))
+
+		// but not empty
+		assert.False(t, rules1.CreateFilters(11).Match(&nodeselection.SelectedNode{
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "selected",
+					Value:  []byte(""),
+				},
+			},
+		}))
 
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
