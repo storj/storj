@@ -100,8 +100,6 @@ type DB interface {
 	GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket MinimalBucket, err error)
 	// HasBucket returns if a bucket exists.
 	HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error)
-	// GetBucketID returns an existing bucket id.
-	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 	// UpdateBucket updates an existing bucket
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// UpdateUserAgent updates buckets user agent.

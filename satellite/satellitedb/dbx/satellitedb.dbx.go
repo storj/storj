@@ -12012,6 +12012,11 @@ type Placement_Row struct {
 	Placement *int
 }
 
+type ProjectId_Name_Row struct {
+	ProjectId []byte
+	Name      []byte
+}
+
 type ProjectLimit_Row struct {
 	ProjectLimit int
 }
@@ -16300,29 +16305,6 @@ func (obj *pgxImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx conte
 
 }
 
-func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Id_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Id_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
-	if err != nil {
-		return (*Id_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
 func (obj *pgxImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -16510,6 +16492,56 @@ func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	}
 
 	return count, nil
+
+}
+
+func (obj *pgxImpl) Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*ProjectId_Name_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? GROUP BY bucket_metainfos.project_id, bucket_metainfos.name ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectId_Name_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &ProjectId_Name_Row{}
+				err = __rows.Scan(&row.ProjectId, &row.Name)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -24437,29 +24469,6 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(
 
 }
 
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Id_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Id_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
-	if err != nil {
-		return (*Id_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
 func (obj *pgxcockroachImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -24647,6 +24656,56 @@ func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.
 	}
 
 	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*ProjectId_Name_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.project_id, bucket_metainfos.name FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? GROUP BY bucket_metainfos.project_id, bucket_metainfos.name ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectId_Name_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &ProjectId_Name_Row{}
+				err = __rows.Scan(&row.ProjectId, &row.Name)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -28817,11 +28876,6 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *CreatedAt_Row, err error)
 
-	Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
-		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-		bucket_metainfo_name BucketMetainfo_Name_Field) (
-		row *Id_Row, err error)
-
 	Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -29026,6 +29080,12 @@ type Methods interface {
 		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
+
+	Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(ctx context.Context,
+		bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+		limit int, offset int64) (
+		rows []*ProjectId_Name_Row, err error)
 
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,

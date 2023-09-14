@@ -8,8 +8,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -129,27 +127,6 @@ func (db *bucketsDB) HasBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	return exists, buckets.ErrBucket.Wrap(err)
-}
-
-// GetBucketID returns an existing bucket id.
-func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (_ uuid.UUID, err error) {
-	defer mon.Task()(&ctx)(&err)
-	dbxID, err := db.db.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx,
-		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
-		dbx.BucketMetainfo_Name([]byte(bucket.BucketName)),
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, buckets.ErrBucketNotFound.New("%s", bucket.BucketName)
-		}
-		return uuid.UUID{}, buckets.ErrBucket.Wrap(err)
-	}
-
-	id, err := uuid.FromBytes(dbxID.Id)
-	if err != nil {
-		return id, buckets.ErrBucket.Wrap(err)
-	}
-	return id, err
 }
 
 // UpdateBucket updates a bucket.
@@ -336,32 +313,26 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 	var result []metabase.BucketLocation
 
 	moreLimit := limit + 1
-	rows, err := db.db.QueryContext(ctx, `
-			SELECT project_id, name
-			FROM bucket_metainfos
-			WHERE (project_id, name) > ($1, $2)
-			GROUP BY (project_id, name)
-			ORDER BY (project_id, name) ASC LIMIT $3
-	`, projectID, []byte(bucketName), moreLimit)
+	rows, err := db.db.Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(
+		ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucketName)),
+		moreLimit,
+		0,
+	)
 	if err != nil {
-		return false, buckets.ErrBucket.New("BatchBuckets query error: %s", err)
+		return false, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, Error.Wrap(rows.Close()))
-	}()
 
-	for rows.Next() {
-		var bucketLocation metabase.BucketLocation
-
-		if err = rows.Scan(&bucketLocation.ProjectID, &bucketLocation.BucketName); err != nil {
-			return false, buckets.ErrBucket.New("bucket location scan error: %s", err)
+	for _, row := range rows {
+		projectID, err := uuid.FromBytes(row.ProjectId)
+		if err != nil {
+			return false, Error.Wrap(err)
 		}
-
-		result = append(result, bucketLocation)
-	}
-
-	if err = rows.Err(); err != nil {
-		return false, buckets.ErrBucket.Wrap(err)
+		result = append(result, metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: string(row.Name),
+		})
 	}
 
 	if len(result) == 0 {

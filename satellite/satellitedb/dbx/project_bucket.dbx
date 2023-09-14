@@ -83,12 +83,6 @@ read one (
 )
 
 read one (
-	select bucket_metainfo.id
-	where bucket_metainfo.project_id = ?
-	where bucket_metainfo.name = ?
-)
-
-read one (
     select bucket_metainfo.placement
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
@@ -128,6 +122,17 @@ read limitoffset ( // After
 read count (
 	select bucket_metainfo.name
 	where bucket_metainfo.project_id = ?
+)
+
+read limitoffset (
+	select bucket_metainfo.project_id bucket_metainfo.name
+	where bucket_metainfo.project_id >= ?
+	where bucket_metainfo.name > ?
+	groupby bucket_metainfo.project_id bucket_metainfo.name
+	orderby (
+		asc bucket_metainfo.project_id
+		asc bucket_metainfo.name
+	)
 )
 
 // value_attribution table contains information about which user-agent
