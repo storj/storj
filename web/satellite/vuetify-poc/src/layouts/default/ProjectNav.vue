@@ -135,15 +135,6 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/bucket`" class="my-1" rounded="lg" @click="() => registerLinkClick('/bucket')">
-                    <template #prepend>
-                        <IconBrowse />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Browse
-                    </v-list-item-title>
-                </v-list-item>
-
                 <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
                     <template #prepend>
                         <IconAccess />
@@ -280,7 +271,6 @@ import IconNew from '@poc/components/icons/IconNew.vue';
 import IconPassphrase from '@poc/components/icons/IconPassphrase.vue';
 import IconDashboard from '@poc/components/icons/IconDashboard.vue';
 import IconBucket from '@poc/components/icons/IconBucket.vue';
-import IconBrowse from '@poc/components/icons/IconBrowse.vue';
 import IconAccess from '@poc/components/icons/IconAccess.vue';
 import IconTeam from '@poc/components/icons/IconTeam.vue';
 import IconDocs from '@poc/components/icons/IconDocs.vue';
