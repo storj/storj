@@ -8,7 +8,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg" ref="innerContent">
+        <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pl-7 py-4">
                 <template #prepend>
                     <v-sheet

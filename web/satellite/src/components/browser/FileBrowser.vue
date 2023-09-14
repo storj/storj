@@ -111,6 +111,7 @@
                         :total-page-count="isPaginationEnabled ? pageCount : 0"
                         :total-items-count="isPaginationEnabled ? fetchedObjectsCount : files.length"
                         show-select
+                        :loading="isLoading"
                         class="file-browser-table"
                         :on-page-change="isPaginationEnabled ? changePageAndLimit : null"
                         @selectAllClicked="toggleSelectAllFiles"
@@ -193,7 +194,7 @@
                         </template>
                     </v-table>
                     <div
-                        v-if="!fetchingFilesSpinner"
+                        v-if="!isLoading"
                         class="upload-help"
                         @click="buttonFileUpload"
                     >
@@ -201,12 +202,6 @@
                         <p class="drop-files-text mt-4 mb-0">
                             Drop Files Here to Upload
                         </p>
-                    </div>
-                    <div
-                        v-else
-                        class="d-flex justify-content-center"
-                    >
-                        <div class="spinner-border" />
                     </div>
                 </div>
             </div>
@@ -239,6 +234,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -261,11 +257,11 @@ const analyticsStore = useAnalyticsStore();
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
 
-const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
 const isLockedBanner = ref<boolean>(true);
 const isTooManyObjectsBanner = ref<boolean>(true);
@@ -363,7 +359,7 @@ const objectsCount = computed((): number => {
 const lockedFilesEntryDisplayed = computed((): boolean => {
     return lockedFilesCount.value > 0 &&
         objectsCount.value <= NUMBER_OF_DISPLAYED_OBJECTS &&
-        !fetchingFilesSpinner.value &&
+        !isLoading.value &&
         !currentPath.value;
 });
 
@@ -444,7 +440,7 @@ const bucket = computed((): string => {
 /**
  * Changes table page and limit.
  */
-function changePageAndLimit(page: number, limit: number): void {
+async function changePageAndLimit(page: number, limit: number): void {
     obStore.setCursor({ limit, page });
 
     const lastObjectOnPage = page * limit;
@@ -454,15 +450,17 @@ function changePageAndLimit(page: number, limit: number): void {
         return;
     }
 
-    const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
+    await withLoading(async () => {
+        const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
 
-    const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
-    if (!tokenToBeFetched) {
-        obStore.initList(routePath.value);
-        return;
-    }
+        const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
+        if (!tokenToBeFetched) {
+            await obStore.initList(routePath.value);
+            return;
+        }
 
-    obStore.listByToken(routePath.value, tokenKey, tokenToBeFetched);
+        await obStore.listByToken(routePath.value, tokenKey, tokenToBeFetched);
+    });
 }
 
 /**
@@ -496,11 +494,13 @@ async function onRouteChange(): Promise<void> {
     routePath.value = calculateRoutePath();
     obStore.closeDropdown();
 
-    if (isPaginationEnabled.value) {
-        await obStore.initList(routePath.value);
-    } else {
-        await list(routePath.value);
-    }
+    await withLoading(async () => {
+        if (isPaginationEnabled.value) {
+            await obStore.initList(routePath.value);
+        } else {
+            await list(routePath.value);
+        }
+    });
 }
 
 /**
@@ -653,24 +653,20 @@ onBeforeMount(async () => {
     // clear previous file selections.
     obStore.clearAllSelectedFiles();
 
-    // display the spinner while files are being fetched
-    fetchingFilesSpinner.value = true;
-
-    try {
-        if (isPaginationEnabled.value) {
-            await obStore.initList('');
-        } else {
-            await Promise.all([
-                list(''),
-                obStore.getObjectCount(),
-            ]);
+    await withLoading(async () => {
+        try {
+            if (isPaginationEnabled.value) {
+                await obStore.initList('');
+            } else {
+                await Promise.all([
+                    list(''),
+                    obStore.getObjectCount(),
+                ]);
+            }
+        } catch (err) {
+            notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
         }
-    } catch (err) {
-        notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
-    }
-
-    // remove the spinner after files have been fetched
-    fetchingFilesSpinner.value = false;
+    });
 });
 
 onBeforeUnmount(() => {
