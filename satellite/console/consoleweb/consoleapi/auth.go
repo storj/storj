@@ -822,7 +822,37 @@ func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) 
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	codes, err := a.service.ResetMFARecoveryCodes(ctx)
+	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// RegenerateMFARecoveryCodes requires MFA code to create a new set of MFA recovery codes for the user.
+func (a *Auth) RegenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Passcode     string `json:"passcode"`
+		RecoveryCode string `json:"recoveryCode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx, true, data.Passcode, data.RecoveryCode)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return

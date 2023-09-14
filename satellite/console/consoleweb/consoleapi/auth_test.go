@@ -437,11 +437,19 @@ func TestMFAEndpoints(t *testing.T) {
 		_, status = doRequest("/disable", badCode, "")
 		require.Equal(t, http.StatusBadRequest, status)
 
-		// Expect failure when disabling due to providing both passcode and recovery code.
-		body, _ = doRequest("/generate-recovery-codes", "", "")
+		// Expect failure when regenerating without providing either passcode or recovery code.
+		_, status = doRequest("/regenerate-recovery-codes", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+
+		// Expect failure when regenerating when providing both passcode and recovery code.
+		_, status = doRequest("/regenerate-recovery-codes", goodCode, codes[0])
+		require.Equal(t, http.StatusConflict, status)
+
+		body, _ = doRequest("/regenerate-recovery-codes", goodCode, "")
 		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
 
+		// Expect failure when disabling due to providing both passcode and recovery code.
 		_, status = doRequest("/disable", goodCode, codes[0])
 		require.Equal(t, http.StatusConflict, status)
 

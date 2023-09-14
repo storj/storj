@@ -870,6 +870,7 @@ func TestMFA(t *testing.T) {
 		}
 		userCtx, user := updateContext()
 
+		mfaTime := time.Now()
 		var key string
 		t.Run("ResetMFASecretKey", func(t *testing.T) {
 			key, err = service.ResetMFASecretKey(userCtx)
@@ -881,14 +882,14 @@ func TestMFA(t *testing.T) {
 
 		t.Run("EnableUserMFABadPasscode", func(t *testing.T) {
 			// Expect MFA-enabling attempt to be rejected when providing stale passcode.
-			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			badCode, err := console.NewMFAPasscode(key, mfaTime.Add(time.Hour))
 			require.NoError(t, err)
 
-			err = service.EnableUserMFA(userCtx, badCode, time.Time{})
+			err = service.EnableUserMFA(userCtx, badCode, mfaTime)
 			require.True(t, console.ErrValidation.Has(err))
 
 			userCtx, _ = updateContext()
-			_, err = service.ResetMFARecoveryCodes(userCtx)
+			_, err = service.ResetMFARecoveryCodes(userCtx, false, "", "")
 			require.True(t, console.ErrUnauthorized.Has(err))
 
 			_, user = updateContext()
@@ -897,11 +898,11 @@ func TestMFA(t *testing.T) {
 
 		t.Run("EnableUserMFAGoodPasscode", func(t *testing.T) {
 			// Expect MFA-enabling attempt to succeed when providing valid passcode.
-			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			goodCode, err := console.NewMFAPasscode(key, mfaTime)
 			require.NoError(t, err)
 
 			userCtx, _ = updateContext()
-			err = service.EnableUserMFA(userCtx, goodCode, time.Time{})
+			err = service.EnableUserMFA(userCtx, goodCode, mfaTime)
 			require.NoError(t, err)
 
 			_, user = updateContext()
@@ -937,7 +938,7 @@ func TestMFA(t *testing.T) {
 		})
 
 		t.Run("MFARecoveryCodes", func(t *testing.T) {
-			_, err = service.ResetMFARecoveryCodes(userCtx)
+			_, err = service.ResetMFARecoveryCodes(userCtx, false, "", "")
 			require.NoError(t, err)
 
 			_, user = updateContext()
@@ -962,17 +963,21 @@ func TestMFA(t *testing.T) {
 			}
 
 			userCtx, _ = updateContext()
-			_, err = service.ResetMFARecoveryCodes(userCtx)
+
+			// requiring MFA code to reset recovery codes should work
+			code, err := console.NewMFAPasscode(key, mfaTime)
+			require.NoError(t, err)
+			_, err = service.ResetMFARecoveryCodes(userCtx, true, code, "")
 			require.NoError(t, err)
 		})
 
 		t.Run("DisableUserMFABadPasscode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to fail when providing valid passcode.
-			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			badCode, err := console.NewMFAPasscode(key, mfaTime.Add(time.Hour))
 			require.NoError(t, err)
 
 			userCtx, _ = updateContext()
-			err = service.DisableUserMFA(userCtx, badCode, time.Time{}, "")
+			err = service.DisableUserMFA(userCtx, badCode, mfaTime, "")
 			require.True(t, console.ErrValidation.Has(err))
 
 			_, user = updateContext()
@@ -983,11 +988,11 @@ func TestMFA(t *testing.T) {
 
 		t.Run("DisableUserMFAConflict", func(t *testing.T) {
 			// Expect MFA-disabling attempt to fail when providing both recovery code and passcode.
-			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			goodCode, err := console.NewMFAPasscode(key, mfaTime)
 			require.NoError(t, err)
 
 			userCtx, user = updateContext()
-			err = service.DisableUserMFA(userCtx, goodCode, time.Time{}, user.MFARecoveryCodes[0])
+			err = service.DisableUserMFA(userCtx, goodCode, mfaTime, user.MFARecoveryCodes[0])
 			require.True(t, console.ErrMFAConflict.Has(err))
 
 			_, user = updateContext()
@@ -998,11 +1003,11 @@ func TestMFA(t *testing.T) {
 
 		t.Run("DisableUserMFAGoodPasscode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to succeed when providing valid passcode.
-			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			goodCode, err := console.NewMFAPasscode(key, mfaTime)
 			require.NoError(t, err)
 
 			userCtx, _ = updateContext()
-			err = service.DisableUserMFA(userCtx, goodCode, time.Time{}, "")
+			err = service.DisableUserMFA(userCtx, goodCode, mfaTime, "")
 			require.NoError(t, err)
 
 			userCtx, user = updateContext()
@@ -1017,15 +1022,15 @@ func TestMFA(t *testing.T) {
 			key, err = service.ResetMFASecretKey(userCtx)
 			require.NoError(t, err)
 
-			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			goodCode, err := console.NewMFAPasscode(key, mfaTime)
 			require.NoError(t, err)
 
 			userCtx, _ = updateContext()
-			err = service.EnableUserMFA(userCtx, goodCode, time.Time{})
+			err = service.EnableUserMFA(userCtx, goodCode, mfaTime)
 			require.NoError(t, err)
 
 			userCtx, _ = updateContext()
-			_, err = service.ResetMFARecoveryCodes(userCtx)
+			_, err = service.ResetMFARecoveryCodes(userCtx, false, "", "")
 			require.NoError(t, err)
 
 			userCtx, user = updateContext()
@@ -1034,7 +1039,7 @@ func TestMFA(t *testing.T) {
 			require.NotEmpty(t, user.MFARecoveryCodes)
 
 			// Disable MFA
-			err = service.DisableUserMFA(userCtx, "", time.Time{}, user.MFARecoveryCodes[0])
+			err = service.DisableUserMFA(userCtx, "", mfaTime, user.MFARecoveryCodes[0])
 			require.NoError(t, err)
 
 			_, user = updateContext()
