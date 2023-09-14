@@ -205,7 +205,6 @@ async function toggleEnableMFADialog() {
 
 async function toggleRecoveryCodesDialog() {
     try {
-        await usersStore.generateUserMFARecoveryCodes();
         isRecoveryCodesDialogShown.value = true;
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
