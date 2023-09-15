@@ -9,7 +9,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.3.0
-	storj.io/common v0.0.0-20230913152030-46339342bda0
+	storj.io/common v0.0.0-20230915121338-2eb36f9fcdbb
 	storj.io/private v0.0.0-20230912093002-ca2d4ab44679
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
@@ -112,7 +112,7 @@ require (
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.20 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.22 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd // indirect
 	github.com/spf13/afero v1.6.0 // indirect

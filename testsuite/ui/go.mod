@@ -6,11 +6,11 @@ replace storj.io/storj => ../../
 
 require (
 	github.com/go-rod/rod v0.101.8
-	github.com/spacemonkeygo/monkit/v3 v3.0.20
+	github.com/spacemonkeygo/monkit/v3 v3.0.22
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230913152030-46339342bda0
+	storj.io/common v0.0.0-20230915121338-2eb36f9fcdbb
 	storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297
 	storj.io/private v0.0.0-20230912093002-ca2d4ab44679
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
