@@ -111,7 +111,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					},
 					Encryption: metabasetest.DefaultEncryption,
 				},
-				Version: 5,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -180,7 +179,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)
@@ -219,7 +217,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -328,7 +325,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -424,7 +420,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -548,7 +543,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -672,7 +666,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -796,7 +789,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 

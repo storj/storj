@@ -108,7 +108,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ObjectStream: pending,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedMetadata := testrand.Bytes(1024)
@@ -120,7 +119,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ObjectStream: committed,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
@@ -328,7 +326,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: 10},
+					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: []metabase.ObjectEntry{
 					objects["b/1"],
@@ -477,7 +475,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: 10},
+					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry("b/", metabase.Committed),
@@ -1164,7 +1162,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					Prefix:     metabase.ObjectKey("2017/05/"),
 					Cursor: metabase.IterateCursor{
 						Key:     metabase.ObjectKey("2017/05/08"),
-						Version: 1,
+						Version: objects["2017/05/08"].Version,
 					},
 					Status:                metabase.Committed,
 					IncludeCustomMetadata: true,

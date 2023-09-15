@@ -107,7 +107,6 @@ func TestGetObjectExactVersion(t *testing.T) {
 
 					Encryption: metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectExactVersion{
@@ -163,7 +162,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
-					Version:        1,
+					Version:        obj.Version,
 				},
 				Result: metabase.Object{
 					ObjectStream: obj,
@@ -228,7 +227,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectLastCommitted{
@@ -340,6 +338,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			copyObjStream := metabasetest.RandObjectStream()
+			copyObjStream.Version = 1 // auto assigned the first available version
 			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			copiedObj, _, _ := metabasetest.CreateObjectCopy{
@@ -349,7 +348,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
-					Version:        1,
+					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.DeleteObjectResult{
@@ -510,6 +509,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.ProjectID = objStream.ProjectID
+			copyObjStream.Version = 1 // auto assigned the first available version
 
 			obj := metabasetest.CreateObject(ctx, t, db, objStream, 1)
 
@@ -645,13 +645,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.ProjectID = objStream.ProjectID
+			copyObjStream.Version = 1 // auto assigned the first available version
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -809,13 +809,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 			copyObjStream := metabasetest.RandObjectStream()
 			data := testrand.Bytes(1024)
 			copyObjStream.ProjectID = objStream.ProjectID
+			copyObjStream.Version = 1 // auto assigned the first available version
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -1172,6 +1172,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.ProjectID = objStream.ProjectID
+			copyObjStream.Version = 1 // auto assigned the first available version
 			objLocation := objStream.Location()
 			copyLocation := copyObjStream.Location()
 
@@ -1180,7 +1181,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					ObjectStream: objStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -1333,6 +1333,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			copyObjStream := metabasetest.RandObjectStream()
 			data := testrand.Bytes(1024)
 			copyObjStream.ProjectID = objStream.ProjectID
+			copyObjStream.Version = 1 // auto assigned the first available version
 			objLocation := objStream.Location()
 			copyLocation := copyObjStream.Location()
 
@@ -1341,7 +1342,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					ObjectStream: objStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -1554,7 +1554,6 @@ func TestBucketEmpty(t *testing.T) {
 
 					Encryption: metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.BucketEmpty{

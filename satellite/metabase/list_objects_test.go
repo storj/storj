@@ -263,7 +263,7 @@ func TestListObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: 10},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -418,7 +418,7 @@ func TestListObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: 10},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -736,7 +736,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					Prefix:     metabase.ObjectKey("2017/05/"),
 					Cursor: metabase.ListObjectsCursor{
 						Key:     metabase.ObjectKey("2017/05/08"),
-						Version: 1,
+						Version: objects["2017/05/08"].Version,
 					},
 					Status:                metabase.Committed,
 					IncludeCustomMetadata: true,

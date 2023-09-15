@@ -527,7 +527,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						ObjectStream: test.ObjectStream,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-					Version:  -1,
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
@@ -553,7 +552,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					Encryption:        metabasetest.DefaultEncryption,
 					EncryptedMetadata: testrand.BytesInt(32),
 				},
-				Version:  metabase.DefaultVersion,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
 			}.Check(ctx, t, db)
@@ -564,7 +562,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
 				},
-				Version:  metabase.DefaultVersion,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
 			}.Check(ctx, t, db)
@@ -582,7 +579,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Version should not be metabase.NextVersion",
 			}.Check(ctx, t, db)
@@ -601,7 +597,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 5,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -637,7 +632,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 5,
 			}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -645,7 +639,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version:  -1,
 				ErrClass: &metabase.ErrObjectAlreadyExists,
 			}.Check(ctx, t, db)
 
@@ -681,7 +674,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 5,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -695,7 +687,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version:  -1,
 				ErrClass: &metabase.ErrObjectAlreadyExists,
 			}.Check(ctx, t, db)
 
@@ -725,14 +716,13 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 			now1 := time.Now()
 
-			objectStream.Version = 1
+			objectStream.Version = 100
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -741,14 +731,13 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			objectStream.Version = 3
+			objectStream.Version = 300
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 3,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -765,7 +754,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 							ProjectID:  obj.ProjectID,
 							BucketName: obj.BucketName,
 							ObjectKey:  obj.ObjectKey,
-							Version:    3,
+							Version:    300,
 							StreamID:   obj.StreamID,
 						},
 						CreatedAt: now1,
@@ -782,14 +771,13 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 			now1 := time.Now()
 
-			objectStream.Version = 3
+			objectStream.Version = 300
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 3,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -798,14 +786,13 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			objectStream.Version = 1
+			objectStream.Version = 100
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -822,7 +809,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 							ProjectID:  obj.ProjectID,
 							BucketName: obj.BucketName,
 							ObjectKey:  obj.ObjectKey,
-							Version:    1,
+							Version:    100,
 							StreamID:   obj.StreamID,
 						},
 						CreatedAt: now1,
@@ -840,7 +827,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)
 
-			objectStream.Version = 1
+			objectStream.Version = 100
 
 			encryptedMetadata := testrand.BytesInt(64)
 			encryptedMetadataNonce := testrand.Nonce()
@@ -855,18 +842,17 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    metabase.DefaultVersion,
-							StreamID:   obj.StreamID,
+							ProjectID:  objectStream.ProjectID,
+							BucketName: objectStream.BucketName,
+							ObjectKey:  objectStream.ObjectKey,
+							Version:    objectStream.Version,
+							StreamID:   objectStream.StreamID,
 						},
 						CreatedAt: now,
 						Status:    metabase.Pending,
@@ -1023,7 +1009,6 @@ func TestBeginSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -1067,7 +1052,6 @@ func TestBeginSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.BeginSegment{
@@ -1105,7 +1089,6 @@ func TestBeginSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			for i := 0; i < 5; i++ {
@@ -1319,7 +1302,6 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitSegment{
@@ -1552,7 +1534,6 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			rootPieceID := testrand.PieceID()
@@ -1646,7 +1627,6 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			rootPieceID1 := testrand.PieceID()
@@ -1774,7 +1754,6 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -1830,7 +1809,6 @@ func TestCommitSegment(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 					ExpiresAt:    &expectedExpiresAt,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitSegment{
@@ -1900,7 +1878,6 @@ func TestCommitSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitSegment{
@@ -2324,7 +2301,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -2424,7 +2400,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
@@ -2499,7 +2474,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
@@ -2613,7 +2587,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -2672,7 +2645,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -2734,7 +2706,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 					ExpiresAt:    &expectedExpiresAt,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -3230,7 +3201,6 @@ func TestCommitObject(t *testing.T) {
 					},
 					Encryption: metabasetest.DefaultEncryption,
 				},
-				Version: 5,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -3300,7 +3270,6 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -3413,7 +3382,6 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -3520,7 +3488,6 @@ func TestCommitObject(t *testing.T) {
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			now := time.Now()
@@ -3593,7 +3560,6 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			now := time.Now()
@@ -3641,7 +3607,6 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,
 					EncryptedMetadataNonce:        expectedMetadataNonce,
 				},
-				Version: metabase.DefaultVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -3686,7 +3651,6 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -3732,7 +3696,6 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -4409,7 +4372,6 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)
@@ -4515,7 +4477,6 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
@@ -4623,7 +4584,6 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)
@@ -4742,7 +4702,6 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)

@@ -207,7 +207,6 @@ func TestListSegments(t *testing.T) {
 						ObjectStream: obj,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
@@ -538,7 +537,6 @@ func TestListStreamPositions(t *testing.T) {
 						ObjectStream: obj,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
@@ -633,7 +631,6 @@ func TestListStreamPositions(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			for i := 0; i < segmentCount; i++ {

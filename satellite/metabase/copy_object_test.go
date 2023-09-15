@@ -778,7 +778,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			// expected object at the location which was previously the original object
 			copyBackObj := originalObj
-			copyBackObj.Version++ // copy is placed into first available version
+			copyBackObj.Version = originalObj.Version + 1 // copy is placed into next version
 			copyBackObj.StreamID = opts.NewStreamID
 
 			for i := 0; i < 4; i++ {
@@ -850,7 +850,7 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Run(ctx, t, db)
 
 			copyBackObj := originalObj
-			copyBackObj.Version++ // copy is placed into first available version
+			copyBackObj.Version = originalObj.Version + 1 // copy is placed into next version
 			copyBackObj.StreamID = copyBackObjStream.StreamID
 
 			for i := 0; i < 4; i++ {
@@ -888,6 +888,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			metadataNonce := testrand.Nonce()
 			expectedCopyObject := originalObj
+			expectedCopyObject.Version = 1 // it'll assign the next available version
 			expectedCopyObject.ObjectKey = copyStream.ObjectKey
 			expectedCopyObject.StreamID = copyStream.StreamID
 			expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)

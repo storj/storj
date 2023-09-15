@@ -74,7 +74,6 @@ func TestIterateLoopObjects(t *testing.T) {
 					ObjectStream: pending,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedMetadata := testrand.Bytes(1024)
@@ -86,7 +85,6 @@ func TestIterateLoopObjects(t *testing.T) {
 					ObjectStream: committed,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -861,7 +859,6 @@ func TestCollectBucketTallies(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.CreateObject(ctx, t, db, committed, 1)

@@ -59,7 +59,6 @@ func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB,
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.
 type BeginObjectExactVersion struct {
 	Opts     metabase.BeginObjectExactVersion
-	Version  metabase.Version
 	ErrClass *errs.Class
 	ErrText  string
 }
@@ -69,7 +68,7 @@ func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.Te
 	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
-		require.Equal(t, step.Version, got.Version)
+		require.Equal(t, step.Opts.Version, got.Version)
 		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
 		require.Equal(t, step.Opts.ObjectStream, got.ObjectStream)
 		require.Equal(t, step.Opts.ExpiresAt, got.ExpiresAt)
