@@ -5,7 +5,7 @@
     <v-app>
         <session-wrapper>
             <default-bar show-nav-drawer-button />
-            <account-nav v-if="appStore.state.isNavigationDrawerShown" />
+            <account-nav />
             <default-view />
         </session-wrapper>
     </v-app>

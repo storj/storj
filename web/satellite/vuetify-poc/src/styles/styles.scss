@@ -20,10 +20,6 @@ html {
   --v-theme-overlay-multiplier: 0.75;
 }
 
-.v-navigation-drawer {
-  // box-shadow: 0 3px 4px rgba(var(--v-theme-on-surface), 0.05) !important;
-  transform: translateX(0) !important;
-}
 .v-app-bar.v-toolbar {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   // box-shadow: 0 1px 3px rgba(var(--v-theme-on-surface), 0.05) !important;

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-navigation-drawer class="py-1">
+    <v-navigation-drawer v-model="model" class="py-1">
         <v-sheet>
             <v-list class="px-2" color="default" variant="flat">
                 <!-- Project -->
@@ -11,7 +11,7 @@
                         <!-- Project Menu -->
                         <v-list class="pa-2">
                             <!-- My Projects -->
-                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
+                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
                                 <template #prepend>
                                     <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
                                     <IconProject />
@@ -36,7 +36,7 @@
                             <v-divider class="my-2" />
 
                             <!-- Shared With Me -->
-                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
+                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
                                 <template #prepend>
                                     <IconProject />
                                 </template>
@@ -69,7 +69,7 @@
                             <!-- <v-divider class="my-2"></v-divider> -->
 
                             <!-- View All Projects -->
-                            <v-list-item link rounded="lg" router-link to="/projects" @click="() => trackPageVisitEvent('/projects')">
+                            <v-list-item link rounded="lg" router-link to="/projects" @click="() => registerLinkClick('/projects')">
                                 <template #prepend>
                                     <IconAllProjects />
                                 </template>
@@ -117,7 +117,7 @@
 
                 <v-divider class="my-2" />
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => trackPageVisitEvent('/dashboard')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => registerLinkClick('/dashboard')">
                     <template #prepend>
                         <IconDashboard />
                     </template>
@@ -126,7 +126,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/buckets`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/buckets')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/buckets`" class="my-1" rounded="lg" @click="() => registerLinkClick('/buckets')">
                     <template #prepend>
                         <IconBucket />
                     </template>
@@ -135,7 +135,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/bucket`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/bucket')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/bucket`" class="my-1" rounded="lg" @click="() => registerLinkClick('/bucket')">
                     <template #prepend>
                         <IconBrowse />
                     </template>
@@ -144,7 +144,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/access')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
                     <template #prepend>
                         <IconAccess />
                     </template>
@@ -153,7 +153,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/team`" class="my-1" rounded="lg" @click="() => trackPageVisitEvent('/team')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.id}/team`" class="my-1" rounded="lg" @click="() => registerLinkClick('/team')">
                     <template #prepend>
                         <IconTeam />
                     </template>
@@ -236,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import {
     VNavigationDrawer,
     VSheet,
@@ -248,10 +248,12 @@ import {
     VChip,
     VDivider,
 } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
 
 import { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useAppStore } from '@poc/store/appStore';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -271,6 +273,14 @@ import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
+const appStore = useAppStore();
+
+const { mdAndDown } = useDisplay();
+
+const model = computed<boolean>({
+    get: () => appStore.state.isNavigationDrawerShown,
+    set: value => appStore.toggleNavigationDrawer(value),
+});
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 
@@ -282,9 +292,25 @@ const selectedProject = computed((): Project => {
 });
 
 /**
+ * Conditionally closes the navigation drawer and tracks page visit.
+ */
+function registerLinkClick(page: string): void {
+    if (mdAndDown.value) {
+        model.value = false;
+    }
+    trackPageVisitEvent(page);
+}
+
+/**
  * Sends "Page Visit" event to segment and opens link.
  */
 function trackPageVisitEvent(page: string): void {
     analyticsStore.pageVisit(page);
 }
+
+onBeforeMount(() => {
+    if (mdAndDown.value) {
+        model.value = false;
+    }
+});
 </script>

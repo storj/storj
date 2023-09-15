@@ -8,7 +8,7 @@
         </div>
         <session-wrapper v-else>
             <default-bar show-nav-drawer-button />
-            <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
+            <ProjectNav />
             <default-view />
         </session-wrapper>
     </v-app>
@@ -86,10 +86,6 @@ watch(() => route.params.projectId, async newId => {
  * Pre-fetches user`s and project information.
  */
 onBeforeMount(async () => {
-    if (document.body.clientWidth < 1280) {
-        appStore.toggleNavigationDrawer(false);
-    }
-
     isLoading.value = true;
 
     try {

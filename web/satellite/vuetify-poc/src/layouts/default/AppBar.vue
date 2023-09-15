@@ -97,7 +97,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item link class="my-1 rounded-lg">
+                    <v-list-item link class="my-1 rounded-lg" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-upgrade.svg" alt="Upgrade">
                         </template>
@@ -106,7 +106,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-card.svg" alt="Billing">
                         </template>
@@ -115,7 +115,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-settings.svg" alt="Account Settings">
                         </template>
@@ -221,6 +221,10 @@ watch(() => theme.global.current.value.dark, (newVal: boolean) => {
 // Check for stored theme in localStorage. If none, default to 'light'
 toggleTheme(localStorage.getItem('theme') || 'light');
 activeTheme.value = theme.global.current.value.dark ? 1 : 0;
+
+function closeSideNav(): void {
+    appStore.toggleNavigationDrawer(false);
+}
 
 /**
  * Logs out user and navigates to login page.
