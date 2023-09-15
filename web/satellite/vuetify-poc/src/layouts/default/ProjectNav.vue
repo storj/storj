@@ -168,7 +168,13 @@
                 <v-list-item link class="rounded-lg">
                     <v-menu activator="parent" location="end" transition="scale-transition">
                         <v-list class="pa-2">
-                            <v-list-item link class="py-3" rounded="lg">
+                            <v-list-item
+                                class="py-3"
+                                rounded="lg"
+                                href="https://docs.storj.io/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
                                 <template #prepend>
                                     <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
                                     <IconDocs />
@@ -181,7 +187,13 @@
                                 </v-list-item-subtitle>
                             </v-list-item>
 
-                            <v-list-item link class="py-3" rounded="lg">
+                            <v-list-item
+                                class="py-3"
+                                rounded="lg"
+                                href="https://forum.storj.io/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
                                 <template #prepend>
                                     <IconForum />
                                 </template>
@@ -193,7 +205,13 @@
                                 </v-list-item-subtitle>
                             </v-list-item>
 
-                            <v-list-item link class="py-3" rounded="lg">
+                            <v-list-item
+                                class="py-3"
+                                rounded="lg"
+                                href="https://supportdcs.storj.io/hc/en-us"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
                                 <template #prepend>
                                     <IconSupport />
                                 </template>
