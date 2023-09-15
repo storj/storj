@@ -11,50 +11,69 @@
                         <!-- Project Menu -->
                         <v-list class="pa-2">
                             <!-- My Projects -->
-                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
-                                <template #prepend>
-                                    <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
-                                    <IconProject />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                                        My Projects
-                                    </v-chip>
-                                </v-list-item-title>
-                            </v-list-item>
+                            <template v-if="ownProjects.length">
+                                <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                                    <template #prepend>
+                                        <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
+                                        <IconProject />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                            My Projects
+                                        </v-chip>
+                                    </v-list-item-title>
+                                </v-list-item>
 
-                            <!-- Selected Project -->
-                            <v-list-item link rounded="lg" active>
-                                <template #prepend>
-                                    <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    My First Project
-                                </v-list-item-title>
-                            </v-list-item>
+                                <!-- Selected Project -->
+                                <v-list-item
+                                    v-for="project in ownProjects"
+                                    :key="project.id"
+                                    rounded="lg"
+                                    :active="project.isSelected"
+                                    :to="!project.isSelected ? `/projects/${project.id}/dashboard` : undefined"
+                                >
+                                    <template v-if="project.isSelected" #prepend>
+                                        <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
+                                    </template>
+                                    <v-list-item-title class="text-body-2" :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                                        {{ project.name }}
+                                    </v-list-item-title>
+                                </v-list-item>
 
-                            <v-divider class="my-2" />
+                                <v-divider class="my-2" />
+                            </template>
 
                             <!-- Shared With Me -->
-                            <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
-                                <template #prepend>
-                                    <IconProject />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                                        Shared Projects
-                                    </v-chip>
-                                </v-list-item-title>
-                            </v-list-item>
+                            <template v-if="sharedProjects.length">
+                                <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                                    <template #prepend>
+                                        <IconProject />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                            Shared Projects
+                                        </v-chip>
+                                    </v-list-item-title>
+                                </v-list-item>
 
-                            <!-- Other Project -->
-                            <v-list-item link rounded="lg">
-                                <v-list-item-title class="text-body-2">
-                                    Storj Labs
-                                </v-list-item-title>
-                            </v-list-item>
+                                <!-- Other Project -->
+                                <v-list-item
+                                    v-for="project in sharedProjects"
+                                    :key="project.id"
+                                    rounded="lg"
+                                    :active="project.isSelected"
+                                    :to="!project.isSelected ? `/projects/${project.id}/dashboard` : undefined"
+                                >
+                                    <template v-if="project.isSelected" #prepend>
+                                        <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
+                                    </template>
+                                    <v-list-item-title class="text-body-2" :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                                        {{ project.name }}
+                                    </v-list-item-title>
+                                </v-list-item>
 
-                            <v-divider class="my-2" />
+                                <v-divider class="my-2" />
+                            </template>
 
                             <!-- Project Settings -->
                             <v-list-item link rounded="lg" :to="`/projects/${selectedProject.id}/settings`">
@@ -263,6 +282,7 @@ import { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@poc/store/appStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -282,6 +302,7 @@ import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 
 const { mdAndDown } = useDisplay();
 
@@ -299,6 +320,22 @@ const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
 });
 
+/*
+ * Returns user's own projects.
+ */
+const ownProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
+    return projects.sort(compareProjects);
+});
+
+/**
+ * Returns projects the user is a member of but doesn't own.
+ */
+const sharedProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId !== usersStore.state.user.id);
+    return projects.sort(compareProjects);
+});
+
 /**
  * Conditionally closes the navigation drawer and tracks page visit.
  */
@@ -314,6 +351,15 @@ function registerLinkClick(page: string): void {
  */
 function trackPageVisitEvent(page: string): void {
     analyticsStore.pageVisit(page);
+}
+
+/**
+ * This comparator is used to sort projects by isSelected.
+ */
+function compareProjects(a: Project, b: Project): number {
+    if (a.isSelected) return -1;
+    if (b.isSelected) return 1;
+    return 0;
 }
 
 onBeforeMount(() => {
