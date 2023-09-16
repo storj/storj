@@ -1,8 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build !linux && !windows && !freebsd
+// +build !linux,!windows,!freebsd
 
 package server
 
