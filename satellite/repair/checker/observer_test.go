@@ -590,7 +590,12 @@ func TestObserver_PlacementCheck(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 2, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.RangedLoop.Interval = 10 * time.Second
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Pause()
