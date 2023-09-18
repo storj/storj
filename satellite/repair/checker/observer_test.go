@@ -607,7 +607,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storj.PlacementConstraint(1),
 		})
 		require.NoError(t, err)
 
@@ -672,6 +672,8 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
+				require.Equal(t, segments[0].Placement, injuredSegment.Placement)
+				require.Equal(t, storj.PlacementConstraint(1), injuredSegment.Placement)
 
 				count, err := repairQueue.Count(ctx)
 				require.Zero(t, err)

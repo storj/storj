@@ -405,6 +405,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			Position:      segment.Position,
 			UpdatedAt:     time.Now().UTC(),
 			SegmentHealth: segmentHealth,
+			Placement:     segment.Placement,
 		}, func() {
 			// Counters are increased after the queue has determined
 			// that the segment wasn't already queued for repair.
