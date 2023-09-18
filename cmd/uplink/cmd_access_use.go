@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/zeebo/clingy"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/ulext"
 )
@@ -33,7 +32,7 @@ func (c *cmdAccessUse) Execute(ctx context.Context) error {
 		return err
 	}
 	if _, ok := accesses[c.access]; !ok {
-		return errs.New("unknown access: %q", c.access)
+		return fmt.Errorf("ERROR: access %q does not exist. Use 'uplink access list' to see existing accesses", c.access)
 	}
 	if err := c.ex.SaveAccessInfo(c.access, accesses); err != nil {
 		return err
