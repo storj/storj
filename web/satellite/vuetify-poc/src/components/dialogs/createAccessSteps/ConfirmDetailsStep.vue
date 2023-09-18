@@ -27,7 +27,8 @@ import { computed } from 'vue';
 import { VRow, VCol, VDivider } from 'vuetify/components';
 
 import { Permission, AccessType } from '@/types/createAccessGrant';
-import { AccessGrantEndDate, CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { AccessGrantEndDate } from '@poc/types/createAccessGrant';
+import { DialogStepComponent } from '@poc/types/common';
 
 interface Item {
     title: string;
@@ -55,7 +56,7 @@ const items = computed<Item[]>(() => {
     ];
 });
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Confirm Details',
 });
 </script>

@@ -110,7 +110,7 @@
                             <v-divider class="my-2" />
 
                             <!-- Manage Passphrase -->
-                            <v-list-item link class="mt-1" rounded="lg">
+                            <v-list-item link class="mt-1" rounded="lg" @click="isManagePassphraseDialogShown = true">
                                 <template #prepend>
                                     <IconPassphrase />
                                 </template>
@@ -261,6 +261,7 @@
     </v-navigation-drawer>
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
+    <manage-passphrase-dialog v-model="isManagePassphraseDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -298,6 +299,7 @@ import IconForum from '@poc/components/icons/IconForum.vue';
 import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
 import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue';
+import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
@@ -312,6 +314,7 @@ const model = computed<boolean>({
 });
 
 const isCreateProjectDialogShown = ref<boolean>(false);
+const isManagePassphraseDialogShown = ref<boolean>(false);
 
 /**
  * Returns the selected project from the store.

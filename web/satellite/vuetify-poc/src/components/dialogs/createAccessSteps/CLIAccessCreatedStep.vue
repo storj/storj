@@ -7,7 +7,7 @@
             <v-col cols="12">
                 Copy or save the satellite address and API key as they will only appear once.
             </v-col>
-            <save-buttons :items="saveItems" :access-name="name" file-name-base="CLI-access" />
+            <save-buttons :items="saveItems" :name="name" type="CLI-access" />
             <v-divider class="my-3" />
 
             <v-col cols="12">
@@ -35,10 +35,10 @@ import { ref, computed } from 'vue';
 import { VRow, VCol, VDivider } from 'vuetify/components';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { CreateAccessStepComponent, SaveButtonsItem } from '@poc/types/createAccessGrant';
+import { SaveButtonsItem, DialogStepComponent } from '@poc/types/common';
 
 import TextOutputArea from '@poc/components/dialogs/createAccessSteps/TextOutputArea.vue';
-import SaveButtons from '@poc/components/dialogs/createAccessSteps/SaveButtons.vue';
+import SaveButtons from '@poc/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
 
 const props = defineProps<{
     name: string;
@@ -56,7 +56,7 @@ const saveItems = computed<SaveButtonsItem[]>(() => [
     { name: 'API Key', value: props.apiKey },
 ]);
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'CLI Access Created',
     onEnter: () => isTooltipDisabled.value = false,
     onExit: () => isTooltipDisabled.value = true,

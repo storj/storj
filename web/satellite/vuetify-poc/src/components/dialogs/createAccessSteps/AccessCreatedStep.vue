@@ -7,7 +7,7 @@
             <v-col cols="12">
                 Copy or save the Access Grant as it will only appear once.
             </v-col>
-            <save-buttons :items="[ accessGrant ]" :access-name="name" file-name-base="access" />
+            <save-buttons :items="[ accessGrant ]" :name="name" type="access" />
             <v-divider class="my-3" />
 
             <v-col cols="12">
@@ -21,10 +21,10 @@
 import { ref } from 'vue';
 import { VRow, VCol, VDivider } from 'vuetify/components';
 
-import { CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { DialogStepComponent } from '@poc/types/common';
 
 import TextOutputArea from '@poc/components/dialogs/createAccessSteps/TextOutputArea.vue';
-import SaveButtons from '@poc/components/dialogs/createAccessSteps/SaveButtons.vue';
+import SaveButtons from '@poc/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
 
 const props = defineProps<{
     name: string;
@@ -34,7 +34,7 @@ const props = defineProps<{
 const output = ref<InstanceType<typeof TextOutputArea> | null>(null);
 const isTooltipDisabled = ref<boolean>(false);
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Access Created',
     onEnter: () => isTooltipDisabled.value = false,
     onExit: () => isTooltipDisabled.value = true,

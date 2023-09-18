@@ -4,11 +4,10 @@
 <template>
     <v-form ref="form" class="pa-8">
         <v-row>
-            <v-col cols="12">
-                This passphrase will be used to encrypt all the files you upload using this access grant.
-                You will need it to access these files in the future.
+            <v-col v-if="$slots.default" cols="12">
+                <slot />
             </v-col>
-            <save-buttons :access-name="name" :items="[ passphrase ]" file-name-base="passphrase" />
+            <save-buttons :name="name" :items="[ passphrase ]" type="passphrase" />
             <v-divider class="my-3" />
 
             <v-col cols="12">
@@ -38,11 +37,12 @@ import { ref } from 'vue';
 import { generateMnemonic } from 'bip39-english';
 import { VForm, VRow, VCol, VCheckbox, VDivider } from 'vuetify/components';
 
-import { RequiredRule } from '@poc/types/common';
-import { CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { RequiredRule, DialogStepComponent } from '@poc/types/common';
 
 import TextOutputArea from '@poc/components/dialogs/createAccessSteps/TextOutputArea.vue';
-import SaveButtons from '@poc/components/dialogs/createAccessSteps/SaveButtons.vue';
+import SaveButtons from '@poc/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
+
+import Icon from '@/../static/images/accessGrants/newCreateFlow/passphraseGenerated.svg';
 
 const props = defineProps<{
     name: string;
@@ -57,8 +57,9 @@ const isTooltipDisabled = ref<boolean>(false);
 
 const passphrase: string = generateMnemonic();
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Passphrase Generated',
+    iconSrc: Icon,
     onEnter: () => {
         emit('passphraseChanged', passphrase);
         isTooltipDisabled.value = false;

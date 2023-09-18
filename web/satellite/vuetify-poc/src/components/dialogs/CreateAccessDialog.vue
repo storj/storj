@@ -74,7 +74,10 @@
                         :ref="stepInfos[CreateAccessStep.EnterNewPassphrase].ref"
                         :passphrase-type="CreateAccessStep.EnterNewPassphrase"
                         @passphrase-changed="newPass => passphrase = newPass"
-                    />
+                    >
+                        This passphrase will be used to encrypt all the files you upload using this access grant.
+                        You will need it to access these files in the future.
+                    </enter-passphrase-step>
                 </v-window-item>
 
                 <v-window-item :value="CreateAccessStep.PassphraseGenerated">
@@ -82,7 +85,10 @@
                         :ref="stepInfos[CreateAccessStep.PassphraseGenerated].ref"
                         :name="name"
                         @passphrase-changed="newPass => passphrase = newPass"
-                    />
+                    >
+                        This passphrase will be used to encrypt all the files you upload using this access grant.
+                        You will need it to access these files in the future.
+                    </passphrase-generated-step>
                 </v-window-item>
 
                 <v-window-item :value="CreateAccessStep.ConfirmDetails">
@@ -164,14 +170,13 @@
 </template>
 
 <script setup lang="ts">
-import { Component, Ref, computed, ref, watch, WatchStopHandle, onMounted } from 'vue';
+import { Component, Ref, computed, ref, watch, WatchStopHandle } from 'vue';
 import {
     VCol,
     VRow,
     VBtn,
     VDialog,
     VCard,
-    VSheet,
     VCardItem,
     VCardTitle,
     VDivider,
@@ -188,17 +193,18 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { AccessType, PassphraseOption, Permission, CreateAccessStep, STEP_ICON_AND_TITLE } from '@/types/createAccessGrant';
-import { AccessGrantEndDate, ACCESS_TYPE_LINKS, CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { AccessGrantEndDate, ACCESS_TYPE_LINKS } from '@poc/types/createAccessGrant';
 import { LocalData } from '@/utils/localData';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { DialogStepComponent } from '@poc/types/common';
 
 import CreateNewAccessStep from '@poc/components/dialogs/createAccessSteps/CreateNewAccessStep.vue';
 import ChoosePermissionsStep from '@poc/components/dialogs/createAccessSteps/ChoosePermissionsStep.vue';
 import AccessEncryptionStep from '@poc/components/dialogs/createAccessSteps/AccessEncryptionStep.vue';
 import EncryptionInfoStep from '@poc/components/dialogs/createAccessSteps/EncryptionInfoStep.vue';
-import EnterPassphraseStep from '@poc/components/dialogs/createAccessSteps/EnterPassphraseStep.vue';
-import PassphraseGeneratedStep from '@poc/components/dialogs/createAccessSteps/PassphraseGeneratedStep.vue';
+import EnterPassphraseStep from '@poc/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
+import PassphraseGeneratedStep from '@poc/components/dialogs/commonPassphraseSteps/PassphraseGeneratedStep.vue';
 import ConfirmDetailsStep from '@poc/components/dialogs/createAccessSteps/ConfirmDetailsStep.vue';
 import AccessCreatedStep from '@poc/components/dialogs/createAccessSteps/AccessCreatedStep.vue';
 import CLIAccessCreatedStep from '@poc/components/dialogs/createAccessSteps/CLIAccessCreatedStep.vue';
@@ -207,7 +213,7 @@ import S3CredentialsCreatedStep from '@poc/components/dialogs/createAccessSteps/
 type CreateAccessLocation = CreateAccessStep | null | (() => (CreateAccessStep | null));
 
 class StepInfo {
-    public ref: Ref<CreateAccessStepComponent | null> = ref<CreateAccessStepComponent | null>(null);
+    public ref: Ref<DialogStepComponent | null> = ref<DialogStepComponent | null>(null);
     public prev: Ref<CreateAccessStep | null>;
     public next: Ref<CreateAccessStep | null>;
     public nextText: Ref<string>;
@@ -401,9 +407,10 @@ async function nextStep(): Promise<void> {
         return;
     }
 
+    info.ref.value?.onExit?.('next');
+
     const next = info.next.value;
     if (!next) {
-        info.ref.value?.onExit?.();
         model.value = false;
         return;
     }
@@ -414,7 +421,11 @@ async function nextStep(): Promise<void> {
  * Navigates to the previous step.
  */
 function prevStep(): void {
-    const prev = stepInfos[step.value].prev.value;
+    const info = stepInfos[step.value];
+
+    info.ref.value?.onExit?.('prev');
+
+    const prev = info.prev.value;
     if (!prev) return;
     step.value = prev;
 }
@@ -422,10 +433,8 @@ function prevStep(): void {
 /**
  * Initializes the current step when it has changed.
  */
-watch(step, (newStep, oldStep) => {
+watch(step, newStep => {
     if (!innerContent.value) return;
-
-    stepInfos[oldStep].ref.value?.onExit?.();
 
     // Window items are lazy loaded, so the component may not exist yet
     let unwatch: WatchStopHandle | null = null;
