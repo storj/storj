@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
@@ -21,6 +22,8 @@ type InjuredSegment struct {
 	AttemptedAt   *time.Time
 	UpdatedAt     time.Time
 	InsertedAt    time.Time
+
+	Placement storj.PlacementConstraint
 }
 
 // RepairQueue implements queueing for segments that need repairing.

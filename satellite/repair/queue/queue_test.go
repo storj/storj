@@ -77,6 +77,7 @@ func TestInsertBatchOfOne(t *testing.T) {
 		require.Equal(t, writeSegments[0].StreamID, readSegments[0].StreamID)
 		require.Equal(t, writeSegments[0].Position, readSegments[0].Position)
 		require.Equal(t, writeSegments[0].SegmentHealth, readSegments[0].SegmentHealth)
+		require.Equal(t, writeSegments[0].Placement, readSegments[0].Placement)
 	})
 }
 
