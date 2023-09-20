@@ -77,7 +77,7 @@
                                     The most recent data points may change as traffic moves from "allocated" to "settled".
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
-                                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
+                                        href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >

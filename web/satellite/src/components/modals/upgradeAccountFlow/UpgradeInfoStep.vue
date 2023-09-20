@@ -48,7 +48,7 @@
                             <template #moreInfo>
                                 <a
                                     class="info-step__column__bullets__link"
-                                    href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment"
+                                    href="https://docs.storj.io/dcs/pricing#per-segment-fee"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
