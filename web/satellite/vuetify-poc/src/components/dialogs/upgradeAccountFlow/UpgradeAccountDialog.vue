@@ -46,6 +46,23 @@
                             @add-tokens="onAddTokens"
                         />
                     </v-window-item>
+
+                    <v-window-item :value="UpgradeAccountStep.AddCC">
+                        <AddCreditCardStep
+                            @success="() => setStep(UpgradeAccountStep.Success)"
+                            @back="() => setStep(UpgradeAccountStep.Options)"
+                        />
+                    </v-window-item>
+
+                    <v-window-item :value="UpgradeAccountStep.AddTokens">
+                        <AddTokensStep
+                            @back="() => setStep(UpgradeAccountStep.Options)"
+                        />
+                    </v-window-item>
+
+                    <v-window-item :value="UpgradeAccountStep.Success">
+                        <SuccessStep @continue="model = false" />
+                    </v-window-item>
                 </v-window>
             </v-card-item>
         </v-card>
@@ -69,6 +86,9 @@ import { PricingPlanInfo } from '@/types/common';
 
 import UpgradeInfoStep from '@poc/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
 import UpgradeOptionsStep from '@poc/components/dialogs/upgradeAccountFlow/UpgradeOptionsStep.vue';
+import AddCreditCardStep from '@poc/components/dialogs/upgradeAccountFlow/AddCreditCardStep.vue';
+import AddTokensStep from '@poc/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
+import SuccessStep from '@poc/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
 
 enum UpgradeAccountStep {
     Info = 'infoStep',
