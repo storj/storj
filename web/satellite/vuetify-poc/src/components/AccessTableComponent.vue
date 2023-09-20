@@ -42,13 +42,43 @@
                     {{ item.raw.createdAt.toLocaleString() }}
                 </span>
             </template>
+            <template #item.actions="{ item }">
+                <v-btn
+                    variant="outlined"
+                    color="default"
+                    size="small"
+                    class="mr-1 text-caption"
+                    density="comfortable"
+                    icon
+                >
+                    <v-icon icon="mdi-dots-horizontal" />
+                    <v-menu activator="parent">
+                        <v-list class="pa-2">
+                            <v-list-item density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.raw.name)">
+                                <template #prepend>
+                                    <icon-trash bold />
+                                </template>
+                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                    Delete
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                </v-btn>
+            </template>
         </v-data-table-server>
     </v-card>
+
+    <delete-access-dialog
+        v-model="isDeleteAccessDialogShown"
+        :access-name="accessNameToDelete"
+        @deleted="() => onUpdatePage(FIRST_PAGE)"
+    />
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import { VCard, VTextField } from 'vuetify/components';
+import { VBtn, VIcon, VMenu, VList, VListItem, VListItemTitle, VCard, VTextField } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -59,6 +89,9 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { SortDirection, tableSizeOptions } from '@/types/common';
 
+import DeleteAccessDialog from '@poc/components/dialogs/DeleteAccessDialog.vue';
+import IconTrash from '@poc/components/icons/IconTrash.vue';
+
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
@@ -68,6 +101,8 @@ const areGrantsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const selected = ref([]);
+const isDeleteAccessDialogShown = ref<boolean>(false);
+const accessNameToDelete = ref<string>('');
 
 const headers = [
     {
@@ -76,6 +111,7 @@ const headers = [
         key: 'name',
     },
     { title: 'Date Created', key: 'createdAt' },
+    { title: '', key: 'actions', sortable: false, width: 0 },
 ];
 
 /**
@@ -130,6 +166,14 @@ function onUpdateSortBy(sortBy: {key: keyof AccessGrantsOrderBy, order: keyof So
     agStore.setSortingDirection(SortDirection[sorting.order]);
 
     fetch(FIRST_PAGE, cursor.value.limit);
+}
+
+/**
+ * Displays the Delete Access dialog.
+ */
+function onDeleteClick(accessName: string): void {
+    accessNameToDelete.value = accessName;
+    isDeleteAccessDialogShown.value = true;
 }
 
 /**
