@@ -38,6 +38,14 @@
                             @upgrade="setSecondStep"
                         />
                     </v-window-item>
+
+                    <v-window-item :value="UpgradeAccountStep.Options">
+                        <UpgradeOptionsStep
+                            :loading="loading"
+                            @add-card="() => setStep(UpgradeAccountStep.AddCC)"
+                            @add-tokens="onAddTokens"
+                        />
+                    </v-window-item>
                 </v-window>
             </v-card-item>
         </v-card>
@@ -60,6 +68,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo } from '@/types/common';
 
 import UpgradeInfoStep from '@poc/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
+import UpgradeOptionsStep from '@poc/components/dialogs/upgradeAccountFlow/UpgradeOptionsStep.vue';
 
 enum UpgradeAccountStep {
     Info = 'infoStep',
