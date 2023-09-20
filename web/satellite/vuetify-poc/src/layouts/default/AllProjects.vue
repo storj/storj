@@ -6,6 +6,8 @@
         <session-wrapper>
             <default-bar />
             <default-view />
+
+            <UpgradeAccountDialog />
         </session-wrapper>
     </v-app>
 </template>
@@ -22,6 +24,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
+import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
 const usersStore = useUsersStore();
 const notify = useNotify();

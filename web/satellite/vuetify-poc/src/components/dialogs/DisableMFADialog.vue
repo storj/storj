@@ -48,7 +48,7 @@
                 </v-form>
             </v-card-item>
             <v-card-item class="px-8 py-0">
-                <a class="text-decoration-underline" style="cursor: pointer;" @click="toggleRecoveryCodeState">
+                <a class="text-decoration-underline text-cursor-pointer" @click="toggleRecoveryCodeState">
                     {{ useRecoveryCode ? "or use 2FA code" : "or use a recovery code" }}
                 </a>
             </v-card-item>

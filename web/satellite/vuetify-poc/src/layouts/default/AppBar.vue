@@ -106,7 +106,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item link class="my-1 rounded-lg" @click="closeSideNav">
+                    <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
                         <template #prepend>
                             <img src="@poc/assets/icon-upgrade.svg" alt="Upgrade">
                         </template>
@@ -243,6 +243,11 @@ activeTheme.value = theme.global.current.value.dark ? 1 : 0;
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
+}
+
+function toggleUpgradeFlow(): void {
+    closeSideNav();
+    appStore.toggleUpgradeFlow(true);
 }
 
 /**

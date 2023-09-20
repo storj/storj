@@ -14,7 +14,7 @@
                 </v-col>
                 <v-col>
                     <h4 class="text-right">{{ available }}</h4>
-                    <p class="text-right text-medium-emphasis"><small>{{ cta }}</small></p>
+                    <p class="text-cursor-pointer text-right text-medium-emphasis" @click="emit('ctaClick')"><small>{{ cta }}</small></p>
                 </v-col>
             </v-row>
         </v-card-item>
@@ -31,5 +31,9 @@ const props = defineProps<{
     limit: string;
     available: string;
     cta: string;
+}>();
+
+const emit = defineEmits<{
+    ctaClick: [];
 }>();
 </script>

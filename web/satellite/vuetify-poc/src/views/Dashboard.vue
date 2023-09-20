@@ -3,11 +3,20 @@
 
 <template>
     <v-container>
-        <PageTitleComponent title="Project Overview" />
-        <PageSubtitleComponent
-            :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
-            link="https://docs.storj.io/dcs/pricing#per-segment-fee"
-        />
+        <v-row align="center" justify="space-between">
+            <v-col cols="12" md="auto">
+                <PageTitleComponent title="Project Overview" />
+                <PageSubtitleComponent
+                    :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
+                    link="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                />
+            </v-col>
+            <v-col v-if="!isPaidTier" cols="auto">
+                <v-btn @click="appStore.toggleUpgradeFlow(true)">
+                    Upgrade plan
+                </v-btn>
+            </v-col>
+        </v-row>
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
@@ -59,10 +68,10 @@
 
         <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" />
+                <UsageProgressComponent title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Storage)" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" />
+                <UsageProgressComponent title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)" />
             </v-col>
             <v-col cols="12" md="6">
                 <UsageProgressComponent title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed} Used`" :limit="`Limit: ${limits.segmentLimit}`" :available="`${availableSegment} Available`" cta="Learn more" />
@@ -76,11 +85,13 @@
             <buckets-data-table />
         </v-col>
     </v-container>
+
+    <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { VContainer, VRow, VCol, VCard, VCardTitle } from 'vuetify/components';
+import { VBtn, VCard, VCardTitle, VCol, VContainer, VRow } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -89,11 +100,12 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { DataStamp, Project, ProjectLimits } from '@/types/projects';
+import { DataStamp, LimitToChange, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@poc/store/appStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -102,7 +114,9 @@ import UsageProgressComponent from '@poc/components/UsageProgressComponent.vue';
 import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
 import StorageChart from '@/components/project/dashboard/StorageChart.vue';
 import BucketsDataTable from '@poc/components/BucketsDataTable.vue';
+import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
@@ -114,6 +128,8 @@ const notify = useNotify();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
+const isEditLimitDialogShown = ref<boolean>(false);
+const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
 /**
  * Returns percent of coupon used.
@@ -142,6 +158,13 @@ const couponValue = computed((): string => {
  */
 const couponRemainingPercent = computed((): number => {
     return 100 - couponProgress.value;
+});
+
+/**
+ * Whether the user is in paid tier.
+ */
+const isPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
 });
 
 /**
@@ -292,6 +315,20 @@ function recalculateChartWidth(): void {
 function getDimension(dataStamps: DataStamp[]): Dimensions {
     const maxValue = Math.max(...dataStamps.map(s => s.value));
     return new Size(maxValue).label;
+}
+
+/**
+ * Conditionally opens the upgrade dialog
+ * or the edit limit dialog.
+ */
+function onNeedMoreClicked(source: LimitToChange): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
+    limitToChange.value = source;
+    isEditLimitDialogShown.value = true;
 }
 
 /**
