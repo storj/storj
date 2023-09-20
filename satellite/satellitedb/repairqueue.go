@@ -7,10 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
@@ -199,15 +202,31 @@ func (r *repairQueue) InsertBatch(
 	return newlyInsertedSegments, rows.Err()
 }
 
-func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (seg *queue.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
+	restriction := ""
+
+	placementsToString := func(placements []storj.PlacementConstraint) string {
+		var ps []string
+		for _, p := range placements {
+			ps = append(ps, fmt.Sprintf("%d", p))
+		}
+		return strings.Join(ps, ",")
+	}
+	if len(includedPlacements) > 0 {
+		restriction += fmt.Sprintf(" AND placement IN (%s)", placementsToString(includedPlacements))
+	}
+
+	if len(excludedPlacements) > 0 {
+		restriction += fmt.Sprintf(" AND placement NOT IN (%s)", placementsToString(excludedPlacements))
+	}
 
 	segment := queue.InjuredSegment{}
 	switch r.db.impl {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE repair_queue SET attempted_at = now()
-				WHERE attempted_at IS NULL OR attempted_at < now() - interval '6 hours'
+				WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 				ORDER BY segment_health ASC, attempted_at NULLS FIRST
 				LIMIT 1
 				RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
@@ -217,7 +236,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, er
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE repair_queue SET attempted_at = now() WHERE (stream_id, position) = (
 					SELECT stream_id, position FROM repair_queue
-					WHERE attempted_at IS NULL OR attempted_at < now() - interval '6 hours'
+					WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 					ORDER BY segment_health ASC, attempted_at NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 		`).Scan(&segment.StreamID, &segment.Position, &segment.AttemptedAt,

@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
@@ -42,7 +43,7 @@ func (m *MockRepairQueue) InsertBatch(ctx context.Context, segments []*InjuredSe
 }
 
 // Select implements RepairQueue.
-func (m *MockRepairQueue) Select(ctx context.Context) (*InjuredSegment, error) {
+func (m *MockRepairQueue) Select(context.Context, []storj.PlacementConstraint, []storj.PlacementConstraint) (*InjuredSegment, error) {
 	panic("implement me")
 }
 

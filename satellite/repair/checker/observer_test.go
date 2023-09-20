@@ -88,14 +88,14 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 
 		// check that the unhealthy, non-expired segment was added to the queue
 		// and that the expired segment was ignored
-		injuredSegment, err := repairQueue.Select(ctx)
+		injuredSegment, err := repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
 		require.Equal(t, b0StreamID, injuredSegment.StreamID)
 
-		_, err = repairQueue.Select(ctx)
+		_, err = repairQueue.Select(ctx, nil, nil)
 		require.Error(t, err)
 	})
 }
@@ -165,7 +165,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 
 		// check that single irreparable segment was added repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		_, err = repairQueue.Select(ctx)
+		_, err = repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
 		for _, segment := range segmentsAfterCopy {
-			injuredSegment, err := repairQueue.Select(ctx)
+			injuredSegment, err := repairQueue.Select(ctx, nil, nil)
 			require.NoError(t, err)
 			require.Equal(t, segment.StreamID, injuredSegment.StreamID)
 		}
@@ -666,7 +666,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
 
-				injuredSegment, err := repairQueue.Select(ctx)
+				injuredSegment, err := repairQueue.Select(ctx, nil, nil)
 				require.NoError(t, err)
 				err = repairQueue.Delete(ctx, injuredSegment)
 				require.NoError(t, err)

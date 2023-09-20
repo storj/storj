@@ -138,7 +138,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	// return from service.Run when queue fetch fails.
 	ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
 
-	seg, err := service.queue.Select(ctx)
+	seg, err := service.queue.Select(ctx, nil, nil)
 	if err != nil {
 		service.JobLimiter.Release(1)
 		cancel()

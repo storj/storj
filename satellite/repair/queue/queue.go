@@ -36,7 +36,7 @@ type RepairQueue interface {
 	// InsertBatch adds multiple injured segments
 	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Select gets an injured segment.
-	Select(ctx context.Context) (*InjuredSegment, error)
+	Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (*InjuredSegment, error)
 	// Delete removes an injured segment.
 	Delete(ctx context.Context, s *InjuredSegment) error
 	// Clean removes all segments last updated before a certain time

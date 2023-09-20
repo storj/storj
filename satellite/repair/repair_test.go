@@ -3257,7 +3257,7 @@ func TestRepairClumpedPieces(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx)
+		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx, nil, nil)
 		require.Error(t, err)
 		if !queue.ErrEmpty.Has(err) {
 			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
