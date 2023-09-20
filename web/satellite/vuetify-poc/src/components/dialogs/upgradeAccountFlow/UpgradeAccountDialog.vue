@@ -63,6 +63,14 @@
                     <v-window-item :value="UpgradeAccountStep.Success">
                         <SuccessStep @continue="model = false" />
                     </v-window-item>
+
+                    <v-window-item :value="UpgradeAccountStep.PricingPlanSelection">
+                        <PricingPlanSelectionStep @select="onSelectPricingPlan" />
+                    </v-window-item>
+
+                    <v-window-item v-if="plan" :value="UpgradeAccountStep.PricingPlan">
+                        <PricingPlanStep :plan="plan" @close="model = false" @back="setStep(UpgradeAccountStep.PricingPlanSelection)" />
+                    </v-window-item>
                 </v-window>
             </v-card-item>
         </v-card>
@@ -89,6 +97,8 @@ import UpgradeOptionsStep from '@poc/components/dialogs/upgradeAccountFlow/Upgra
 import AddCreditCardStep from '@poc/components/dialogs/upgradeAccountFlow/AddCreditCardStep.vue';
 import AddTokensStep from '@poc/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@poc/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
+import PricingPlanSelectionStep from '@poc/components/dialogs/upgradeAccountFlow/PricingPlanSelectionStep.vue';
+import PricingPlanStep from '@poc/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
 
 enum UpgradeAccountStep {
     Info = 'infoStep',
