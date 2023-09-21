@@ -956,6 +956,29 @@ func TestEndpoint_Object_No_StorageNodes_UsePendingObjectsTable(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 		})
+
+		t.Run("upload with expiration time", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			expectedExpirateAt := time.Now().Add(time.Hour)
+			err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], bucketName, "test-object", testrand.Bytes(1*memory.KiB), expectedExpirateAt)
+			require.NoError(t, err)
+
+			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			object, err := project.StatObject(ctx, bucketName, "test-object")
+			require.NoError(t, err)
+			require.WithinDuration(t, expectedExpirateAt, object.System.Expires, time.Second)
+
+			iterator := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
+				System: true,
+			})
+			require.True(t, iterator.Next())
+			require.WithinDuration(t, expectedExpirateAt, iterator.Item().System.Expires, time.Second)
+			require.NoError(t, iterator.Err())
+		})
 	})
 }
 

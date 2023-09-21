@@ -141,13 +141,15 @@ async function onProjectSelected(project: Project): Promise<void> {
 
     try {
         await Promise.all([
-            billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
             bucketsStore.getBuckets(FIRST_PAGE, projectID),
             projectsStore.getProjectLimits(projectID),
         ]);
 
+        billingStore.getProjectUsageAndChargesCurrentRollup().catch((error) => {
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECTS_LIST);
+        });
         analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
         await router.push(RouteConfig.EditProjectDetails.path);
     } catch (error) {

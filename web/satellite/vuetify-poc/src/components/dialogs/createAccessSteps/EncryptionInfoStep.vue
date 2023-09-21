@@ -28,12 +28,11 @@ import { ref } from 'vue';
 import { VForm, VRow, VCol, VCheckbox } from 'vuetify/components';
 
 import { LocalData } from '@/utils/localData';
-import { RequiredRule } from '@poc/types/common';
-import { CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { RequiredRule, DialogStepComponent } from '@poc/types/common';
 
 const form = ref<VForm | null>(null);
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Encryption Information',
     validate: () => {
         form.value?.validate();

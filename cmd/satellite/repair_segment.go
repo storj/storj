@@ -94,7 +94,12 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), config.Placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+	placement, err := config.Placement.Parse()
+	if err != nil {
+		return err
+	}
+
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 	if err != nil {
 		return err
 	}
@@ -104,7 +109,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		signing.SignerFromFullIdentity(identity),
 		overlayService,
 		orders.NewNoopDB(),
-		config.Placement.CreateFilters,
+		placement.CreateFilters,
 		config.Orders,
 	)
 	if err != nil {
@@ -126,7 +131,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		overlayService,
 		nil, // TODO add noop version
 		ecRepairer,
-		config.Placement.CreateFilters,
+		placement.CreateFilters,
 		config.Checker.RepairOverrides,
 		config.Repairer,
 	)

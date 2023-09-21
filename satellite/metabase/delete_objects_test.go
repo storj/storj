@@ -47,7 +47,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the past
@@ -57,7 +56,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ExpiresAt:    &pastTime,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
@@ -67,7 +65,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ExpiresAt:    &futureTime,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteExpiredObjects{
@@ -201,7 +198,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// zombie object with deadline time in the past
@@ -211,7 +207,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ZombieDeletionDeadline: &pastTime,
 					Encryption:             metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
@@ -221,7 +216,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ZombieDeletionDeadline: &futureTime,
 					Encryption:             metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteZombieObjects{
@@ -262,7 +256,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					ZombieDeletionDeadline: &now,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
@@ -351,7 +344,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 						Encryption:   metabasetest.DefaultEncryption,
 						// use default 24h zombie deletion deadline
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i := byte(0); i < 3; i++ {

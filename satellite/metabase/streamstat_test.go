@@ -50,7 +50,6 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
@@ -86,7 +85,6 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)

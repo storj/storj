@@ -216,7 +216,7 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 }
 
 // ResetMFARecoveryCodes creates a new set of MFA recovery codes for the user.
-func (s *Service) ResetMFARecoveryCodes(ctx context.Context) (codes []string, err error) {
+func (s *Service) ResetMFARecoveryCodes(ctx context.Context, requireCode bool, passcode string, recoveryCode string) (codes []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "reset MFA recovery codes")
@@ -226,6 +226,36 @@ func (s *Service) ResetMFARecoveryCodes(ctx context.Context) (codes []string, er
 
 	if !user.MFAEnabled {
 		return nil, ErrUnauthorized.New(mfaRecoveryGenerationErrMsg)
+	}
+
+	if requireCode {
+		t := time.Now()
+		if recoveryCode != "" && passcode != "" {
+			return nil, ErrMFAConflict.New(mfaConflictErrMsg)
+		}
+
+		if recoveryCode != "" {
+			found := false
+			for _, code := range user.MFARecoveryCodes {
+				if code == recoveryCode {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
+			}
+		} else if passcode != "" {
+			valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
+			if err != nil {
+				return nil, ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
+			}
+			if !valid {
+				return nil, ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
+			}
+		} else {
+			return nil, ErrMFAMissing.New(mfaRequiredErrMsg)
+		}
 	}
 
 	codes = make([]string, MFARecoveryCodeCount)

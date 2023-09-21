@@ -32,15 +32,15 @@
 import { ref, computed } from 'vue';
 import { VCol, VBtn } from 'vuetify/components';
 
-import { SaveButtonsItem } from '@poc/types/createAccessGrant';
+import { SaveButtonsItem } from '@poc/types/common';
 import { Download } from '@/utils/download';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const props = defineProps<{
     items: SaveButtonsItem[];
-    accessName: string;
-    fileNameBase: string;
+    name: string;
+    type: string;
 }>();
 
 const successDuration = 2000;
@@ -71,7 +71,7 @@ function onCopy(): void {
 function onDownload(): void {
     Download.file(
         props.items.map(item => typeof item === 'string' ? item : `${item.name}:\n${item.value}`).join('\n\n'),
-        `Storj-${props.fileNameBase}-${props.accessName}-${new Date().toISOString()}.txt`,
+        `Storj-${props.type}-${props.name}-${new Date().toISOString()}.txt`,
     );
     analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 

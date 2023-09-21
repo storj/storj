@@ -123,7 +123,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 			metabasetest.CreatePendingObject(ctx, t, db, newObj, 0)
 
 			newObjDiffVersion := newObj
-			newObjDiffVersion.Version = 4
+			newObjDiffVersion.Version = newObj.Version + 10000
 			metabasetest.CreateTestObject{}.Run(ctx, t, db, newObjDiffVersion, 0)
 
 			encryptedMetadata := testrand.Bytes(1024)

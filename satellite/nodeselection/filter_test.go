@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,6 +68,12 @@ func TestAnnotations(t *testing.T) {
 		Value: "bar",
 	}
 	require.Equal(t, "bar", k.GetAnnotation("foo"))
+
+	// annotation can be used as pure filters
+	l := Annotation{Key: "foo", Value: "bar"}
+	require.True(t, l.Match(&SelectedNode{}))
+
+	require.Equal(t, `annotation("foo","bar")`, l.String())
 }
 
 func TestCriteria_Geofencing(t *testing.T) {
@@ -116,6 +123,69 @@ func TestCriteria_Geofencing(t *testing.T) {
 			assert.Equal(t, c.expected, c.criteria.Match(&SelectedNode{
 				CountryCode: c.country,
 			}))
+		})
+	}
+}
+
+func TestCountryFilter_FromString(t *testing.T) {
+	cases := []struct {
+		definition      []string
+		canonical       string
+		mustIncluded    []location.CountryCode
+		mustNotIncluded []location.CountryCode
+	}{
+		{
+			definition:      []string{"HU"},
+			canonical:       `country("HU")`,
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.Germany, location.UnitedStates},
+		},
+		{
+			definition:      []string{"EU"},
+			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
+			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria},
+			mustNotIncluded: []location.CountryCode{location.Iceland, location.UnitedStates},
+		},
+		{
+			definition:      []string{"EEA"},
+			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IS\",\"IT\",\"LI\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"NO\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
+			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria, location.Iceland},
+			mustNotIncluded: []location.CountryCode{location.UnitedStates},
+		},
+		{
+			definition:      []string{"EU", "US"},
+			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\",\"US\")",
+			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.UnitedStates},
+			mustNotIncluded: []location.CountryCode{location.Russia},
+		},
+		{
+			definition:      []string{"NONE"},
+			canonical:       "country(\"\")",
+			mustIncluded:    []location.CountryCode{},
+			mustNotIncluded: []location.CountryCode{location.Germany, location.UnitedStates, location.Hungary},
+		},
+		{
+			definition:      []string{"*", "!RU", "!BY"},
+			canonical:       "country(\"*\",\"!BY\",\"!RU\")",
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.Russia, location.Belarus},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(strings.Join(tc.definition, "_"), func(t *testing.T) {
+			filter, err := NewCountryFilterFromString(tc.definition)
+			require.NoError(t, err)
+			for _, c := range tc.mustIncluded {
+				require.True(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s should be included", c.String())
+			}
+			for _, c := range tc.mustNotIncluded {
+				require.False(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s shouldn't be included", c.String())
+			}
+			require.Equal(t, tc.canonical, filter.String())
 		})
 	}
 }

@@ -141,6 +141,13 @@ func (store *blobStore) DeleteNamespace(ctx context.Context, ref []byte) (err er
 	return Error.Wrap(err)
 }
 
+// DeleteTrashNamespace deletes trash folder of specific satellite.
+func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.DeleteTrashNamespace(ctx, namespace)
+	return Error.Wrap(err)
+}
+
 // Trash moves the ref to a trash directory.
 func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)

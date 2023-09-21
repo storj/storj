@@ -73,6 +73,13 @@ export const useUsersStore = defineStore('users', () => {
         state.user.mfaRecoveryCodeCount = codes.length;
     }
 
+    async function regenerateUserMFARecoveryCodes(code: { recoveryCode?: string, passcode?: string }): Promise<void> {
+        const codes = await api.regenerateUserMFARecoveryCodes(code.passcode, code.recoveryCode);
+
+        state.userMFARecoveryCodes = codes;
+        state.user.mfaRecoveryCodeCount = codes.length;
+    }
+
     async function getSettings(): Promise<UserSettings> {
         const settings = await api.getUserSettings();
 
@@ -109,6 +116,7 @@ export const useUsersStore = defineStore('users', () => {
         enableUserMFA,
         generateUserMFASecret,
         generateUserMFARecoveryCodes,
+        regenerateUserMFARecoveryCodes,
         clear,
         login,
         setUser,

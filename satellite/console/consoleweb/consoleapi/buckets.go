@@ -149,7 +149,13 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 		Page:   page,
 	}, before)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
 		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
 	}
 
 	err = json.NewEncoder(w).Encode(totals)

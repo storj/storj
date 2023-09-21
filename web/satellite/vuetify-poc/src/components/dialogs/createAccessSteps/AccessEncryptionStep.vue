@@ -102,9 +102,8 @@ import {
 } from 'vuetify/components';
 
 import { PassphraseOption } from '@/types/createAccessGrant';
-import { CreateAccessStepComponent } from '@poc/types/createAccessGrant';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { RequiredRule, ValidationRule } from '@poc/types/common';
+import { ValidationRule, DialogStepComponent } from '@poc/types/common';
 
 import InfoTooltip from '@poc/components/dialogs/createAccessSteps/InfoTooltip.vue';
 
@@ -141,7 +140,7 @@ const passphraseRules = computed<ValidationRule<string>[]>(() => {
     return [ v => !required || !!v || 'Required' ];
 });
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Access Encryption',
     validate: () => {
         form.value?.validate();

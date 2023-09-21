@@ -13,15 +13,3 @@ export interface AccessGrantEndDate {
     title: string;
     date: Date | null;
 }
-
-export interface CreateAccessStepComponent {
-    title: string;
-    onEnter?: () => void;
-    onExit?: () => void;
-    validate?: () => boolean;
-}
-
-export type SaveButtonsItem = string | {
-    name: string;
-    value: string;
-};

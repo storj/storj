@@ -30,6 +30,8 @@ var (
 	ErrObjectNotFound = errs.Class("object not found")
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
+	// ErrFailedPrecondition is used to indicate that some conditions in the request has failed.
+	ErrFailedPrecondition = errs.Class("metabase: failed precondition")
 	// ErrConflict is used to indicate conflict with the request.
 	ErrConflict = errs.Class("metabase: conflict")
 )
@@ -766,7 +768,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 						stream_id    = $5
 					RETURNING
 						project_id, bucket_name, object_key, $4::INT4 as version, stream_id,
-						`+committedStatus+` as status, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size, $9::INT4 as fixed_segment_size,
+						`+committedStatus+` as status, expires_at, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size, $9::INT4 as fixed_segment_size,
 						NULL::timestamp as zombie_deletion_deadline,
 						CASE
 							WHEN encryption = 0 AND $10 <> 0 THEN $10
@@ -778,7 +780,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				), object_to_commit AS (
 					SELECT
 						project_id, bucket_name, object_key, version, stream_id,
-						status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size,
+						status, expires_at, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size,
 						zombie_deletion_deadline, encryption,
 						CASE
 							WHEN $14::BOOL = true THEN $11
@@ -799,7 +801,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				)
 				INSERT INTO objects (
 					project_id, bucket_name, object_key, version, stream_id,
-					status, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
+					status, expires_at, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size, zombie_deletion_deadline,
 					encryption,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 				)
@@ -931,7 +933,7 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 	}
 
 	if len(partSize) > db.config.MaxNumberOfParts {
-		return Error.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
+		return ErrFailedPrecondition.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
 	}
 
 	for part, size := range partSize {
@@ -941,7 +943,7 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 		}
 
 		if size < db.config.MinPartSize {
-			return Error.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
+			return ErrFailedPrecondition.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
 		}
 	}
 

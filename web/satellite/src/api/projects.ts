@@ -3,6 +3,7 @@
 
 import {
     DataStamp,
+    LimitRequestInfo,
     Project,
     ProjectFields,
     ProjectInvitation,
@@ -119,7 +120,7 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Get project limits.
      *
-     * @param projectId- project ID
+     * @param projectId - project ID
      * @throws Error
      */
     public async getLimits(projectId: string): Promise<ProjectLimits> {
@@ -147,6 +148,28 @@ export class ProjectsHttpApi implements ProjectsApi {
             limits.segmentUsed,
         );
 
+    }
+
+    /**
+     * Request limit increase.
+     *
+     * @param projectId - project ID
+     * @param info - request information
+     * @throws Error
+     */
+    public async requestLimitIncrease(projectId: string, info: LimitRequestInfo): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/limit-increase`;
+        const response = await this.http.post(path, JSON.stringify(info));
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not request increase',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -179,9 +202,9 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Get project daily usage for specific date range.
      *
-     * @param projectId- project ID
-     * @param start- since date
-     * @param end- before date
+     * @param projectId - project ID
+     * @param start - since date
+     * @param end - before date
      * @throws Error
      */
     public async getDailyUsage(projectId: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily> {
@@ -207,11 +230,6 @@ export class ProjectsHttpApi implements ProjectsApi {
                 return new DataStamp(el.value, date);
             }),
             usage.allocatedBandwidthUsage.map(el => {
-                const date = new Date(el.date);
-                date.setHours(0, 0, 0, 0);
-                return new DataStamp(el.value, date);
-            }),
-            usage.settledBandwidthUsage.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);

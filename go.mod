@@ -32,7 +32,7 @@ require (
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230419135619-fb89f20752cb
+	github.com/spacemonkeygo/monkit/v3 v3.0.22
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
@@ -61,11 +61,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20230907123639-5fd0608fd947
+	storj.io/common v0.0.0-20230915121338-2eb36f9fcdbb
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
-	storj.io/private v0.0.0-20230824104110-1eac532af65a
-	storj.io/uplink v1.11.1-0.20230907122241-39cbd8e765dc
+	storj.io/private v0.0.0-20230912093002-ca2d4ab44679
+	storj.io/uplink v1.12.1-0.20230915133208-3b7b92a826a3
 )
 
 require (

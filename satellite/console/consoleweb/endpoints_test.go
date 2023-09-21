@@ -16,11 +16,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
@@ -622,11 +624,15 @@ func TestProjects(t *testing.T) {
 func TestWrongUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 4
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		authorizedUser := test.defaultUser()
 		unauthorizedUser := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
-		test.login(unauthorizedUser.email, unauthorizedUser.password)
 
 		type endpointTest struct {
 			endpoint string
@@ -635,10 +641,25 @@ func TestWrongUser(t *testing.T) {
 		}
 
 		baseProjectsUrl := "/projects"
+		baseApiKeyUrl := "/api-keys"
 		baseProjectIdUrl := fmt.Sprintf("%s/%s", baseProjectsUrl, test.defaultProjectID())
 		getProjectResourceUrl := func(resource string) string {
 			return fmt.Sprintf("%s/%s", baseProjectIdUrl, resource)
 		}
+		getIdAppendedApiKeyUrl := func(resource string) string {
+			return fmt.Sprintf("%s/%s%s", baseApiKeyUrl, resource, test.defaultProjectID())
+		}
+
+		// login and create an api key and credit card to test deletion.
+		test.login(authorizedUser.email, authorizedUser.password)
+		resp, body := test.request(http.MethodPost, getIdAppendedApiKeyUrl("create/"), test.toJSON("some name"))
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		var response console.CreateAPIKeyResponse
+		require.NoError(t, json.Unmarshal([]byte(body), &response))
+
+		apiKeyId := response.KeyInfo.ID.String()
+
+		test.login(unauthorizedUser.email, unauthorizedUser.password)
 
 		testCases := []endpointTest{
 			{
@@ -681,19 +702,46 @@ func TestWrongUser(t *testing.T) {
 				method:   http.MethodGet,
 			},
 			{
+				endpoint: "/buckets/bucket-names?projectID=" + test.defaultProjectID(),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: "/buckets/usage-totals?limit=10&page=1&before=" + time.Now().Format(apigen.DateFormat) + "&projectID=" + test.defaultProjectID(),
+				method:   http.MethodGet,
+			},
+			{
 				endpoint: getProjectResourceUrl("daily-usage") + "?from=100000000&to=200000000000",
 				method:   http.MethodGet,
 			},
 			{
-				endpoint: "/api-keys/create/" + test.defaultProjectID(),
+				endpoint: getIdAppendedApiKeyUrl("create/"),
 				method:   http.MethodPost,
 				body:     "name",
+			},
+			{
+				endpoint: getIdAppendedApiKeyUrl("delete-by-name?name=name&projectID="),
+				method:   http.MethodDelete,
+			},
+			{
+				endpoint: getIdAppendedApiKeyUrl("list-paged?limit=10&page=1&order=1&orderDirection=1&projectID="),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: getIdAppendedApiKeyUrl("api-key-names?projectID="),
+				method:   http.MethodGet,
+			},
+			{
+				endpoint: baseApiKeyUrl + "/delete-by-ids",
+				method:   http.MethodDelete,
+				body: map[string]interface{}{
+					"ids": []string{apiKeyId},
+				},
 			},
 		}
 
 		for _, testCase := range testCases {
 			t.Run(fmt.Sprintf("Unauthorized on %s", testCase.endpoint), func(t *testing.T) {
-				resp, body := test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
+				resp, body = test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
 				require.Contains(t, body, "not authorized")
 				require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			})
@@ -703,7 +751,7 @@ func TestWrongUser(t *testing.T) {
 		test.login(authorizedUser.email, authorizedUser.password)
 		for _, testCase := range testCases {
 			t.Run(fmt.Sprintf("Authorized on %s", testCase.endpoint), func(t *testing.T) {
-				resp, body := test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
+				resp, body = test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
 				require.NotContains(t, body, "not authorized")
 				require.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
 			})
@@ -762,6 +810,10 @@ func (test *test) url(suffix string) string {
 }
 
 func (test *test) toJSON(v interface{}) io.Reader {
+	if str, ok := v.(string); ok {
+		return strings.NewReader(str)
+	}
+
 	data, err := json.Marshal(v)
 	require.NoError(test.t, err)
 	return strings.NewReader(string(data))
@@ -784,6 +836,7 @@ func (test *test) login(email, password string) Response {
 			"email":    email,
 			"password": password,
 		}))
+	require.Equal(test.t, http.StatusOK, resp.StatusCode)
 	cookie := findCookie(resp, "_tokenKey")
 	require.NotNil(test.t, cookie)
 

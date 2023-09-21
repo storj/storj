@@ -82,11 +82,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Project, ProjectInvitation } from '@/types/projects';
 import { RouteConfig } from '@/types/router';
 import {
+    AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
@@ -97,6 +98,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useResize } from '@/composables/resize';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useNotify } from '@/utils/hooks';
 
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
@@ -110,12 +113,14 @@ import RocketIcon from '@/../static/images/common/rocket.svg';
 import CardsIcon from '@/../static/images/common/cardsIcon.svg';
 import TableIcon from '@/../static/images/common/tableIcon.svg';
 
+const billingStore = useBillingStore();
 const appStore = useAppStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
 
+const notify = useNotify();
 const { isMobile } = useResize();
 
 const content = ref<HTMLElement | null>(null);
@@ -169,6 +174,23 @@ function onCreateProjectClicked(): void {
         appStore.updateActiveModal(MODALS.createProjectPrompt);
     }
 }
+
+onMounted(async () => {
+    if (!configStore.state.config.nativeTokenPaymentsEnabled) {
+        return;
+    }
+
+    try {
+        await Promise.all([
+            billingStore.getBalance(),
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
+            billingStore.getCreditCards(),
+            billingStore.getNativePaymentsHistory(),
+        ]);
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+    }
+});
 </script>
 
 <style scoped lang="scss">

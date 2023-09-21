@@ -192,6 +192,14 @@ func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error
 	return bad.blobs.DeleteNamespace(ctx, ref)
 }
 
+// DeleteTrashNamespace deletes the trash folder for the namespace.
+func (bad *BadBlobs) DeleteTrashNamespace(ctx context.Context, namespace []byte) error {
+	if err := bad.err.Err(); err != nil {
+		return err
+	}
+	return bad.blobs.DeleteTrashNamespace(ctx, namespace)
+}
+
 // Stat looks up disk metadata on the blob file.
 func (bad *BadBlobs) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	if err := bad.err.Err(); err != nil {

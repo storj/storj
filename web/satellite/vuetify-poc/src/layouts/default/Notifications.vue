@@ -22,6 +22,7 @@
             border
             @mouseover="() => onMouseOver(item.id)"
             @mouseleave="() => onMouseLeave(item.id)"
+            @click:close="() => onCloseClick(item.id)"
         />
     </v-snackbar>
 </template>
@@ -89,5 +90,12 @@ function onMouseOver(id: string): void {
  */
 function onMouseLeave(id: string): void {
     notificationsStore.resumeNotification(id);
+}
+
+/**
+ * Removes notification when the close button is clicked.
+ */
+function onCloseClick(id: string): void {
+    notificationsStore.deleteNotification(id);
 }
 </script>

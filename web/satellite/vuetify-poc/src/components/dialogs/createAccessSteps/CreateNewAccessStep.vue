@@ -51,9 +51,9 @@ import { computed, ref, watch, WritableComputedRef } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCheckbox, VInput } from 'vuetify/components';
 
 import { AccessType } from '@/types/createAccessGrant';
-import { ACCESS_TYPE_LINKS, CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { ACCESS_TYPE_LINKS } from '@poc/types/createAccessGrant';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { RequiredRule, ValidationRule } from '@poc/types/common';
+import { RequiredRule, ValidationRule, DialogStepComponent } from '@poc/types/common';
 
 import InfoTooltip from '@poc/components/dialogs/createAccessSteps/InfoTooltip.vue';
 
@@ -127,7 +127,7 @@ const nameRules: ValidationRule<string>[] = [
     v => !agStore.state.allAGNames.includes(v) || 'This name is already in use',
 ];
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Create New Access',
     validate: () => {
         form.value?.validate();

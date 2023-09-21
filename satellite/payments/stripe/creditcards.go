@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"strings"
 
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
@@ -20,6 +21,10 @@ var (
 	ErrDefaultCard = errs.Class("default card")
 	// ErrDuplicateCard is returned when a user tries to add duplicate card.
 	ErrDuplicateCard = errs.Class("duplicate card")
+
+	// UnattachedErrString is part of the err string returned by stripe if a payment
+	// method does not belong to a customer.
+	UnattachedErrString = "The payment method must be attached to the customer"
 )
 
 // creditCards is an implementation of payments.CreditCards.
@@ -165,6 +170,9 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil && strings.Contains(err.Error(), UnattachedErrString) {
+		return ErrCardNotFound.New("this card is not attached to this account.")
+	}
 
 	return Error.Wrap(err)
 }

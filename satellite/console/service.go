@@ -2460,7 +2460,7 @@ func (s *Service) GetAllAPIKeyNamesByProjectID(ctx context.Context, projectID uu
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	names, err = s.store.APIKeys().GetAllNamesByProjectID(ctx, isMember.project.ID)
@@ -2483,7 +2483,7 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrUnauthorized.Wrap(err)
 	}
 
 	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
@@ -2599,7 +2599,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, before)
@@ -2622,7 +2622,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	listOptions := buckets.ListOptions{
@@ -3780,6 +3780,13 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 // IsProjectInvitationExpired returns whether the project member invitation has expired.
 func (s *Service) IsProjectInvitationExpired(invite *ProjectInvitation) bool {
 	return time.Now().After(invite.CreatedAt.Add(s.config.ProjectInvitationExpiration))
+}
+
+// GetInvitesByEmail returns project invites by email.
+func (s *Service) GetInvitesByEmail(ctx context.Context, email string) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return s.store.ProjectInvitations().GetByEmail(ctx, email)
 }
 
 // GetInviteByToken returns a project invite given an invite token.

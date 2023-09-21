@@ -10,7 +10,7 @@
                 <span v-else class="size-changer__selector__content__label">Size</span>
                 <arrow-down-icon class="size-changer__selector__content__arrow" :class="{ open: isOpen }" />
             </div>
-            <div v-if="isOpen" v-click-outside="closeSelector" class="size-changer__selector__dropdown">
+            <div v-if="isOpen" v-click-outside="closeSelector" class="size-changer__selector__dropdown" :class="{ 'custom-top': !withAllOption }">
                 <div
                     v-for="(option, index) in options"
                     :key="index"
@@ -54,10 +54,14 @@ const options = computed((): {label:string, value:number}[] => {
         { label: '50', value: 50 },
         { label: '100', value: 100 },
     ];
-    if (props.itemCount && props.itemCount < 1000 && !props.simplePagination) {
+    if (props.itemCount && withAllOption.value) {
         return [{ label: 'All', value: props.itemCount }, ...opts];
     }
     return opts;
+});
+
+const withAllOption = computed<boolean>(() => {
+    return props.itemCount !== undefined && props.itemCount < 1000 && !props.simplePagination;
 });
 
 /**
@@ -190,5 +194,9 @@ function toggleSelector() {
             }
         }
     }
+}
+
+.custom-top {
+    top: -150px;
 }
 </style>

@@ -139,6 +139,14 @@ func (slow *SlowBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err err
 	return slow.blobs.DeleteNamespace(ctx, ref)
 }
 
+// DeleteTrashNamespace deletes the trash folder for the specified namespace.
+func (slow *SlowBlobs) DeleteTrashNamespace(ctx context.Context, namespace []byte) error {
+	if err := slow.sleep(ctx); err != nil {
+		return err
+	}
+	return slow.blobs.DeleteTrashNamespace(ctx, namespace)
+}
+
 // Stat looks up disk metadata on the blob file.
 func (slow *SlowBlobs) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	if err := slow.sleep(ctx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -147,6 +149,82 @@ func TestAuth_Register(t *testing.T) {
 				require.Len(t, users, 1)
 				require.Equal(t, []byte(test.Partner), users[0].UserAgent)
 			}()
+		}
+	})
+}
+
+func TestAuth_RegisterWithInvitation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i := 0; i < 2; i++ {
+			email := fmt.Sprintf("user%d@test.test", i)
+			// test with nil and non-nil inviter ID to make sure nil pointer dereference doesn't occur
+			// since nil ID is technically possible
+			var inviter *uuid.UUID
+			if i == 1 {
+				id := planet.Uplinks[0].Projects[0].Owner.ID
+				inviter = &id
+			}
+			_, err := planet.Satellites[0].API.DB.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: planet.Uplinks[0].Projects[0].ID,
+				Email:     email,
+				InviterID: inviter,
+			})
+			require.NoError(t, err)
+
+			registerData := struct {
+				FullName        string `json:"fullName"`
+				ShortName       string `json:"shortName"`
+				Email           string `json:"email"`
+				Partner         string `json:"partner"`
+				UserAgent       string `json:"userAgent"`
+				Password        string `json:"password"`
+				SecretInput     string `json:"secret"`
+				ReferrerUserID  string `json:"referrerUserId"`
+				IsProfessional  bool   `json:"isProfessional"`
+				Position        string `json:"Position"`
+				CompanyName     string `json:"CompanyName"`
+				EmployeeCount   string `json:"EmployeeCount"`
+				SignupPromoCode string `json:"signupPromoCode"`
+			}{
+				FullName:        "testuser",
+				ShortName:       "test",
+				Email:           email,
+				Password:        "abc123",
+				IsProfessional:  true,
+				Position:        "testposition",
+				CompanyName:     "companytestname",
+				EmployeeCount:   "0",
+				SignupPromoCode: "STORJ50",
+			}
+
+			jsonBody, err := json.Marshal(registerData)
+			require.NoError(t, err)
+
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() {
+				err = result.Body.Close()
+				require.NoError(t, err)
+			}()
+			require.Equal(t, http.StatusOK, result.StatusCode)
+			require.Len(t, planet.Satellites, 1)
+			// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
+			_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, registerData.Email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
 		}
 	})
 }
@@ -437,11 +515,19 @@ func TestMFAEndpoints(t *testing.T) {
 		_, status = doRequest("/disable", badCode, "")
 		require.Equal(t, http.StatusBadRequest, status)
 
-		// Expect failure when disabling due to providing both passcode and recovery code.
-		body, _ = doRequest("/generate-recovery-codes", "", "")
+		// Expect failure when regenerating without providing either passcode or recovery code.
+		_, status = doRequest("/regenerate-recovery-codes", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+
+		// Expect failure when regenerating when providing both passcode and recovery code.
+		_, status = doRequest("/regenerate-recovery-codes", goodCode, codes[0])
+		require.Equal(t, http.StatusConflict, status)
+
+		body, _ = doRequest("/regenerate-recovery-codes", goodCode, "")
 		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
 
+		// Expect failure when disabling due to providing both passcode and recovery code.
 		_, status = doRequest("/disable", goodCode, codes[0])
 		require.Equal(t, http.StatusConflict, status)
 

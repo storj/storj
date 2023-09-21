@@ -67,7 +67,6 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeletePendingObject{
@@ -131,7 +130,6 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeletePendingObject{
@@ -171,7 +169,6 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			object := metabase.RawObject{
@@ -224,7 +221,6 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -305,7 +301,6 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeletePendingObjectNew{
@@ -369,7 +364,6 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeletePendingObjectNew{
@@ -613,13 +607,12 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
 					ObjectLocation: location,
-					Version:        1,
+					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{{
@@ -653,7 +646,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
 					ObjectLocation: location,
-					Version:        1,
+					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{object},
@@ -671,7 +664,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
 					ObjectLocation: location,
-					Version:        1,
+					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{object},
@@ -689,7 +682,6 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -716,7 +708,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
 					ObjectLocation: location,
-					Version:        1,
+					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{object},
@@ -811,7 +803,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteObjectsAllVersions{
@@ -898,7 +889,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -942,7 +932,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -1293,7 +1282,6 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitInlineSegment{
@@ -1343,11 +1331,10 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					},
 					ZombieDeletionDeadline: &now,
 				},
-				Version: newObj.Version,
 			}.Check(ctx, t, db)
 
 			newObjDiffVersion := newObj
-			newObjDiffVersion.Version = 4
+			newObjDiffVersion.Version = newObj.Version * 2
 
 			committedObject, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, newObjDiffVersion, 0)
 

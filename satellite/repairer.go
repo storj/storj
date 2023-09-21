@@ -140,8 +140,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup overlay
-		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, config.Placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -174,7 +178,11 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup orders
-		var err error
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
 		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -183,7 +191,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			// PUT and GET actions which are not used by
 			// repairer so we can set noop implementation.
 			orders.NewNoopDB(),
-			config.Placement.CreateFilters,
+			placement.CreateFilters,
 			config.Orders,
 		)
 		if err != nil {
@@ -203,6 +211,11 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup repairer
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
 		peer.EcRepairer = repairer.NewECRepairer(
 			log.Named("ec-repair"),
 			peer.Dialer,
@@ -222,7 +235,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
-			config.Placement.CreateFilters,
+			placement.CreateFilters,
 			config.Checker.RepairOverrides,
 			config.Repairer,
 		)

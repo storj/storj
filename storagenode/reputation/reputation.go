@@ -21,6 +21,8 @@ type DB interface {
 	Get(ctx context.Context, satelliteID storj.NodeID) (*Stats, error)
 	// All retrieves all stats from DB
 	All(ctx context.Context) ([]Stats, error)
+	// Delete removes stats for specific satellite
+	Delete(ctx context.Context, satelliteID storj.NodeID) error
 }
 
 // Stats consist of reputation metrics.

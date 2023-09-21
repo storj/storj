@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -148,8 +149,9 @@ type Config struct {
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 
 	UsePendingObjectsTable bool `help:"enable new flow for upload which is using pending_objects table" default:"false"`
-	// flag to simplify testing by enabling feature only for specific projects
+	// flags to simplify testing by enabling feature only for specific projects or for for specific percentage of projects
 	UsePendingObjectsTableProjects []string `help:"list of projects which will have UsePendingObjectsTable feature flag enabled" default:"" hidden:"true"`
+	UsePendingObjectsTableRollout  int      `help:"percentage (0-100) of projects which should have this feature enabled" default:"0" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
@@ -170,11 +172,12 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 type ExtendedConfig struct {
 	Config
 
-	usePendingObjectsTableProjects []uuid.UUID
+	usePendingObjectsTableProjects      []uuid.UUID
+	usePendingObjectsTableRolloutCursor uuid.UUID
 }
 
 // NewExtendedConfig creates new instance of extended config.
-func NewExtendedConfig(config Config) (ExtendedConfig, error) {
+func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 	extendedConfig := ExtendedConfig{Config: config}
 	for _, projectIDString := range config.UsePendingObjectsTableProjects {
 		projectID, err := uuid.FromString(projectIDString)
@@ -183,6 +186,12 @@ func NewExtendedConfig(config Config) (ExtendedConfig, error) {
 		}
 		extendedConfig.usePendingObjectsTableProjects = append(extendedConfig.usePendingObjectsTableProjects, projectID)
 	}
+
+	extendedConfig.usePendingObjectsTableRolloutCursor, err = createRolloutCursor(config.UsePendingObjectsTableRollout)
+	if err != nil {
+		return ExtendedConfig{}, err
+	}
+
 	return extendedConfig, nil
 }
 
@@ -197,5 +206,25 @@ func (ec ExtendedConfig) UsePendingObjectsTableByProject(projectID uuid.UUID) bo
 			return true
 		}
 	}
+
+	if !ec.usePendingObjectsTableRolloutCursor.IsZero() {
+		if projectID.Less(ec.usePendingObjectsTableRolloutCursor) {
+			return true
+		}
+	}
+
 	return false
+}
+
+func createRolloutCursor(percentage int) (uuid.UUID, error) {
+	if percentage <= 0 {
+		return uuid.UUID{}, nil
+	} else if percentage >= 100 {
+		return uuid.Max(), nil
+	}
+
+	cursorValue := uint32(1 << 32 * (float32(percentage) / 100))
+	bytes := make([]byte, 16)
+	binary.BigEndian.PutUint32(bytes, cursorValue)
+	return uuid.FromBytes(bytes)
 }

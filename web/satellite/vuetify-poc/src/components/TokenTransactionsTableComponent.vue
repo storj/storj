@@ -8,7 +8,13 @@
             label="Search"
             prepend-inner-icon="mdi-magnify"
             single-line
+            variant="solo-filled"
+            flat
             hide-details
+            clearable
+            density="comfortable"
+            rounded="lg"
+            class="mx-2 mt-2"
         />
         <v-data-table
             :sort-by="sortBy"
@@ -19,6 +25,7 @@
             :items-per-page-options="tableSizeOptions(nativePaymentHistoryItems.length)"
             :search="search"
             :custom-key-sort="customSortFns"
+            no-data-text="No results found"
             class="elevation-1"
         >
             <template #item.timestamp="{ item }">

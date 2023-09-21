@@ -10,7 +10,7 @@
         <SessionWrapper>
             <div class="all-dashboard__bars">
                 <BetaSatBar v-if="isBetaSatellite" />
-                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="toggleMFARecoveryModal" />
             </div>
 
             <heading class="all-dashboard__heading" />
@@ -100,18 +100,6 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 });
 
 /**
- * Generates new MFA recovery codes and toggles popup visibility.
- */
-async function generateNewMFARecoveryCodes(): Promise<void> {
-    try {
-        await usersStore.generateUserMFARecoveryCodes();
-        toggleMFARecoveryModal();
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-    }
-}
-
-/**
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
@@ -158,13 +146,6 @@ onMounted(async () => {
         }
     } catch (error) {
         error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-    }
-
-    try {
-        await billingStore.getCreditCards();
-    } catch (error) {
-        error.message = `Unable to get credit cards. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 

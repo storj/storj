@@ -161,6 +161,7 @@ import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
+import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
 import { useNotify } from '@/utils/hooks';
@@ -430,7 +431,7 @@ async function login(): Promise<void> {
             return;
         }
 
-        if (isMFARequired.value) {
+        if (isMFARequired.value && !(error instanceof ErrorTooManyRequests)) {
             if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
                 notify.error(error.message, null);
             }

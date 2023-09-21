@@ -59,7 +59,7 @@
                         </v-list-item>
                     </template>
 
-                    <v-list-item density="comfortable" link rounded="lg">
+                    <v-list-item density="comfortable" link rounded="lg" @click="() => emit('shareClick')">
                         <template #prepend>
                             <icon-share bold />
                         </template>
@@ -134,6 +134,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     deleteFolderClick: [];
+    shareClick: [];
 }>();
 
 const isDownloading = ref<boolean>(false);

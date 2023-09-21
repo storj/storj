@@ -16,7 +16,7 @@
                         >
                             <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                                 <BetaSatBar v-if="isBetaSatellite" />
-                                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="toggleMFARecoveryModal" />
                                 <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
                                     <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
 
@@ -360,18 +360,6 @@ function toggleMFARecoveryModal(): void {
 }
 
 /**
- * Generates new MFA recovery codes and toggles popup visibility.
- */
-async function generateNewMFARecoveryCodes(): Promise<void> {
-    try {
-        await usersStore.generateUserMFARecoveryCodes();
-        toggleMFARecoveryModal();
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-}
-
-/**
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
@@ -434,13 +422,6 @@ onMounted(async () => {
         }
     } catch (error) {
         error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-
-    try {
-        await billingStore.getCreditCards();
-    } catch (error) {
-        error.message = `Unable to get credit cards. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 

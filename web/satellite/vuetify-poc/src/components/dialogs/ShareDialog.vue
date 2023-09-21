@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Share {{ !filePath ? 'Bucket' : isFolder ? 'Folder' : 'File' }}
+                    Share {{ !file ? 'Bucket' : file.type == 'folder' ? 'Folder' : 'File' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -118,18 +118,20 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
+import { BrowserObject } from '@/store/modules/objectBrowserStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconShare from '@poc/components/icons/IconShare.vue';
 
 const props = defineProps<{
     modelValue: boolean,
-    bucketName: string;
-    filePath?: string;
-    isFolder?: boolean;
+    bucketName: string,
+    file?: BrowserObject,
 }>();
 
 const emit = defineEmits<{
-    'update:modelValue': [value: boolean],
+    'update:modelValue': [value: boolean];
+    'contentRemoved': [];
 }>();
 
 const model = computed<boolean>({
@@ -138,6 +140,7 @@ const model = computed<boolean>({
 });
 
 const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
@@ -148,6 +151,8 @@ const link = ref<string>('');
 
 const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
+
+const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 /**
  * Saves link to clipboard.
@@ -166,20 +171,23 @@ function onCopy(): void {
  * Generates linksharing URL when the dialog is opened.
  */
 watch(() => innerContent.value, async (comp: Component | null): Promise<void> => {
-    if (!comp) return;
+    if (!comp) {
+        emit('contentRemoved');
+        return;
+    }
 
     isLoading.value = true;
     link.value = '';
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
     try {
-        if (!props.filePath) {
+        if (!props.file) {
             link.value = await generateBucketShareURL(props.bucketName);
         } else {
             link.value = await generateFileOrFolderShareURL(
                 props.bucketName,
-                props.filePath,
-                props.isFolder,
+                `${filePath.value ? filePath.value + '/' : ''}${props.file.Key}`,
+                props.file.type === 'folder',
             );
         }
     } catch (error) {

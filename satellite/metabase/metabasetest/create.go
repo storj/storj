@@ -22,7 +22,7 @@ func RandObjectStream() metabase.ObjectStream {
 		ProjectID:  testrand.UUID(),
 		BucketName: testrand.BucketName(),
 		ObjectKey:  RandObjectKey(),
-		Version:    1,
+		Version:    12345,
 		StreamID:   testrand.UUID(),
 	}
 }
@@ -48,7 +48,6 @@ func CreatePendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 			ObjectStream: obj,
 			Encryption:   DefaultEncryption,
 		},
-		Version: obj.Version,
 	}.Check(ctx, t, db)
 
 	for i := byte(0); i < numberOfSegments; i++ {
@@ -139,7 +138,6 @@ func CreateObject(ctx *testcontext.Context, t require.TestingT, db *metabase.DB,
 			ObjectStream: obj,
 			Encryption:   DefaultEncryption,
 		},
-		Version: obj.Version,
 	}.Check(ctx, t, db)
 
 	for i := byte(0); i < numberOfSegments; i++ {
@@ -189,7 +187,6 @@ func CreateExpiredObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 			Encryption:   DefaultEncryption,
 			ExpiresAt:    &expiresAt,
 		},
-		Version: obj.Version,
 	}.Check(ctx, t, db)
 
 	for i := byte(0); i < numberOfSegments; i++ {

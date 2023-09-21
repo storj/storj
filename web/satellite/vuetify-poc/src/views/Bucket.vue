@@ -18,7 +18,7 @@
                         <v-btn
                             color="primary"
                             min-width="120"
-                            :disabled="isContentDisabled"
+                            :disabled="!isInitialized"
                             v-bind="props"
                         >
                             <browser-snackbar-component :on-cancel="() => { snackbar = false }" />
@@ -27,7 +27,7 @@
                         </v-btn>
                     </template>
                     <v-list class="pa-2">
-                        <v-list-item rounded="lg" @click.stop="buttonFileUpload">
+                        <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
                                 <IconFile />
                             </template>
@@ -38,7 +38,7 @@
 
                         <v-divider class="my-2" />
 
-                        <v-list-item class="mt-1" rounded="lg" @click.stop="buttonFolderUpload">
+                        <v-list-item class="mt-1" rounded="lg" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
                                 <icon-folder />
                             </template>
@@ -71,7 +71,7 @@
                     variant="outlined"
                     color="default"
                     class="mx-4"
-                    :disabled="isContentDisabled"
+                    :disabled="!isInitialized"
                 >
                     <icon-folder />
                     New Folder
@@ -80,14 +80,10 @@
             </v-row>
         </v-col>
 
-        <browser-table-component :loading="isLoading" :force-empty="isContentDisabled" />
+        <browser-table-component :loading="isFetching" :force-empty="!isInitialized" />
     </v-container>
 
-    <enter-bucket-passphrase-dialog
-        v-if="!isLoading"
-        v-model="isBucketPassphraseDialogOpen"
-        @passphrase-entered="initObjectStore"
-    />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
 </template>
 
 <script setup lang="ts">
@@ -136,11 +132,11 @@ const notify = useNotify();
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
 const menu = ref<boolean>(false);
-const isLoading = ref<boolean>(true);
+const isFetching = ref<boolean>(true);
+const isInitialized = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
-const isContentDisabled = ref<boolean>(true);
 const snackbar = ref<boolean>(false);
-const isBucketPassphraseDialogOpen = ref<boolean>(bucketsStore.state.promptForPassphrase);
+const isBucketPassphraseDialogOpen = ref<boolean>(false);
 
 /**
  * Returns the name of the selected bucket.
@@ -193,7 +189,7 @@ function initObjectStore(): void {
         bucket: bucketName.value,
         browserRoot: '', // unused
     });
-    isContentDisabled.value = false;
+    isInitialized.value = true;
 }
 
 /**
@@ -230,12 +226,37 @@ watch(() => route.params.browserPath, browserPath => {
     bucketsStore.setFileComponentPath(filePath);
 }, { immediate: true });
 
+watch(() => bucketsStore.state.passphrase, async newPass => {
+    if (isBucketPassphraseDialogOpen.value) return;
+
+    const bucketsURL = `/projects/${projectId.value}/buckets`;
+
+    if (!newPass) {
+        router.push(bucketsURL);
+        return;
+    }
+
+    isInitialized.value = false;
+    try {
+        await bucketsStore.setS3Client(projectId.value);
+        obStore.reinit({
+            endpoint: edgeCredentials.value.endpoint,
+            accessKey: edgeCredentials.value.accessKeyId,
+            secretKey: edgeCredentials.value.secretKey,
+        });
+        await router.push(`${bucketsURL}/${bucketsStore.state.fileComponentBucketName}`);
+        isInitialized.value = true;
+    } catch (error) {
+        error.message = `Error setting S3 client. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        router.push(bucketsURL);
+    }
+});
+
 /**
  * Initializes file browser.
  */
 onMounted(async () => {
-    const dashboardURL = `/projects/${projectId.value}/dashboard`;
-
     try {
         await bucketsStore.getAllBucketsNames(projectId.value);
     } catch (error) {
@@ -245,13 +266,17 @@ onMounted(async () => {
     }
 
     if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
-        router.push(dashboardURL);
+        router.push(`/projects/${projectId.value}/dashboard`);
         return;
     }
 
-    if (!isPromptForPassphrase.value) initObjectStore();
+    if (isPromptForPassphrase.value) {
+        isBucketPassphraseDialogOpen.value = true;
+    } else {
+        initObjectStore();
+    }
 
-    isLoading.value = false;
+    isFetching.value = false;
 });
 </script>
 

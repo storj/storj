@@ -138,7 +138,6 @@ func createSegment(ctx *testcontext.Context, t testing.TB, db *metabase.DB, stre
 			ObjectStream: obj,
 			Encryption:   metabasetest.DefaultEncryption,
 		},
-		Version: 1,
 	}.Check(ctx, t, db)
 
 	metabasetest.CommitInlineSegment{

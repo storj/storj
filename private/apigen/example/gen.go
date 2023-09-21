@@ -19,8 +19,9 @@ func main() {
 	g := a.Group("Documents", "docs")
 
 	g.Post("/{path}", &apigen.Endpoint{
-		Name:       "Update Content",
-		MethodName: "UpdateContent",
+		Name:        "Update Content",
+		Description: "Update the content of the document with the specified path and ID if the last update is before the indicated date",
+		MethodName:  "UpdateContent",
 		Response: struct {
 			ID        uuid.UUID `json:"id"`
 			Date      time.Time `json:"date"`

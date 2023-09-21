@@ -248,8 +248,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup overlay
+
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), config.Placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

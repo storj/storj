@@ -11,7 +11,7 @@
 
 <h3 id='documents-update-content'>Update Content (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-
+Update the content of the document with the specified path and ID if the last update is before the indicated date
 
 `POST /api/v0/docs/{path}`
 

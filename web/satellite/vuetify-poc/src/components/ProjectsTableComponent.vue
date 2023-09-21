@@ -17,6 +17,7 @@
             :headers="headers"
             :items="items"
             :search="search"
+            no-data-text="No results found"
             class="elevation-1"
             item-key="path"
         >

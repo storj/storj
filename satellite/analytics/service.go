@@ -15,6 +15,8 @@ import (
 )
 
 const (
+	eventInviteLinkClicked            = "Invite Link Clicked"
+	eventInviteLinkSignup             = "Invite Link Signup"
 	eventAccountCreated               = "Account Created"
 	eventSignedIn                     = "Signed In"
 	eventProjectCreated               = "Project Created"
@@ -731,6 +733,38 @@ func (service *Service) TrackExpiredCreditRemoved(userID uuid.UUID, customerID, 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventExpiredCreditRemoved,
+		Properties: props,
+	})
+}
+
+// TrackInviteLinkSignup sends an "Invite Link Signup" event to Segment.
+func (service *Service) TrackInviteLinkSignup(inviter, invitee string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("inviter", inviter)
+	props.Set("invitee", invitee)
+
+	service.enqueueMessage(segment.Track{
+		Event:      service.satelliteName + " " + eventInviteLinkSignup,
+		Properties: props,
+	})
+}
+
+// TrackInviteLinkClicked sends an "Invite Link Clicked" event to Segment.
+func (service *Service) TrackInviteLinkClicked(inviter, invitee string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("inviter", inviter)
+	props.Set("invitee", invitee)
+
+	service.enqueueMessage(segment.Track{
+		Event:      service.satelliteName + " " + eventInviteLinkClicked,
 		Properties: props,
 	})
 }

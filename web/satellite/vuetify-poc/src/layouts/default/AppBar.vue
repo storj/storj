@@ -80,6 +80,15 @@
                             <img src="@poc/assets/icon-dropdown.svg" alt="Account Dropdown">
                         </template>
                         My Account
+                        <v-chip
+                            class="ml-2 font-weight-bold"
+                            :color="isPaidTier ? 'success' : 'default'"
+                            variant="outlined"
+                            size="small"
+                            rounded
+                        >
+                            {{ isPaidTier ? 'Pro' : 'Free' }}
+                        </v-chip>
                     </v-btn>
                 </template>
 
@@ -91,13 +100,13 @@
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">
-                            North America 1
+                            {{ satelliteName }}
                         </v-list-item-subtitle>
                     </v-list-item>
 
                     <v-divider class="my-2" />
 
-                    <v-list-item link class="my-1 rounded-lg">
+                    <v-list-item link class="my-1 rounded-lg" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-upgrade.svg" alt="Upgrade">
                         </template>
@@ -106,7 +115,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-card.svg" alt="Billing">
                         </template>
@@ -115,7 +124,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="closeSideNav">
                         <template #prepend>
                             <img src="@poc/assets/icon-settings.svg" alt="Account Settings">
                         </template>
@@ -138,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTheme } from 'vuetify';
 import {
@@ -155,6 +164,7 @@ import {
     VListItemTitle,
     VListItemSubtitle,
     VDivider,
+    VChip,
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
@@ -171,6 +181,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();
@@ -185,6 +196,7 @@ const usersStore = useUsersStore();
 const notificationsStore = useNotificationsStore();
 const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const notify = useNotify();
@@ -195,6 +207,20 @@ const props = withDefaults(defineProps<{
     showNavDrawerButton: boolean;
 }>(), {
     showNavDrawerButton: false,
+});
+
+/**
+ * Returns the name of the current satellite.
+ */
+const satelliteName = computed<string>(() => {
+    return configStore.state.config.satelliteName;
+});
+
+/*
+ * Returns user's paid tier status from store.
+ */
+const isPaidTier = computed<boolean>(() => {
+    return usersStore.state.user.paidTier;
 });
 
 function toggleTheme(newTheme: string): void {
@@ -212,6 +238,10 @@ watch(() => theme.global.current.value.dark, (newVal: boolean) => {
 // Check for stored theme in localStorage. If none, default to 'light'
 toggleTheme(localStorage.getItem('theme') || 'light');
 activeTheme.value = theme.global.current.value.dark ? 1 : 0;
+
+function closeSideNav(): void {
+    appStore.toggleNavigationDrawer(false);
+}
 
 /**
  * Logs out user and navigates to login page.

@@ -59,6 +59,7 @@ func newRootCmd(setDefaults bool) (*cobra.Command, *Factory) {
 		newIssueAPIKeyCmd(factory),
 		newGracefulExitInitCmd(factory),
 		newGracefulExitStatusCmd(factory),
+		newForgetSatelliteCmd(factory),
 		// internal hidden commands
 		internalcmd.NewUsedSpaceFilewalkerCmd().Command,
 		internalcmd.NewGCFilewalkerCmd().Command,

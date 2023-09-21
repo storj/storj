@@ -158,6 +158,10 @@ export class AccountBalance {
         return parseFloat(this._coins);
     }
 
+    public get credits(): number {
+        return parseFloat(this._credits);
+    }
+
     public get formattedCredits(): string {
         return formatPrice(decimalShift(this._credits, 2));
     }
@@ -167,7 +171,7 @@ export class AccountBalance {
     }
 
     public get sum(): number {
-        return this.freeCredits + this.coins;
+        return this.credits + this.coins;
     }
 
     public hasCredits(): boolean {

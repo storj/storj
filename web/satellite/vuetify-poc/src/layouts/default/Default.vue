@@ -8,7 +8,7 @@
         </div>
         <session-wrapper v-else>
             <default-bar show-nav-drawer-button />
-            <ProjectNav v-if="appStore.state.isNavigationDrawerShown" />
+            <ProjectNav />
             <default-view />
         </session-wrapper>
     </v-app>
@@ -86,10 +86,6 @@ watch(() => route.params.projectId, async newId => {
  * Pre-fetches user`s and project information.
  */
 onBeforeMount(async () => {
-    if (document.body.clientWidth < 1280) {
-        appStore.toggleNavigationDrawer(false);
-    }
-
     isLoading.value = true;
 
     try {
@@ -109,13 +105,6 @@ onBeforeMount(async () => {
         await billingStore.setupAccount();
     } catch (error) {
         error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-    }
-
-    try {
-        await billingStore.getCreditCards();
-    } catch (error) {
-        error.message = `Unable to get credit cards. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 

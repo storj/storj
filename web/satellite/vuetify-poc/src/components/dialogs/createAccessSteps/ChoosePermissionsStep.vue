@@ -147,10 +147,10 @@ import {
 import { VDatePicker } from 'vuetify/labs/components';
 
 import { Permission } from '@/types/createAccessGrant';
-import { AccessGrantEndDate, CreateAccessStepComponent } from '@poc/types/createAccessGrant';
+import { AccessGrantEndDate } from '@poc/types/createAccessGrant';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { ValidationRule, RequiredRule } from '@poc/types/common';
+import { ValidationRule, RequiredRule, DialogStepComponent } from '@poc/types/common';
 
 type EndDateListItem = AccessGrantEndDate | { divider: true };
 
@@ -267,7 +267,7 @@ function onDatePickerSubmit(): void {
     isDatePicker.value = false;
 }
 
-defineExpose<CreateAccessStepComponent>({
+defineExpose<DialogStepComponent>({
     title: 'Access Permissions',
     validate: () => {
         form.value?.validate();

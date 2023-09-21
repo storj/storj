@@ -36,6 +36,7 @@ import UpgradeAccountModal from '@/components/modals/upgradeAccountFlow/UpgradeA
 import DeleteAccessGrantModal from '@/components/modals/DeleteAccessGrantModal.vue';
 import SkipPassphraseModal from '@/components/modals/SkipPassphraseModal.vue';
 import JoinProjectModal from '@/components/modals/JoinProjectModal.vue';
+import RequestProjectLimitModal from '@/components/modals/RequestProjectLimitModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -53,6 +54,8 @@ export const APP_STATE_DROPDOWNS = {
     PAYMENT_SELECTION: 'isPaymentSelectionShown',
     TIMEOUT_SELECTOR: 'timeoutSelector',
     PAGE_SIZE_SELECTOR: 'pageSizeSelector',
+    SIZE_MEASUREMENT_SELECTOR: 'sizeMeasurementSelector',
+    REQUESTED_SIZE_MEASUREMENT_SELECTOR: 'requestedSizeMeasurementSelector',
 };
 
 enum Modals {
@@ -85,6 +88,7 @@ enum Modals {
     DELETE_ACCESS_GRANT = 'deleteAccessGrant',
     SKIP_PASSPHRASE = 'skipPassphrase',
     CHANGE_PROJECT_LIMIT = 'changeProjectLimit',
+    REQUEST_PROJECT_LIMIT_INCREASE = 'requestProjectLimitIncrease',
     JOIN_PROJECT = 'joinProject',
 }
 
@@ -118,5 +122,6 @@ export const MODALS: Record<Modals, Component> = {
     [Modals.DELETE_ACCESS_GRANT]: DeleteAccessGrantModal,
     [Modals.SKIP_PASSPHRASE]: SkipPassphraseModal,
     [Modals.CHANGE_PROJECT_LIMIT]: ChangeProjectLimitModal,
+    [Modals.REQUEST_PROJECT_LIMIT_INCREASE]: RequestProjectLimitModal,
     [Modals.JOIN_PROJECT]: JoinProjectModal,
 };

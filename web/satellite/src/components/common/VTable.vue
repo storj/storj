@@ -3,6 +3,9 @@
 
 <template>
     <div class="table-wrapper">
+        <div v-if="loading" class="table-wrapper__loader">
+            <VLoader width="100px" height="100px" />
+        </div>
         <table class="base-table" border="0" cellpadding="0" cellspacing="0">
             <thead>
                 <tr>
@@ -38,6 +41,7 @@ import { PageChangeCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 const props = withDefaults(defineProps<{
     itemsLabel?: string,
@@ -52,6 +56,7 @@ const props = withDefaults(defineProps<{
     selected?: boolean,
     showSelect?: boolean,
     simplePagination?: boolean,
+    loading?: boolean,
 }>(), {
     selectable: false,
     selected: false,
@@ -65,6 +70,7 @@ const props = withDefaults(defineProps<{
     onNextClicked: null,
     onPreviousClicked: null,
     onPageSizeChanged: null,
+    loading: false,
 });
 
 const emit = defineEmits(['selectAllClicked']);
@@ -74,6 +80,18 @@ const emit = defineEmits(['selectAllClicked']);
 .table-wrapper {
     background: #fff;
     border-radius: 12px;
+    position: relative;
+
+    &__loader {
+        border-radius: 12px;
+        z-index: 1;
+        background-color: rgb(0 0 0 / 5%);
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 }
 
 .base-table {
