@@ -208,7 +208,7 @@ async function upload(e: Event): Promise<void> {
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
     if (isOpen || !isPromptForPassphrase.value) return;
-    router.push(`/projects/${projectId.value}/dashboard`);
+    router.push(`/projects/${projectId.value}/buckets`);
 });
 
 watch(() => route.params.browserPath, browserPath => {
@@ -266,7 +266,7 @@ onMounted(async () => {
     }
 
     if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
-        router.push(`/projects/${projectId.value}/dashboard`);
+        router.push(`/projects/${projectId.value}/buckets`);
         return;
     }
 

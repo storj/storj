@@ -30,7 +30,7 @@
                                     :key="project.id"
                                     rounded="lg"
                                     :active="project.isSelected"
-                                    :to="!project.isSelected ? `/projects/${project.id}/dashboard` : undefined"
+                                    @click="() => onProjectSelected(project.id)"
                                 >
                                     <template v-if="project.isSelected" #prepend>
                                         <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
@@ -62,7 +62,7 @@
                                     :key="project.id"
                                     rounded="lg"
                                     :active="project.isSelected"
-                                    :to="!project.isSelected ? `/projects/${project.id}/dashboard` : undefined"
+                                    @click="() => onProjectSelected(project.id)"
                                 >
                                     <template v-if="project.isSelected" #prepend>
                                         <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
@@ -266,6 +266,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
     VNavigationDrawer,
     VSheet,
@@ -284,6 +285,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -305,6 +308,10 @@ const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const bucketsStore = useBucketsStore();
+
+const route = useRoute();
+const router = useRouter();
 
 const { mdAndDown } = useDisplay();
 
@@ -363,6 +370,21 @@ function compareProjects(a: Project, b: Project): number {
     if (a.isSelected) return -1;
     if (b.isSelected) return 1;
     return 0;
+}
+
+/**
+ * Handles click event for items in the project dropdown.
+ */
+async function onProjectSelected(projectId: string): Promise<void> {
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    await router.push({
+        name: route.name || undefined,
+        params: {
+            ...route.params,
+            projectId,
+        },
+    });
+    bucketsStore.clearS3Data();
 }
 
 onBeforeMount(() => {
