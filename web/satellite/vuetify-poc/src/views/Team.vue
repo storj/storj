@@ -4,7 +4,10 @@
 <template>
     <v-container>
         <PageTitleComponent title="Team" />
-        <PageSubtitleComponent subtitle="Invite people and manage the team of this project." link="https://docs.storj.io/dcs/users" />
+        <PageSubtitleComponent
+            subtitle="Invite people and manage the team of this project."
+            link="https://docs.storj.io/support/users"
+        />
 
         <v-col>
             <v-row class="mt-2 mb-4">

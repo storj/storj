@@ -4,7 +4,10 @@
 <template>
     <v-container>
         <PageTitleComponent title="Project Overview" />
-        <PageSubtitleComponent :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`" />
+        <PageSubtitleComponent
+            :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
+            link="https://docs.storj.io/dcs/pricing#per-segment-fee"
+        />
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
