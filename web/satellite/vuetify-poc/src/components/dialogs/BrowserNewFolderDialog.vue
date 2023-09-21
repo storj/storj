@@ -8,6 +8,7 @@
         width="auto"
         min-width="400px"
         transition="fade-transition"
+        :persistent="isLoading"
     >
         <v-card ref="innerContent" rounded="xlg">
             <v-sheet>
@@ -24,6 +25,7 @@
                             variant="text"
                             size="small"
                             color="default"
+                            :disabled="isLoading"
                             @click="dialog = false"
                         />
                     </template>
@@ -55,10 +57,27 @@
             <v-card-actions class="pa-7">
                 <v-row>
                     <v-col>
-                        <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            block
+                            :disabled="isLoading"
+                            @click="dialog = false"
+                        >
+                            Cancel
+                        </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="primary" variant="flat" :disabled="!formValid" block @click="createFolder">Create Folder</v-btn>
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            :disabled="!formValid"
+                            :loading="isLoading"
+                            block
+                            @click="createFolder"
+                        >
+                            Create Folder
+                        </v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
