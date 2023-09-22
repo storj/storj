@@ -7,6 +7,7 @@
             <v-carousel v-model="constCarouselIndex" hide-delimiters show-arrows="hover" height="100vh">
                 <template #prev>
                     <v-btn
+                        v-if="files.length > 1"
                         color="default"
                         class="rounded-circle"
                         icon
@@ -17,6 +18,7 @@
                 </template>
                 <template #next>
                     <v-btn
+                        v-if="files.length > 1"
                         color="default"
                         class="rounded-circle"
                         icon
@@ -195,12 +197,14 @@ async function download(): Promise<void> {
     if (isDownloading.value) {
         return;
     }
+
     isDownloading.value = true;
     try {
         await obStore.download(currentFile.value);
-        notify.success('Keep this download link private. If you want to share, use the Share option.');
+        notify.success('', `<p>Keep this download link private.<br>If you want to share, use the Share option.</p>`);
     } catch (error) {
-        notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
+        error.message = `Error downloading file. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
     isDownloading.value = false;
 }

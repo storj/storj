@@ -148,11 +148,18 @@ const isDeleting = computed((): boolean => {
 });
 
 async function onDownloadClick(): Promise<void> {
+    if (isDownloading.value) {
+        return;
+    }
+
     isDownloading.value = true;
-    await obStore.download(props.file).catch((err: Error) => {
-        err.message = `Error downloading file. ${err.message}`;
-        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
-    });
+    try {
+        await obStore.download(props.file);
+        notify.success('', `<p>Keep this download link private.<br>If you want to share, use the Share option.</p>`);
+    } catch (error) {
+        error.message = `Error downloading file. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    }
     isDownloading.value = false;
 }
 

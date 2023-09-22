@@ -21,13 +21,13 @@ export class Notificator {
 
         if (error instanceof APIError) {
             let template = `
-            <p class="message-title">${error.message}</p>
-        `;
+                <p class="message-title">${error.message}</p>
+            `;
             if (error.requestID) {
                 template = `
-            ${template}
-            <p class="message-footer">Request ID: ${error.requestID}</p>
-        `;
+                    ${template}
+                    <p class="message-footer text-caption">Request ID: ${error.requestID}</p>
+                `;
             }
             notificationsStore.notifyError({ message: '', source }, template);
             return;

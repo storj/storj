@@ -45,6 +45,7 @@
                                 :rules="nameRules"
                                 label="Project Name"
                                 :counter="MAX_NAME_LENGTH"
+                                :maxlength="MAX_NAME_LENGTH"
                                 persistent-counter
                                 :hide-details="false"
                                 autofocus
@@ -68,6 +69,7 @@
                                 :hide-details="false"
                                 label="Project Description (Optional)"
                                 :counter="MAX_DESCRIPTION_LENGTH"
+                                :maxlength="MAX_DESCRIPTION_LENGTH"
                                 persistent-counter
                             />
                         </v-col>

@@ -15,7 +15,7 @@
             closable
             variant="elevated"
             :title="title(item.type)"
-            :text="item.message"
+            :text="item.messageNode ? '' : item.message"
             :type="getType(item.type)"
             rounded="lg"
             class="my-2"
@@ -23,7 +23,12 @@
             @mouseover="() => onMouseOver(item.id)"
             @mouseleave="() => onMouseLeave(item.id)"
             @click:close="() => onCloseClick(item.id)"
-        />
+        >
+            <template #default>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <div v-if="item.messageNode" v-html="item.messageNode" />
+            </template>
+        </v-alert>
     </v-snackbar>
 </template>
 
