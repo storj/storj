@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center">
+    <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center mt-n16">
         <v-progress-circular indeterminate />
     </v-container>
     <v-container v-else-if="previewIsVideo" class="fill-height flex-column justify-center align-center">
@@ -29,7 +29,7 @@
             alt="preview"
         >
     </v-container>
-    <v-container v-else-if="placeHolderDisplayable || previewAndMapFailed" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="placeHolderDisplayable || previewAndMapFailed" class="fill-height flex-column justify-center align-center mt-n16">
         <p class="mb-5">{{ file?.Key || '' }}</p>
         <p class="text-h5 mb-5 font-weight-bold">No preview available</p>
         <v-btn
@@ -175,8 +175,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(
-            bucketsStore.state.fileComponentBucketName, filePath.value);
+        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, filePath.value);
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
