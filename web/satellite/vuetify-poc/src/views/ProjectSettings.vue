@@ -78,14 +78,14 @@
                     <v-divider />
 
                     <v-list-item>
-                        <v-list-item-title>Bandwidth</v-list-item-title>
+                        <v-list-item-title>Download</v-list-item-title>
                         <v-list-item-subtitle>
-                            {{ bandwidthLimitFormatted }} of {{ paidBandwidthLimitFormatted }} available bandwidth.
+                            {{ bandwidthLimitFormatted }} of {{ paidBandwidthLimitFormatted }} available to download.
                         </v-list-item-subtitle>
                         <template #append>
                             <v-list-item-action>
                                 <v-btn variant="outlined" color="default" size="small" @click="showBandwidthLimitDialog">
-                                    Edit Bandwidth Limit
+                                    Edit Download Limit
                                 </v-btn>
                             </v-list-item-action>
                         </template>
@@ -96,7 +96,7 @@
                     <v-list-item>
                         <v-list-item-title>Account</v-list-item-title>
                         <v-list-item-subtitle>
-                            {{ paidStorageLimitFormatted }} storage and {{ paidBandwidthLimitFormatted }} bandwidth per month.
+                            {{ paidStorageLimitFormatted }} of storage and {{ paidBandwidthLimitFormatted }} to download per month.
                         </v-list-item-subtitle>
                         <template #append>
                             <v-list-item-action>

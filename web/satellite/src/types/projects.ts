@@ -35,7 +35,7 @@ export interface ProjectsApi {
     /**
      * Get project limits.
      *
-     * @param projectId- project ID
+     * @param projectId - project ID
      * @throws Error
      */
     getLimits(projectId: string): Promise<ProjectLimits>;
@@ -296,7 +296,7 @@ export interface ProjectUsageDateRange {
 
 export enum LimitToChange {
     Storage = 'Storage',
-    Bandwidth = 'Bandwidth',
+    Bandwidth = 'Download',
 }
 
 export enum FieldToChange {

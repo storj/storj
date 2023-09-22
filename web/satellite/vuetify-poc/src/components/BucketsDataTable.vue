@@ -190,7 +190,7 @@ const headers = computed<DataTableHeader[]>(() => {
             sortable: false,
         },
         { title: 'Storage', key: 'storage', sortable: false },
-        { title: 'Egress', key: 'egress', sortable: false },
+        { title: 'Download', key: 'egress', sortable: false },
         { title: 'Files', key: 'objectCount', sortable: false },
         { title: 'Segments', key: 'segmentCount', sortable: false },
         { title: 'Date Created', key: 'createdAt', sortable: false },

@@ -64,10 +64,10 @@
             </div>
             <div class="project-dashboard__charts__container">
                 <div class="project-dashboard__charts__container__header">
-                    <h3 class="project-dashboard__charts__container__header__title">Egress</h3>
+                    <h3 class="project-dashboard__charts__container__header__title">Download</h3>
                     <div class="project-dashboard__charts__container__header__right">
                         <span class="project-dashboard__charts__container__header__right__allocated-color" />
-                        <p class="project-dashboard__charts__container__header__right__allocated-label">Egress</p>
+                        <p class="project-dashboard__charts__container__header__right__allocated-label">Download</p>
                         <VInfo class="project-dashboard__charts__container__header__right__info">
                             <template #icon>
                                 <InfoIcon />

@@ -304,7 +304,7 @@ async function onSave(): Promise<void> {
                 await projectsStore.updateProjectBandwidthLimit(updatedProject);
 
                 analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
-                notify.success('Project egress limit updated successfully!');
+                notify.success('Project download limit updated successfully!');
             } else {
                 const updatedProject = new ProjectLimits(0, 0, limit);
                 await projectsStore.updateProjectStorageLimit(updatedProject);
