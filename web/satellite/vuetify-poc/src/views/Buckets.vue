@@ -4,7 +4,10 @@
 <template>
     <v-container>
         <PageTitleComponent title="Buckets" />
-        <PageSubtitleComponent subtitle="Buckets are storage containers for your data." link="https://docs.storj.io/dcs/buckets" />
+        <PageSubtitleComponent
+            subtitle="Buckets are storage containers for your data."
+            link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
+        />
 
         <v-row class="mt-2 mb-4">
             <v-col>

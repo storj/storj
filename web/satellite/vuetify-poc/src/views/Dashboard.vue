@@ -4,7 +4,10 @@
 <template>
     <v-container>
         <PageTitleComponent title="Project Overview" />
-        <PageSubtitleComponent :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`" />
+        <PageSubtitleComponent
+            :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
+            link="https://docs.storj.io/dcs/pricing#per-segment-fee"
+        />
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
@@ -35,22 +38,22 @@
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" />
+                <CardStatsComponent title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" />
+                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" />
+                <CardStatsComponent title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" />
+                <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" to="access" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" />
+                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" />
+                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
             </v-col>
         </v-row>
 

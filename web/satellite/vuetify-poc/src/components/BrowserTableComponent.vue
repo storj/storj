@@ -197,7 +197,7 @@ const headers = [
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 const extensionInfos: Map<string[], BrowserObjectTypeInfo> = new Map([
-    [['jpg', 'jpeg', 'png', 'gif'], { title: 'Image', icon: imageIcon }],
+    [['jpg', 'jpeg', 'png', 'gif', 'svg'], { title: 'Image', icon: imageIcon }],
     [['mp4', 'mkv', 'mov'], { title: 'Video', icon: videoIcon }],
     [['mp3', 'aac', 'wav', 'm4a'], { title: 'Audio', icon: audioIcon }],
     [['txt', 'docx', 'doc', 'pages'], { title: 'Text', icon: textIcon }],

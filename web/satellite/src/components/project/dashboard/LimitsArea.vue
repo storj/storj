@@ -42,7 +42,7 @@
             :is-loading="isLoading"
             :use-action="!isPaidTier"
             :link="segmentUsed < EIGHTY_PERCENT ?
-                'https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bcfOt' :
+                'https://docs.storj.io/dcs/pricing#per-segment-fee' :
                 'https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212'"
         />
         <LimitCard
@@ -59,7 +59,7 @@
             :is-loading="isLoading"
             :is-dark="isPaidTier"
             :use-action="!isPaidTier"
-            link="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/free-tier"
+            link="https://docs.storj.io/dcs/pricing#free-tier"
         />
         <LimitCard
             v-if="coupon && !isFreeTierCoupon"

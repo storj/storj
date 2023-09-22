@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title" :subtitle="subtitle" variant="flat" :border="true" rounded="xlg">
+    <v-card :title="title" :subtitle="subtitle" variant="flat" :border="true" rounded="xlg" :to="to">
         <v-card-text>
             <v-chip rounded color="success" variant="outlined" class="font-weight-bold">{{ data }}</v-chip>
         </v-card-text>
@@ -16,5 +16,6 @@ const props = defineProps<{
     title: string;
     subtitle: string;
     data: string;
+    to: string;
 }>();
 </script>
