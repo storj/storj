@@ -154,7 +154,7 @@ function formattedValue(value: Size): string {
     case Dimensions.Bytes:
         return '0';
     default:
-        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
     }
 }
 
