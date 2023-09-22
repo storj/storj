@@ -20,7 +20,7 @@
                         <icon-trash />
                     </v-sheet>
                 </template>
-                <v-card-title class="font-weight-bold">Delete Folder</v-card-title>
+                <v-card-title class="font-weight-bold text-capitalize">Delete {{ fileType }}</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -36,9 +36,9 @@
             <v-divider />
 
             <div class="pa-7">
-                The following folder and all of its data will be deleted. This action cannot be undone.
+                The following {{ fileType }} <template v-if="isFolder">and all of its data</template> will be deleted. This action cannot be undone.
                 <br><br>
-                <span class="font-weight-bold">{{ folder.Key }}</span>
+                <span class="font-weight-bold">{{ file.path + file.Key }}</span>
             </div>
 
             <v-divider />
@@ -86,7 +86,7 @@ import IconTrash from '@poc/components/icons/IconTrash.vue';
 
 const props = defineProps<{
     modelValue: boolean,
-    folder: BrowserObject,
+    file: BrowserObject,
 }>();
 
 const emit = defineEmits<{
@@ -109,17 +109,29 @@ const innerContent = ref<Component | null>(null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
+const fileType = computed<string>(() => {
+    return props.file.type ?? 'file';
+});
+
+const isFolder = computed<boolean>(() => {
+    return fileType.value === 'folder';
+});
+
 async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {
         try {
-            await obStore.deleteFolder(props.folder, filePath.value ? filePath.value + '/' : '');
+            if (isFolder.value) {
+                await obStore.deleteFolder(props.file, filePath.value ? filePath.value + '/' : '');
+            } else {
+                await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', props.file);
+            }
         } catch (error) {
-            error.message = `Error deleting folder. ${error.message}`;
+            error.message = `Error deleting ${fileType.value}. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
             return;
         }
 
-        notify.success('Folder deleted.');
+        notify.success(`${fileType.value.charAt(0).toUpperCase() + fileType.value.slice(1)} deleted.`);
         model.value = false;
     });
 }

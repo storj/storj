@@ -66,7 +66,7 @@
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
                             :file="item.raw.browserObject"
-                            @delete-folder-click="() => onDeleteFolderClick(item.raw.browserObject)"
+                            @delete-file-click="() => onDeleteFileClick(item.raw.browserObject)"
                             @share-click="() => onShareClick(item.raw.browserObject)"
                         />
                     </template>
@@ -77,11 +77,11 @@
         <file-preview-dialog v-model="previewDialog" />
     </v-card>
 
-    <delete-folder-dialog
-        v-if="folderToDelete"
-        v-model="isDeleteFolderDialogShown"
-        :folder="folderToDelete"
-        @content-removed="folderToDelete = null"
+    <delete-file-dialog
+        v-if="fileToDelete"
+        v-model="isDeleteFileDialogShown"
+        :file="fileToDelete"
+        @content-removed="fileToDelete = null"
     />
     <share-dialog
         v-model="isShareDialogShown"
@@ -118,7 +118,7 @@ import { tableSizeOptions } from '@/types/common';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
-import DeleteFolderDialog from '@poc/components/dialogs/DeleteFolderDialog.vue';
+import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 
 import folderIcon from '@poc/assets/icon-folder-tonal.svg';
@@ -177,8 +177,8 @@ const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
-const folderToDelete = ref<BrowserObject | null>(null);
-const isDeleteFolderDialogShown = ref<boolean>(false);
+const fileToDelete = ref<BrowserObject | null>(null);
+const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 
@@ -413,11 +413,11 @@ async function fetchFiles(): Promise<void> {
 }
 
 /**
- * Handles delete button click event for folder rows.
+ * Handles delete button click event for files.
  */
-function onDeleteFolderClick(folder: BrowserObject): void {
-    folderToDelete.value = folder;
-    isDeleteFolderDialogShown.value = true;
+function onDeleteFileClick(file: BrowserObject): void {
+    fileToDelete.value = file;
+    isDeleteFileDialogShown.value = true;
 }
 
 /**

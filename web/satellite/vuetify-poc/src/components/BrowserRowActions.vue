@@ -70,7 +70,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="onDeleteClick">
+                    <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="emit('deleteFileClick')">
                         <template #prepend>
                             <icon-trash bold />
                         </template>
@@ -82,20 +82,6 @@
             </v-menu>
         </v-btn>
     </div>
-
-    <v-overlay
-        v-model="isDeleting"
-        scrim="surface"
-        contained
-        persistent
-        no-click-animation
-        class="align-center justify-center browser-table__loader-overlay"
-    >
-        <div class="d-flex align-center">
-            <v-progress-circular size="23" width="2" color="error" indeterminate />
-            <p class="ml-3 text-subtitle-1 font-weight-medium text-error">Deleting...</p>
-        </div>
-    </v-overlay>
 </template>
 
 <script setup lang="ts">
@@ -133,19 +119,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    deleteFolderClick: [];
+    deleteFileClick: [];
     shareClick: [];
 }>();
 
 const isDownloading = ref<boolean>(false);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
-
-const isDeleting = computed((): boolean => {
-    return obStore.state.filesToBeDeleted.some(
-        file => file.Key === props.file.Key && file.path === props.file.path,
-    );
-});
 
 async function onDownloadClick(): Promise<void> {
     if (isDownloading.value) {
@@ -161,20 +141,6 @@ async function onDownloadClick(): Promise<void> {
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
     isDownloading.value = false;
-}
-
-async function onDeleteClick(): Promise<void> {
-    if (props.file.type === 'folder') {
-        emit('deleteFolderClick');
-        return;
-    }
-
-    obStore.addFileToBeDeleted(props.file);
-    await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', props.file).catch((err: Error) => {
-        err.message = `Error deleting ${props.file.type}. ${err.message}`;
-        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
-    });
-    obStore.removeFileFromToBeDeleted(props.file);
 }
 </script>
 
