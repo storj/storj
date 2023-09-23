@@ -7,9 +7,15 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"storj.io/storj/private/api"
+)
+
+var (
+	groupNameRegExp   = regexp.MustCompile(`^([A-Z0-9]\w*)?$`)
+	groupPrefixRegExp = regexp.MustCompile(`^\w*$`)
 )
 
 // API represents specific API's configuration.
@@ -31,7 +37,27 @@ type API struct {
 }
 
 // Group adds new endpoints group to API.
+// name must be `^([A-Z0-9]\w*)?$“
+// prefix must be `^\w*$`.
 func (a *API) Group(name, prefix string) *EndpointGroup {
+	if !groupNameRegExp.MatchString(name) {
+		panic(
+			fmt.Sprintf(
+				"invalid name for API Endpoint Group. name must fulfill the regular expression `^([A-Z0-9]\\w*)?$``, got %q",
+				name,
+			),
+		)
+	}
+	if !groupPrefixRegExp.MatchString(prefix) {
+		panic(
+			fmt.Sprintf(
+				"invalid prefix for API Endpoint Group %q. prefix must fulfill the regular expression `^\\w*$`, got %q",
+				name,
+				prefix,
+			),
+		)
+	}
+
 	group := &EndpointGroup{
 		Name:   name,
 		Prefix: prefix,

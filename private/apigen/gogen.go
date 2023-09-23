@@ -26,7 +26,7 @@ const DateFormat = "2006-01-02T15:04:05.999Z"
 func (a *API) MustWriteGo(path string) {
 	generated, err := a.generateGo()
 	if err != nil {
-		panic(errs.Wrap(err))
+		panic(err)
 	}
 
 	err = os.WriteFile(path, generated, 0644)
@@ -298,7 +298,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 	output, err := format.Source([]byte(result.String()))
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return output, nil

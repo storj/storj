@@ -4,8 +4,10 @@
 package apigen
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 // Endpoint represents endpoint's configuration.
@@ -56,6 +58,8 @@ type fullEndpoint struct {
 }
 
 // EndpointGroup represents endpoints group.
+// You should always create a group using API.Group because it validates the field values to
+// guarantee correct code generation.
 type EndpointGroup struct {
 	Name      string
 	Prefix    string
@@ -63,27 +67,43 @@ type EndpointGroup struct {
 }
 
 // Get adds new GET endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Get(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodGet, endpoint)
 }
 
 // Patch adds new PATCH endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Patch(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPatch, endpoint)
 }
 
 // Post adds new POST endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Post(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPost, endpoint)
 }
 
 // Delete adds new DELETE endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodDelete, endpoint)
 }
 
 // addEndpoint adds new endpoint to endpoints list.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
+	if !strings.HasPrefix(path, "/") {
+		panic(
+			fmt.Sprintf(
+				"invalid path for method %q of EndpointGroup %q. path must start with slash, got %q",
+				method,
+				eg.Name,
+				path,
+			),
+		)
+	}
+
 	ep := &fullEndpoint{*endpoint, path, method}
 	for i, e := range eg.endpoints {
 		if e.Path == path && e.Method == method {
