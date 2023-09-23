@@ -118,15 +118,15 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 			for _, p := range method.QueryParams {
 				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
 			}
-			f.pf("\t\tconst path = u.toString();")
+			f.pf("\t\tconst fullPath = u.toString();")
 		} else {
-			f.pf("\t\tconst path = `%s`;", path)
+			f.pf("\t\tconst fullPath = `%s`;", path)
 		}
 
 		if method.Request != nil {
-			f.pf("\t\tconst response = await this.http.%s(path, JSON.stringify(request));", strings.ToLower(method.Method))
+			f.pf("\t\tconst response = await this.http.%s(fullPath, JSON.stringify(request));", strings.ToLower(method.Method))
 		} else {
-			f.pf("\t\tconst response = await this.http.%s(path);", strings.ToLower(method.Method))
+			f.pf("\t\tconst response = await this.http.%s(fullPath);", strings.ToLower(method.Method))
 		}
 
 		f.pf("\t\tif (response.ok) {")

@@ -23,8 +23,8 @@ export class docsHttpApiV0 {
         const u = new URL(`${this.ROOT_PATH}/${path}`);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
-        const path = u.toString();
-        const response = await this.http.post(path, JSON.stringify(request));
+        const fullPath = u.toString();
+        const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UpdateContentResponse);
         }
