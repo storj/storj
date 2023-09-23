@@ -10,16 +10,32 @@ import (
 
 // Endpoint represents endpoint's configuration.
 type Endpoint struct {
-	Name         string
-	Description  string
-	MethodName   string
+	// Name is a free text used to name the endpoint for documentation purpose.
+	// It cannot be empty.
+	Name string
+	// Description is a free text to describe the endpoint for documentation purpose.
+	Description string
+	// MethodName is the name of method of the service interface which handles the business logic of
+	// this endpoint.
+	// It must fulfill the Go language specification for method names
+	// (https://go.dev/ref/spec#MethodName)
+	// TODO: Should we rename this field to be something like ServiceMethodName?
+	MethodName string
+	// RequestName is the name of the method used to name the method in the client side code. When not
+	// set, MethodName is used.
+	// TODO: Should we delete this field in favor of always using MethodName?
 	RequestName  string
 	NoCookieAuth bool
 	NoAPIAuth    bool
-	Request      interface{}
-	Response     interface{}
-	QueryParams  []Param
-	PathParams   []Param
+	// Request is the type that defines the format of the request body.
+	Request interface{}
+	// Response is the type that defines the format of the response body.
+	Response interface{}
+	// QueryParams is the list of query parameters that the endpoint accepts.
+	QueryParams []Param
+	// PathParams is the list of path parameters that appear in the path associated with this
+	// endpoint.
+	PathParams []Param
 }
 
 // CookieAuth returns endpoint's cookie auth status.
