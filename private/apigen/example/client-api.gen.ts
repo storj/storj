@@ -4,11 +4,11 @@
 import { HttpClient } from '@/utils/httpClient';
 import { Time, UUID } from '@/types/common';
 
-export class  {
+export class UpdateContentRequest {
     content: string;
 }
 
-export class  {
+export class UpdateContentResponse {
     id: UUID;
     date: Time;
     pathParam: string;
@@ -19,14 +19,14 @@ export class docsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
 
-    public async (request: , path: string, id: UUID, date: Time): Promise<> {
+    public async UpdateContent(request: UpdateContentRequest, path: string, id: UUID, date: Time): Promise<UpdateContentResponse> {
         const u = new URL(`${this.ROOT_PATH}/${path}`);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
         const path = u.toString();
         const response = await this.http.post(path, JSON.stringify(request));
         if (response.ok) {
-            return response.json().then((body) => body as );
+            return response.json().then((body) => body as UpdateContentResponse);
         }
         const err = await response.json();
         throw new Error(err.error);

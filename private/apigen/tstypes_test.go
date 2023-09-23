@@ -10,7 +10,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testTypesValoration struct {
+	Points uint
+}
+
 func TestTypes(t *testing.T) {
+	t.Run("Register panics with anonymous types", func(t *testing.T) {
+		types := NewTypes()
+		require.Panics(t, func() {
+			types.Register(reflect.TypeOf([2]int{}))
+		}, "array")
+
+		require.Panics(t, func() {
+			types.Register(reflect.TypeOf([]float64{}))
+		}, "slice")
+
+		require.Panics(t, func() {
+			types.Register(reflect.TypeOf(struct{}{}))
+		}, "struct")
+	})
+
 	t.Run("All returns nested types", func(t *testing.T) {
 		typesList := []reflect.Type{
 			reflect.TypeOf(true),
@@ -18,23 +37,7 @@ func TestTypes(t *testing.T) {
 			reflect.TypeOf(uint8(9)),
 			reflect.TypeOf(float64(99.9)),
 			reflect.TypeOf("this is a test"),
-			reflect.TypeOf(struct {
-				Name      string
-				Addresses []struct {
-					Address string
-					PO      string
-				}
-				Job struct {
-					Company      string
-					Position     string
-					StartingYear uint
-				}
-			}{}),
-			reflect.TypeOf([]string{}),
-			reflect.TypeOf([]struct {
-				Path    string
-				content string
-			}{}),
+			reflect.TypeOf(testTypesValoration{}),
 		}
 
 		types := NewTypes()
@@ -44,13 +47,55 @@ func TestTypes(t *testing.T) {
 
 		allTypes := types.All()
 
-		require.Len(t, allTypes, 13, "total number of types")
+		require.Len(t, allTypes, 7, "total number of types")
 		require.Subset(t, allTypes, typesList, "all types contains at least the registered ones")
 	})
 
-	t.Run("anonymous structs", func(t *testing.T) {
-		typesList := []reflect.Type{
-			reflect.TypeOf(struct {
+	t.Run("All nested structs and slices", func(t *testing.T) {
+		types := NewTypes()
+		types.Register(
+			typeCustomName{
+				Type: reflect.TypeOf(struct {
+					Name      string
+					Addresses []struct {
+						Address string
+						PO      string
+					}
+					Job struct {
+						Company      string
+						Position     string
+						StartingYear uint
+					}
+					Documents []struct {
+						Path       string
+						Content    string
+						Valoration testTypesValoration
+					}
+				}{}),
+				name: "Response",
+			})
+
+		allTypes := types.All()
+		require.Len(t, allTypes, 9, "total number of types")
+
+		typesNames := []string{}
+		for _, tp := range allTypes {
+			typesNames = append(typesNames, tp.Name())
+		}
+
+		require.ElementsMatch(t, []string{
+			"string", "uint",
+			"Response",
+			"ResponseAddressesSlice", "ResponseAddresses",
+			"ResponseJob",
+			"ResponseDocumentsSlice", "ResponseDocuments", "testTypesValoration",
+		}, typesNames)
+	})
+
+	t.Run("All panic types without unique names", func(t *testing.T) {
+		types := NewTypes()
+		types.Register(typeCustomName{
+			Type: reflect.TypeOf(struct {
 				Name      string
 				Addresses []struct {
 					Address string
@@ -62,27 +107,23 @@ func TestTypes(t *testing.T) {
 					StartingYear uint
 				}
 				Documents []struct {
-					Path    string
-					Content string
+					Path       string
+					Content    string
+					Valoration testTypesValoration
 				}
 			}{}),
-		}
+			name: "Response",
+		})
 
-		types := NewTypes()
-		for _, li := range typesList {
-			types.Register(li)
-		}
+		types.Register(typeCustomName{
+			Type: reflect.TypeOf(struct {
+				Reference string
+			}{}),
+			name: "Response",
+		})
 
-		allTypes := types.All()
-
-		require.Len(t, allTypes, 8, "total number of types")
-		require.Subset(t, allTypes, typesList, "all types contains at least the registered ones")
-
-		typesNames := []string{}
-		for _, tp := range allTypes {
-			typesNames = append(typesNames, tp.Name())
-		}
-
-		require.ElementsMatch(t, []string{"", "", "", "", "", "", "string", "uint"}, typesNames)
+		require.Panics(t, func() {
+			types.All()
+		})
 	})
 }

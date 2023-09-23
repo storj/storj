@@ -65,17 +65,19 @@ func (f *tsGenFile) generateTS() {
 }
 
 func (f *tsGenFile) registerTypes() {
+	// TODO: what happen with path parameters?
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
 			if method.Request != nil {
-				f.types.Register(reflect.TypeOf(method.Request))
+				f.types.Register(method.requestType())
 			}
 			if method.Response != nil {
-				f.types.Register(reflect.TypeOf(method.Response))
+				f.types.Register(method.responseType())
 			}
 			if len(method.QueryParams) > 0 {
 				for _, p := range method.QueryParams {
-					t := getElementaryType(p.Type)
+					// TODO: Is this call needed? this breaks the named type for slices and arrays and pointers.
+					t := getElementaryType(p.namedType(method.Endpoint, "query"))
 					f.types.Register(t)
 				}
 			}
@@ -95,15 +97,22 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		returnStmt := "return"
 		returnType := "void"
 		if method.Response != nil {
-			returnType = TypescriptTypeName(getElementaryType(reflect.TypeOf(method.Response)))
-			if v := reflect.ValueOf(method.Response); v.Kind() == reflect.Array || v.Kind() == reflect.Slice {
+			respType := method.responseType()
+			returnType = TypescriptTypeName(getElementaryType(respType))
+			// TODO: see if this is needed after we are creating types for array and slices
+			if respType.Kind() == reflect.Array || respType.Kind() == reflect.Slice {
 				returnType = fmt.Sprintf("Array<%s>", returnType)
 			}
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
 		}
 		returnStmt += ";"
 
-		f.pf("\tpublic async %s(%s): Promise<%s> {", method.RequestName, funcArgs, returnType)
+		methodName := method.RequestName
+		if methodName == "" {
+			methodName = method.MethodName
+		}
+
+		f.pf("\tpublic async %s(%s): Promise<%s> {", methodName, funcArgs, returnType)
 		if len(method.QueryParams) > 0 {
 			f.pf("\t\tconst u = new URL(`%s`);", path)
 			for _, p := range method.QueryParams {
@@ -140,17 +149,18 @@ func (f *tsGenFile) getArgsAndPath(method *fullEndpoint) (funcArgs, path string)
 	path = "${this.ROOT_PATH}" + path
 
 	if method.Request != nil {
-		t := getElementaryType(reflect.TypeOf(method.Request))
+		// TODO: This should map slices and arrays because a request could be one of them.
+		t := getElementaryType(method.requestType())
 		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(t))
 	}
 
 	for _, p := range method.PathParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.namedType(method.Endpoint, "path")))
 		path += fmt.Sprintf("/${%s}", p.Name)
 	}
 
 	for _, p := range method.QueryParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.namedType(method.Endpoint, "query")))
 	}
 
 	path = strings.ReplaceAll(path, "//", "/")

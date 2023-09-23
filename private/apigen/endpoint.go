@@ -57,6 +57,31 @@ type fullEndpoint struct {
 	Method string
 }
 
+// requestType guarantees to return a named Go type associated to the Endpoint.Request field.
+func (fe fullEndpoint) requestType() reflect.Type {
+	t := reflect.TypeOf(fe.Request)
+	if t.Name() == "" {
+		name := fe.RequestName
+		if name == "" {
+			name = fe.MethodName
+		}
+
+		t = typeCustomName{Type: t, name: compoundTypeName(name, "Request")}
+	}
+
+	return t
+}
+
+// responseType guarantees to return a named Go type associated to the Endpoint.Response field.
+func (fe fullEndpoint) responseType() reflect.Type {
+	t := reflect.TypeOf(fe.Response)
+	if t.Name() == "" {
+		t = typeCustomName{Type: t, name: compoundTypeName(fe.MethodName, "Response")}
+	}
+
+	return t
+}
+
 // EndpointGroup represents endpoints group.
 // You should always create a group using API.Group because it validates the field values to
 // guarantee correct code generation.
@@ -126,4 +151,17 @@ func NewParam(name string, instance interface{}) Param {
 		Name: name,
 		Type: reflect.TypeOf(instance),
 	}
+}
+
+// namedType guarantees to return a named Go type. where defines where the param is  defined (e.g.
+// path, query, etc.).
+func (p Param) namedType(ep Endpoint, where string) reflect.Type {
+	if p.Type.Name() == "" {
+		return typeCustomName{
+			Type: p.Type,
+			name: compoundTypeName(ep.MethodName, where, "param", p.Name),
+		}
+	}
+
+	return p.Type
 }

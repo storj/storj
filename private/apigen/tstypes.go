@@ -36,46 +36,76 @@ type Types struct {
 
 // Register registers a type for generation.
 func (types *Types) Register(t reflect.Type) {
+	if t.Name() == "" {
+		panic("register an anonymous type is not supported. All the types must have a name")
+	}
 	types.top[t] = struct{}{}
 }
 
 // All returns a slice containing every top-level type and their dependencies.
+//
+// TODO: see how to have a better implementation for adding to seen, uniqueNames, and all.
 func (types *Types) All() []reflect.Type {
 	seen := map[reflect.Type]struct{}{}
+	uniqueNames := map[string]struct{}{}
 	all := []reflect.Type{}
 
-	var walk func(t reflect.Type)
-	walk = func(t reflect.Type) {
+	var walk func(t reflect.Type, alternateTypeName string)
+	walk = func(t reflect.Type, altTypeName string) {
 		if _, ok := seen[t]; ok {
 			return
 		}
-		seen[t] = struct{}{}
-		all = append(all, t)
+
+		// Type isn't seen it but it has the same name than a seen it one.
+		// This cannot be because we would generate more than one TypeScript type with the same name.
+		if _, ok := uniqueNames[t.Name()]; ok {
+			panic(fmt.Sprintf("Found different types with the same name (%s)", t.Name()))
+		}
 
 		if _, ok := commonClasses[t]; ok {
+			seen[t] = struct{}{}
+			uniqueNames[t.Name()] = struct{}{}
+			all = append(all, t)
 			return
 		}
 
-		switch t.Kind() {
+		switch k := t.Kind(); k {
+		// TODO: Does reflect.Ptr to be registered?, I believe that could skip it and only register
+		// the type that points to.
 		case reflect.Array, reflect.Ptr, reflect.Slice:
-			walk(t.Elem())
+			t = typeCustomName{Type: t, name: compoundTypeName(altTypeName, k.String())}
+			seen[t] = struct{}{}
+			uniqueNames[t.Name()] = struct{}{}
+			all = append(all, t)
+			walk(t.Elem(), altTypeName)
 		case reflect.Struct:
-			for i := 0; i < t.NumField(); i++ {
-				walk(t.Field(i).Type)
+			if t.Name() == "" {
+				t = typeCustomName{Type: t, name: altTypeName}
 			}
-		case reflect.Bool:
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		case reflect.Float32, reflect.Float64:
-		case reflect.String:
-			break
+
+			seen[t] = struct{}{}
+			uniqueNames[t.Name()] = struct{}{}
+			all = append(all, t)
+
+			for i := 0; i < t.NumField(); i++ {
+				field := t.Field(i)
+				walk(field.Type, compoundTypeName(altTypeName, field.Name))
+			}
+		case reflect.Bool,
+			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64,
+			reflect.String:
+			seen[t] = struct{}{}
+			uniqueNames[t.Name()] = struct{}{}
+			all = append(all, t)
 		default:
 			panic(fmt.Sprintf("type '%s' is not supported", t.Kind().String()))
 		}
 	}
 
 	for t := range types.top {
-		walk(t)
+		walk(t, t.Name())
 	}
 
 	sort.Slice(all, func(i, j int) bool {
@@ -96,6 +126,8 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 		if _, ok := commonClasses[t]; ok {
 			return false
 		}
+
+		// TODO, we should be able to handle arrays and slices as defined types now
 		return t.Kind() == reflect.Struct
 	})
 
@@ -154,6 +186,7 @@ func (types *Types) getTypescriptImports() string {
 }
 
 // TypescriptTypeName gets the corresponding TypeScript type for a provided reflect.Type.
+// If the type is an anonymous struct, it returns an empty string.
 func TypescriptTypeName(t reflect.Type) string {
 	if override, ok := commonClasses[t]; ok {
 		return override
