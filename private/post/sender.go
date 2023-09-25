@@ -55,18 +55,20 @@ func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, 
 	// before creating SMTPSender
 	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
-	// send smtp hello or ehlo msg and establish connection over tls
-	err := client.StartTLS(&tls.Config{ServerName: host})
-	if err != nil {
-		return err
+	if sender.Auth != nil {
+		// send smtp hello or ehlo msg and establish connection over tls
+		err := client.StartTLS(&tls.Config{ServerName: host})
+		if err != nil {
+			return err
+		}
+
+		err = client.Auth(sender.Auth)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = client.Auth(sender.Auth)
-	if err != nil {
-		return err
-	}
-
-	err = client.Mail(sender.From.Address)
+	err := client.Mail(sender.From.Address)
 	if err != nil {
 		return err
 	}
