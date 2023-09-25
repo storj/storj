@@ -590,6 +590,7 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		DueDate:     due,
 		Status:      stripe.InvoiceStatusDraft,
 		Description: desc,
+		Metadata:    params.Metadata,
 		Lines: &stripe.InvoiceLineItemList{
 			Data: lineData,
 		},
@@ -992,6 +993,9 @@ func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNot
 					// The Stripe API supports adding credit notes to paid invoices,
 					// but we don't need to support that in the mock right now
 					return nil, &stripe.Error{}
+				}
+				if inv.Metadata["mock"] == MockInvoicesPayFailure {
+					return nil, errors.New("mock - failed to pay invoice")
 				}
 				invoice = inv
 				break

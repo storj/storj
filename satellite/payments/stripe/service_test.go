@@ -1147,6 +1147,92 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 	})
 }
 
+func TestFailPendingInvoicePayment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:               stripe.Params{Context: ctx},
+			Customer:             &customer,
+			DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			Metadata:             map[string]string{"mock": stripe1.MockInvoicesPayFailure},
+		})
+		require.NoError(t, err)
+
+		_, err = satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+			Currency: stripe.String(usdCurrency),
+			Customer: &customer,
+			Invoice:  stripe.String(inv.ID),
+		})
+		require.NoError(t, err)
+
+		// finalize invoice
+		err = satellite.API.Payments.StripeService.FinalizeInvoices(ctx)
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+		// setup storjscan wallet
+		address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		userID := user.ID
+		err = satellite.DB.Wallets().Add(ctx, userID, address)
+		require.NoError(t, err)
+		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
+			UserID:      userID,
+			Amount:      tokenBalance,
+			Description: "token payment credit",
+			Source:      billing.StorjScanSource,
+			Status:      billing.TransactionStatusCompleted,
+			Type:        billing.TransactionTypeCredit,
+			Metadata:    nil,
+			Timestamp:   time.Now(),
+			CreatedAt:   time.Now(),
+		})
+		require.NoError(t, err)
+
+		// run apply token balance to see if there are no unexpected errors
+		err = payments.StripeService.InvoiceApplyTokenBalance(ctx, time.Time{})
+		require.Error(t, err)
+
+		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+		})
+		iter.Next()
+		require.Equal(t, stripe.InvoiceStatusOpen, iter.Invoice().Status)
+
+		// balance is in USDollars Micro, so it needs to be converted before comparison
+		balance, err := satellite.DB.Billing().GetBalance(ctx, userID)
+		balance = currency.AmountFromDecimal(balance.AsDecimal().Truncate(2), currency.USDollars)
+		require.NoError(t, err)
+
+		// verify user balance wasn't changed
+		require.Equal(t, tokenBalance.BaseUnits(), balance.BaseUnits())
+	})
+}
+
 func TestService_GenerateInvoice(t *testing.T) {
 	for _, testCase := range []struct {
 		desc              string

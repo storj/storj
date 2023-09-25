@@ -14288,6 +14288,28 @@ func (obj *pgxImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_BillingTransaction_By_Id(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field) (
+	billing_transaction *BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	billing_transaction = &BillingTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	if err != nil {
+		return (*BillingTransaction)(nil), obj.makeErr(err)
+	}
+	return billing_transaction, nil
+
+}
+
 func (obj *pgxImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field) (
 	row *Metadata_Row, err error) {
@@ -17136,14 +17158,15 @@ func (obj *pgxImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Cont
 	return billing_balance, nil
 }
 
-func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id(ctx context.Context,
+func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
 	update BillingTransaction_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -17163,7 +17186,7 @@ func (obj *pgxImpl) UpdateNoReturn_BillingTransaction_By_Id(ctx context.Context,
 		return emptyUpdate()
 	}
 
-	__args = append(__args, billing_transaction_id.value())
+	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -22423,6 +22446,28 @@ func (obj *pgxcockroachImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Co
 
 }
 
+func (obj *pgxcockroachImpl) Get_BillingTransaction_By_Id(ctx context.Context,
+	billing_transaction_id BillingTransaction_Id_Field) (
+	billing_transaction *BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	billing_transaction = &BillingTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&billing_transaction.Id, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Source, &billing_transaction.Status, &billing_transaction.Type, &billing_transaction.Metadata, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+	if err != nil {
+		return (*BillingTransaction)(nil), obj.makeErr(err)
+	}
+	return billing_transaction, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_BillingTransaction_Metadata_By_Id(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field) (
 	row *Metadata_Row, err error) {
@@ -25271,14 +25316,15 @@ func (obj *pgxcockroachImpl) Update_BillingBalance_By_UserId_And_Balance(ctx con
 	return billing_balance, nil
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
 	billing_transaction_id BillingTransaction_Id_Field,
+	billing_transaction_status BillingTransaction_Status_Field,
 	update BillingTransaction_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE billing_transactions SET "), __sets, __sqlbundle_Literal(" WHERE billing_transactions.id = ? AND billing_transactions.status = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -25298,7 +25344,7 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_BillingTransaction_By_Id(ctx context
 		return emptyUpdate()
 	}
 
-	__args = append(__args, billing_transaction_id.value())
+	__args = append(__args, billing_transaction_id.value(), billing_transaction_status.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -28829,6 +28875,10 @@ type Methods interface {
 		billing_balance_user_id BillingBalance_UserId_Field) (
 		row *Balance_Row, err error)
 
+	Get_BillingTransaction_By_Id(ctx context.Context,
+		billing_transaction_id BillingTransaction_Id_Field) (
+		billing_transaction *BillingTransaction, err error)
+
 	Get_BillingTransaction_Metadata_By_Id(ctx context.Context,
 		billing_transaction_id BillingTransaction_Id_Field) (
 		row *Metadata_Row, err error)
@@ -29169,8 +29219,9 @@ type Methods interface {
 		update ApiKey_Update_Fields) (
 		err error)
 
-	UpdateNoReturn_BillingTransaction_By_Id(ctx context.Context,
+	UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx context.Context,
 		billing_transaction_id BillingTransaction_Id_Field,
+		billing_transaction_status BillingTransaction_Status_Field,
 		update BillingTransaction_Update_Fields) (
 		err error)
 

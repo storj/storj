@@ -96,7 +96,13 @@ create billing_transaction ( )
 
 update billing_transaction (
 	where billing_transaction.id = ?
+	where billing_transaction.status = ?
 	noreturn
+)
+
+read one (
+	select billing_transaction
+	where billing_transaction.id = ?
 )
 
 read one (

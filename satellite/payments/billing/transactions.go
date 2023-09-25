@@ -29,10 +29,10 @@ var ErrNoTransactions = errs.New("no transactions in the database")
 const (
 	// TransactionStatusPending indicates that status of this transaction is pending.
 	TransactionStatusPending = "pending"
-	// TransactionStatusCancelled indicates that status of this transaction is cancelled.
-	TransactionStatusCancelled = "cancelled"
 	// TransactionStatusCompleted indicates that status of this transaction is complete.
 	TransactionStatusCompleted = "complete"
+	// TransactionStatusFailed indicates that status of this transaction is failed.
+	TransactionStatusFailed = "failed"
 )
 
 // TransactionType indicates transaction type.
@@ -57,8 +57,10 @@ type TransactionsDB interface {
 	// but rather to provide an atomic commit of one or more _related_
 	// transactions.
 	Insert(ctx context.Context, primaryTx Transaction, supplementalTx ...Transaction) (txIDs []int64, err error)
-	// UpdateStatus updates the status of the transaction.
-	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
+	// FailPendingInvoiceTokenPayments marks all specified pending invoice token payments as failed, and refunds the pending charges.
+	FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) error
+	// CompletePendingInvoiceTokenPayments updates the status of the pending invoice token payment to complete.
+	CompletePendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) error
 	// UpdateMetadata updates the metadata of the transaction.
 	UpdateMetadata(ctx context.Context, txID int64, metadata []byte) error
 	// LastTransaction returns the timestamp and metadata of the last known transaction for given source and type.

@@ -1220,6 +1220,11 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 
 		creditNoteID, err := service.addCreditNoteToInvoice(ctx, invoice.ID, cusID, wallet.Address.Hex(), tokenCreditAmount, txID)
 		if err != nil {
+			// attempt to fail any pending transactions
+			err := service.billingDB.FailPendingInvoiceTokenPayments(ctx, txID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to fail the pending transactions for user %s", wallet.UserID.String()))
+			}
 			errGrp.Add(Error.New("unable to create token payment credit note for user %s", wallet.UserID.String()))
 			continue
 		}
@@ -1229,18 +1234,33 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 		})
 
 		if err != nil {
+			// attempt to fail any pending transactions
+			err := service.billingDB.FailPendingInvoiceTokenPayments(ctx, txID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to fail the pending transactions for user %s", wallet.UserID.String()))
+			}
 			errGrp.Add(Error.New("unable to marshall credit note ID %s", creditNoteID))
 			continue
 		}
 
 		err = service.billingDB.UpdateMetadata(ctx, txID, metadata)
 		if err != nil {
+			// attempt to fail any pending transactions
+			err := service.billingDB.FailPendingInvoiceTokenPayments(ctx, txID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to fail the pending transactions for user %s", wallet.UserID.String()))
+			}
 			errGrp.Add(Error.New("unable to add credit note ID to billing transaction for user %s", wallet.UserID.String()))
 			continue
 		}
 
-		err = service.billingDB.UpdateStatus(ctx, txID, billing.TransactionStatusCompleted)
+		err = service.billingDB.CompletePendingInvoiceTokenPayments(ctx, txID)
 		if err != nil {
+			// attempt to fail any pending transactions
+			err := service.billingDB.FailPendingInvoiceTokenPayments(ctx, txID)
+			if err != nil {
+				errGrp.Add(Error.New("unable to fail the pending transactions for user %s", wallet.UserID.String()))
+			}
 			errGrp.Add(Error.New("unable to update status for billing transaction for user %s", wallet.UserID.String()))
 			continue
 		}
