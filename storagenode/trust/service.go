@@ -25,7 +25,8 @@ import (
 
 // Error is the default error class.
 var (
-	Error = errs.Class("trust")
+	Error        = errs.Class("trust")
+	ErrUntrusted = Error.New("satellite is untrusted")
 
 	mon = monkit.Package()
 )
@@ -176,6 +177,14 @@ func (pool *Pool) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.Node
 	return info.url, nil
 }
 
+// IsTrusted returns true if the satellite is trusted.
+func (pool *Pool) IsTrusted(ctx context.Context, id storj.NodeID) bool {
+	defer mon.Task()(&ctx)(nil)
+
+	_, err := pool.getInfo(id)
+	return err == nil
+}
+
 // Refresh refreshes the set of trusted satellites in the pool. Concurrent
 // callers will be synchronized so only one proceeds at a time.
 func (pool *Pool) Refresh(ctx context.Context) error {
@@ -243,13 +252,26 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	return nil
 }
 
+// DeleteSatellite deletes a satellite from the pool.
+func (pool *Pool) DeleteSatellite(ctx context.Context, id storj.NodeID) error {
+	pool.satellitesMu.Lock()
+	defer pool.satellitesMu.Unlock()
+
+	if _, ok := pool.satellites[id]; !ok {
+		return ErrUntrusted
+	}
+
+	delete(pool.satellites, id)
+	return pool.satellitesDB.UpdateSatelliteStatus(ctx, id, satellites.Untrusted)
+}
+
 func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {
 	pool.satellitesMu.RLock()
 	defer pool.satellitesMu.RUnlock()
 
 	info, ok := pool.satellites[id]
 	if !ok {
-		return nil, Error.New("satellite %q is untrusted", id)
+		return nil, ErrUntrusted
 	}
 	return info, nil
 }
