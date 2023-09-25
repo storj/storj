@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"bytes"
+	"os"
 	"strconv"
 	"strings"
 
@@ -48,9 +49,20 @@ func (c *ConfigurablePlacementRule) Type() string {
 
 // Parse creates the PlacementDefinitions from the string rules.
 func (c ConfigurablePlacementRule) Parse() (*PlacementDefinitions, error) {
+	rules := c.PlacementRules
+	if _, err := os.Stat(rules); err == nil {
+		ruleBytes, err := os.ReadFile(rules)
+		if err != nil {
+			return nil, errs.New("Placement definition file couldn't be read: %s %v", rules, err)
+		}
+		rules = string(ruleBytes)
+	}
+	if strings.HasPrefix(rules, "/") || strings.HasPrefix(rules, "./") || strings.HasPrefix(rules, "../") {
+		return nil, errs.New("Placement definition (%s) looks to be a path, but file doesn't exist at that place", rules)
+	}
 	d := NewPlacementDefinitions()
 	d.AddLegacyStaticRules()
-	err := d.AddPlacementFromString(c.PlacementRules)
+	err := d.AddPlacementFromString(rules)
 	return d, err
 }
 
@@ -160,6 +172,9 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		}
 		idDef := strings.SplitN(definition, ":", 2)
 
+		if len(idDef) != 2 {
+			return errs.New("placement definition should be in the form ID:definition (but it was %s)", definition)
+		}
 		val, err := mito.Eval(idDef[1], env)
 		if err != nil {
 			return errs.Wrap(err)
@@ -181,4 +196,12 @@ func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstrain
 	return nodeselection.NodeFilters{
 		nodeselection.ExcludeAllFilter{},
 	}
+}
+
+// SupportedPlacements returns all the IDs, which have associated placement rules.
+func (d *PlacementDefinitions) SupportedPlacements() (res []storj.PlacementConstraint) {
+	for id := range d.placements {
+		res = append(res, id)
+	}
+	return res
 }
