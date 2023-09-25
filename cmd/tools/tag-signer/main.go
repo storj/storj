@@ -14,7 +14,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/identity"
 	"storj.io/common/nodetag"
@@ -182,5 +184,18 @@ func inspect(ctx context.Context, s string) error {
 }
 
 func main() {
-	process.Exec(rootCmd)
+	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
+		LoadConfig: func(cmd *cobra.Command, vip *viper.Viper) error {
+			return nil
+		},
+		InitTracing: false,
+		LoggerFactory: func(logger *zap.Logger) *zap.Logger {
+			newLogger, level, err := process.NewLogger("tag-signer")
+			if err != nil {
+				panic(err)
+			}
+			level.SetLevel(zap.WarnLevel)
+			return newLogger
+		},
+	})
 }
