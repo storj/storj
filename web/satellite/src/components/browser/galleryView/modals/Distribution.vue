@@ -18,7 +18,7 @@
                 </p>
                 <div class="modal__buttons">
                     <VButton
-                        link="https://docs.storj.io/dcs/concepts/overview#t1eR9"
+                        link="https://docs.storj.io/learn#what-happens-when-you-upload"
                         label="Learn More"
                         height="52px"
                         width="100%"

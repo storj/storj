@@ -53,8 +53,8 @@
                                 Share
                             </v-tooltip>
                         </v-btn>
-                        <v-btn icon size="small" color="white">
-                            <img src="@poc/assets/icon-geo-distribution.svg" width="22" alt="Geographic Distribution">
+                        <v-btn icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
+                            <icon-distribution size="22" />
                             <v-tooltip
                                 activator="parent"
                                 location="bottom"
@@ -94,6 +94,7 @@
     </v-dialog>
 
     <share-dialog v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
+    <geographic-distribution-dialog v-model="isGeographicDistributionDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -116,8 +117,10 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import IconShare from '@poc/components/icons/IconShare.vue';
+import IconDistribution from '@poc/components/icons/IconDistribution.vue';
 import FilePreviewItem from '@poc/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
+import GeographicDistributionDialog from '@poc/components/dialogs/GeographicDistributionDialog.vue';
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
@@ -125,6 +128,7 @@ const notify = useNotify();
 
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
+const isGeographicDistributionDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
