@@ -118,7 +118,7 @@ func Test_cmdForgetSatellite(t *testing.T) {
 		// test that the satellite was inserted correctly
 		satellite, err := db.Satellites().GetSatellite(ctx, satelliteID)
 		require.NoError(t, err)
-		require.Equal(t, satellites.Untrusted, satellites.Status(satellite.Status))
+		require.Equal(t, satellites.Untrusted, satellite.Status)
 
 		// set up the identity
 		ident := planet.StorageNodes[0].Identity

@@ -120,21 +120,6 @@ func (pool *Pool) Run(ctx context.Context) error {
 			pool.log.Error("Failed to refresh", zap.Error(err))
 			return err
 		}
-
-		for _, trustedSatellite := range pool.satellites {
-			status := satellites.Normal
-			// for cases where a satellite was previously marked as untrusted, but is now trusted
-			// we reset the status back to normal
-			satellite, err := pool.satellitesDB.GetSatellite(ctx, trustedSatellite.url.ID)
-			if err == nil && !satellite.SatelliteID.IsZero() {
-				if satellite.Status != satellites.Untrusted {
-					status = satellites.Status(satellite.Status)
-				}
-			}
-			if err := pool.satellitesDB.SetAddressAndStatus(ctx, trustedSatellite.url.ID, trustedSatellite.url.Address, status); err != nil {
-				return err
-			}
-		}
 	}
 }
 
@@ -229,7 +214,7 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	}
 
 	// remove trusted IDs that are no longer in the URL list
-	for id := range pool.satellites {
+	for id, info := range pool.satellites {
 		if _, ok := trustedIDs[id]; !ok {
 			pool.log.Debug("Satellite is no longer trusted", zap.String("id", id.String()))
 			delete(pool.satellites, id)
@@ -237,6 +222,21 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+
+			continue
+		}
+
+		// for cases where a satellite was previously marked as untrusted, but is now trusted
+		// we reset the status back to normal
+		status := satellites.Normal
+		dbSatellite, err := pool.satellitesDB.GetSatellite(ctx, info.url.ID)
+		if err == nil && !dbSatellite.SatelliteID.IsZero() {
+			if dbSatellite.Status != satellites.Untrusted {
+				status = dbSatellite.Status
+			}
+		}
+		if err := pool.satellitesDB.SetAddressAndStatus(ctx, info.url.ID, info.url.Address, status); err != nil {
+			return err
 		}
 	}
 

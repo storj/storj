@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
@@ -33,7 +35,6 @@ func TestPoolRequiresCachePath(t *testing.T) {
 func TestPoolVerifySatelliteID(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		pool, source, _ := newPoolTest(ctx, t, db)
-		defer ctx.Cleanup()
 
 		id := testrand.NodeID()
 
@@ -77,7 +78,6 @@ func TestPoolGetSignee(t *testing.T) {
 		}
 
 		pool, source, resolver := newPoolTest(ctx, t, db)
-		defer ctx.Cleanup()
 
 		// ID is untrusted
 		_, err := pool.GetSignee(context.Background(), id)
@@ -122,7 +122,6 @@ func TestPoolGetSignee(t *testing.T) {
 func TestPoolGetSatellites(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		pool, source, _ := newPoolTest(ctx, t, db)
-		defer ctx.Cleanup()
 
 		id1 := testrand.NodeID()
 		id2 := testrand.NodeID()
@@ -152,10 +151,115 @@ func TestPoolGetSatellites(t *testing.T) {
 	})
 }
 
+func TestPool_SatelliteDB_Status(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		source := &fakeSource{}
+
+		resolver := newFakeIdentityResolver()
+
+		log := zaptest.NewLogger(t)
+		config := trust.Config{
+			Sources:         []trust.Source{source},
+			CachePath:       ctx.File("trust-cache.json"),
+			RefreshInterval: 0 * time.Second,
+		}
+
+		pool, err := trust.NewPool(log, resolver, config, db.Satellites())
+		require.NoError(t, err)
+
+		id1 := testrand.NodeID()
+		id2 := testrand.NodeID()
+
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id1,
+					Host: "foo.test",
+					Port: 7777,
+				},
+			},
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+
+		require.NoError(t, pool.Refresh(context.Background()))
+
+		sats, err := db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+		require.Equal(t, satellites.Normal, sats[0].Status)
+		require.Equal(t, satellites.Normal, sats[1].Status)
+
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
+		sats, err = db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+
+		for i := 0; i < len(sats); i++ {
+			switch sats[i].SatelliteID {
+			case id1:
+				require.Equal(t, satellites.Untrusted, sats[i].Status)
+			case id2:
+				require.Equal(t, satellites.Normal, sats[i].Status)
+			default:
+				t.Fatal("unexpected satellite")
+			}
+		}
+
+		expected := []storj.NodeID{id2}
+		actual := pool.GetSatellites(context.Background())
+		assert.ElementsMatch(t, expected, actual)
+
+		// test cases when the untrusted satellite is now trusted
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id1,
+					Host: "foo.test",
+					Port: 7777,
+				},
+			},
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+
+		require.NoError(t, pool.Refresh(context.Background()))
+		sats, err = db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+		require.Equal(t, satellites.Normal, sats[0].Status)
+		require.Equal(t, satellites.Normal, sats[1].Status)
+
+		expected = []storj.NodeID{id1, id2}
+		actual = pool.GetSatellites(context.Background())
+		assert.ElementsMatch(t, expected, actual)
+	})
+}
+
 func TestPoolGetAddress(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		pool, source, _ := newPoolTest(ctx, t, db)
-		defer ctx.Cleanup()
 
 		id := testrand.NodeID()
 

@@ -13,19 +13,21 @@ import (
 // Status refers to the state of the relationship with a satellites.
 type Status = int
 
+// It is important that the values/order of these Status constants are not changed
+// because they are stored in the database.
 const (
 	// Unexpected status should not be used for sanity checking.
 	Unexpected Status = 0
 	// Normal status reflects a lack of graceful exit.
-	Normal = 1
+	Normal Status = 1
 	// Exiting reflects an active graceful exit.
-	Exiting = 2
+	Exiting Status = 2
 	// ExitSucceeded reflects a graceful exit that succeeded.
-	ExitSucceeded = 3
+	ExitSucceeded Status = 3
 	// ExitFailed reflects a graceful exit that failed.
-	ExitFailed = 4
+	ExitFailed Status = 4
 	// Untrusted reflects a satellite that is not trusted.
-	Untrusted = 5
+	Untrusted Status = 5
 )
 
 // ExitProgress contains the status of a graceful exit.
@@ -36,14 +38,14 @@ type ExitProgress struct {
 	StartingDiskUsage int64
 	BytesDeleted      int64
 	CompletionReceipt []byte
-	Status            int32
+	Status            Status
 }
 
 // Satellite contains the satellite and status.
 type Satellite struct {
 	SatelliteID storj.NodeID
 	AddedAt     time.Time
-	Status      int32
+	Status      Status
 }
 
 // DB works with satellite database.
