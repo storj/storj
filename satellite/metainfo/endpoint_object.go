@@ -1258,6 +1258,10 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
 	var deletedObjects []*pb.Object
 
 	if req.GetStatus() == int32(metabase.Pending) {
@@ -1281,7 +1285,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			}
 		}
 	} else {
-		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedObjectKey))
+		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedObjectKey), req.ObjectVersion)
 	}
 	if err != nil {
 		if !canRead && !canList {
@@ -1742,9 +1746,8 @@ func (endpoint *Endpoint) pendingObjectEntryToProtoListItem(ctx context.Context,
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeleteCommittedObject(
-	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
+	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey, version []byte,
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, object)(&err)
 
@@ -1756,9 +1759,21 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	var result metabase.DeleteObjectResult
 	if endpoint.config.ServerSideCopy {
-		result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
-			ObjectLocation: req,
-		})
+		if len(version) == 0 {
+			result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: req,
+			})
+		} else {
+			var v metabase.Version
+			v, err = metabase.VersionFromBytes(version)
+			if err != nil {
+				return nil, err
+			}
+			result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+				ObjectLocation: req,
+				Version:        v,
+			})
+		}
 	} else {
 		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
 	}
@@ -1785,7 +1800,6 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-// TODO: see note on DeleteObjectAnyStatus.
 func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream, usePendingObjectTable bool) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,

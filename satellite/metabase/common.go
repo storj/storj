@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"math"
 	"sort"
 	"strconv"
@@ -365,6 +366,23 @@ const PendingVersion = Version(0)
 // MaxVersion represents maximum version.
 // Version in DB is represented as INT4.
 const MaxVersion = Version(math.MaxInt32)
+
+// Encode encodes version to bytes.
+// TODO(ver): this is not final approach to version encoding. It's simplified
+// version for internal testing purposes. Will be changed in future.
+func (v Version) Encode() []byte {
+	var bytes [8]byte
+	binary.BigEndian.PutUint64(bytes[:], uint64(v))
+	return bytes[:]
+}
+
+// VersionFromBytes decodes version from bytes.
+func VersionFromBytes(bytes []byte) (Version, error) {
+	if len(bytes) != 8 {
+		return Version(0), ErrInvalidRequest.New("invalid version")
+	}
+	return Version(binary.BigEndian.Uint64(bytes)), nil
+}
 
 // ObjectStatus defines the status that the object is in.
 //
