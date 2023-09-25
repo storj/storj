@@ -257,7 +257,6 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits.SetFirstName(firstName)
 	traits.SetLastName(lastName)
 	traits.SetEmail(fields.Email)
-	traits.Set("lifecyclestage", "other")
 	traits.Set("origin_header", fields.OriginHeader)
 	traits.Set("signup_referrer", fields.Referrer)
 	traits.Set("account_created", true)
