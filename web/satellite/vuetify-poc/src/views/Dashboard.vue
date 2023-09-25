@@ -71,12 +71,16 @@
                 <UsageProgressComponent v-if="billingStore.state.coupon" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />
             </v-col>
         </v-row>
+        <v-col class="pa-0 mt-6" cols="12">
+            <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
+            <buckets-data-table />
+        </v-col>
     </v-container>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { VContainer, VRow, VCol, VCard } from 'vuetify/components';
+import { VContainer, VRow, VCol, VCard, VCardTitle } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -97,6 +101,7 @@ import CardStatsComponent from '@poc/components/CardStatsComponent.vue';
 import UsageProgressComponent from '@poc/components/UsageProgressComponent.vue';
 import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
 import StorageChart from '@/components/project/dashboard/StorageChart.vue';
+import BucketsDataTable from '@poc/components/BucketsDataTable.vue';
 
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
