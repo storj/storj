@@ -15,5 +15,17 @@ type Document struct {
 	Date      time.Time `json:"date"`
 	PathParam string    `json:"pathParam"`
 	Body      string    `json:"body"`
-	Version   uint      `json:"version"`
+	Version   Version   `json:"version"`
+}
+
+// Version is document version.
+type Version struct {
+	Date   time.Time `json:"date"`
+	Number uint      `json:"number"`
+}
+
+// Metadata is metadata associated to a document.
+type Metadata struct {
+	Owner string      `json:"owner"`
+	Tags  [][2]string `json:"tags"`
 }

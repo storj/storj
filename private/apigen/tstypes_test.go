@@ -15,14 +15,14 @@ type testTypesValoration struct {
 }
 
 func TestTypes(t *testing.T) {
-	t.Run("Register panics with anonymous types", func(t *testing.T) {
+	t.Run("Register panics with some anonymous types", func(t *testing.T) {
 		types := NewTypes()
 		require.Panics(t, func() {
-			types.Register(reflect.TypeOf([2]int{}))
+			types.Register(reflect.TypeOf([2]struct{}{}))
 		}, "array")
 
 		require.Panics(t, func() {
-			types.Register(reflect.TypeOf([]float64{}))
+			types.Register(reflect.TypeOf([]struct{}{}))
 		}, "slice")
 
 		require.Panics(t, func() {
@@ -79,16 +79,16 @@ func TestTypes(t *testing.T) {
 		require.Len(t, allTypes, 9, "total number of types")
 
 		typesNames := []string{}
-		for _, tp := range allTypes {
-			typesNames = append(typesNames, tp.Name())
+		for _, name := range allTypes {
+			typesNames = append(typesNames, name)
 		}
 
 		require.ElementsMatch(t, []string{
 			"string", "uint",
 			"Response",
-			"ResponseAddressesSlice", "ResponseAddresses",
+			"ResponseAddresses", "ResponseAddressesItem",
 			"ResponseJob",
-			"ResponseDocumentsSlice", "ResponseDocuments", "testTypesValoration",
+			"ResponseDocuments", "ResponseDocumentsItem", "testTypesValoration",
 		}, typesNames)
 	})
 

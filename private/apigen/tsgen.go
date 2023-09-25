@@ -6,7 +6,6 @@ package apigen
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -98,11 +97,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		returnType := "void"
 		if method.Response != nil {
 			respType := method.responseType()
-			returnType = TypescriptTypeName(getElementaryType(respType))
-			// TODO: see if this is needed after we are creating types for array and slices
-			if respType.Kind() == reflect.Array || respType.Kind() == reflect.Slice {
-				returnType = fmt.Sprintf("Array<%s>", returnType)
-			}
+			returnType = TypescriptTypeName(respType)
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
 		}
 		returnStmt += ";"
@@ -149,9 +144,7 @@ func (f *tsGenFile) getArgsAndPath(method *fullEndpoint) (funcArgs, path string)
 	path = "${this.ROOT_PATH}" + path
 
 	if method.Request != nil {
-		// TODO: This should map slices and arrays because a request could be one of them.
-		t := getElementaryType(method.requestType())
-		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(t))
+		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(method.requestType()))
 	}
 
 	for _, p := range method.PathParams {

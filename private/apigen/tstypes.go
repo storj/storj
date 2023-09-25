@@ -37,55 +37,82 @@ type Types struct {
 // Register registers a type for generation.
 func (types *Types) Register(t reflect.Type) {
 	if t.Name() == "" {
-		panic("register an anonymous type is not supported. All the types must have a name")
+		switch t.Kind() {
+		case reflect.Array, reflect.Slice, reflect.Ptr:
+			if t.Elem().Name() == "" {
+				panic(
+					fmt.Sprintf("register an %q of elements of an anonymous type is not supported", t.Name()),
+				)
+			}
+		default:
+			panic("register an anonymous type is not supported. All the types must have a name")
+		}
 	}
 	types.top[t] = struct{}{}
 }
 
-// All returns a slice containing every top-level type and their dependencies.
+// All returns a map containing every top-level and their dependency types with their associated name.
 //
 // TODO: see how to have a better implementation for adding to seen, uniqueNames, and all.
-func (types *Types) All() []reflect.Type {
-	seen := map[reflect.Type]struct{}{}
+func (types *Types) All() map[reflect.Type]string {
+	all := map[reflect.Type]string{}
 	uniqueNames := map[string]struct{}{}
-	all := []reflect.Type{}
 
 	var walk func(t reflect.Type, alternateTypeName string)
 	walk = func(t reflect.Type, altTypeName string) {
-		if _, ok := seen[t]; ok {
+		if _, ok := all[t]; ok {
 			return
 		}
 
-		// Type isn't seen it but it has the same name than a seen it one.
-		// This cannot be because we would generate more than one TypeScript type with the same name.
-		if _, ok := uniqueNames[t.Name()]; ok {
-			panic(fmt.Sprintf("Found different types with the same name (%s)", t.Name()))
+		if t.Name() != "" {
+			// Type isn't seen it but it has the same name than a seen it one.
+			// This cannot be because we would generate more than one TypeScript type with the same name.
+			if _, ok := uniqueNames[t.Name()]; ok {
+				panic(fmt.Sprintf("Found different types with the same name (%s)", t.Name()))
+			}
 		}
 
-		if _, ok := commonClasses[t]; ok {
-			seen[t] = struct{}{}
-			uniqueNames[t.Name()] = struct{}{}
-			all = append(all, t)
+		if n, ok := commonClasses[t]; ok {
+			all[t] = n
+			uniqueNames[n] = struct{}{}
 			return
 		}
 
 		switch k := t.Kind(); k {
-		// TODO: Does reflect.Ptr to be registered?, I believe that could skip it and only register
-		// the type that points to.
-		case reflect.Array, reflect.Ptr, reflect.Slice:
-			t = typeCustomName{Type: t, name: compoundTypeName(altTypeName, k.String())}
-			seen[t] = struct{}{}
-			uniqueNames[t.Name()] = struct{}{}
-			all = append(all, t)
+		case reflect.Ptr:
 			walk(t.Elem(), altTypeName)
+		case reflect.Array, reflect.Slice:
+			// If element type has a TypeScript name then an array of the element type will be defined
+			// otherwise we have to create a compound type.
+			if tsen := TypescriptTypeName(t.Elem()); tsen == "" {
+				if altTypeName == "" {
+					panic(
+						fmt.Sprintf(
+							"BUG: found a %q with elements of an anonymous type and without an alternative name. Found type=%q",
+							t.Kind(),
+							t,
+						))
+				}
+				all[t] = altTypeName
+				uniqueNames[altTypeName] = struct{}{}
+				walk(t.Elem(), compoundTypeName(altTypeName, "item"))
+			}
 		case reflect.Struct:
-			if t.Name() == "" {
-				t = typeCustomName{Type: t, name: altTypeName}
+			n := t.Name()
+			if n == "" {
+				if altTypeName == "" {
+					panic(
+						fmt.Sprintf(
+							"BUG: found an anonymous 'struct' and without an alternative name; an alternative name is required. Found type=%q",
+							t,
+						))
+				}
+
+				n = altTypeName
 			}
 
-			seen[t] = struct{}{}
-			uniqueNames[t.Name()] = struct{}{}
-			all = append(all, t)
+			all[t] = n
+			uniqueNames[n] = struct{}{}
 
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
@@ -96,21 +123,16 @@ func (types *Types) All() []reflect.Type {
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 			reflect.Float32, reflect.Float64,
 			reflect.String:
-			seen[t] = struct{}{}
+			all[t] = t.Name()
 			uniqueNames[t.Name()] = struct{}{}
-			all = append(all, t)
 		default:
-			panic(fmt.Sprintf("type '%s' is not supported", t.Kind().String()))
+			panic(fmt.Sprintf("type %q is not supported", t.Kind().String()))
 		}
 	}
 
 	for t := range types.top {
 		walk(t, t.Name())
 	}
-
-	sort.Slice(all, func(i, j int) bool {
-		return strings.Compare(all[i].Name(), all[j].Name()) < 0
-	})
 
 	return all
 }
@@ -122,27 +144,28 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 
 	pf(types.getTypescriptImports())
 
-	all := filter(types.All(), func(t reflect.Type) bool {
-		if _, ok := commonClasses[t]; ok {
+	allTypes := types.All()
+	namedTypes := mapToSlice(allTypes)
+	allStructs := filter(namedTypes, func(tn typeAndName) bool {
+		if _, ok := commonClasses[tn.Type]; ok {
 			return false
 		}
 
-		// TODO, we should be able to handle arrays and slices as defined types now
-		return t.Kind() == reflect.Struct
+		return tn.Type.Kind() == reflect.Struct
 	})
 
-	for _, t := range all {
+	for _, t := range allStructs {
 		func() {
-			pf("\nexport class %s {", t.Name())
+			pf("\nexport class %s {", t.Name)
 			defer pf("}")
 
-			for i := 0; i < t.NumField(); i++ {
-				field := t.Field(i)
+			for i := 0; i < t.Type.NumField(); i++ {
+				field := t.Type.Field(i)
 				attributes := strings.Fields(field.Tag.Get("json"))
 				if len(attributes) == 0 || attributes[0] == "" {
-					pathParts := strings.Split(t.PkgPath(), "/")
+					pathParts := strings.Split(t.Type.PkgPath(), "/")
 					pkg := pathParts[len(pathParts)-1]
-					panic(fmt.Sprintf("(%s.%s).%s missing json declaration", pkg, t.Name(), field.Name))
+					panic(fmt.Sprintf("(%s.%s).%s missing json declaration", pkg, t.Name, field.Name))
 				}
 
 				jsonField := attributes[0]
@@ -151,13 +174,39 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 				}
 
 				isOptional := ""
-				if isNillableType(t) {
+				if isNillableType(t.Type) {
 					isOptional = "?"
 				}
 
-				pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(field.Type))
+				if field.Type.Name() != "" {
+					pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(field.Type))
+				} else {
+					typeName := allTypes[field.Type]
+					pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(typeCustomName{Type: field.Type, name: typeName}))
+				}
 			}
 		}()
+	}
+
+	allArraySlices := filter(namedTypes, func(t typeAndName) bool {
+		if _, ok := commonClasses[t.Type]; ok {
+			return false
+		}
+
+		switch t.Type.Kind() {
+		case reflect.Array, reflect.Slice:
+			return true
+		default:
+			return false
+		}
+	})
+
+	for _, t := range allArraySlices {
+		elemTypeName, ok := allTypes[t.Type.Elem()]
+		if !ok {
+			panic("BUG: the element types of an Slice or Array isn't in the all types map")
+		}
+		pf("\nexport type %s = Array<%s>", t.Name, elemTypeName)
 	}
 
 	return out.String()
@@ -167,8 +216,7 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 func (types *Types) getTypescriptImports() string {
 	classes := []string{}
 
-	all := types.All()
-	for _, t := range all {
+	for t := range types.All() {
 		if tsClass, ok := commonClasses[t]; ok {
 			classes = append(classes, tsClass)
 		}
@@ -195,15 +243,18 @@ func TypescriptTypeName(t reflect.Type) string {
 	switch t.Kind() {
 	case reflect.Ptr:
 		return TypescriptTypeName(t.Elem())
-	case reflect.Slice:
+	case reflect.Array, reflect.Slice:
+		if t.Name() != "" {
+			return t.Name()
+		}
+
 		// []byte ([]uint8) is marshaled as a base64 string
 		elem := t.Elem()
 		if elem.Kind() == reflect.Uint8 {
 			return "string"
 		}
-		fallthrough
-	case reflect.Array:
-		return TypescriptTypeName(t.Elem()) + "[]"
+
+		return TypescriptTypeName(elem) + "[]"
 	case reflect.String:
 		return "string"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -217,6 +268,6 @@ func TypescriptTypeName(t reflect.Type) string {
 	case reflect.Struct:
 		return t.Name()
 	default:
-		panic("unhandled type: " + t.Name())
+		panic(fmt.Sprintf(`unhandled type. Type="%+v"`, t))
 	}
 }

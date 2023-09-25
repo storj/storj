@@ -99,8 +99,8 @@ export class projectsHttpApiV0 {
     private readonly ROOT_PATH: string = '/api/v0/projects';
 
     public async createProject(request: UpsertProjectInfo): Promise<Project> {
-        const path = `${this.ROOT_PATH}/create`;
-        const response = await this.http.post(path, JSON.stringify(request));
+        const fullPath = `${this.ROOT_PATH}/create`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
         }
@@ -109,8 +109,8 @@ export class projectsHttpApiV0 {
     }
 
     public async updateProject(request: UpsertProjectInfo, id: UUID): Promise<Project> {
-        const path = `${this.ROOT_PATH}/update/${id}`;
-        const response = await this.http.patch(path, JSON.stringify(request));
+        const fullPath = `${this.ROOT_PATH}/update/${id}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
         }
@@ -119,8 +119,8 @@ export class projectsHttpApiV0 {
     }
 
     public async deleteProject(id: UUID): Promise<void> {
-        const path = `${this.ROOT_PATH}/delete/${id}`;
-        const response = await this.http.delete(path);
+        const fullPath = `${this.ROOT_PATH}/delete/${id}`;
+        const response = await this.http.delete(fullPath);
         if (response.ok) {
             return;
         }
@@ -128,11 +128,11 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async getProjects(): Promise<Array<Project>> {
-        const path = `${this.ROOT_PATH}/`;
-        const response = await this.http.get(path);
+    public async getProjects(): Promise<Project[]> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as Array<Project>);
+            return response.json().then((body) => body as Project[]);
         }
         const err = await response.json();
         throw new Error(err.error);
@@ -144,8 +144,8 @@ export class projectsHttpApiV0 {
         u.searchParams.set('bucket', bucket);
         u.searchParams.set('since', since);
         u.searchParams.set('before', before);
-        const path = u.toString();
-        const response = await this.http.get(path);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as BucketUsageRollup);
         }
@@ -153,15 +153,15 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<Array<BucketUsageRollup>> {
+    public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<BucketUsageRollup[]> {
         const u = new URL(`${this.ROOT_PATH}/bucket-rollups`);
         u.searchParams.set('projectID', projectID);
         u.searchParams.set('since', since);
         u.searchParams.set('before', before);
-        const path = u.toString();
-        const response = await this.http.get(path);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as Array<BucketUsageRollup>);
+            return response.json().then((body) => body as BucketUsageRollup[]);
         }
         const err = await response.json();
         throw new Error(err.error);
@@ -174,8 +174,8 @@ export class projectsHttpApiV0 {
         u.searchParams.set('page', page);
         u.searchParams.set('order', order);
         u.searchParams.set('orderDirection', orderDirection);
-        const path = u.toString();
-        const response = await this.http.get(path);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as APIKeyPage);
         }
@@ -189,8 +189,8 @@ export class apikeysHttpApiV0 {
     private readonly ROOT_PATH: string = '/api/v0/apikeys';
 
     public async createAPIKey(request: CreateAPIKeyRequest): Promise<CreateAPIKeyResponse> {
-        const path = `${this.ROOT_PATH}/create`;
-        const response = await this.http.post(path, JSON.stringify(request));
+        const fullPath = `${this.ROOT_PATH}/create`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as CreateAPIKeyResponse);
         }
@@ -199,8 +199,8 @@ export class apikeysHttpApiV0 {
     }
 
     public async deleteAPIKey(id: UUID): Promise<void> {
-        const path = `${this.ROOT_PATH}/delete/${id}`;
-        const response = await this.http.delete(path);
+        const fullPath = `${this.ROOT_PATH}/delete/${id}`;
+        const response = await this.http.delete(fullPath);
         if (response.ok) {
             return;
         }
@@ -214,8 +214,8 @@ export class usersHttpApiV0 {
     private readonly ROOT_PATH: string = '/api/v0/users';
 
     public async getUser(): Promise<ResponseUser> {
-        const path = `${this.ROOT_PATH}/`;
-        const response = await this.http.get(path);
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as ResponseUser);
         }
