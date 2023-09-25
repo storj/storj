@@ -368,6 +368,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
 	objectLocation := metabase.ObjectLocation{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: string(req.Bucket),
@@ -375,18 +379,27 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	var mbObject metabase.Object
-	if req.Version == 0 {
+	if len(req.ObjectVersion) == 0 {
 		mbObject, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 			ObjectLocation: objectLocation,
 		})
 	} else {
+		var v metabase.Version
+		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
 		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: objectLocation,
-			Version:        metabase.Version(req.Version),
+			Version:        v,
 		})
 	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	if mbObject.Status.IsDeleteMarker() {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "object not found")
 	}
 
 	{

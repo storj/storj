@@ -102,33 +102,46 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.NotEmpty(t, item.EncryptedObjectKey)
 				require.True(t, item.CreatedAt.Before(time.Now()))
 
-				object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				response, err := satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
 				})
 				require.NoError(t, err)
-				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
-
-				require.NotEmpty(t, object.StreamID)
-				require.EqualValues(t, item.Version, object.Version)
+				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
+				require.NotEmpty(t, response.Object.StreamId)
 
 				// get with version
-				object, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				response, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					Version:            item.Version,
+					ObjectVersion:      response.Object.ObjectVersion,
 				})
 				require.NoError(t, err)
-				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
+				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
 
 				// get with WRONG version, should return error
-				_, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				version, err := metabase.VersionFromBytes(response.Object.ObjectVersion)
+				require.NoError(t, err)
+				version++
+				nonExistingVersion := version.Encode()
+				_, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					Version:            item.Version + 1,
+					ObjectVersion:      nonExistingVersion,
 				})
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
+
+			// TODO(ver): add tests with delete marker
 
 			items, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket: []byte(expectedBucketName),
