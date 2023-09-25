@@ -101,7 +101,6 @@ func TestBucketNameValidation(t *testing.T) {
 			_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte(name),
 				EncryptedObjectKey: []byte("123"),
-				Version:            0,
 				ExpiresAt:          time.Now().Add(16 * 24 * time.Hour),
 				EncryptionParameters: storj.EncryptionParameters{
 					CipherSuite: storj.EncAESGCM,

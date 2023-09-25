@@ -183,7 +183,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	return &pb.ObjectBeginResponse{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            req.Version,
 		StreamId:           satStreamID,
 		RedundancyScheme:   endpoint.defaultRS,
 	}, nil
@@ -1542,7 +1541,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	result := &pb.Object{
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
-		Version:            int32(object.Version), // TODO incompatible types
 		ObjectVersion:      object.StreamVersionID().Bytes(),
 		StreamId:           streamID,
 		Status:             pb.Object_Status(object.Status),
@@ -1572,7 +1570,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 
 	item = &pb.ObjectListItem{
 		EncryptedObjectKey: []byte(entry.ObjectKey),
-		Version:            int32(entry.Version), // TODO incompatible types
 		Status:             pb.Object_Status(entry.Status),
 		ObjectVersion:      entry.StreamVersionID().Bytes(),
 	}

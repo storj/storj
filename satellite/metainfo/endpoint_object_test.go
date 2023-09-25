@@ -139,7 +139,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 				// get with WRONG version, should return error
 				object := metabase.Object{}
-				object.Version = metabase.Version(response.Object.Version) + 1
+				object.Version = metabase.Version(response.Object.Version) + 10
 				copy(object.StreamID[:], response.Object.StreamId[:])
 				_, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header: &pb.RequestHeader{
@@ -333,7 +333,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				},
 				Bucket:                        getResp.Object.Bucket,
 				EncryptedObjectKey:            getResp.Object.EncryptedObjectKey,
-				Version:                       getResp.Object.Version,
 				StreamId:                      getResp.Object.StreamId,
 				EncryptedMetadataNonce:        testEncryptedMetadataNonce,
 				EncryptedMetadata:             testEncryptedMetadata,
@@ -579,12 +578,10 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
-				Version:            int32(committedObject.Version),
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, getObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version, getObjectResponse.Object.Version)
 		})
 
 		t.Run("download object", func(t *testing.T) {
@@ -618,7 +615,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version, downloadObjectResponse.Object.Version)
 		})
 
 		t.Run("begin expired object", func(t *testing.T) {
@@ -2381,7 +2377,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			Header:             &pb.RequestHeader{ApiKey: apiKey},
 			Bucket:             []byte("testbucket"),
 			EncryptedObjectKey: []byte(objects[0].ObjectKey),
-			Version:            int32(objects[0].Version),
 		})
 		require.NoError(t, err)
 
@@ -2389,7 +2384,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			Header:                        &pb.RequestHeader{ApiKey: apiKey},
 			Bucket:                        []byte("testbucket"),
 			EncryptedObjectKey:            []byte(objects[0].ObjectKey),
-			Version:                       int32(objects[0].Version),
 			StreamId:                      getObjectResponse.Object.StreamId,
 			EncryptedMetadata:             validMetadata,
 			EncryptedMetadataEncryptedKey: validKey,
@@ -2401,7 +2395,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			Header:             &pb.RequestHeader{ApiKey: apiKey},
 			Bucket:             []byte("testbucket"),
 			EncryptedObjectKey: []byte(objects[0].ObjectKey),
-			Version:            int32(objects[0].Version),
 
 			EncryptedMetadata:             testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize + 1),
 			EncryptedMetadataEncryptedKey: validKey,
@@ -2413,7 +2406,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			Header:             &pb.RequestHeader{ApiKey: apiKey},
 			Bucket:             []byte("testbucket"),
 			EncryptedObjectKey: []byte(objects[0].ObjectKey),
-			Version:            int32(objects[0].Version),
 
 			EncryptedMetadata:             validMetadata,
 			EncryptedMetadataEncryptedKey: testrand.Bytes(16),
