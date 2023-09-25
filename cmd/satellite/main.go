@@ -274,6 +274,20 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdPayAllInvoices,
 	}
+	failPendingInvoiceTokenPaymentCmd = &cobra.Command{
+		Use:   "fail-token-payment",
+		Short: "fail pending invoice token payment",
+		Long:  "attempts to transition the token invoice payments that are stuck in a pending state to failed.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdFailPendingInvoiceTokenPayments,
+	}
+	completePendingInvoiceTokenPaymentCmd = &cobra.Command{
+		Use:   "complete-token-payment",
+		Short: "complete pending invoice token payment",
+		Long:  "attempts to transition the token invoice payments that are stuck in a pending state to complete.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCompletePendingInvoiceTokenPayments,
+	}
 	stripeCustomerCmd = &cobra.Command{
 		Use:   "ensure-stripe-customer",
 		Short: "Ensures that we have a stripe customer for every user",
@@ -414,6 +428,8 @@ func init() {
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(payInvoicesWithTokenCmd)
 	billingCmd.AddCommand(payAllInvoicesCmd)
+	billingCmd.AddCommand(failPendingInvoiceTokenPaymentCmd)
+	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -450,6 +466,8 @@ func init() {
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(payInvoicesWithTokenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(payAllInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(failPendingInvoiceTokenPaymentCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(completePendingInvoiceTokenPaymentCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -902,6 +920,20 @@ func cmdPayAllInvoices(cmd *cobra.Command, args []string) (err error) {
 			return errs.New("error applying native token payments: %v", err)
 		}
 		return payments.PayInvoices(ctx, periodStart)
+	})
+}
+
+func cmdFailPendingInvoiceTokenPayments(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.FailPendingInvoiceTokenPayments(ctx, strings.Split(args[0], ","))
+	})
+}
+
+func cmdCompletePendingInvoiceTokenPayments(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.CompletePendingInvoiceTokenPayments(ctx, strings.Split(args[0], ","))
 	})
 }
 

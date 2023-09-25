@@ -1180,6 +1180,32 @@ func (service *Service) PayInvoicesWithTokenBalance(ctx context.Context, userID 
 	}, invoices)
 }
 
+// FailPendingInvoiceTokenPayments marks all specified pending invoice token payments as failed, and refunds the pending charges.
+func (service *Service) FailPendingInvoiceTokenPayments(ctx context.Context, pendingPayments []string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	txIDs := make([]int64, len(pendingPayments))
+
+	for i, s := range pendingPayments {
+		txIDs[i], _ = strconv.ParseInt(s, 10, 64)
+	}
+
+	return service.billingDB.FailPendingInvoiceTokenPayments(ctx, txIDs...)
+}
+
+// CompletePendingInvoiceTokenPayments updates the status of the pending invoice token payment to complete.
+func (service *Service) CompletePendingInvoiceTokenPayments(ctx context.Context, pendingPayments []string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	txIDs := make([]int64, len(pendingPayments))
+
+	for i, s := range pendingPayments {
+		txIDs[i], _ = strconv.ParseInt(s, 10, 64)
+	}
+
+	return service.billingDB.CompletePendingInvoiceTokenPayments(ctx, txIDs...)
+}
+
 // payInvoicesWithTokenBalance attempts to transition the users open invoices to "paid" by charging the customer
 // token balance.
 func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID string, wallet storjscan.Wallet, invoices []stripe.Invoice) (err error) {
