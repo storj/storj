@@ -8,8 +8,13 @@
             label="Search"
             prepend-inner-icon="mdi-magnify"
             single-line
+            variant="solo-filled"
+            flat
             hide-details
             clearable
+            density="comfortable"
+            rounded="lg"
+            class="mx-2 mt-2"
         />
 
         <v-data-table
