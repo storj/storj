@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
@@ -99,12 +100,14 @@ func TestInsertBufferTwoUniqueObjects(t *testing.T) {
 }
 
 func createInjuredSegment() *queue.InjuredSegment {
+	index := uint32(testrand.Intn(1000))
 	return &queue.InjuredSegment{
 		StreamID: testrand.UUID(),
 		Position: metabase.SegmentPosition{
 			Part:  uint32(testrand.Intn(1000)),
-			Index: uint32(testrand.Intn(1000)),
+			Index: index,
 		},
 		SegmentHealth: 10,
+		Placement:     storj.PlacementConstraint(index % 3),
 	}
 }

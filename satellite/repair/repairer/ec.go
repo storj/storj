@@ -497,6 +497,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		successfulCount++
 
 		if successfulCount >= int32(successfulNeeded) {
+			// if this is logged more than once for a given repair operation, it is because
+			// an upload succeeded right after we called cancel(), before that upload could
+			// actually be canceled. So, successfulCount should increase by one with each
+			// repeated logging.
 			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
@@ -574,10 +578,12 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 			// to slow connection. No error logging for this case.
 			if errors.Is(parent.Err(), context.Canceled) {
 				ec.log.Debug("Upload to node canceled by user",
-					zap.Stringer("Node ID", storageNodeID))
+					zap.Stringer("Node ID", storageNodeID),
+					zap.Stringer("Piece ID", pieceID))
 			} else {
 				ec.log.Debug("Node cut from upload due to slow connection",
-					zap.Stringer("Node ID", storageNodeID))
+					zap.Stringer("Node ID", storageNodeID),
+					zap.Stringer("Piece ID", pieceID))
 			}
 
 			// make sure context.Canceled is the primary error in the error chain

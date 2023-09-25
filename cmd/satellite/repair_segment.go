@@ -281,10 +281,8 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 		return errs.New("not enough new nodes were found for repair: min %v got %v", redundancy.RepairThreshold(), len(newNodes))
 	}
 
-	optimalThresholdMultiplier := float64(1) // is this value fine?
-	numHealthyInExcludedCountries := 0
 	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, segment, make([]*pb.AddressedOrderLimit, len(newNodes)),
-		make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
+		make(map[uint16]struct{}), newNodes)
 	if err != nil {
 		return errs.New("could not create PUT_REPAIR order limits: %w", err)
 	}

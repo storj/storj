@@ -45,7 +45,7 @@
                 <p class="dashboard-header__limits">
                     <span class="dashboard-header__limits--bold">Storage Limit</span>
                     per month: {{ bytesToBase10String(limits.storageLimit) }} |
-                    <span class="dashboard-header__limits--bold">Egress Limit</span>
+                    <span class="dashboard-header__limits--bold">Download Limit</span>
                     per month: {{ bytesToBase10String(limits.bandwidthLimit) }}
                 </p>
                 <VButton

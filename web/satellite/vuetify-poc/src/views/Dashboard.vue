@@ -23,7 +23,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card title="Bandwidth" variant="flat" :border="true" rounded="xlg">
+                <v-card title="Download" variant="flat" :border="true" rounded="xlg">
                     <h4 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h4>
                     <BandwidthChart
                         :width="chartWidth"
@@ -154,7 +154,7 @@ function formattedValue(value: Size): string {
     case Dimensions.Bytes:
         return '0';
     default:
-        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
     }
 }
 

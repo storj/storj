@@ -29,7 +29,7 @@ func TestInsertSelect(t *testing.T) {
 		alreadyInserted, err := q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.False(t, alreadyInserted)
-		s, err := q.Select(ctx)
+		s, err := q.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		err = q.Delete(ctx, s)
 		require.NoError(t, err)
@@ -77,6 +77,7 @@ func TestInsertBatchOfOne(t *testing.T) {
 		require.Equal(t, writeSegments[0].StreamID, readSegments[0].StreamID)
 		require.Equal(t, writeSegments[0].Position, readSegments[0].Position)
 		require.Equal(t, writeSegments[0].SegmentHealth, readSegments[0].SegmentHealth)
+		require.Equal(t, writeSegments[0].Placement, readSegments[0].Placement)
 	})
 }
 
@@ -132,7 +133,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		_, err := q.Select(ctx)
+		_, err := q.Select(ctx, nil, nil)
 		require.Error(t, err)
 		require.True(t, queue.ErrEmpty.Has(err), "error should of class EmptyQueue")
 	})
@@ -160,7 +161,7 @@ func TestSequential(t *testing.T) {
 		require.Len(t, list, N)
 
 		for i := 0; i < N; i++ {
-			s, err := q.Select(ctx)
+			s, err := q.Select(ctx, nil, nil)
 			require.NoError(t, err)
 			err = q.Delete(ctx, s)
 			require.NoError(t, err)
@@ -202,7 +203,7 @@ func TestParallel(t *testing.T) {
 		var remove errs2.Group
 		for i := 0; i < N; i++ {
 			remove.Go(func() error {
-				s, err := q.Select(ctx)
+				s, err := q.Select(ctx, nil, nil)
 				if err != nil {
 					return err
 				}

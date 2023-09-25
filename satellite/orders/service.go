@@ -5,7 +5,6 @@ package orders
 
 import (
 	"context"
-	"math"
 	mathrand "math/rand"
 	"sync"
 	"time"
@@ -459,18 +458,12 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment 
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[int32]struct{}, newNodes []*nodeselection.SelectedNode, optimalThresholdMultiplier float64, numPiecesInExcludedCountries int) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[uint16]struct{}, newNodes []*nodeselection.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces
 	pieceSize := segment.PieceSize()
-
 	totalPieces := int(segment.Redundancy.TotalShares)
-	totalPiecesAfterRepair := int(math.Ceil(float64(segment.Redundancy.OptimalShares)*optimalThresholdMultiplier)) + numPiecesInExcludedCountries
-
-	if totalPiecesAfterRepair > totalPieces {
-		totalPiecesAfterRepair = totalPieces
-	}
 
 	var numRetrievablePieces int
 	for _, o := range getOrderLimits {
@@ -478,8 +471,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment 
 			numRetrievablePieces++
 		}
 	}
-
-	totalPiecesToRepair := totalPiecesAfterRepair - len(healthySet)
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 
@@ -493,7 +484,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment 
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	var pieceNum int32
+	var pieceNum uint16
 	for _, node := range newNodes {
 		for int(pieceNum) < totalPieces {
 			_, isHealthy := healthySet[pieceNum]
@@ -507,18 +498,13 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment 
 			return nil, storj.PiecePrivateKey{}, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
-		limit, err := signer.Sign(ctx, resolveStorageNode_Selected(node, false), pieceNum)
+		limit, err := signer.Sign(ctx, resolveStorageNode_Selected(node, false), int32(pieceNum))
 		if err != nil {
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
 		limits[pieceNum] = limit
 		pieceNum++
-		totalPiecesToRepair--
-
-		if totalPiecesToRepair == 0 {
-			break
-		}
 	}
 
 	return limits, signer.PrivateKey, nil

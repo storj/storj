@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
@@ -21,6 +22,8 @@ type InjuredSegment struct {
 	AttemptedAt   *time.Time
 	UpdatedAt     time.Time
 	InsertedAt    time.Time
+
+	Placement storj.PlacementConstraint
 }
 
 // RepairQueue implements queueing for segments that need repairing.
@@ -33,7 +36,7 @@ type RepairQueue interface {
 	// InsertBatch adds multiple injured segments
 	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Select gets an injured segment.
-	Select(ctx context.Context) (*InjuredSegment, error)
+	Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (*InjuredSegment, error)
 	// Delete removes an injured segment.
 	Delete(ctx context.Context, s *InjuredSegment) error
 	// Clean removes all segments last updated before a certain time

@@ -128,7 +128,7 @@
                             />
                         </div>
                     </div>
-                    <p class="project-details__wrapper__container__label">Egress Limit</p>
+                    <p class="project-details__wrapper__container__label">Download Limit</p>
                     <div v-if="!isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-area">
                         <p class="project-details__wrapper__container__limits__bandwidthlimit-area__bandwidthlimit">{{ bandwidthLimitFormatted }}</p>
                         <VButton
@@ -561,7 +561,7 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
 
     toggleBandwidthLimitEditing();
     analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
-    notify.success('Project egress limit updated successfully!');
+    notify.success('Project download limit updated successfully!');
 }
 
 /**
