@@ -276,6 +276,11 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 			},
 			ServerAddress: mailConfig.SMTPServerAddress,
 		}
+	case "insecure":
+		sender = &post.SMTPSender{
+			From:          *from,
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
 	case "nomail":
 		sender = simulate.NoMail{}
 	default:
