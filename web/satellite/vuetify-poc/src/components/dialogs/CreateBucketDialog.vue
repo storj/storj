@@ -42,6 +42,7 @@
                             variant="outlined"
                             :rules="bucketNameRules"
                             label="Enter bucket name"
+                            placeholder="demo-bucket"
                             hint="Lowercase letters, numbers, hyphens (-), and periods (.)"
                             :hide-details="false"
                             required
@@ -326,7 +327,6 @@ watch(innerContent, newContent => {
         withLoading(async () => {
             try {
                 await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
-                bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             }
