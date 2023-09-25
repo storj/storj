@@ -42,7 +42,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 	getPackageName := func(path string) string {
 		pathPackages := strings.Split(path, "/")
-		return pathPackages[len(pathPackages)-1]
+		name := pathPackages[len(pathPackages)-1]
+		if name == "main" {
+			panic(errs.New(`invalid package name. Your types cannot be defined in a package named "main"`))
+		}
+
+		return name
 	}
 
 	imports := struct {

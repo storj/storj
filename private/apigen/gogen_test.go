@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/apigen/example"
+	"storj.io/storj/private/apigen/example/myapi"
 )
 
 type (
@@ -43,6 +44,13 @@ func (a auth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth
 }
 
 func (a auth) RemoveAuthCookie(w http.ResponseWriter) {}
+
+func (s service) GetOne(
+	ctx context.Context,
+	pathParam string,
+) (*myapi.Document, api.HTTPError) {
+	return &myapi.Document{}, api.HTTPError{}
+}
 
 func (s service) UpdateContent(
 	ctx context.Context,

@@ -4,6 +4,14 @@
 import { HttpClient } from '@/utils/httpClient';
 import { Time, UUID } from '@/types/common';
 
+export class Document {
+    id: UUID;
+    date: Time;
+    pathParam: string;
+    body: string;
+    version: number;
+}
+
 export class UpdateContentRequest {
     content: string;
 }
@@ -18,6 +26,16 @@ export class UpdateContentResponse {
 export class docsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
+
+    public async GetOne(path: string): Promise<Document> {
+        const fullPath = `${this.ROOT_PATH}/${path}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as Document);
+        }
+        const err = await response.json();
+        throw new Error(err.error);
+    }
 
     public async UpdateContent(request: UpdateContentRequest, path: string, id: UUID, date: Time): Promise<UpdateContentResponse> {
         const u = new URL(`${this.ROOT_PATH}/${path}`);

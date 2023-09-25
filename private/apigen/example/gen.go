@@ -11,12 +11,23 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
+	"storj.io/storj/private/apigen/example/myapi"
 )
 
 func main() {
 	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
 
 	g := a.Group("Documents", "docs")
+
+	g.Get("/{path}", &apigen.Endpoint{
+		Name:        "Get One",
+		Description: "Get one document with the specified version",
+		MethodName:  "GetOne",
+		Response:    myapi.Document{},
+		PathParams: []apigen.Param{
+			apigen.NewParam("path", ""),
+		},
+	})
 
 	g.Post("/{path}", &apigen.Endpoint{
 		Name:        "Update Content",

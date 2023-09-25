@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/apigen/example/myapi"
 )
 
 const dateLayout = "2006-01-02T15:04:05.999Z"
@@ -23,6 +24,7 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 var ErrDocsAPI = errs.Class("example docs api")
 
 type DocumentsService interface {
+	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
 	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
 		Content string "json:\"content\""
 	}) (*struct {
@@ -50,9 +52,42 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 	}
 
 	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
+	docsRouter.HandleFunc("/{path}", handler.handleGetOne).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleUpdateContent).Methods("POST")
 
 	return handler
+}
+
+func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetOne(ctx, path)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetOne response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
 }
 
 func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Request) {
