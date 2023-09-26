@@ -11,7 +11,7 @@
 import { App } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
-import router from '../router';
+import { router, startTitleWatcher } from '../router';
 
 import vuetify from './vuetify';
 
@@ -26,4 +26,5 @@ export function registerPlugins(app: App<Element>) {
         .use(router)
         .use(pinia)
         .use(NotificatorPlugin);
+    startTitleWatcher();
 }
