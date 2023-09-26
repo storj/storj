@@ -90,7 +90,7 @@
                         </div>
                     </div>
                     <p v-if="isInvited" class="register-area__input-area__container__invitation-text">
-                        {{ inviterName }} ({{ inviterEmail }}) has invited you to the project {{ projectName }} on Storj. Create an account on the {{ satelliteName }} region to join {{ inviterName }} in the project.
+                        {{ inviterEmail }} has invited you to a project on Storj. Create an account on the {{ satelliteName }} region to join it.
                     </p>
                     <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
@@ -331,9 +331,7 @@ const viewConfig = ref<ViewConfig | null>(null);
 const secret = queryRef('token');
 
 const email = queryRef('email');
-const inviterName = queryRef('inviter');
 const inviterEmail = queryRef('inviter_email');
-const projectName = queryRef('project');
 
 const isTermsAccepted = ref(false);
 const password = ref('');
@@ -542,7 +540,7 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
  * redirected from a project invitation link.
  */
 const isInvited = computed((): boolean => {
-    return !!inviterName.value && !!inviterEmail.value && !!projectName.value && !!email.value;
+    return !!inviterEmail.value && !!email.value;
 });
 
 /**
