@@ -149,7 +149,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useTheme } from 'vuetify';
+import { useDisplay, useTheme } from 'vuetify';
 import {
     VAppBar,
     VAppBarNavIcon,
@@ -201,6 +201,8 @@ const configStore = useConfigStore();
 const router = useRouter();
 const notify = useNotify();
 
+const { mdAndDown } = useDisplay();
+
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const props = withDefaults(defineProps<{
@@ -240,7 +242,7 @@ toggleTheme(localStorage.getItem('theme') || 'light');
 activeTheme.value = theme.global.current.value.dark ? 1 : 0;
 
 function closeSideNav(): void {
-    appStore.toggleNavigationDrawer(false);
+    if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
 }
 
 /**
