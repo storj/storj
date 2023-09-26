@@ -114,6 +114,7 @@
                         :loading="isLoading"
                         class="file-browser-table"
                         :on-page-change="isPaginationEnabled ? changePageAndLimit : null"
+                        :page-number="cursor.page"
                         @selectAllClicked="toggleSelectAllFiles"
                     >
                         <template #head>
@@ -272,6 +273,7 @@ const isOver = ref<boolean>(false);
 const routePath = ref(calculateRoutePath());
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
+const routePageCache = new Map<string, number>();
 
 /**
  * Calculates page count depending on object count and page limit.
@@ -440,7 +442,8 @@ const bucket = computed((): string => {
 /**
  * Changes table page and limit.
  */
-async function changePageAndLimit(page: number, limit: number): void {
+async function changePageAndLimit(page: number, limit: number): Promise<void> {
+    routePageCache.set(routePath.value, page);
     obStore.setCursor({ limit, page });
 
     const lastObjectOnPage = page * limit;
@@ -501,6 +504,15 @@ async function onRouteChange(): Promise<void> {
             await list(routePath.value);
         }
     });
+
+    if (isPaginationEnabled.value) {
+        const cachedPage = routePageCache.get(routePath.value);
+        if (cachedPage !== undefined) {
+            obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+        } else {
+            obStore.setCursor({ limit: cursor.value.limit, page: 1 });
+        }
+    }
 }
 
 /**

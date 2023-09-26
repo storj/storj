@@ -31,6 +31,7 @@
                 :on-page-change="onPageChange"
                 :on-next-clicked="onNextClicked"
                 :on-previous-clicked="onPreviousClicked"
+                :page-number="pageNumber"
             />
         </div>
     </div>
@@ -57,6 +58,7 @@ const props = withDefaults(defineProps<{
     showSelect?: boolean,
     simplePagination?: boolean,
     loading?: boolean,
+    pageNumber?: number,
 }>(), {
     selectable: false,
     selected: false,
@@ -71,6 +73,7 @@ const props = withDefaults(defineProps<{
     onPreviousClicked: null,
     onPageSizeChanged: null,
     loading: false,
+    pageNumber: 1,
 });
 
 const emit = defineEmits(['selectAllClicked']);

@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { PageChangeCallback } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
@@ -114,6 +114,7 @@ const props = withDefaults(defineProps<{
     onNextClicked?: (() => Promise<void>) | null;
     onPreviousClicked?: (() => Promise<void>) | null;
     onPageSizeChanged?: ((size: number) => Promise<void> | void) | null;
+    pageNumber?: number;
 }>(), {
     itemsLabel: 'items',
     totalPageCount: 0,
@@ -124,6 +125,7 @@ const props = withDefaults(defineProps<{
     onNextClicked: null,
     onPreviousClicked: null,
     onPageSizeChanged: null,
+    pageNumber: 1,
 });
 
 const currentPageNumber = ref<number>(1);
@@ -260,6 +262,10 @@ async function prevPage(): Promise<void> {
         currentPageNumber.value--;
     });
 }
+
+watch(() => props.pageNumber, () => {
+    goToPage(props.pageNumber);
+});
 </script>
 
 <style scoped lang="scss">
