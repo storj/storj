@@ -802,6 +802,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many concurrent orders to process at once. zero is unlimited
 # orders.orders-semaphore-size: 2
 
+# default AS OF SYSTEM TIME for service
+# overlay.as-of-system-time: -10s
+
 # the location of the maxmind database containing geoip country information
 # overlay.geo-ip.db: ""
 

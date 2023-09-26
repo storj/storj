@@ -506,8 +506,7 @@ func (service *Service) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList) 
 func (service *Service) GetParticipatingNodes(ctx context.Context) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add as of system time.
-	return service.db.GetParticipatingNodes(ctx, service.config.Node.OnlineWindow, 0)
+	return service.db.GetParticipatingNodes(ctx, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
