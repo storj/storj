@@ -298,7 +298,10 @@ async function sendRequest(): Promise<void> {
                 limit = limit * Number(Memory.TB);
             }
             await projectsStore.requestLimitIncrease(activeLimit.value, limit);
-            notify.success('Request sent successfully');
+            notify.success('', `
+                <span class="message-title">Your request for limits increase has been submitted.</span>
+                <span class="message-info">Limit increases may take up to 3 business days to be reflected in your limits.</span>
+            `);
             closeModal();
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.REQUEST_PROJECT_LIMIT_MODAL);
