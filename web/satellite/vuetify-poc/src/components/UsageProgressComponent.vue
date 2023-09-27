@@ -3,6 +3,12 @@
 
 <template>
     <v-card :title="title" variant="flat" :border="true" rounded="xlg">
+        <template #title>
+            <v-card-title class="d-flex align-center">
+                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" />
+                {{ title }}
+            </v-card-title>
+        </template>
         <v-card-item>
             <v-progress-linear color="success" :model-value="progress" rounded height="6" />
         </v-card-item>
@@ -22,7 +28,12 @@
 </template>
 
 <script setup lang="ts">
-import { VCard, VCardItem, VProgressLinear, VRow, VCol } from 'vuetify/components';
+import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle } from 'vuetify/components';
+
+import IconCloud from '@poc/components/icons/IconCloud.vue';
+import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
+import IconGlobe from '@poc/components/icons/IconGlobe.vue';
+import IconCircleCheck from '@poc/components/icons/IconCircleCheck.vue';
 
 const props = defineProps<{
     title: string;
@@ -31,9 +42,17 @@ const props = defineProps<{
     limit: string;
     available: string;
     cta: string;
+    icon?: keyof typeof iconComponents;
 }>();
 
 const emit = defineEmits<{
     ctaClick: [];
 }>();
+
+const iconComponents = {
+    cloud: IconCloud,
+    'arrow-down': IconArrowDown,
+    globe: IconGlobe,
+    check: IconCircleCheck,
+};
 </script>

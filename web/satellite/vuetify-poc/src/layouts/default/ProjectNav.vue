@@ -156,7 +156,7 @@
 
                 <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
                     <template #prepend>
-                        <IconAccess />
+                        <IconAccess size="18" />
                     </template>
                     <v-list-item-title class="text-body-2 ml-3">
                         Access
@@ -165,7 +165,7 @@
 
                 <v-list-item link router-link :to="`/projects/${selectedProject.id}/team`" class="my-1" rounded="lg" @click="() => registerLinkClick('/team')">
                     <template #prepend>
-                        <IconTeam />
+                        <IconTeam size="18" />
                     </template>
                     <v-list-item-title class="text-body-2 ml-3">
                         Team

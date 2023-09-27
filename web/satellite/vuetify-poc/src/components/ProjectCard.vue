@@ -29,7 +29,7 @@
 
                                 <v-list-item link class="mt-1" rounded="lg">
                                     <template #prepend>
-                                        <icon-team />
+                                        <icon-team size="18" />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
                                         Invite Members
