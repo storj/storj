@@ -129,6 +129,7 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Rate struct {
 			RPS int `json:"rps"`
 		} `json:"rate"`
+		Burst    int   `json:"burst"`
 		Buckets  int   `json:"maxBuckets"`
 		Segments int64 `json:"maxSegments"`
 	}
@@ -145,6 +146,9 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
+	}
+	if project.BurstLimit != nil {
+		output.Burst = *project.BurstLimit
 	}
 	if project.SegmentLimit != nil {
 		output.Segments = *project.SegmentLimit

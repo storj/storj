@@ -139,7 +139,7 @@ func TestProjectLimit(t *testing.T) {
 		linkLimit := "http://" + address.String() + "/api/projects/" + project.ID.String() + "/limit"
 
 		t.Run("Get OK", func(t *testing.T) {
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"25.00 GB","bytes":25000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("Get Not Found", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 
 			req, err = http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?usage=1GB", nil)
 			require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"25.00 GB","bytes":25000000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("Update Bandwidth", func(t *testing.T) {
@@ -211,7 +211,7 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("Update Rate", func(t *testing.T) {
@@ -224,7 +224,20 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":0,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+		})
+
+		t.Run("Update Burst", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, linkLimit+"?burst=50", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":0,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("Update Buckets", func(t *testing.T) {
@@ -237,7 +250,7 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":2000,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":2000,"maxSegments":10000}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("Update Segment Limit", func(t *testing.T) {
@@ -250,7 +263,7 @@ func TestProjectLimit(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":2000,"maxSegments":500}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(ctx, t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"burst":50,"maxBuckets":2000,"maxSegments":500}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 	})
 }
