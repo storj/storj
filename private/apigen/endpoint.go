@@ -7,7 +7,17 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
+
+	"github.com/zeebo/errs"
+)
+
+var (
+	errsEndpoint = errs.Class("Endpoint")
+
+	goNameRegExp         = regexp.MustCompile(`^[A-Z]\w*$`)
+	typeScriptNameRegExp = regexp.MustCompile(`^[a-z][a-zA-Z0-9_$]*$`)
 )
 
 // Endpoint represents endpoint's configuration.
@@ -17,18 +27,21 @@ type Endpoint struct {
 	Name string
 	// Description is a free text to describe the endpoint for documentation purpose.
 	Description string
-	// MethodName is the name of method of the service interface which handles the business logic of
-	// this endpoint.
-	// It must fulfill the Go language specification for method names
-	// (https://go.dev/ref/spec#MethodName)
-	// TODO: Should we rename this field to be something like ServiceMethodName?
-	MethodName string
-	// RequestName is the name of the method used to name the method in the client side code. When not
-	// set, MethodName is used.
-	// TODO: Should we delete this field in favor of always using MethodName?
-	RequestName  string
-	NoCookieAuth bool
-	NoAPIAuth    bool
+	// GoName is an identifier used by the Go generator to generate specific server side code for this
+	// endpoint.
+	//
+	// It must start with an uppercase letter and fulfill the Go language specification for method
+	// names (https://go.dev/ref/spec#MethodName).
+	// It cannot be empty.
+	GoName string
+	// TypeScriptName is an identifier used by the TypeScript generator to generate specific client
+	// code for this endpoint
+	//
+	// It must start with a lowercase letter and can only contains letters, digits, _, and $.
+	// It cannot be empty.
+	TypeScriptName string
+	NoCookieAuth   bool
+	NoAPIAuth      bool
 	// Request is the type that defines the format of the request body.
 	Request interface{}
 	// Response is the type that defines the format of the response body.
@@ -50,6 +63,27 @@ func (e *Endpoint) APIAuth() bool {
 	return !e.NoAPIAuth
 }
 
+// Validate validates the endpoint fields values are correct according to the documented constraints.
+func (e *Endpoint) Validate() error {
+	if e.Name == "" {
+		return errsEndpoint.New("Name cannot be empty")
+	}
+
+	if e.Description == "" {
+		return errsEndpoint.New("Description cannot be empty")
+	}
+
+	if !goNameRegExp.MatchString(e.GoName) {
+		return errsEndpoint.New("GoName doesn't match the regular expression %q", goNameRegExp)
+	}
+
+	if !typeScriptNameRegExp.MatchString(e.TypeScriptName) {
+		return errsEndpoint.New("TypeScriptName doesn't match the regular expression %q", typeScriptNameRegExp)
+	}
+
+	return nil
+}
+
 // fullEndpoint represents endpoint with path and method.
 type fullEndpoint struct {
 	Endpoint
@@ -64,18 +98,13 @@ func (fe fullEndpoint) requestType() reflect.Type {
 		return t
 	}
 
-	name := fe.RequestName
-	if name == "" {
-		name = fe.MethodName
-	}
-
 	switch k := t.Kind(); k {
 	case reflect.Array, reflect.Slice:
 		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(name, "Request")}
+			t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Request")}
 		}
 	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(name, "Request")}
+		t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Request")}
 	default:
 		panic(
 			fmt.Sprintf(
@@ -98,10 +127,10 @@ func (fe fullEndpoint) responseType() reflect.Type {
 	switch k := t.Kind(); k {
 	case reflect.Array, reflect.Slice:
 		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(fe.MethodName, "Response")}
+			t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Response")}
 		}
 	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(fe.MethodName, "Response")}
+		t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Response")}
 	default:
 		panic(
 			fmt.Sprintf(
@@ -148,7 +177,10 @@ func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {
 }
 
 // addEndpoint adds new endpoint to endpoints list.
-// It panics if path doesn't begin with '/'.
+// It panics if:
+//   - path doesn't begin with '/'.
+//   - endpoint.Validate() returns an error.
+//   - An Endpoint with the same path and method already exists.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 	if !strings.HasPrefix(path, "/") {
 		panic(
@@ -161,11 +193,31 @@ func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 		)
 	}
 
+	if err := endpoint.Validate(); err != nil {
+		panic(err)
+	}
+
 	ep := &fullEndpoint{*endpoint, path, method}
-	for i, e := range eg.endpoints {
+	for _, e := range eg.endpoints {
 		if e.Path == path && e.Method == method {
-			eg.endpoints[i] = ep
-			return
+			panic(fmt.Sprintf("there is already an endpoint defined with path %q and method %q", path, method))
+		}
+
+		if e.GoName == ep.GoName {
+			panic(
+				fmt.Sprintf("GoName %q is already used by the endpoint with path %q and method %q", e.GoName, e.Path, e.Method),
+			)
+		}
+
+		if e.TypeScriptName == ep.TypeScriptName {
+			panic(
+				fmt.Sprintf(
+					"TypeScriptName %q is already used by the endpoint with path %q and method %q",
+					e.TypeScriptName,
+					e.Path,
+					e.Method,
+				),
+			)
 		}
 	}
 	eg.endpoints = append(eg.endpoints, ep)
@@ -191,7 +243,7 @@ func (p Param) namedType(ep Endpoint, where string) reflect.Type {
 	if p.Type.Name() == "" {
 		return typeCustomName{
 			Type: p.Type,
-			name: compoundTypeName(ep.MethodName, where, "param", p.Name),
+			name: compoundTypeName(ep.GoName, where, "param", p.Name),
 		}
 	}
 

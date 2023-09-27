@@ -47,7 +47,8 @@ func (a *API) Group(name, prefix string) *EndpointGroup {
 	if !groupNameRegExp.MatchString(name) {
 		panic(
 			fmt.Sprintf(
-				"invalid name for API Endpoint Group. name must fulfill the regular expression `^([A-Z0-9]\\w*)?$``, got %q",
+				"invalid name for API Endpoint Group. name must fulfill the regular expression %q, got %q",
+				groupNameRegExp,
 				name,
 			),
 		)
@@ -55,8 +56,9 @@ func (a *API) Group(name, prefix string) *EndpointGroup {
 	if !groupPrefixRegExp.MatchString(prefix) {
 		panic(
 			fmt.Sprintf(
-				"invalid prefix for API Endpoint Group %q. prefix must fulfill the regular expression `^\\w*$`, got %q",
+				"invalid prefix for API Endpoint Group %q. prefix must fulfill the regular expression %q, got %q",
 				name,
+				groupPrefixRegExp,
 				prefix,
 			),
 		)

@@ -31,50 +31,50 @@ func main() {
 		g := a.Group("ProjectManagement", "projects")
 
 		g.Post("/create", &apigen.Endpoint{
-			Name:        "Create new Project",
-			Description: "Creates new Project with given info",
-			MethodName:  "GenCreateProject",
-			RequestName: "createProject",
-			Response:    console.Project{},
-			Request:     console.UpsertProjectInfo{},
+			Name:           "Create new Project",
+			Description:    "Creates new Project with given info",
+			GoName:         "GenCreateProject",
+			TypeScriptName: "createProject",
+			Response:       console.Project{},
+			Request:        console.UpsertProjectInfo{},
 		})
 
 		g.Patch("/update/{id}", &apigen.Endpoint{
-			Name:        "Update Project",
-			Description: "Updates project with given info",
-			MethodName:  "GenUpdateProject",
-			RequestName: "updateProject",
-			Response:    console.Project{},
-			Request:     console.UpsertProjectInfo{},
+			Name:           "Update Project",
+			Description:    "Updates project with given info",
+			GoName:         "GenUpdateProject",
+			TypeScriptName: "updateProject",
+			Response:       console.Project{},
+			Request:        console.UpsertProjectInfo{},
 			PathParams: []apigen.Param{
 				apigen.NewParam("id", uuid.UUID{}),
 			},
 		})
 
 		g.Delete("/delete/{id}", &apigen.Endpoint{
-			Name:        "Delete Project",
-			Description: "Deletes project by id",
-			MethodName:  "GenDeleteProject",
-			RequestName: "deleteProject",
+			Name:           "Delete Project",
+			Description:    "Deletes project by id",
+			GoName:         "GenDeleteProject",
+			TypeScriptName: "deleteProject",
 			PathParams: []apigen.Param{
 				apigen.NewParam("id", uuid.UUID{}),
 			},
 		})
 
 		g.Get("/", &apigen.Endpoint{
-			Name:        "Get Projects",
-			Description: "Gets all projects user has",
-			MethodName:  "GenGetUsersProjects",
-			RequestName: "getProjects",
-			Response:    []console.Project{},
+			Name:           "Get Projects",
+			Description:    "Gets all projects user has",
+			GoName:         "GenGetUsersProjects",
+			TypeScriptName: "getProjects",
+			Response:       []console.Project{},
 		})
 
 		g.Get("/bucket-rollup", &apigen.Endpoint{
-			Name:        "Get Project's Single Bucket Usage",
-			Description: "Gets project's single bucket usage by bucket ID",
-			MethodName:  "GenGetSingleBucketUsageRollup",
-			RequestName: "getBucketRollup",
-			Response:    accounting.BucketUsageRollup{},
+			Name:           "Get Project's Single Bucket Usage",
+			Description:    "Gets project's single bucket usage by bucket ID",
+			GoName:         "GenGetSingleBucketUsageRollup",
+			TypeScriptName: "getBucketRollup",
+			Response:       accounting.BucketUsageRollup{},
 			QueryParams: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
 				apigen.NewParam("bucket", ""),
@@ -84,11 +84,11 @@ func main() {
 		})
 
 		g.Get("/bucket-rollups", &apigen.Endpoint{
-			Name:        "Get Project's All Buckets Usage",
-			Description: "Gets project's all buckets usage",
-			MethodName:  "GenGetBucketUsageRollups",
-			RequestName: "getBucketRollups",
-			Response:    []accounting.BucketUsageRollup{},
+			Name:           "Get Project's All Buckets Usage",
+			Description:    "Gets project's all buckets usage",
+			GoName:         "GenGetBucketUsageRollups",
+			TypeScriptName: "getBucketRollups",
+			Response:       []accounting.BucketUsageRollup{},
 			QueryParams: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
 				apigen.NewParam("since", time.Time{}),
@@ -97,11 +97,11 @@ func main() {
 		})
 
 		g.Get("/apikeys/{projectID}", &apigen.Endpoint{
-			Name:        "Get Project's API Keys",
-			Description: "Gets API keys by project ID",
-			MethodName:  "GenGetAPIKeys",
-			RequestName: "getAPIKeys",
-			Response:    console.APIKeyPage{},
+			Name:           "Get Project's API Keys",
+			Description:    "Gets API keys by project ID",
+			GoName:         "GenGetAPIKeys",
+			TypeScriptName: "getAPIKeys",
+			Response:       console.APIKeyPage{},
 			PathParams: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
 			},
@@ -119,19 +119,19 @@ func main() {
 		g := a.Group("APIKeyManagement", "apikeys")
 
 		g.Post("/create", &apigen.Endpoint{
-			Name:        "Create new macaroon API key",
-			Description: "Creates new macaroon API key with given info",
-			MethodName:  "GenCreateAPIKey",
-			RequestName: "createAPIKey",
-			Response:    console.CreateAPIKeyResponse{},
-			Request:     console.CreateAPIKeyRequest{},
+			Name:           "Create new macaroon API key",
+			Description:    "Creates new macaroon API key with given info",
+			GoName:         "GenCreateAPIKey",
+			TypeScriptName: "createAPIKey",
+			Response:       console.CreateAPIKeyResponse{},
+			Request:        console.CreateAPIKeyRequest{},
 		})
 
 		g.Delete("/delete/{id}", &apigen.Endpoint{
-			Name:        "Delete API Key",
-			Description: "Deletes macaroon API key by id",
-			MethodName:  "GenDeleteAPIKey",
-			RequestName: "deleteAPIKey",
+			Name:           "Delete API Key",
+			Description:    "Deletes macaroon API key by id",
+			GoName:         "GenDeleteAPIKey",
+			TypeScriptName: "deleteAPIKey",
 			PathParams: []apigen.Param{
 				apigen.NewParam("id", uuid.UUID{}),
 			},
@@ -142,11 +142,11 @@ func main() {
 		g := a.Group("UserManagement", "users")
 
 		g.Get("/", &apigen.Endpoint{
-			Name:        "Get User",
-			Description: "Gets User by request context",
-			MethodName:  "GenGetUser",
-			RequestName: "getUser",
-			Response:    console.ResponseUser{},
+			Name:           "Get User",
+			Description:    "Gets User by request context",
+			GoName:         "GenGetUser",
+			TypeScriptName: "getUser",
+			Response:       console.ResponseUser{},
 		})
 	}
 

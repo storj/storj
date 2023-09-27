@@ -21,9 +21,10 @@ func main() {
 	g := a.Group("Documents", "docs")
 
 	g.Get("/", &apigen.Endpoint{
-		Name:        "Get Documents",
-		Description: "Get the paths to all the documents under the specified paths",
-		MethodName:  "Get",
+		Name:           "Get Documents",
+		Description:    "Get the paths to all the documents under the specified paths",
+		GoName:         "Get",
+		TypeScriptName: "get",
 		Response: []struct {
 			ID             uuid.UUID      `json:"id"`
 			Path           string         `json:"path"`
@@ -37,20 +38,22 @@ func main() {
 	})
 
 	g.Get("/{path}", &apigen.Endpoint{
-		Name:        "Get One",
-		Description: "Get the document in the specified path",
-		MethodName:  "GetOne",
-		Response:    myapi.Document{},
+		Name:           "Get One",
+		Description:    "Get the document in the specified path",
+		GoName:         "GetOne",
+		TypeScriptName: "getOne",
+		Response:       myapi.Document{},
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 		},
 	})
 
 	g.Get("/{path}/tag/{tagName}", &apigen.Endpoint{
-		Name:        "Get a tag",
-		Description: "Get the tag of the document in the specified path and tag label ",
-		MethodName:  "GetTag",
-		Response:    [2]string{},
+		Name:           "Get a tag",
+		Description:    "Get the tag of the document in the specified path and tag label ",
+		GoName:         "GetTag",
+		TypeScriptName: "getTag",
+		Response:       [2]string{},
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 			apigen.NewParam("tagName", ""),
@@ -58,19 +61,21 @@ func main() {
 	})
 
 	g.Get("/{path}/versions", &apigen.Endpoint{
-		Name:        "Get Version",
-		Description: "Get all the version of the document in the specified path",
-		MethodName:  "GetVersions",
-		Response:    []myapi.Version{},
+		Name:           "Get Version",
+		Description:    "Get all the version of the document in the specified path",
+		GoName:         "GetVersions",
+		TypeScriptName: "getVersions",
+		Response:       []myapi.Version{},
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 		},
 	})
 
 	g.Post("/{path}", &apigen.Endpoint{
-		Name:        "Update Content",
-		Description: "Update the content of the document with the specified path and ID if the last update is before the indicated date",
-		MethodName:  "UpdateContent",
+		Name:           "Update Content",
+		Description:    "Update the content of the document with the specified path and ID if the last update is before the indicated date",
+		GoName:         "UpdateContent",
+		TypeScriptName: "updateContent",
 		Response: struct {
 			ID        uuid.UUID `json:"id"`
 			Date      time.Time `json:"date"`

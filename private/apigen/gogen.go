@@ -142,9 +142,9 @@ func (a *API) generateGo() ([]byte, error) {
 				if !isNillableType(responseType) {
 					returnParam = "*" + returnParam
 				}
-				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.MethodName, returnParam)
+				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.GoName, returnParam)
 			} else {
-				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.MethodName)
+				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.GoName)
 			}
 		}
 		pf("}")
@@ -180,7 +180,7 @@ func (a *API) generateGo() ([]byte, error) {
 		pf("")
 		pf("%sRouter := router.PathPrefix(\"%s/%s\").Subrouter()", group.Prefix, a.endpointBasePath(), group.Prefix)
 		for _, endpoint := range group.endpoints {
-			handlerName := "handle" + endpoint.MethodName
+			handlerName := "handle" + endpoint.GoName
 			pf(
 				"%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")",
 				group.Prefix,
@@ -199,7 +199,7 @@ func (a *API) generateGo() ([]byte, error) {
 		for _, endpoint := range group.endpoints {
 			i("net/http")
 			pf("")
-			handlerName := "handle" + endpoint.MethodName
+			handlerName := "handle" + endpoint.GoName
 			pf("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", group.Name, handlerName)
 			pf("ctx := r.Context()")
 			pf("var err error")
@@ -244,7 +244,7 @@ func (a *API) generateGo() ([]byte, error) {
 			}
 
 			methodFormat += ")"
-			pf(methodFormat, endpoint.MethodName)
+			pf(methodFormat, endpoint.GoName)
 			pf("if httpErr.Err != nil {")
 			pf("api.ServeError(h.log, w, httpErr.Status, httpErr.Err)")
 			if endpoint.Response == nil {
@@ -261,7 +261,7 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("if err != nil {")
 			pf(
 				"h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))",
-				endpoint.MethodName,
+				endpoint.GoName,
 				cases.Title(language.Und).String(group.Prefix),
 			)
 			pf("}")
