@@ -381,6 +381,42 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, int64(0), cus.Balance)
+
+		// Deactivate the users and give them balances
+		statusPending := console.PendingDeletion
+		statusDeleted := console.Deleted
+		for i, user := range users {
+			cusID, err = satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
+			_, err = payments.StripeClient.Customers().Update(cusID, &stripe.CustomerParams{
+				Params: stripe.Params{
+					Context: ctx,
+				},
+				Balance: stripe.Int64(1000),
+			})
+			require.NoError(t, err)
+
+			var status *console.UserStatus
+			if i%2 == 0 {
+				status = &statusDeleted
+			} else {
+				status = &statusPending
+			}
+			err := satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: status,
+			})
+			require.NoError(t, err)
+		}
+
+		// try to convert the stripe balance into an invoice item
+		require.NoError(t, payments.StripeService.CreateBalanceInvoiceItems(ctx))
+
+		// check no invoice item was created since all users are deactivated
+		itr = payments.StripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+			Customer: stripe.String(cusID),
+		})
+		require.NoError(t, itr.Err())
+		require.False(t, itr.Next())
 	})
 }
 
@@ -400,6 +436,10 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		numberOfProjects := 19
+		numberOfInactiveUsers := 5
+		pendingDeletionStatus := console.PendingDeletion
+		// user to be deactivated later
+		var activeUser console.User
 		// generate test data, each user has one project and some credits
 		for i := 0; i < numberOfProjects; i++ {
 			user, err := satellite.AddUser(ctx, console.CreateUser{
@@ -414,6 +454,15 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
 				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
+
+			if i < numberOfProjects-numberOfInactiveUsers {
+				activeUser = *user
+				continue
+			}
+			err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &pendingDeletionStatus,
+			})
+			require.NoError(t, err)
 		}
 
 		satellite.API.Payments.StripeService.SetNow(func() time.Time {
@@ -425,10 +474,16 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
 		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
-		// check if we have project record for each project
+		// check if we have project record for each project, except for inactive users
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
-		require.Equal(t, numberOfProjects, len(recordsPage.Records))
+		require.Equal(t, numberOfProjects-numberOfInactiveUsers, len(recordsPage.Records))
+
+		// deactivate user
+		err = satellite.DB.Console().Users().Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &pendingDeletionStatus,
+		})
+		require.NoError(t, err)
 
 		err = satellite.API.Payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
@@ -436,7 +491,8 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		// verify that we applied all unapplied project records
 		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(recordsPage.Records))
+		// the 1 remaining record is for the now inactive user
+		require.Equal(t, 1, len(recordsPage.Records))
 	})
 }
 
@@ -515,9 +571,116 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		err = payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
 
+		// deactivate user
+		pendingDeletionStatus := console.PendingDeletion
+		activeStatus := console.Active
+		err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &pendingDeletionStatus,
+		})
+		require.NoError(t, err)
+
 		err = payments.StripeService.CreateInvoices(ctx, period)
 		require.NoError(t, err)
 
+		// invoice wasn't created because user is deactivated
+		itr := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		require.False(t, itr.Next())
+		require.NoError(t, itr.Err())
+
+		err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &activeStatus,
+		})
+		require.NoError(t, err)
+
+		err = payments.StripeService.CreateInvoices(ctx, period)
+		require.NoError(t, err)
+
+		// invoice was created because user is active
+		itr = payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+	})
+}
+
+func TestService_FinalizeInvoices(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		stripeClient := satellite.API.Payments.StripeClient
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		// create invoice item
+		invItem, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(1000),
+			Currency: stripe.String(string(stripe.CurrencyUSD)),
+			Customer: &customer,
+		})
+		require.NoError(t, err)
+
+		InvItems := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
+		InvItems = append(InvItems, &stripe.InvoiceUpcomingInvoiceItemParams{
+			InvoiceItem: &invItem.ID,
+			Amount:      &invItem.Amount,
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		})
+
+		// create invoice
+		_, err = satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:       stripe.Params{Context: ctx},
+			Customer:     &customer,
+			InvoiceItems: InvItems,
+		})
+		require.NoError(t, err)
+
+		itr := stripeClient.Invoices().List(&stripe.InvoiceListParams{
+			Customer: &customer,
+		})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+		require.Equal(t, stripe.InvoiceStatusDraft, itr.Invoice().Status)
+
+		// deactivate user
+		pendingDeletionStatus := console.PendingDeletion
+		err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &pendingDeletionStatus,
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.FinalizeInvoices(ctx)
+		require.NoError(t, err)
+
+		itr = stripeClient.Invoices().List(&stripe.InvoiceListParams{
+			Customer: &customer,
+		})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+		// finalizing did not work because user is deactivated
+		require.Equal(t, stripe.InvoiceStatusDraft, itr.Invoice().Status)
+
+		activeStatus := console.Active
+		err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &activeStatus,
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.FinalizeInvoices(ctx)
+		require.NoError(t, err)
+
+		itr = stripeClient.Invoices().List(&stripe.InvoiceListParams{
+			Customer: &customer,
+		})
+		require.True(t, itr.Next())
+		require.NoError(t, itr.Err())
+		require.Equal(t, stripe.InvoiceStatusOpen, itr.Invoice().Status)
 	})
 }
 
@@ -1074,6 +1237,29 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, balance.IsNegative())
 		require.Zero(t, balance.BaseUnits())
+
+		// create another invoice
+		_, err = satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:               stripe.Params{Context: ctx},
+			Customer:             &customer,
+			InvoiceItems:         Inv2Items,
+			DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.FinalizeInvoices(ctx)
+		require.NoError(t, err)
+
+		// deactivate user
+		status := console.PendingDeletion
+		err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &status,
+		})
+		require.NoError(t, err)
+
+		// attempt to pay user invoices should not succeed since the user is now deactivated.
+		err = satellite.API.Payments.StripeService.PayCustomerInvoices(ctx, customer)
+		require.Error(t, err)
 	})
 }
 
