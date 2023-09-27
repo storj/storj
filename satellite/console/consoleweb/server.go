@@ -562,7 +562,7 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 		cspValues := []string{
 			"default-src 'self'",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"connect-src 'self' *.tardigradeshare.io *.storjshare.io *.storjapi.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' *.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
 			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io",
