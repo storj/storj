@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 )
@@ -160,11 +161,10 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					placementRules := overlay.ConfigurablePlacementRule{}
-					tag := fmt.Sprintf("tag(\"%s\",\"selected\",\"true\")", satelliteIdentity.ID())
-					err := placementRules.Set(fmt.Sprintf("0:exclude(%s);10:%s", tag, tag))
-					require.NoError(t, err)
-					config.Placement = placementRules
+					tag := fmt.Sprintf(`tag("%s","selected","true")`, satelliteIdentity.ID())
+					config.Placement = overlay.ConfigurablePlacementRule{
+						PlacementRules: fmt.Sprintf("0:exclude(%s);10:%s", tag, tag),
+					}
 				},
 				func(log *zap.Logger, index int, config *satellite.Config) {
 
@@ -507,4 +507,177 @@ func updateNodeStatus(ctx context.Context, satellite *testplanet.Satellite, node
 		},
 		CountryCode: countryCode,
 	}, timestamp, satellite.Config.Overlay.Node)
+}
+
+// this test creates two keys with two different placement (technically both are PL country restrictions, but different ID)
+// when both are placed to wrong nodes (nodes are moved to wrong country), only one of them will be repaired, as repairer
+// is configured to include only that placement constraint.
+func TestSegmentRepairPlacementRestrictions(t *testing.T) {
+
+	placement := overlay.ConfigurablePlacementRule{}
+	err := placement.Set(`1:country("PL");2:country("PL")`)
+	require.NoError(t, err)
+
+	piecesCount := 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.DoDeclumping = false
+					config.Placement = placement
+					config.Repairer.IncludedPlacements = repairer.PlacementList{
+						Placements: []storj.PlacementConstraint{1},
+					}
+					// only on-demand execution
+					config.RangedLoop.Interval = 10 * time.Hour
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		placement, err := planet.Satellites[0].Config.Placement.Parse()
+		require.NoError(t, err)
+
+		{
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket1"))
+			_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
+				ProjectID: planet.Uplinks[0].Projects[0].ID,
+				Name:      "testbucket1",
+				Placement: storj.PlacementConstraint(1),
+			})
+			require.NoError(t, err)
+
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket2"))
+			_, err = planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
+				ProjectID: planet.Uplinks[0].Projects[0].ID,
+				Name:      "testbucket2",
+				Placement: storj.PlacementConstraint(2),
+			})
+			require.NoError(t, err)
+		}
+
+		goodLocation := location.Poland
+		badLocation := location.Germany
+
+		{
+			// both upload will use only the first 4 nodes, as we have the right nodes there
+			for ix, node := range planet.StorageNodes {
+				l := goodLocation
+				if ix > 3 {
+					l = badLocation
+				}
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), l.String()))
+
+			}
+			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+		}
+
+		expectedData := testrand.Bytes(5 * memory.KiB)
+		{
+
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket1", "object", expectedData)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket2", "object", expectedData)
+			require.NoError(t, err)
+		}
+
+		{
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 2)
+			require.Len(t, segments[0].Pieces, piecesCount)
+
+			// confirm that  pieces are at the good place
+			for i := 0; i < 2; i++ {
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[i].Pieces, segments[i].Placement, placement.CreateFilters)
+				require.NoError(t, err)
+				require.True(t, ok)
+			}
+		}
+
+		{
+			// time to move the current nodes out of the right country
+			for ix, node := range planet.StorageNodes {
+				l := goodLocation
+				if ix < 4 {
+					l = badLocation
+				}
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), l.String()))
+
+			}
+			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
+		}
+
+		{
+			// confirm that there are out of placement pieces
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 2)
+			require.Len(t, segments[0].Pieces, piecesCount)
+
+			ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, segments[0].Placement, placement.CreateFilters)
+			require.NoError(t, err)
+			require.False(t, ok)
+		}
+
+		{
+			// hey repair-checker, do you see any problems?
+			planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
+
+			// we should see both segments in repair queue
+			n, err := planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+			require.NoError(t, err)
+			require.Len(t, n, 2)
+		}
+
+		{
+			// this should repair only one segment (where placement=1)
+			planet.Satellites[0].Repairer.Repairer.Loop.TriggerWait()
+			planet.Satellites[0].Repairer.Repairer.WaitForPendingRepairs()
+
+			// one of the segments are repaired
+			n, err := planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+			require.NoError(t, err)
+			require.Len(t, n, 1)
+
+			// segment no2 is still in the repair queue
+			require.Equal(t, storj.PlacementConstraint(2), n[0].Placement)
+
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 2)
+			require.Len(t, segments[0].Pieces, piecesCount)
+
+			require.NotEqual(t, segments[0].Placement, segments[1].Placement)
+			for _, segment := range segments {
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segment.Pieces, segment.Placement, placement.CreateFilters)
+				require.NoError(t, err)
+
+				if segment.Placement == 1 {
+					require.True(t, ok, "Segment is at wrong place %s", segment.StreamID)
+				} else {
+					require.False(t, ok)
+				}
+			}
+
+		}
+
+		// download is still working
+		{
+			// this is repaired
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket1", "object")
+			require.NoError(t, err)
+			require.Equal(t, expectedData, data)
+
+			// this is not repaired, wrong nodes are filtered out during download --> error
+			_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket2", "object")
+			require.Error(t, err)
+
+		}
+
+	})
 }

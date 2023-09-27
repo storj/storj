@@ -47,6 +47,7 @@ require (
 	github.com/zeebo/errs v1.3.0
 	github.com/zeebo/errs/v2 v2.0.3
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
+	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
@@ -127,7 +128,6 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
-	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect

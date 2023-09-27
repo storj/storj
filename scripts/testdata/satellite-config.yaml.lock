@@ -982,8 +982,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 
+# comma separated placement IDs (numbers), placements which should be ignored by the repairer
+# repairer.excluded-placements: ""
+
 # whether to download pieces for repair in memory (true) or download to disk (false)
 # repairer.in-memory-repair: false
+
+# comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)
+# repairer.included-placements: ""
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 5m0s

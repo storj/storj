@@ -5,14 +5,19 @@ package repairer
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -39,7 +44,48 @@ type Config struct {
 	RepairExcludedCountryCodes    []string      `help:"list of country codes to treat node from this country as offline" default:"" hidden:"true"`
 	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"true"`
 	DoPlacementCheck              bool          `help:"repair pieces out of segment placement" default:"true"`
+
+	IncludedPlacements PlacementList `help:"comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)" default:""`
+	ExcludedPlacements PlacementList `help:"comma separated placement IDs (numbers), placements which should be ignored by the repairer" default:""`
 }
+
+// PlacementList is a configurable, comma separated list of PlacementConstraint IDs.
+type PlacementList struct {
+	Placements []storj.PlacementConstraint
+}
+
+// String implements pflag.Value.
+func (p *PlacementList) String() string {
+	var s []string
+	for _, pl := range p.Placements {
+		s = append(s, fmt.Sprintf("%d", pl))
+	}
+	return strings.Join(s, ",")
+}
+
+// Set implements pflag.Value.
+func (p *PlacementList) Set(s string) error {
+	parts := strings.Split(s, ",")
+	for _, pNumStr := range parts {
+		pNumStr = strings.TrimSpace(pNumStr)
+		if pNumStr == "" {
+			continue
+		}
+		pNum, err := strconv.Atoi(pNumStr)
+		if err != nil {
+			return errs.New("Placement list should contain numbers: %s", s)
+		}
+		p.Placements = append(p.Placements, storj.PlacementConstraint(pNum))
+	}
+	return nil
+}
+
+// Type implements pflag.Value.
+func (p PlacementList) Type() string {
+	return "placement-list"
+}
+
+var _ pflag.Value = &PlacementList{}
 
 // Service contains the information needed to run the repair service.
 //
@@ -138,7 +184,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	// return from service.Run when queue fetch fails.
 	ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
 
-	seg, err := service.queue.Select(ctx, nil, nil)
+	seg, err := service.queue.Select(ctx, service.config.IncludedPlacements.Placements, service.config.ExcludedPlacements.Placements)
 	if err != nil {
 		service.JobLimiter.Release(1)
 		cancel()
@@ -151,7 +197,6 @@ func (service *Service) process(ctx context.Context) (err error) {
 	go func() {
 		defer service.JobLimiter.Release(1)
 		defer cancel()
-
 		if err := service.worker(ctx, seg); err != nil {
 			service.log.Error("repair worker failed:", zap.Error(err))
 		}
