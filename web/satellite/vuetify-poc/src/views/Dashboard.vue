@@ -74,7 +74,7 @@
                 <UsageProgressComponent icon="arrow-down" title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent icon="globe" title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed} Used`" :limit="`Limit: ${limits.segmentLimit}`" :available="`${availableSegment} Available`" cta="Learn more" />
+                <UsageProgressComponent icon="globe" title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed.toLocaleString()} Used`" :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`" :available="`${availableSegment.toLocaleString()} Available`" cta="Learn more" />
             </v-col>
             <v-col cols="12" md="6">
                 <UsageProgressComponent v-if="billingStore.state.coupon" icon="check" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />

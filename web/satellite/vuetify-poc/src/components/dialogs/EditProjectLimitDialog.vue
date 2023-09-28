@@ -224,7 +224,7 @@ const availableUsage = computed<number>(() => {
  * Returns the maximum amount of active measurement units that the usage limit can be set to.
  */
 const availableUsageFormatted = computed<string>(() => {
-    return decimalShift((availableUsage.value / Memory[activeMeasurement.value]).toFixed(2), 0);
+    return decimalShift((availableUsage.value / Memory[activeMeasurement.value]).toLocaleString(undefined, { maximumFractionDigits: 2 }), 0);
 });
 
 /**
