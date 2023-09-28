@@ -921,23 +921,10 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
-		name := inviter.ShortName
-		if name == "" {
-			name = inviter.FullName
-		}
-		params.Add("inviter", name)
 		params.Add("inviter_email", inviter.Email)
 
 		server.analytics.TrackInviteLinkClicked(inviter.Email, invite.Email)
 	}
-
-	proj, err := server.service.GetProjectNoAuth(ctx, invite.ProjectID)
-	if err != nil {
-		server.log.Error("error getting invitation project", zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
-		return
-	}
-	params.Add("project", proj.Name)
 
 	http.Redirect(w, r, server.config.ExternalAddress+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
 }
