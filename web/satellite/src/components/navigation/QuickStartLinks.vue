@@ -46,13 +46,10 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
-import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -62,10 +59,10 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
-const usersStore = useUsersStore();
-const projectsStore = useProjectsStore();
 const router = useRouter();
 const route = useRoute();
+
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 
 const props = withDefaults(defineProps<{
     closeDropdowns?: () => void;
@@ -126,20 +123,7 @@ function navigateToCLIFlow(): void {
  * Redirects to create access grant screen.
  */
 function navigateToNewProject(): void {
-    if (route.name !== RouteConfig.CreateProject.name) {
-        analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-
-        const user: User = usersStore.state.user;
-        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
-            appStore.updateActiveModal(MODALS.createProjectPrompt);
-        } else {
-            analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.newCreateProject);
-        }
-    }
-
+    handleCreateProjectClick();
     props.closeDropdowns();
 }
 </script>

@@ -26,7 +26,6 @@ import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.v
 import PricingPlanStep from '@/components/onboardingTour/steps/PricingPlanStep.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
-import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/dashboard/ProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
@@ -247,11 +246,6 @@ export const router = createRouter({
                             ],
                         },
                     ],
-                },
-                {
-                    path: RouteConfig.CreateProject.path,
-                    name: RouteConfig.CreateProject.name,
-                    component: CreateProject,
                 },
                 {
                     path: RouteConfig.EditProjectDetails.path,

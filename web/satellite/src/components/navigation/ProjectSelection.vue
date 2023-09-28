@@ -110,7 +110,6 @@ import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { Project } from '@/types/projects';
-import { User } from '@/types/users';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -122,6 +121,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -142,9 +142,11 @@ const billingStore = useBillingStore();
 const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 
 const FIRST_PAGE = 1;
 
@@ -377,20 +379,7 @@ function onManagePassphraseClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (route.name !== RouteConfig.CreateProject.name) {
-        analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-        const user: User = userStore.state.user;
-        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-        if (user.projectLimit > ownProjectsCount) {
-            analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.newCreateProject);
-        } else {
-            appStore.updateActiveModal(MODALS.createProjectPrompt);
-        }
-    }
-
+    handleCreateProjectClick();
     closeDropdown();
 }
 </script>

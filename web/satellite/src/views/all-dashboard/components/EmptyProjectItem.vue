@@ -22,47 +22,20 @@
         <VButton
             class="empty-project-item__button"
             icon="addcircle"
-            :on-press="onCreateProjectClicked"
+            :on-press="handleCreateProjectClick"
             label="Create a Project"
         />
     </div>
 </template>
 
 <script setup lang="ts">
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { User } from '@/types/users';
-import { RouteConfig } from '@/types/router';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useUsersStore } from '@/store/modules/usersStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import VButton from '@/components/common/VButton.vue';
 
 import BoxIcon from '@/../static/images/navigation/project.svg';
 
-const analyticsStore = useAnalyticsStore();
-const appStore = useAppStore();
-const usersStore = useUsersStore();
-const projectsStore = useProjectsStore();
-
-/**
- * Route to create project page.
- */
-function onCreateProjectClicked(): void {
-    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-    const user: User = usersStore.state.user;
-    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-    if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-        appStore.updateActiveModal(MODALS.createProjectPrompt);
-    } else {
-        analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-        appStore.updateActiveModal(MODALS.newCreateProject);
-    }
-}
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 </script>
 
 <style scoped lang="scss">
