@@ -379,7 +379,7 @@ function onFileClick(file: BrowserObject): void {
             uriParts.unshift(...filePath.value.split('/'));
         }
         const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-        router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketName.value}/${pathAndKey}`);
+        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}/${pathAndKey}`);
         return;
     }
 

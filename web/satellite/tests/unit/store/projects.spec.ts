@@ -1,18 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { vi } from 'vitest';
+import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { ProjectsHttpApi } from '@/api/projects';
 import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { randomUUID } from '@/utils/idGenerator';
 
 const limits = new ProjectLimits(15, 12, 14, 13);
-const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
+const project = new Project(randomUUID(), 'name', 'descr', '23', 'testOwnerId');
 const projects = [
     new Project(
-        '11',
+        randomUUID(),
         'name',
         'descr',
         '23',
@@ -20,7 +21,7 @@ const projects = [
         false,
     ),
     new Project(
-        '1',
+        randomUUID(),
         'name2',
         'descr2',
         '24',
@@ -39,9 +40,9 @@ describe('actions', () => {
         const store = useProjectsStore();
 
         store.state.projects = projects;
-        store.selectProject('11');
+        store.selectProject(projects[0].id);
 
-        expect(store.state.selectedProject.id).toBe('11');
+        expect(store.state.selectedProject.id).toBe(projects[0].id);
         expect(store.state.currentLimits.bandwidthLimit).toBe(0);
     });
 

@@ -30,7 +30,7 @@ import { Project } from '@/types/projects';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
+import { MINIMUM_URL_ID_LENGTH, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
@@ -55,29 +55,46 @@ const agStore = useAccessGrantsStore();
 const isLoading = ref<boolean>(true);
 
 /**
- * Selects the project with the given ID, redirecting to the
+ * Selects the project with the given URL ID, redirecting to the
  * all projects dashboard if no such project exists.
  */
-async function selectProject(projectId: string): Promise<void> {
+async function selectProject(urlId: string): Promise<void> {
+    const goToDashboard = () => {
+        const path = '/projects';
+        router.push(path);
+        analyticsStore.pageVisit(path);
+    };
+
+    if (urlId.length < MINIMUM_URL_ID_LENGTH) {
+        goToDashboard();
+        return;
+    }
+
     let projects: Project[];
     try {
         projects = await projectsStore.getProjects();
     } catch (_) {
-        const path = '/projects';
-        router.push(path);
-        analyticsStore.pageVisit(path);
+        goToDashboard();
         return;
     }
-    if (!projects.some(p => p.id === projectId)) {
-        const path = '/projects';
-        router.push(path);
-        analyticsStore.pageVisit(path);
+
+    const project = projects.find(p => {
+        let prefixEnd = 0;
+        while (
+            p.urlId[prefixEnd] === urlId[prefixEnd]
+            && prefixEnd < p.urlId.length
+            && prefixEnd < urlId.length
+        ) prefixEnd++;
+        return prefixEnd === p.urlId.length || prefixEnd === urlId.length;
+    });
+    if (!project) {
+        goToDashboard();
         return;
     }
-    projectsStore.selectProject(projectId);
+    projectsStore.selectProject(project.id);
 }
 
-watch(() => route.params.projectId, async newId => {
+watch(() => route.params.id, async newId => {
     if (newId === undefined) return;
     isLoading.value = true;
     await selectProject(newId as string);
@@ -111,7 +128,7 @@ onBeforeMount(async () => {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
-    await selectProject(route.params.projectId as string);
+    await selectProject(route.params.id as string);
 
     if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
 

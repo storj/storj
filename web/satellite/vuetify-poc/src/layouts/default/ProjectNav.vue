@@ -30,7 +30,7 @@
                                     :key="project.id"
                                     rounded="lg"
                                     :active="project.isSelected"
-                                    @click="() => onProjectSelected(project.id)"
+                                    @click="() => onProjectSelected(project)"
                                 >
                                     <template v-if="project.isSelected" #prepend>
                                         <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
@@ -62,7 +62,7 @@
                                     :key="project.id"
                                     rounded="lg"
                                     :active="project.isSelected"
-                                    @click="() => onProjectSelected(project.id)"
+                                    @click="() => onProjectSelected(project)"
                                 >
                                     <template v-if="project.isSelected" #prepend>
                                         <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
@@ -76,7 +76,7 @@
                             </template>
 
                             <!-- Project Settings -->
-                            <v-list-item link rounded="lg" :to="`/projects/${selectedProject.id}/settings`">
+                            <v-list-item link rounded="lg" :to="`/projects/${selectedProject.urlId}/settings`">
                                 <template #prepend>
                                     <IconSettings />
                                 </template>
@@ -136,7 +136,7 @@
 
                 <v-divider class="my-2" />
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => registerLinkClick('/dashboard')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => registerLinkClick('/dashboard')">
                     <template #prepend>
                         <IconDashboard />
                     </template>
@@ -145,7 +145,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/buckets`" class="my-1" rounded="lg" @click="() => registerLinkClick('/buckets')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/buckets`" class="my-1" rounded="lg" @click="() => registerLinkClick('/buckets')">
                     <template #prepend>
                         <IconBucket />
                     </template>
@@ -154,7 +154,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
                     <template #prepend>
                         <IconAccess size="18" />
                     </template>
@@ -163,7 +163,7 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.id}/team`" class="my-1" rounded="lg" @click="() => registerLinkClick('/team')">
+                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/team`" class="my-1" rounded="lg" @click="() => registerLinkClick('/team')">
                     <template #prepend>
                         <IconTeam size="18" />
                     </template>
@@ -375,13 +375,13 @@ function compareProjects(a: Project, b: Project): number {
 /**
  * Handles click event for items in the project dropdown.
  */
-async function onProjectSelected(projectId: string): Promise<void> {
+async function onProjectSelected(project: Project): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     await router.push({
         name: route.name || undefined,
         params: {
             ...route.params,
-            projectId,
+            id: project.urlId,
         },
     });
     bucketsStore.clearS3Data();

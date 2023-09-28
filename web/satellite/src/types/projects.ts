@@ -108,6 +108,8 @@ export const MAX_DESCRIPTION_LENGTH = 100;
  * Project is a type, used for creating new project in backend.
  */
 export class Project {
+    public urlId: string;
+
     public constructor(
         public id: string = '',
         public name: string = '',

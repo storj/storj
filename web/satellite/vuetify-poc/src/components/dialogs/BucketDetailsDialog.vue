@@ -129,7 +129,7 @@ const model = computed<boolean>({
 });
 
 function redirectToBucketsPage(): void {
-    router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets`);
 }
 
 const bucket = computed((): Bucket => {
