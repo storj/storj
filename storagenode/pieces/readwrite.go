@@ -88,9 +88,9 @@ func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore
 			return nil, Error.Wrap(err)
 		}
 	}
-	w.blob = blobWriter
+	w.blob = MonitorBlobWriter("pieces_writer_io", blobWriter)
 
-	w.hash = pb.NewHashFromAlgorithm(hashAlgorithm)
+	w.hash = MonitorHash("pieces_writer_hash", pb.NewHashFromAlgorithm(hashAlgorithm))
 
 	w.blobs = blobs
 	w.satellite = satellite
