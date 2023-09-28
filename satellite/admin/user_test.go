@@ -447,19 +447,17 @@ func TestWarnUnwarnUser(t *testing.T) {
 		err = planet.Satellites[0].Admin.FreezeAccounts.Service.BillingWarnUser(ctx, user.ID)
 		require.NoError(t, err)
 
-		freeze, warning, err := planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
+		freezes, err := planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
 		require.NoError(t, err)
-		require.Nil(t, freeze)
-		require.NotNil(t, warning)
+		require.NotNil(t, freezes.BillingWarning)
 
 		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/warning", user.Email)
 		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Len(t, body, 0)
 
-		freeze, warning, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
+		freezes, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)
 		require.NoError(t, err)
-		require.Nil(t, freeze)
-		require.Nil(t, warning)
+		require.Nil(t, freezes.BillingWarning)
 
 		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusInternalServerError, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Contains(t, string(body), "user is not warned")

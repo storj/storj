@@ -165,9 +165,13 @@ func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
 		return err
 	}
 
-	freeze, warning, err := p.accountFreezeService.GetAll(ctx, userID)
+	freezes, err := p.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
 		return err
+	}
+
+	if freezes.ViolationFreeze != nil {
+		return nil
 	}
 
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
@@ -175,12 +179,12 @@ func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
 		return err
 	}
 
-	if freeze != nil {
+	if freezes.BillingFreeze != nil {
 		err = p.accountFreezeService.BillingUnfreezeUser(ctx, userID)
 		if err != nil {
 			return err
 		}
-	} else if warning != nil {
+	} else if freezes.BillingWarning != nil {
 		err = p.accountFreezeService.BillingUnWarnUser(ctx, userID)
 		if err != nil {
 			return err

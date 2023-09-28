@@ -120,33 +120,41 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 }
 
 // GetAll is a method for querying all account freeze events from the database by user ID.
-func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freeze *console.AccountFreezeEvent, warning *console.AccountFreezeEvent, err error) {
+func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freezes *console.UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// dbxEvents will have a max length of 2.
-	// because there's at most 1 instance each of 2 types of events for a user.
+	// dbxEvents will have a max length of 3.
+	// because there's at most 1 instance each of 3 types of events for a user.
 	dbxEvents, err := events.db.All_AccountFreezeEvent_By_UserId(ctx,
 		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
+	freezes = &console.UserFreezeEvents{}
 	for _, event := range dbxEvents {
 		if console.AccountFreezeEventType(event.Event) == console.BillingFreeze {
-			freeze, err = fromDBXAccountFreezeEvent(event)
+			freezes.BillingFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			continue
 		}
-		warning, err = fromDBXAccountFreezeEvent(event)
+		if console.AccountFreezeEventType(event.Event) == console.ViolationFreeze {
+			freezes.ViolationFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		freezes.BillingWarning, err = fromDBXAccountFreezeEvent(event)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return freeze, warning, nil
+	return freezes, nil
 }
 
 // DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.

@@ -87,6 +87,7 @@ const (
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 	eventUnpaidStorjscanInvoice       = "Storjscan Invoice Unpaid"
+	eventPendingDeletionUnpaidInvoice = "Pending Deletion Invoice Open"
 	eventExpiredCreditNeedsRemoval    = "Expired Credit Needs Removal"
 	eventExpiredCreditRemoved         = "Expired Credit Removed"
 	eventProjectInvitationAccepted    = "Project Invitation Accepted"
@@ -126,6 +127,10 @@ type FreezeTracker interface {
 
 	// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
 	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string)
+
+	// TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice
+	// and has been frozen due to violating ToS.
+	TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string)
 
 	// TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
 	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string)
@@ -441,6 +446,23 @@ func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventUnpaidLargeInvoice,
+		Properties: props,
+	})
+}
+
+// TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("invoice", invID)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventPendingDeletionUnpaidInvoice,
 		Properties: props,
 	})
 }

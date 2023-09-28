@@ -46,12 +46,12 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 		return err
 	}
 
-	freeze, warning, err := o.freezeService.GetAll(ctx, user.ID)
+	freezes, err := o.freezeService.GetAll(ctx, user.ID)
 	if err != nil {
 		return err
 	}
 
-	if freeze == nil && warning == nil {
+	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil {
 		return nil
 	}
 
@@ -66,12 +66,12 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 		}
 	}
 
-	if freeze != nil {
+	if freezes.BillingFreeze != nil {
 		err = o.freezeService.BillingUnfreezeUser(ctx, user.ID)
 		if err != nil {
 			return err
 		}
-	} else if warning != nil {
+	} else if freezes.BillingWarning != nil {
 		err = o.freezeService.BillingUnWarnUser(ctx, user.ID)
 		if err != nil {
 			return err
