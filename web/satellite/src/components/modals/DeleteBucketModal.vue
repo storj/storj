@@ -7,22 +7,35 @@
             <div class="modal">
                 <h1 class="modal__title">Are you sure?</h1>
                 <p class="modal__subtitle">
-                    Deleting bucket will delete all metadata related to this bucket.
+                    The following bucket will be deleted and all of its data.<br>This action cannot be undone.
                 </p>
+                <div class="modal__chip">
+                    <DeleteBucketIcon />
+                    <p class="modal__chip__label">{{ bucketToDelete }}</p>
+                </div>
                 <VInput
                     class="modal__input"
-                    label="Bucket Name"
-                    placeholder="Enter bucket name"
+                    label="Type the name of the bucket to confirm"
+                    placeholder="Bucket Name"
                     :is-loading="isLoading"
                     @setData="onChangeName"
                 />
-                <VButton
-                    label="Confirm Delete Bucket"
-                    width="100%"
-                    height="48px"
-                    :on-press="onDelete"
-                    :is-disabled="isLoading || !name"
-                />
+                <div class="modal__buttons">
+                    <VButton
+                        label="Cancel"
+                        width="100%"
+                        height="44px"
+                        :is-white="true"
+                        :on-press="closeModal"
+                    />
+                    <VButton
+                        label="Delete Bucket"
+                        width="100%"
+                        height="48px"
+                        :on-press="onDelete"
+                        :is-disabled="isLoading || !name"
+                    />
+                </div>
             </div>
         </template>
     </VModal>
@@ -45,6 +58,8 @@ import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
+import DeleteBucketIcon from '@/../static/images/buckets/deleteBucket.svg';
+
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
@@ -60,9 +75,8 @@ const isLoading = ref<boolean>(false);
 /**
  * Returns apiKey from store.
  */
-const apiKey = computed((): string => {
-    return bucketsStore.state.apiKey;
-});
+const apiKey = computed<string>(() => bucketsStore.state.apiKey);
+const bucketToDelete = computed<string>(() => bucketsStore.state.bucketToDelete);
 
 /**
  * Holds on delete button click logic.
@@ -138,6 +152,7 @@ async function onDelete(): Promise<void> {
         await bucketsStore.deleteBucket(name.value);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
         await fetchBuckets();
+        bucketsStore.setBucketToDelete('');
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
         return;
@@ -196,39 +211,67 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .modal {
-    padding: 45px 70px;
+    padding: 35px;
     border-radius: 10px;
     font-family: 'font_regular', sans-serif;
-    font-style: normal;
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #fff;
+    background-color: var(--c-white);
     max-width: 480px;
-
-    @media screen and (width <= 700px) {
-        padding: 45px;
-    }
 
     &__title {
         font-family: 'font_bold', sans-serif;
         font-size: 22px;
-        line-height: 27px;
-        color: #000;
-        margin: 0 0 18px;
+        line-height: 30px;
+        color: var(--c-grey-8);
+        margin: 0 0 14px;
     }
 
     &__subtitle {
-        font-size: 18px;
-        line-height: 30px;
+        font-size: 16px;
+        line-height: 21px;
         text-align: center;
-        letter-spacing: -0.1007px;
-        color: rgb(37 37 37 / 70%);
-        margin: 0 0 24px;
+        color: var(--c-grey-8);
+        margin: 0 0 20px;
     }
 
-    &__input {
-        margin-bottom: 18px;
+    &__chip {
+        max-width: 100%;
+        display: flex;
+        align-items: center;
+        padding: 7px 30px;
+        border-radius: 999px;
+        margin-bottom: 24px;
+        background-color: var(--c-grey-2);
+
+        svg {
+            min-width: 18px;
+        }
+
+        &__label {
+            margin-left: 7px;
+            font-family: 'font_bold', sans-serif;
+            color: var(--c-blue-6);
+            font-size: 14px;
+            line-height: 18px;
+            word-break: break-word;
+        }
+    }
+
+    &__buttons {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        margin-top: 30px;
+        column-gap: 15px;
+
+        @media screen and (width <= 550px) {
+            flex-direction: column-reverse;
+            column-gap: unset;
+            row-gap: 10px;
+            margin-top: 15px;
+        }
     }
 }
 </style>

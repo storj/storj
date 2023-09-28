@@ -126,6 +126,7 @@ function closeDropdown(): void {
  * Holds on delete click logic.
  */
 function onDeleteClick(): void {
+    bucketsStore.setBucketToDelete(props.itemData.name);
     appStore.updateActiveModal(MODALS.deleteBucket);
     closeDropdown();
 }
