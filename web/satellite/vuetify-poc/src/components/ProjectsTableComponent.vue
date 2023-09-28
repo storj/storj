@@ -95,7 +95,7 @@
 
                                     <v-list-item link>
                                         <template #prepend>
-                                            <icon-team />
+                                            <icon-team size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Invite Members

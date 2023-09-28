@@ -47,37 +47,37 @@
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="file" title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
+                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" to="access" />
+                <CardStatsComponent icon="access" title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" to="access" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
+                <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
+                <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
             </v-col>
         </v-row>
 
         <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Storage)" />
+                <UsageProgressComponent icon="cloud" title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Storage)" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)" />
+                <UsageProgressComponent icon="arrow-down" title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed} Used`" :limit="`Limit: ${limits.segmentLimit}`" :available="`${availableSegment} Available`" cta="Learn more" />
+                <UsageProgressComponent icon="globe" title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed} Used`" :limit="`Limit: ${limits.segmentLimit}`" :available="`${availableSegment} Available`" cta="Learn more" />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent v-if="billingStore.state.coupon" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />
+                <UsageProgressComponent v-if="billingStore.state.coupon" icon="check" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />
             </v-col>
         </v-row>
         <v-col class="pa-0 mt-6" cols="12">
