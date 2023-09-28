@@ -2000,7 +2000,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		EncryptedPath: req.NewEncryptedObjectKey,
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
@@ -2191,7 +2191,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		EncryptedPath: req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
