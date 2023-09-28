@@ -444,7 +444,7 @@ func TestWarnUnwarnUser(t *testing.T) {
 		user, err := planet.Satellites[0].DB.Console().Users().Get(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
 
-		err = planet.Satellites[0].Admin.FreezeAccounts.Service.WarnUser(ctx, user.ID)
+		err = planet.Satellites[0].Admin.FreezeAccounts.Service.BillingWarnUser(ctx, user.ID)
 		require.NoError(t, err)
 
 		freeze, warning, err := planet.Satellites[0].DB.Console().AccountFreezeEvents().GetAll(ctx, user.ID)

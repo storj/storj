@@ -27,7 +27,7 @@ func TestAccountFreezeEvents(t *testing.T) {
 
 		event := &console.AccountFreezeEvent{
 			UserID: testrand.UUID(),
-			Type:   console.Freeze,
+			Type:   console.BillingFreeze,
 			Limits: &console.AccountFreezeEventLimits{
 				User: randUsageLimits(),
 				Projects: map[uuid.UUID]console.UsageLimits{

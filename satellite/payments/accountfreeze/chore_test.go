@@ -113,7 +113,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Nil(t, warning)
 		})
 
-		t.Run("Freeze event for failed invoice (failed later payment attempt)", func(t *testing.T) {
+		t.Run("BillingFreeze event for failed invoice (failed later payment attempt)", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
@@ -181,7 +181,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
 
 			// unfreeze user so they're not frozen in the next test.
-			err = service.UnfreezeUser(ctx, user.ID)
+			err = service.BillingUnfreezeUser(ctx, user.ID)
 			require.NoError(t, err)
 		})
 
@@ -283,9 +283,9 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(failed))
 
-			err = service.FreezeUser(ctx, user.ID)
+			err = service.BillingFreezeUser(ctx, user.ID)
 			require.NoError(t, err)
-			err = service.FreezeUser(ctx, user2.ID)
+			err = service.BillingFreezeUser(ctx, user2.ID)
 			require.NoError(t, err)
 
 			chore.Loop.TriggerWait()
@@ -301,7 +301,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NotNil(t, freeze)
 
 			// warn user though they have no failed invoices
-			err = service.WarnUser(ctx, user.ID)
+			err = service.BillingWarnUser(ctx, user.ID)
 			require.NoError(t, err)
 
 			chore.Loop.TriggerWait()
@@ -320,7 +320,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
 
 			// unfreeze user so they're not frozen in the next test.
-			err = service.UnfreezeUser(ctx, user2.ID)
+			err = service.BillingUnfreezeUser(ctx, user2.ID)
 			require.NoError(t, err)
 		})
 	})

@@ -71,19 +71,24 @@ type FreezeEventsPage struct {
 type AccountFreezeEventType int
 
 const (
-	// Freeze signifies that the user has been frozen.
-	Freeze AccountFreezeEventType = 0
-	// Warning signifies that the user has been warned that they may be frozen soon.
-	Warning AccountFreezeEventType = 1
+	// BillingFreeze signifies that the user has been frozen due to nonpayment of invoices.
+	BillingFreeze AccountFreezeEventType = 0
+	// BillingWarning signifies that the user has been warned that they may be frozen soon
+	// due to nonpayment of invoices.
+	BillingWarning AccountFreezeEventType = 1
+	// ViolationFreeze signifies that the user has been frozen due to ToS violation.
+	ViolationFreeze AccountFreezeEventType = 2
 )
 
 // String returns a string representation of this event.
 func (et AccountFreezeEventType) String() string {
 	switch et {
-	case Freeze:
-		return "Freeze"
-	case Warning:
-		return "Warning"
+	case BillingFreeze:
+		return "Billing Freeze"
+	case BillingWarning:
+		return "Billing Warning"
+	case ViolationFreeze:
+		return "Violation Freeze"
 	default:
 		return ""
 	}
@@ -107,11 +112,12 @@ func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, 
 	}
 }
 
-// IsUserFrozen returns whether the user specified by the given ID is frozen.
-func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
+// IsUserBillingFrozen returns whether the user specified by the given ID is frozen
+// due to nonpayment of invoices.
+func (s *AccountFreezeService) IsUserBillingFrozen(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.freezeEventsDB.Get(ctx, userID, Freeze)
+	_, err = s.freezeEventsDB.Get(ctx, userID, BillingFreeze)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return false, nil
@@ -122,8 +128,8 @@ func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUI
 	}
 }
 
-// FreezeUser freezes the user specified by the given ID.
-func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingFreezeUser freezes the user specified by the given ID due to nonpayment of invoices.
+func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.usersDB.Get(ctx, userID)
@@ -136,7 +142,7 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 		return ErrAccountFreeze.Wrap(err)
 	}
 	if warning != nil {
-		err = s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, Warning)
+		err = s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, BillingWarning)
 		if err != nil {
 			return ErrAccountFreeze.Wrap(err)
 		}
@@ -144,7 +150,7 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 	if freeze == nil {
 		freeze = &AccountFreezeEvent{
 			UserID: userID,
-			Type:   Freeze,
+			Type:   BillingFreeze,
 			Limits: &AccountFreezeEventLimits{
 				User: UsageLimits{
 					Storage:   user.ProjectStorageLimit,
@@ -208,8 +214,8 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 	return nil
 }
 
-// UnfreezeUser reverses the freeze placed on the user specified by the given ID.
-func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingUnfreezeUser reverses the billing freeze placed on the user specified by the given ID.
+func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.usersDB.Get(ctx, userID)
@@ -217,9 +223,9 @@ func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUI
 		return ErrAccountFreeze.Wrap(err)
 	}
 
-	event, err := s.freezeEventsDB.Get(ctx, userID, Freeze)
+	event, err := s.freezeEventsDB.Get(ctx, userID, BillingFreeze)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrAccountFreeze.New("user is not frozen")
+		return ErrAccountFreeze.New("user is not frozen due to nonpayment of invoices")
 	}
 
 	if event.Limits == nil {
@@ -247,8 +253,8 @@ func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUI
 	return nil
 }
 
-// WarnUser adds a warning event to the freeze events table.
-func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingWarnUser adds a billing warning event to the freeze events table.
+func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.usersDB.Get(ctx, userID)
@@ -258,7 +264,7 @@ func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (
 
 	_, err = s.freezeEventsDB.Upsert(ctx, &AccountFreezeEvent{
 		UserID: userID,
-		Type:   Warning,
+		Type:   BillingWarning,
 	})
 	if err != nil {
 		return ErrAccountFreeze.Wrap(err)
@@ -268,8 +274,8 @@ func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (
 	return nil
 }
 
-// UnWarnUser reverses the warning placed on the user specified by the given ID.
-func (s *AccountFreezeService) UnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingUnWarnUser reverses the warning placed on the user specified by the given ID.
+func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.usersDB.Get(ctx, userID)
@@ -277,12 +283,12 @@ func (s *AccountFreezeService) UnWarnUser(ctx context.Context, userID uuid.UUID)
 		return ErrAccountFreeze.Wrap(err)
 	}
 
-	_, err = s.freezeEventsDB.Get(ctx, userID, Warning)
+	_, err = s.freezeEventsDB.Get(ctx, userID, BillingWarning)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrAccountFreeze.New("user is not warned")
 	}
 
-	err = ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, Warning))
+	err = ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteByUserIDAndEvent(ctx, userID, BillingWarning))
 	if err != nil {
 		return err
 	}

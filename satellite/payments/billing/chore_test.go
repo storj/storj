@@ -331,7 +331,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.Equal(t, inv.ID, invoices[0].ID)
 		require.Equal(t, string(inv.Status), invoices[0].Status)
 
-		err = freezeService.FreezeUser(ctx, userID)
+		err = freezeService.BillingFreezeUser(ctx, userID)
 		require.NoError(t, err)
 
 		chore.TransactionCycle.TriggerWait()
@@ -349,7 +349,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.Equal(t, string(stripe.InvoiceStatusOpen), invoices[0].Status)
 
 		// user remains frozen since payment is not complete.
-		frozen, err := freezeService.IsUserFrozen(ctx, userID)
+		frozen, err := freezeService.IsUserBillingFrozen(ctx, userID)
 		require.NoError(t, err)
 		require.True(t, frozen)
 
@@ -363,7 +363,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.Equal(t, string(stripe.InvoiceStatusPaid), invoices[0].Status)
 
 		// user is not frozen since payment is complete.
-		frozen, err = freezeService.IsUserFrozen(ctx, userID)
+		frozen, err = freezeService.IsUserBillingFrozen(ctx, userID)
 		require.NoError(t, err)
 		require.False(t, frozen)
 	})

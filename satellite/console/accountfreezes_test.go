@@ -60,11 +60,11 @@ func TestAccountFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
-		frozen, err := service.IsUserFrozen(ctx, user.ID)
+		frozen, err := service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.False(t, frozen)
 
-		require.NoError(t, service.FreezeUser(ctx, user.ID))
+		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestAccountFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.Zero(t, getProjectLimits(proj))
 
-		frozen, err = service.IsUserFrozen(ctx, user.ID)
+		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, frozen)
 	})
@@ -102,8 +102,8 @@ func TestAccountUnfreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
-		require.NoError(t, service.FreezeUser(ctx, user.ID))
-		require.NoError(t, service.UnfreezeUser(ctx, user.ID))
+		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
+		require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
 
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
@@ -113,13 +113,13 @@ func TestAccountUnfreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, projLimits, getProjectLimits(proj))
 
-		frozen, err := service.IsUserFrozen(ctx, user.ID)
+		frozen, err := service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.False(t, frozen)
 	})
 }
 
-func TestRemoveAccountWarning(t *testing.T) {
+func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -134,21 +134,21 @@ func TestRemoveAccountWarning(t *testing.T) {
 		}, 2)
 		require.NoError(t, err)
 
-		require.NoError(t, service.WarnUser(ctx, user.ID))
-		require.NoError(t, service.UnWarnUser(ctx, user.ID))
+		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
+		require.NoError(t, service.BillingUnWarnUser(ctx, user.ID))
 
 		freeze, warning, err := service.GetAll(ctx, user.ID)
 		require.NoError(t, err)
 		require.Nil(t, warning)
 		require.Nil(t, freeze)
 
-		require.NoError(t, service.WarnUser(ctx, user.ID))
-		require.NoError(t, service.FreezeUser(ctx, user.ID))
+		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
+		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 		freeze, warning, err = service.GetAll(ctx, user.ID)
 		require.NoError(t, err)
 		require.NotNil(t, freeze)
-		// freezing should remove prior warning events.
+		// billing-freezing should remove prior warning events.
 		require.Nil(t, warning)
 	})
 }
@@ -178,14 +178,14 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		// Freezing a frozen user should freeze any projects that were unable to be frozen prior.
 		// The limits stored for projects frozen by the prior freeze should not be modified.
 		t.Run("Project limits", func(t *testing.T) {
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 			proj2Limits := randUsageLimits()
 			proj2, err := sat.AddProject(ctx, user.ID, "project2")
 			require.NoError(t, err)
 			require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj2.ID, proj2Limits))
 
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 			user, err := usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 			require.NoError(t, err)
 			require.Zero(t, getProjectLimits(proj2))
 
-			require.NoError(t, service.UnfreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
 
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
@@ -215,15 +215,15 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 			user, err := usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 			require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Zero(t, getUserLimits(user))
 
-			require.NoError(t, service.UnfreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
 
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
@@ -232,14 +232,14 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 
 		// Freezing a frozen user should not modify user limits stored by the prior freeze.
 		t.Run("Frozen user limits", func(t *testing.T) {
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
-			require.NoError(t, service.FreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Zero(t, getUserLimits(user))
 
-			require.NoError(t, service.UnfreezeUser(ctx, user.ID))
+			require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, userLimits, getUserLimits(user))
@@ -282,10 +282,10 @@ func TestFreezeEffects(t *testing.T) {
 			require.Equal(testT, expectedData, data)
 		}
 
-		t.Run("Freeze effect on project owner", func(t *testing.T) {
+		t.Run("BillingFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
 
-			err = freezeService.WarnUser(ctx, user1.ID)
+			err = freezeService.BillingWarnUser(ctx, user1.ID)
 			require.NoError(t, err)
 
 			// Should be able to download because account is not frozen.
@@ -293,7 +293,7 @@ func TestFreezeEffects(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expectedData, data)
 
-			err = freezeService.FreezeUser(ctx, user1.ID)
+			err = freezeService.BillingFreezeUser(ctx, user1.ID)
 			require.NoError(t, err)
 
 			// Should not be able to upload because account is frozen.

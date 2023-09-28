@@ -597,7 +597,7 @@ func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = server.freezeAccounts.FreezeUser(ctx, u.ID)
+	err = server.freezeAccounts.BillingFreezeUser(ctx, u.ID)
 	if err != nil {
 		sendJSONError(w, "failed to freeze user",
 			err.Error(), http.StatusInternalServerError)
@@ -626,7 +626,7 @@ func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = server.freezeAccounts.UnfreezeUser(ctx, u.ID); err != nil {
+	if err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID); err != nil {
 		sendJSONError(w, "failed to unfreeze user",
 			err.Error(), http.StatusInternalServerError)
 		return
@@ -655,7 +655,7 @@ func (server *Server) unWarnUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = server.freezeAccounts.UnWarnUser(ctx, u.ID); err != nil {
+	if err = server.freezeAccounts.BillingUnWarnUser(ctx, u.ID); err != nil {
 		sendJSONError(w, "failed to unwarn user",
 			err.Error(), http.StatusInternalServerError)
 		return
