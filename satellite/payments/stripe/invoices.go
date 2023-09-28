@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v73"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 

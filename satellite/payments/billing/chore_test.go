@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v73"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
@@ -298,25 +298,18 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		defer ctx.Check(chore.Close)
 
 		// create invoice
-		item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+		inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount,
-			Currency: stripe.String(string(stripe.CurrencyUSD)),
 			Customer: &cus,
 		})
 		require.NoError(t, err)
 
-		fullAmount := amount + amount2
-		items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-		items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &item.ID,
-			Amount:      &fullAmount,
-			Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		})
-		inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-			Params:       stripe.Params{Context: ctx},
-			Customer:     &cus,
-			InvoiceItems: items,
+		_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(amount + amount2),
+			Currency: stripe.String(string(stripe.CurrencyUSD)),
+			Customer: &cus,
+			Invoice:  &inv.ID,
 		})
 		require.NoError(t, err)
 
