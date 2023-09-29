@@ -488,7 +488,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?:string): Promise<string[]> {
+    public async regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]> {
         if (!passcode && !recoveryCode) {
             throw new Error('Either passcode or recovery code should be provided');
         }
@@ -584,5 +584,24 @@ export class AuthHttpApi implements UsersApi {
             message: 'Unable to refresh session.',
             requestID: response.headers.get('x-request-id'),
         });
+    }
+
+    /**
+     * Used to request increase for user's project limit.
+     *
+     * @param limit
+     */
+    public async requestProjectLimitIncrease(limit: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/limit-increase`;
+        const response = await this.http.patch(path, limit);
+
+        if (!response.ok) {
+            const result = await response.json();
+            throw new APIError({
+                status: response.status,
+                message: result.error,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
     }
 }

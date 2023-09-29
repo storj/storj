@@ -96,8 +96,12 @@ export const useUsersStore = defineStore('users', () => {
         state.user = user;
     }
 
+    async function requestProjectLimitIncrease(limit: string): Promise<void> {
+        await api.requestProjectLimitIncrease(limit);
+    }
+
     // Does nothing. It is called on login screen, and we just subscribe to this action in dashboard wrappers.
-    function login(): void {}
+    function login(): void { }
 
     function clear() {
         state.user = new User();
@@ -122,5 +126,6 @@ export const useUsersStore = defineStore('users', () => {
         setUser,
         updateSettings,
         getSettings,
+        requestProjectLimitIncrease,
     };
 });
