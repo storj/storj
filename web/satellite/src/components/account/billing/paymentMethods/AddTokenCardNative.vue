@@ -10,7 +10,7 @@
         </div>
 
         <div class="token__content">
-            <div v-if="isLoading" class="token__content__loader-container">
+            <div v-if="isLoading || parentInitLoading" class="token__content__loader-container">
                 <v-loader />
             </div>
             <div v-else-if="!wallet.address" class="token__content__add-funds">
@@ -119,6 +119,10 @@ const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
+const props = defineProps<{
+    parentInitLoading: boolean
+}>();
+
 const isLoading = ref<boolean>(false);
 
 /**
@@ -134,19 +138,6 @@ const isUserInPaidTier = computed((): boolean => {
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
 });
-
-/**
- * getWallet tries to get an existing wallet for this user. this will not claim a wallet.
- */
-async function getWallet(): Promise<void> {
-    if (wallet.value.address) {
-        return;
-    }
-
-    isLoading.value = true;
-    await billingStore.getWallet().catch(_ => {});
-    isLoading.value = false;
-}
 
 /**
  * claimWallet claims a wallet for the current account.
@@ -189,8 +180,6 @@ function onAddTokensClick(): void {
 }
 
 onMounted(async (): Promise<void> => {
-    await getWallet();
-
     // check if user navigated here from Billing overview screen
     if (route.query.action !== 'add tokens') {
         return;

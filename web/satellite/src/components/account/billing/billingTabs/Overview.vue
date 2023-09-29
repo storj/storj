@@ -178,7 +178,10 @@ function balanceClicked(): void {
  */
 onMounted(async () => {
     try {
-        await projectsStore.getProjects();
+        await Promise.all([
+            projectsStore.getProjects(),
+            billingStore.getBalance(),
+        ]);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
         isDataFetching.value = false;
