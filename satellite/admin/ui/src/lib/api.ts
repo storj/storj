@@ -450,19 +450,35 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'freeze user',
+				name: 'billing freeze user',
 				desc: "insert user into account_freeze_events and set user's limits to zero",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
-					return this.fetch('PUT', `users/${email}/freeze`) as Promise<null>;
+					return this.fetch('PUT', `users/${email}/billing-freeze`) as Promise<null>;
 				}
 			},
 			{
-				name: 'unfreeze user',
+				name: 'billing unfreeze user',
 				desc: "remove user from account_freeze_events and reset user's limits to what is stored in account_freeze_events",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
-					return this.fetch('DELETE', `users/${email}/freeze`) as Promise<null>;
+					return this.fetch('DELETE', `users/${email}/billing-freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'violation freeze user',
+				desc: 'freeze a user for ToS violation, set limits to zero and status to pending deletion',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/violation-freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'violation unfreeze user',
+				desc: "remove a user's violation freeze, reinstating their limits and status (Active)",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/violation-freeze`) as Promise<null>;
 				}
 			},
 			{
@@ -470,7 +486,7 @@ Blank fields will not be updated.`,
 				desc: "Remove a user's warning status",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
-					return this.fetch('DELETE', `users/${email}/warning`) as Promise<null>;
+					return this.fetch('DELETE', `users/${email}/billing-warning`) as Promise<null>;
 				}
 			},
 			{

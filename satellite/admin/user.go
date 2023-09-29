@@ -16,12 +16,14 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -575,7 +577,7 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
+func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -599,12 +601,12 @@ func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
 
 	err = server.freezeAccounts.BillingFreezeUser(ctx, u.ID)
 	if err != nil {
-		sendJSONError(w, "failed to freeze user",
+		sendJSONError(w, "failed to billing freeze user",
 			err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
+func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -626,14 +628,21 @@ func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID); err != nil {
-		sendJSONError(w, "failed to unfreeze user",
-			err.Error(), http.StatusInternalServerError)
+	err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation unfreeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 }
 
-func (server *Server) unWarnUser(w http.ResponseWriter, r *http.Request) {
+func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -656,8 +665,92 @@ func (server *Server) unWarnUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = server.freezeAccounts.BillingUnWarnUser(ctx, u.ID); err != nil {
-		sendJSONError(w, "failed to unwarn user",
+		sendJSONError(w, "failed to billing unwarn user",
 			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.ViolationFreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User frozen but failed to change user status to Pending Deletion. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation freeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	invoices, err := server.payments.Invoices().List(ctx, u.ID)
+	if err != nil {
+		server.log.Error("failed to get invoices for violation frozen user", zap.Error(err))
+		return
+	}
+
+	for _, invoice := range invoices {
+		if invoice.Status == payments.InvoiceStatusOpen {
+			server.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, u.ID, u.Email)
+		}
+	}
+}
+
+func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.ViolationUnfreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation unfreeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	backofficeui "storj.io/storj/satellite/admin/back-office/ui"
 	adminui "storj.io/storj/satellite/admin/ui"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -84,6 +85,7 @@ type Server struct {
 	payments       payments.Accounts
 	buckets        *buckets.Service
 	restKeys       *restkeys.Service
+	analytics      *analytics.Service
 	freezeAccounts *console.AccountFreezeService
 
 	nowFn func() time.Time
@@ -100,6 +102,7 @@ func NewServer(
 	buckets *buckets.Service,
 	restKeys *restkeys.Service,
 	freezeAccounts *console.AccountFreezeService,
+	analyticsService *analytics.Service,
 	accounts payments.Accounts,
 	console consoleweb.Config,
 	config Config,
@@ -113,6 +116,7 @@ func NewServer(
 		payments:       accounts,
 		buckets:        buckets,
 		restKeys:       restKeys,
+		analytics:      analyticsService,
 		freezeAccounts: freezeAccounts,
 
 		nowFn: time.Now,
@@ -165,9 +169,11 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
-	limitUpdateAPI.HandleFunc("/users/{useremail}/freeze", server.freezeUser).Methods("PUT")
-	limitUpdateAPI.HandleFunc("/users/{useremail}/freeze", server.unfreezeUser).Methods("DELETE")
-	limitUpdateAPI.HandleFunc("/users/{useremail}/warning", server.unWarnUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingFreezeUser).Methods("PUT")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingUnfreezeUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-warning", server.billingUnWarnUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationFreezeUser).Methods("PUT")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationUnfreezeUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 

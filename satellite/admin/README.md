@@ -19,8 +19,13 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
             * [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
             * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
-            * [PUT /api/users/{user-email}/freeze](#put-apiusersuser-emailfreeze)
-            * [DELETE /api/users/{user-email}/freeze](#delete-apiusersuser-emailfreeze)
+            * [PUT /api/users/{user-email}/billing-freeze](#put-apiusersuser-emailbilling-freeze)
+            * [DELETE /api/users/{user-email}/billing-freeze](#delete-apiusersuser-emailbilling-freeze)
+            * [PUT /api/users/{user-email}/violation-freeze](#put-apiusersuser-emailviolation-freeze)
+            * [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
+            * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
+            * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
+            * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
@@ -171,18 +176,28 @@ Updates the limits of the user and user's existing project(s) limits found by it
 
 Disables the user's mfa.
 
-#### PUT /api/users/{user-email}/freeze
+#### PUT /api/users/{user-email}/billing-freeze
 
 Freezes a user account so no uploads or downloads may occur.
 This is a billing freeze the user can exit automatically by paying their invoice.
 
-#### DELETE /api/users/{user-email}/freeze
+#### DELETE /api/users/{user-email}/billing-freeze
 
-Unfreezes a user account so uploads and downloads may resume.
+Unfreezes a previously billing frozen user account so uploads and downloads may resume.
 
-#### DELETE /api/users/{user-email}/warning
+#### PUT /api/users/{user-email}/violation-freeze
 
-Removes the warning status from a user's account.
+Freezes a user account for violation so no uploads or downloads may occur
+User status is also set to Pending Deletion. The user cannot exit this state automatically.
+
+#### DELETE /api/users/{user-email}/violation-freeze
+
+Removes the violation freeze on a user account so uploads and downloads may resume.
+User status is set back to Active. This is the only way to exit the violation frozen state.
+
+#### DELETE /api/users/{user-email}/billing-warning
+
+Removes the billing warning status from a user's account.
 
 #### PATCH /api/users/{user-email}/geofence
 
