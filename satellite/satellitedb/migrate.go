@@ -2431,6 +2431,51 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop index from bucket_metainfos",
+				Version:     243,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) (err error) {
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS bucket_metainfos_project_id_name_key CASCADE`)
+					} else {
+						_, err = tx.ExecContext(ctx, `ALTER TABLE bucket_metainfos DROP CONSTRAINT IF EXISTS bucket_metainfos_project_id_name_key;`)
+					}
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "alter bucket_metainfos primary key",
+				Version:     244,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					alterPrimaryKey := true
+					// for crdb lets check if key was already altered, for pg we will do migration always
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						var primaryKey string
+						err := db.QueryRow(ctx,
+							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
+						).Scan(&primaryKey)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						// alter primary key only if it was not adjusted manually
+						alterPrimaryKey = primaryKey != "PRIMARY KEY (project_id ASC, name ASC)"
+					}
+
+					if alterPrimaryKey {
+						_, err := tx.ExecContext(ctx, `
+							ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_pkey;
+							ALTER TABLE bucket_metainfos ADD CONSTRAINT bucket_metainfos_pkey PRIMARY KEY ( project_id, name );
+						`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+					}
+					return nil
+				}),
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

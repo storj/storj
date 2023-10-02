@@ -1,7 +1,6 @@
 // bucket_metainfo contains information about a bucket in a project.
 model bucket_metainfo (
-	key    id
-	unique project_id name
+	key project_id name
 
 	// id is an UUID for the bucket.
 	field id             blob
