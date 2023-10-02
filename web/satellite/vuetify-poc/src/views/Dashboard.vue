@@ -68,16 +68,53 @@
 
         <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
-                <UsageProgressComponent icon="cloud" title="Storage" :progress="storageUsedPercent" :used="`${usedLimitFormatted(limits.storageUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`" :available="`${usedLimitFormatted(availableStorage)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Storage)" />
+                <UsageProgressComponent
+                    icon="cloud"
+                    title="Storage"
+                    :progress="storageUsedPercent"
+                    :used="`${usedLimitFormatted(limits.storageUsed)} Used`"
+                    :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`"
+                    :available="`${usedLimitFormatted(availableStorage)} Available`"
+                    cta="Need more?"
+                    @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
+                />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent icon="arrow-down" title="Download" :progress="egressUsedPercent" :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`" :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`" :available="`${usedLimitFormatted(availableEgress)} Available`" cta="Need more?" @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)" />
+                <UsageProgressComponent
+                    icon="arrow-down"
+                    title="Download"
+                    :progress="egressUsedPercent"
+                    :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
+                    :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`"
+                    :available="`${usedLimitFormatted(availableEgress)} Available`"
+                    cta="Need more?"
+                    @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
+                />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent icon="globe" title="Segments" :progress="segmentUsedPercent" :used="`${limits.segmentUsed.toLocaleString()} Used`" :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`" :available="`${availableSegment.toLocaleString()} Available`" cta="Learn more" />
+                <UsageProgressComponent
+                    icon="globe"
+                    title="Segments"
+                    :progress="segmentUsedPercent"
+                    :used="`${limits.segmentUsed.toLocaleString()} Used`"
+                    :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`"
+                    :available="`${availableSegment.toLocaleString()} Available`"
+                    :cta="isPaidTier ? 'Learn more' : 'Need more?'"
+                    @cta-click="onSegmentsCTAClicked"
+                />
             </v-col>
             <v-col cols="12" md="6">
-                <UsageProgressComponent v-if="billingStore.state.coupon" icon="check" :title="billingStore.state.coupon.name" :progress="couponProgress" :used="`${usedLimitFormatted(limits.storageUsed + limits.bandwidthUsed)} Used`" :limit="`Limit: ${couponValue}`" :available="`${couponRemainingPercent}% Available`" cta="" />
+                <UsageProgressComponent
+                    v-if="billingStore.state.coupon"
+                    icon="check"
+                    :title="isFreeTierCoupon ? 'Free Usage' : 'Coupon'"
+                    :progress="couponProgress"
+                    :used="`${couponProgress}% Used`"
+                    :limit="`Limit: ${couponValue}`"
+                    :available="`${couponRemainingPercent}% Available`"
+                    :cta="isFreeTierCoupon ? 'Learn more' : 'View Coupons'"
+                    @cta-click="onCouponCTAClicked"
+                />
             </v-col>
         </v-row>
         <v-col class="pa-0 mt-6" cols="12">
@@ -93,6 +130,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VBtn, VCard, VCardTitle, VCol, VContainer, VRow } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
+import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -125,6 +163,7 @@ const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
+const router = useRouter();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -144,6 +183,19 @@ const couponProgress = computed((): number => {
         return 100;
     }
     return Math.round(charges / couponValue * 100);
+});
+
+/**
+ * Indicates if active coupon is free tier coupon.
+ */
+const isFreeTierCoupon = computed((): boolean => {
+    if (!billingStore.state.coupon) {
+        return true;
+    }
+
+    const freeTierCouponName = 'Free Tier';
+
+    return billingStore.state.coupon.name.includes(freeTierCouponName);
 });
 
 /**
@@ -190,7 +242,7 @@ function formattedValue(value: Size): string {
  * Returns user account tier string.
  */
 const paidTierString = computed((): string => {
-    return usersStore.state.user.paidTier ? 'Pro' : 'Free';
+    return isPaidTier.value ? 'Pro' : 'Free';
 });
 
 /**
@@ -322,13 +374,37 @@ function getDimension(dataStamps: DataStamp[]): Dimensions {
  * or the edit limit dialog.
  */
 function onNeedMoreClicked(source: LimitToChange): void {
-    if (!usersStore.state.user.paidTier) {
+    if (!isPaidTier.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
 
     limitToChange.value = source;
     isEditLimitDialogShown.value = true;
+}
+
+/**
+ * Conditionally opens the upgrade dialog or docs link.
+ */
+function onSegmentsCTAClicked(): void {
+    if (!isPaidTier.value) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
+    window.open('https://docs.storj.io/dcs/pricing#per-segment-fee', '_blank', 'noreferrer');
+}
+
+/**
+ * Conditionally opens docs link or navigates to billing overview.
+ */
+function onCouponCTAClicked(): void {
+    if (isFreeTierCoupon.value) {
+        window.open('https://docs.storj.io/dcs/pricing#free-tier', '_blank', 'noreferrer');
+        return;
+    }
+
+    router.push('/account/billing');
 }
 
 /**
