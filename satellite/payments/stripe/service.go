@@ -172,6 +172,12 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, error) {
 	var allRecords []CreateProjectRecord
 	for _, customer := range customers {
+		if inactive, err := service.isUserInactive(ctx, customer.UserID); err != nil {
+			return 0, err
+		} else if inactive {
+			continue
+		}
+
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
 			return 0, err
@@ -431,6 +437,15 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 			return 0, errs.Wrap(err)
 		}
 
+		if inactive, err := service.isUserInactive(ctx, proj.OwnerID); err != nil {
+			return 0, errs.Wrap(err)
+		} else if inactive {
+			mu.Lock()
+			skipCount++
+			mu.Unlock()
+			continue
+		}
+
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
 			if errors.Is(err, ErrNoCustomer) {
@@ -649,6 +664,15 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 		for _, c := range customersPage.Customers {
 			cusID := c.ID
 			limiter.Go(ctx, func() {
+				if inactive, err := service.isUserInactive(ctx, c.UserID); err != nil {
+					mu.Lock()
+					failedUsers = append(failedUsers, cusID)
+					mu.Unlock()
+					return
+				} else if inactive {
+					return
+				}
+
 				applied, err := service.applyFreeTierCoupon(ctx, cusID)
 				if err != nil {
 					mu.Lock()
@@ -803,6 +827,15 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	for _, cus := range customers {
 		cusID := cus.ID
 		limiter.Go(ctx, func() {
+			if inactive, err := service.isUserInactive(ctx, cus.UserID); err != nil {
+				mu.Lock()
+				errGrp.Add(err)
+				mu.Unlock()
+				return
+			} else if inactive {
+				return
+			}
+
 			inv, err := service.createInvoice(ctx, cusID, period)
 			if err != nil {
 				mu.Lock()
@@ -925,6 +958,17 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 		if itr.Customer().Balance <= 0 {
 			continue
 		}
+
+		userID, err := service.db.Customers().GetUserID(ctx, itr.Customer().ID)
+		if err != nil {
+			return err
+		}
+		if inactive, err := service.isUserInactive(ctx, userID); err != nil {
+			return err
+		} else if inactive {
+			continue
+		}
+
 		service.log.Info("Creating invoice item for customer prior balance", zap.String("CustomerID", itr.Customer().ID))
 		itemParams := &stripe.InvoiceItemParams{
 			Params: stripe.Params{
@@ -1000,11 +1044,22 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
+
+		userID, err := service.db.Customers().GetUserID(ctx, stripeInvoice.Customer.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if inactive, err := service.isUserInactive(ctx, userID); err != nil {
+			return Error.Wrap(err)
+		} else if inactive {
+			continue
+		}
+
 		if stripeInvoice.AutoAdvance {
 			continue
 		}
 
-		err := service.finalizeInvoice(ctx, stripeInvoice.ID)
+		err = service.finalizeInvoice(ctx, stripeInvoice.ID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1062,6 +1117,16 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 // by charging the customer according to subscriptions settings.
 func (service *Service) PayCustomerInvoices(ctx context.Context, customerID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	userID, err := service.db.Customers().GetUserID(ctx, customerID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if inactive, err := service.isUserInactive(ctx, userID); err != nil {
+		return Error.Wrap(err)
+	} else if inactive {
+		return Error.New("customer %s is inactive", customerID)
+	}
 
 	customerInvoices, err := service.getInvoices(ctx, customerID, time.Unix(0, 0))
 	if err != nil {
@@ -1169,6 +1234,15 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 		}
 	}
 	return errGrp.Err()
+}
+
+// isUserInactive checks whether a user has a status of console.Deleted or console.PendingDeletion.
+func (service *Service) isUserInactive(ctx context.Context, userID uuid.UUID) (bool, error) {
+	user, err := service.usersDB.Get(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return user.Status == console.Deleted || user.Status == console.PendingDeletion, nil
 }
 
 // projectUsagePrice represents pricing for project usage.

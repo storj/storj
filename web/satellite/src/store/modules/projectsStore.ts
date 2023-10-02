@@ -20,9 +20,13 @@ import {
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { hexToBase64 } from '@/utils/strings';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
+const MAXIMUM_URL_ID_LENGTH = 22; // UUID (16 bytes) is 22 base64 characters
+
+export const MINIMUM_URL_ID_LENGTH = 11;
 export const DEFAULT_PROJECT_LIMITS = readonly(new ProjectLimits());
 
 export class ProjectsState {
@@ -53,12 +57,51 @@ export const useProjectsStore = defineStore('projects', () => {
         return projects;
     }
 
+    function calculateURLIds(): void {
+        type urlIdInfo = {
+            project: Project;
+            base64Id: string;
+            urlIdLength: number;
+        };
+
+        const occupied: Record<string, urlIdInfo[]> = {};
+
+        state.projects.forEach(p => {
+            const b64Id = hexToBase64(p.id.replaceAll('-', ''));
+            const info: urlIdInfo = {
+                project: p,
+                base64Id: b64Id,
+                urlIdLength: MINIMUM_URL_ID_LENGTH,
+            };
+
+            for (; info.urlIdLength <= MAXIMUM_URL_ID_LENGTH; info.urlIdLength++) {
+                const urlId = b64Id.substring(0, info.urlIdLength);
+                const others = occupied[urlId];
+
+                if (others) {
+                    if (info.urlIdLength === others[0].urlIdLength && info.urlIdLength !== MAXIMUM_URL_ID_LENGTH) {
+                        others.forEach(other => {
+                            occupied[other.base64Id.substring(0, ++other.urlIdLength)] = [other];
+                        });
+                    }
+                    others.push(info);
+                } else {
+                    occupied[urlId] = [info];
+                    break;
+                }
+            }
+        });
+
+        Object.keys(occupied).forEach(urlId => {
+            const infos = occupied[urlId];
+            if (infos.length !== 1) return;
+            infos[0].project.urlId = urlId;
+        });
+    }
+
     function setProjects(projects: Project[]): void {
         state.projects = projects;
-
-        if (!state.selectedProject.id) {
-            return;
-        }
+        calculateURLIds();
 
         const projectsCount = state.projects.length;
 
@@ -93,12 +136,13 @@ export const useProjectsStore = defineStore('projects', () => {
         state.chartDataBefore = payload.before;
     }
 
-    async function createProject(createProjectFields: ProjectFields): Promise<string> {
+    async function createProject(createProjectFields: ProjectFields): Promise<Project> {
         const createdProject = await api.create(createProjectFields);
 
         state.projects.push(createdProject);
+        calculateURLIds();
 
-        return createdProject.id;
+        return createdProject;
     }
 
     async function createDefaultProject(userID: string): Promise<void> {
@@ -111,9 +155,9 @@ export const useProjectsStore = defineStore('projects', () => {
             userID,
         );
 
-        const createdProjectId = await createProject(project);
+        const createdProject = await createProject(project);
 
-        selectProject(createdProjectId);
+        selectProject(createdProject.id);
     }
 
     function selectProject(projectID: string): void {

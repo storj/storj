@@ -176,12 +176,12 @@ func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
 	}
 
 	if freeze != nil {
-		err = p.accountFreezeService.UnfreezeUser(ctx, userID)
+		err = p.accountFreezeService.BillingUnfreezeUser(ctx, userID)
 		if err != nil {
 			return err
 		}
 	} else if warning != nil {
-		err = p.accountFreezeService.UnWarnUser(ctx, userID)
+		err = p.accountFreezeService.BillingUnWarnUser(ctx, userID)
 		if err != nil {
 			return err
 		}

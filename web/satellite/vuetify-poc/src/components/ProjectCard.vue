@@ -16,7 +16,7 @@
 
                         <v-menu activator="parent" location="end" transition="scale-transition">
                             <v-list class="pa-2">
-                                <v-list-item link rounded="lg" :to="`/projects/${item.id}/settings`">
+                                <v-list-item link rounded="lg" @click="() => onSettingsClick()">
                                     <template #prepend>
                                         <icon-settings />
                                     </template>
@@ -29,7 +29,7 @@
 
                                 <v-list-item link class="mt-1" rounded="lg">
                                     <template #prepend>
-                                        <icon-team />
+                                        <icon-team size="18" />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
                                         Invite Members
@@ -130,8 +130,17 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
-    router.push(`/projects/${props.item.id}/dashboard`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
+}
+
+/**
+ * Selects the project and navigates to the project's settings.
+ */
+function onSettingsClick(): void {
+    if (!props.item) return;
+    projectsStore.selectProject(props.item.id);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
 }
 
 /**

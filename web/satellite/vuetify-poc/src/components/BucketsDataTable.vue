@@ -299,7 +299,7 @@ async function openBucket(bucketName: string): Promise<void> {
         }
 
         analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets/${bucketsStore.state.fileComponentBucketName}`);
+        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketsStore.state.fileComponentBucketName}`);
         return;
     }
     passphraseDialogCallback = () => openBucket(selectedBucketName.value);

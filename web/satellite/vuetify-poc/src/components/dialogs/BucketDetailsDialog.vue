@@ -12,7 +12,7 @@
         <v-card rounded="xlg">
             <v-card-item class="py-4 pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@/../static/images/buckets/createBucket.svg">
+                    <img class="d-block" src="@/../static/images/buckets/createBucket.svg" alt="bucket">
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -34,7 +34,7 @@
 
             <v-card-item class="pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-bookmark-circle.svg">
+                    <img class="d-block" src="@poc/assets/icon-bookmark-circle.svg" alt="bookmark">
                 </template>
 
                 <h4>Name</h4>
@@ -43,25 +43,25 @@
 
             <v-card-item class="pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-file-circle.svg">
+                    <img class="d-block" src="@poc/assets/icon-file-circle.svg" alt="file">
                 </template>
 
                 <h4>Objects</h4>
-                <p>{{ bucket.objectCount }}</p>
+                <p>{{ bucket.objectCount.toLocaleString() }}</p>
             </v-card-item>
 
             <v-card-item class="pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-globe-circle.svg">
+                    <img class="d-block" src="@poc/assets/icon-globe-circle.svg" alt="globe">
                 </template>
 
                 <h4>Segments</h4>
-                <p>{{ bucket.segmentCount }}</p>
+                <p>{{ bucket.segmentCount.toLocaleString() }}</p>
             </v-card-item>
 
             <v-card-item class="pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-calendar-circle.svg">
+                    <img class="d-block" src="@poc/assets/icon-calendar-circle.svg" alt="calendar">
                 </template>
 
                 <h4>Date Created</h4>
@@ -70,7 +70,7 @@
 
             <v-card-item class="mb-4 pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-clock-circle.svg">
+                    <img class="d-block" src="@poc/assets/icon-clock-circle.svg" alt="clock">
                 </template>
 
                 <h4>Last Updated</h4>
@@ -129,7 +129,7 @@ const model = computed<boolean>({
 });
 
 function redirectToBucketsPage(): void {
-    router.push(`/projects/${projectsStore.state.selectedProject.id}/buckets`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets`);
 }
 
 const bucket = computed((): Bucket => {

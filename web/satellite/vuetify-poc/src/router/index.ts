@@ -61,7 +61,7 @@ const routes: RouteRecordRaw[] = [
         ],
     },
     {
-        path: '/projects/:projectId',
+        path: '/projects/:id',
         name: RouteName.Project,
         component: () => import('@poc/layouts/default/Default.vue'),
         children: [

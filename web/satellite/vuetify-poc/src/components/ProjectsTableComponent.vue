@@ -82,7 +82,7 @@
                         <v-menu activator="parent" location="bottom end" transition="scale-transition">
                             <v-list class="pa-0">
                                 <template v-if="item.raw.role === ProjectRole.Owner">
-                                    <v-list-item link :to="`/projects/${item.raw.id}/settings`">
+                                    <v-list-item link @click="() => onSettingsClick(item.raw)">
                                         <template #prepend>
                                             <icon-settings />
                                         </template>
@@ -95,7 +95,7 @@
 
                                     <v-list-item link>
                                         <template #prepend>
-                                            <icon-team />
+                                            <icon-team size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Invite Members
@@ -186,8 +186,16 @@ function getFormattedDate(date: Date): string {
  */
 function openProject(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
-    router.push(`/projects/${item.id}/dashboard`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
+}
+
+/**
+ * Selects the project and navigates to the project's settings.
+ */
+function onSettingsClick(item: ProjectItemModel): void {
+    projectsStore.selectProject(item.id);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
 }
 
 /**

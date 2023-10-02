@@ -110,7 +110,7 @@ const isDeclining = ref<boolean>(false);
 function openProject(): void {
     projectsStore.selectProject(props.id);
     notify.success('Invite accepted!');
-    router.push(`/projects/${props.id}/dashboard`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
 }
 

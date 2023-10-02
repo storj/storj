@@ -96,7 +96,7 @@
                 <v-list class="px-2">
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
-                            <img src="@poc/assets/icon-satellite.svg" alt="Region">
+                            <icon-globe size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">
@@ -117,7 +117,7 @@
 
                     <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
-                            <img src="@poc/assets/icon-card.svg" alt="Billing">
+                            <icon-card size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">
                             Billing
@@ -182,6 +182,9 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+
+import IconCard from '@poc/components/icons/IconCard.vue';
+import IconGlobe from '@poc/components/icons/IconGlobe.vue';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();

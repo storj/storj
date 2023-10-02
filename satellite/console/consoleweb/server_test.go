@@ -138,7 +138,7 @@ func TestInvitedRouting(t *testing.T) {
 
 		// Valid invite for nonexistent user should redirect to registration page with
 		// query parameters containing invitation information.
-		params := "email=invited%40mail.test&inviter=Project+Owner&inviter_email=owner%40mail.test&project=Test+Project"
+		params := "email=invited%40mail.test&inviter_email=owner%40mail.test"
 		checkInvitedRedirect("Invited - Nonexistent user", baseURL+"signup?"+params, token)
 
 		_, err = sat.AddUser(ctx, console.CreateUser{

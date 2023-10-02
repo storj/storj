@@ -133,7 +133,7 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 	}
 
 	for _, event := range dbxEvents {
-		if console.AccountFreezeEventType(event.Event) == console.Freeze {
+		if console.AccountFreezeEventType(event.Event) == console.BillingFreeze {
 			freeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, nil, err

@@ -124,7 +124,7 @@ import {
 } from 'vuetify/components';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
-import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, ProjectFields } from '@/types/projects';
+import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -171,17 +171,17 @@ const descriptionRules: ValidationRule<string>[] = [
 async function onCreateClicked(): Promise<void> {
     if (!formValid.value) return;
     await withLoading(async () => {
-        let id: string;
+        let project: Project;
         try {
             const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id);
-            id = await projectsStore.createProject(fields);
+            project = await projectsStore.createProject(fields);
         } catch (error) {
             error.message = `Failed to create project. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
             return;
         }
         model.value = false;
-        router.push(`/projects/${id}/dashboard`);
+        router.push(`/projects/${project.urlId}/dashboard`);
         notify.success('Project created.');
     });
 }

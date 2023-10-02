@@ -188,13 +188,13 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 			debugLog("Ignoring invoice; Payment attempt successful")
 
 			if warning != nil {
-				err = chore.freezeService.UnWarnUser(ctx, userID)
+				err = chore.freezeService.BillingUnWarnUser(ctx, userID)
 				if err != nil {
 					errorLog("Could not remove warning event", err)
 				}
 			}
 			if freeze != nil {
-				err = chore.freezeService.UnfreezeUser(ctx, userID)
+				err = chore.freezeService.BillingUnfreezeUser(ctx, userID)
 				if err != nil {
 					errorLog("Could not remove freeze event", err)
 				}
@@ -221,7 +221,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				debugLog("Ignoring invoice; payment already made")
 				continue
 			}
-			err = chore.freezeService.WarnUser(ctx, userID)
+			err = chore.freezeService.BillingWarnUser(ctx, userID)
 			if err != nil {
 				errorLog("Could not add warning event", err)
 				continue
@@ -242,7 +242,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				debugLog("Ignoring invoice; payment already made")
 				continue
 			}
-			err = chore.freezeService.FreezeUser(ctx, userID)
+			err = chore.freezeService.BillingFreezeUser(ctx, userID)
 			if err != nil {
 				errorLog("Could not freeze account", err)
 				continue
@@ -310,14 +310,14 @@ func (chore *Chore) attemptUnfreezeUnwarn(ctx context.Context) {
 				continue
 			}
 
-			if event.Type == console.Freeze {
-				err = chore.freezeService.UnfreezeUser(ctx, event.UserID)
+			if event.Type == console.BillingFreeze {
+				err = chore.freezeService.BillingUnfreezeUser(ctx, event.UserID)
 				if err != nil {
 					errorLog("Could not unfreeze user", err)
 				}
 				unfrozenCount++
 			} else {
-				err = chore.freezeService.UnWarnUser(ctx, event.UserID)
+				err = chore.freezeService.BillingUnWarnUser(ctx, event.UserID)
 				if err != nil {
 					errorLog("Could not unwarn user", err)
 				}
