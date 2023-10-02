@@ -174,7 +174,7 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 				}
 
 				isOptional := ""
-				if isNillableType(t.Type) {
+				if isNillableType(field.Type) {
 					isOptional = "?"
 				}
 

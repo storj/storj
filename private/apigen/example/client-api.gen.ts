@@ -17,7 +17,7 @@ export class GetResponseItem {
     path: string;
     date: Time;
     metadata: Metadata;
-    last_retrievals: GetResponseItemLastretrievals;
+    last_retrievals?: GetResponseItemLastretrievals;
 }
 
 export class GetResponseItemLastretrievalsItem {
@@ -27,7 +27,7 @@ export class GetResponseItemLastretrievalsItem {
 
 export class Metadata {
     owner: string;
-    tags: string[][];
+    tags?: string[][];
 }
 
 export class UpdateContentRequest {
