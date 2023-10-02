@@ -10,15 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stripe/stripe-go/v73"
-	"github.com/stripe/stripe-go/v73/charge"
-	"github.com/stripe/stripe-go/v73/customer"
-	"github.com/stripe/stripe-go/v73/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v73/form"
-	"github.com/stripe/stripe-go/v73/invoice"
-	"github.com/stripe/stripe-go/v73/invoiceitem"
-	"github.com/stripe/stripe-go/v73/paymentmethod"
-	"github.com/stripe/stripe-go/v73/promotioncode"
+	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v75/charge"
+	"github.com/stripe/stripe-go/v75/customer"
+	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v75/form"
+	"github.com/stripe/stripe-go/v75/invoice"
+	"github.com/stripe/stripe-go/v75/invoiceitem"
+	"github.com/stripe/stripe-go/v75/paymentmethod"
+	"github.com/stripe/stripe-go/v75/promotioncode"
 
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -570,7 +570,7 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 	lineData := make([]*stripe.InvoiceLineItem, 0, len(invoiceItems))
 	for _, item := range invoiceItems {
 		lineData = append(lineData, &stripe.InvoiceLineItem{
-			InvoiceItem: item.ID,
+			InvoiceItem: item,
 			Amount:      item.Amount,
 		})
 		amountDue += item.Amount
@@ -814,7 +814,7 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 					inv.AmountRemaining += item.Amount
 					inv.Total += item.Amount
 					inv.Lines.Data = append(inv.Lines.Data, &stripe.InvoiceLineItem{
-						InvoiceItem: item.ID,
+						InvoiceItem: item,
 						Amount:      item.Amount,
 					})
 

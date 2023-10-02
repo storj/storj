@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v73"
+	"github.com/stripe/stripe-go/v75"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -71,11 +71,9 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 		b, err := json.Marshal(credit)
 		require.NoError(t, err)
 		customerParams := stripe.CustomerParams{
-			Params: stripe.Params{
-				Context: ctx,
-				Metadata: map[string]string{
-					"credit_" + credit.TransactionID.String(): string(b),
-				},
+			Params: stripe.Params{Context: ctx},
+			Metadata: map[string]string{
+				"credit_" + credit.TransactionID.String(): string(b),
 			},
 		}
 		_, err = satellite.API.Payments.StripeClient.Customers().Update(customerID, &customerParams)

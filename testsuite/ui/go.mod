@@ -173,7 +173,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
-	github.com/stripe/stripe-go/v73 v73.16.0 // indirect
+	github.com/stripe/stripe-go/v75 v75.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tidwall/gjson v1.9.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

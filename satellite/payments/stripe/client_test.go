@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v73"
-	"github.com/stripe/stripe-go/v73/form"
+	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v75/form"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
