@@ -10,7 +10,7 @@
                         <v-col>
                             {{ projectName }}
                         </v-col>
-                        <v-col class="text-start text-sm-end">
+                        <v-col class="text-start text-sm-end mr-2">
                             <span class="align-end">
                                 Estimated Total &nbsp;
                                 <span
@@ -22,7 +22,7 @@
                     </v-row>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                    <v-table density="compact">
+                    <v-table density="comfortable">
                         <thead>
                             <tr>
                                 <th class="text-left">
@@ -46,7 +46,7 @@
                             >
                                 <td>
                                     <p>Storage <span class="d-none d-md-inline">({{ getStoragePrice(partner) }} per Gigabyte-Month)</span></p>
-                                    <p>Egress <span class="d-none d-md-inline">({{ getEgressPrice(partner) }} per GB)</span></p>
+                                    <p>Download <span class="d-none d-md-inline">({{ getEgressPrice(partner) }} per GB)</span></p>
                                     <p>Segments <span class="d-none d-md-inline">({{ getSegmentPrice(partner) }} per Segment-Month)</span></p>
                                 </td>
                                 <td class="d-none d-md-table-cell"><p v-for="i in 3" :key="i">{{ getPeriod(charge) }}</p></td>

@@ -19,7 +19,7 @@
             </v-chip>
             <v-divider class="my-4" />
             <p>Total Balance</p>
-            <v-chip rounded color="success" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
+            <v-chip rounded color="green" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
             <v-divider class="my-4" />
             <v-btn v-if="wallet.address" variant="flat" color="success" size="small" :loading="isLoading" class="mr-2">+ Add STORJ Tokens</v-btn>
             <v-btn v-else variant="flat" color="success" size="small" :loading="isLoading" @click="claimWalletClick">Create New Wallet</v-btn>

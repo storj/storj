@@ -54,12 +54,12 @@
                     <v-icon icon="mdi-dots-horizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-2">
-                            <v-list-item density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.raw.name)">
+                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.raw.name)">
                                 <template #prepend>
                                     <icon-trash bold />
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
-                                    Delete
+                                    Delete Access
                                 </v-list-item-title>
                             </v-list-item>
                         </v-list>

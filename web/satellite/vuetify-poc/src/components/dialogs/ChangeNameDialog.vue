@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="py-4">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-change-name.svg" alt="Change name">
                 </template>
@@ -26,9 +26,8 @@
                     />
                 </template>
             </v-card-item>
-
             <v-divider />
-            <v-card-item class="px-7 py-5">
+            <v-card-item>
                 <v-form v-model="formValid" @submit.prevent="onChangeName">
                     <v-col cols="12" class="px-0">
                         <v-text-field
@@ -39,14 +38,15 @@
                             :hide-details="false"
                             required
                             autofocus
+                            class="mt-2"
                         />
                     </v-col>
                 </v-form>
             </v-card-item>
             <v-divider />
-            <v-card-actions class="px-7 py-5">
-                <v-row class="ma-0">
-                    <v-col class="pl-0">
+            <v-card-actions class="pa-6">
+                <v-row>
+                    <v-col>
                         <v-btn
                             variant="outlined"
                             color="default"
@@ -58,7 +58,7 @@
                             Cancel
                         </v-btn>
                     </v-col>
-                    <v-col class="pr-0">
+                    <v-col>
                         <v-btn
                             color="primary"
                             variant="flat"

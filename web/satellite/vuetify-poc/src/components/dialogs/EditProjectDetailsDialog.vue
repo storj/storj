@@ -31,7 +31,7 @@
             <v-form v-model="formValid" class="pa-7" @submit.prevent>
                 <v-text-field
                     v-model="input"
-                    class="py-4"
+                    class="pt-4"
                     variant="outlined"
                     :rules="rules"
                     :label="`Project ${field}`"

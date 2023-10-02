@@ -34,16 +34,14 @@
         >
             <template #item.name="{ item }">
                 <v-btn
-                    class="rounded-lg w-100 px-0 justify-start"
+                    class="rounded-lg w-100 px-1 justify-start"
                     variant="text"
                     height="40"
                     color="default"
                     @click="openBucket(item.raw.name)"
                 >
-                    <template #prepend>
-                        <img class="d-none d-sm-block" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
-                    </template>
                     <template #default>
+                        <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
                             <p class="font-weight-bold text-lowercase white-space">{{ item.raw.name }}</p>
                         </div>
@@ -79,39 +77,38 @@
                 <v-menu location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
                         <v-btn
-                            icon="mdi-dots-vertical"
+                            icon="mdi-dots-horizontal"
                             color="default"
-                            variant="text"
+                            variant="outlined"
                             size="small"
                             density="comfortable"
                             v-bind="activatorProps"
                         />
                     </template>
                     <v-list class="pa-0">
-                        <v-list-item link @click="() => showBucketDetailsModal(item.raw.name)">
+                        <v-list-item rounded-lg class="ma-1" link @click="() => showBucketDetailsModal(item.raw.name)">
                             <template #prepend>
-                                <icon-details size="18" />
+                                <icon-bucket size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="ml-3">
                                 View Bucket Details
                             </v-list-item-title>
                         </v-list-item>
-                        <v-divider />
-                        <v-list-item link @click="() => showShareBucketDialog(item.raw.name)">
+                        <v-list-item rounded-lg class="ma-1" link @click="() => showShareBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-share size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Share bucket
+                            <v-list-item-title class="ml-3">
+                                Share Bucket
                             </v-list-item-title>
                         </v-list-item>
                         <v-divider />
-                        <v-list-item link @click="() => showDeleteBucketDialog(item.raw.name)">
+                        <v-list-item rounded-lg class="ma-1 text-error text-body-2" link @click="() => showDeleteBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-trash />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Delete bucket
+                            <v-list-item-title class="ml-3">
+                                Delete Bucket
                             </v-list-item-title>
                         </v-list-item>
                     </v-list>
@@ -144,7 +141,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconShare from '@poc/components/icons/IconShare.vue';
-import IconDetails from '@poc/components/icons/IconDetails.vue';
+import IconBucket from '@poc/components/icons/IconBucket.vue';
 import DeleteBucketDialog from '@poc/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';

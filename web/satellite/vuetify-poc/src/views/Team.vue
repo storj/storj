@@ -21,7 +21,7 @@
                         v-model="dialog"
                         activator="parent"
                         width="auto"
-                        min-width="400px"
+                        max-width="420px"
                         transition="fade-transition"
                     >
                         <v-card rounded="xlg">
@@ -61,20 +61,19 @@
 
                             <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onAddUsersClick">
                                 <v-row>
-                                    <v-col>
-                                        <p>Invite team members to join you in this project.</p>
-                                    <!-- <v-divider class="my-6"></v-divider> -->
-                                    <!-- <p>Use only lowercase letters and numbers, no spaces.</p> -->
-                                    <!-- <v-chip prepend-icon="mdi-information" color="info" rounded="xl">
-                                        Members will have read & write permissions.
-                                    </v-chip> -->
+                                    <v-col cols="12">
+                                        <p class="mb-5">Invite team members to join you in this project.</p>
+                                        <v-alert
+                                            variant="tonal"
+                                            color="info"
+                                            title="Important Information"
+                                            text="All team members should use the same passphrase to access the same data."
+                                            rounded="lg"
+                                            density="comfortable"
+                                            border
+                                        ></v-alert>
                                     </v-col>
-                                </v-row>
-
-                                <v-row>
-                                    <v-col
-                                        cols="12"
-                                    >
+                                    <v-col cols="12">
                                         <v-text-field
                                             v-model="email"
                                             variant="outlined"
@@ -83,16 +82,10 @@
                                             hint="Members will have read & write permissions."
                                             required
                                             autofocus
-                                            class="mt-2"
+                                            class="my-2"
                                         />
                                     </v-col>
                                 </v-row>
-
-                                <!-- <v-row>
-                                    <v-col>
-                                        <v-btn variant="text" class="mb-4">+ Add More</v-btn>
-                                    </v-col>
-                                </v-row> -->
                             </v-form>
 
                             <v-divider />

@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="px-6 py-4">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-change-password.svg" alt="Change password">
                 </template>
@@ -27,11 +27,10 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <v-card-item class="px-7 py-5">
+            <v-card-item class="px-7 pt-5">
                 <p>You will receive a verification link in your email to confirm the password change.</p>
             </v-card-item>
-            <v-divider />
-            <v-card-item class="px-7 py-5">
+            <v-card-item class="px-7">
                 <v-form v-model="formValid" @submit.prevent="onChangePassword">
                     <v-col cols="12" class="px-0">
                         <v-text-field
@@ -40,6 +39,7 @@
                             type="password"
                             :rules="oldRules"
                             label="Current password"
+                            placeholder="Enter your current password"
                             :hide-details="false"
                             required
                             autofocus
@@ -52,6 +52,7 @@
                             type="password"
                             :rules="newRules"
                             label="New password"
+                            placeholder="Enter a new password"
                             :hide-details="false"
                             required
                         />
@@ -62,6 +63,7 @@
                             type="password"
                             :rules="repeatRules"
                             label="Repeat password"
+                            placeholder="Enter the new password again"
                             :hide-details="false"
                             required
                         />
@@ -69,8 +71,8 @@
                 </v-form>
             </v-card-item>
             <v-divider />
-            <v-card-actions class="px-7 py-5">
-                <v-row class="ma-0">
+            <v-card-actions class="pa-6">
+                <v-row>
                     <v-col>
                         <v-btn
                             variant="outlined"

@@ -33,7 +33,7 @@
                     <v-card-item class="px-8 py-4">
                         <p>Scan this QR code in your two-factor application.</p>
                     </v-card-item>
-                    <v-card-item align="center" justify="center" class="rounded-lg border mx-8 py-4" style="background: #edeef1;">
+                    <v-card-item align="center" justify="center" class="rounded-lg border mx-8 py-4">
                         <v-col cols="auto">
                             <canvas ref="canvas" />
                         </v-col>
@@ -42,7 +42,7 @@
                     <v-card-item class="px-8 py-4 pt-0">
                         <p>Unable to scan? Enter the following code instead.</p>
                     </v-card-item>
-                    <v-card-item class="rounded-lg border mx-8 pa-0" style="background: #FAFAFB;">
+                    <v-card-item class="rounded-lg border mx-8 pa-0">
                         <v-col class="py-2 px-3" cols="auto">
                             <p class="font-weight-bold"> {{ userMFASecret }}</p>
                         </v-col>
