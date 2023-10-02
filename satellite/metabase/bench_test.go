@@ -119,7 +119,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 
 					totalUpload.Record(func() {
 						beginObject.Record(func() {
-							_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+							_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 								ObjectStream: objectStream,
 								Encryption: storj.EncryptionParameters{
 									CipherSuite: storj.EncAESGCM,

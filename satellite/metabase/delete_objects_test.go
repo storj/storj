@@ -457,7 +457,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 		t.Run("migrated objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: obj1,
 			})
 			require.NoError(t, err)
