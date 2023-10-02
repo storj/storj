@@ -508,7 +508,7 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		StreamID:   testrand.UUID(),
 	}
 
-	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+	_, err := metabaseDB.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
 		Encryption: storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
