@@ -517,10 +517,17 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	walletPayments, err := p.service.Payments().WalletPayments(ctx)
+	var walletPayments console.WalletPayments
+	walletPayments, err = p.service.Payments().WalletPayments(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if errs.Is(err, billing.ErrNoWallet) {
+			if err = json.NewEncoder(w).Encode(walletPayments); err != nil {
+				p.log.Error("failed to encode payments", zap.Error(ErrPaymentsAPI.Wrap(err)))
+			}
 			return
 		}
 
@@ -545,6 +552,12 @@ func (p *Payments) WalletPaymentsWithConfirmations(w http.ResponseWriter, r *htt
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if errs.Is(err, billing.ErrNoWallet) {
+			if err = json.NewEncoder(w).Encode([]string{}); err != nil {
+				p.log.Error("failed to encode payments", zap.Error(ErrPaymentsAPI.Wrap(err)))
+			}
 			return
 		}
 
