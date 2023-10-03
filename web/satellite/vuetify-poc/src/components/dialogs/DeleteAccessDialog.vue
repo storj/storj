@@ -110,6 +110,7 @@ async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {
         try {
             await agStore.deleteAccessGrantByNameAndProjectID(props.accessName, projectsStore.state.selectedProject.id);
+            notify.success(`Access Grant deleted successfully`);
             emit('deleted');
             model.value = false;
         } catch (error) {
