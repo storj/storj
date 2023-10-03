@@ -154,6 +154,9 @@ func (endpoint *Endpoint) processTimeBased(ctx context.Context, stream pb.DRPCSa
 	if isDisqualified {
 		return rpcstatus.Error(rpcstatus.FailedPrecondition, "node is disqualified")
 	}
+	if endpoint.handleSuspendedNodeTimeBased(nodeInfo) {
+		return rpcstatus.Error(rpcstatus.FailedPrecondition, "node is suspended. Please get node unsuspended before initiating graceful exit")
+	}
 
 	msg, err := endpoint.checkExitStatusTimeBased(ctx, nodeInfo)
 	if err != nil {
@@ -736,6 +739,16 @@ func (endpoint *Endpoint) handleDisqualifiedNodeTimeBased(ctx context.Context, n
 		return true, nil
 	}
 	return false, nil
+}
+
+func (endpoint *Endpoint) handleSuspendedNodeTimeBased(nodeInfo *overlay.NodeDossier) (isSuspended bool) {
+	if nodeInfo.UnknownAuditSuspended != nil || nodeInfo.OfflineSuspended != nil {
+		// If the node already initiated graceful exit, we'll let it carry on until / unless it gets disqualified.
+		// Otherwise, the operator should make an effort to get the node un-suspended before initiating GE.
+		// (The all-wise Go linter won't let me write this in a clearer way.)
+		return nodeInfo.ExitStatus.ExitInitiatedAt == nil
+	}
+	return false
 }
 
 func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {

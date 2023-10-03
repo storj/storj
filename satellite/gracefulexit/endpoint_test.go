@@ -5,6 +5,7 @@ package gracefulexit_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -1817,6 +1818,105 @@ func TestNodeAlreadyExited(t *testing.T) {
 		exitingNodes, err = satellite.DB.OverlayCache().GetExitingNodes(ctx)
 		require.NoError(t, err)
 		require.Len(t, exitingNodes, 0)
+	})
+}
+
+func TestNodeSuspended(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// check that there are no exiting nodes.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 0)
+
+		// mark a node as suspended
+		exitingNode := planet.StorageNodes[0]
+		err = satellite.Reputation.Service.TestSuspendNodeUnknownAudit(ctx, exitingNode.ID(), time.Now())
+		require.NoError(t, err)
+
+		// initiate GE
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "node is suspended")
+		require.Nil(t, response)
+	})
+}
+
+func TestManyNodesGracefullyExiting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 8,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.GracefulExit.TimeBased = true
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		// upload several objects; enough that we can reasonably expect every node to have several pieces
+		const numObjects = 32
+		objectData := make([][]byte, numObjects)
+		for i := 0; i < numObjects; i++ {
+			objectData[i] = testrand.Bytes(64 * memory.KiB)
+			err := uplink.Upload(ctx, satellite, "testbucket", fmt.Sprintf("test/path/obj%d", i), objectData[i])
+			require.NoError(t, err, i)
+		}
+
+		// Make half of the nodes initiate GE
+		for i := 0; i < len(planet.StorageNodes)/2; i++ {
+			response, err := callProcess(ctx, planet.StorageNodes[i], satellite)
+			require.NoError(t, err, i)
+			require.IsType(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage())
+		}
+
+		// run the satellite ranged loop to build the transfer queue.
+		_, err := satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// we expect ~78% of segments to be in the repair queue (the chance that a
+		// segment still has at least 3 pieces in not-exiting nodes). but since things
+		// will fluctuate, let's just expect half
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, count, numObjects/2)
+
+		// perform the repairs, which should get every piece so that it will still be
+		// reconstructable without the exiting nodes.
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// turn off the exiting nodes entirely
+		for i := 0; i < len(planet.StorageNodes)/2; i++ {
+			err = planet.StopNodeAndUpdate(ctx, planet.StorageNodes[i])
+			require.NoError(t, err)
+		}
+
+		// expect that we can retrieve and verify all objects
+		for i, obj := range objectData {
+			gotData, err := uplink.Download(ctx, satellite, "testbucket", fmt.Sprintf("test/path/obj%d", i))
+			require.NoError(t, err, i)
+			require.Equal(t, string(obj), string(gotData))
+		}
 	})
 }
 
