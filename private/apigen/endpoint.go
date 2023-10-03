@@ -81,6 +81,36 @@ func (e *Endpoint) Validate() error {
 		return errsEndpoint.New("TypeScriptName doesn't match the regular expression %q", typeScriptNameRegExp)
 	}
 
+	if e.Request != nil {
+		switch k := reflect.TypeOf(e.Request).Kind(); k {
+		case reflect.Invalid,
+			reflect.Complex64,
+			reflect.Complex128,
+			reflect.Chan,
+			reflect.Func,
+			reflect.Interface,
+			reflect.Map,
+			reflect.Pointer,
+			reflect.UnsafePointer:
+			return errsEndpoint.New("Request cannot be of a type %q", k)
+		}
+	}
+
+	if e.Response != nil {
+		switch k := reflect.TypeOf(e.Response).Kind(); k {
+		case reflect.Invalid,
+			reflect.Complex64,
+			reflect.Complex128,
+			reflect.Chan,
+			reflect.Func,
+			reflect.Interface,
+			reflect.Map,
+			reflect.Pointer,
+			reflect.UnsafePointer:
+			return errsEndpoint.New("Response cannot be of a type %q", k)
+		}
+	}
+
 	return nil
 }
 

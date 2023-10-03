@@ -4,8 +4,10 @@
 package apigen
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -103,6 +105,27 @@ func TestEndpoint_Validate(t *testing.T) {
 				return &e
 			},
 			errMsg: "TypeScriptName doesn't match the regular expression",
+		},
+		{
+			testName: "invalid Request type",
+			endpointFn: func() *Endpoint {
+				request := &struct {
+					Name string `json:"name"`
+				}{}
+				e := validEndpoint
+				e.Request = request
+				return &e
+			},
+			errMsg: fmt.Sprintf("Request cannot be of a type %q", reflect.Pointer),
+		},
+		{
+			testName: "invalid Response type",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.Response = map[string]string{}
+				return &e
+			},
+			errMsg: fmt.Sprintf("Response cannot be of a type %q", reflect.Map),
 		},
 	}
 
