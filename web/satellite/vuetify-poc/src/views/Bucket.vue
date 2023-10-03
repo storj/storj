@@ -21,7 +21,7 @@
                             v-bind="props"
                         >
                             <browser-snackbar-component v-model="isObjectsUploadModal" />
-                            <IconUpload />
+                            <IconUpload class="mr-2" />
                             Upload
                         </v-btn>
                     </template>

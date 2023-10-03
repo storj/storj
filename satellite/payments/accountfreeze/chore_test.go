@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v73"
+	"github.com/stripe/stripe-go/v75"
 	"go.uber.org/zap"
 
 	"storj.io/common/currency"

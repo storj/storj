@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v73"
+	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 

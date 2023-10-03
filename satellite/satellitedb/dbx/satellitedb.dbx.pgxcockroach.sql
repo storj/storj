@@ -535,8 +535,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
 	placement integer,
-	PRIMARY KEY ( id ),
-	UNIQUE ( project_id, name )
+	PRIMARY KEY ( project_id, name )
 );
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

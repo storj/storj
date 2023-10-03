@@ -13,7 +13,7 @@
                     The following team members will be removed. This action cannot be undone.
                 </p>
                 <div class="modal__pm-container">
-                    <div v-for="(member, key) in firstThreeSelected" :key="key" class="modal__project-member">
+                    <div v-for="(member, key) in firstThreeSelected" :key="key" :title="member" class="modal__project-member">
                         {{ member }}
                     </div>
                     <div v-if="selectedMembersLength > 3" class="modal__project-member">
@@ -241,6 +241,7 @@ function closeModal(): void {
 
     &__project-member {
         width: fit-content;
+        max-width: calc(100% - 40px);
         text-align: left;
         background: #f4f5f7;
         border-radius: 30px;
@@ -248,6 +249,9 @@ function closeModal(): void {
         gap: 10px;
         margin: 16px 0;
         font-family: 'font_medium', sans-serif;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
     }
 }
 

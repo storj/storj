@@ -36,7 +36,12 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         return await api.getInviteLink(projectID, email);
     }
 
-    async function deleteProjectMembers(projectID: string): Promise<void> {
+    async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
+        if (customSelected && customSelected.length) {
+            await api.delete(projectID, customSelected);
+            return;
+        }
+
         await api.delete(projectID, state.selectedProjectMembersEmails);
 
         clearProjectMemberSelection();

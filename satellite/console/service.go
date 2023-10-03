@@ -18,7 +18,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go/v73"
+	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
