@@ -62,6 +62,15 @@ func (a *API) Group(name, prefix string) *EndpointGroup {
 		)
 	}
 
+	for _, g := range a.EndpointGroups {
+		if strings.EqualFold(g.Name, name) {
+			panic(fmt.Sprintf("name has to be case-insensitive unique across all the groups. name=%q", name))
+		}
+		if strings.EqualFold(g.Prefix, prefix) {
+			panic(fmt.Sprintf("prefix has to be case-insensitive unique across all the groups. prefix=%q", prefix))
+		}
+	}
+
 	group := &EndpointGroup{
 		Name:   name,
 		Prefix: prefix,

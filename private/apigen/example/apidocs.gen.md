@@ -12,6 +12,8 @@
   * [Get a tag](#documents-get-a-tag)
   * [Get Version](#documents-get-version)
   * [Update Content](#documents-update-content)
+* Users
+  * [Get Users](#users-get-users)
 
 <h3 id='documents-get-documents'>Get Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -159,6 +161,26 @@ Update the content of the document with the specified path and ID if the last up
 	pathParam: string
 	body: string
 }
+
+```
+
+<h3 id='users-get-users'>Get Users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Get the list of registered users
+
+`GET /api/v0/users/`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		surname: string
+		email: string
+	}
+
+]
 
 ```
 

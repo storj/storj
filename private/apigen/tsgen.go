@@ -68,10 +68,10 @@ func (f *tsGenFile) registerTypes() {
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
 			if method.Request != nil {
-				f.types.Register(method.requestType())
+				f.types.Register(method.requestType(group))
 			}
 			if method.Response != nil {
-				f.types.Register(method.responseType())
+				f.types.Register(method.responseType(group))
 			}
 			if len(method.QueryParams) > 0 {
 				for _, p := range method.QueryParams {
@@ -91,12 +91,12 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 	for _, method := range group.endpoints {
 		f.pf("")
 
-		funcArgs, path := f.getArgsAndPath(method)
+		funcArgs, path := f.getArgsAndPath(method, group)
 
 		returnStmt := "return"
 		returnType := "void"
 		if method.Response != nil {
-			respType := method.responseType()
+			respType := method.responseType(group)
 			returnType = TypescriptTypeName(respType)
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
 		}
@@ -129,7 +129,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 	f.pf("}")
 }
 
-func (f *tsGenFile) getArgsAndPath(method *fullEndpoint) (funcArgs, path string) {
+func (f *tsGenFile) getArgsAndPath(method *fullEndpoint, group *EndpointGroup) (funcArgs, path string) {
 	// remove path parameter placeholders
 	path = method.Path
 	i := strings.Index(path, "{")
@@ -139,7 +139,7 @@ func (f *tsGenFile) getArgsAndPath(method *fullEndpoint) (funcArgs, path string)
 	path = "${this.ROOT_PATH}" + path
 
 	if method.Request != nil {
-		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(method.requestType()))
+		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(method.requestType(group)))
 	}
 
 	for _, p := range method.PathParams {

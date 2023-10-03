@@ -94,6 +94,20 @@ func main() {
 		},
 	})
 
+	g = a.Group("Users", "users")
+
+	g.Get("/", &apigen.Endpoint{
+		Name:           "Get Users",
+		Description:    "Get the list of registered users",
+		GoName:         "Get",
+		TypeScriptName: "get",
+		Response: []struct {
+			Name    string `json:"name"`
+			Surname string `json:"surname"`
+			Email   string `json:"email"`
+		}{},
+	})
+
 	a.MustWriteGo("api.gen.go")
 	a.MustWriteTS("client-api.gen.ts")
 	a.MustWriteDocs("apidocs.gen.md")

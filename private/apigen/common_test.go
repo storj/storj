@@ -83,4 +83,36 @@ func TestAPI_Group(t *testing.T) {
 			api.Group("testname", "t_name")
 		})
 	})
+
+	t.Run("group with repeated name", func(t *testing.T) {
+		api := API{}
+
+		require.NotPanics(t, func() {
+			api.Group("testName", "tName")
+		})
+
+		require.Panics(t, func() {
+			api.Group("TESTNAME", "tName2")
+		})
+
+		require.Panics(t, func() {
+			api.Group("testname", "tName3")
+		})
+	})
+
+	t.Run("group with repeated prefix", func(t *testing.T) {
+		api := API{}
+
+		require.NotPanics(t, func() {
+			api.Group("testName", "tName")
+		})
+
+		require.Panics(t, func() {
+			api.Group("testName2", "tname")
+		})
+
+		require.Panics(t, func() {
+			api.Group("testname3", "tnamE")
+		})
+	})
 }

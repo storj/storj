@@ -122,7 +122,9 @@ type fullEndpoint struct {
 }
 
 // requestType guarantees to return a named Go type associated to the Endpoint.Request field.
-func (fe fullEndpoint) requestType() reflect.Type {
+// g is used to avoid clashes with types defined in different groups that are different, but with
+// the same name. It cannot be nil.
+func (fe fullEndpoint) requestType(g *EndpointGroup) reflect.Type {
 	t := reflect.TypeOf(fe.Request)
 	if t.Name() != "" {
 		return t
@@ -131,10 +133,10 @@ func (fe fullEndpoint) requestType() reflect.Type {
 	switch k := t.Kind(); k {
 	case reflect.Array, reflect.Slice:
 		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Request")}
+			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
 		}
 	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Request")}
+		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
 	default:
 		panic(
 			fmt.Sprintf(
@@ -148,7 +150,9 @@ func (fe fullEndpoint) requestType() reflect.Type {
 }
 
 // responseType guarantees to return a named Go type associated to the Endpoint.Response field.
-func (fe fullEndpoint) responseType() reflect.Type {
+// g is used to avoid clashes with types defined in different groups that are different, but with
+// the same name. It cannot be nil.
+func (fe fullEndpoint) responseType(g *EndpointGroup) reflect.Type {
 	t := reflect.TypeOf(fe.Response)
 	if t.Name() != "" {
 		return t
@@ -157,10 +161,10 @@ func (fe fullEndpoint) responseType() reflect.Type {
 	switch k := t.Kind(); k {
 	case reflect.Array, reflect.Slice:
 		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Response")}
+			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
 		}
 	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(fe.TypeScriptName, "Response")}
+		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
 	default:
 		panic(
 			fmt.Sprintf(

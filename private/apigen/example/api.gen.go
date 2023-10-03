@@ -22,6 +22,7 @@ import (
 const dateLayout = "2006-01-02T15:04:05.999Z"
 
 var ErrDocsAPI = errs.Class("example docs api")
+var ErrUsersAPI = errs.Class("example users api")
 
 type DocumentsService interface {
 	Get(ctx context.Context) ([]struct {
@@ -47,11 +48,27 @@ type DocumentsService interface {
 	}, api.HTTPError)
 }
 
+type UsersService interface {
+	Get(ctx context.Context) ([]struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}, api.HTTPError)
+}
+
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
 type DocumentsHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service DocumentsService
+	auth    api.Auth
+}
+
+// UsersHandler is an api handler that implements all Users API endpoints functionality.
+type UsersHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service UsersService
 	auth    api.Auth
 }
 
@@ -69,6 +86,20 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 	docsRouter.HandleFunc("/{path}/tag/{tagName}", handler.handleGetTag).Methods("GET")
 	docsRouter.HandleFunc("/{path}/versions", handler.handleGetVersions).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleUpdateContent).Methods("POST")
+
+	return handler
+}
+
+func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router, auth api.Auth) *UsersHandler {
+	handler := &UsersHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
+	usersRouter.HandleFunc("/", handler.handleGet).Methods("GET")
 
 	return handler
 }
@@ -262,5 +293,31 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateContent response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.Get(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json Get response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }

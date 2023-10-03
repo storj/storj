@@ -4,6 +4,30 @@
 import { HttpClient } from '@/utils/httpClient';
 import { Time, UUID } from '@/types/common';
 
+export class DocsGetResponseItem {
+    id: UUID;
+    path: string;
+    date: Time;
+    metadata: Metadata;
+    last_retrievals?: DocsGetResponseItemLastRetrievals;
+}
+
+export class DocsGetResponseItemLastRetrievalsItem {
+    user: string;
+    when: Time;
+}
+
+export class DocsUpdateContentRequest {
+    content: string;
+}
+
+export class DocsUpdateContentResponse {
+    id: UUID;
+    date: Time;
+    pathParam: string;
+    body: string;
+}
+
 export class Document {
     id: UUID;
     date: Time;
@@ -17,48 +41,32 @@ export class Metadata {
     tags?: string[][];
 }
 
+export class UsersGetResponseItem {
+    name: string;
+    surname: string;
+    email: string;
+}
+
 export class Version {
     date: Time;
     number: number;
 }
 
-export class GetResponseItem {
-    id: UUID;
-    path: string;
-    date: Time;
-    metadata: Metadata;
-    last_retrievals?: GetResponseItemLastRetrievals;
-}
+export type DocsGetResponse = Array<DocsGetResponseItem>
 
-export class GetResponseItemLastRetrievalsItem {
-    user: string;
-    when: Time;
-}
+export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
 
-export class UpdateContentRequest {
-    content: string;
-}
-
-export class UpdateContentResponse {
-    id: UUID;
-    date: Time;
-    pathParam: string;
-    body: string;
-}
-
-export type GetResponse = Array<GetResponseItem>
-
-export type GetResponseItemLastRetrievals = Array<GetResponseItemLastRetrievalsItem>
+export type UsersGetResponse = Array<UsersGetResponseItem>
 
 export class DocumentsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
 
-    public async get(): Promise<GetResponse> {
+    public async get(): Promise<DocsGetResponse> {
         const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as GetResponse);
+            return response.json().then((body) => body as DocsGetResponse);
         }
         const err = await response.json();
         throw new Error(err.error);
@@ -94,14 +102,29 @@ export class DocumentsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async updateContent(request: UpdateContentRequest, path: string, id: UUID, date: Time): Promise<UpdateContentResponse> {
+    public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
         const u = new URL(`${this.ROOT_PATH}/${path}`);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
         const fullPath = u.toString();
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
-            return response.json().then((body) => body as UpdateContentResponse);
+            return response.json().then((body) => body as DocsUpdateContentResponse);
+        }
+        const err = await response.json();
+        throw new Error(err.error);
+    }
+}
+
+export class UsersHttpApiV0 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/users';
+
+    public async get(): Promise<UsersGetResponse> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UsersGetResponse);
         }
         const err = await response.json();
         throw new Error(err.error);
