@@ -73,14 +73,14 @@
                         class="ml-2"
                         icon
                         color="default"
-                        variant="text"
+                        variant="outlined"
                         size="small"
                         density="comfortable"
                         :loading="decliningIds.has(item.raw.id)"
                     >
-                        <v-icon icon="mdi-dots-vertical" size="18" />
+                        <v-icon icon="mdi-dots-horizontal" size="18" />
                         <v-menu activator="parent" location="bottom end" transition="scale-transition">
-                            <v-list class="pa-0">
+                            <v-list class="pa-1">
                                 <template v-if="item.raw.role === ProjectRole.Owner">
                                     <v-list-item link @click="() => onSettingsClick(item.raw)">
                                         <template #prepend>
@@ -90,9 +90,6 @@
                                             Project Settings
                                         </v-list-item-title>
                                     </v-list-item>
-
-                                    <v-divider />
-
                                     <v-list-item link>
                                         <template #prepend>
                                             <icon-team size="18" />

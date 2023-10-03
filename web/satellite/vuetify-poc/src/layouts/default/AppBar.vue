@@ -40,15 +40,16 @@
                         border
                         inset
                         density="comfortable"
-                        rounded="xl"
+                        class="pa-1"
                     >
                         <v-tooltip text="Light Theme" location="bottom">
                             <template #activator="{ props: darkProps }">
                                 <v-btn
                                     v-bind="darkProps"
+                                    rounded="xl"
                                     icon="mdi-weather-sunny"
                                     size="small"
-                                    class="px-5"
+                                    class="px-4"
                                     aria-label="Toggle Light Theme"
                                     @click="toggleTheme('light')"
                                 />
@@ -59,9 +60,10 @@
                             <template #activator="{ props: lightProps }">
                                 <v-btn
                                     v-bind="lightProps"
+                                    rounded="xl"
                                     icon="mdi-weather-night"
                                     size="small"
-                                    class="px-5"
+                                    class="px-4"
                                     aria-label="Toggle Dark Theme"
                                     @click="toggleTheme('dark')"
                                 />
@@ -74,29 +76,48 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        class="ml-4 font-weight-medium"
+                        class="ml-3 font-weight-medium"
                     >
                         <template #append>
                             <img src="@poc/assets/icon-dropdown.svg" alt="Account Dropdown">
                         </template>
                         My Account
-                        <v-chip
-                            class="ml-2 font-weight-bold"
-                            :color="isPaidTier ? 'success' : 'default'"
-                            variant="outlined"
-                            size="small"
-                            rounded
-                        >
-                            {{ isPaidTier ? 'Pro' : 'Free' }}
-                        </v-chip>
                     </v-btn>
                 </template>
 
                 <!-- My Account Menu -->
-                <v-list class="px-2">
+                <v-list class="px-2 rounded-lg">
+                    <v-list-item class="py-2 rounded-lg">
+                        <!-- <template #prepend>
+                            <icon-team size="18"></icon-team>
+                        </template> -->
+                        <v-list-item-title class="text-body-2">
+                            <v-chip
+                                class="font-weight-bold"
+                                :color="isPaidTier ? 'success' : 'info'"
+                                variant="outlined"
+                                size="small"
+                                rounded
+                            >
+                                {{ isPaidTier ? 'Pro Account' : 'Free Account' }}
+                            </v-chip>
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
+                        <template #prepend>
+                            <icon-upgrade size="18" />
+                        </template>
+                        <v-list-item-title class="text-body-2 ml-3">
+                            Upgrade to Pro
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-divider class="my-2" />
+
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
-                            <icon-globe size="18" />
+                            <icon-region size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">
@@ -105,15 +126,6 @@
                     </v-list-item>
 
                     <v-divider class="my-2" />
-
-                    <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
-                        <template #prepend>
-                            <img src="@poc/assets/icon-upgrade.svg" alt="Upgrade">
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">
-                            Upgrade
-                        </v-list-item-title>
-                    </v-list-item>
 
                     <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
@@ -126,7 +138,7 @@
 
                     <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="closeSideNav">
                         <template #prepend>
-                            <img src="@poc/assets/icon-settings.svg" alt="Account Settings">
+                            <icon-settings size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">
                             Settings
@@ -134,7 +146,7 @@
                     </v-list-item>
                     <v-list-item class="rounded-lg" link @click="onLogout">
                         <template #prepend>
-                            <img src="@poc/assets/icon-logout.svg" alt="Log Out">
+                            <icon-logout size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">
                             Sign Out
@@ -185,6 +197,11 @@ import { useConfigStore } from '@/store/modules/configStore';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
 import IconGlobe from '@poc/components/icons/IconGlobe.vue';
+import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
+import IconSettings from '@poc/components/icons/IconSettings.vue';
+import IconLogout from '@poc/components/icons/IconLogout.vue';
+import IconRegion from '@poc/components/icons/IconRegion.vue';
+import IconTeam from '@poc/components/icons/IconTeam.vue';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();

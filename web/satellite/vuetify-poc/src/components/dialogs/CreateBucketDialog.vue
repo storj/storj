@@ -48,6 +48,8 @@
                             required
                             autofocus
                             class="mt-8 mb-3"
+                            minlength="3"
+                            maxlength="63"
                         />
                     </v-col>
                 </v-row>
@@ -131,7 +133,7 @@ const bucketNameRules = computed(() => {
 
     return [
         (value: string) => (!!value || 'Bucket name is required.'),
-        (value: string) => ((value.length >= 3 && value.length <= 63)  || 'Bucket name must be not less than 3 and not more than 63 characters length.'),
+        (value: string) => ((value.length >= 3 && value.length <= 63)  || 'Name should be between 3 and 63 characters length.'),
         (value: string) => {
             if (/^[a-z0-9-.]+$/.test(value)) return true;
             if (/[A-Z]/.test(value)) return 'Uppercase characters are not allowed.';

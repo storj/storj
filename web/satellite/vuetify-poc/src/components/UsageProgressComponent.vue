@@ -5,12 +5,12 @@
     <v-card :title="title" variant="flat" :border="true" rounded="xlg">
         <template #title>
             <v-card-title class="d-flex align-center">
-                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" />
+                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" />
                 {{ title }}
             </v-card-title>
         </template>
         <v-card-item>
-            <v-progress-linear color="success" :model-value="progress" rounded height="6" />
+            <v-progress-linear color="green" :model-value="progress" rounded height="6" />
         </v-card-item>
         <v-card-item>
             <v-row>

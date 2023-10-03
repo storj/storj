@@ -98,7 +98,7 @@ const iconColor = computed((): string => {
     } else if (props.item.status === UploadingStatus.Failed) {
         return 'warning';
     } else if (props.item.status === UploadingStatus.Cancelled) {
-        return 'error2';
+        return 'error';
     } else {
         return '';
     }

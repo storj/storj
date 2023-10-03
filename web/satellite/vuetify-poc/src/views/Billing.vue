@@ -48,7 +48,7 @@
                                 <div v-if="isLoading" class="pb-2 text-center">
                                     <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
                                 </div>
-                                <v-chip v-else rounded color="success" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -64,7 +64,7 @@
                                 <div v-if="isLoading" class="pb-2 text-center">
                                     <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
                                 </div>
-                                <v-chip v-else rounded color="success" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
@@ -80,7 +80,6 @@
                             class="d-flex align-center justify-center"
                             height="200"
                             rounded="xlg"
-                            border
                         >
                             <v-progress-circular color="primary" size="48" indeterminate />
                         </v-card>
@@ -89,11 +88,10 @@
                             :title="`Coupon / ${coupon.name}`"
                             :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
                             rounded="xlg"
-                            border
                         >
                             <v-card-text>
                                 <v-chip
-                                    :color="isCouponActive ? 'success' : 'error'"
+                                    :color="isCouponActive ? 'green' : 'error'"
                                     variant="outlined"
                                     class="font-weight-bold mb-2"
                                     rounded
@@ -106,15 +104,21 @@
                         </v-card>
                         <v-card
                             v-else
-                            class="billing__new-coupon-card d-flex align-center justify-center"
-                            color="primary"
-                            variant="text"
-                            height="200"
-                            link
-                            border
+                            title="Coupon"
+                            subtitle="Apply a new coupon to your account"
+                            variant="flat"
+                            rounded="xlg"
                         >
-                            <v-icon icon="mdi-plus" class="mr-1" size="small" />
-                            <span class="text-decoration-underline mr-1">Apply New Coupon</span>
+                            <v-card-text>
+                                <div v-if="isLoading" class="pb-2 text-center">
+                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
+                                </div>
+                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
+                                    No Coupon
+                                </v-chip>
+                                <v-divider class="my-4" />
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Apply New Coupon</v-btn>
+                            </v-card-text>
                         </v-card>
                     </v-col>
                 </v-row>
@@ -349,11 +353,3 @@ onMounted(async () => {
     }
 });
 </script>
-
-<style scoped lang="scss">
-.billing__new-coupon-card {
-    border-width: 2px;
-    border-style: dashed;
-    box-shadow: none !important;
-}
-</style>

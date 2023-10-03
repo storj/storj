@@ -20,9 +20,9 @@ html {
   --v-theme-overlay-multiplier: 0.75;
 }
 
+// Nav
 .v-app-bar.v-toolbar {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  // box-shadow: 0 1px 3px rgba(var(--v-theme-on-surface), 0.05) !important;
 }
 
 // Toggle visibility class
@@ -52,12 +52,10 @@ html {
 }
 .v-btn.v-theme--light.text-default.v-btn--variant-outlined:hover {
   border-color: #9da3a7;
-  // color: rgb(var(--v-theme-primary));
   border-color: rgba(var(--v-border-color), 0.5);
 }
 .v-btn.v-theme--dark.text-default.v-btn--variant-outlined {
   border-color: #a9b0b949;
-  // border-color: rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .v-btn.v-theme--dark.text-default.v-btn--variant-outlined:hover {
   border-color: #a9b0b979;
@@ -70,35 +68,7 @@ html {
   // outline: none !important;
 }
 
-// Button Sizes
-/*
-.v-btn--size-x-small {
-  --v-btn-height: 2rem;
-  padding-left: 12px;
-  padding-right: 12px;
-}
-.v-btn--size-small {
-  --v-btn-height: 2.25rem;
-  padding-left: 14px;
-  padding-right: 14px;
-}
-.v-btn--size-default {
-  // --v-btn-height: 2.75rem;
-  --v-btn-height: 3rem;
-  font-size: 14px;
-}
-.v-btn--size-large {
-  --v-btn-height: 3.5rem;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-.v-btn--size-x-large {
-  --v-btn-height: 4rem;
-  padding-left: 24px;
-  padding-right: 24px;
-}
-*/
-
+// Button sizes
 .v-btn--size-default {
   --v-btn-size: 0.8rem;
   --v-btn-height: 44px;
@@ -109,31 +79,17 @@ html {
   --v-btn-height: 48px;
 }
 
-// Button Icon
-/*
-.v-btn--icon {
-    padding: 4px;
-    height: auto;
-    width: auto;
-}
-*/
 
 // Menu border
-.v-menu > .v-overlay__content {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
+.v-overlay__content .v-list {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  // border-radius: 12px !important;
 }
 
 // Menu list item
 .v-list-item--active .v-list-item-title {
   font-weight: 700 !important;
 }
-
-// Menu list item active background
-// .v-list-item--variant-text .v-list-item__overlay {
-//   background: rgb(var(--v-border-color));
-// }
-
 
 // Card Light Theme
 .v-card.v-theme--light {
@@ -162,11 +118,8 @@ html {
 
 // Overlay behind modals/dialogs opacity and color
 .v-overlay__scrim {
+  background: #000;
   opacity: 0.75;
-}
-
-.v-theme--dark .v-overlay__scrim {
-  --v-theme-on-surface: 0,0,0;
 }
 
 // Align the checkboxes in the tables
@@ -189,7 +142,6 @@ html {
 
 // Sorting icon
 .mdi-arrow-up::before, .mdi-arrow-down::before {
-  // content: "\F005D";
   font-size: 14px;
 }
 
@@ -211,6 +163,12 @@ html {
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 1px;
+}
+
+// Table content
+.v-list-item__content {
+  white-space: nowrap;
+  overflow: visible;
 }
 
 // Table Footer

@@ -39,7 +39,7 @@
                 <v-data-table-row class="pos-relative" v-bind="rowProps">
                     <template #item.name="{ item }: ItemSlotProps">
                         <v-btn
-                            class="rounded-lg w-100 pl-1 pr-4 justify-start font-weight-bold"
+                            class="rounded-lg w-100 px-1 justify-start font-weight-bold"
                             variant="text"
                             height="40"
                             color="default"

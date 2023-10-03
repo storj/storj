@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" width="414px" transition="fade-transition">
+    <v-dialog v-model="model" max-width="420" transition="fade-transition">
         <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pl-7 py-4 pos-relative">
                 <template #prepend>

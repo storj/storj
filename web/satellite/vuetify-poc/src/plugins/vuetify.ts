@@ -26,13 +26,12 @@ export default createVuetify({
                     primary: '#0149FF',
                     secondary: '#0218A7',
                     background: '#FFF',
-                    info: '#537CFF',
-                    success: '#00AC26',
-                    warning: '#FF8A00',
-                    error: '#FF458B',
-                    error2: '#FF0149',
                     surface: '#FFF',
-                    'surface-emphasis': '#FAFAFB',
+                    info: '#0059D0',
+                    help: '#FFA800',
+                    success: '#00AC26',
+                    warning: '#FF7F00',
+                    error: '#FF0149',
                     purple: '#7B61FF',
                     blue6:  '#091c45',
                     blue5: '#0218A7',
@@ -49,13 +48,12 @@ export default createVuetify({
                 colors: {
                     primary: '#0149FF',
                     secondary: '#537CFF',
-                    background: '#0d1116',
-                    // background: '#101418',
-                    error: '#FF458B',
-                    error2: '#FF0149',
-                    surface: '#0d1116',
-                    'surface-emphasis': '#1E2426',
-                    purple: '#7B61FF',
+                    background: '#090920',
+                    success: '#00AC26',
+                    help: '#FFC600',
+                    error: '#FF0149',
+                    surface: '#090920',
+                    purple: '#A18EFF',
                     blue6:  '#091c45',
                     blue5: '#2196f3',
                     blue4: '#0059D0',
@@ -64,8 +62,9 @@ export default createVuetify({
                     yellow2: '#FFB701',
                     orange: '#FFA800',
                     warning: '#FF8A00',
-                    green: '#00B150',
-                    purple2: '#7B61FF',
+                    // green: '#00B150',
+                    green: '#00e366',
+                    purple2: '#A18EFF',
                 },
             },
         },
@@ -73,7 +72,6 @@ export default createVuetify({
     defaults: {
         global: {
             // ripple: false,
-            hideDetails: 'auto',
         },
         VDataTable: {
             fixedHeader: true,
@@ -94,6 +92,18 @@ export default createVuetify({
         VTextField: {
             rounded: 'lg',
             variant: 'outlined',
+        },
+        VList: {
+            rounded: 'xlg',
+        },
+        VListItem: {
+            rounded: 'lg',
+        },
+        VListItemTitle: {
+            class: 'text-body-2 font-weight-medium',
+        },
+        VCard: {
+            border: true,
         },
     },
 });

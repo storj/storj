@@ -13,35 +13,8 @@
             </v-col>
             <v-col v-if="!isPaidTier" cols="auto">
                 <v-btn @click="appStore.toggleUpgradeFlow(true)">
-                    Upgrade plan
+                    Upgrade
                 </v-btn>
-            </v-col>
-        </v-row>
-
-        <v-row class="d-flex align-center justify-center mt-2">
-            <v-col cols="12" md="6">
-                <v-card ref="chartContainer" title="Storage" variant="flat" :border="true" rounded="xlg">
-                    <h4 class="pl-4">{{ getDimension(storageUsage) }}</h4>
-                    <StorageChart
-                        :width="chartWidth"
-                        :height="170"
-                        :data="storageUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
-                </v-card>
-            </v-col>
-            <v-col cols="12" md="6">
-                <v-card title="Download" variant="flat" :border="true" rounded="xlg">
-                    <h4 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h4>
-                    <BandwidthChart
-                        :width="chartWidth"
-                        :height="170"
-                        :data="allocatedBandwidthUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
-                </v-card>
             </v-col>
         </v-row>
 
@@ -91,6 +64,50 @@
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
+        </v-row>
+
+        <v-row class="d-flex align-center justify-center mt-2">
+            <v-col cols="12" md="6">
+                <v-card ref="chartContainer" variant="flat" :border="true" rounded="xlg">
+                    <template #title>
+                        <v-card-title class="d-flex align-center">
+                            <IconCloud class="mr-2" width="16" height="16" />
+                            Storage
+                        </v-card-title>
+                    </template>
+                    <h5 class="pl-4">{{ getDimension(storageUsage) }}</h5>
+                    <StorageChart
+                        :width="chartWidth"
+                        :height="160"
+                        :data="storageUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
+                        class="pr-4 pb-4"
+                    />
+                </v-card>
+            </v-col>
+            <v-col cols="12" md="6">
+                <v-card variant="flat" :border="true" rounded="xlg">
+                    <template #title>
+                        <v-card-title class="d-flex align-center">
+                            <IconArrowDown class="mr-2" width="16" height="16" />
+                            Download
+                        </v-card-title>
+                    </template>
+                    <h5 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h5>
+                    <BandwidthChart
+                        :width="chartWidth"
+                        :height="160"
+                        :data="allocatedBandwidthUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
+                        class="pr-4 pb-4"
+                    />
+                </v-card>
+            </v-col>
+        </v-row>
+
+        <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
                 <UsageProgressComponent
                     icon="globe"
@@ -117,6 +134,7 @@
                 />
             </v-col>
         </v-row>
+
         <v-col class="pa-0 mt-6" cols="12">
             <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
             <buckets-data-table />
@@ -153,6 +171,8 @@ import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
 import StorageChart from '@/components/project/dashboard/StorageChart.vue';
 import BucketsDataTable from '@poc/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
+import IconCloud from '@poc/components/icons/IconCloud.vue';
+import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

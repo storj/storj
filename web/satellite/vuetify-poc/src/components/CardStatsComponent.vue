@@ -5,12 +5,12 @@
     <v-card :subtitle="subtitle" variant="flat" :border="true" rounded="xlg" :to="to">
         <template #title>
             <v-card-title class="d-flex align-center">
-                <component :is="iconComponent" v-if="icon" v-bind="iconProps" class="mr-2" />
+                <component :is="iconComponent" v-if="icon" v-bind="iconProps" class="mr-2" width="16" height="16" />
                 {{ title }}
             </v-card-title>
         </template>
         <v-card-text>
-            <v-chip rounded color="success" variant="outlined" class="font-weight-bold">{{ data }}</v-chip>
+            <v-chip rounded color="green" variant="outlined" class="font-weight-bold">{{ data }}</v-chip>
         </v-card-text>
     </v-card>
 </template>

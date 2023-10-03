@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pl-6 py-4">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-session-timeout.svg" alt="Session timeout">
                 </template>
@@ -27,11 +27,10 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <v-card-item class="px-7 py-5">
+            <v-card-item class="px-6 pt-6 pb-3">
                 <p>Select your session timeout duration.</p>
             </v-card-item>
-            <v-divider />
-            <v-card-item class="px-7 py-5">
+            <v-card-item class="px-6 pb-7">
                 <v-select
                     v-model="duration"
                     class="pt-2"
@@ -45,9 +44,9 @@
                 />
             </v-card-item>
             <v-divider />
-            <v-card-actions class="px-7 py-5">
-                <v-row class="ma-0">
-                    <v-col class="pl-0">
+            <v-card-actions class="pa-6">
+                <v-row>
+                    <v-col>
                         <v-btn
                             variant="outlined"
                             color="default"
@@ -59,7 +58,7 @@
                             Cancel
                         </v-btn>
                     </v-col>
-                    <v-col class="pr-0">
+                    <v-col>
                         <v-btn
                             color="primary"
                             variant="flat"

@@ -3,17 +3,20 @@
 
 <template>
     <div class="pa-4">
-        <v-sheet v-for="item in items" :key="item.next" class="bg-surface-emphasis ma-4" border rounded>
-            <v-list-item class="py-2 px-5" link @click="emit('optionClick', item.next)">
-                <div class="d-flex flex-row align-center">
-                    <component :is="item.icon" />
-                    <div class="mx-4">
-                        <p class="font-weight-bold mb-1">{{ item.title }}</p>
-                        <p class="text-caption">{{ item.subtitle }}</p>
-                    </div>
-                    <v-spacer />
-                    <v-icon size="32" icon="mdi-chevron-right" color="primary" />
-                </div>
+        <v-sheet v-for="item in items" :key="item.next" class="ma-2" border rounded="xlg">
+            <v-list-item class="pa-2" link @click="emit('optionClick', item.next)">
+                <template #prepend>
+                    <component :is="item.icon" width="20" height="20" class="ml-3 mr-4" />
+                </template>
+                <v-list-item-title>
+                    <p class="font-weight-bold">{{ item.title }}</p>
+                </v-list-item-title>
+                <v-list-item-subtitle>
+                    <p class="text-caption text-wrap">{{ item.subtitle }}</p>
+                </v-list-item-subtitle>
+                <template #append>
+                    <v-icon size="24" icon="mdi-chevron-right" color="default" />
+                </template>
             </v-list-item>
         </v-sheet>
     </div>
