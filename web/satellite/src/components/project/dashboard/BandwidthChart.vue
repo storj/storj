@@ -128,7 +128,7 @@ watch(() => props.width, () => {
             border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
-            background-color:#929fb1;
+            background-color: #929fb1;
         }
     }
 </style>

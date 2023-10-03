@@ -45,32 +45,32 @@
                 </template>
                 <v-btn v-else color="primary" size="small" class="mr-2" @click="openProject">Open Project</v-btn>
                 <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" density="comfortable" icon>
-                        <v-icon icon="mdi-dots-horizontal" />
+                    <v-icon icon="mdi-dots-horizontal" />
 
-                        <v-menu activator="parent" location="end" transition="scale-transition">
-                            <v-list class="pa-2">
-                                <v-list-item link rounded="lg" @click="() => onSettingsClick()">
-                                    <template #prepend>
-                                        <icon-settings />
-                                    </template>
-                                    <v-list-item-title class="text-body-2 ml-3">
-                                        Project Settings
-                                    </v-list-item-title>
-                                </v-list-item>
+                    <v-menu activator="parent" location="end" transition="scale-transition">
+                        <v-list class="pa-2">
+                            <v-list-item link rounded="lg" @click="() => onSettingsClick()">
+                                <template #prepend>
+                                    <icon-settings />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Project Settings
+                                </v-list-item-title>
+                            </v-list-item>
 
-                                <v-divider class="my-2" />
+                            <v-divider class="my-2" />
 
-                                <v-list-item link class="mt-1" rounded="lg">
-                                    <template #prepend>
-                                        <icon-team size="18" />
-                                    </template>
-                                    <v-list-item-title class="text-body-2 ml-3">
-                                        Invite Members
-                                    </v-list-item-title>
-                                </v-list-item>
-                            </v-list>
-                        </v-menu>
-                    </v-btn>
+                            <v-list-item link class="mt-1" rounded="lg">
+                                <template #prepend>
+                                    <icon-team size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Invite Members
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                </v-btn>
             </v-card-text>
         </div>
     </v-card>

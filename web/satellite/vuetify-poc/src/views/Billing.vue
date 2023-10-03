@@ -120,7 +120,6 @@
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Apply New Coupon</v-btn>
                             </v-card-text>
                         </v-card>
-
                     </v-col>
                 </v-row>
 

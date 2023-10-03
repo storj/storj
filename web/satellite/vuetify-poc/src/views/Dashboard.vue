@@ -53,7 +53,7 @@
                 <v-card ref="chartContainer" variant="flat" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center">
-                            <IconCloud class="mr-2" width="16" height="16"></IconCloud>
+                            <IconCloud class="mr-2" width="16" height="16" />
                             Storage
                         </v-card-title>
                     </template>
@@ -72,7 +72,7 @@
                 <v-card variant="flat" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center">
-                            <IconArrowDown class="mr-2" width="16" height="16"></IconArrowDown>
+                            <IconArrowDown class="mr-2" width="16" height="16" />
                             Download
                         </v-card-title>
                     </template>
@@ -103,7 +103,6 @@
             <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
             <buckets-data-table />
         </v-col>
-
     </v-container>
 
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />

@@ -6,7 +6,7 @@
         <v-sheet v-for="item in items" :key="item.next" class="ma-2" border rounded="xlg">
             <v-list-item class="pa-2" link @click="emit('optionClick', item.next)">
                 <template #prepend>
-                    <component :is="item.icon" width="20" height="20" class="ml-3 mr-4"/>
+                    <component :is="item.icon" width="20" height="20" class="ml-3 mr-4" />
                 </template>
                 <v-list-item-title>
                     <p class="font-weight-bold">{{ item.title }}</p>
@@ -16,7 +16,7 @@
                 </v-list-item-subtitle>
                 <template #append>
                     <v-icon size="24" icon="mdi-chevron-right" color="default" />
-                </template>               
+                </template>
             </v-list-item>
         </v-sheet>
     </div>

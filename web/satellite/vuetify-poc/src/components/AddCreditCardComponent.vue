@@ -5,7 +5,7 @@
     <v-card title="Add Card" variant="flat" :border="true" rounded="xlg">
         <v-card-text>
             <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="isCardInputShown = true">+ Add New Card</v-btn>
-            
+
             <template v-else>
                 <StripeCardInput
                     ref="stripeCardInput"
@@ -31,7 +31,6 @@
                     Cancel
                 </v-btn>
             </template>
-
         </v-card-text>
     </v-card>
 </template>

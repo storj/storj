@@ -104,6 +104,6 @@ export default createVuetify({
         },
         VCard: {
             border: true,
-        }
+        },
     },
 });

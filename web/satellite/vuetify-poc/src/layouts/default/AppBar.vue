@@ -87,7 +87,6 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
-
                     <v-list-item class="py-2 rounded-lg">
                         <!-- <template #prepend>
                             <icon-team size="18"></icon-team>
@@ -118,7 +117,7 @@
 
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
-                            <icon-region size="18"></icon-region>
+                            <icon-region size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">

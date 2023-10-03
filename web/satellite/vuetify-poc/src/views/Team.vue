@@ -71,7 +71,7 @@
                                             rounded="lg"
                                             density="comfortable"
                                             border
-                                        ></v-alert>
+                                        />
                                     </v-col>
                                     <v-col cols="12">
                                         <v-text-field
