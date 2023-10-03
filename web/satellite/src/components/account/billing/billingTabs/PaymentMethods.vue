@@ -185,7 +185,6 @@ import {
     Wallet,
     NativePaymentHistoryItem,
 } from '@/types/payments';
-import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -196,6 +195,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -233,11 +233,11 @@ const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
+
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
-
-const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
 const showTransactions = ref<boolean>(false);
 const nativePayIsLoading = ref<boolean>(false);
@@ -379,16 +379,12 @@ function closeAddPayment(): void {
 }
 
 async function addCard(token: string): Promise<void> {
-    emit('toggleIsLoading');
     try {
         await billingStore.addCreditCard(token);
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-
-        emit('toggleIsLoading');
-
         return;
     }
 
@@ -397,22 +393,11 @@ async function addCard(token: string): Promise<void> {
         await billingStore.getCreditCards();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        emit('toggleIsLoading');
     }
 
-    emit('toggleIsLoading');
-    emit('toggleIsLoaded');
-
-    setTimeout(() => {
-        emit('cancel');
-        emit('toggleIsLoaded');
-
-        setTimeout(() => {
-            if (!userHasOwnProject.value) {
-                router.push(RouteConfig.CreateProject.path);
-            }
-        }, 500);
-    }, 2000);
+    if (!userHasOwnProject.value) {
+        handleCreateProjectClick();
+    }
 }
 
 async function onConfirmAddStripe(): Promise<void> {

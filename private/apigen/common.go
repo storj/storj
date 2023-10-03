@@ -8,6 +8,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -109,17 +110,6 @@ func getElementaryType(t reflect.Type) reflect.Type {
 	}
 }
 
-// filter returns a new slice of reflect.Type values that satisfy the given keep function.
-func filter(types []reflect.Type, keep func(reflect.Type) bool) []reflect.Type {
-	filtered := make([]reflect.Type, 0, len(types))
-	for _, t := range types {
-		if keep(t) {
-			filtered = append(filtered, t)
-		}
-	}
-	return filtered
-}
-
 // isNillableType returns whether instances of the given type can be nil.
 func isNillableType(t reflect.Type) bool {
 	switch t.Kind() {
@@ -139,4 +129,33 @@ func compoundTypeName(base string, parts ...string) string {
 	}
 
 	return base + strings.Join(titled, "")
+}
+
+type typeAndName struct {
+	Type reflect.Type
+	Name string
+}
+
+func mapToSlice(typesAndNames map[reflect.Type]string) []typeAndName {
+	list := make([]typeAndName, 0, len(typesAndNames))
+	for t, n := range typesAndNames {
+		list = append(list, typeAndName{Type: t, Name: n})
+	}
+
+	sort.SliceStable(list, func(i, j int) bool {
+		return list[i].Name < list[j].Name
+	})
+
+	return list
+}
+
+// filter returns a new slice of typeAndName values that satisfy the given keep function.
+func filter(types []typeAndName, keep func(typeAndName) bool) []typeAndName {
+	filtered := make([]typeAndName, 0, len(types))
+	for _, t := range types {
+		if keep(t) {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
 }

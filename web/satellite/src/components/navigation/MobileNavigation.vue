@@ -228,6 +228,7 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -282,6 +283,7 @@ const obStore = useObjectBrowserStore();
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 
@@ -514,20 +516,7 @@ function onProjectsLinkClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (route.name !== RouteConfig.CreateProject.name) {
-        analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-        const user: User = usersStore.state.user;
-        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-        if (!user.paidTier || user.projectLimit === ownProjectsCount) {
-            appStore.updateActiveModal(MODALS.createProjectPrompt);
-        } else {
-            analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.newCreateProject);
-        }
-    }
-
+    handleCreateProjectClick();
     isProjectDropdownShown.value = false;
 }
 

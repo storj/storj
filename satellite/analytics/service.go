@@ -321,10 +321,6 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 		Event:      service.satelliteName + " " + eventSignedIn,
 		Properties: props,
 	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventSignedIn, map[string]interface{}{
-		"userid": userID.String(),
-	})
 }
 
 // TrackProjectCreated sends an "Project Created" event to Segment.
@@ -342,12 +338,6 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventProjectCreated,
 		Properties: props,
-	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventProjectCreated, map[string]interface{}{
-		"userid":        userID.String(),
-		"project_count": currentProjectCount,
-		"project_id":    projectID.String(),
 	})
 }
 
@@ -484,10 +474,6 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) 
 		Event:      service.satelliteName + " " + eventAccessGrantCreated,
 		Properties: props,
 	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventAccessGrantCreated, map[string]interface{}{
-		"userid": userID.String(),
-	})
 }
 
 // TrackAccountVerified sends an "Account Verified" event to Segment.
@@ -511,10 +497,6 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventAccountVerified,
 		Properties: props,
-	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventAccountVerified, map[string]interface{}{
-		"userid": userID.String(),
 	})
 }
 
@@ -542,10 +524,6 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventName,
 		Properties: props,
-	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventName, map[string]interface{}{
-		"userid": userID.String(),
 	})
 }
 
@@ -589,11 +567,6 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 		Event:      service.satelliteName + " " + eventName,
 		Properties: props,
 	})
-
-	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventName, map[string]interface{}{
-		"userid": userID.String(),
-		"link":   link,
-	})
 }
 
 // TrackCreditCardAdded sends an "Credit Card Added" event to Segment.
@@ -610,7 +583,6 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 		Event:      service.satelliteName + " " + eventCreditCardAdded,
 		Properties: props,
 	})
-
 }
 
 // PageVisitEvent sends a page visit event associated with user ID to Segment.
@@ -631,7 +603,6 @@ func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email 
 		Name:       "Page Requested",
 		Properties: props,
 	})
-
 }
 
 // TrackProjectLimitError sends an "Project Limit Error" event to Segment.
@@ -648,7 +619,6 @@ func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
 		Event:      service.satelliteName + " " + eventProjectLimitError,
 		Properties: props,
 	})
-
 }
 
 // TrackStorjTokenAdded sends an "Storj Token Added" event to Segment.
@@ -665,7 +635,6 @@ func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
 		Event:      service.satelliteName + " " + eventStorjTokenAdded,
 		Properties: props,
 	})
-
 }
 
 // TrackProjectMemberAddition sends an "Project Member Added" event to Segment.
@@ -682,7 +651,6 @@ func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email strin
 		Event:      service.satelliteName + " " + eventProjectMemberAdded,
 		Properties: props,
 	})
-
 }
 
 // TrackProjectMemberDeletion sends an "Project Member Deleted" event to Segment.
@@ -699,7 +667,6 @@ func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email strin
 		Event:      service.satelliteName + " " + eventProjectMemberDeleted,
 		Properties: props,
 	})
-
 }
 
 // TrackExpiredCreditNeedsRemoval sends an "Expired Credit Needs Removal" event to Segment.

@@ -35,7 +35,7 @@ func main() {
 			Description: "Creates new Project with given info",
 			MethodName:  "GenCreateProject",
 			RequestName: "createProject",
-			Response:    &console.Project{},
+			Response:    console.Project{},
 			Request:     console.UpsertProjectInfo{},
 		})
 

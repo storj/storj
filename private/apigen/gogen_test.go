@@ -29,9 +29,19 @@ import (
 )
 
 type (
-	auth     struct{}
-	service  struct{}
-	response = struct {
+	auth        struct{}
+	service     struct{}
+	responseGet = struct {
+		ID             uuid.UUID      `json:"id"`
+		Path           string         `json:"path"`
+		Date           time.Time      `json:"date"`
+		Metadata       myapi.Metadata `json:"metadata"`
+		LastRetrievals []struct {
+			User string    `json:"user"`
+			When time.Time `json:"when"`
+		} `json:"last_retrievals"`
+	}
+	responseUpdateContent = struct {
 		ID        uuid.UUID `json:"id"`
 		Date      time.Time `json:"date"`
 		PathParam string    `json:"pathParam"`
@@ -45,11 +55,32 @@ func (a auth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth
 
 func (a auth) RemoveAuthCookie(w http.ResponseWriter) {}
 
+func (s service) Get(
+	ctx context.Context,
+) ([]responseGet, api.HTTPError) {
+	return []responseGet{}, api.HTTPError{}
+}
+
 func (s service) GetOne(
 	ctx context.Context,
 	pathParam string,
 ) (*myapi.Document, api.HTTPError) {
 	return &myapi.Document{}, api.HTTPError{}
+}
+
+func (s service) GetTag(
+	ctx context.Context,
+	pathParam string,
+	tagName string,
+) (*[2]string, api.HTTPError) {
+	return &[2]string{}, api.HTTPError{}
+}
+
+func (s service) GetVersions(
+	ctx context.Context,
+	pathParam string,
+) ([]myapi.Version, api.HTTPError) {
+	return []myapi.Version{}, api.HTTPError{}
 }
 
 func (s service) UpdateContent(
@@ -60,8 +91,8 @@ func (s service) UpdateContent(
 	body struct {
 		Content string `json:"content"`
 	},
-) (*response, api.HTTPError) {
-	return &response{
+) (*responseUpdateContent, api.HTTPError) {
+	return &responseUpdateContent{
 		ID:        id,
 		Date:      date,
 		PathParam: pathParam,
@@ -114,7 +145,7 @@ func TestAPIServer(t *testing.T) {
 	id, err := uuid.New()
 	require.NoError(t, err)
 
-	expected := response{
+	expected := responseUpdateContent{
 		ID:        id,
 		Date:      time.Now(),
 		PathParam: "foo",

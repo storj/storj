@@ -9,7 +9,7 @@
                 label="Create Project +"
                 width="203px"
                 height="44px"
-                :on-press="onCreateClick"
+                :on-press="handleCreateProjectClick"
                 :is-disabled="areProjectsFetching"
             />
         </div>
@@ -52,18 +52,15 @@ import { useRouter } from 'vue-router';
 import { RouteConfig } from '@/types/router';
 import { Project, ProjectsPage } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-import { User } from '@/types/users';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -74,12 +71,12 @@ const FIRST_PAGE = 1;
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
-const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
-const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 const notify = useNotify();
 const router = useRouter();
 
@@ -105,23 +102,6 @@ async function onPageChange(page: number, limit: number): Promise<void> {
         await projectsStore.getOwnedProjects(currentPageNumber.value, limit);
     } catch (error) {
         notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
-    }
-}
-
-/**
- * Redirects to create project page.
- */
-function onCreateClick(): void {
-    analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-
-    const user: User = usersStore.state.user;
-    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-    if (!user.paidTier || user.projectLimit === ownProjectsCount) {
-        appStore.updateActiveModal(MODALS.createProjectPrompt);
-    } else {
-        analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-        appStore.updateActiveModal(MODALS.newCreateProject);
     }
 }
 

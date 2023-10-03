@@ -228,7 +228,7 @@ const reachedThresholds = computed((): LimitThresholdsReached => {
  * Indicates if navigation sidebar is hidden.
  */
 const isNavigationHidden = computed((): boolean => {
-    return isOnboardingTour.value || isCreateProjectPage.value;
+    return isOnboardingTour.value;
 });
 
 /* whether the paid tier banner should be shown */
@@ -288,13 +288,6 @@ const isLargeUploadWarningNotificationShown = computed((): boolean => {
  */
 const isProjectInvitationBannerShown = computed((): boolean => {
     return !configStore.state.config.allProjectsDashboard;
-});
-
-/**
- * Indicates if current route is create project page.
- */
-const isCreateProjectPage = computed((): boolean => {
-    return route.name === RouteConfig.CreateProject.name;
 });
 
 /**

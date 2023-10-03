@@ -203,27 +203,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	}
 }
 
-// EnqueueEvent for sending user behavioral event to HubSpot.
-func (q *HubSpotEvents) EnqueueEvent(email, eventName string, properties map[string]interface{}) {
-	eventName = strings.ReplaceAll(eventName, " ", "_")
-	eventName = strings.ToLower(eventName)
-	eventName = eventPrefix + "_" + eventName
-
-	newEvent := HubSpotEvent{
-		Endpoint: "https://api.hubapi.com/events/v3/send",
-		Data: map[string]interface{}{
-			"email":      email,
-			"eventName":  eventName,
-			"properties": properties,
-		},
-	}
-	select {
-	case q.events <- []HubSpotEvent{newEvent}:
-	default:
-		q.log.Error("sending hubspot event failed, event channel is full")
-	}
-}
-
 // handleSingleEvent for handle the single HubSpot API request.
 func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) (err error) {
 	payloadBytes, err := json.Marshal(ev.Data)

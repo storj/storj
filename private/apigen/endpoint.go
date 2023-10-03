@@ -60,13 +60,29 @@ type fullEndpoint struct {
 // requestType guarantees to return a named Go type associated to the Endpoint.Request field.
 func (fe fullEndpoint) requestType() reflect.Type {
 	t := reflect.TypeOf(fe.Request)
-	if t.Name() == "" {
-		name := fe.RequestName
-		if name == "" {
-			name = fe.MethodName
-		}
+	if t.Name() != "" {
+		return t
+	}
 
+	name := fe.RequestName
+	if name == "" {
+		name = fe.MethodName
+	}
+
+	switch k := t.Kind(); k {
+	case reflect.Array, reflect.Slice:
+		if t.Elem().Name() == "" {
+			t = typeCustomName{Type: t, name: compoundTypeName(name, "Request")}
+		}
+	case reflect.Struct:
 		t = typeCustomName{Type: t, name: compoundTypeName(name, "Request")}
+	default:
+		panic(
+			fmt.Sprintf(
+				"BUG: Unsupported Request type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
+				fe.Method, fe.Path, k,
+			),
+		)
 	}
 
 	return t
@@ -75,8 +91,24 @@ func (fe fullEndpoint) requestType() reflect.Type {
 // responseType guarantees to return a named Go type associated to the Endpoint.Response field.
 func (fe fullEndpoint) responseType() reflect.Type {
 	t := reflect.TypeOf(fe.Response)
-	if t.Name() == "" {
+	if t.Name() != "" {
+		return t
+	}
+
+	switch k := t.Kind(); k {
+	case reflect.Array, reflect.Slice:
+		if t.Elem().Name() == "" {
+			t = typeCustomName{Type: t, name: compoundTypeName(fe.MethodName, "Response")}
+		}
+	case reflect.Struct:
 		t = typeCustomName{Type: t, name: compoundTypeName(fe.MethodName, "Response")}
+	default:
+		panic(
+			fmt.Sprintf(
+				"BUG: Unsupported Response type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
+				fe.Method, fe.Path, k,
+			),
+		)
 	}
 
 	return t

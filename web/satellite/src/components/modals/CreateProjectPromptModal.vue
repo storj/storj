@@ -9,7 +9,7 @@
                     <ProjectIcon />
                     <h1 class="modal__header__title">Get more projects</h1>
                 </div>
-                <p v-if="!user.paidTier" class="modal__info">
+                <p v-if="!isPaidTier" class="modal__info">
                     Upgrade to Pro Account to create more projects and gain access to higher limits.
                 </p>
                 <p v-else class="modal__info">
@@ -26,7 +26,7 @@
                         is-white
                     />
                     <VButton
-                        :label="buttonLabel()"
+                        :label="buttonLabel"
                         :on-press="onClick"
                         width="100%"
                         height="48px"
@@ -40,6 +40,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -51,20 +53,15 @@ import ProjectIcon from '@/../static/images/common/blueBox.svg';
 
 const appStore = useAppStore();
 const userStore = useUsersStore();
-const user = userStore.state.user;
+
+const isPaidTier = computed<boolean>(() => userStore.state.user.paidTier);
 
 /**
- * Button text logic depending on if the user is in the free or paid tier.
+ * Returns button text label depending on if the user is in the free or paid tier.
  */
-function buttonLabel(): string {
-    let label = 'Upgrade -->';
-
-    if (user.paidTier) {
-        label = 'Request -->';
-    }
-
-    return label;
-}
+const buttonLabel = computed<string>(() => {
+    return isPaidTier.value ? 'Request -->' : 'Upgrade -->';
+});
 
 /**
  * Holds on button click logic.
@@ -72,7 +69,7 @@ function buttonLabel(): string {
  * Redirects to upgrade modal or opens new tab to request increase project limits .
  */
 function onClick(): void {
-    if (!user.paidTier) {
+    if (!isPaidTier.value) {
         appStore.updateActiveModal(MODALS.upgradeAccount);
     } else {
         appStore.removeActiveModal();

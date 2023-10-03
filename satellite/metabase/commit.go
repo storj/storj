@@ -191,8 +191,8 @@ func (opts *BeginObjectExactVersion) Verify() error {
 	return nil
 }
 
-// BeginObjectExactVersion adds a pending object to the database, with specific version.
-func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
+// TestingBeginObjectExactVersion adds a pending object to the database, with specific version.
+func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {

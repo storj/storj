@@ -46,7 +46,7 @@
                     border-radius="8px"
                     font-size="12px"
                     is-white
-                    :on-press="onCreateProjectClicked"
+                    :on-press="handleCreateProjectClick"
                     label="Create New Project"
                 />
 
@@ -56,7 +56,7 @@
                     border-radius="8px"
                     font-size="12px"
                     is-white
-                    :on-press="onCreateProjectClicked"
+                    :on-press="handleCreateProjectClick"
                     label="Create a Project"
                 />
             </span>
@@ -85,21 +85,14 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { Project, ProjectInvitation } from '@/types/projects';
-import { RouteConfig } from '@/types/router';
-import {
-    AnalyticsErrorEventSource,
-    AnalyticsEvent,
-} from '@/utils/constants/analyticsEventNames';
-import { User } from '@/types/users';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useResize } from '@/composables/resize';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
@@ -116,10 +109,9 @@ import TableIcon from '@/../static/images/common/tableIcon.svg';
 const billingStore = useBillingStore();
 const appStore = useAppStore();
 const configStore = useConfigStore();
-const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const analyticsStore = useAnalyticsStore();
 
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 const notify = useNotify();
 const { isMobile } = useResize();
 
@@ -156,23 +148,6 @@ const invites = computed((): ProjectInvitation[] => {
 function onViewChangeClicked(view: string): void {
     appStore.toggleProjectTableViewEnabled(view === 'table');
     hasProjectTableViewConfigured.value = true;
-}
-
-/**
- * Route to create project page.
- */
-function onCreateProjectClicked(): void {
-    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-    const user: User = usersStore.state.user;
-    const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-    if (user.projectLimit > ownProjectsCount) {
-        analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-        appStore.updateActiveModal(MODALS.newCreateProject);
-    } else {
-        appStore.updateActiveModal(MODALS.createProjectPrompt);
-    }
 }
 
 onMounted(async () => {

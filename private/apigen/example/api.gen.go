@@ -24,7 +24,19 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 var ErrDocsAPI = errs.Class("example docs api")
 
 type DocumentsService interface {
+	Get(ctx context.Context) ([]struct {
+		ID             uuid.UUID      "json:\"id\""
+		Path           string         "json:\"path\""
+		Date           time.Time      "json:\"date\""
+		Metadata       myapi.Metadata "json:\"metadata\""
+		LastRetrievals []struct {
+			User string    "json:\"user\""
+			When time.Time "json:\"when\""
+		} "json:\"last_retrievals\""
+	}, api.HTTPError)
 	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
+	GetTag(ctx context.Context, path, tagName string) (*[2]string, api.HTTPError)
+	GetVersions(ctx context.Context, path string) ([]myapi.Version, api.HTTPError)
 	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
 		Content string "json:\"content\""
 	}) (*struct {
@@ -52,10 +64,39 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 	}
 
 	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
+	docsRouter.HandleFunc("/", handler.handleGet).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleGetOne).Methods("GET")
+	docsRouter.HandleFunc("/{path}/tag/{tagName}", handler.handleGetTag).Methods("GET")
+	docsRouter.HandleFunc("/{path}/versions", handler.handleGetVersions).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleUpdateContent).Methods("POST")
 
 	return handler
+}
+
+func (h *DocumentsHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.Get(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
 }
 
 func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +128,76 @@ func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetOne response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleGetTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	tagName, ok := mux.Vars(r)["tagName"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tagName route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetTag(ctx, path, tagName)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetTag response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleGetVersions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetVersions(ctx, path)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetVersions response", zap.Error(ErrDocsAPI.Wrap(err)))
 	}
 }
 

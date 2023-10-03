@@ -18,8 +18,8 @@
                     />
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" title="Projects" :info="freeProjects" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Storage" :info="`${freeUsageValue(user.projectStorageLimit)} limit`" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Egress" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Storage" :info="`${freeUsageValue(storageLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Egress" :info="`${freeUsageValue(bandwidthLimit)} limit`" />
                         <InfoBullet class="info-step__column__bullets__item" title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                         <InfoBullet class="info-step__column__bullets__item" title="Link Sharing" info="Link sharing with Storj domain" />
                     </div>
@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
 
+import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { User } from '@/types/users';
@@ -76,6 +77,7 @@ import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/Upgrad
 import VButton from '@/components/common/VButton.vue';
 import InfoBullet from '@/components/modals/upgradeAccountFlow/InfoBullet.vue';
 
+const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 
@@ -93,6 +95,20 @@ const downloadMoreInfo = ref<string>('');
  */
 const user = computed((): User => {
     return usersStore.state.user;
+});
+
+/**
+ * Returns project storage limit.
+ */
+const storageLimit = computed((): number => {
+    return projectsStore.state.currentLimits.storageLimit;
+});
+
+/**
+ * Returns project bandwidth limit.
+ */
+const bandwidthLimit = computed((): number => {
+    return projectsStore.state.currentLimits.bandwidthLimit;
 });
 
 /**

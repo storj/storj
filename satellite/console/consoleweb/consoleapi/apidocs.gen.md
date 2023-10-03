@@ -42,7 +42,26 @@ Creates new Project with given info
 **Response body:**
 
 ```typescript
-unknown
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	publicId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	description: string
+	userAgent: 	string
+	ownerId: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	rateLimit: number
+	burstLimit: number
+	maxBuckets: number
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	memberCount: number
+	storageLimit: string // Amount of memory formatted as `15 GB`
+	bandwidthLimit: string // Amount of memory formatted as `15 GB`
+	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
+	userSpecifiedBandwidthLimit: string // Amount of memory formatted as `15 GB`
+	segmentLimit: number
+	defaultPlacement: number
+}
+
 ```
 
 <h3 id='projectmanagement-update-project'>Update Project (<a href='#list-of-endpoints'>go to full list</a>)</h3>

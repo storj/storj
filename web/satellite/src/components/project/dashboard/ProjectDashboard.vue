@@ -36,7 +36,7 @@
                     width="130px"
                     height="40px"
                     font-size="13px"
-                    :on-press="onCreateProjectClick"
+                    :on-press="handleCreateProjectClick"
                     :is-white="true"
                 >
                     <template #icon>
@@ -193,6 +193,7 @@ import { centsToDollars } from '@/utils/strings';
 import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -223,6 +224,8 @@ const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
+
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 const notify = useNotify();
 const router = useRouter();
 
@@ -398,14 +401,6 @@ function onUpgradeClick(): void {
  */
 function onInviteUsersClick(): void {
     appStore.updateActiveModal(MODALS.addTeamMember);
-}
-
-/**
- * Holds on create project button click logic.
- */
-function onCreateProjectClick(): void {
-    analyticsStore.pageVisit(RouteConfig.CreateProject.path);
-    router.push(RouteConfig.CreateProject.path);
 }
 
 /**

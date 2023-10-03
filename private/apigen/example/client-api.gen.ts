@@ -9,7 +9,25 @@ export class Document {
     date: Time;
     pathParam: string;
     body: string;
-    version: number;
+    version: Version;
+}
+
+export class GetResponseItem {
+    id: UUID;
+    path: string;
+    date: Time;
+    metadata: Metadata;
+    last_retrievals: GetResponseItemLastretrievals;
+}
+
+export class GetResponseItemLastretrievalsItem {
+    user: string;
+    when: Time;
+}
+
+export class Metadata {
+    owner: string;
+    tags: string[][];
 }
 
 export class UpdateContentRequest {
@@ -23,15 +41,54 @@ export class UpdateContentResponse {
     body: string;
 }
 
+export class Version {
+    date: Time;
+    number: number;
+}
+
+export type GetResponse = Array<GetResponseItem>
+
+export type GetResponseItemLastretrievals = Array<GetResponseItemLastretrievalsItem>
+
 export class docsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
+
+    public async Get(): Promise<GetResponse> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as GetResponse);
+        }
+        const err = await response.json();
+        throw new Error(err.error);
+    }
 
     public async GetOne(path: string): Promise<Document> {
         const fullPath = `${this.ROOT_PATH}/${path}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as Document);
+        }
+        const err = await response.json();
+        throw new Error(err.error);
+    }
+
+    public async GetTag(path: string, tagName: string): Promise<string[]> {
+        const fullPath = `${this.ROOT_PATH}/${path}/${tagName}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as string[]);
+        }
+        const err = await response.json();
+        throw new Error(err.error);
+    }
+
+    public async GetVersions(path: string): Promise<Version[]> {
+        const fullPath = `${this.ROOT_PATH}/${path}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as Version[]);
         }
         const err = await response.json();
         throw new Error(err.error);
