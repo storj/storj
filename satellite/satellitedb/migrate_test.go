@@ -275,6 +275,12 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
+	// TODO(moby): remove this exception on adding migration to remove partner_id column
+	valueAttributions, ok := finalSchema.FindTable("value_attributions")
+	if ok {
+		valueAttributions.RemoveColumn("partner_id")
+	}
+
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

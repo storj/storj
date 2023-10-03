@@ -148,8 +148,6 @@ model value_attribution (
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.
 	field user_agent	blob       ( updatable, nullable )
-	// TODO remove as part of release 1.81 or after
-	field partner_id blob (nullable, default null)
 	// last_updated is updated whenever the row changes.
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
