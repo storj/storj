@@ -453,6 +453,8 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 type nodeDisposition struct {
 	id               storj.NodeID
 	address          string
+	email            string
+	wallet           string
 	lastIPPort       string
 	offlineInterval  time.Duration
 	countryCode      location.CountryCode
@@ -568,8 +570,12 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		for i := range allNodes {
 			allIDs[i] = allNodes[i].id
 		}
-		_, err = cache.GetNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
+
+		selection, err := cache.GetNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
 		require.NoError(t, err)
+
+		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
+		require.Equal(t, "test@storj.io", selection[0].Email)
 	})
 }
 
@@ -625,8 +631,11 @@ func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
 		}
 
 		// test as of system time
-		_, err := cache.GetParticipatingNodes(ctx, 1*time.Hour, -1*time.Microsecond)
+		selection, err := cache.GetParticipatingNodes(ctx, 1*time.Hour, -1*time.Microsecond)
 		require.NoError(t, err)
+
+		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
+		require.Equal(t, "test@storj.io", selection[0].Email)
 	})
 }
 
@@ -637,6 +646,8 @@ func nodeDispositionToSelectedNode(disp nodeDisposition, onlineWindow time.Durat
 	return nodeselection.SelectedNode{
 		ID:          disp.id,
 		Address:     &pb.NodeAddress{Address: disp.address},
+		Email:       disp.email,
+		Wallet:      disp.wallet,
 		LastNet:     disp.lastIPPort,
 		LastIPPort:  disp.lastIPPort,
 		CountryCode: disp.countryCode,
@@ -658,6 +669,8 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 		offlineSuspended: offlineSuspended,
 		exiting:          exiting,
 		exited:           exited,
+		email:            "test@storj.io",
+		wallet:           "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0",
 	}
 
 	checkInInfo := overlay.NodeCheckInInfo{
@@ -668,6 +681,10 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 		LastNet:     disp.lastIPPort,
 		CountryCode: disp.countryCode,
 		Version:     &pb.NodeVersion{Version: "v0.0.0"},
+		Operator: &pb.NodeOperator{
+			Email:  disp.email,
+			Wallet: disp.wallet,
+		},
 	}
 
 	timestamp := time.Now().UTC().Add(-disp.offlineInterval)

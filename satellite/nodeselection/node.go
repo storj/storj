@@ -40,6 +40,8 @@ func (n NodeTags) FindBySignerAndName(signer storj.NodeID, name string) (NodeTag
 type SelectedNode struct {
 	ID          storj.NodeID
 	Address     *pb.NodeAddress
+	Email       string
+	Wallet      string
 	LastNet     string
 	LastIPPort  string
 	CountryCode location.CountryCode
