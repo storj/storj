@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAPI_endpointBasePath(t *testing.T) {
@@ -44,4 +45,42 @@ func TestAPI_endpointBasePath(t *testing.T) {
 			assert.Equal(t, c.expected, a.endpointBasePath())
 		})
 	}
+}
+
+func TestAPI_Group(t *testing.T) {
+	t.Run("valid name and prefix", func(t *testing.T) {
+		api := API{}
+
+		require.NotPanics(t, func() {
+			api.Group("testName", "tName")
+		})
+
+		require.NotPanics(t, func() {
+			api.Group("TestName1", "TName1")
+		})
+	})
+
+	t.Run("invalid name", func(t *testing.T) {
+		api := API{}
+
+		require.Panics(t, func() {
+			api.Group("1testName", "tName")
+		})
+
+		require.Panics(t, func() {
+			api.Group("test-name", "tName")
+		})
+	})
+
+	t.Run("invalid prefix", func(t *testing.T) {
+		api := API{}
+
+		require.Panics(t, func() {
+			api.Group("testName", "5tName")
+		})
+
+		require.Panics(t, func() {
+			api.Group("testname", "t_name")
+		})
+	})
 }

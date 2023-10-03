@@ -50,7 +50,7 @@ export type GetResponse = Array<GetResponseItem>
 
 export type GetResponseItemLastRetrievals = Array<GetResponseItemLastRetrievalsItem>
 
-export class DocsHttpApiV0 {
+export class DocumentsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
 

@@ -177,7 +177,24 @@ func (fe fullEndpoint) responseType() reflect.Type {
 // You should always create a group using API.Group because it validates the field values to
 // guarantee correct code generation.
 type EndpointGroup struct {
-	Name      string
+	// Name is the group name.
+	//
+	// Go generator uses it as part of type, functions, interfaces names, and in code comments.
+	// The casing is adjusted according where it's used.
+	//
+	// TypeScript generator uses it as part of types names for the API functionality of this group.
+	// The casing is adjusted according where it's used.
+	//
+	// Document generator uses as it is.
+	Name string
+	// Prefix is a prefix used for
+	//
+	// Go generator uses it as part of variables names, error messages, and the URL base path for the group.
+	// The casing is adjusted according where it's used, but for the URL base path, lowercase is used.
+	//
+	// TypeScript generator uses it for composing the URL base path (lowercase).
+	//
+	// Document generator uses as it is.
 	Prefix    string
 	endpoints []*fullEndpoint
 }

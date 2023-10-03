@@ -16,10 +16,9 @@ import (
 	"storj.io/storj/private/api"
 )
 
-var (
-	groupNameRegExp   = regexp.MustCompile(`^([A-Z0-9]\w*)?$`)
-	groupPrefixRegExp = regexp.MustCompile(`^\w*$`)
-)
+// groupNameAndPrefixRegExp guarantees that Group name and prefix are empty or have are only formed
+// by ASCII letters or digits and not starting with a digit.
+var groupNameAndPrefixRegExp = regexp.MustCompile(`^([A-Za-z][0-9A-Za-z]*)?$`)
 
 // API represents specific API's configuration.
 type API struct {
@@ -43,21 +42,21 @@ type API struct {
 // name must be `^([A-Z0-9]\w*)?$“
 // prefix must be `^\w*$`.
 func (a *API) Group(name, prefix string) *EndpointGroup {
-	if !groupNameRegExp.MatchString(name) {
+	if !groupNameAndPrefixRegExp.MatchString(name) {
 		panic(
 			fmt.Sprintf(
 				"invalid name for API Endpoint Group. name must fulfill the regular expression %q, got %q",
-				groupNameRegExp,
+				groupNameAndPrefixRegExp,
 				name,
 			),
 		)
 	}
-	if !groupPrefixRegExp.MatchString(prefix) {
+	if !groupNameAndPrefixRegExp.MatchString(prefix) {
 		panic(
 			fmt.Sprintf(
 				"invalid prefix for API Endpoint Group %q. prefix must fulfill the regular expression %q, got %q",
 				name,
-				groupPrefixRegExp,
+				groupNameAndPrefixRegExp,
 				prefix,
 			),
 		)
@@ -138,6 +137,15 @@ func capitalize(s string) string {
 	}
 
 	return string(unicode.ToTitle(r)) + s[size:]
+}
+
+func uncapitalize(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if size <= 0 {
+		return s
+	}
+
+	return string(unicode.ToLower(r)) + s[size:]
 }
 
 type typeAndName struct {

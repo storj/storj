@@ -47,7 +47,7 @@ type DocumentsService interface {
 	}, api.HTTPError)
 }
 
-// DocumentsHandler is an api handler that exposes all docs related functionality.
+// DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
 type DocumentsHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
