@@ -273,12 +273,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/wallet/payments`;
         const response = await this.client.get(path);
 
-        const json = await response.json();
         if (!response.ok) {
-            if (json.error.includes('wallet does not exist')) {
-                // wallet does not exist automatically means that there are no payments
-                return [];
-            }
             throw new APIError({
                 status: response.status,
                 message: 'Can not list token payment history',
@@ -286,6 +281,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             });
         }
 
+        const json = await response.json();
         if (!json) return  [];
         if (json.payments) {
             return json.payments.map(item =>
@@ -315,15 +311,11 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/wallet/payments-with-confirmations`;
         const response = await this.client.get(path);
 
-        const json = await response.json();
         if (!response.ok) {
-            if (json.error.includes('wallet does not exist')) {
-                // wallet does not exist automatically means that there are no payments
-                return [];
-            }
             throw new Error('Can not list token payment with confirmations');
         }
 
+        const json = await response.json();
         if (json && json.length) {
             return json.map(item =>
                 new PaymentWithConfirmations(
