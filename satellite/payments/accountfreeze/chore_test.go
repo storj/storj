@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v73"
 	"go.uber.org/zap"
 
 	"storj.io/common/currency"
@@ -59,7 +59,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No freeze event for paid invoice", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
-			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			_, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
@@ -67,16 +67,9 @@ func TestAutoFreezeChore(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-				InvoiceItem: &item.ID,
-				Amount:      &amount,
-				Currency:    &curr,
-			})
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-				Params:       stripe.Params{Context: ctx},
-				Customer:     &cus1,
-				InvoiceItems: items,
+				Params:   stripe.Params{Context: ctx},
+				Customer: &cus1,
 			})
 			require.NoError(t, err)
 
@@ -119,24 +112,18 @@ func TestAutoFreezeChore(t *testing.T) {
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
-			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:   stripe.Params{Context: ctx},
-				Amount:   &amount,
-				Currency: &curr,
 				Customer: &cus1,
 			})
 			require.NoError(t, err)
 
-			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-				InvoiceItem: &item.ID,
-				Amount:      &amount,
-				Currency:    &curr,
-			})
-			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-				Params:       stripe.Params{Context: ctx},
-				Customer:     &cus1,
-				InvoiceItems: items,
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus1,
+				Invoice:  &inv.ID,
 			})
 			require.NoError(t, err)
 
@@ -191,25 +178,19 @@ func TestAutoFreezeChore(t *testing.T) {
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
-			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:               stripe.Params{Context: ctx},
+				Customer:             &cus1,
+				DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
 				Customer: &cus1,
-			})
-			require.NoError(t, err)
-
-			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-				InvoiceItem: &item.ID,
-				Amount:      &amount,
-				Currency:    &curr,
-			})
-			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-				Params:               stripe.Params{Context: ctx},
-				Customer:             &cus1,
-				InvoiceItems:         items,
-				DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+				Invoice:  &inv.ID,
 			})
 			require.NoError(t, err)
 
@@ -250,24 +231,18 @@ func TestAutoFreezeChore(t *testing.T) {
 			cus2, err := customerDB.GetCustomerID(ctx, user2.ID)
 			require.NoError(t, err)
 
-			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:   stripe.Params{Context: ctx},
-				Amount:   &amount,
-				Currency: &curr,
 				Customer: &cus2,
 			})
 			require.NoError(t, err)
 
-			items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-			items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-				InvoiceItem: &item.ID,
-				Amount:      &amount,
-				Currency:    &curr,
-			})
-			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-				Params:       stripe.Params{Context: ctx},
-				Customer:     &cus2,
-				InvoiceItems: items,
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus2,
+				Invoice:  &inv.ID,
 			})
 			require.NoError(t, err)
 
@@ -381,24 +356,18 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 		storjscanCus, err := customerDB.GetCustomerID(ctx, storjscanUser.ID)
 		require.NoError(t, err)
 
-		item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+		inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount,
-			Currency: &curr,
 			Customer: &storjscanCus,
 		})
 		require.NoError(t, err)
 
-		items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 1)
-		items = append(items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &item.ID,
-			Amount:      &amount,
-			Currency:    &curr,
-		})
-		inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
-			Params:       stripe.Params{Context: ctx},
-			Customer:     &storjscanCus,
-			InvoiceItems: items,
+		_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   &amount,
+			Currency: &curr,
+			Customer: &storjscanCus,
+			Invoice:  &inv.ID,
 		})
 		require.NoError(t, err)
 

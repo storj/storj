@@ -50,6 +50,7 @@ export class BucketsState {
     public fileComponentPath = '';
     public leaveRoute = '';
     public enterPassphraseCallback: (() => void) | null = null;
+    public bucketToDelete = '';
 }
 
 export const useBucketsStore = defineStore('buckets', () => {
@@ -270,6 +271,10 @@ export const useBucketsStore = defineStore('buckets', () => {
         return response.IsTruncated ? maxKeys : response.KeyCount;
     }
 
+    function setBucketToDelete(bucket: string): void {
+        state.bucketToDelete = bucket;
+    }
+
     function clearS3Data(): void {
         state.apiKey = '';
         state.passphrase = '';
@@ -291,6 +296,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         });
         state.fileComponentBucketName = '';
         state.leaveRoute = '';
+        state.bucketToDelete = '';
     }
 
     function clear(): void {
@@ -320,6 +326,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         createBucketWithNoPassphrase,
         deleteBucket,
         getObjectsCount,
+        setBucketToDelete,
         clearS3Data,
         clear,
     };

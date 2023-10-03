@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v73"
 
 	"storj.io/common/currency"
 	"storj.io/common/testcontext"
@@ -92,69 +92,10 @@ func TestPayOverdueInvoices(t *testing.T) {
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
 		require.NoError(t, err)
 
-		amount1 := int64(75)
-		amount2 := int64(100)
-		curr := string(stripe.CurrencyUSD)
-
-		// create invoice items for first invoice
-		inv1Item1, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
-			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount1,
-			Currency: &curr,
-			Customer: &customer,
-		})
-		require.NoError(t, err)
-		inv1Item2, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
-			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount1,
-			Currency: &curr,
-			Customer: &customer,
-		})
-		require.NoError(t, err)
-		Inv1Items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 2)
-		Inv1Items = append(Inv1Items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &inv1Item1.ID,
-			Amount:      &amount1,
-			Currency:    &curr,
-		})
-		Inv1Items = append(Inv1Items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &inv1Item2.ID,
-			Amount:      &amount1,
-			Currency:    &curr,
-		})
-
-		// invoice items for second invoice
-		inv2Item1, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
-			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount2,
-			Currency: &curr,
-			Customer: &customer,
-		})
-		require.NoError(t, err)
-		inv2Item2, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
-			Params:   stripe.Params{Context: ctx},
-			Amount:   &amount2,
-			Currency: &curr,
-			Customer: &customer,
-		})
-		require.NoError(t, err)
-		Inv2Items := make([]*stripe.InvoiceUpcomingInvoiceItemParams, 0, 2)
-		Inv2Items = append(Inv2Items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &inv2Item1.ID,
-			Amount:      &amount2,
-			Currency:    &curr,
-		})
-		Inv2Items = append(Inv2Items, &stripe.InvoiceUpcomingInvoiceItemParams{
-			InvoiceItem: &inv2Item2.ID,
-			Amount:      &amount2,
-			Currency:    &curr,
-		})
-
 		// create invoice one
 		inv1, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
 			Params:               stripe.Params{Context: ctx},
 			Customer:             &customer,
-			InvoiceItems:         Inv1Items,
 			DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
 		})
 		require.NoError(t, err)
@@ -163,12 +104,29 @@ func TestPayOverdueInvoices(t *testing.T) {
 		inv2, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
 			Params:               stripe.Params{Context: ctx},
 			Customer:             &customer,
-			InvoiceItems:         Inv2Items,
 			DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
 		})
 		require.NoError(t, err)
 
-		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+		for _, info := range []struct {
+			invID  string
+			amount int64
+		}{
+			{inv1.ID, 75}, {inv2.ID, 100},
+		} {
+			for i := 0; i < 2; i++ {
+				_, err = satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+					Params:   stripe.Params{Context: ctx},
+					Amount:   stripe.Int64(info.amount),
+					Currency: stripe.String(string(stripe.CurrencyUSD)),
+					Customer: &customer,
+					Invoice:  stripe.String(info.invID),
+				})
+				require.NoError(t, err)
+			}
+		}
+
+		finalizeParams := &stripe.InvoiceFinalizeInvoiceParams{Params: stripe.Params{Context: ctx}}
 
 		// finalize invoice one
 		inv1, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv1.ID, finalizeParams)

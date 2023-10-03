@@ -17,7 +17,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v73"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -781,23 +781,35 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+		Customer: &cusID,
+		Pending:  stripe.Bool(true),
+		ListParams: stripe.ListParams{
+			Context: ctx,
+			Limit:   stripe.Int64(1),
+		},
+	})
+
+	hasItems := itemsIter.Next()
+	if err = itemsIter.Err(); err != nil {
+		return nil, err
+	}
+	if !hasItems {
+		return nil, nil
+	}
+
 	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
 	stripeInvoice, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
-			Params:      stripe.Params{Context: ctx},
-			Customer:    stripe.String(cusID),
-			AutoAdvance: stripe.Bool(service.AutoAdvance),
-			Description: stripe.String(description),
+			Params:                      stripe.Params{Context: ctx},
+			Customer:                    stripe.String(cusID),
+			AutoAdvance:                 stripe.Bool(service.AutoAdvance),
+			Description:                 stripe.String(description),
+			PendingInvoiceItemsBehavior: stripe.String("include"),
 		},
 	)
 
 	if err != nil {
-		var stripErr *stripe.Error
-		if errors.As(err, &stripErr) {
-			if stripErr.Code == stripe.ErrorCodeInvoiceNoCustomerLineItems {
-				return stripeInvoice, nil
-			}
-		}
 		return nil, err
 	}
 
@@ -880,7 +892,7 @@ func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPe
 		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
 			service.log.Info("updating invoice status to void", zap.String("invoiceId", invoiceId))
 			if !dryRun {
-				_, err = service.stripeClient.Invoices().VoidInvoice(invoiceId, &stripe.InvoiceVoidParams{})
+				_, err = service.stripeClient.Invoices().VoidInvoice(invoiceId, &stripe.InvoiceVoidInvoiceParams{})
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -1071,7 +1083,7 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	params := &stripe.InvoiceFinalizeParams{
+	params := &stripe.InvoiceFinalizeInvoiceParams{
 		Params:      stripe.Params{Context: ctx},
 		AutoAdvance: stripe.Bool(false),
 	}
