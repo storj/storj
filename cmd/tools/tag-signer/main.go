@@ -68,6 +68,7 @@ var (
 type Config struct {
 	IdentityDir string `help:"location if the identity files" path:"true"`
 	NodeID      string `help:"the ID of the node, which will used this tag "`
+	Confirm     bool   `help:"enable comma in tag values" default:"false"`
 }
 
 func init() {
@@ -107,19 +108,9 @@ func signTags(ctx context.Context, cfg Config, tagPairs []string) (string, error
 		SignedAt: time.Now().Unix(),
 	}
 
-	for _, tag := range tagPairs {
-		tag = strings.TrimSpace(tag)
-		if len(tag) == 0 {
-			continue
-		}
-		parts := strings.SplitN(tag, "=", 2)
-		if len(parts) != 2 {
-			return "", errs.New("tags should be in KEY=VALUE format, but it was %s", tag)
-		}
-		tagSet.Tags = append(tagSet.Tags, &pb.Tag{
-			Name:  parts[0],
-			Value: []byte(parts[1]),
-		})
+	tagSet.Tags, err = parseTagPairs(tagPairs, cfg.Confirm)
+	if err != nil {
+		return "", err
 	}
 
 	signedMessage, err := nodetag.Sign(ctx, tagSet, signer)
@@ -181,6 +172,32 @@ func inspect(ctx context.Context, s string) error {
 		fmt.Println()
 	}
 	return nil
+}
+
+func parseTagPairs(tagPairs []string, allowCommaValues bool) ([]*pb.Tag, error) {
+	tags := make([]*pb.Tag, 0, len(tagPairs))
+
+	for _, tag := range tagPairs {
+		tag = strings.TrimSpace(tag)
+		if len(tag) == 0 {
+			continue
+		}
+
+		if !allowCommaValues && strings.ContainsRune(tag, ',') {
+			return nil, errs.New("multiple tags should be separated by spaces instead of commas, or specify --confirm to enable commas in tag values")
+		}
+
+		parts := strings.SplitN(tag, "=", 2)
+		if len(parts) != 2 {
+			return nil, errs.New("tags should be in KEY=VALUE format, but it was %s", tag)
+		}
+		tags = append(tags, &pb.Tag{
+			Name:  parts[0],
+			Value: []byte(parts[1]),
+		})
+	}
+
+	return tags, nil
 }
 
 func main() {
