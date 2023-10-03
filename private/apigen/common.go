@@ -10,9 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"unicode"
+	"unicode/utf8"
 
 	"storj.io/storj/private/api"
 )
@@ -122,15 +121,23 @@ func isNillableType(t reflect.Type) bool {
 }
 
 // compoundTypeName create a name composed with base and parts, by joining base as it's and
-// capitalizing each part.
+// capitalizing each part. base is not altered.
 func compoundTypeName(base string, parts ...string) string {
-	caser := cases.Title(language.Und)
 	titled := make([]string, len(parts))
 	for i := 0; i < len(parts); i++ {
-		titled[i] = caser.String(parts[i])
+		titled[i] = capitalize(parts[i])
 	}
 
 	return base + strings.Join(titled, "")
+}
+
+func capitalize(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if size <= 0 {
+		return s
+	}
+
+	return string(unicode.ToTitle(r)) + s[size:]
 }
 
 type typeAndName struct {

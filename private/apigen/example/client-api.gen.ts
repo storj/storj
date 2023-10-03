@@ -22,43 +22,43 @@ export class Version {
     number: number;
 }
 
-export class getResponseItem {
+export class GetResponseItem {
     id: UUID;
     path: string;
     date: Time;
     metadata: Metadata;
-    last_retrievals?: getResponseItemLastretrievals;
+    last_retrievals?: GetResponseItemLastRetrievals;
 }
 
-export class getResponseItemLastretrievalsItem {
+export class GetResponseItemLastRetrievalsItem {
     user: string;
     when: Time;
 }
 
-export class updateContentRequest {
+export class UpdateContentRequest {
     content: string;
 }
 
-export class updateContentResponse {
+export class UpdateContentResponse {
     id: UUID;
     date: Time;
     pathParam: string;
     body: string;
 }
 
-export type getResponse = Array<getResponseItem>
+export type GetResponse = Array<GetResponseItem>
 
-export type getResponseItemLastretrievals = Array<getResponseItemLastretrievalsItem>
+export type GetResponseItemLastRetrievals = Array<GetResponseItemLastRetrievalsItem>
 
-export class docsHttpApiV0 {
+export class DocsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
 
-    public async get(): Promise<getResponse> {
+    public async get(): Promise<GetResponse> {
         const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as getResponse);
+            return response.json().then((body) => body as GetResponse);
         }
         const err = await response.json();
         throw new Error(err.error);
@@ -94,14 +94,14 @@ export class docsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async updateContent(request: updateContentRequest, path: string, id: UUID, date: Time): Promise<updateContentResponse> {
+    public async updateContent(request: UpdateContentRequest, path: string, id: UUID, date: Time): Promise<UpdateContentResponse> {
         const u = new URL(`${this.ROOT_PATH}/${path}`);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
         const fullPath = u.toString();
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
-            return response.json().then((body) => body as updateContentResponse);
+            return response.json().then((body) => body as UpdateContentResponse);
         }
         const err = await response.json();
         throw new Error(err.error);

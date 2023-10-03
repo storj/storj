@@ -156,7 +156,8 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 
 	for _, t := range allStructs {
 		func() {
-			pf("\nexport class %s {", t.Name)
+			name := capitalize(t.Name)
+			pf("\nexport class %s {", name)
 			defer pf("}")
 
 			for i := 0; i < t.Type.NumField(); i++ {
@@ -165,7 +166,7 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 				if len(attributes) == 0 || attributes[0] == "" {
 					pathParts := strings.Split(t.Type.PkgPath(), "/")
 					pkg := pathParts[len(pathParts)-1]
-					panic(fmt.Sprintf("(%s.%s).%s missing json declaration", pkg, t.Name, field.Name))
+					panic(fmt.Sprintf("(%s.%s).%s missing json declaration", pkg, name, field.Name))
 				}
 
 				jsonField := attributes[0]
@@ -206,7 +207,12 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 		if !ok {
 			panic("BUG: the element types of an Slice or Array isn't in the all types map")
 		}
-		pf("\nexport type %s = Array<%s>", t.Name, elemTypeName)
+		pf(
+			"\nexport type %s = Array<%s>",
+			TypescriptTypeName(
+				typeCustomName{Type: t.Type, name: t.Name}),
+			TypescriptTypeName(typeCustomName{Type: t.Type.Elem(), name: elemTypeName}),
+		)
 	}
 
 	return out.String()
@@ -245,7 +251,7 @@ func TypescriptTypeName(t reflect.Type) string {
 		return TypescriptTypeName(t.Elem())
 	case reflect.Array, reflect.Slice:
 		if t.Name() != "" {
-			return t.Name()
+			return capitalize(t.Name())
 		}
 
 		// []byte ([]uint8) is marshaled as a base64 string
@@ -266,7 +272,7 @@ func TypescriptTypeName(t reflect.Type) string {
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Struct:
-		return t.Name()
+		return capitalize(t.Name())
 	default:
 		panic(fmt.Sprintf(`unhandled type. Type="%+v"`, t))
 	}

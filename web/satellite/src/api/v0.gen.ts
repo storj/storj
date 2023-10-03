@@ -94,7 +94,7 @@ export class UpsertProjectInfo {
     createdAt: Time;
 }
 
-export class projectsHttpApiV0 {
+export class ProjectsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/projects';
 
@@ -184,7 +184,7 @@ export class projectsHttpApiV0 {
     }
 }
 
-export class apikeysHttpApiV0 {
+export class ApikeysHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/apikeys';
 
@@ -209,7 +209,7 @@ export class apikeysHttpApiV0 {
     }
 }
 
-export class usersHttpApiV0 {
+export class UsersHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/users';
 

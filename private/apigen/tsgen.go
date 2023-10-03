@@ -85,7 +85,7 @@ func (f *tsGenFile) registerTypes() {
 }
 
 func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
-	f.pf("\nexport class %sHttpApi%s {", group.Prefix, strings.ToUpper(f.api.Version))
+	f.pf("\nexport class %sHttpApi%s {", capitalize(group.Prefix), strings.ToUpper(f.api.Version))
 	f.pf("\tprivate readonly http: HttpClient = new HttpClient();")
 	f.pf("\tprivate readonly ROOT_PATH: string = '%s/%s';", f.api.endpointBasePath(), group.Prefix)
 	for _, method := range group.endpoints {

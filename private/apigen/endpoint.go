@@ -273,7 +273,7 @@ func (p Param) namedType(ep Endpoint, where string) reflect.Type {
 	if p.Type.Name() == "" {
 		return typeCustomName{
 			Type: p.Type,
-			name: compoundTypeName(ep.GoName, where, "param", p.Name),
+			name: compoundTypeName(ep.TypeScriptName, where, "param", p.Name),
 		}
 	}
 
