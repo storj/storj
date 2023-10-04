@@ -29,11 +29,12 @@ var (
 
 // Config contains configurable values for account freeze chore.
 type Config struct {
-	Enabled          bool          `help:"whether to run this chore." default:"false"`
-	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
-	GracePeriod      time.Duration `help:"How long to wait between a warning event and freezing an account." default:"360h"`
-	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
-	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
+	Enabled                  bool          `help:"whether to run this chore." default:"false"`
+	Interval                 time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
+	BillingWarnGracePeriod   time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
+	BillingFreezeGracePeriod time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
+	PriceThreshold           int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
+	ExcludeStorjscan         bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.
@@ -73,15 +74,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 
-		chore.attemptFreezeWarn(ctx)
+		chore.attemptBillingFreezeWarn(ctx)
 
-		chore.attemptUnfreezeUnwarn(ctx)
+		chore.attemptBillingUnfreezeUnwarn(ctx)
 
 		return nil
 	})
 }
 
-func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
+func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 	invoices, err := chore.payments.Invoices().ListFailed(ctx, nil)
 	if err != nil {
 		chore.log.Error("Could not list invoices", zap.Error(Error.Wrap(err)))
@@ -90,8 +91,8 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 	chore.log.Info("failed invoices found", zap.Int("count", len(invoices)))
 
 	userMap := make(map[uuid.UUID]struct{})
-	frozenMap := make(map[uuid.UUID]struct{})
-	warnedMap := make(map[uuid.UUID]struct{})
+	billingFrozenMap := make(map[uuid.UUID]struct{})
+	billingWarnedMap := make(map[uuid.UUID]struct{})
 	bypassedLargeMap := make(map[uuid.UUID]struct{})
 	bypassedTokenMap := make(map[uuid.UUID]struct{})
 
@@ -114,7 +115,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 			continue
 		}
 
-		debugLog := func(message string) {
+		infoLog := func(message string) {
 			chore.log.Info(message,
 				zap.String("process", "billing freeze/warn"),
 				zap.String("invoiceID", invoice.ID),
@@ -141,12 +142,17 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 			continue
 		}
 
+		if user.Status == console.Deleted {
+			errorLog("Ignoring invoice; account already deleted", errs.New("user deleted, but has unpaid invoices"))
+			continue
+		}
+
 		if invoice.Amount > chore.config.PriceThreshold {
 			if _, ok := bypassedLargeMap[userID]; ok {
 				continue
 			}
 			bypassedLargeMap[userID] = struct{}{}
-			debugLog("Ignoring invoice; amount exceeds threshold")
+			infoLog("Ignoring invoice; amount exceeds threshold")
 			chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email)
 			continue
 		}
@@ -169,7 +175,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				}
 				if len(cachedPayments) > 0 {
 					bypassedTokenMap[userID] = struct{}{}
-					debugLog("Ignoring invoice; TX exists in storjscan")
+					infoLog("Ignoring invoice; TX exists in storjscan")
 					chore.analytics.TrackStorjscanUnpaidInvoice(invoice.ID, userID, user.Email)
 					continue
 				}
@@ -183,7 +189,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 		}
 
 		if freezes.ViolationFreeze != nil {
-			debugLog("Ignoring invoice; account already frozen due to violation")
+			infoLog("Ignoring invoice; account already frozen due to violation")
 			chore.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, userID, user.Email)
 			continue
 		}
@@ -191,7 +197,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 		// try to pay the invoice before freezing/warning.
 		err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
 		if err == nil {
-			debugLog("Ignoring invoice; Payment attempt successful")
+			infoLog("Ignoring invoice; Payment attempt successful")
 
 			if freezes.BillingWarning != nil {
 				err = chore.freezeService.BillingUnWarnUser(ctx, userID)
@@ -212,7 +218,37 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 		}
 
 		if freezes.BillingFreeze != nil {
-			debugLog("Ignoring invoice; account already billing frozen")
+			if chore.nowFn().Sub(freezes.BillingFreeze.CreatedAt) > chore.config.BillingFreezeGracePeriod {
+				if user.Status == console.PendingDeletion {
+					infoLog("Ignoring invoice; account already marked for deletion")
+					continue
+				}
+
+				// check if the invoice has been paid by the time the chore gets here.
+				isPaid, err := checkInvPaid(invoice.ID)
+				if err != nil {
+					errorLog("Could not verify invoice status", err)
+					continue
+				}
+				if isPaid {
+					infoLog("Ignoring invoice; payment already made")
+					continue
+				}
+
+				status := console.PendingDeletion
+				err = chore.usersDB.Update(ctx, userID, console.UpdateUserRequest{
+					Status: &status,
+				})
+				if err != nil {
+					errorLog("Could not mark account for deletion", err)
+					continue
+				}
+
+				infoLog("account marked for deletion")
+				continue
+			}
+
+			infoLog("Ignoring invoice; account already billing frozen")
 			continue
 		}
 
@@ -224,7 +260,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				continue
 			}
 			if isPaid {
-				debugLog("Ignoring invoice; payment already made")
+				infoLog("Ignoring invoice; payment already made")
 				continue
 			}
 			err = chore.freezeService.BillingWarnUser(ctx, userID)
@@ -232,12 +268,12 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				errorLog("Could not add billing warning event", err)
 				continue
 			}
-			debugLog("user billing warned")
-			warnedMap[userID] = struct{}{}
+			infoLog("user billing warned")
+			billingWarnedMap[userID] = struct{}{}
 			continue
 		}
 
-		if chore.nowFn().Sub(freezes.BillingWarning.CreatedAt) > chore.config.GracePeriod {
+		if chore.nowFn().Sub(freezes.BillingWarning.CreatedAt) > chore.config.BillingWarnGracePeriod {
 			// check if the invoice has been paid by the time the chore gets here.
 			isPaid, err := checkInvPaid(invoice.ID)
 			if err != nil {
@@ -245,7 +281,7 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				continue
 			}
 			if isPaid {
-				debugLog("Ignoring invoice; payment already made")
+				infoLog("Ignoring invoice; payment already made")
 				continue
 			}
 			err = chore.freezeService.BillingFreezeUser(ctx, userID)
@@ -253,22 +289,22 @@ func (chore *Chore) attemptFreezeWarn(ctx context.Context) {
 				errorLog("Could not billing freeze account", err)
 				continue
 			}
-			debugLog("user billing frozen")
-			frozenMap[userID] = struct{}{}
+			infoLog("user billing frozen")
+			billingFrozenMap[userID] = struct{}{}
 		}
 	}
 
 	chore.log.Info("billing freezing/warning executed",
 		zap.Int("total invoices", len(invoices)),
 		zap.Int("user total", len(userMap)),
-		zap.Int("total warned", len(warnedMap)),
-		zap.Int("total frozen", len(frozenMap)),
+		zap.Int("total billing warned", len(billingWarnedMap)),
+		zap.Int("total billing frozen", len(billingFrozenMap)),
 		zap.Int("total bypassed due to size of invoice", len(bypassedLargeMap)),
 		zap.Int("total bypassed due to storjscan payments", len(bypassedTokenMap)),
 	)
 }
 
-func (chore *Chore) attemptUnfreezeUnwarn(ctx context.Context) {
+func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 	cursor := console.FreezeEventsCursor{
 		Limit: 100,
 	}
@@ -300,14 +336,28 @@ func (chore *Chore) attemptUnfreezeUnwarn(ctx context.Context) {
 					zap.Error(Error.Wrap(err)),
 				)
 			}
-
-			if event.Type == console.ViolationFreeze {
-				chore.log.Info("Skipping violation freeze event",
+			infoLog := func(message string) {
+				chore.log.Info(message,
 					zap.String("process", "billing unfreeze/unwarn"),
 					zap.Any("userID", event.UserID),
 					zap.String("eventType", event.Type.String()),
 					zap.Error(Error.Wrap(err)),
 				)
+			}
+
+			if event.Type == console.ViolationFreeze {
+				infoLog("Skipping violation freeze event")
+				continue
+			}
+
+			user, err := chore.usersDB.Get(ctx, event.UserID)
+			if err != nil {
+				errorLog("Could not get user", err)
+				continue
+			}
+
+			if user.Status == console.Deleted || user.Status == console.PendingDeletion {
+				infoLog("Skipping event; account already deleted or pending deletion")
 				continue
 			}
 
@@ -332,7 +382,7 @@ func (chore *Chore) attemptUnfreezeUnwarn(ctx context.Context) {
 					errorLog("Could not billing unfreeze user", err)
 				}
 				unfrozenCount++
-			} else {
+			} else if event.Type == console.BillingWarning {
 				err = chore.freezeService.BillingUnWarnUser(ctx, event.UserID)
 				if err != nil {
 					errorLog("Could not billing unwarn user", err)

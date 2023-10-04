@@ -108,7 +108,20 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
+
+		status := console.PendingDeletion
+		err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &status,
+		})
+		require.NoError(t, err)
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, status, user.Status)
+
 		require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, user.Status)
 
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)

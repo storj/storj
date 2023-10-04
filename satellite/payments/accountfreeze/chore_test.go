@@ -141,7 +141,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NotNil(t, freezes.ViolationFreeze)
 		})
 
-		t.Run("No freeze event for paid invoice", func(t *testing.T) {
+		t.Run("No billing freeze event for paid invoice", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			_, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
@@ -238,7 +238,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Nil(t, freezes.ViolationFreeze)
 
 			chore.TestSetNow(func() time.Time {
-				// current date is now after grace period
+				// current date is now after billing warn grace period
 				return time.Now().AddDate(0, 0, 50)
 			})
 			chore.Loop.TriggerWait()
@@ -248,7 +248,19 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, freezes.BillingFreeze)
 
-			// Pay invoice so it doesn't show up in the next test.
+			chore.TestSetNow(func() time.Time {
+				// current date is now after billing freeze grace period
+				return time.Now().AddDate(0, 0, 70)
+			})
+			chore.Loop.TriggerWait()
+
+			// user should be marked for deletion after the grace period
+			// after being frozen
+			userPD, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.PendingDeletion, userPD.Status)
+
+			// Pay invoice so user qualifies to be removed from billing freeze.
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
 				Params:        stripe.Params{Context: ctx},
 				PaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
@@ -256,8 +268,30 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
 
+			// set user status to deleted
+			status := console.Deleted
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			// deleted user should be skipped, hence would not exist the
+			// billing freeze status.
+			isFrozen, err := service.IsUserBillingFrozen(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, isFrozen)
+
 			// unfreeze user so they're not frozen in the next test.
 			err = service.BillingUnfreezeUser(ctx, user.ID)
+			require.NoError(t, err)
+
+			// set user status back to active
+			status = console.Active
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
 			require.NoError(t, err)
 		})
 

@@ -276,6 +276,16 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 		return err
 	}
 
+	if user.Status == PendingDeletion {
+		status := Active
+		err = s.usersDB.Update(ctx, userID, UpdateUserRequest{
+			Status: &status,
+		})
+		if err != nil {
+			return ErrAccountFreeze.Wrap(errs.Combine(ErrFreezeUserStatusUpdate, err))
+		}
+	}
+
 	s.tracker.TrackAccountUnfrozen(userID, user.Email)
 	return nil
 }

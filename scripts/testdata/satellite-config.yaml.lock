@@ -1,11 +1,14 @@
+# How long to wait between a billing freeze event and setting pending deletion account status.
+# account-freeze.billing-freeze-grace-period: 1440h0m0s
+
+# How long to wait between a billing warning event and billing freezing an account.
+# account-freeze.billing-warn-grace-period: 360h0m0s
+
 # whether to run this chore.
 # account-freeze.enabled: false
 
 # whether to exclude storjscan-paying users from automatic warn/freeze
 # account-freeze.exclude-storjscan: false
-
-# How long to wait between a warning event and freezing an account.
-# account-freeze.grace-period: 360h0m0s
 
 # How often to run this chore, which is how often unpaid invoices are checked.
 # account-freeze.interval: 24h0m0s
