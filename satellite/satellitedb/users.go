@@ -180,6 +180,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.SignupCaptcha = dbx.User_SignupCaptcha(*user.SignupCaptcha)
 	}
 
+	if user.DefaultPlacement > 0 {
+		optional.DefaultPlacement = dbx.User_DefaultPlacement(int(user.DefaultPlacement))
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -333,6 +337,21 @@ func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, l
 			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(limits.Bandwidth),
 			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(limits.Storage),
 			ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(limits.Segment),
+		},
+	)
+
+	return err
+}
+
+// UpdateDefaultPlacement is a method to update the user's default placement for new projects.
+func (users *users) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			DefaultPlacement: dbx.User_DefaultPlacement(int(placement)),
 		},
 	)
 
@@ -525,7 +544,10 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 			update.LoginLockoutExpiration = dbx.User_LoginLockoutExpiration(**request.LoginLockoutExpiration)
 		}
 	}
-	update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
+
+	if request.DefaultPlacement > 0 {
+		update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
+	}
 
 	return &update, nil
 }

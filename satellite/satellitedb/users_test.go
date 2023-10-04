@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -63,11 +64,12 @@ func TestUpdateUser(t *testing.T) {
 		users := db.Console().Users()
 		id := testrand.UUID()
 		u, err := users.Insert(ctx, &console.User{
-			ID:           id,
-			FullName:     "testFullName",
-			ShortName:    "testShortName",
-			Email:        "test@storj.test",
-			PasswordHash: []byte("testPasswordHash"),
+			ID:               id,
+			FullName:         "testFullName",
+			ShortName:        "testShortName",
+			Email:            "test@storj.test",
+			PasswordHash:     []byte("testPasswordHash"),
+			DefaultPlacement: 12,
 		})
 		require.NoError(t, err)
 
@@ -85,6 +87,7 @@ func TestUpdateUser(t *testing.T) {
 			MFARecoveryCodes:       []string{"code1", "code2"},
 			FailedLoginCount:       1,
 			LoginLockoutExpiration: time.Now().Truncate(time.Second),
+			DefaultPlacement:       13,
 		}
 
 		require.NotEqual(t, u.FullName, newInfo.FullName)
@@ -100,6 +103,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NotEqual(t, u.MFARecoveryCodes, newInfo.MFARecoveryCodes)
 		require.NotEqual(t, u.FailedLoginCount, newInfo.FailedLoginCount)
 		require.NotEqual(t, u.LoginLockoutExpiration, newInfo.LoginLockoutExpiration)
+		require.NotEqual(t, u.DefaultPlacement, newInfo.DefaultPlacement)
 
 		// update just fullname
 		updateReq := console.UpdateUserRequest{
@@ -285,6 +289,21 @@ func TestUpdateUser(t *testing.T) {
 
 		u.LoginLockoutExpiration = newInfo.LoginLockoutExpiration
 		require.Equal(t, u, updatedUser)
+
+		// update just the placement
+		defaultPlacement := &newInfo.DefaultPlacement
+		updateReq = console.UpdateUserRequest{
+			DefaultPlacement: *defaultPlacement,
+		}
+
+		err = users.Update(ctx, id, updateReq)
+		require.NoError(t, err)
+
+		updatedUser, err = users.Get(ctx, id)
+		require.NoError(t, err)
+
+		u.DefaultPlacement = newInfo.DefaultPlacement
+		require.Equal(t, u, updatedUser)
 	})
 }
 
@@ -309,6 +328,34 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
 		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
 		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
+	})
+}
+
+func TestUpdateDefaultPlacement(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		user, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "User",
+			Email:        "test@mail.test",
+			PasswordHash: []byte("123a123"),
+		})
+		require.NoError(t, err)
+
+		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, 12)
+		require.NoError(t, err)
+
+		user, err = usersRepo.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, storj.PlacementConstraint(12), user.DefaultPlacement)
+
+		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, storj.EveryCountry)
+		require.NoError(t, err)
+
+		user, err = usersRepo.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, storj.EveryCountry, user.DefaultPlacement)
 	})
 }
 
