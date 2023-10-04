@@ -684,7 +684,7 @@ func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Re
 }
 
 func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Request) {
-	server.setGeofenceForProject(w, r, storj.EveryCountry)
+	server.setGeofenceForProject(w, r, storj.DefaultPlacement)
 }
 
 func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
@@ -711,9 +711,7 @@ func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Reque
 
 	}
 
-	project.DefaultPlacement = placement
-
-	err = server.db.Console().Projects().Update(ctx, project)
+	err = server.db.Console().Projects().UpdateDefaultPlacement(ctx, project.ID, placement)
 	if err != nil {
 		sendJSONError(w, "unable to set geofence for project",
 			err.Error(), http.StatusInternalServerError)
