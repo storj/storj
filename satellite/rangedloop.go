@@ -18,11 +18,13 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -68,6 +70,10 @@ type RangedLoop struct {
 
 	PieceTracker struct {
 		Observer *piecetracker.Observer
+	}
+
+	DurabilityReport struct {
+		Observer *durability.Report
 	}
 
 	RangedLoop struct {
@@ -140,6 +146,23 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
+	{ // setup
+		peer.DurabilityReport.Observer = durability.NewDurability(db.OverlayCache(), metabaseDB, []durability.NodeClassifier{
+			func(node *nodeselection.SelectedNode) string {
+				return "e:" + node.Email
+			},
+			func(node *nodeselection.SelectedNode) string {
+				return "w:" + node.Wallet
+			},
+			func(node *nodeselection.SelectedNode) string {
+				return "n:" + node.LastNet
+			},
+			func(node *nodeselection.SelectedNode) string {
+				return "c:" + node.CountryCode.String()
+			},
+		}, config.Metainfo.RS.Repair, config.RangedLoop.AsOfSystemInterval)
+	}
+
 	{ // setup overlay
 		placement, err := config.Placement.Parse()
 		if err != nil {
@@ -200,6 +223,10 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.PieceTracker.UseRangedLoop {
 			observers = append(observers, peer.PieceTracker.Observer)
+		}
+
+		if config.DurabilityReport.Enabled {
+			observers = append(observers, peer.DurabilityReport.Observer)
 		}
 
 		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)

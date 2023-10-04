@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
@@ -220,6 +221,8 @@ type Config struct {
 	Analytics analytics.Config
 
 	PieceTracker piecetracker.Config
+
+	DurabilityReport durability.ReportConfig
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 }

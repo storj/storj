@@ -481,6 +481,9 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# whether to enable durability report (rangedloop observer)
+# durability-report.enabled: true
+
 # how often to send reminders to users who need to verify their email
 # email-reminders.chore-interval: 24h0m0s
 
