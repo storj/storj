@@ -834,12 +834,7 @@ func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-		Email:            &user.Email,
-		DefaultPlacement: placement,
-	})
-
-	if err != nil {
+	if err = server.db.Console().Users().UpdateDefaultPlacement(ctx, user.ID, placement); err != nil {
 		sendJSONError(w, "unable to set geofence for user",
 			err.Error(), http.StatusInternalServerError)
 		return
