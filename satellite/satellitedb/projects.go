@@ -324,6 +324,21 @@ func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, use
 	return err
 }
 
+// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
+func (projects *projects) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(
+		ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			DefaultPlacement: dbx.Project_DefaultPlacement(int(placement)),
+		},
+	)
+
+	return err
+}
+
 // List returns paginated projects, created before provided timestamp.
 func (projects *projects) List(ctx context.Context, offset int64, limit int, before time.Time) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
