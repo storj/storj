@@ -731,6 +731,68 @@ func TestRegistrationEmail(t *testing.T) {
 	})
 }
 
+func TestIncreaseLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		proUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test Pro User",
+			Email:    "testpro@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		proUser.PaidTier = true
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{PaidTier: &proUser.PaidTier}))
+
+		freeUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test Free User",
+			Email:    "testfree@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		endpoint := "auth/limit-increase"
+
+		tests := []struct {
+			user           *console.User
+			input          string
+			expectedStatus int
+		}{
+			{ // Happy path
+				user: proUser, input: "10", expectedStatus: http.StatusOK,
+			},
+			{ // non-integer input
+				user: proUser, input: "1000 projects please", expectedStatus: http.StatusBadRequest,
+			},
+			{ // other non-integer input
+				user: proUser, input: "7.5", expectedStatus: http.StatusBadRequest,
+			},
+			{ // another non-integer input
+				user: proUser, input: "7.0", expectedStatus: http.StatusBadRequest,
+			},
+			{ // requested limit zero
+				user: proUser, input: "0", expectedStatus: http.StatusBadRequest,
+			},
+			{ // requested limit negative
+				user: proUser, input: "-1", expectedStatus: http.StatusBadRequest,
+			},
+			{ // requested limit not greater than current limit
+				user: proUser, input: "1", expectedStatus: http.StatusBadRequest,
+			},
+			{ // free tier user
+				user: freeUser, input: "10", expectedStatus: http.StatusPaymentRequired,
+			},
+		}
+
+		for _, tt := range tests {
+			_, status, err := doRequestWithAuth(ctx, t, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBuffer([]byte(tt.input)))
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedStatus, status)
+		}
+	})
+}
+
 func TestResendActivationEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -1074,6 +1075,23 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RequestLimitIncrease handles requesting increase for project limit.
+func (a *Auth) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+
+	err = a.service.RequestProjectLimitIncrease(ctx, string(b))
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(ctx context.Context, w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
@@ -1085,7 +1103,7 @@ func (a *Auth) getStatusCode(err error) int {
 	var maxBytesError *http.MaxBytesError
 
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
 		return http.StatusUnauthorized
@@ -1093,6 +1111,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case console.ErrNotPaidTier.Has(err):
+		return http.StatusPaymentRequired
 	case errors.As(err, &maxBytesError):
 		return http.StatusRequestEntityTooLarge
 	default:
