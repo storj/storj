@@ -47,7 +47,22 @@
                             @click="onFileClick(item.raw.browserObject)"
                         >
                             <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
-                            {{ item.raw.browserObject.Key }}
+                            <v-tooltip
+                                v-if="firstFile && item.raw.browserObject.Key === firstFile.Key"
+                                :model-value="isFileGuideShown"
+                                persistent
+                                no-click-animation
+                                location="bottom"
+                                class="browser-table__file-guide"
+                                content-class="py-2"
+                                @update:model-value="() => {}"
+                            >
+                                Click on the file name to preview.
+                                <template #activator="{ props: activatorProps }">
+                                    <span v-bind="activatorProps">{{ item.raw.browserObject.Key }}</span>
+                                </template>
+                            </v-tooltip>
+                            <template v-else>{{ item.raw.browserObject.Key }}</template>
                         </v-btn>
                     </template>
 
@@ -94,11 +109,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import {
-    VCard,
-    VTextField,
-    VBtn,
-} from 'vuetify/components';
+import { VCard, VTextField, VBtn, VTooltip } from 'vuetify/components';
 import { VDataTableServer, VDataTableRow } from 'vuetify/labs/components';
 
 import {
@@ -115,6 +126,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
+import { LocalData } from '@/utils/localData';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -181,6 +193,7 @@ const fileToDelete = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
+const isFileGuideShown = ref<boolean>(false);
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
@@ -304,6 +317,13 @@ const tableFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 /**
+ * Returns the first browser object in the table that is a file.
+ */
+const firstFile = computed<BrowserObject | null>(() => {
+    return tableFiles.value.find(f => f.browserObject.type === 'file')?.browserObject || null;
+});
+
+/**
  * Handles page change event.
  */
 function onPageChange(page: number): void {
@@ -385,6 +405,8 @@ function onFileClick(file: BrowserObject): void {
 
     obStore.setObjectPathForModal(obStore.state.path + file.Key);
     previewDialog.value = true;
+    isFileGuideShown.value = false;
+    LocalData.setFileGuideHidden();
 }
 
 /**
@@ -430,11 +452,27 @@ function onShareClick(file: BrowserObject): void {
 
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
+
+if (!LocalData.getFileGuideHidden()) {
+    const unwatch = watch(firstFile, () => {
+        isFileGuideShown.value = true;
+        LocalData.setFileGuideHidden();
+        unwatch();
+    });
+}
 </script>
 
 <style scoped lang="scss">
-.browser-table__loader-overlay :deep(.v-overlay__scrim) {
-    opacity: 1;
-    bottom: 0.8px;
+.browser-table {
+
+    &__loader-overlay :deep(.v-overlay__scrim) {
+        opacity: 1;
+        bottom: 0.8px;
+    }
+
+    &__file-guide :deep(.v-overlay__content) {
+        color: var(--c-white) !important;
+        background-color: rgb(var(--v-theme-primary)) !important;
+    }
 }
 </style>
