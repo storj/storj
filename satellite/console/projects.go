@@ -58,6 +58,9 @@ type Projects interface {
 
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
+
+	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
+	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
