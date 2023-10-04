@@ -39,6 +39,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { PartneredSatellite } from '@/types/config';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { OnboardingOption } from '@/types/common';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
@@ -60,6 +61,7 @@ async function onSkip(): Promise<void> {
     endOnboarding();
     await router.push(projectDashboardPath);
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.Skip);
 }
 
 /**
@@ -68,7 +70,7 @@ async function onSkip(): Promise<void> {
  */
 function onUplinkCLIClick(): void {
     router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.CLI);
     analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
 }
 
@@ -78,6 +80,7 @@ function onUplinkCLIClick(): void {
 async function onUploadInBrowserClick(): Promise<void> {
     endOnboarding();
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.Browser);
 }
 
 async function endOnboarding(): Promise<void> {
