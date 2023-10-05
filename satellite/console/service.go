@@ -2684,6 +2684,38 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
+// GetTotalUsageReport retrieves usage rollups for every bucket of all user owned projects for a given period.
+func (s *Service) GetTotalUsageReport(ctx context.Context, since, before time.Time) ([]accounting.BucketUsageRollup, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user report")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	usage := make([]accounting.BucketUsageRollup, 0)
+
+	for _, p := range projects {
+		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, since, before)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		for i := range rollups {
+			rollups[i].ProjectID = p.PublicID
+			usage = append(usage, rollups[i])
+		}
+	}
+
+	return usage, nil
+}
+
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
 func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
 	var err error

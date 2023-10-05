@@ -5,6 +5,7 @@ package consoleapi
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -103,6 +104,63 @@ func (ul *UsageLimits) TotalUsageLimits(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		ul.log.Error("error encoding project usage limits", zap.Error(ErrUsageLimitsAPI.Wrap(err)))
 	}
+}
+
+// TotalUsageReport returns total usage report for all the projects that user owns.
+func (ul *UsageLimits) TotalUsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	since := time.Unix(sinceStamp, 0).UTC()
+	before := time.Unix(beforeStamp, 0).UTC()
+
+	usage, err := ul.service.GetTotalUsageReport(ctx, since, before)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	fileName := "storj-report-" + since.Format("2006-01-02") + "-to-" + before.Format("2006-01-02") + ".csv"
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+
+	wr := csv.NewWriter(w)
+
+	csvHeaders := []string{"ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+
+	err = wr.Write(csvHeaders)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+		return
+	}
+
+	for _, u := range usage {
+		err = wr.Write(u.ToStringSlice())
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+			return
+		}
+	}
+
+	wr.Flush()
 }
 
 // DailyUsage returns daily usage by project ID.

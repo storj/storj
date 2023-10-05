@@ -2,92 +2,102 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
-        <div class="total-cost">
-            <div class="total-cost__header-container">
-                <h3 class="total-cost__header-container__title">Total Cost</h3>
-                <div class="total-cost__header-container__date"><CalendarIcon />&nbsp;&nbsp;{{ currentDate }}</div>
+    <div class="total-cost">
+        <div class="total-cost__header-container">
+            <h3 class="total-cost__header-container__title">Total Cost</h3>
+            <div class="total-cost__header-container__date"><CalendarIcon />&nbsp;&nbsp;{{ currentDate }}</div>
+        </div>
+        <div class="total-cost__card-container">
+            <div class="total-cost__card">
+                <EstimatedChargesIcon class="total-cost__card__main-icon" />
+                <p class="total-cost__card__money-text">{{ centsToDollars(priceSummary) }}</p>
+                <p class="total-cost__card__label-text">
+                    Total Estimated Usage
+                    <VInfo class="total-cost__card__label-text__info">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <span class="total-cost__card__label-text__info__inner">
+                                This estimate includes all use before subtracting any discounts.
+                                Pro accounts will only be charged for usage above the free tier limits,
+                                and free accounts will not be charged.
+                            </span>
+                        </template>
+                    </VInfo>
+                </p>
+                <p
+                    class="total-cost__card__link-text"
+                    @click="routeToBillingHistory"
+                >
+                    View Billing History →
+                </p>
             </div>
-            <div class="total-cost__card-container">
-                <div class="total-cost__card">
-                    <EstimatedChargesIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ centsToDollars(priceSummary) }}</p>
-                    <p class="total-cost__card__label-text">
-                        Total Estimated Usage
-                        <VInfo class="total-cost__card__label-text__info">
-                            <template #icon>
-                                <InfoIcon />
-                            </template>
-                            <template #message>
-                                <span class="total-cost__card__label-text__info__inner">
-                                    This estimate includes all use before subtracting any discounts.
-                                    Pro accounts will only be charged for usage above the free tier limits,
-                                    and free accounts will not be charged.
-                                </span>
-                            </template>
-                        </VInfo>
-                    </p>
-                    <p
-                        class="total-cost__card__link-text"
-                        @click="routeToBillingHistory"
-                    >
-                        View Billing History →
-                    </p>
-                </div>
-                <div class="total-cost__card">
-                    <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ balance.formattedCoins }}</p>
-                    <p class="total-cost__card__label-text">STORJ Token Balance</p>
-                    <p
-                        class="total-cost__card__link-text"
-                        @click="balanceClicked"
-                    >
-                        {{ hasZeroCoins ? "Add Funds" : "See Balance" }} →
-                    </p>
-                </div>
+            <div class="total-cost__card">
+                <AvailableBalanceIcon class="total-cost__card__main-icon" />
+                <p class="total-cost__card__money-text">{{ balance.formattedCoins }}</p>
+                <p class="total-cost__card__label-text">STORJ Token Balance</p>
+                <p
+                    class="total-cost__card__link-text"
+                    @click="balanceClicked"
+                >
+                    {{ hasZeroCoins ? "Add Funds" : "See Balance" }} →
+                </p>
+            </div>
 
-                <div v-if="balance.hasCredits()" class="total-cost__card">
-                    <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ balance.formattedCredits }}</p>
-                    <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
-                </div>
+            <div v-if="balance.hasCredits()" class="total-cost__card">
+                <AvailableBalanceIcon class="total-cost__card__main-icon" />
+                <p class="total-cost__card__money-text">{{ balance.formattedCredits }}</p>
+                <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
             </div>
         </div>
-        <div v-if="isDataFetching">
-            <v-loader />
-        </div>
-        <div v-else class="cost-by-project">
-            <h3 class="cost-by-project__title">Cost by Project</h3>
-            <div class="cost-by-project__buttons">
-                <v-button
-                    label="Edit Payment Method"
-                    font-size="13px"
-                    width="auto"
-                    height="30px"
-                    icon="lock"
-                    :is-transparent="true"
-                    class="cost-by-project__buttons__none-assigned"
-                    :on-press="routeToPaymentMethods"
-                />
-                <v-button
-                    label="See Payments"
-                    font-size="13px"
-                    width="auto"
-                    height="30px"
-                    icon="document"
-                    :is-transparent="true"
-                    class="cost-by-project__buttons__none-assigned"
-                    :on-press="routeToBillingHistory"
-                />
-            </div>
-            <UsageAndChargesItem
-                v-for="id in projectIDs"
-                :key="id"
-                :project-id="id"
-                class="cost-by-project__item"
+        <div class="total-cost__report">
+            <h3 class="total-cost__report__title">Detailed Usage Report</h3>
+            <p class="total-cost__report__info">Get a complete usage report for all your projects.</p>
+            <v-button
+                class="total-cost__report__button"
+                label="Download Report"
+                width="fit-content"
+                height="30px"
+                is-transparent
+                :on-press="downloadUsageReport"
             />
-            <router-view />
         </div>
+    </div>
+    <div v-if="isDataFetching">
+        <v-loader />
+    </div>
+    <div v-else class="cost-by-project">
+        <h3 class="cost-by-project__title">Cost by Project</h3>
+        <div class="cost-by-project__buttons">
+            <v-button
+                label="Edit Payment Method"
+                font-size="13px"
+                width="auto"
+                height="30px"
+                icon="lock"
+                :is-transparent="true"
+                class="cost-by-project__buttons__none-assigned"
+                :on-press="routeToPaymentMethods"
+            />
+            <v-button
+                label="See Payments"
+                font-size="13px"
+                width="auto"
+                height="30px"
+                icon="document"
+                :is-transparent="true"
+                class="cost-by-project__buttons__none-assigned"
+                :on-press="routeToBillingHistory"
+            />
+        </div>
+        <UsageAndChargesItem
+            v-for="id in projectIDs"
+            :key="id"
+            :project-id="id"
+            class="cost-by-project__item"
+        />
+        <router-view />
     </div>
 </template>
 
@@ -104,6 +114,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { Download } from '@/utils/download';
 
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -173,6 +184,14 @@ function balanceClicked(): void {
 }
 
 /**
+ * Handles download usage report click logic.
+ */
+function downloadUsageReport(): void {
+    const link = projectsStore.getTotalUsageReportLink();
+    Download.fileByLink(link);
+}
+
+/**
  * Lifecycle hook after initial render.
  * Fetches projects and usage rollup.
  */
@@ -208,10 +227,31 @@ onMounted(async () => {
         font-family: 'font_regular', sans-serif;
         margin: 20px 0;
 
+        &__report {
+            box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+            border-radius: 10px;
+            background-color: #fff;
+            padding: 20px;
+            margin-top: 20px;
+
+            &__title,
+            &__info {
+                margin-bottom: 10px;
+            }
+
+            &__button {
+                padding: 0 16px;
+            }
+        }
+
         &__header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
+
+            &__title {
+                padding-bottom: 10px;
+            }
 
             &__date {
                 display: flex;
@@ -230,7 +270,6 @@ onMounted(async () => {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
-            margin-top: 20px;
 
             @media screen and (width <= 786px) {
                 grid-template-columns: 1fr 1fr;

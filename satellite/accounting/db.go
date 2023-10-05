@@ -5,6 +5,7 @@ package accounting
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"storj.io/common/memory"
@@ -162,6 +163,23 @@ type BucketUsageRollup struct {
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
+}
+
+// ToStringSlice converts rollup values to a slice of strings.
+func (b *BucketUsageRollup) ToStringSlice() []string {
+	return []string{
+		b.ProjectID.String(),
+		b.BucketName,
+		fmt.Sprintf("%f", b.TotalStoredData),
+		fmt.Sprintf("%f", b.TotalSegments),
+		fmt.Sprintf("%f", b.ObjectCount),
+		fmt.Sprintf("%f", b.MetadataSize),
+		fmt.Sprintf("%f", b.RepairEgress),
+		fmt.Sprintf("%f", b.GetEgress),
+		fmt.Sprintf("%f", b.AuditEgress),
+		b.Since.String(),
+		b.Before.String(),
+	}
 }
 
 // Usage contains project's usage split on segments and storage.

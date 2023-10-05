@@ -65,6 +65,13 @@ export interface ProjectsApi {
     getTotalLimits(): Promise<ProjectLimits>;
 
     /**
+     * Get link to download total usage report for all the projects that user owns.
+     *
+     * @throws Error
+     */
+    getTotalUsageReportLink(start: Date, end: Date): string
+
+    /**
      * Get project daily usage by specific date range.
      *
      * @throws Error

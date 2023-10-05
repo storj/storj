@@ -200,6 +200,17 @@ export class ProjectsHttpApi implements ProjectsApi {
     }
 
     /**
+     * Get link to download total usage report for all the projects that user owns.
+     *
+     * @throws Error
+     */
+    public getTotalUsageReportLink(start: Date, end: Date): string {
+        const since = Time.toUnixTimestamp(start).toString();
+        const before = Time.toUnixTimestamp(end).toString();
+        return `${this.ROOT_PATH}/total-usage-report?since=${since}&before=${before}`;
+    }
+
+    /**
      * Get project daily usage for specific date range.
      *
      * @param projectId - project ID

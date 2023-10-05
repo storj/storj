@@ -727,7 +727,7 @@ func (db *ProjectAccounting) GetSingleBucketUsageRollup(ctx context.Context, pro
 }
 
 func (db *ProjectAccounting) getSingleBucketRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*accounting.BucketUsageRollup, error) {
-	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
+	rollupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
@@ -743,7 +743,7 @@ func (db *ProjectAccounting) getSingleBucketRollup(ctx context.Context, projectI
 	}
 
 	// get bucket_bandwidth_rollup
-	rollupRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
+	rollupRows, err := db.db.QueryContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before)
 	if err != nil {
 		return nil, err
 	}

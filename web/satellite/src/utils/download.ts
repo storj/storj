@@ -14,4 +14,10 @@ export class Download {
         elem.click();
         document.body.removeChild(elem);
     }
+
+    public static fileByLink(link: string): void {
+        const elem = window.document.createElement('a');
+        elem.href = link;
+        elem.click();
+    }
 }

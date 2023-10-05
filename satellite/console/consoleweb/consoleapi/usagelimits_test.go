@@ -4,10 +4,12 @@
 package consoleapi_test
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 )
 
 func Test_TotalUsageLimits(t *testing.T) {
@@ -165,5 +168,96 @@ func Test_DailyUsage(t *testing.T) {
 		require.GreaterOrEqual(t, output.StorageUsage[0].Value, 15*memory.KiB)
 		require.GreaterOrEqual(t, output.AllocatedBandwidthUsage[0].Value, 5*memory.KiB)
 		require.GreaterOrEqual(t, output.SettledBandwidthUsage[0].Value, 5*memory.KiB)
+	})
+}
+
+func Test_TotalUsageReport(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var (
+			satelliteSys     = planet.Satellites[0]
+			uplink           = planet.Uplinks[0]
+			now              = time.Now()
+			inFiveMinutes    = now.Add(5 * time.Minute)
+			inAnHour         = now.Add(1 * time.Hour)
+			since            = fmt.Sprintf("%d", now.Unix())
+			before           = fmt.Sprintf("%d", inAnHour.Unix())
+			expectedCSVValue = fmt.Sprintf("%f", float64(0))
+		)
+
+		newUser := console.CreateUser{
+			FullName:  "Total Usage Report Test",
+			ShortName: "",
+			Email:     "ur@test.test",
+		}
+
+		user, err := satelliteSys.AddUser(ctx, newUser, 3)
+		require.NoError(t, err)
+
+		project1, err := satelliteSys.AddProject(ctx, user.ID, "testProject1")
+		require.NoError(t, err)
+
+		project2, err := satelliteSys.AddProject(ctx, user.ID, "testProject2")
+		require.NoError(t, err)
+
+		bucketName := "bucket"
+		err = uplink.CreateBucket(ctx, satelliteSys, bucketName)
+		require.NoError(t, err)
+
+		bucketLoc1 := metabase.BucketLocation{
+			ProjectID:  project1.ID,
+			BucketName: bucketName,
+		}
+		tally1 := &accounting.BucketTally{
+			BucketLocation: bucketLoc1,
+		}
+
+		bucketLoc2 := metabase.BucketLocation{
+			ProjectID:  project2.ID,
+			BucketName: bucketName,
+		}
+		tally2 := &accounting.BucketTally{
+			BucketLocation: bucketLoc2,
+		}
+
+		bucketTallies := map[metabase.BucketLocation]*accounting.BucketTally{
+			bucketLoc1: tally1,
+			bucketLoc2: tally2,
+		}
+
+		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
+		require.NoError(t, err)
+
+		endpoint := fmt.Sprintf("projects/total-usage-report?since=%s&before=%s", since, before)
+		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		content := string(body)
+		reader := csv.NewReader(strings.NewReader(content))
+		records, err := reader.ReadAll()
+		require.NoError(t, err)
+		require.Len(t, records, 3)
+
+		expectedHeaders := []string{"ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+		for i, header := range expectedHeaders {
+			require.Equal(t, header, records[0][i])
+		}
+
+		require.Equal(t, project1.PublicID.String(), records[1][0])
+		require.Equal(t, project2.PublicID.String(), records[2][0])
+		require.Equal(t, bucketName, records[1][1])
+		require.Equal(t, bucketName, records[2][1])
+		for i := 2; i < 9; i++ {
+			require.Equal(t, expectedCSVValue, records[1][i])
+			require.Equal(t, expectedCSVValue, records[2][i])
+		}
 	})
 }
