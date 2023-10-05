@@ -11,7 +11,7 @@
 # account-freeze.interval: 24h0m0s
 
 # The failed invoice amount (in cents) beyond which an account will not be frozen
-# account-freeze.price-threshold: 10000
+# account-freeze.price-threshold: 100000
 
 # admin peer http listening address
 # admin.address: ""

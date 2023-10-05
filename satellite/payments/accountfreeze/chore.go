@@ -32,7 +32,7 @@ type Config struct {
 	Enabled          bool          `help:"whether to run this chore." default:"false"`
 	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
 	GracePeriod      time.Duration `help:"How long to wait between a warning event and freezing an account." default:"360h"`
-	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"10000"`
+	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 }
 
