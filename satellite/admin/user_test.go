@@ -42,7 +42,7 @@ func TestUserGet(t *testing.T) {
 
 		link := "http://" + address.String() + "/api/users/" + project.Owner.Email
 		expectedBody := `{` +
-			fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d,"placement":%d},`, project.Owner.ID, project.Owner.Email, projLimit, storj.EveryCountry) +
+			fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d,"placement":%d},`, project.Owner.ID, project.Owner.Email, projLimit, storj.DefaultPlacement) +
 			fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]}`, project.ID, project.Owner.ID)
 
 		assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
@@ -529,7 +529,7 @@ func TestSetUsersGeofence(t *testing.T) {
 			assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 			updatedUser, err = db.Console().Users().Get(ctx, project.Owner.ID)
 			require.NoError(t, err)
-			require.Equal(t, storj.EveryCountry, updatedUser.DefaultPlacement)
+			require.Equal(t, storj.DefaultPlacement, updatedUser.DefaultPlacement)
 		})
 
 		t.Run("Same Placement", func(t *testing.T) {

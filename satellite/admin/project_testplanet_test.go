@@ -83,9 +83,11 @@ func TestAdminProjectGeofenceAPI(t *testing.T) {
 
 						project, err := sat.DB.Console().Projects().Get(ctx, testCase.project)
 						require.NoError(t, err)
+						require.Equal(t, storj.DefaultPlacement, project.DefaultPlacement)
 
 						expected, err := json.Marshal(project)
 						require.NoError(t, err)
+
 						assertGet(ctx, t, baseURL, string(expected), sat.Config.Console.AuthToken)
 					})
 				}

@@ -803,7 +803,7 @@ func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Re
 }
 
 func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
-	server.setGeofenceForUser(w, r, storj.EveryCountry)
+	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
 }
 
 func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
