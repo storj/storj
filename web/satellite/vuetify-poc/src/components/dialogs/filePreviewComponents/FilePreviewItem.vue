@@ -102,24 +102,17 @@ const bucket = computed((): string => {
 });
 
 /**
- * Retrieve the current filepath.
- */
-const filePath = computed((): string => {
-    return obStore.state.objectPathForModal;
-});
-
-/**
  * Retrieve the encoded filepath.
  */
 const encodedFilePath = computed((): string => {
-    return encodeURIComponent(`${bucket.value}/${filePath.value.trim()}`);
+    return encodeURIComponent(`${bucket.value}/${props.file.path}${props.file.Key}`);
 });
 
 /**
  * Get the extension of the current file.
  */
 const extension = computed((): string | undefined => {
-    return filePath.value.split('.').pop();
+    return props.file.Key.split('.').pop();
 });
 
 /**
@@ -175,7 +168,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, filePath.value);
+        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, props.file.path + props.file.Key);
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);

@@ -2,15 +2,21 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :style="notification.style" class="notification-wrap" :class="{ active: isClassActive }" @mouseover="onMouseOver" @mouseleave="onMouseLeave">
+    <div
+        :style="{ backgroundColor: notification.backgroundColor }"
+        class="notification-wrap"
+        :class="{ active: isClassActive }"
+        @mouseover="onMouseOver"
+        @mouseleave="onMouseLeave"
+    >
         <div class="notification-wrap__content-area">
             <div class="notification-wrap__content-area__image">
                 <component :is="notification.icon" />
             </div>
             <div class="notification-wrap__content-area__message-area">
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div v-if="notification.messageNode" v-html="notification.messageNode" />
-                <p v-else class="notification-wrap__content-area__message">{{ notification.message }}</p>
+                <p ref="messageArea" class="notification-wrap__content-area__message">
+                    <component :is="notification.messageNode" />
+                </p>
 
                 <p v-if="isTimeoutMentioned && notOnSettingsPage" class="notification-wrap__content-area__account-msg">
                     To change this go to your
@@ -41,7 +47,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { DelayedNotification } from '@/types/DelayedNotification';
+import { DelayedNotification, NotificationType } from '@/types/DelayedNotification';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { RouteConfig } from '@/types/router';
@@ -55,10 +61,13 @@ const route = useRoute();
 const props = withDefaults(defineProps<{
     notification: DelayedNotification;
 }>(), {
-    notification: () => new DelayedNotification(() => { return; }, '', ''),
+    notification: () => new DelayedNotification(() => {}, NotificationType.Info, ''),
 });
 
 const isClassActive = ref<boolean>(false);
+const isTimeoutMentioned = ref<boolean>(false);
+const isSupportLinkMentioned = ref<boolean>(false);
+const messageArea = ref<HTMLParagraphElement | null>(null);
 
 /**
  * Returns the correct settings route based on if we're on all projects dashboard.
@@ -90,22 +99,6 @@ const notOnSettingsPage = computed((): boolean => {
 });
 
 /**
- * Indicates if session timeout is mentioned in message.
- * Temporal solution, can be changed later.
- */
-const isTimeoutMentioned = computed((): boolean => {
-    return props.notification.message.toLowerCase().includes('session timeout');
-});
-
-/**
- * Indicates if support word is mentioned in message.
- * Temporal solution, can be changed later.
- */
-const isSupportLinkMentioned = computed((): boolean => {
-    return props.notification.message.toLowerCase().includes('support');
-});
-
-/**
  * Forces notification deletion.
  */
 function onCloseClick(): void {
@@ -130,6 +123,10 @@ function onMouseLeave(): void {
  * Uses for class change for animation.
  */
 onMounted((): void => {
+    const msg = messageArea.value?.innerText.toLowerCase() || '';
+    isSupportLinkMentioned.value = msg.includes('support');
+    isTimeoutMentioned.value = msg.includes('session timeout');
+
     setTimeout(() => {
         isClassActive.value = true;
     }, 100);

@@ -537,7 +537,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         if (config.state.config.newUploadModalEnabled) {
             if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
-                notifyError({ message: `${key} is already uploading`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+                notifyError(`${key} is already uploading`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
                 return;
             }
 
@@ -558,6 +558,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     Body: body,
                     status: UploadingStatus.Failed,
                     failedMessage: FailedUploadMessage.TooBig,
+                    type: 'file',
                 });
 
                 return;
@@ -585,10 +586,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             const item = state.uploading.find(f => f.Key === key);
             if (!item) {
                 upload.off('httpUploadProgress', progressListener);
-                notifyError({
-                    message: `Error updating progress. No file found with key '${key}'`,
-                    source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR,
-                });
+                notifyError(
+                    `Error updating progress. No file found with key '${key}'`,
+                    AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR,
+                );
                 return;
             }
 
@@ -607,6 +608,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Size: 0,
             LastModified: new Date(),
             status: UploadingStatus.InProgress,
+            type: 'file',
         });
 
         state.uploadChain = state.uploadChain.then(async () => {
@@ -664,9 +666,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         const limitExceededError = 'storage limit exceeded';
         if (error.message.includes(limitExceededError)) {
-            notifyError({ message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+            notifyError(`Error: ${limitExceededError}`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
         } else {
-            notifyError({ message: error.message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR });
+            notifyError(error.message, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
         }
     }
 

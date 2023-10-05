@@ -20,7 +20,6 @@
                             :disabled="!isInitialized"
                             v-bind="props"
                         >
-                            <browser-snackbar-component v-model="isObjectsUploadModal" />
                             <IconUpload class="mr-2" />
                             Upload
                         </v-btn>
@@ -111,7 +110,6 @@ import { useAppStore } from '@/store/modules/appStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
-import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 import BrowserTableComponent from '@poc/components/BrowserTableComponent.vue';
 import BrowserNewFolderDialog from '@poc/components/dialogs/BrowserNewFolderDialog.vue';
 import IconUpload from '@poc/components/icons/IconUpload.vue';
@@ -158,13 +156,6 @@ const projectId = computed<string>(() => projectsStore.state.selectedProject.id)
  * Returns whether the user should be prompted to enter the passphrase.
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
-
-/**
- * Indicates whether objects upload modal should be shown.
- */
-const isObjectsUploadModal = computed((): boolean => {
-    return appStore.state.isUploadingModal;
-});
 
 /**
  * Open the operating system's file system for file upload.

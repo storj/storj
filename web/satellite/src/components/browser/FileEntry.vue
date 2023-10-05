@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
@@ -425,13 +425,12 @@ function openDropdown(): void {
 async function download(): Promise<void> {
     try {
         await obStore.download(props.file);
-        const message = `
-            <p class="message-title">Downloading...</p>
-            <p class="message-info">
-                Keep this download link private.<br>If you want to share, use the Share option.
-            </p>
-        `;
-        notify.success('', message);
+        notify.success(() => [
+            h('p', { class: 'message-title' }, 'Downloading...'),
+            h('p', { class: 'message-info' }, [
+                'Keep this download link private.', h('br'), 'If you want to share, use the Share option.',
+            ]),
+        ]);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }

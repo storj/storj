@@ -20,11 +20,6 @@ const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 
 /**
- * Returns ID of selected project from store.
- */
-const projectId = computed<string>(() => projectsStore.state.selectedProject.id);
-
-/**
  * Returns the name of the selected bucket.
  */
 const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
@@ -43,7 +38,7 @@ type BreadcrumbItem = {
  * Returns breadcrumb items corresponding to parts in the file browser path.
  */
 const items = computed<BreadcrumbItem[]>(() => {
-    const bucketsURL = `/projects/${projectId.value}/buckets`;
+    const bucketsURL = `/projects/${projectsStore.state.selectedProject.urlId}/buckets`;
 
     const pathParts = [bucketName.value];
     if (filePath.value) pathParts.push(...filePath.value.split('/'));

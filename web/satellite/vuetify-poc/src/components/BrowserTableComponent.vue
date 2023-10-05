@@ -81,8 +81,9 @@
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
                             :file="item.raw.browserObject"
-                            @delete-file-click="() => onDeleteFileClick(item.raw.browserObject)"
-                            @share-click="() => onShareClick(item.raw.browserObject)"
+                            @preview-click="onFileClick(item.raw.browserObject)"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @share-click="onShareClick(item.raw.browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -104,6 +105,7 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
+    <browser-snackbar-component v-model="isObjectsUploadModal" @file-click="onFileClick" />
 </template>
 
 <script setup lang="ts">
@@ -127,11 +129,13 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
 import { LocalData } from '@/utils/localData';
+import { useAppStore } from '@/store/modules/appStore';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
+import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 
 import folderIcon from '@poc/assets/icon-folder-tonal.svg';
 import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
@@ -180,6 +184,7 @@ const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const appStore = useAppStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -245,6 +250,11 @@ const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
  * Returns table cursor from store.
  */
 const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
+
+/**
+ * Indicates whether objects upload modal should be shown.
+ */
+const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingModal);
 
 /**
  * Returns every file under the current path.
@@ -403,7 +413,7 @@ function onFileClick(file: BrowserObject): void {
         return;
     }
 
-    obStore.setObjectPathForModal(obStore.state.path + file.Key);
+    obStore.setObjectPathForModal(file.path + file.Key);
     previewDialog.value = true;
     isFileGuideShown.value = false;
     LocalData.setFileGuideHidden();

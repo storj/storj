@@ -9,11 +9,12 @@
         elevation="24"
         rounded="lg"
         class="upload-snackbar"
-        :max-width="xs ? '400px' : ''"
+        width="100%"
+        max-width="400px"
     >
         <v-row>
             <v-col>
-                <v-expansion-panels theme="dark">
+                <v-expansion-panels theme="dark" @update:model-value="v => isExpanded = v != undefined">
                     <v-expansion-panel
                         color="default"
                         rounded="lg"
@@ -49,14 +50,16 @@
                             </v-row>
                         </v-expansion-panel-text>
                         <v-divider />
-                        <v-expansion-panel-text class="uploading-content">
-                            <UploadItem
-                                v-for="item in uploading"
-                                :key="item.Key"
-                                :item="item"
-                            />
-                            <v-expansion-panel-text />
-                        </v-expansion-panel-text>
+                        <v-expand-transition>
+                            <div v-show="isExpanded" class="uploading-content">
+                                <UploadItem
+                                    v-for="item in uploading"
+                                    :key="item.Key"
+                                    :item="item"
+                                    @click="item.status === UploadingStatus.Finished && emit('fileClick', item)"
+                                />
+                            </div>
+                        </v-expand-transition>
                     </v-expansion-panel>
                 </v-expansion-panels>
             </v-col>
@@ -78,10 +81,10 @@ import {
     VTooltip,
     VIcon,
     VDivider,
+    VExpandTransition,
 } from 'vuetify/components';
-import { useDisplay } from 'vuetify';
 
-import { UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Duration } from '@/utils/time';
 import { useNotify } from '@/utils/hooks';
@@ -93,8 +96,11 @@ const remainingTimeString = ref<string>('');
 const interval = ref<NodeJS.Timer>();
 const notify = useNotify();
 const startDate = ref<number>(Date.now());
+const isExpanded = ref<boolean>(false);
 
-const { xs } = useDisplay();
+const emit = defineEmits<{
+    'fileClick': [file: BrowserObject],
+}>();
 
 /**
  * Returns header's status label.

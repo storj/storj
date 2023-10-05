@@ -114,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { computed, h, onBeforeMount, ref, watch } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -273,9 +273,15 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
  * Download the current opened file.
  */
 async function download(): Promise<void> {
+    if (!file.value) return;
     try {
         await obStore.download(file.value);
-        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+        notify.success(() => [
+            h('p', { class: 'message-title' }, 'Downloading...'),
+            h('p', { class: 'message-info' }, [
+                'Keep this download link private.', h('br'), 'If you want to share, use the Share option.',
+            ]),
+        ]);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
