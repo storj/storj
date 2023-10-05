@@ -3,6 +3,27 @@
 
 <template>
     <v-container>
+        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="mt-10 mb-15">
+            <v-col cols="12">
+                <p class="text-h5 font-weight-bold">Set an encryption passphrase<br>to start uploading files.</p>
+            </v-col>
+            <v-col cols="12">
+                <v-btn append-icon="mdi-chevron-right" @click="isSetPassphraseDialogShown = true">
+                    Set Encryption Passphrase
+                </v-btn>
+            </v-col>
+        </v-row>
+        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="mt-10 mb-15">
+            <v-col cols="12">
+                <p class="text-h5 font-weight-bold">Create a bucket to start<br>uploading data in your project.</p>
+            </v-col>
+            <v-col cols="12">
+                <v-btn append-icon="mdi-chevron-right" @click="isCreateBucketDialogShown = true">
+                    Create a Bucket
+                </v-btn>
+            </v-col>
+        </v-row>
+
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
                 <PageTitleComponent title="Project Overview" />
@@ -142,6 +163,8 @@
     </v-container>
 
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
+    <create-bucket-dialog v-model="isCreateBucketDialogShown" />
+    <manage-passphrase-dialog v-model="isSetPassphraseDialogShown" is-create />
 </template>
 
 <script setup lang="ts">
@@ -162,6 +185,7 @@ import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@poc/store/appStore';
+import { LocalData } from '@/utils/localData';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -171,6 +195,8 @@ import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
 import StorageChart from '@/components/project/dashboard/StorageChart.vue';
 import BucketsDataTable from '@poc/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
+import CreateBucketDialog from '@poc/components/dialogs/CreateBucketDialog.vue';
+import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
 import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
 
@@ -185,10 +211,14 @@ const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const router = useRouter();
 
+const bucketWasCreated = !!LocalData.getBucketWasCreatedStatus();
+
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
 const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
+const isCreateBucketDialogShown = ref<boolean>(false);
+const isSetPassphraseDialogShown = ref<boolean>(false);
 
 /**
  * Returns percent of coupon used.
@@ -372,6 +402,13 @@ const allocatedBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
         projectsStore.state.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
+});
+
+/**
+ * Indicates if user should be prompted to enter the project passphrase.
+ */
+const promptForPassphrase = computed((): boolean => {
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**

@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { Component } from 'vue';
-import { VSheet, VListItem, VSpacer, VIcon } from 'vuetify/components';
+import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
 
 import { ManageProjectPassphraseStep } from '@poc/types/managePassphrase';
 import { DialogStepComponent } from '@poc/types/common';
