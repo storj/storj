@@ -136,6 +136,7 @@ import {
     VForm,
     VCardActions,
     VTextField,
+    VAlert,
 } from 'vuetify/components';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -162,7 +163,7 @@ const dialog = ref<boolean>(false);
 const valid = ref<boolean>(false);
 const email = ref<string>('');
 const selectedMembers = ref<string[]>([]);
-const tableComponent = ref<TeamTableComponent & DeleteDialog>();
+const tableComponent = ref<InstanceType<typeof TeamTableComponent> & DeleteDialog>();
 
 const emailRules = [
     (value: string): string | boolean => (!!value || 'E-mail is requred.'),
@@ -207,6 +208,6 @@ async function onAddUsersClick(): Promise<void> {
  * Makes delete project members dialog visible.
  */
 function showDeleteDialog(): void {
-    tableComponent.value.showDeleteDialog();
+    tableComponent.value?.showDeleteDialog();
 }
 </script>

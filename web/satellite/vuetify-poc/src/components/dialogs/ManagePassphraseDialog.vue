@@ -92,9 +92,8 @@
 
             <v-card-actions class="pa-7">
                 <v-row>
-                    <v-col v-if="stepInfo[step].prev">
+                    <v-col v-if="stepInfo[step].prev.value">
                         <v-btn
-                            v-if="stepInfo[step].prev"
                             variant="outlined"
                             color="default"
                             prepend-icon="mdi-chevron-left"
@@ -109,7 +108,7 @@
                             Cancel
                         </v-btn>
                     </v-col>
-                    <v-col v-if="stepInfo[step].next || stepInfo[step].showNextButton">
+                    <v-col v-if="stepInfo[step].next.value || stepInfo[step].showNextButton">
                         <v-btn
                             color="primary"
                             variant="flat"
@@ -156,20 +155,35 @@ import ClearStep from '@poc/components/dialogs/managePassphraseSteps/ClearStep.v
 
 import LockIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 
+type ManagePassphraseLocation = ManageProjectPassphraseStep | null | (() => (ManageProjectPassphraseStep | null));
+
 class StepInfo {
     public ref: Ref<DialogStepComponent | null> = ref<DialogStepComponent | null>(null);
+    public prev: Ref<ManageProjectPassphraseStep | null>;
+    public next: Ref<ManageProjectPassphraseStep | null>;
 
     constructor(
-        public prev: ManageProjectPassphraseStep | null = null,
-        public next: ManageProjectPassphraseStep | (() => ManageProjectPassphraseStep) | null = null,
+        prev: ManagePassphraseLocation = null,
+        next: ManagePassphraseLocation = null,
         public showCancelButton: boolean = true,
         public showNextButton: boolean = true,
-    ) {}
+    ) {
+        this.prev = (typeof prev === 'function')
+            ? computed<ManageProjectPassphraseStep | null>(prev)
+            : ref<ManageProjectPassphraseStep | null>(prev);
+        this.next = (typeof next === 'function')
+            ? computed<ManageProjectPassphraseStep | null>(next)
+            : ref<ManageProjectPassphraseStep | null>(next);
+    }
 }
 
-const props = defineProps<{
-    modelValue: boolean,
-}>();
+const props = withDefaults(defineProps<{
+    modelValue: boolean;
+    isCreate: boolean;
+}>(), {
+    modelValue: false,
+    isCreate: false,
+});
 
 const model = computed<boolean>({
     get: () => props.modelValue,
@@ -183,7 +197,11 @@ const emit = defineEmits<{
 const projectsStore = useProjectsStore();
 
 const innerContent = ref<Component | null>(null);
-const step = ref<ManageProjectPassphraseStep>(ManageProjectPassphraseStep.ManageOptions);
+const step = ref<ManageProjectPassphraseStep>(
+    props.isCreate
+        ? ManageProjectPassphraseStep.EncryptionPassphrase
+        : ManageProjectPassphraseStep.ManageOptions,
+);
 const passphraseOption = ref<PassphraseOption>(PassphraseOption.EnterPassphrase);
 const passphrase = ref<string>('');
 
@@ -197,7 +215,7 @@ const stepInfo: Record<ManageProjectPassphraseStep, StepInfo> = {
         ManageProjectPassphraseStep.EncryptionPassphrase,
     ),
     [ManageProjectPassphraseStep.EncryptionPassphrase]: new StepInfo(
-        ManageProjectPassphraseStep.Create,
+        () => props.isCreate ? null : ManageProjectPassphraseStep.Create,
         () => passphraseOption.value === PassphraseOption.GeneratePassphrase
             ? ManageProjectPassphraseStep.PassphraseGenerated
             : ManageProjectPassphraseStep.EnterPassphrase,
@@ -221,10 +239,12 @@ function onBackClick(): void {
 
     info.ref.value?.onExit?.('prev');
 
-    if (info.prev !== null) {
-        step.value = info.prev;
+    const prev = info.prev.value;
+    if (prev !== null) {
+        step.value = prev;
         return;
     }
+
     model.value = false;
 }
 
@@ -235,7 +255,7 @@ function onNextClick(): void {
 
     info.ref.value?.onExit?.('next');
 
-    const next = typeof info.next === 'function' ? info.next() : info.next;
+    const next = info.next.value;
     if (next !== null) {
         step.value = next;
         return;
@@ -271,6 +291,8 @@ watch(step, newStep => {
 
 watch(innerContent, comp => {
     if (comp) return;
-    step.value = ManageProjectPassphraseStep.ManageOptions;
+    step.value = props.isCreate
+        ? ManageProjectPassphraseStep.EncryptionPassphrase
+        : ManageProjectPassphraseStep.ManageOptions;
 });
 </script>

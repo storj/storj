@@ -75,6 +75,7 @@
 
 <script setup lang="ts">
 import { Component, computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
     VBtn,
     VCard,
@@ -103,7 +104,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
-const usersStore = useUsersStore();
+const router = useRouter();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -218,6 +219,7 @@ function onCreate(): void {
 
         try {
             const projectID = projectsStore.state.selectedProject.id;
+            const bucketURL = `/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}`;
 
             if (!promptForPassphrase.value) {
                 if (!edgeCredentials.value.accessKeyId) {
@@ -228,6 +230,7 @@ function onCreate(): void {
                 bucketsStore.setFileComponentBucketName(bucketName.value);
 
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+                await router.push(bucketURL);
 
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
@@ -242,6 +245,7 @@ function onCreate(): void {
                 await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
                 await bucketsStore.getBuckets(1, projectID);
                 analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+                await router.push(bucketURL);
 
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
@@ -282,7 +286,7 @@ function onCreate(): void {
                 return;
             }
 
-            const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
+            const salt = await projectsStore.getProjectSalt(projectID);
             const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
 
             worker.value.postMessage({
@@ -310,6 +314,7 @@ function onCreate(): void {
             await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
             await bucketsStore.getBuckets(1, projectID);
             analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+            await router.push(bucketURL);
 
             if (!bucketWasCreated.value) {
                 LocalData.setBucketWasCreatedStatus();
