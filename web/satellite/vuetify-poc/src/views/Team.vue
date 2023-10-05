@@ -17,20 +17,10 @@
                     </svg>
                     Add Members
                 </v-btn>
-                <v-btn
-                    v-if="selectedMembers.length"
-                    prepend-icon="mdi-trash-can-outline"
-                    variant="outlined"
-                    color="default"
-                    class="ml-2 text-caption"
-                    @click="showDeleteDialog"
-                >
-                    Remove
-                </v-btn>
             </v-row>
         </v-col>
 
-        <TeamTableComponent ref="tableComponent" v-model="selectedMembers" />
+        <TeamTableComponent />
     </v-container>
 
     <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="selectedProjectID" />
@@ -47,22 +37,10 @@ import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
 import TeamTableComponent from '@poc/components/TeamTableComponent.vue';
 import AddTeamMemberDialog from '@poc/components/dialogs/AddTeamMemberDialog.vue';
 
-interface DeleteDialog {
-    showDeleteDialog(): void;
-}
-
 const projectsStore = useProjectsStore();
 
-const selectedMembers = ref<string[]>([]);
-const tableComponent = ref<InstanceType<typeof TeamTableComponent> & DeleteDialog>();
 const isAddMemberDialogShown = ref<boolean>(false);
 
 const selectedProjectID = computed((): string => projectsStore.state.selectedProject.id);
 
-/**
- * Makes delete project members dialog visible.
- */
-function showDeleteDialog(): void {
-    tableComponent.value?.showDeleteDialog();
-}
 </script>

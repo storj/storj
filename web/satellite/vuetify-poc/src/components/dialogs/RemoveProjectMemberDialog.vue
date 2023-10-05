@@ -60,13 +60,13 @@
             </v-card-item>
 
             <v-card-item class="px-7 py-0">
-                <v-card class="mb-4 pa-4" color="warning">
-                    <p>
+                <v-alert variant="tonal" class="mb-4 pa-4" color="warning">
+                    <template #text>
                         <strong>Please note:</strong> any access grants they have created will still provide
                         them with full access. If necessary, please revoke these access grants to ensure
                         the security of your data.
-                    </p>
-                </v-card>
+                    </template>
+                </v-alert>
 
                 <v-divider />
             </v-card-item>
@@ -80,7 +80,7 @@
                     </v-col>
                     <v-col>
                         <v-btn color="error" variant="flat" block :loading="isLoading" @click="onDelete">
-                            Delete
+                            Remove
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -92,6 +92,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
+    VAlert,
     VDialog,
     VCard,
     VCardItem,

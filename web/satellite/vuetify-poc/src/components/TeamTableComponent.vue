@@ -3,27 +3,42 @@
 
 <template>
     <v-card min-height="24" :border="0" class="mb-2 elevation-0">
-        <v-row v-if="modelValue.length > 0" class="justify-end align-center ma-0">
-            <p>{{ modelValue.length }} user{{ modelValue.length !== 1 ? 's' : '' }} selected</p>
+        <v-row v-if="selectedMembers.length > 0" class="justify-end align-center ma-0">
+            <p>{{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }} selected</p>
         </v-row>
     </v-card>
     <v-card variant="flat" :border="true" rounded="xlg">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            prepend-inner-icon="mdi-magnify"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
-        />
+        <v-row align="center" class="ma-0">
+            <v-col v-if="selectedMembers.length" class="px-0 mr-0 ml-2 mt-2" cols="auto">
+                <v-btn
+                    class=" text-caption"
+                    prepend-icon="mdi-trash-can-outline"
+                    variant="outlined"
+                    color="default"
+                    @click="showDeleteDialog"
+                >
+                    Remove
+                </v-btn>
+            </v-col>
+
+            <v-col class="px-0 mx-2 mt-2">
+                <v-text-field
+                    v-model="search"
+                    label="Search"
+                    prepend-inner-icon="mdi-magnify"
+                    single-line
+                    variant="solo-filled"
+                    flat
+                    hide-details
+                    clearable
+                    density="comfortable"
+                    rounded="lg"
+                />
+            </v-col>
+        </v-row>
 
         <v-data-table-server
-            v-model="model"
+            v-model="selectedMembers"
             :search="search"
             :headers="headers"
             :items="projectMembers"
@@ -79,6 +94,7 @@
                                 </v-list-item-title>
                             </v-list-item>
                             <v-list-item
+                                class="text-error"
                                 density="comfortable"
                                 link rounded="lg"
                                 @click="() => onSingleDelete(item.raw.email)"
@@ -99,7 +115,7 @@
 
     <remove-project-member-dialog
         v-model="isRemoveMembersDialogShown"
-        :emails="modelValue"
+        :emails="selectedMembers"
         @deleted="onPostDelete"
     />
 </template>
@@ -109,6 +125,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import {
     VRow,
     VCard,
+    VCol,
     VTextField,
     VChip,
     VIcon,
@@ -165,21 +182,12 @@ const router = useRouter();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
-const emit = defineEmits<{
-    (event: 'update:modelValue', value: string[]): void,
-}>();
-const props = defineProps<{
-    modelValue: string[]
-}>();
-const model = computed<string[]>({
-    get: () => props.modelValue,
-    set: value => emit('update:modelValue', value),
-});
-
 const isRemoveMembersDialogShown = ref<boolean>(false);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const sortBy = ref([{ key: 'date', order: 'asc' }]);
+const selectedMembers = ref<string[]>([]);
+
 const headers = ref([
     {
         title: 'Name',
@@ -252,18 +260,18 @@ async function onUpdatePage(page: number): Promise<void> {
  * Handles post delete operations.
  */
 async function onPostDelete(): Promise<void> {
-    if (props.modelValue.includes(usersStore.state.user.email)) {
+    if (selectedMembers.value.includes(usersStore.state.user.email)) {
         router.push('/projects');
         return;
     }
 
     search.value = '';
-    emit('update:modelValue', []);
+    selectedMembers.value = [];
     await onUpdatePage(FIRST_PAGE);
 }
 
 function onSingleDelete(email: string): void {
-    emit('update:modelValue', [email]);
+    selectedMembers.value = [email];
     isRemoveMembersDialogShown.value = true;
 }
 
@@ -367,6 +375,4 @@ watch(() => search.value, () => {
 onMounted(() => {
     fetch();
 });
-
-defineExpose({ showDeleteDialog });
 </script>

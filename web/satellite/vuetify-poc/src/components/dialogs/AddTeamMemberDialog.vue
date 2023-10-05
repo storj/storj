@@ -139,7 +139,7 @@ async function onAddUsersClick(): Promise<void> {
     await withLoading(async () => {
         try {
             await pmStore.inviteMembers([email.value], props.projectId);
-            notify.notify('Invites sent!');
+            notify.success('Invites sent!');
             email.value = '';
         } catch (error) {
             error.message = `Error adding project members. ${error.message}`;
