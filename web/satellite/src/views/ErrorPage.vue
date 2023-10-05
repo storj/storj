@@ -100,14 +100,11 @@ onMounted(() => {
         justify-content: center;
         overflow-y: auto;
 
-        &::before {
-            content: "";
+        &:before {
+            content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("/static/static/images/errors/world.svg") no-repeat center;
+            inset: 0;
+            background: url('/static/static/images/errors/world.svg') no-repeat center;
             background-size: auto 75%;
             z-index: -1;
             opacity: 0.15;
