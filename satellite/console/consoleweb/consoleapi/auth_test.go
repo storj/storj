@@ -215,10 +215,7 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer func() {
-				err = result.Body.Close()
-				require.NoError(t, err)
-			}()
+			require.NoError(t, result.Body.Close())
 			require.Equal(t, http.StatusOK, result.StatusCode)
 			require.Len(t, planet.Satellites, 1)
 			// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
