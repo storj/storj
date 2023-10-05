@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Share {{ !file ? 'Bucket' : file.type == 'folder' ? 'Folder' : 'File' }}
+                    Share {{ shareText }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -39,6 +39,12 @@
 
             <div class="pa-7 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
                 <v-row>
+                    <v-col cols="12">
+                        <v-alert class="mt-3" density="compact" type="warning">
+                            Sharing a {{ shareText.toLowerCase() }} will create a publicly shareable URL.
+                            Anyone with this link will be able to access your shared {{ shareText.toLowerCase() }}.
+                        </v-alert>
+                    </v-col>
                     <v-col cols="12">
                         <p class="text-subtitle-2 font-weight-bold mb-4">Share via</p>
                         <div class="ma-n2">
@@ -64,7 +70,11 @@
 
                     <v-col cols="12">
                         <p class="text-subtitle-2 font-weight-bold mb-2">Copy link</p>
-                        <v-textarea :model-value="link" variant="solo-filled" rows="1" auto-grow no-resize flat readonly />
+                        <v-textarea :model-value="link" variant="solo-filled" rows="1" auto-grow no-resize flat readonly>
+                            <template #append-inner>
+                                <input-copy-button :value="link" />
+                            </template>
+                        </v-textarea>
                     </v-col>
                 </v-row>
             </div>
@@ -87,7 +97,7 @@
                             block
                             @click="onCopy"
                         >
-                            {{ justCopied ? 'Copied' : 'Copy' }}
+                            {{ justCopied ? 'Copied' : 'Copy Link' }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -111,6 +121,7 @@ import {
     VBtn,
     VChip,
     VTextarea,
+    VAlert,
 } from 'vuetify/components';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -122,6 +133,7 @@ import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import IconShare from '@poc/components/icons/IconShare.vue';
+import InputCopyButton from '@poc/components/InputCopyButton.vue';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -153,6 +165,8 @@ const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
+
+const shareText = computed<string>(() => !props.file ? 'Bucket' : props.file.type === 'folder' ? 'Folder' : 'File');
 
 /**
  * Saves link to clipboard.
