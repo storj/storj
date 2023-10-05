@@ -132,6 +132,27 @@ func (n NodeFilters) Match(node *SelectedNode) bool {
 	return true
 }
 
+// OrFilter will include the node, if at lest one of the filters are matched.
+type OrFilter []NodeFilter
+
+// Match implements NodeFilter interface.
+func (n OrFilter) Match(node *SelectedNode) bool {
+	for _, filter := range n {
+		if filter.Match(node) {
+			return true
+		}
+	}
+	return false
+}
+
+func (n OrFilter) String() string {
+	var parts []string
+	for _, filter := range n {
+		parts = append(parts, fmt.Sprintf("%s", filter))
+	}
+	return "(" + strings.Join(parts, " || ") + ")"
+}
+
 // WithCountryFilter is a helper to create a new filter with additional CountryFilter.
 func (n NodeFilters) WithCountryFilter(permit location.Set) NodeFilters {
 	return append(n, NewCountryFilter(permit))
@@ -143,12 +164,16 @@ func (n NodeFilters) WithExcludedIDs(ds []storj.NodeID) NodeFilters {
 }
 
 func (n NodeFilters) String() string {
+	if len(n) == 1 {
+		return fmt.Sprintf("%s", n[0])
+	}
+
 	var res []string
 	for _, filter := range n {
 		res = append(res, fmt.Sprintf("%s", filter))
 	}
 	sort.Strings(res)
-	return strings.Join(res, " && ")
+	return "(" + strings.Join(res, " && ") + ")"
 }
 
 // GetAnnotation implements NodeFilterWithAnnotation.

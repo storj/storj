@@ -121,6 +121,14 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 			res := nodeselection.NodeFilters{filter1, filter2}
 			return res, nil
 		},
+		mito.OpOr: func(env map[any]any, a, b any) (any, error) {
+			filter1, ok1 := a.(nodeselection.NodeFilter)
+			filter2, ok2 := b.(nodeselection.NodeFilter)
+			if !ok1 || !ok2 {
+				return nil, errs.New("OR is supported only between NodeFilter instances")
+			}
+			return nodeselection.OrFilter{filter1, filter2}, nil
+		},
 		"tag": func(nodeIDstr string, key string, value any) (nodeselection.NodeFilters, error) {
 			nodeID, err := storj.NodeIDFromString(nodeIDstr)
 			if err != nil {
