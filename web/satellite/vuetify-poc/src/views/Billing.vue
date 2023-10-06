@@ -144,6 +144,18 @@
                     </v-col>
                 </v-row>
 
+                <v-row>
+                    <v-col>
+                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border>
+                            <v-card-text>
+                                <v-btn variant="outlined" color="default" size="small" @click="downloadReport">
+                                    Download Report
+                                </v-btn>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </v-row>
+
                 <v-row v-if="isRollupLoading" justify="center" align="center">
                     <v-col cols="auto">
                         <v-progress-circular indeterminate />
@@ -223,6 +235,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { Download } from '@/utils/download';
 
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
@@ -315,6 +328,11 @@ const isCouponActive = computed((): boolean => {
     const c = coupon.value;
     return !!c && (c.duration === 'forever' || (!!c.expiresAt && now < c.expiresAt.getTime()));
 });
+
+function downloadReport(): void {
+    const link = projectsStore.getTotalUsageReportLink();
+    Download.fileByLink(link);
+}
 
 function goToTransactionsTab() {
     tab.value = 2;

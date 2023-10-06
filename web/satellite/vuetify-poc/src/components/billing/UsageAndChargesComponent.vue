@@ -4,7 +4,7 @@
 <template>
     <v-row>
         <v-col>
-            <h4 class="mt-4">Costs per project</h4>
+            <h4>Costs per project</h4>
         </v-col>
     </v-row>
 
