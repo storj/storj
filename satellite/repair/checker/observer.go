@@ -390,18 +390,18 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck,
 		fork.doDeclumping, fork.placementRules(segment.Placement), fork.nodeIDs)
 
-	numHealthy := len(piecesCheck.Healthy)
+	numHealthy := piecesCheck.Healthy.Size()
 	segmentTotalCountIntVal.Observe(int64(len(pieces)))
 	stats.segmentStats.segmentTotalCount.Observe(int64(len(pieces)))
 
 	segmentHealthyCountIntVal.Observe(int64(numHealthy))
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
-	segmentClumpedCountIntVal.Observe(int64(len(piecesCheck.Clumped)))
-	stats.segmentStats.segmentClumpedCount.Observe(int64(len(piecesCheck.Clumped)))
-	segmentExitingCountIntVal.Observe(int64(len(piecesCheck.Exiting)))
-	stats.segmentStats.segmentExitingCount.Observe(int64(len(piecesCheck.Exiting)))
-	segmentOffPlacementCountIntVal.Observe(int64(len(piecesCheck.OutOfPlacement)))
-	stats.segmentStats.segmentOffPlacementCount.Observe(int64(len(piecesCheck.OutOfPlacement)))
+	segmentClumpedCountIntVal.Observe(int64(piecesCheck.Clumped.Size()))
+	stats.segmentStats.segmentClumpedCount.Observe(int64(piecesCheck.Clumped.Size()))
+	segmentExitingCountIntVal.Observe(int64(piecesCheck.Exiting.Size()))
+	stats.segmentStats.segmentExitingCount.Observe(int64(piecesCheck.Exiting.Size()))
+	segmentOffPlacementCountIntVal.Observe(int64(piecesCheck.OutOfPlacement.Size()))
+	stats.segmentStats.segmentOffPlacementCount.Observe(int64(piecesCheck.OutOfPlacement.Size()))
 
 	segmentAge := time.Since(segment.CreatedAt)
 	segmentAgeIntVal.Observe(int64(segmentAge.Seconds()))
@@ -417,7 +417,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
 	// into queue right away.
-	if (numHealthy <= repairThreshold && numHealthy < successThreshold) || len(piecesCheck.ForcingRepair) > 0 {
+	if (numHealthy <= repairThreshold && numHealthy < successThreshold) || piecesCheck.ForcingRepair.Size() > 0 {
 		injuredSegmentHealthFloatVal.Observe(segmentHealth)
 		stats.segmentStats.injuredSegmentHealth.Observe(segmentHealth)
 		fork.totalStats.remoteSegmentsNeedingRepair++
@@ -440,7 +440,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		}
 
 		// monitor irreparable segments
-		if len(piecesCheck.Retrievable) < required {
+		if piecesCheck.Retrievable.Size() < required {
 			if !slices.Contains(fork.totalStats.objectsLost, segment.StreamID) {
 				fork.totalStats.objectsLost = append(fork.totalStats.objectsLost, segment.StreamID)
 			}
@@ -472,13 +472,13 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 			var missingNodes []string
 			for _, piece := range pieces {
-				if _, isMissing := piecesCheck.Missing[piece.Number]; isMissing {
+				if piecesCheck.Missing.Contains(int(piece.Number)) {
 					missingNodes = append(missingNodes, piece.StorageNode.String())
 				}
 			}
 			fork.log.Warn("checker found irreparable segment", zap.String("Segment StreamID", segment.StreamID.String()), zap.Int("Segment Position",
 				int(segment.Position.Encode())), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.String("unavailable node IDs", strings.Join(missingNodes, ",")))
-		} else if len(piecesCheck.Clumped) > 0 && len(piecesCheck.Healthy)+len(piecesCheck.Clumped) > repairThreshold && len(piecesCheck.ForcingRepair) == 0 {
+		} else if piecesCheck.Clumped.Size() > 0 && piecesCheck.Healthy.Size()+piecesCheck.Clumped.Size() > repairThreshold && piecesCheck.ForcingRepair.Size() == 0 {
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
 			// otherwise). Produce a brief report of where the clumping occurred so that we have
 			// a better understanding of the cause.
