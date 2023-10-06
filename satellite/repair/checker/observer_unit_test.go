@@ -52,7 +52,7 @@ func TestObserverForkProcess(t *testing.T) {
 	require.NoError(t, err)
 	createDefaultObserver := func() *Observer {
 		o := &Observer{
-			statsCollector: make(map[string]*observerRSStats),
+			statsCollector: make(map[storj.RedundancyScheme]*observerRSStats),
 			nodesCache: &ReliabilityCache{
 				staleness: time.Hour,
 			},
@@ -72,7 +72,7 @@ func TestObserverForkProcess(t *testing.T) {
 		return &observerFork{
 			log:              zaptest.NewLogger(t),
 			getObserverStats: o.getObserverStats,
-			rsStats:          make(map[string]*partialRSStats),
+			rsStats:          make(map[storj.RedundancyScheme]*partialRSStats),
 			doDeclumping:     o.doDeclumping,
 			doPlacementCheck: o.doPlacementCheck,
 			placementRules:   o.placementRules,
