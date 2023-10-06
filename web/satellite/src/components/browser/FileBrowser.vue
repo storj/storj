@@ -342,7 +342,7 @@ const currentPath = computed((): string => {
  * Return locked files number.
  */
 const lockedFilesCount = computed((): number => {
-    return objectsCount.value - (isPaginationEnabled.value ? fetchedObjectsCount.value : obStore.state.objectsCount);
+    return objectsCount.value - obStore.state.objectsCount;
 });
 
 /**
@@ -668,15 +668,18 @@ onBeforeMount(async () => {
     await withLoading(async () => {
         try {
             if (isPaginationEnabled.value) {
-                await obStore.initList('');
+                await Promise.all([
+                    obStore.initList(''),
+                    obStore.getObjectCount(),
+                ]);
             } else {
                 await Promise.all([
                     list(''),
                     obStore.getObjectCount(),
                 ]);
             }
-        } catch (err) {
-            notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
         }
     });
 });

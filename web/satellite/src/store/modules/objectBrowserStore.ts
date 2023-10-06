@@ -411,11 +411,17 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function getObjectCount(): Promise<void> {
         assertIsInitialized(state);
 
-        const responseV2 = await state.s3.send(new ListObjectsV2Command({
+        const paginator = paginateListObjectsV2({ client: state.s3, pageSize: MAX_KEY_COUNT }, {
             Bucket: state.bucket,
-        }));
+            MaxKeys: MAX_KEY_COUNT,
+        });
 
-        state.objectsCount = responseV2.KeyCount === undefined ? 0 : responseV2.KeyCount;
+        let keyCount = 0;
+        for await (const response of paginator) {
+            keyCount += response.KeyCount ?? 0;
+        }
+
+        state.objectsCount = keyCount;
     }
 
     async function upload({ e }: { e: DragEvent | Event }): Promise<void> {
