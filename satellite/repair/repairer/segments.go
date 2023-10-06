@@ -222,7 +222,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("GetNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
-	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placementRules(segment.Placement))
+	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placementRules(segment.Placement), allNodeIDs)
 
 	// irreparable segment
 	if len(piecesCheck.Retrievable) < int(segment.Redundancy.RequiredShares) {

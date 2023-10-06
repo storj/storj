@@ -42,7 +42,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 		group.Go(func() error {
 			for i := 0; i < 10000; i++ {
 				nodeIDs := []storj.NodeID{testrand.NodeID()}
-				_, err := cache.GetNodes(ctx, time.Now(), nodeIDs)
+				_, err := cache.GetNodes(ctx, time.Now(), nodeIDs, make([]nodeselection.SelectedNode, len(nodeIDs)))
 				if err != nil {
 					return err
 				}

@@ -20,6 +20,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/queue"
@@ -244,6 +245,10 @@ type observerFork struct {
 	lastStreamID     uuid.UUID
 	totalStats       aggregateStats
 
+	// reuse those slices to optimize memory usage
+	nodeIDs []storj.NodeID
+	nodes   []nodeselection.SelectedNode
+
 	// define from which countries nodes should be marked as offline
 	excludedCountryCodes map[location.CountryCode]struct{}
 	doDeclumping         bool
@@ -301,7 +306,8 @@ func (fork *observerFork) loadRedundancy(redundancy storj.RedundancyScheme) (int
 	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
 }
 
-// Process repair implementation of partial's Process.
+// Process is called repeatedly with batches of segments. It is not called
+// concurrently on the same instance. Method is not concurrent-safe on it own.
 func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) (err error) {
 	for _, segment := range segments {
 		if err := fork.process(ctx, &segment); err != nil {
@@ -350,17 +356,26 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return Error.New("could not get estimate of total number of nodes: %w", err)
 	}
 
-	nodeIDs := make([]storj.NodeID, len(pieces))
-	for i, piece := range pieces {
-		nodeIDs[i] = piece.StorageNode
+	// reuse fork.nodeIDs and fork.nodes slices if large enough
+	if cap(fork.nodeIDs) < len(pieces) {
+		fork.nodeIDs = make([]storj.NodeID, len(pieces))
+		fork.nodes = make([]nodeselection.SelectedNode, len(pieces))
+	} else {
+		fork.nodeIDs = fork.nodeIDs[:len(pieces)]
+		fork.nodes = fork.nodes[:len(pieces)]
 	}
-	selectedNodes, err := fork.nodesCache.GetNodes(ctx, segment.CreatedAt, nodeIDs)
+
+	for i, piece := range pieces {
+		fork.nodeIDs[i] = piece.StorageNode
+	}
+	selectedNodes, err := fork.nodesCache.GetNodes(ctx, segment.CreatedAt, fork.nodeIDs, fork.nodes)
 	if err != nil {
 		fork.totalStats.remoteSegmentsFailedToCheck++
 		stats.iterationAggregates.remoteSegmentsFailedToCheck++
 		return Error.New("error getting node information for pieces: %w", err)
 	}
-	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck, fork.doDeclumping, fork.placementRules(segment.Placement))
+	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck,
+		fork.doDeclumping, fork.placementRules(segment.Placement), fork.nodeIDs)
 
 	numHealthy := len(piecesCheck.Healthy)
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces))) //mon:locked

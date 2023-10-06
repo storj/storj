@@ -60,11 +60,9 @@ type PiecesCheckResult struct {
 // ClassifySegmentPieces classifies the pieces of a segment into the categories
 // represented by a PiecesCheckResult. Pieces may be put into multiple
 // categories.
-func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.SelectedNode, excludedCountryCodes map[location.CountryCode]struct{}, doPlacementCheck, doDeclumping bool, filter nodeselection.NodeFilter) (result PiecesCheckResult) {
-	result.ExcludeNodeIDs = make([]storj.NodeID, len(pieces))
-	for i, p := range pieces {
-		result.ExcludeNodeIDs[i] = p.StorageNode
-	}
+func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.SelectedNode, excludedCountryCodes map[location.CountryCode]struct{},
+	doPlacementCheck, doDeclumping bool, filter nodeselection.NodeFilter, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
+	result.ExcludeNodeIDs = excludeNodeIDs
 
 	// check excluded countries and remove online nodes from missing pieces
 	result.Missing = make(map[uint16]struct{})

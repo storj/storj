@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -65,16 +67,22 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 // the requested node IDs, and returns them in order. If a node is not in the reliability
 // cache (that is, it is unknown or disqualified), an empty SelectedNode will be returned
 // for the index corresponding to that node ID.
-func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID) ([]nodeselection.SelectedNode, error) {
+// Slice selectedNodes will be filled with results nodes and returned. It's length must be
+// equal to nodeIDs slice.
+func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
 	state, err := cache.loadFast(ctx, validUpTo)
 	if err != nil {
 		return nil, err
 	}
-	nodes := make([]nodeselection.SelectedNode, len(nodeIDs))
-	for i, nodeID := range nodeIDs {
-		nodes[i] = state.nodeByID[nodeID]
+
+	if len(nodeIDs) != len(selectedNodes) {
+		return nil, errs.New("nodeIDs length must be equal to selectedNodes: want %d have %d", len(nodeIDs), len(selectedNodes))
 	}
-	return nodes, nil
+
+	for i, nodeID := range nodeIDs {
+		selectedNodes[i] = state.nodeByID[nodeID]
+	}
+	return selectedNodes, nil
 }
 
 func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
