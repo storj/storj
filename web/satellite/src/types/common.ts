@@ -14,6 +14,12 @@ export enum OnboardingOS {
     LINUX = 'linux',
 }
 
+export enum OnboardingOption {
+    Browser = 'Continue in Browser',
+    CLI = 'CLI',
+    Skip = 'Skip',
+}
+
 export class PricingPlanInfo {
     constructor(
         public type: PricingPlanType = PricingPlanType.FREE,

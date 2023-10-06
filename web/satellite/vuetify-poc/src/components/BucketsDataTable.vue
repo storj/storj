@@ -18,19 +18,19 @@
         />
 
         <v-data-table-server
-            v-model="selected"
+            :sort-by="sortBy"
             :headers="headers"
-            :items="page.buckets"
+            :items="displayedItems"
             :search="search"
             :loading="areBucketsFetching"
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
-            item-value="name"
             no-data-text="No results found"
             class="elevation-1"
             hover
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
+            @update:sortBy="onUpdateSort"
         >
             <template #item.name="{ item }">
                 <v-btn
@@ -68,7 +68,7 @@
                     {{ item.raw.segmentCount.toLocaleString() }}
                 </span>
             </template>
-            <template #item.createdAt="{ item }">
+            <template #item.since="{ item }">
                 <span>
                     {{ item.raw.since.toLocaleString() }}
                 </span>
@@ -128,7 +128,7 @@ import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 import { VDataTableServer } from 'vuetify/labs/components';
 
-import { BucketPage, BucketCursor } from '@/types/buckets';
+import { BucketPage, BucketCursor, Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -157,8 +157,6 @@ const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const selected = ref([]);
-
 const bucketDetailsName = ref<string>('');
 const shareBucketName = ref<string>('');
 const isDeleteBucketDialogShown = ref<boolean>(false);
@@ -167,8 +165,14 @@ const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
 const pageWidth = ref<number>(document.body.clientWidth);
+const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
 
 let passphraseDialogCallback: () => void = () => {};
+
+type SortItem = {
+    key: keyof Bucket;
+    order: boolean | 'asc' | 'desc';
+}
 
 type DataTableHeader = {
     key: string;
@@ -178,19 +182,31 @@ type DataTableHeader = {
     width?: number | string;
 }
 
+const displayedItems = computed<Bucket[]>(() => {
+    const items = page.value.buckets;
+
+    sort(items, sortBy.value);
+
+    return items;
+});
+
+const isTableSortable = computed<boolean>(() => {
+    return page.value.totalCount <= cursor.value.limit;
+});
+
 const headers = computed<DataTableHeader[]>(() => {
     const hdrs: DataTableHeader[] = [
         {
             title: 'Name',
             align: 'start',
             key: 'name',
-            sortable: false,
+            sortable: isTableSortable.value,
         },
-        { title: 'Storage', key: 'storage', sortable: false },
-        { title: 'Download', key: 'egress', sortable: false },
-        { title: 'Files', key: 'objectCount', sortable: false },
-        { title: 'Segments', key: 'segmentCount', sortable: false },
-        { title: 'Date Created', key: 'createdAt', sortable: false },
+        { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
+        { title: 'Download', key: 'egress', sortable: isTableSortable.value },
+        { title: 'Files', key: 'objectCount', sortable: isTableSortable.value },
+        { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
+        { title: 'Date Created', key: 'since', sortable: isTableSortable.value },
         { title: '', key: 'actions', width: '0', sortable: false },
     ];
 
@@ -264,6 +280,41 @@ async function fetchBuckets(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Prom
 }
 
 /**
+ * Sorts items by provided sort options.
+ * We use this to correctly sort columns by value of correct type.
+ * @param items
+ * @param sortOptions
+ */
+function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
+    if (!(sortOptions && sortOptions.length)) {
+        items.sort((a, b) => a.name.localeCompare(b.name));
+        return;
+    }
+
+    const option = sortOptions[0];
+
+    switch (option.key) {
+    case 'egress':
+        items.sort((a, b) => option.order === 'asc' ? a.egress - b.egress : b.egress - a.egress);
+        break;
+    case 'storage':
+        items.sort((a, b) => option.order === 'asc' ? a.storage - b.storage : b.storage - a.storage);
+        break;
+    case 'objectCount':
+        items.sort((a, b) => option.order === 'asc' ? a.objectCount - b.objectCount : b.objectCount - a.objectCount);
+        break;
+    case 'segmentCount':
+        items.sort((a, b) => option.order === 'asc' ? a.segmentCount - b.segmentCount : b.segmentCount - a.segmentCount);
+        break;
+    case 'since':
+        items.sort((a, b) => option.order === 'asc' ? a.since.getTime() - b.since.getTime() : b.since.getTime() - a.since.getTime());
+        break;
+    default:
+        items.sort((a, b) => option.order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+    }
+}
+
+/**
  * Handles update table rows limit event.
  */
 function onUpdateLimit(limit: number): void {
@@ -275,6 +326,13 @@ function onUpdateLimit(limit: number): void {
  */
 function onUpdatePage(page: number): void {
     fetchBuckets(page, cursor.value.limit);
+}
+
+/**
+ * Handles update table sorting event.
+ */
+function onUpdateSort(value: SortItem[]): void {
+    sortBy.value = value;
 }
 
 /**
@@ -350,6 +408,10 @@ watch(() => search.value, () => {
         bucketsStore.setBucketsSearch(search.value || '');
         fetchBuckets();
     }, 500); // 500ms delay for every new call.
+});
+
+watch(() => page.value.totalCount, () => {
+    sortBy.value = [{ key: 'name', order: 'asc' }];
 });
 
 onMounted(() => {
