@@ -366,7 +366,9 @@ func (service *Service) TrackRequestLimitIncrease(userID uuid.UUID, email string
 	props := segment.NewProperties()
 	props.Set("email", email)
 	props.Set("satellite", service.satelliteName)
-	props.Set("project", info.ProjectName)
+	if info.ProjectName != "" {
+		props.Set("project", info.ProjectName)
+	}
 	props.Set("type", info.LimitType)
 	props.Set("currentLimit", info.CurrentLimit)
 	props.Set("desiredLimit", info.DesiredLimit)

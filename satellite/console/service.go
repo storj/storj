@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/mail"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -146,6 +147,12 @@ var (
 
 	// ErrAlreadyInvited occurs when trying to invite a user who already has an unexpired invitation.
 	ErrAlreadyInvited = errs.Class("user is already invited")
+
+	// ErrInvalidProjectLimit occurs when the requested project limit is not a non-negative integer and/or greater than the current project limit.
+	ErrInvalidProjectLimit = errs.Class("requested project limit is invalid")
+
+	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
+	ErrNotPaidTier = errs.Class("user is not paid tier")
 )
 
 // Service is handling accounts related logic.
@@ -1923,6 +1930,37 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 		LimitType:    info.LimitType,
 		CurrentLimit: info.CurrentLimit.String(),
 		DesiredLimit: info.DesiredLimit.String(),
+	})
+
+	return nil
+}
+
+// RequestProjectLimitIncrease is a method for requesting to increase max number of projects for a user.
+func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "request project limit increase")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !user.PaidTier {
+		return ErrNotPaidTier.New("Only Pro users may request project limit increases")
+	}
+
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		return ErrInvalidProjectLimit.New("Requested project limit must be an integer")
+	}
+
+	if limitInt <= user.ProjectLimit {
+		return ErrInvalidProjectLimit.New("Requested project limit (%d) must be greater than current limit (%d)", limitInt, user.ProjectLimit)
+	}
+
+	s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
+		LimitType:    "projects",
+		CurrentLimit: fmt.Sprint(user.ProjectLimit),
+		DesiredLimit: limit,
 	})
 
 	return nil

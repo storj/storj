@@ -164,6 +164,9 @@ function deleteClicked() {
 }
 
 function toggleDropDown() {
+    if (isProjectOwner.value) {
+        return;
+    }
     appStore.toggleActiveDropdown(props.model.getEmail());
 }
 
