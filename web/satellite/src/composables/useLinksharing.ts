@@ -45,9 +45,9 @@ export function useLinksharing() {
 
         const LINK_SHARING_AG_NAME = `${path}_shared-${type}_${new Date().toISOString()}`;
         const grant: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, selectedProject.value.id);
-        const credentials: EdgeCredentials = await generateCredentials(grant.secret, path, null);
+        const creds: EdgeCredentials = await generateCredentials(grant.secret, path, null);
 
-        return `${publicLinksharingURL.value}/${credentials.accessKeyId}/${encodeURIComponent(path.trim())}`;
+        return `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${encodeURIComponent(path.trim())}`;
     }
 
     async function generateObjectPreviewAndMapURL(bucketName: string, path: string): Promise<string> {
