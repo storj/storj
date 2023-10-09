@@ -79,7 +79,7 @@
                     title="Download"
                     :progress="egressUsedPercent"
                     :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
-                    :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)}`"
+                    :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
                     :available="`${usedLimitFormatted(availableEgress)} Available`"
                     cta="Need more?"
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
@@ -89,7 +89,7 @@
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
-                <v-card ref="chartContainer" variant="flat" :border="true" rounded="xlg">
+                <v-card ref="chartContainer" class="pb-4" variant="flat" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center">
                             <IconCloud class="mr-2" width="16" height="16" />
@@ -103,12 +103,11 @@
                         :data="storageUsage"
                         :since="chartsSinceDate"
                         :before="chartsBeforeDate"
-                        class="pr-4 pb-4"
                     />
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card variant="flat" :border="true" rounded="xlg">
+                <v-card class="pb-4" variant="flat" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center">
                             <IconArrowDown class="mr-2" width="16" height="16" />
@@ -122,7 +121,6 @@
                         :data="allocatedBandwidthUsage"
                         :since="chartsSinceDate"
                         :before="chartsBeforeDate"
-                        class="pr-4 pb-4"
                     />
                 </v-card>
             </v-col>
@@ -148,7 +146,7 @@
                     :title="isFreeTierCoupon ? 'Free Usage' : 'Coupon'"
                     :progress="couponProgress"
                     :used="`${couponProgress}% Used`"
-                    :limit="`Limit: ${couponValue}`"
+                    :limit="`Included free usage: ${couponValue}`"
                     :available="`${couponRemainingPercent}% Available`"
                     :cta="isFreeTierCoupon ? 'Learn more' : 'View Coupons'"
                     @cta-click="onCouponCTAClicked"
@@ -415,7 +413,7 @@ const promptForPassphrase = computed((): boolean => {
  * Used container size recalculation for charts resizing.
  */
 function recalculateChartWidth(): void {
-    chartWidth.value = chartContainer.value?.$el.getBoundingClientRect().width || 0;
+    chartWidth.value = chartContainer.value?.$el.getBoundingClientRect().width - 16 || 0;
 }
 
 /**
