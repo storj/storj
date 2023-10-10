@@ -14,7 +14,7 @@
                 :label="'Go ' + (isFatal ? 'to homepage' : 'back')"
                 width="auto"
                 height="auto"
-                border-radius="26px"
+                border-radius="6px"
                 :on-press="onButtonClick"
             />
         </div>
@@ -96,10 +96,19 @@ onMounted(() => {
         padding: 52px 24px;
         box-sizing: border-box;
         display: flex;
-        background: url('../../static/images/errors/dotWorld.png') no-repeat center 178px;
         flex-direction: column;
         justify-content: center;
         overflow-y: auto;
+
+        &:before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url('../../static/images/errors/world.svg') no-repeat center;
+            background-size: auto 75%;
+            z-index: -1;
+            opacity: 0.15;
+        }
 
         &__logo-wrapper {
             height: 30.89px;
