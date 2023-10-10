@@ -117,18 +117,15 @@ watch(passphrase, async () => {
     });
 
     try {
-        let promises: Promise<void>[] = [
+        const promises: Promise<void>[] = [
             bucketsStore.getBuckets(bucketPage.value.currentPage, projectID),
+            obStore.getObjectCount(),
         ];
 
         if (isPaginationEnabled.value) {
             promises.push(obStore.initList(''));
         } else {
-            promises = [
-                ...promises,
-                obStore.list(''),
-                obStore.getObjectCount(),
-            ];
+            promises.push(obStore.list(''));
         }
 
         await Promise.all(promises);

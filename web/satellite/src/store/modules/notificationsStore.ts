@@ -1,21 +1,16 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { VNode, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { DelayedNotification, NOTIFICATION_TYPES } from '@/types/DelayedNotification';
+import { DelayedNotification, NotificationMessage, NotificationType } from '@/types/DelayedNotification';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
     public analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-}
-
-interface ErrorPayload {
-    message: string,
-    source: AnalyticsErrorEventSource | null,
 }
 
 export const useNotificationsStore = defineStore('notifications', () => {
@@ -51,47 +46,46 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
-    function notifySuccess(message: string, messageNode?: string): void {
+    function notifySuccess(message: NotificationMessage, title?: string): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
-            NOTIFICATION_TYPES.SUCCESS,
+            NotificationType.Success,
             message,
-            messageNode,
+            title,
         );
 
         addNotification(notification);
     }
 
-    function notifyInfo(message: string): void {
+    function notifyInfo(message: NotificationMessage): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
-            NOTIFICATION_TYPES.NOTIFICATION,
-            message,
-        );
-
-        addNotification(notification);
-    }
-
-    function notifyWarning(message: string): void {
-        const notification = new DelayedNotification(
-            () => deleteNotification(notification.id),
-            NOTIFICATION_TYPES.WARNING,
+            NotificationType.Info,
             message,
         );
 
         addNotification(notification);
     }
 
-    function notifyError(payload: ErrorPayload, messageNode?: string): void {
-        if (payload.source) {
-            state.analytics.errorEventTriggered(payload.source);
+    function notifyWarning(message: NotificationMessage): void {
+        const notification = new DelayedNotification(
+            () => deleteNotification(notification.id),
+            NotificationType.Warning,
+            message,
+        );
+
+        addNotification(notification);
+    }
+
+    function notifyError(message: NotificationMessage, source?: AnalyticsErrorEventSource): void {
+        if (source) {
+            state.analytics.errorEventTriggered(source);
         }
 
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
-            NOTIFICATION_TYPES.ERROR,
-            payload.message,
-            messageNode,
+            NotificationType.Error,
+            message,
         );
 
         addNotification(notification);

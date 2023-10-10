@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, onBeforeMount, onMounted, ref, Teleport, watch } from 'vue';
+import { Component, computed, h, onBeforeMount, onMounted, ref, Teleport, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import prettyBytes from 'pretty-bytes';
 
@@ -324,13 +324,12 @@ async function onDelete(): Promise<void> {
 async function download(): Promise<void> {
     try {
         await obStore.download(file.value);
-        const message = `
-            <p class="message-title">Downloading...</p>
-            <p class="message-info">
-                Keep this download link private.<br>If you want to share, use the Share option.
-            </p>
-        `;
-        notify.success('', message);
+        notify.success(() => [
+            h('p', { class: 'message-title' }, 'Downloading...'),
+            h('p', { class: 'message-info' }, [
+                'Keep this download link private.', h('br'), 'If you want to share, use the Share option.',
+            ]),
+        ]);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }

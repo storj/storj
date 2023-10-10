@@ -68,7 +68,9 @@
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Add STORJ Tokens</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus">
+                                    Add STORJ Tokens
+                                </v-btn>
                                 <!-- <v-btn variant="tonal" color="default" size="small" class="mr-2">View Transactions</v-btn> -->
                             </v-card-text>
                         </v-card>
@@ -98,26 +100,45 @@
                                 >
                                     {{ couponDiscount }}
                                 </v-chip>
+
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Add Coupon</v-btn>
+
+                                <v-btn
+                                    variant="outlined"
+                                    color="default"
+                                    size="small"
+                                    class="mr-2"
+                                    prepend-icon="mdi-plus"
+                                    @click="isAddCouponDialogShown = true"
+                                >
+                                    Add Coupon
+                                </v-btn>
                             </v-card-text>
                         </v-card>
                         <v-card
-                            v-else
+                            v-else-if="couponCodeBillingUIEnabled"
                             title="Coupon"
                             subtitle="Apply a new coupon to your account"
                             variant="flat"
                             rounded="xlg"
                         >
                             <v-card-text>
-                                <div v-if="isLoading" class="pb-2 text-center">
-                                    <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
-                                </div>
-                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip rounded color="green" variant="outlined" class="font-weight-bold mb-2">
                                     No Coupon
                                 </v-chip>
+
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">+ Apply New Coupon</v-btn>
+
+                                <v-btn
+                                    variant="outlined"
+                                    color="default"
+                                    size="small"
+                                    class="mr-2"
+                                    prepend-icon="mdi-plus"
+                                    @click="isAddCouponDialogShown = true"
+                                >
+                                    Apply New Coupon
+                                </v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -163,7 +184,7 @@
                                 <!-- <v-chip rounded color="purple2" variant="tonal" class="font-weight-bold mb-2">$0</v-chip> -->
                                 <p>You can add personal or company info, billing email, and VAT.</p>
                                 <v-divider class="my-4" />
-                                <v-btn color="primary" size="small">+ Add Billing Information</v-btn>
+                                <v-btn color="primary" size="small" prepend-icon="mdi-plus">Add Billing Information</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -171,6 +192,8 @@
             </v-window-item>
         </v-window>
     </v-container>
+
+    <apply-coupon-code-dialog v-model="isAddCouponDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -189,7 +212,6 @@ import {
     VDivider,
     VBtn,
     VProgressCircular,
-    VIcon,
 } from 'vuetify/components';
 
 import { useLoading } from '@/composables/useLoading';
@@ -200,6 +222,7 @@ import { centsToDollars } from '@/utils/strings';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
@@ -207,50 +230,24 @@ import BillingHistoryTab from '@poc/components/billing/BillingHistoryTab.vue';
 import UsageAndChargesComponent from '@poc/components/billing/UsageAndChargesComponent.vue';
 import StorjTokenCardComponent from '@poc/components/StorjTokenCardComponent.vue';
 import TokenTransactionsTableComponent from '@poc/components/TokenTransactionsTableComponent.vue';
+import ApplyCouponCodeDialog from '@poc/components/dialogs/ApplyCouponCodeDialog.vue';
 
 const tab = ref(0);
-const search = ref<string>('');
-const selected = ref([]);
-
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
 const isRollupLoading = ref(true);
+const isAddCouponDialogShown = ref<boolean>(false);
 
 const creditCards = computed((): CreditCard[] => {
     return billingStore.state.creditCards;
 });
 
-const sortBy = [{ key: 'date', order: 'asc' }];
-const headers = [
-    { title: 'Date', key: 'date' },
-    { title: 'Amount', key: 'amount' },
-    { title: 'Status', key: 'status' },
-    { title: 'Invoice', key: 'invoice' },
-];
-const invoices = [
-    {
-        date: 'Jun 2023',
-        status: 'Pending',
-        amount: '$23',
-        invoice: 'Invoice',
-    },
-    {
-        date: 'May 2023',
-        status: 'Unpaid',
-        amount: '$821',
-        invoice: 'Invoice',
-    },
-    {
-        date: 'Apr 2023',
-        status: 'Paid',
-        amount: '$9,345',
-        invoice: 'Invoice',
-    },
-];
+const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 
 /**
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.
@@ -321,12 +318,6 @@ const isCouponActive = computed((): boolean => {
 
 function goToTransactionsTab() {
     tab.value = 2;
-}
-
-function getColor(status: string): string {
-    if (status === 'Paid') return 'success';
-    if (status === 'Pending') return 'warning';
-    return 'error';
 }
 
 onMounted(async () => {

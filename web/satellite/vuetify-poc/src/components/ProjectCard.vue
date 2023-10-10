@@ -60,7 +60,7 @@
 
                             <v-divider class="my-2" />
 
-                            <v-list-item link class="mt-1" rounded="lg">
+                            <v-list-item link class="mt-1" rounded="lg" @click="emit('inviteClick')">
                                 <template #prepend>
                                     <icon-team size="18" />
                                 </template>
@@ -112,8 +112,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    'joinClick': [];
-    'createClick': [];
+    joinClick: [];
+    createClick: [];
+    inviteClick: [];
 }>();
 
 const analyticsStore = useAnalyticsStore();

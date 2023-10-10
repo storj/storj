@@ -30,7 +30,7 @@
             <v-menu activator="parent">
                 <v-list class="pa-2">
                     <template v-if="file.type !== 'folder'">
-                        <v-list-item density="comfortable" link rounded="lg">
+                        <v-list-item density="comfortable" link rounded="lg" @click="emit('previewClick')">
                             <template #prepend>
                                 <icon-preview />
                             </template>
@@ -59,7 +59,7 @@
                         </v-list-item>
                     </template>
 
-                    <v-list-item density="comfortable" link rounded="lg" @click="() => emit('shareClick')">
+                    <v-list-item density="comfortable" link rounded="lg" @click="emit('shareClick')">
                         <template #prepend>
                             <icon-share bold />
                         </template>
@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, h } from 'vue';
 import {
     VMenu,
     VList,
@@ -119,13 +119,12 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+    previewClick: [];
     deleteFileClick: [];
     shareClick: [];
 }>();
 
 const isDownloading = ref<boolean>(false);
-
-const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 async function onDownloadClick(): Promise<void> {
     if (isDownloading.value) {
@@ -135,7 +134,10 @@ async function onDownloadClick(): Promise<void> {
     isDownloading.value = true;
     try {
         await obStore.download(props.file);
-        notify.success('', `<p>Keep this download link private.<br>If you want to share, use the Share option.</p>`);
+        notify.success(
+            () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+            'Download Started',
+        );
     } catch (error) {
         error.message = `Error downloading file. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);

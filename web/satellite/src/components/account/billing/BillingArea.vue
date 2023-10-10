@@ -40,21 +40,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
 import { useNotify } from '@/utils/hooks';
-import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
-const billingStore = useBillingStore();
+
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
@@ -141,21 +139,6 @@ function routeToCoupons(): void {
         router.push(couponsPath);
     }
 }
-
-/**
- * Mounted lifecycle hook after initial render.
- * Fetches account balance and credit cards.
- */
-onMounted(async (): Promise<void> => {
-    try {
-        await Promise.all([
-            billingStore.getBalance(),
-            billingStore.getCreditCards(),
-        ]);
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
-    }
-});
 </script>
 
 <style scoped lang="scss">

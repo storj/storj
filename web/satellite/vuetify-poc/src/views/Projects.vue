@@ -91,7 +91,7 @@
                 <ProjectCard class="h-100" @create-click="isCreateProjectDialogShown = true" />
             </v-col>
             <v-col v-for="item in items" v-else :key="item.id" cols="12" sm="6" md="4" lg="3">
-                <ProjectCard :item="item" class="h-100" @join-click="onJoinClicked(item)" />
+                <ProjectCard :item="item" class="h-100" @join-click="onJoinClicked(item)" @invite-click="onInviteClicked(item)" />
             </v-col>
         </v-row>
     </v-container>
@@ -103,6 +103,7 @@
         :name="joiningItem.name"
     />
     <create-project-dialog v-model="isCreateProjectDialogShown" />
+    <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="addMemberProjectId" />
 </template>
 
 <script setup lang="ts">
@@ -112,15 +113,6 @@ import {
     VRow,
     VCol,
     VBtn,
-    VDialog,
-    VCard,
-    VSheet,
-    VCardItem,
-    VCardTitle,
-    VDivider,
-    VForm,
-    VTextField,
-    VCardActions,
     VSpacer,
     VBtnToggle,
     VProgressCircular,
@@ -137,24 +129,19 @@ import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import ProjectsTableComponent from '@poc/components/ProjectsTableComponent.vue';
 import JoinProjectDialog from '@poc/components/dialogs/JoinProjectDialog.vue';
 import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue';
+import AddTeamMemberDialog from '@poc/components/dialogs/AddTeamMemberDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 
-const dialog = ref<boolean>(false);
-const valid = ref<boolean>(false);
-const name = ref<string>('');
 const isLoading = ref<boolean>(true);
 
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
-
-const nameRules = [
-    value => (!!value || 'Project name is required.'),
-    value => ((value?.length <= 100) || 'Name must be less than 100 characters.'),
-];
+const addMemberProjectId = ref<string>('');
+const isAddMemberDialogShown = ref<boolean>(false);
 
 /**
  * Returns whether to use the table view.
@@ -205,6 +192,14 @@ const items = computed((): ProjectItemModel[] => {
 function onJoinClicked(item: ProjectItemModel): void {
     joiningItem.value = item;
     isJoinProjectDialogShown.value = true;
+}
+
+/**
+ * Displays the Add Members dialog.
+ */
+function onInviteClicked(item: ProjectItemModel): void {
+    addMemberProjectId.value = item.id;
+    isAddMemberDialogShown.value = true;
 }
 
 onMounted(async (): Promise<void> => {

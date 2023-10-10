@@ -4,92 +4,94 @@
 <template>
     <v-dialog v-model="model" transition="fade-transition" class="preview-dialog" fullscreen theme="dark" persistent no-click-animation>
         <v-card class="preview-card">
-            <v-carousel v-model="constCarouselIndex" hide-delimiters show-arrows="hover" height="100vh">
-                <template #prev>
-                    <v-btn
-                        v-if="files.length > 1"
-                        color="default"
-                        class="rounded-circle"
-                        icon
-                        @click="onPrevious"
-                    >
-                        <v-icon icon="mdi-chevron-left" size="x-large" />
+            <v-toolbar
+                color="rgba(0, 0, 0, 0.3)"
+                theme="dark"
+            >
+                <v-toolbar-title>
+                    {{ fileName }}
+                </v-toolbar-title>
+                <template #append>
+                    <v-btn :loading="isDownloading" icon size="small" color="white" @click="download">
+                        <img src="@poc/assets/icon-download.svg" width="22" alt="Download">
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                        >
+                            Download
+                        </v-tooltip>
+                    </v-btn>
+                    <v-btn icon size="small" color="white" @click="isShareDialogShown = true">
+                        <icon-share size="22" />
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                        >
+                            Share
+                        </v-tooltip>
+                    </v-btn>
+                    <v-btn icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
+                        <icon-distribution size="22" />
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                        >
+                            Geographic Distribution
+                        </v-tooltip>
+                    </v-btn>
+                    <v-btn icon size="small" color="white">
+                        <img src="@poc/assets/icon-more.svg" width="22" alt="More">
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                        >
+                            More
+                        </v-tooltip>
+                    </v-btn>
+                    <v-btn icon size="small" color="white" @click="model = false">
+                        <img src="@poc/assets/icon-close.svg" width="18" alt="Close">
+                        <v-tooltip
+                            activator="parent"
+                            location="bottom"
+                        >
+                            Close
+                        </v-tooltip>
                     </v-btn>
                 </template>
-                <template #next>
-                    <v-btn
-                        v-if="files.length > 1"
-                        color="default"
-                        class="rounded-circle"
-                        icon
-                        @click="onNext"
-                    >
-                        <v-icon icon="mdi-chevron-right" size="x-large" />
-                    </v-btn>
-                </template>
-                <v-toolbar
-                    color="rgba(0, 0, 0, 0.3)"
-                    theme="dark"
-                >
-                    <v-toolbar-title>
-                        {{ fileName }}
-                    </v-toolbar-title>
-                    <template #append>
-                        <v-btn :loading="isDownloading" icon size="small" color="white" @click="download">
-                            <img src="@poc/assets/icon-download.svg" width="22" alt="Download">
-                            <v-tooltip
-                                activator="parent"
-                                location="bottom"
-                            >
-                                Download
-                            </v-tooltip>
-                        </v-btn>
-                        <v-btn icon size="small" color="white" @click="isShareDialogShown = true">
-                            <icon-share size="22" />
-                            <v-tooltip
-                                activator="parent"
-                                location="bottom"
-                            >
-                                Share
-                            </v-tooltip>
-                        </v-btn>
-                        <v-btn icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
-                            <icon-distribution size="22" />
-                            <v-tooltip
-                                activator="parent"
-                                location="bottom"
-                            >
-                                Geographic Distribution
-                            </v-tooltip>
-                        </v-btn>
-                        <v-btn icon size="small" color="white">
-                            <img src="@poc/assets/icon-more.svg" width="22" alt="More">
-                            <v-tooltip
-                                activator="parent"
-                                location="bottom"
-                            >
-                                More
-                            </v-tooltip>
-                        </v-btn>
-                        <v-btn icon size="small" color="white" @click="model = false">
-                            <img src="@poc/assets/icon-close.svg" width="18" alt="Close">
-                            <v-tooltip
-                                activator="parent"
-                                location="bottom"
-                            >
-                                Close
-                            </v-tooltip>
+            </v-toolbar>
+            <div class="flex-grow-1">
+                <v-carousel v-model="constCarouselIndex" hide-delimiters show-arrows="hover" class="h-100">
+                    <template #prev>
+                        <v-btn
+                            v-if="files.length > 1"
+                            color="default"
+                            class="rounded-circle"
+                            icon
+                            @click="onPrevious"
+                        >
+                            <v-icon icon="mdi-chevron-left" size="x-large" />
                         </v-btn>
                     </template>
-                </v-toolbar>
+                    <template #next>
+                        <v-btn
+                            v-if="files.length > 1"
+                            color="default"
+                            class="rounded-circle"
+                            icon
+                            @click="onNext"
+                        >
+                            <v-icon icon="mdi-chevron-right" size="x-large" />
+                        </v-btn>
+                    </template>
 
-                <v-carousel-item v-for="(file, i) in files" :key="file.Key">
-                    <!-- v-carousel will mount all items at the same time -->
-                    <!-- so :active will tell file-preview-item if it is the current. -->
-                    <!-- If it is, it'll load the preview. -->
-                    <file-preview-item :active="i === fileIndex" :file="file" @download="download" />
-                </v-carousel-item>
-            </v-carousel>
+                    <v-carousel-item v-for="(file, i) in files" :key="file.Key">
+                        <!-- v-carousel will mount all items at the same time -->
+                        <!-- so :active will tell file-preview-item if it is the current. -->
+                        <!-- If it is, it'll load the preview. -->
+                        <file-preview-item :active="i === fileIndex" :file="file" @download="download" />
+                    </v-carousel-item>
+                </v-carousel>
+            </div>
         </v-card>
     </v-dialog>
 
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -205,7 +207,10 @@ async function download(): Promise<void> {
     isDownloading.value = true;
     try {
         await obStore.download(currentFile.value);
-        notify.success('', `<p>Keep this download link private.<br>If you want to share, use the Share option.</p>`);
+        notify.success(
+            () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+            'Download Started',
+        );
     } catch (error) {
         error.message = `Error downloading file. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);

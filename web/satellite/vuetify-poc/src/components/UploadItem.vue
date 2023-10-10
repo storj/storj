@@ -2,12 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row class="pt-2" justify="space-between">
-        <v-col cols="9">
-            <p class="text-truncate">{{ item.Key }}</p>
-        </v-col>
-        <v-col cols="auto">
-            <v-tooltip :text="uploadStatus">
+    <v-list-item :title="item.Key" class="px-6" height="54" :link="props.item.status === UploadingStatus.Finished">
+        <template #append>
+            <v-tooltip :text="uploadStatus" location="left">
                 <template #activator="{ props: activatorProps }">
                     <v-progress-circular
                         v-if="props.item.status === UploadingStatus.InProgress"
@@ -36,13 +33,13 @@
                     />
                 </template>
             </v-tooltip>
-        </v-col>
-    </v-row>
+        </template>
+    </v-list-item>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VCol, VIcon, VProgressCircular, VRow, VTooltip } from 'vuetify/components';
+import { VListItem, VIcon, VProgressCircular, VTooltip } from 'vuetify/components';
 
 import {
     UploadingBrowserObject,

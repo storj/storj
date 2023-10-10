@@ -14,9 +14,8 @@
             :key="item.id"
             closable
             variant="elevated"
-            :title="title(item.type)"
-            :text="item.messageNode ? '' : item.message"
-            :type="getType(item.type)"
+            :title="item.title || item.type"
+            :type="item.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info'"
             rounded="lg"
             class="my-2"
             border
@@ -25,8 +24,7 @@
             @click:close="() => onCloseClick(item.id)"
         >
             <template #default>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div v-if="item.messageNode" v-html="item.messageNode" />
+                <component :is="item.messageNode" />
             </template>
         </v-alert>
     </v-snackbar>
@@ -37,7 +35,7 @@ import { computed } from 'vue';
 import { VAlert, VSnackbar } from 'vuetify/components';
 
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { DelayedNotification, NOTIFICATION_TYPES } from '@/types/DelayedNotification';
+import { DelayedNotification } from '@/types/DelayedNotification';
 
 const notificationsStore = useNotificationsStore();
 
@@ -54,34 +52,6 @@ const doNotificationsExist = computed((): boolean => {
 const notifications = computed((): DelayedNotification[] => {
     return notificationsStore.state.notificationQueue as DelayedNotification[];
 });
-
-/**
- * Returns notification title based on type.
- * @param itemType
- */
-function title(itemType: string): string {
-    const type = getType(itemType);
-    const [firstLetter, ...rest] = type;
-
-    return `${firstLetter.toUpperCase()}${rest.join('')}`;
-}
-
-/**
- * Returns notification type.
- * @param itemType
- */
-function getType(itemType: string): string {
-    switch (itemType) {
-    case NOTIFICATION_TYPES.SUCCESS:
-        return 'success';
-    case NOTIFICATION_TYPES.ERROR:
-        return 'error';
-    case NOTIFICATION_TYPES.WARNING:
-        return 'warning';
-    default:
-        return 'info';
-    }
-}
 
 /**
  * Forces notification to stay on page on mouse over it.

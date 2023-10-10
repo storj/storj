@@ -14,6 +14,7 @@
             />
             <add-token-card-native
                 v-else-if="nativeTokenPaymentsEnabled"
+                :parent-init-loading="parentInitLoading"
                 @showTransactions="showTransactionsTable"
             />
             <add-token-card
@@ -196,6 +197,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -235,6 +237,7 @@ const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 
 const { handleCreateProjectClick } = useCreateProjectClickHandler();
+const { isLoading: parentInitLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
@@ -479,12 +482,23 @@ function paginationController(page: number, limit: number): void {
     displayedHistory.value = nativePaymentHistoryItems.value.slice((page - 1) * limit, ((page - 1) * limit) + limit);
 }
 
-onMounted((): void => {
+onMounted(async (): Promise<void> => {
     defaultCreditCardSelection.value = creditCards.value.find(c => c.isDefault)?.id ?? '';
 
     if (route.query.action === 'token history') {
         showTransactionsTable();
     }
+
+    await withLoading(async () => {
+        try {
+            await Promise.all([
+                billingStore.getWallet(),
+                billingStore.getCreditCards(),
+            ]);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        }
+    });
 });
 </script>
 

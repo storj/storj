@@ -287,6 +287,7 @@ import { useAppStore } from '@poc/store/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { RouteName } from '@poc/router';
 
 import IconProject from '@poc/components/icons/IconProject.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -377,13 +378,21 @@ function compareProjects(a: Project, b: Project): number {
  */
 async function onProjectSelected(project: Project): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    await router.push({
-        name: route.name || undefined,
-        params: {
-            ...route.params,
-            id: project.urlId,
-        },
-    });
+    if (route.name === RouteName.Bucket) {
+        await router.push({
+            name: RouteName.Buckets,
+            params: { id: project.urlId },
+        });
+    } else {
+        await router.push({
+            name: route.name || undefined,
+            params: {
+                ...route.params,
+                id: project.urlId,
+            },
+        });
+    }
+
     bucketsStore.clearS3Data();
 }
 
