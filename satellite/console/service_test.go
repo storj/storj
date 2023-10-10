@@ -1703,7 +1703,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Wallet:    pmnt.To.Hex(),
 				Amount:    pmnt.USDValue,
 				Status:    string(pmnt.Status),
-				Link:      console.EtherscanURL(pmnt.Transaction.Hex()),
+				Link:      sat.API.Console.Service.Payments().EtherscanURL(pmnt.Transaction.Hex()),
 				Timestamp: pmnt.Timestamp,
 			})
 		}
@@ -1745,7 +1745,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,
 				Status:    string(txn.Status),
-				Link:      console.EtherscanURL(meta.ReferenceID),
+				Link:      sat.API.Console.Service.Payments().EtherscanURL(meta.ReferenceID),
 				Timestamp: txn.Timestamp,
 			})
 		}

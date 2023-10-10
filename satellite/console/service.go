@@ -3156,8 +3156,13 @@ type WalletPayments struct {
 }
 
 // EtherscanURL creates etherscan transaction URI.
-func EtherscanURL(tx string) string {
-	return "https://etherscan.io/tx/" + tx
+func (payment Payments) EtherscanURL(tx string) string {
+	url := payment.service.config.BlockExplorerURL
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
+	}
+
+	return url + "tx/" + tx
 }
 
 // ErrWalletNotClaimed shows that no address is claimed by the user.
@@ -3248,7 +3253,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Wallet:    walletPayment.To.Hex(),
 			Amount:    walletPayment.USDValue,
 			Status:    string(walletPayment.Status),
-			Link:      EtherscanURL(walletPayment.Transaction.Hex()),
+			Link:      payment.EtherscanURL(walletPayment.Transaction.Hex()),
 			Timestamp: walletPayment.Timestamp,
 		})
 	}
@@ -3279,7 +3284,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
 			Status:    string(txn.Status),
-			Link:      EtherscanURL(meta.ReferenceID),
+			Link:      payment.EtherscanURL(meta.ReferenceID),
 			Timestamp: txn.Timestamp,
 		})
 	}

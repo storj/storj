@@ -23,6 +23,7 @@ type Config struct {
 	ProjectInvitationExpiration time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
 	UserBalanceForUpgrade       int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides   PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	BlockExplorerURL            string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	UsageLimits                 UsageLimitsConfig
 	Captcha                     CaptchaConfig
 	Session                     SessionConfig
