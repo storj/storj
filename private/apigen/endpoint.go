@@ -9,8 +9,11 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 var (
@@ -282,6 +285,24 @@ type Param struct {
 
 // NewParam constructor which creates new Param entity by given name and type.
 func NewParam(name string, instance interface{}) Param {
+	switch t := reflect.TypeOf(instance); t {
+	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
+	default:
+		switch k := t.Kind(); k {
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String:
+		default:
+			panic(
+				fmt.Sprintf(
+					`Unsupported parameter, only types: %q, %q, string, and "unsigned numbers" are supported . Found type=%q, Kind=%q`,
+					reflect.TypeOf(uuid.UUID{}),
+					reflect.TypeOf(time.Time{}),
+					t,
+					k,
+				),
+			)
+		}
+	}
+
 	return Param{
 		Name: name,
 		Type: reflect.TypeOf(instance),
