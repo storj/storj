@@ -5,7 +5,7 @@
     <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center mt-n16">
         <v-progress-circular indeterminate />
     </v-container>
-    <v-container v-else-if="previewIsVideo" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
         <video
             controls
             :src="objectPreviewUrl"
@@ -13,14 +13,14 @@
             aria-roledescription="video-preview"
         />
     </v-container>
-    <v-container v-else-if="previewIsAudio" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
         <audio
             controls
             :src="objectPreviewUrl"
             aria-roledescription="audio-preview"
         />
     </v-container>
-    <v-container v-else-if="previewIsImage" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="previewType === PreviewType.Image" class="fill-height flex-column justify-center align-center">
         <img
             v-if="objectPreviewUrl"
             :src="objectPreviewUrl"
@@ -29,54 +29,62 @@
             alt="preview"
         >
     </v-container>
-    <v-container v-else-if="placeHolderDisplayable || previewAndMapFailed" class="fill-height flex-column justify-center align-center mt-n16">
-        <p class="mb-5">{{ file?.Key || '' }}</p>
-        <p class="text-h5 mb-5 font-weight-bold">No preview available</p>
-        <v-btn
-            @click="() => emits('download')"
+    <v-container v-else-if="previewType === PreviewType.PDF" class="fill-height flex-column justify-center align-center">
+        <object
+            :data="objectPreviewUrl"
+            type="application/pdf"
+            aria-roledescription="pdf-preview"
+            class="h-100 w-100"
         >
-            <template #prepend>
-                <img src="@poc/assets/icon-download.svg" width="22" alt="Download">
-            </template>
-            {{ `Download (${prettyBytes(file?.Size || 0)})` }}
-        </v-btn>
+            <file-preview-placeholder :file="file" @download="emit('download')" />
+        </object>
     </v-container>
+    <file-preview-placeholder v-else class="mt-n16" :file="file" @download="emit('download')" />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VBtn, VContainer, VProgressCircular } from 'vuetify/components';
-import { useRoute } from 'vue-router';
-import prettyBytes from 'pretty-bytes';
+import { VContainer, VProgressCircular } from 'vuetify/components';
 
-import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLinksharing } from '@/composables/useLinksharing';
 
-const appStore = useAppStore();
+import FilePreviewPlaceholder from '@poc/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
+
+enum PreviewType {
+    None,
+    Image,
+    Video,
+    Audio,
+    PDF,
+}
+
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const { generateObjectPreviewAndMapURL } = useLinksharing();
 
-const route = useRoute();
-
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
 
-const imgExts = ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'];
-const videoExts = ['m4v', 'mp4', 'webm', 'mov', 'mkv'];
-const audioExts = ['m4a', 'mp3', 'wav', 'ogg'];
+const extInfos = new Map<string[], PreviewType>([
+    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'], PreviewType.Image],
+    [['m4v', 'mp4', 'webm', 'mov', 'mkv'], PreviewType.Video],
+    [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
+    [['pdf'], PreviewType.PDF],
+]);
 
 const props = defineProps<{
   file: BrowserObject,
   active: boolean, // whether this item is visible
 }>();
 
-const emits = defineEmits(['download']);
+const emit = defineEmits<{
+    download: [];
+}>();
 
 /**
  * Returns object preview URLs cache from store.
@@ -109,54 +117,20 @@ const encodedFilePath = computed((): string => {
 });
 
 /**
- * Get the extension of the current file.
+ * Returns the type of object being previewed.
  */
-const extension = computed((): string | undefined => {
-    return props.file.Key.split('.').pop();
-});
+const previewType = computed<PreviewType>(() => {
+    if (previewAndMapFailed.value) return PreviewType.None;
 
-/**
- * Check to see if the current file is an image file.
- */
-const previewIsImage = computed((): boolean => {
-    if (!extension.value) {
-        return false;
+    const dotIdx = props.file.Key.lastIndexOf('.');
+    if (dotIdx === -1) return PreviewType.None;
+
+    const ext = props.file.Key.toLowerCase().slice(dotIdx + 1);
+    for (const [exts, previewType] of extInfos) {
+        if (exts.includes(ext)) return previewType;
     }
 
-    return imgExts.includes(extension.value.toLowerCase());
-});
-
-/**
- * Check to see if the current file is a video file.
- */
-const previewIsVideo = computed((): boolean => {
-    if (!extension.value) {
-        return false;
-    }
-
-    return videoExts.includes(extension.value.toLowerCase());
-});
-
-/**
- * Check to see if the current file is an audio file.
- */
-const previewIsAudio = computed((): boolean => {
-    if (!extension.value) {
-        return false;
-    }
-
-    return audioExts.includes(extension.value.toLowerCase());
-});
-
-/**
- * Check to see if the current file is neither an image file, video file, or audio file.
- */
-const placeHolderDisplayable = computed((): boolean => {
-    return [
-        previewIsImage.value,
-        previewIsVideo.value,
-        previewIsAudio.value,
-    ].every((value) => !value);
+    return PreviewType.None;
 });
 
 /**
