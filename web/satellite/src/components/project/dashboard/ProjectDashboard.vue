@@ -599,7 +599,7 @@ onBeforeUnmount((): void => {
                             width: 10px;
                             height: 10px;
                             border-radius: 2px;
-                            background: #929fb1;
+                            background: var(--c-grey-5);
                         }
 
                         &__allocated-label {

@@ -152,15 +152,10 @@ defineExpose({
         box-sizing: border-box;
         width: 100%;
         padding: 13px 12px;
-        border: 1px solid transparent;
+        border: 1px solid var(--c-grey-2);
         border-radius: 4px;
         background-color: white;
-        box-shadow: 0 1px 3px 0 #e6ebf1;
-        transition: box-shadow 150ms ease;
-    }
-
-    .StripeElement--focus {
-        box-shadow: 0 1px 3px 0 #cfd7df;
+        box-shadow: 0 2px 5px 0 rgb(50 50 93 / 7%);
     }
 
     .StripeElement--invalid {

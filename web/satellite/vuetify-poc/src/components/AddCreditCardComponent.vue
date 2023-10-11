@@ -9,6 +9,7 @@
             <template v-else>
                 <StripeCardInput
                     ref="stripeCardInput"
+                    class="mb-4"
                     :on-stripe-response-callback="addCardToDB"
                 />
             </template>
