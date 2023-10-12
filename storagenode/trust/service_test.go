@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -40,7 +39,7 @@ func TestPoolVerifySatelliteID(t *testing.T) {
 
 		// Assert the ID is not trusted
 		err := pool.VerifySatelliteID(context.Background(), id)
-		require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 
 		// Refresh the pool with the new trust entry
 		source.entries = []trust.Entry{
@@ -64,7 +63,7 @@ func TestPoolVerifySatelliteID(t *testing.T) {
 
 		// Assert the ID is no longer trusted
 		err = pool.VerifySatelliteID(context.Background(), id)
-		require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 	})
 }
 
@@ -81,7 +80,7 @@ func TestPoolGetSignee(t *testing.T) {
 
 		// ID is untrusted
 		_, err := pool.GetSignee(context.Background(), id)
-		require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 
 		// Refresh the pool with the new trust entry
 		source.entries = []trust.Entry{{SatelliteURL: url}}
@@ -265,7 +264,7 @@ func TestPoolGetAddress(t *testing.T) {
 
 		// Assert the ID is not trusted
 		nodeurl, err := pool.GetNodeURL(context.Background(), id)
-		require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 		require.Empty(t, nodeurl)
 
 		// Refresh the pool with the new trust entry
