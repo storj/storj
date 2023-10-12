@@ -25,7 +25,7 @@
                         <LogoIcon v-else class="logo-no-partner" @click="onLogoClick" />
                     </div>
                 </div>
-                <h1 class="register-area__intro-area__title">Experience a <span class="text-blue">better cloud storage</span> for your business</h1>
+                <h1 class="register-area__intro-area__title">{{ viewConfig.title }}</h1>
                 <p v-if="viewConfig.description" class="register-area__intro-area__sub-title">{{ viewConfig.description }}</p>
                 <div class="register-area__intro-area__large-content">
                     <!-- eslint-disable-next-line vue/no-v-html -->
