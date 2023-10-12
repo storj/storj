@@ -161,11 +161,6 @@ onBeforeUnmount(() => {
         &__logo-wrapper {
             text-align: center;
             margin-top: 60px;
-
-            svg {
-                width: 207px;
-                height: 37px;
-            }
         }
 
         &__container {
@@ -178,7 +173,7 @@ onBeforeUnmount(() => {
             border-radius: 20px;
             width: 75%;
             margin-top: 50px;
-            padding: 70px 90px 30px;
+            padding: 40px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;

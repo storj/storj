@@ -305,9 +305,7 @@ function sendDocsEvent(): void {
 
         &__logo {
             cursor: pointer;
-            min-height: 37px;
-            width: 207px;
-            height: 37px;
+            width: 144px;
 
             @media screen and (width <= 680px) {
                 display: none;
@@ -372,7 +370,7 @@ function sendDocsEvent(): void {
                 height: 4rem;
 
                 &__logo {
-                    height: 30px;
+                    height: 49px;
                     width: auto;
                 }
             }

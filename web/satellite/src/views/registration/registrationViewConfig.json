@@ -1,12 +1,12 @@
 {
   "default": {
-    "title": "Welcome to the distributed cloud.",
+    "title": "Experience better cloud storage for your business.",
     "partnerUrl": "",
     "partnerLogoTopUrl": "",
     "partnerLogoBottomUrl": "",
-    "description": "Join thousands of developers building on the safer, distributed cloud, and start uploading data in just a few minutes.",
+    "description": "Start for free and get unparalleled performance and security, while shaving a zero of your cloud bill and carbon footprint.",
     "customHtmlDescription": "",
-    "signupButtonLabel": "Sign Up",
-    "tooltip": "When selecting the Satellite for your project, you'll want to choose the geographic region where the majority of the end users of your service who will be interacting with the objects on Storj DCS will be located."
+    "signupButtonLabel": "Get Started",
+    "tooltip": "When selecting the Satellite for your project, you'll want to choose the geographic region where the majority of the end users of your service who will be interacting with the objects on Storj will be located."
   }
 }

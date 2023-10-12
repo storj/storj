@@ -293,12 +293,10 @@ onMounted((): void => {
 
         &__logo-wrapper {
             text-align: center;
-            margin: 70px 0;
+            margin: 60px 0;
 
             &__logo {
                 cursor: pointer;
-                width: 207px;
-                height: 37px;
             }
         }
 

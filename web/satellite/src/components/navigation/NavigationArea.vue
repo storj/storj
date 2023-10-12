@@ -322,9 +322,9 @@ onBeforeUnmount(() => {
 
                 &__logo {
                     cursor: pointer;
-                    min-height: 37px;
-                    width: 207px;
-                    height: 37px;
+                    width: 144px;
+                    position: relative;
+                    left: -34px;
                 }
 
                 &__small-logo {
