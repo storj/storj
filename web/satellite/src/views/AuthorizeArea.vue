@@ -655,8 +655,6 @@ onMounted(async () => {
 
     .logo {
         cursor: pointer;
-        width: 207px;
-        height: 37px;
     }
 
     .disabled,

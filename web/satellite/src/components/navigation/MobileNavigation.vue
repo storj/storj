@@ -614,7 +614,7 @@ async function onLogout(): Promise<void> {
             height: 4rem;
 
             &__logo {
-                height: 30px;
+                height: 49px;
                 width: auto;
             }
         }

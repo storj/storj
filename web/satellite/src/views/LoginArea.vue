@@ -128,7 +128,7 @@
                     width="100%"
                     height="48px"
                     label="Sign In"
-                    border-radius="50px"
+                    border-radius="6px"
                     :is-disabled="isLoading"
                     :on-press="onLoginClick"
                 />
@@ -485,7 +485,7 @@ function validateFields(): boolean {
         display: flex;
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
-        background-color: #f5f6fa;
+        background-color: #F6F7FA;
         position: fixed;
         inset: 0;
         min-height: 100%;
@@ -493,7 +493,7 @@ function validateFields(): boolean {
 
         &__logo-wrapper {
             text-align: center;
-            margin: 70px 0;
+            margin: 60px 0;
         }
 
         &__divider {
@@ -504,7 +504,7 @@ function validateFields(): boolean {
         }
 
         &__input-wrapper {
-            margin-top: 20px;
+            margin-top: 16px;
             width: 100%;
         }
 
@@ -598,9 +598,9 @@ function validateFields(): boolean {
             &__container {
                 display: flex;
                 flex-direction: column;
-                padding: 60px 80px;
+                padding: 26px 40px 40px;
                 background-color: #fff;
-                width: 610px;
+                width: 460px;
                 border-radius: 20px;
                 box-sizing: border-box;
                 margin-bottom: 20px;
@@ -611,10 +611,10 @@ function validateFields(): boolean {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 21px;
                         line-height: 49px;
-                        letter-spacing: -0.1007px;
-                        color: #252525;
+                        letter-spacing: -0.1px;
+                        color: #091C45;
                         font-family: 'font_bold', sans-serif;
                         font-weight: 800;
                     }
@@ -641,7 +641,7 @@ function validateFields(): boolean {
                 }
 
                 &__button {
-                    margin-top: 40px;
+                    margin-top: 30px;
                 }
 
                 &__cancel {
@@ -677,8 +677,6 @@ function validateFields(): boolean {
     }
 
     .logo {
-        width: 207px;
-        height: 37px;
         cursor: pointer;
     }
 
@@ -688,8 +686,12 @@ function validateFields(): boolean {
     }
 
     .link {
-        color: #376fff;
         font-family: 'font_medium', sans-serif;
+        color: var(--c-blue-3);
+    }
+
+    .link:hover {
+        color: var(--c-blue-5);
     }
 
     .link:focus {

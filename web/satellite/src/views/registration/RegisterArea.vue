@@ -25,7 +25,7 @@
                         <LogoIcon v-else class="logo-no-partner" @click="onLogoClick" />
                     </div>
                 </div>
-                <h1 class="register-area__intro-area__title">{{ viewConfig.title }}</h1>
+                <h1 class="register-area__intro-area__title">Experience a <span class="text-blue">better cloud storage</span> for your business</h1>
                 <p v-if="viewConfig.description" class="register-area__intro-area__sub-title">{{ viewConfig.description }}</p>
                 <div class="register-area__intro-area__large-content">
                     <!-- eslint-disable-next-line vue/no-v-html -->
@@ -35,11 +35,6 @@
                             <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
                         </div>
                     </div>
-                    <RegisterGlobe
-                        v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
-                        class="register-area__intro-area__large-content__globe-image"
-                        :class="{'professional-globe': isProfessional}"
-                    />
                 </div>
             </div>
             <div class="register-area__input-area">
@@ -49,7 +44,7 @@
                 >
                     <div class="register-area__input-area__container__title-area">
                         <div class="register-area__input-area__container__title-container">
-                            <h1 class="register-area__input-area__container__title-area__title">Get 25 GB Free</h1>
+                            <h1 class="register-area__input-area__container__title-area__title">Sign up and get 25 GB free</h1>
                         </div>
                         <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
                             <div class="register-area__input-area__info-button">
@@ -259,7 +254,7 @@
                         width="100%"
                         height="48px"
                         :label="viewConfig.signupButtonLabel"
-                        border-radius="50px"
+                        border-radius="6px"
                         :is-disabled="isLoading"
                         :on-press="onCreateClick"
                     />
@@ -305,7 +300,6 @@ import LogoWithPartnerIcon from '@/../static/images/partnerStorjLogo.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 import InfoIcon from '@/../static/images/register/info.svg';
 
 type ViewConfig = {
@@ -351,7 +345,7 @@ const storageNeedsError = ref('');
 const positionError = ref('');
 const isTermsAcceptedError = ref(false);
 const isLoading = ref(false);
-const isProfessional = ref(false);
+const isProfessional = ref(true);
 const haveSalesContact = ref(false);
 
 const captchaError = ref(false);
@@ -808,13 +802,18 @@ async function createUser(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
+    .text-blue {
+        color: var(--c-blue-3);
+    }
     %subtitle-text {
         max-width: 550px;
-        margin-top: 27px;
+        margin-top: 16px;
+        margin-bottom: 16px;
         font-size: 16px;
         font-family: 'font_regular', sans-serif;
-        line-height: 24px;
+        line-height: 28px;
         text-align: left;
+        color: #233A6B;
     }
 
     .logo-divider {
@@ -941,12 +940,13 @@ async function createUser(): Promise<void> {
 
             &__title {
                 font-family: 'font_bold', sans-serif;
-                font-size: 48px;
+                font-size: 38px;
                 font-style: normal;
                 font-weight: 800;
-                line-height: 59px;
-                letter-spacing: 0;
+                line-height: 51px;
+                letter-spacing: -1px;
                 text-align: left;
+                color: #091C45;
             }
 
             &__sub-title {
@@ -978,22 +978,12 @@ async function createUser(): Promise<void> {
                     }
                 }
 
-                &__globe-image {
-                    position: relative;
-                    top: 140px;
-                    left: 40px;
-                }
-
-                &__globe-image.professional-globe {
-                    top: 110px;
-                    left: 40px;
-                }
             }
         }
 
         &__input-area {
             box-sizing: border-box;
-            padding: 60px 80px;
+            padding: 20px 40px;
             background-color: #fff;
             border-radius: 20px;
             width: 50%;
@@ -1103,20 +1093,20 @@ async function createUser(): Promise<void> {
                 &__wrapper {
                     display: flex;
                     justify-content: space-between;
-                    margin: 20px 0 15px;
+                    margin: 14px 0 22px;
                     list-style: none;
                     padding: 0;
                 }
 
                 &__personal {
-                    border-top-left-radius: 20px;
-                    border-bottom-left-radius: 20px;
+                    border-top-left-radius: 6px;
+                    border-bottom-left-radius: 6px;
                     border-right: none;
                 }
 
                 &__professional {
-                    border-top-right-radius: 20px;
-                    border-bottom-right-radius: 20px;
+                    border-top-right-radius: 6px;
+                    border-bottom-right-radius: 6px;
                     border-left: none;
                     position: relative;
                     right: 1px;
@@ -1124,19 +1114,19 @@ async function createUser(): Promise<void> {
 
                 &__personal,
                 &__professional {
-                    color: #376fff;
+                    color: var(--c-blue-3);
                     display: block;
                     width: 100%;
                     text-align: center;
                     padding: 8px;
-                    border: 1px solid #376fff;
+                    border: 1px solid var(--c-blue-3);
                     cursor: pointer;
                 }
 
                 &__personal.active,
                 &__professional.active {
                     color: #fff;
-                    background: #376fff;
+                    background: var(--c-blue-3);
                     font-weight: bold;
                 }
             }
@@ -1149,11 +1139,10 @@ async function createUser(): Promise<void> {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 18px;
                         line-height: 49px;
-                        letter-spacing: -0.1007px;
-                        color: #252525;
-                        font-family: 'font_regular', sans-serif;
+                        color: #000;
+                        font-family: 'font_bold', sans-serif;
                         font-weight: 800;
                         white-space: nowrap;
                     }
@@ -1236,6 +1225,7 @@ async function createUser(): Promise<void> {
                 &__button {
                     margin-top: 30px;
                 }
+
             }
 
             &__footer {
@@ -1256,7 +1246,6 @@ async function createUser(): Promise<void> {
                     font-size: 12px;
                     line-height: 18px;
                     margin-left: 30px;
-                    color: #376fff;
                     text-decoration: none;
                 }
             }
@@ -1272,10 +1261,14 @@ async function createUser(): Promise<void> {
 
                 &__link {
                     font-family: 'font_bold', sans-serif;
+                    color: var(--c-blue-3);
                     text-decoration: none;
                     font-size: 14px;
-                    color: #376fff;
                     margin-left: 5px;
+                }
+
+                &__link:hover {
+                    color: var(--c-blue-5);
                 }
 
                 &__link:focus {
@@ -1454,7 +1447,6 @@ async function createUser(): Promise<void> {
 
                 &__large-content {
 
-                    &__globe-image,
                     &__custom-html-container {
                         display: none;
                     }
@@ -1583,7 +1575,7 @@ async function createUser(): Promise<void> {
             }
 
             &__intro-area__title {
-                font-size: 34px;
+                font-size: 36px;
             }
 
             &__input-area {
