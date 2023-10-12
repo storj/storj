@@ -27,6 +27,7 @@
             class="elevation-1"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject.Key"
             no-data-text="No results found"
+            :page="cursor.page"
             hover
             must-sort
             :loading="isFetching || loading"
@@ -199,6 +200,7 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isFileGuideShown = ref<boolean>(false);
+const routePageCache = new Map<string, number>();
 
 const sortBy = [{ key: 'name', order: 'asc' }];
 const headers = [
@@ -337,6 +339,8 @@ const firstFile = computed<BrowserObject | null>(() => {
  * Handles page change event.
  */
 function onPageChange(page: number): void {
+    const path = filePath.value ? filePath.value + '/' : '';
+    routePageCache.set(path, page);
     obStore.setCursor({ page, limit: options.value?.itemsPerPage ?? 10 });
 
     const lastObjectOnPage = page * cursor.value.limit;
@@ -346,7 +350,6 @@ function onPageChange(page: number): void {
         return;
     }
 
-    const path = filePath.value ? filePath.value + '/' : '';
     const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
 
     const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
@@ -436,6 +439,15 @@ async function fetchFiles(): Promise<void> {
         }
 
         selected.value = [];
+
+        if (isPaginationEnabled.value) {
+            const cachedPage = routePageCache.get(path);
+            if (cachedPage !== undefined) {
+                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+            } else {
+                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
+            }
+        }
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;
         notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
