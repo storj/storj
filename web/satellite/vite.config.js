@@ -66,6 +66,7 @@ export default defineConfig(({ mode }) => {
         },
         define: {
             'process.env': {},
+            __UI_TYPE__: JSON.stringify('legacy'),
         },
         test: {
             globals: true,

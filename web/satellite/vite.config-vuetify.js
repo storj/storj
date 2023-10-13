@@ -22,7 +22,10 @@ export default defineConfig({
             },
         }),
     ],
-    define: { 'process.env': {} },
+    define: {
+        'process.env': {},
+        __UI_TYPE__: JSON.stringify('vuetify'),
+    },
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
