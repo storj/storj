@@ -358,3 +358,71 @@ func TestGetBucketLocation(t *testing.T) {
 		require.Equal(t, []byte("Poland"), response.Location)
 	})
 }
+
+func TestEnableSuspendBucketVersioning(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].Projects[0].ID
+		// create new buckets with each possible versioning state
+		_, err := planet.Satellites[0].API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID:  projectID,
+			Name:       "unsupported",
+			Placement:  storj.EU,
+			Versioning: buckets.VersioningUnsupported,
+		})
+		require.NoError(t, err)
+		_, err = planet.Satellites[0].API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID:  projectID,
+			Name:       "unversioned",
+			Placement:  storj.EU,
+			Versioning: buckets.Unversioned,
+		})
+		require.NoError(t, err)
+		_, err = planet.Satellites[0].API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID:  projectID,
+			Name:       "versioning_enabled",
+			Placement:  storj.EU,
+			Versioning: buckets.VersioningEnabled,
+		})
+		require.NoError(t, err)
+		_, err = planet.Satellites[0].API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID:  projectID,
+			Name:       "versioning_suspended",
+			Placement:  storj.EU,
+			Versioning: buckets.VersioningSuspended,
+		})
+		require.NoError(t, err)
+
+		t.Run("EnableBucketSucceeds", func(t *testing.T) {
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("unversioned"), projectID)
+			require.NoError(t, err)
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("versioning_enabled"), projectID)
+			require.NoError(t, err)
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("versioning_suspended"), projectID)
+			require.NoError(t, err)
+		})
+
+		t.Run("SuspendBucketSucceeds", func(t *testing.T) {
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("versioning_enabled"), projectID)
+			require.NoError(t, err)
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("versioning_suspended"), projectID)
+			require.NoError(t, err)
+		})
+
+		t.Run("EnableBucketVersioning fails due to invalid transition", func(t *testing.T) {
+			// attempt enable bucket versioning on unsupported bucket
+			err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("unsupported"), projectID)
+			require.Error(t, err)
+		})
+
+		t.Run("SuspendBucketVersioning fails due to invalid transition", func(t *testing.T) {
+			// attempt suspend bucket versioning on unsupported
+			err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("unsupported"), projectID)
+			require.Error(t, err)
+			// attempt suspend bucket versioning on unversioned
+			err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("unversioned"), projectID)
+			require.Error(t, err)
+		})
+	})
+}

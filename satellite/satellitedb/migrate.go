@@ -2554,6 +2554,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE value_attributions DROP COLUMN partner_id;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add versioning to bucket_metainfos",
+				Version:     250,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

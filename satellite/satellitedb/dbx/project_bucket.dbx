@@ -14,6 +14,13 @@ model bucket_metainfo (
 	// note: this field is duplicated in value_attribution.user_agent.
 	field user_agent     blob   (nullable, updatable)
 
+	// versioning is the versioning state of the bucket.
+	//    0 - unsupported (represents a bucket where versioning is not supported)
+	//    1 - unversioned (represents a bucket where versioning has never been enabled)
+	//    2 - enabled (represents a bucket where versioning is enabled)
+	//    3 - suspended (represents a bucket where versioning is currently suspended)
+	field versioning    int (updatable, default 0)
+
 	// path_cipher is denotes how the paths have been encoded.
 	// The corresponding type storj.CipherSuite contains the relevant values.
 	// deprecated: in favor of a storing it in an access grant.
@@ -70,6 +77,12 @@ update bucket_metainfo (
 	where bucket_metainfo.name = ?
 )
 
+update bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+	where bucket_metainfo.versioning >= ?
+)
+
 read one (
 	select bucket_metainfo
 	where bucket_metainfo.project_id = ?
@@ -90,6 +103,12 @@ read one (
 
 read one (
     select bucket_metainfo.user_agent
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+    select bucket_metainfo.versioning
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )

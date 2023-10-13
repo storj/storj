@@ -523,6 +523,7 @@ CREATE TABLE bucket_metainfos (
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
 	user_agent bytea,
+	versioning integer NOT NULL DEFAULT 0,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,
