@@ -297,17 +297,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             }
 
             keyCount += response.KeyCount ?? 0;
-            // We decrement key count if we're inside a folder to exclude .file_placeholder object
-            // which was auto created for this folder because it's not visible by the user
-            // and it shouldn't be included in pagination process.
-            if (path) {
-                keyCount -= 1;
-            }
 
             if (!response.NextContinuationToken) break;
 
             state.continuationTokens.set(MAX_KEY_COUNT * (iteration + 1), response.NextContinuationToken);
             iteration++;
+        }
+
+        // We decrement key count if we're inside a folder to exclude .file_placeholder object
+        // which was auto created for this folder because it's not visible by the user
+        // and it shouldn't be included in pagination process.
+        if (path) {
+            keyCount -= 1;
         }
 
         state.totalObjectCount = keyCount;
