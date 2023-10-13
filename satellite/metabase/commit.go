@@ -11,7 +11,6 @@ import (
 
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -695,61 +694,21 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			encryptionParameters{&opts.Encryption},
 		}
 
-		versionsToDelete := []Version{}
-		if err := withRows(tx.QueryContext(ctx, `
-			SELECT version
-			FROM objects
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+statusCommittedUnversioned,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var version Version
-				if err := rows.Scan(&version); err != nil {
-					return Error.New("failed to scan previous object: %w", err)
-				}
-
-				versionsToDelete = append(versionsToDelete, version)
-			}
-			return nil
-		}); err != nil {
-			return Error.New("failed to find previous objects: %w", err)
+		deleteResult, err := db.deleteObjectUnversionedCommitted(ctx, ObjectLocation{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
-		if len(versionsToDelete) > 1 {
-			db.log.Warn("object with multiple committed versions were found!",
-				zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
-				zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("deleted", len(versionsToDelete)))
-
-			mon.Meter("multiple_committed_versions").Mark(1)
-		}
-
-		if len(versionsToDelete) != 0 && opts.DisallowDelete {
+		if deleteResult.DeletedObjectCount > 0 && opts.DisallowDelete {
 			return ErrPermissionDenied.New("no permissions to delete existing object")
 		}
 
 		if opts.UsePendingObjectsTable {
-			// remove existing object(s) before inserting new one
-			// TODO after switching to pending_objects table completely we should
-			// be able to just delete all objects under this key and avoid
-			// selecting versions from above
-			for _, version := range versionsToDelete {
-				_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
-					ObjectLocation: ObjectLocation{
-						ProjectID:  opts.ProjectID,
-						BucketName: opts.BucketName,
-						ObjectKey:  opts.ObjectKey,
-					},
-					Version: version,
-				}, tx)
-				if err != nil {
-					return Error.New("failed to delete existing object: %w", err)
-				}
-			}
-
-			opts.Version = DefaultVersion
+			opts.Version = deleteResult.MaxVersion + 1
 			args[versionArgIndex] = opts.Version
 
 			args = append(args,
@@ -877,20 +836,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					return ErrInvalidRequest.New("Encryption is missing")
 				}
 				return Error.New("failed to update object: %w", err)
-			}
-
-			for _, version := range versionsToDelete {
-				_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
-					ObjectLocation: ObjectLocation{
-						ProjectID:  opts.ProjectID,
-						BucketName: opts.BucketName,
-						ObjectKey:  opts.ObjectKey,
-					},
-					Version: version,
-				}, tx)
-				if err != nil {
-					return Error.New("failed to delete existing object: %w", err)
-				}
 			}
 		}
 

@@ -371,6 +371,8 @@ const (
 	// Pending means that the object is being uploaded or that the client failed during upload.
 	// The failed upload may be continued in the future.
 	Pending = ObjectStatus(1)
+	// Deleting used to one of the stages, which is not in use anymore.
+	_ = ObjectStatus(2)
 	// CommittedUnversioned means that the object is finished and should be visible for general listing.
 	CommittedUnversioned = ObjectStatus(3)
 	// CommittedVersioned means that the object is finished and should be visible for general listing.
@@ -388,6 +390,7 @@ const (
 	statusDeleteMarkerUnversioned = "5"
 	statusDeleteMarkerVersioned   = "6"
 	statusesDeleteMarker          = "(5,6)"
+	statusesUnversioned           = "(3,5)"
 )
 
 // stub uses so the linter wouldn't complain.

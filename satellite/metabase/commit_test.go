@@ -3262,6 +3262,8 @@ func TestCommitObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		// TODO(ver): tests for DisallowDelete = false/true and ErrPermissionDenied
+
 		t.Run("assign plain_offset", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -4246,7 +4248,7 @@ func TestCommitObject(t *testing.T) {
 						},
 						Version: metabase.PendingVersion,
 					}.Check(ctx, t, db)
-					obj.Version++
+					obj.Version = metabase.Version(i + 1)
 
 					expectedInlineData := testrand.Bytes(8)
 					expectedEncryptedKey := testrand.Bytes(32)

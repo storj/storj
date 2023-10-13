@@ -6,9 +6,11 @@ package metabase
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"sort"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/private/dbutil/pgutil"
@@ -149,6 +151,9 @@ func (db *DB) DeleteObjectExactVersion(
 type stmt interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
 }
+type stmtRow interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
 
 // implementation of DB.DeleteObjectExactVersion for re-use internally in metabase package.
 func (db *DB) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion, stmt stmt) (result DeleteObjectResult, err error) {
@@ -283,6 +288,69 @@ func (db *DB) DeletePendingObjectNew(ctx context.Context, opts DeletePendingObje
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Objects))
+
+	return result, nil
+}
+
+type deleteObjectUnversionedCommittedResult struct {
+	// DeletedObjectCount and DeletedSegmentCount return how many elements were deleted.
+	DeletedObjectCount  int
+	DeletedSegmentCount int
+	// MaxVersion returns tha highest version that was present in the table.
+	// It returns 0 if there was none.
+	MaxVersion Version
+}
+
+// deleteObjectUnversionedCommitted deletes the unversioned object at the specified location inside a transaction.
+//
+// TODO(ver): this should have a better and clearer name.
+func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLocation, stmt stmtRow) (result deleteObjectUnversionedCommittedResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := loc.Verify(); err != nil {
+		return deleteObjectUnversionedCommittedResult{}, Error.Wrap(err)
+	}
+
+	err = stmt.QueryRowContext(ctx, `
+		WITH highest_object AS (
+			SELECT MAX(version) as version
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+		), deleted_objects AS (
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND status IN `+statusesUnversioned+`
+			RETURNING stream_id
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT
+			(SELECT count(*) FROM deleted_objects),
+			(SELECT count(*) FROM deleted_segments),
+			coalesce((SELECT version FROM highest_object), 0)
+	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).
+		Scan(&result.DeletedObjectCount, &result.DeletedSegmentCount, &result.MaxVersion)
+
+	if err != nil {
+		return deleteObjectUnversionedCommittedResult{}, Error.Wrap(err)
+	}
+
+	// TODO: this should happen outside of this func
+	mon.Meter("object_delete").Mark(result.DeletedObjectCount)
+	mon.Meter("segment_delete").Mark(result.DeletedObjectCount)
+
+	if result.DeletedObjectCount > 1 {
+		db.log.Error("object with multiple committed versions were found!",
+			zap.Stringer("Project ID", loc.ProjectID), zap.String("Bucket Name", loc.BucketName),
+			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+
+		mon.Meter("multiple_committed_versions").Mark(1)
+
+		return result, Error.New("internal error: multiple committed unversioned objects")
+	}
 
 	return result, nil
 }
