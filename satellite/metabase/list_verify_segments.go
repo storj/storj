@@ -61,7 +61,8 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 		WHERE
 			(stream_id, position) > ($1, $2) AND
 			inline_data IS NULL AND
-			remote_alias_pieces IS NOT NULL
+			remote_alias_pieces IS NOT NULL AND
+			(segments.expires_at IS NULL OR segments.expires_at > now())
 		ORDER BY stream_id ASC, position ASC
 		LIMIT $3
 	`, []interface{}{
@@ -82,7 +83,8 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			stream_id = ANY($1) AND
 			(segments.stream_id, segments.position) > ($2, $3) AND
 			segments.inline_data IS NULL AND
-			segments.remote_alias_pieces IS NOT NULL
+			segments.remote_alias_pieces IS NOT NULL AND
+			(segments.expires_at IS NULL OR segments.expires_at > now())
 		ORDER BY segments.stream_id ASC, segments.position ASC
 		LIMIT $4
 	`, []interface{}{
