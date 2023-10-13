@@ -205,6 +205,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# indicates if billing features should be enabled
+# console.billing-features-enabled: true
+
 # url of the transaction block explorer
 # console.block-explorer-url: https://etherscan.io/
 
