@@ -98,8 +98,12 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		"country": func(countries ...string) (nodeselection.NodeFilter, error) {
 			return nodeselection.NewCountryFilterFromString(countries)
 		},
-		"placement": func(ix int64) nodeselection.NodeFilter {
-			return d.placements[storj.PlacementConstraint(ix)]
+		"placement": func(ix int64) (nodeselection.NodeFilter, error) {
+			filter, found := d.placements[storj.PlacementConstraint(ix)]
+			if !found {
+				return nil, errs.New("Placement %d is referenced before defined. Please define it first!", ix)
+			}
+			return filter, nil
 		},
 		"all": func(filters ...nodeselection.NodeFilter) (nodeselection.NodeFilters, error) {
 			res := nodeselection.NodeFilters{}
@@ -177,7 +181,7 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		}
 		val, err := mito.Eval(idDef[1], env)
 		if err != nil {
-			return errs.Wrap(err)
+			return errs.New("Error in line '%s' when placement rule is parsed: %v", idDef[1], err)
 		}
 		id, err := strconv.Atoi(idDef[0])
 		if err != nil {

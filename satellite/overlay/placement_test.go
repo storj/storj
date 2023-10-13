@@ -173,7 +173,12 @@ func TestPlacementFromString(t *testing.T) {
 		require.True(t, placement2.Match(&nodeselection.SelectedNode{
 			CountryCode: location.Germany,
 		}))
+	})
 
+	t.Run("placement reuse wrong", func(t *testing.T) {
+		p := NewPlacementDefinitions()
+		err := p.AddPlacementFromString(`1:exclude(placement(2));2:country("DE")`)
+		require.ErrorContains(t, err, "referenced before defined")
 	})
 
 	t.Run("all rules", func(t *testing.T) {
