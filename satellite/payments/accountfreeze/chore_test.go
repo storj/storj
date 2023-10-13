@@ -328,12 +328,24 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.Loop.TriggerWait()
 
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+			require.Nil(t, freezes.ViolationFreeze)
+
+			chore.TestSetNow(func() time.Time {
+				// current date is now after billing warn grace period
+				return time.Now().AddDate(0, 0, 50)
+			})
+			chore.Loop.TriggerWait()
+
 			// Payment should have succeeded in the chore.
 			failed, err = invoicesDB.ListFailed(ctx, nil)
 			require.NoError(t, err)
 			require.Equal(t, 0, len(failed))
 
-			freezes, err := service.GetAll(ctx, user.ID)
+			freezes, err = service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, freezes.BillingWarning)
 			require.Nil(t, freezes.BillingFreeze)

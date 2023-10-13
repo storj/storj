@@ -194,29 +194,6 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			continue
 		}
 
-		// try to pay the invoice before freezing/warning.
-		err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
-		if err == nil {
-			infoLog("Ignoring invoice; Payment attempt successful")
-
-			if freezes.BillingWarning != nil {
-				err = chore.freezeService.BillingUnWarnUser(ctx, userID)
-				if err != nil {
-					errorLog("Could not remove billing warning event", err)
-				}
-			}
-			if freezes.BillingFreeze != nil {
-				err = chore.freezeService.BillingUnfreezeUser(ctx, userID)
-				if err != nil {
-					errorLog("Could not remove billing freeze event", err)
-				}
-			}
-
-			continue
-		} else {
-			errorLog("Could not attempt payment", err)
-		}
-
 		if freezes.BillingFreeze != nil {
 			if chore.nowFn().Sub(freezes.BillingFreeze.CreatedAt) > chore.config.BillingFreezeGracePeriod {
 				if user.Status == console.PendingDeletion {
@@ -284,6 +261,22 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 				infoLog("Ignoring invoice; payment already made")
 				continue
 			}
+
+			// try to pay the invoice before freezing.
+			err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
+			if err == nil {
+				infoLog("Ignoring invoice; Payment attempt successful")
+
+				err = chore.freezeService.BillingUnWarnUser(ctx, userID)
+				if err != nil {
+					errorLog("Could not remove billing warning event", err)
+				}
+
+				continue
+			} else {
+				errorLog("Could not attempt payment", err)
+			}
+
 			err = chore.freezeService.BillingFreezeUser(ctx, userID)
 			if err != nil {
 				errorLog("Could not billing freeze account", err)
@@ -368,11 +361,6 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 				continue
 			}
 			if len(invoices) > 0 {
-				// try to pay the invoices.
-				err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, event.UserID)
-				if err != nil {
-					errorLog("Could not attempt payment", err)
-				}
 				continue
 			}
 
