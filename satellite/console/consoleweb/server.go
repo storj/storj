@@ -409,7 +409,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 				router.Host(server.config.VuetifyHost).Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 			} else {
 				// if not using a custom subdomain for vuetify, use a path prefix on the same domain as the production app
-				router.PathPrefix("/vuetifypoc").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
+				router.PathPrefix("/v2").Handler(server.withCORS(http.HandlerFunc(server.vuetifyAppHandler)))
 			}
 		}
 		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
@@ -522,7 +522,7 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	if server.config.UseVuetifyProject {
-		router.PathPrefix("/vuetifypoc").Handler(http.HandlerFunc(server.vuetifyAppHandler))
+		router.PathPrefix("/v2").Handler(http.HandlerFunc(server.vuetifyAppHandler))
 	}
 	router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	server.server = http.Server{
