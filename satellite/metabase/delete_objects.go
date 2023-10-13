@@ -116,7 +116,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			` + db.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-				AND status = ` + pendingStatus + `
+				AND status = ` + statusPending + `
 				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $5)
 				ORDER BY project_id, bucket_name, object_key, version
 			LIMIT $6;`

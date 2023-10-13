@@ -887,7 +887,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// Default to Commmitted status for backward-compatibility with older uplinks.
-	status := metabase.Committed
+	status := metabase.CommittedUnversioned
 	if req.Status != pb.Object_INVALID {
 		status = metabase.ObjectStatus(req.Status)
 	}

@@ -217,7 +217,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: "bucket",
-						Status:     metabase.Committed,
+						Status:     metabase.CommittedUnversioned,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
@@ -241,7 +241,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 						ProjectID:  projectID,
 						BucketName: "bucket",
 						Prefix:     metabase.ObjectKey(prefixes[i]),
-						Status:     metabase.Committed,
+						Status:     metabase.CommittedUnversioned,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
@@ -333,7 +333,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 						Cursor: metabase.IterateCursor{
 							Key: object.ObjectKey,
 						},
-						Status:                metabase.Committed,
+						Status:                metabase.CommittedUnversioned,
 						IncludeCustomMetadata: true,
 						IncludeSystemMetadata: true,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {

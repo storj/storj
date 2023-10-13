@@ -176,7 +176,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 					return Error.New("failed to scan objects: %w", err)
 				}
 
-				if status == Committed {
+				if status == CommittedUnversioned {
 					return ErrObjectAlreadyExists.New("")
 				} else if status == Pending && version == opts.Version {
 					useNewVersion = true

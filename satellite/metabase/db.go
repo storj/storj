@@ -182,7 +182,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 						created_at TIMESTAMPTZ NOT NULL default now(),
 						expires_at TIMESTAMPTZ,
 
-						status         INT2 NOT NULL default ` + pendingStatus + `,
+						status         INT2 NOT NULL default ` + statusPending + `,
 						segment_count  INT4 NOT NULL default 0,
 
 						encrypted_metadata_nonce         BYTEA default NULL,
@@ -409,7 +409,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at TIMESTAMPTZ NOT NULL default now(),
 						expires_at TIMESTAMPTZ,
 
-						status         INT2 NOT NULL default ` + pendingStatus + `,
+						status         INT2 NOT NULL default ` + statusPending + `,
 						segment_count  INT4 NOT NULL default 0,
 
 						encrypted_metadata_nonce         BYTEA default NULL,

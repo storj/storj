@@ -142,7 +142,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						ObjectStream: objX,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -153,7 +153,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						ObjectStream: objY,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,

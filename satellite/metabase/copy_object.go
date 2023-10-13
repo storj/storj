@@ -251,7 +251,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				zombie_deletion_deadline
 			) VALUES (
 				$1, $2, $3, $4, $5,
-				$6,`+committedStatus+`, $7,
+				$6,`+statusCommittedUnversioned+`, $7,
 				$8,
 				$9, $10, $11,
 				$12, $13, $14, null
@@ -342,7 +342,7 @@ func getObjectAtCopySourceAndDestination(
 	sourceObject.BucketName = opts.BucketName
 	sourceObject.ObjectKey = opts.ObjectKey
 	sourceObject.Version = opts.Version
-	sourceObject.Status = Committed
+	sourceObject.Status = CommittedUnversioned
 
 	// get objects at source and destination (if any)
 	rows, err := tx.QueryContext(ctx, `
@@ -370,7 +370,7 @@ func getObjectAtCopySourceAndDestination(
 			bucket_name  = $3 AND
 			object_key   = $4 AND
 			version      = $2 AND
-			status       = `+committedStatus+`
+			status       = `+statusCommittedUnversioned+`
 		UNION ALL
 		SELECT
 			stream_id,
@@ -387,7 +387,7 @@ func getObjectAtCopySourceAndDestination(
 			bucket_name = $5 AND
 			object_key  = $6 AND
 			version     = (SELECT version FROM destination_current_versions
-							WHERE status = `+committedStatus+`)`,
+							WHERE status = `+statusCommittedUnversioned+`)`,
 		sourceObject.ProjectID, sourceObject.Version,
 		[]byte(sourceObject.BucketName), sourceObject.ObjectKey,
 		opts.NewBucket, opts.NewEncryptedObjectKey)

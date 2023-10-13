@@ -114,7 +114,7 @@ func TestDeletePendingObject(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -348,7 +348,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -1349,7 +1349,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					{
 						ObjectStream: newObjDiffVersion,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
 				},

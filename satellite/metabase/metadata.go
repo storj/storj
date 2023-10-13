@@ -64,12 +64,12 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = `+committedStatus+` AND
+				status       = `+statusCommittedUnversioned+` AND
 				(expires_at IS NULL OR expires_at > now())
 				ORDER BY version desc
 			) AND
 			stream_id    = $4 AND
-			status       = `+committedStatus,
+			status       = `+statusCommittedUnversioned,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {

@@ -90,7 +90,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -147,7 +147,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				{
 					ObjectStream: obj,
 					CreatedAt:    now,
-					Status:       metabase.Committed,
+					Status:       metabase.CommittedUnversioned,
 					ExpiresAt:    &expiresAt,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
@@ -167,7 +167,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				Result: metabase.Object{
 					ObjectStream: obj,
 					CreatedAt:    now,
-					Status:       metabase.Committed,
+					Status:       metabase.CommittedUnversioned,
 
 					Encryption: metabasetest.DefaultEncryption,
 				},
@@ -177,7 +177,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				{
 					ObjectStream: obj,
 					CreatedAt:    now,
-					Status:       metabase.Committed,
+					Status:       metabase.CommittedUnversioned,
 
 					Encryption: metabasetest.DefaultEncryption,
 				},
@@ -273,7 +273,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				Result: metabase.Object{
 					ObjectStream:                  obj,
 					CreatedAt:                     now,
-					Status:                        metabase.Committed,
+					Status:                        metabase.CommittedUnversioned,
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
@@ -285,7 +285,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				{
 					ObjectStream:                  obj,
 					CreatedAt:                     now,
-					Status:                        metabase.Committed,
+					Status:                        metabase.CommittedUnversioned,
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
@@ -319,7 +319,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				Result: metabase.Object{
 					ObjectStream: firstObject,
 					CreatedAt:    now,
-					Status:       metabase.Committed,
+					Status:       metabase.CommittedUnversioned,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
@@ -328,7 +328,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				{
 					ObjectStream: firstObject,
 					CreatedAt:    now,
-					Status:       metabase.Committed,
+					Status:       metabase.CommittedUnversioned,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 				metabase.RawObject(secondObject),
@@ -373,7 +373,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 						StreamID:   copiedObj.StreamID,
 					},
 					CreatedAt:                     now,
-					Status:                        metabase.Committed,
+					Status:                        metabase.CommittedUnversioned,
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadata:             copiedObj.EncryptedMetadata,
 					EncryptedMetadataNonce:        copiedObj.EncryptedMetadataNonce,
@@ -473,7 +473,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					{
 						ObjectStream: obj1.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -486,7 +486,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						ObjectStream: obj2.ObjectStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj2.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -607,7 +607,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					{
 						ObjectStream: obj.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -620,7 +620,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						ObjectStream: copyObjStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -778,7 +778,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					{
 						ObjectStream: obj.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -787,7 +787,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						ObjectStream: copyObjStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						EncryptedMetadataNonce:        newEncryptedMetadataKeyNonce[:],
@@ -949,7 +949,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					{
 						ObjectStream: obj.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -960,7 +960,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						ObjectStream: copyObjStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						EncryptedMetadataNonce:        newEncryptedMetadataKeyNonce[:],
@@ -1053,7 +1053,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 2,
 
 						TotalPlainSize:     1024,
@@ -1302,7 +1302,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					{
 						ObjectStream: obj.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -1311,7 +1311,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 						ObjectStream: copyObjStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						EncryptedMetadataNonce:        newEncryptedMetadataKeyNonce[:],
@@ -1469,7 +1469,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					{
 						ObjectStream: obj.ObjectStream,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -1480,7 +1480,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 						ObjectStream: copyObjStream,
 						CreatedAt:    now,
 						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						EncryptedMetadataNonce:        newEncryptedMetadataKeyNonce[:],

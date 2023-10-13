@@ -113,7 +113,7 @@ WITH deleted_objects AS (
 			project_id   = $1 AND
 			bucket_name  = $2 AND
 			object_key   = $3 AND
-			status       = ` + committedStatus + ` AND
+			status       = ` + statusCommittedUnversioned + ` AND
 			(expires_at IS NULL OR expires_at > now())
 			ORDER BY version DESC
 		)
@@ -207,7 +207,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 					object_key   = $3 AND
 					version      = $4 AND
 					stream_id    = $5 AND
-					status       = `+pendingStatus+`
+					status       = `+statusPending+`
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -325,7 +325,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = ANY ($3) AND
-					status       = `+committedStatus+`
+					status       = `+statusCommittedUnversioned+`
 					RETURNING
 						project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
 						status, segment_count, encrypted_metadata_nonce, encrypted_metadata,

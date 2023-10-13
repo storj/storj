@@ -82,7 +82,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
 				},
@@ -105,7 +105,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 
 						EncryptedMetadata:             encryptedMetadata,
@@ -142,7 +142,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 					{
 						ObjectStream: newObjDiffVersion,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
 				},
@@ -172,7 +172,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 					{
 						ObjectStream: newObjDiffVersion,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						Encryption:   metabasetest.DefaultEncryption,
 
 						EncryptedMetadata:             encryptedMetadata,

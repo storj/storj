@@ -323,7 +323,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -400,7 +400,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,

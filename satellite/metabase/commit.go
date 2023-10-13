@@ -302,7 +302,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = `+pendingStatus,
+				status       = `+statusPending,
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
 	}
 	if err != nil {
@@ -440,7 +440,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 						object_key   = $14 AND
 						version      = $15 AND
 						stream_id    = $16 AND
-						status       = `+pendingStatus+
+						status       = `+statusPending+
 			`	), $1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
@@ -566,7 +566,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 								object_key   = $13 AND
 								version      = $14 AND
 								stream_id    = $15 AND
-								status       = `+pendingStatus+
+								status       = `+statusPending+
 			`	), $1, $2,
 						$3, $4, $5,
 						$6, $7, $8, $9,
@@ -703,7 +703,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = `+committedStatus,
+				status       = `+statusCommittedUnversioned,
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
 			for rows.Next() {
 				var version Version
@@ -777,7 +777,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				)
 				SELECT
 					$1 as project_id, $2 as bucket_name, $3 as object_key, $4::INT4 as version, $5 as stream_id,
-					`+committedStatus+` as status, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size,
+					`+statusCommittedUnversioned+` as status, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size,
 					$9::INT4 as fixed_segment_size, NULL::timestamp as zombie_deletion_deadline, expires_at,
 					-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
 					CASE
@@ -838,7 +838,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			}
 			err = tx.QueryRowContext(ctx, `
 				UPDATE objects SET
-					status =`+committedStatus+`,
+					status =`+statusCommittedUnversioned+`,
 					segment_count = $6,
 
 					total_plain_size     = $7,
@@ -859,7 +859,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					object_key   = $3 AND
 					version      = $4 AND
 					stream_id    = $5 AND
-					status       = `+pendingStatus+`
+					status       = `+statusPending+`
 				RETURNING
 					created_at, expires_at,
 					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
@@ -899,7 +899,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
 		object.Version = opts.Version
-		object.Status = Committed
+		object.Status = CommittedUnversioned
 		object.SegmentCount = int32(len(segments))
 		object.TotalPlainSize = totalPlainSize
 		object.TotalEncryptedSize = totalEncryptedSize

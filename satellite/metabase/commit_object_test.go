@@ -159,7 +159,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 							StreamID:   obj.StreamID,
 						},
 						CreatedAt: now,
-						Status:    metabase.Committed,
+						Status:    metabase.CommittedUnversioned,
 
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
@@ -285,7 +285,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -383,7 +383,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -486,7 +486,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 2,
 
 						TotalPlainSize:     1024,
@@ -609,7 +609,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 2,
 
 						TotalPlainSize:     1024,
@@ -732,7 +732,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 2,
 
 						TotalPlainSize:     1024,
@@ -803,7 +803,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},

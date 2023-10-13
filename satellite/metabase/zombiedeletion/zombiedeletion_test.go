@@ -83,7 +83,7 @@ func TestZombieDeletion(t *testing.T) {
 		objects, err = planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
-		require.Equal(t, metabase.Committed, objects[0].Status)
+		require.Equal(t, metabase.CommittedUnversioned, objects[0].Status)
 	})
 }
 

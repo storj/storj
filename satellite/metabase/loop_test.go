@@ -106,7 +106,7 @@ func TestIterateLoopObjects(t *testing.T) {
 				},
 				{
 					ObjectStream:          committed,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					EncryptedMetadataSize: len(encryptedMetadata),
 					CreatedAt:             createdAt,
 				},
@@ -717,7 +717,7 @@ func TestIterateLoopSegments(t *testing.T) {
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 	return metabase.LoopObjectEntry{
 		ObjectStream: m.ObjectStream,
-		Status:       metabase.Committed,
+		Status:       metabase.CommittedUnversioned,
 		CreatedAt:    m.CreatedAt,
 		ExpiresAt:    m.ExpiresAt,
 		SegmentCount: m.SegmentCount,

@@ -86,7 +86,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
-					Status:     metabase.Committed,
+					Status:     metabase.CommittedUnversioned,
 				},
 				Result: metabase.ListObjectsResult{},
 			}.Check(ctx, t, db)
@@ -116,7 +116,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "mybucket",
 					Recursive:             false,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					Limit:                 limit,
@@ -143,7 +143,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            "mybucket",
 					Recursive:             true,
 					Limit:                 limit,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -172,7 +172,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "bucket-a",
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -202,7 +202,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "mybucket",
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -236,7 +236,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -259,7 +259,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -283,7 +283,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -307,7 +307,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -326,7 +326,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -346,7 +346,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -365,7 +365,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -396,16 +396,16 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						objects["a"],
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/", metabase.CommittedUnversioned),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/", metabase.CommittedUnversioned),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -414,7 +414,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -422,9 +422,9 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/", metabase.CommittedUnversioned),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/", metabase.CommittedUnversioned),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -433,7 +433,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -441,9 +441,9 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/", metabase.CommittedUnversioned),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/", metabase.CommittedUnversioned),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -452,7 +452,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -470,7 +470,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -489,7 +489,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -507,7 +507,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -521,7 +521,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -531,7 +531,7 @@ func TestListObjects(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("c/",
 						objects["c/"],
-						prefixEntry("c//", metabase.Committed),
+						prefixEntry("c//", metabase.CommittedUnversioned),
 						objects["c/1"],
 					)},
 			}.Check(ctx, t, db)
@@ -540,7 +540,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -579,14 +579,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -600,14 +600,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -621,13 +621,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -651,14 +651,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -672,13 +672,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -692,13 +692,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -738,16 +738,16 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: objects["2017/05/08"].Version,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -762,15 +762,15 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 
@@ -784,15 +784,15 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Status:                metabase.CommittedUnversioned,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -829,7 +829,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
-					Status:     metabase.Committed,
+					Status:     metabase.CommittedUnversioned,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -838,7 +838,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						ProjectID:  baseObj.ProjectID,
 						BucketName: baseObj.BucketName,
 						Cursor:     metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
-						Status:     metabase.Committed,
+						Status:     metabase.CommittedUnversioned,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)
@@ -852,7 +852,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "foo/",
-					Status:     metabase.Committed,
+					Status:     metabase.CommittedUnversioned,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -863,7 +863,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						BucketName: baseObj.BucketName,
 						Prefix:     "foo/",
 						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Status:     metabase.Committed,
+						Status:     metabase.CommittedUnversioned,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)
@@ -877,7 +877,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "boo/",
-					Status:     metabase.Committed,
+					Status:     metabase.CommittedUnversioned,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -888,7 +888,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						BucketName: baseObj.BucketName,
 						Prefix:     "boo/",
 						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Status:     metabase.Committed,
+						Status:     metabase.CommittedUnversioned,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)

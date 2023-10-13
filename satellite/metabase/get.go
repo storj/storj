@@ -95,7 +95,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			version      = $4 AND
-			status       = `+committedStatus+` AND
+			status       = `+statusCommittedUnversioned+` AND
 			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
@@ -118,7 +118,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object.ObjectKey = opts.ObjectKey
 	object.Version = opts.Version
 
-	object.Status = Committed
+	object.Status = CommittedUnversioned
 
 	return object, nil
 }
@@ -152,7 +152,7 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 			project_id   = $1 AND
 			bucket_name  = $2 AND
 			object_key   = $3 AND
-			status       = `+committedStatus+` AND
+			status       = `+statusCommittedUnversioned+` AND
 			(expires_at IS NULL OR expires_at > now())
 		ORDER BY version desc
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
@@ -200,7 +200,7 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 	object.ProjectID = opts.ProjectID
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
-	object.Status = Committed
+	object.Status = CommittedUnversioned
 
 	return object, nil
 }
@@ -301,7 +301,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = `+committedStatus+`
+				status       = `+statusCommittedUnversioned+`
 				ORDER BY version DESC
 				LIMIT 1
 			)
@@ -385,7 +385,7 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, Committed)
+	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, CommittedUnversioned)
 }
 
 func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, status ObjectStatus) (objects []ObjectEntry, err error) {

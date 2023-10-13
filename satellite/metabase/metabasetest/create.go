@@ -242,7 +242,7 @@ func CreateFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 
 		objects[key] = metabase.LoopObjectEntry{
 			ObjectStream: obj,
-			Status:       metabase.Committed,
+			Status:       metabase.CommittedUnversioned,
 			CreatedAt:    time.Now(),
 		}
 	}

@@ -327,7 +327,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 				project_id = $1 AND bucket_name = $2
 				AND object_key = $3
 				AND stream_id > $4::BYTEA
-				AND status = `+pendingStatus+`
+				AND status = `+statusPending+`
 			ORDER BY stream_id ASC
 			LIMIT $5
 			`, it.projectID, it.bucketName,

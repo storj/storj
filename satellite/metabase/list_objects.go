@@ -38,7 +38,7 @@ func (opts *ListObjects) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case opts.Limit < 0:
 		return ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
-	case !(opts.Status == Pending || opts.Status == Committed):
+	case !(opts.Status == Pending || opts.Status == CommittedUnversioned):
 		return ErrInvalidRequest.New("Status is invalid")
 	}
 	return nil

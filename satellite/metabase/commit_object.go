@@ -88,7 +88,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
-				status =`+committedStatus+`,
+				status =`+statusCommittedUnversioned+`,
 				segment_count = $6,
 
 				encrypted_metadata_nonce         = $7,
@@ -105,7 +105,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = `+pendingStatus+`
+				status       = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
 				encryption;
@@ -132,7 +132,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
 		object.Version = opts.Version
-		object.Status = Committed
+		object.Status = CommittedUnversioned
 		object.SegmentCount = int32(len(finalSegments))
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.EncryptedMetadata = opts.EncryptedMetadata

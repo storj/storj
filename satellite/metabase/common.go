@@ -349,18 +349,57 @@ const PendingVersion = Version(0)
 // Version in DB is represented as INT4.
 const MaxVersion = Version(math.MaxInt32)
 
-// ObjectStatus defines the statuses that the object might be in.
+// ObjectStatus defines the status that the object is in.
+//
+// There are two types of objects:
+//   - Regular (i.e. Committed), which is used for storing data.
+//   - Delete Marker, which is used to show that an object has been deleted, while preserving older versions.
+//
+// Each object can be in two states:
+//   - Pending, meaning that it's still being uploaded.
+//   - Committed, meaning it has finished uploading.
+//     Delete Markers are always considered committed, because they do not require committing.
+//
+// There are two options for versioning:
+//   - Unversioned, there's only one allowed per project, bucket and encryption key.
+//   - Versioned, there can be any number of such objects for a given project, bucket and encryption key.
+//
+// These lead to a few meaningful distinct statuses, listed below.
 type ObjectStatus byte
 
 const (
 	// Pending means that the object is being uploaded or that the client failed during upload.
 	// The failed upload may be continued in the future.
 	Pending = ObjectStatus(1)
-	// Committed means that the object is finished and should be visible for general listing.
-	Committed = ObjectStatus(3)
+	// CommittedUnversioned means that the object is finished and should be visible for general listing.
+	CommittedUnversioned = ObjectStatus(3)
+	// CommittedVersioned means that the object is finished and should be visible for general listing.
+	CommittedVersioned = ObjectStatus(4)
+	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
+	DeleteMarkerUnversioned = ObjectStatus(5)
+	// DeleteMarkerVersioned is inserted when an  object is deleted in a versioning enabled bucket.
+	DeleteMarkerVersioned = ObjectStatus(6)
 
-	pendingStatus   = "1"
-	committedStatus = "3"
+	// Constants that can be used while constructing SQL queries.
+	statusPending                 = "1"
+	statusCommittedUnversioned    = "3"
+	statusCommittedVersioned      = "4"
+	statusesCommitted             = "(3,4)"
+	statusDeleteMarkerUnversioned = "5"
+	statusDeleteMarkerVersioned   = "6"
+	statusesDeleteMarker          = "(5,6)"
+)
+
+// stub uses so the linter wouldn't complain.
+var (
+	_ = CommittedVersioned
+	_ = DeleteMarkerUnversioned
+	_ = DeleteMarkerVersioned
+	_ = statusCommittedVersioned
+	_ = statusesCommitted
+	_ = statusDeleteMarkerUnversioned
+	_ = statusDeleteMarkerVersioned
+	_ = statusesDeleteMarker
 )
 
 // Pieces defines information for pieces.
