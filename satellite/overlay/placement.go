@@ -18,6 +18,9 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
+// ErrPlacement is used for placement definition related parsing errors.
+var ErrPlacement = errs.Class("placement")
+
 // PlacementRules can crate filter based on the placement identifier.
 type PlacementRules func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter)
 
@@ -53,12 +56,12 @@ func (c ConfigurablePlacementRule) Parse() (*PlacementDefinitions, error) {
 	if _, err := os.Stat(rules); err == nil {
 		ruleBytes, err := os.ReadFile(rules)
 		if err != nil {
-			return nil, errs.New("Placement definition file couldn't be read: %s %v", rules, err)
+			return nil, ErrPlacement.New("Placement definition file couldn't be read: %s %v", rules, err)
 		}
 		rules = string(ruleBytes)
 	}
 	if strings.HasPrefix(rules, "/") || strings.HasPrefix(rules, "./") || strings.HasPrefix(rules, "../") {
-		return nil, errs.New("Placement definition (%s) looks to be a path, but file doesn't exist at that place", rules)
+		return nil, ErrPlacement.New("Placement definition (%s) looks to be a path, but file doesn't exist at that place", rules)
 	}
 	d := NewPlacementDefinitions()
 	d.AddLegacyStaticRules()
@@ -72,7 +75,7 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 func NewPlacementDefinitions() *PlacementDefinitions {
 	return &PlacementDefinitions{
 		placements: map[storj.PlacementConstraint]nodeselection.NodeFilter{
-			storj.EveryCountry: nodeselection.AnyFilter{}},
+			storj.DefaultPlacement: nodeselection.AnyFilter{}},
 	}
 }
 
@@ -101,7 +104,7 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		"placement": func(ix int64) (nodeselection.NodeFilter, error) {
 			filter, found := d.placements[storj.PlacementConstraint(ix)]
 			if !found {
-				return nil, errs.New("Placement %d is referenced before defined. Please define it first!", ix)
+				return nil, ErrPlacement.New("Placement %d is referenced before defined. Please define it first!", ix)
 			}
 			return filter, nil
 		},
@@ -116,7 +119,7 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 			filter1, ok1 := a.(nodeselection.NodeFilter)
 			filter2, ok2 := b.(nodeselection.NodeFilter)
 			if !ok1 || !ok2 {
-				return nil, errs.New("&& is supported only between NodeFilter instances")
+				return nil, ErrPlacement.New("&& is supported only between NodeFilter instances")
 			}
 			res := nodeselection.NodeFilters{filter1, filter2}
 			return res, nil
@@ -148,7 +151,7 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 				}
 				rawValue = []byte(v)
 			default:
-				return nil, errs.New("3rd argument of tag() should be string or []byte")
+				return nil, ErrPlacement.New("3rd argument of tag() should be string or []byte")
 			}
 			res := nodeselection.NodeFilters{
 				nodeselection.NewTagFilter(nodeID, key, rawValue, match),
@@ -185,15 +188,15 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		idDef := strings.SplitN(definition, ":", 2)
 
 		if len(idDef) != 2 {
-			return errs.New("placement definition should be in the form ID:definition (but it was %s)", definition)
+			return ErrPlacement.New("placement definition should be in the form ID:definition (but it was %s)", definition)
 		}
 		val, err := mito.Eval(idDef[1], env)
 		if err != nil {
-			return errs.New("Error in line '%s' when placement rule is parsed: %v", idDef[1], err)
+			return ErrPlacement.New("Error in line '%s' when placement rule is parsed: %v", idDef[1], err)
 		}
 		id, err := strconv.Atoi(idDef[0])
 		if err != nil {
-			return errs.Wrap(err)
+			return ErrPlacement.Wrap(err)
 		}
 		d.placements[storj.PlacementConstraint(id)] = val.(nodeselection.NodeFilter)
 	}

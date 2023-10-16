@@ -178,6 +178,7 @@ func TestPlacementFromString(t *testing.T) {
 	t.Run("placement reuse wrong", func(t *testing.T) {
 		p := NewPlacementDefinitions()
 		err := p.AddPlacementFromString(`1:exclude(placement(2));2:country("DE")`)
+		require.True(t, ErrPlacement.Has(err))
 		require.ErrorContains(t, err, "referenced before defined")
 	})
 
