@@ -720,6 +720,177 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 	})
 }
 
+func TestDeleteObjectVersioning(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+		location := obj.Location()
+
+		t.Run("Delete non existing object version", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				Result:   metabase.DeleteObjectResult{},
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete partial object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				Result:   metabase.DeleteObjectResult{},
+			}.Check(ctx, t, db)
+
+			// Not quite sure whether this is the appropriate behavior,
+			// but let's leave the pending object in place and not insert a deletion marker.
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{{
+					ObjectStream: obj,
+					CreatedAt:    pending.CreatedAt,
+					Status:       metabase.Pending,
+					Encryption:   pending.Encryption,
+
+					ZombieDeletionDeadline: pending.ZombieDeletionDeadline,
+				}},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Create a delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			committed, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			marker := committed.ObjectStream
+			marker.StreamID = uuid.UUID{}
+			marker.Version = committed.Version + 1
+
+			now := time.Now()
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: marker,
+						CreatedAt:    now,
+						Status:       metabase.DeleteMarkerVersioned,
+					},
+					{
+						ObjectStream: obj,
+						CreatedAt:    committed.CreatedAt,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   committed.Encryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("multiple delete markers", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			committed, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			marker := committed.ObjectStream
+			marker.StreamID = uuid.UUID{}
+			marker.Version = committed.Version + 1
+
+			now := time.Now()
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			marker2 := marker
+			marker2.Version = marker.Version + 1
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{
+						{
+							ObjectStream: marker2,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: marker,
+						CreatedAt:    now,
+						Status:       metabase.DeleteMarkerVersioned,
+					},
+					{
+						ObjectStream: marker2,
+						CreatedAt:    now,
+						Status:       metabase.DeleteMarkerVersioned,
+					},
+					{
+						ObjectStream: obj,
+						CreatedAt:    committed.CreatedAt,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   committed.Encryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestDeleteObjectsAllVersions(t *testing.T) {
 	metabasetest.RunWithConfig(t, noServerSideCopyConfig, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
@@ -974,8 +1145,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 		})
 
 		t.Run("Delete multiple versions of the same object at once", func(t *testing.T) {
-			t.Skip("skip for now as there is no easy way to have different versions of the same committed object")
-
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			expected := metabase.DeleteObjectResult{}
@@ -983,7 +1152,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			for i := 1; i <= 10; i++ {
 				obj.StreamID = testrand.UUID()
 				obj.Version = metabase.Version(i)
-				expected.Objects = append(expected.Objects, metabasetest.CreateObject(ctx, t, db, obj, 1))
+				expected.Objects = append(expected.Objects, metabasetest.CreateObjectVersioned(ctx, t, db, obj, 1))
 			}
 
 			metabasetest.DeleteObjectsAllVersions{
@@ -994,6 +1163,85 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("delete last committed unversioned with suspended", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			obj := metabasetest.RandObjectStream()
+			_ = metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			marker := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Version:    obj.Version + 1,
+				},
+				Status:    metabase.DeleteMarkerUnversioned,
+				CreatedAt: now,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+					Versioned: false,
+					Suspended: true,
+				},
+				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{marker}},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(marker),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("delete last committed versioned with suspended", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			obj := metabasetest.RandObjectStream()
+			initial := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			marker := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Version:    obj.Version + 1,
+				},
+				Status:    metabase.DeleteMarkerUnversioned,
+				CreatedAt: now,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+					Versioned: false,
+					Suspended: true,
+				},
+				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{marker}},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(initial),
+					metabase.RawObject(marker),
+				},
+			}.Check(ctx, t, db)
 		})
 	})
 }

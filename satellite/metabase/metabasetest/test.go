@@ -64,7 +64,7 @@ type BeginObjectExactVersion struct {
 }
 
 // Check runs the test.
-func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
+func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
 	got, err := db.TestingBeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
@@ -82,6 +82,7 @@ func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.Te
 		}
 		require.Equal(t, step.Opts.Encryption, got.Encryption)
 	}
+	return got
 }
 
 // CommitObject is for testing metabase.CommitObject.
