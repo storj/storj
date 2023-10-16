@@ -2476,6 +2476,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to bucket_storage_tallies",
+				Version:     245,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
