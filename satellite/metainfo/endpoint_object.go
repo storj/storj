@@ -933,7 +933,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				},
 				Recursive:             req.Recursive,
 				Limit:                 limit,
-				Status:                status,
+				Pending:               status == metabase.Pending,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
 			})

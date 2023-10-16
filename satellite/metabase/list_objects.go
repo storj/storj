@@ -24,7 +24,7 @@ type ListObjects struct {
 	Limit                 int
 	Prefix                ObjectKey
 	Cursor                ListObjectsCursor
-	Status                ObjectStatus
+	Pending               bool
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
 }
@@ -38,8 +38,6 @@ func (opts *ListObjects) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case opts.Limit < 0:
 		return ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
-	case !(opts.Status == Pending || opts.Status == CommittedUnversioned):
-		return ErrInvalidRequest.New("Status is invalid")
 	}
 	return nil
 }
@@ -62,9 +60,10 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	var entries []ObjectEntry
 	err = withRows(db.db.QueryContext(ctx, opts.getSQLQuery(),
-		opts.ProjectID, []byte(opts.BucketName), opts.startKey(), opts.Cursor.Version,
-		opts.stopKey(), opts.Status,
-		opts.Limit+1, len(opts.Prefix)+1))(func(rows tagsql.Rows) error {
+		opts.ProjectID, []byte(opts.BucketName),
+		opts.startKey(), opts.Cursor.Version, opts.stopKey(),
+		opts.Limit+1, len(opts.Prefix)+1),
+	)(func(rows tagsql.Rows) error {
 		entries, err = scanListObjectsResult(rows, opts)
 		return err
 	})
@@ -87,16 +86,64 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 }
 
 func (opts *ListObjects) getSQLQuery() string {
-	return `
-	SELECT ` + opts.selectedFields() + `
-	FROM objects
-	WHERE
-		(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-		AND ` + opts.stopCondition() + `
-		AND status = $6
-		AND (expires_at IS NULL OR expires_at > now())
-	ORDER BY ` + opts.orderBy() + `
-	LIMIT $7
+	var indexFields string
+	if opts.Recursive {
+		indexFields = `
+			substring(object_key from $7), FALSE as is_prefix`
+	} else {
+		indexFields = `
+			DISTINCT ON (entry_key)
+			CASE
+				WHEN position('/' IN substring(object_key from $7)) <> 0
+				THEN substring(substring(object_key from $7) from 0 for (position('/' IN substring(object_key from $7)) +1))
+				ELSE substring(object_key from $7)
+			END
+			AS entry_key,
+			position('/' IN substring(object_key from $7)) <> 0 AS is_prefix`
+	}
+
+	if opts.Pending {
+		return `SELECT ` + indexFields + opts.selectedFields() + `
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
+				AND ` + opts.stopCondition() + `
+				AND status = ` + statusPending + `
+				AND (expires_at IS NULL OR expires_at > now())
+			ORDER BY ` + opts.orderBy() + `
+			LIMIT $6
+		`
+	}
+
+	// TODO(ver): using subquery the following subquery looks nicer, however CRDB has a bug related to it.
+	//
+	//    SELECT MAX(sub.version)
+	//    FROM objects sub
+	//    WHERE
+	//      (sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
+	//      AND status <> ` + statusPending + `
+	//      AND (expires_at IS NULL OR expires_at > now())
+
+	// query committed objects where the latest is not a delete marker
+	return `SELECT ` + indexFields + opts.selectedFields() + `
+		FROM objects main
+		WHERE
+			(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
+			AND ` + opts.stopCondition() + `
+			AND status IN ` + statusesCommitted + `
+			AND (expires_at IS NULL OR expires_at > now())
+			AND version = (
+				SELECT sub.version
+				FROM objects sub
+				WHERE
+					(sub.project_id, sub.bucket_name, sub.object_key) = (main.project_id, main.bucket_name, main.object_key)
+					AND status <> ` + statusPending + `
+					AND (expires_at IS NULL OR expires_at > now())
+				ORDER BY version DESC
+				LIMIT 1
+			)
+		ORDER BY ` + opts.orderBy() + `
+		LIMIT $6
 	`
 }
 
@@ -116,37 +163,20 @@ func (opts *ListObjects) stopCondition() string {
 
 func (opts *ListObjects) orderBy() string {
 	if !opts.Recursive {
-		return "entry_key ASC"
+		return "entry_key ASC, version DESC"
 	}
-
-	return "(object_key, version) ASC"
+	return "object_key ASC, version DESC"
 }
 
 func (opts ListObjects) selectedFields() (selectedFields string) {
-
-	if opts.Recursive {
-		selectedFields = `
-			substring(object_key from $8), FALSE as is_prefix`
-	} else {
-		selectedFields = `
-			DISTINCT ON (entry_key)
-			CASE
-				WHEN position('/' IN substring(object_key from $8)) <> 0
-				THEN substring(substring(object_key from $8) from 0 for (position('/' IN substring(object_key from $8)) +1))
-				ELSE substring(object_key from $8)
-			END
-			AS entry_key,
-			position('/' IN substring(object_key from $8)) <> 0 AS is_prefix`
-	}
-
 	selectedFields += `
 	,stream_id
 	,version
+	,status
 	,encryption`
 
 	if opts.IncludeSystemMetadata {
 		selectedFields += `
-		,status
 		,created_at
 		,expires_at
 		,segment_count
@@ -205,12 +235,12 @@ func scanListObjectsResult(rows tagsql.Rows, opts ListObjects) (entries []Object
 			&item.IsPrefix,
 			&item.StreamID,
 			&item.Version,
+			&item.Status,
 			encryptionParameters{&item.Encryption},
 		}
 
 		if opts.IncludeSystemMetadata {
 			fields = append(fields,
-				&item.Status,
 				&item.CreatedAt,
 				&item.ExpiresAt,
 				&item.SegmentCount,
@@ -236,7 +266,12 @@ func scanListObjectsResult(rows tagsql.Rows, opts ListObjects) (entries []Object
 			item = ObjectEntry{
 				IsPrefix:  true,
 				ObjectKey: item.ObjectKey,
-				Status:    opts.Status,
+			}
+			// TODO(ver): should we use `0` for prefixes instead?
+			if opts.Pending {
+				item.Status = Pending
+			} else {
+				item.Status = CommittedUnversioned
 			}
 		}
 

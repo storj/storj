@@ -64,7 +64,7 @@ func sortBucketTallies(tallies []metabase.BucketTally) {
 
 func sortRawObjects(objects []metabase.RawObject) {
 	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].StreamID.Less(objects[j].StreamID)
+		return objects[i].ObjectStream.Less(objects[j].ObjectStream)
 	})
 }
 

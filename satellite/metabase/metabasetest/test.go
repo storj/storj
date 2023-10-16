@@ -793,7 +793,7 @@ type DeleteObjectLastCommitted struct {
 }
 
 // Check runs the test.
-func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.DeleteObjectResult {
 	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -802,6 +802,8 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
+
+	return result
 }
 
 // CollectBucketTallies is for testing metabase.CollectBucketTallies.
