@@ -106,7 +106,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 			Version:  0,
 			StreamID: opts.Cursor.StreamID,
 		},
-		doNextQuery: doNextQueryStreamsByKey,
+		doNextQuery: doNextQueryPendingObjectsByKey,
 	}
 
 	return iterate(ctx, it, fn)
@@ -312,7 +312,7 @@ func nextBucket(b []byte) []byte {
 }
 
 // doNextQuery executes query to fetch the next batch returning the rows.
-func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return it.db.db.QueryContext(ctx, `
@@ -324,8 +324,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM objects
 			WHERE
-				project_id = $1 AND bucket_name = $2
-				AND object_key = $3
+				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND stream_id > $4::BYTEA
 				AND status = `+statusPending+`
 			ORDER BY stream_id ASC
