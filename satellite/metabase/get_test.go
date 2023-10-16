@@ -1605,6 +1605,10 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		// TODO(ver): add test for committed versioned
+		// TODO(ver): add test for delete marker versioned
+		// TODO(ver): add test for delete marker unversioned
 	})
 }
 

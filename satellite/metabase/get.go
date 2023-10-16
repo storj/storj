@@ -204,9 +204,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			inline_data, remote_alias_pieces,
 			placement
 		FROM segments
-		WHERE
-			stream_id = $1 AND
-			position  = $2
+		WHERE (stream_id, position) = ($1, $2)
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -263,13 +261,14 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			placement
 		FROM segments
 		WHERE
-			stream_id IN (SELECT stream_id FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+statusCommittedUnversioned+`
-				ORDER BY version DESC
-				LIMIT 1
+			stream_id IN (
+				SELECT stream_id
+				FROM objects
+				WHERE
+					(project_id, bucket_name, object_key) = ($1, $2, $3) AND
+					status <> `+statusPending+`
+					ORDER BY version DESC
+					LIMIT 1
 			)
 		ORDER BY position DESC
 		LIMIT 1
@@ -319,31 +318,17 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 		return false, ErrInvalidRequest.New("BucketName missing")
 	}
 
-	var value int
+	var value bool
 	err = db.db.QueryRowContext(ctx, `
 		SELECT
-			1
-		FROM objects
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2
-		UNION ALL
-		SELECT
-			1
-		FROM pending_objects
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2
-		LIMIT 1
+			(SELECT EXISTS (SELECT 1 FROM objects         WHERE (project_id, bucket_name) = ($1, $2))) OR
+			(SELECT EXISTS (SELECT 1 FROM pending_objects WHERE (project_id, bucket_name) = ($1, $2)))
 	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return true, nil
-		}
 		return false, Error.New("unable to query objects: %w", err)
 	}
 
-	return false, nil
+	return !value, nil
 }
 
 // TestingAllCommittedObjects gets all objects from bucket.
