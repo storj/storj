@@ -3,260 +3,254 @@
 
 <template>
     <v-navigation-drawer v-model="model" class="py-1">
-        <v-sheet>
-            <v-list class="px-2" color="default" variant="flat">
-                <!-- Project -->
-                <v-list-item link class="pa-4 rounded-lg">
-                    <v-menu activator="parent" location="end" transition="scale-transition">
-                        <!-- Project Menu -->
-                        <v-list class="pa-2">
-                            <!-- My Projects -->
-                            <template v-if="ownProjects.length">
-                                <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
-                                    <template #prepend>
-                                        <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
-                                        <IconProject />
-                                    </template>
-                                    <v-list-item-title class="text-body-2 ml-3">
-                                        <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                                            My Projects
-                                        </v-chip>
-                                    </v-list-item-title>
-                                </v-list-item>
+        <v-sheet class="pa-2">
+            <!-- Project -->
+            <v-menu location="end" transition="scale-transition">
+                <template #activator="{ props: activatorProps }">
+                    <navigation-item title="Project" :subtitle="selectedProject.name" class="pa-4" v-bind="activatorProps">
+                        <template #prepend>
+                            <IconProject />
+                        </template>
+                        <template #append>
+                            <img src="@poc/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
+                        </template>
+                    </navigation-item>
+                </template>
 
-                                <!-- Selected Project -->
-                                <v-list-item
-                                    v-for="project in ownProjects"
-                                    :key="project.id"
-                                    rounded="lg"
-                                    :active="project.isSelected"
-                                    @click="() => onProjectSelected(project)"
-                                >
-                                    <template v-if="project.isSelected" #prepend>
-                                        <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
-                                    </template>
-                                    <v-list-item-title class="text-body-2" :class="project.isSelected ? 'ml-3' : 'ml-7'">
-                                        {{ project.name }}
-                                    </v-list-item-title>
-                                </v-list-item>
-
-                                <v-divider class="my-2" />
+                <!-- Project Menu -->
+                <v-list class="pa-2">
+                    <!-- My Projects -->
+                    <template v-if="ownProjects.length">
+                        <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                            <template #prepend>
+                                <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
+                                <IconProject />
                             </template>
+                            <v-list-item-title>
+                                <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                                    My Projects
+                                </v-chip>
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <!-- Shared With Me -->
-                            <template v-if="sharedProjects.length">
-                                <v-list-item rounded="lg" link router-link to="/projects" @click="() => registerLinkClick('/projects')">
-                                    <template #prepend>
-                                        <IconProject />
-                                    </template>
-                                    <v-list-item-title class="text-body-2 ml-3">
-                                        <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
-                                            Shared Projects
-                                        </v-chip>
-                                    </v-list-item-title>
-                                </v-list-item>
-
-                                <!-- Other Project -->
-                                <v-list-item
-                                    v-for="project in sharedProjects"
-                                    :key="project.id"
-                                    rounded="lg"
-                                    :active="project.isSelected"
-                                    @click="() => onProjectSelected(project)"
-                                >
-                                    <template v-if="project.isSelected" #prepend>
-                                        <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
-                                    </template>
-                                    <v-list-item-title class="text-body-2" :class="project.isSelected ? 'ml-3' : 'ml-7'">
-                                        {{ project.name }}
-                                    </v-list-item-title>
-                                </v-list-item>
-
-                                <v-divider class="my-2" />
+                        <!-- Selected Project -->
+                        <v-list-item
+                            v-for="project in ownProjects"
+                            :key="project.id"
+                            :active="project.isSelected"
+                            @click="() => onProjectSelected(project)"
+                        >
+                            <template v-if="project.isSelected" #prepend>
+                                <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
                             </template>
+                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                                {{ project.name }}
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <!-- Project Settings -->
-                            <v-list-item link rounded="lg" :to="`/projects/${selectedProject.urlId}/settings`">
-                                <template #prepend>
-                                    <IconSettings />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Project Settings
-                                </v-list-item-title>
-                            </v-list-item>
-
-                            <!-- <v-divider class="my-2"></v-divider> -->
-
-                            <!-- View All Projects -->
-                            <v-list-item link rounded="lg" router-link to="/projects" @click="() => registerLinkClick('/projects')">
-                                <template #prepend>
-                                    <IconAllProjects />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    View All Projects
-                                </v-list-item-title>
-                            </v-list-item>
-
-                            <!-- Create New Project -->
-                            <v-list-item link rounded="lg" @click="isCreateProjectDialogShown = true">
-                                <template #prepend>
-                                    <IconNew />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Create New Project
-                                </v-list-item-title>
-                            </v-list-item>
-
-                            <v-divider class="my-2" />
-
-                            <!-- Manage Passphrase -->
-                            <v-list-item link class="mt-1" rounded="lg" @click="isManagePassphraseDialogShown = true">
-                                <template #prepend>
-                                    <IconPassphrase />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Manage Passphrase
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
-                    <template #prepend>
-                        <IconProject />
+                        <v-divider class="my-2" />
                     </template>
-                    <v-list-item-title link class="text-body-2 ml-3">
-                        Project
-                    </v-list-item-title>
-                    <v-list-item-subtitle class="ml-3">
-                        {{ selectedProject.name }}
-                    </v-list-item-subtitle>
-                    <template #append>
-                        <img src="@poc/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
+
+                    <!-- Shared With Me -->
+                    <template v-if="sharedProjects.length">
+                        <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                            <template #prepend>
+                                <IconProject />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link>
+                                    Shared Projects
+                                </v-chip>
+                            </v-list-item-title>
+                        </v-list-item>
+
+                        <!-- Other Project -->
+                        <v-list-item
+                            v-for="project in sharedProjects"
+                            :key="project.id"
+                            :active="project.isSelected"
+                            @click="() => onProjectSelected(project)"
+                        >
+                            <template v-if="project.isSelected" #prepend>
+                                <img src="@poc/assets/icon-check-color.svg" alt="Selected Project">
+                            </template>
+                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                                {{ project.name }}
+                            </v-list-item-title>
+                        </v-list-item>
+
+                        <v-divider class="my-2" />
                     </template>
-                </v-list-item>
 
-                <v-divider class="my-2" />
+                    <!-- Project Settings -->
+                    <v-list-item :to="`/projects/${selectedProject.urlId}/settings`">
+                        <template #prepend>
+                            <IconSettings />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Project Settings
+                        </v-list-item-title>
+                    </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/dashboard`" class="my-1 py-3" rounded="lg" @click="() => registerLinkClick('/dashboard')">
-                    <template #prepend>
-                        <IconDashboard />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Overview
-                    </v-list-item-title>
-                </v-list-item>
+                    <!-- <v-divider class="my-2"></v-divider> -->
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/buckets`" class="my-1" rounded="lg" @click="() => registerLinkClick('/buckets')">
-                    <template #prepend>
-                        <IconBucket />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Buckets
-                    </v-list-item-title>
-                </v-list-item>
+                    <!-- View All Projects -->
+                    <v-list-item router-link to="/projects" @click="() => registerLinkClick('/projects')">
+                        <template #prepend>
+                            <IconAllProjects />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            View All Projects
+                        </v-list-item-title>
+                    </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/access`" class="my-1" rounded="lg" @click="() => registerLinkClick('/access')">
-                    <template #prepend>
-                        <IconAccess size="18" />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Access
-                    </v-list-item-title>
-                </v-list-item>
+                    <!-- Create New Project -->
+                    <v-list-item link @click="isCreateProjectDialogShown = true">
+                        <template #prepend>
+                            <IconNew />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Create New Project
+                        </v-list-item-title>
+                    </v-list-item>
 
-                <v-list-item link router-link :to="`/projects/${selectedProject.urlId}/team`" class="my-1" rounded="lg" @click="() => registerLinkClick('/team')">
-                    <template #prepend>
-                        <IconTeam size="18" />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Team
-                    </v-list-item-title>
-                </v-list-item>
+                    <v-divider class="my-2" />
 
-                <v-divider class="my-2" />
+                    <!-- Manage Passphrase -->
+                    <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
+                        <template #prepend>
+                            <IconPassphrase />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Manage Passphrase
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
 
-                <!-- Resources Menu -->
-                <v-list-item link class="rounded-lg">
-                    <v-menu activator="parent" location="end" transition="scale-transition">
-                        <v-list class="pa-2">
-                            <v-list-item
-                                class="py-3"
-                                rounded="lg"
-                                href="https://docs.storj.io/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <template #prepend>
-                                    <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
-                                    <IconDocs />
-                                </template>
-                                <v-list-item-title class="text-body-2 mx-3">
-                                    Documentation
-                                </v-list-item-title>
-                                <v-list-item-subtitle class="mx-3">
-                                    <small>Go to the Storj docs.</small>
-                                </v-list-item-subtitle>
-                            </v-list-item>
+            <v-divider class="my-2" />
 
-                            <v-list-item
-                                class="py-3"
-                                rounded="lg"
-                                href="https://forum.storj.io/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <template #prepend>
-                                    <IconForum />
-                                </template>
-                                <v-list-item-title class="text-body-2 mx-3">
-                                    Community Forum
-                                </v-list-item-title>
-                                <v-list-item-subtitle class="mx-3">
-                                    <small>Join our global community.</small>
-                                </v-list-item-subtitle>
-                            </v-list-item>
+            <!--
+            <v-list-item
+                router-link
+                :to="`/projects/${selectedProject.urlId}/dashboard`"
+                class="my-1 py-3"
+                tabindex="0"
+                @click="() => registerLinkClick('/dashboard')"
+            >
+                <template #prepend>
+                    <IconDashboard />
+                </template>
+                <v-list-item-title class="ml-3">
+                    Overview
+                </v-list-item-title>
+            </v-list-item>
+            -->
 
-                            <v-list-item
-                                class="py-3"
-                                rounded="lg"
-                                href="https://supportdcs.storj.io/hc/en-us"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <template #prepend>
-                                    <IconSupport />
-                                </template>
-                                <v-list-item-title class="text-body-2 mx-3">
-                                    Storj Support
-                                </v-list-item-title>
-                                <v-list-item-subtitle class="mx-3">
-                                    <small>Need help? Get support.</small>
-                                </v-list-item-subtitle>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
+            <navigation-item title="Overview" :to="`/projects/${selectedProject.urlId}/dashboard`">
+                <template #prepend>
+                    <IconDashboard />
+                </template>
+            </navigation-item>
 
-                    <template #prepend>
-                        <IconResources />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Resources
-                    </v-list-item-title>
-                    <template #append>
-                        <img src="@poc/assets/icon-right.svg" alt="Resources" width="10">
-                    </template>
-                </v-list-item>
+            <navigation-item title="Buckets" :to="`/projects/${selectedProject.urlId}/buckets`">
+                <template #prepend>
+                    <IconBucket />
+                </template>
+            </navigation-item>
 
-                <v-divider class="my-2" />
+            <navigation-item title="Access" :to="`/projects/${selectedProject.urlId}/access`">
+                <template #prepend>
+                    <IconAccess size="18" />
+                </template>
+            </navigation-item>
 
-                <!-- <v-list-item link class="my-1" router-link to="/design-library" rounded="lg">
-                    <template v-slot:prepend>
-                        <img src="@poc/assets/icon-bookmark.svg" alt="Design Library" class="mr-3">
-                    </template>
-                    <v-list-item-title class="text-body-2">
-                        Design Library
-                    </v-list-item-title>
-                </v-list-item> -->
-            </v-list>
+            <navigation-item title="Team" :to="`/projects/${selectedProject.urlId}/team`">
+                <template #prepend>
+                    <IconTeam size="18" />
+                </template>
+            </navigation-item>
+
+            <v-divider class="my-2" />
+
+            <!-- Resources Menu -->
+            <v-menu location="end" transition="scale-transition">
+                <template #activator="{ props: activatorProps }">
+                    <navigation-item title="Resources" v-bind="activatorProps">
+                        <template #prepend>
+                            <IconResources />
+                        </template>
+                        <template #append>
+                            <img src="@poc/assets/icon-right.svg" alt="Resources" width="10">
+                        </template>
+                    </navigation-item>
+                </template>
+
+                <v-list class="pa-2">
+                    <v-list-item
+                        class="py-3"
+                        href="https://docs.storj.io/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <template #prepend>
+                            <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
+                            <IconDocs />
+                        </template>
+                        <v-list-item-title class="mx-3">
+                            Documentation
+                        </v-list-item-title>
+                        <v-list-item-subtitle class="mx-3">
+                            <small>Go to the Storj docs.</small>
+                        </v-list-item-subtitle>
+                    </v-list-item>
+
+                    <v-list-item
+                        class="py-3"
+                        href="https://forum.storj.io/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <template #prepend>
+                            <IconForum />
+                        </template>
+                        <v-list-item-title class="mx-3">
+                            Community Forum
+                        </v-list-item-title>
+                        <v-list-item-subtitle class="mx-3">
+                            <small>Join our global community.</small>
+                        </v-list-item-subtitle>
+                    </v-list-item>
+
+                    <v-list-item
+                        class="py-3"
+                        href="https://supportdcs.storj.io/hc/en-us"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <template #prepend>
+                            <IconSupport />
+                        </template>
+                        <v-list-item-title class="mx-3">
+                            Storj Support
+                        </v-list-item-title>
+                        <v-list-item-subtitle class="mx-3">
+                            <small>Need help? Get support.</small>
+                        </v-list-item-subtitle>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
+
+            <v-divider class="my-2" />
+
+            <!-- <v-list-item link class="my-1" router-link to="/design-library" rounded="lg">
+                <template v-slot:prepend>
+                    <img src="@poc/assets/icon-bookmark.svg" alt="Design Library" class="mr-3">
+                </template>
+                <v-list-item-title class="text-body-2">
+                    Design Library
+                </v-list-item-title>
+            </v-list-item> -->
         </v-sheet>
     </v-navigation-drawer>
 
@@ -304,6 +298,7 @@ import IconSupport from '@poc/components/icons/IconSupport.vue';
 import IconResources from '@poc/components/icons/IconResources.vue';
 import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
+import NavigationItem from '@poc/layouts/default/NavigationItem.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
