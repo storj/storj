@@ -179,6 +179,55 @@ func CreateObject(ctx *testcontext.Context, t require.TestingT, db *metabase.DB,
 	}.Check(ctx, t, db)
 }
 
+// CreateObjectVersioned creates a new committed object with the specified number of segments.
+func CreateObjectVersioned(ctx *testcontext.Context, t require.TestingT, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   DefaultEncryption,
+		},
+	}.Check(ctx, t, db)
+
+	for i := byte(0); i < numberOfSegments; i++ {
+		BeginSegment{
+			Opts: metabase.BeginSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{i + 1},
+				Pieces: []metabase.Piece{{
+					Number:      1,
+					StorageNode: testrand.NodeID(),
+				}},
+			},
+		}.Check(ctx, t, db)
+
+		CommitSegment{
+			Opts: metabase.CommitSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
+
+				EncryptedSize: 1024,
+				PlainSize:     512,
+				PlainOffset:   0,
+				Redundancy:    DefaultRedundancy,
+			},
+		}.Check(ctx, t, db)
+	}
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+			Versioned:    true,
+		},
+	}.Check(ctx, t, db)
+}
+
 // CreateExpiredObject creates a new committed expired object with the specified number of segments.
 func CreateExpiredObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, expiresAt time.Time) metabase.Object {
 	BeginObjectExactVersion{

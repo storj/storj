@@ -355,6 +355,29 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 	return result, nil
 }
 
+// queryHighestVersion queries the latest version of an object inside an transaction.
+//
+// TODO(ver): this should have a better and clearer name.
+func (db *DB) queryHighestVersion(ctx context.Context, loc ObjectLocation, stmt stmtRow) (highest Version, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := loc.Verify(); err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	err = stmt.QueryRowContext(ctx, `
+		SELECT MAX(version) as version
+		FROM objects
+		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+	`, loc.ProjectID, []byte(loc.BucketName), loc.ObjectKey).Scan(&highest)
+
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return highest, nil
+}
+
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAllVersions) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)

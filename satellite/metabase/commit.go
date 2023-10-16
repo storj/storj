@@ -615,6 +615,9 @@ type CommitObject struct {
 	DisallowDelete bool
 
 	UsePendingObjectsTable bool
+
+	// Versioned indicates whether an object is allowed to have multiple versions.
+	Versioned bool
 }
 
 // Verify verifies reqest fields.
@@ -685,8 +688,12 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		const versionArgIndex = 3
+
+		nextStatus := committedWhereVersioned(opts.Versioned)
+
 		args := []interface{}{
 			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			nextStatus,
 			len(segments),
 			totalPlainSize,
 			totalEncryptedSize,
@@ -694,21 +701,31 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			encryptionParameters{&opts.Encryption},
 		}
 
-		deleteResult, err := db.deleteObjectUnversionedCommitted(ctx, ObjectLocation{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			ObjectKey:  opts.ObjectKey,
-		}, tx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		var highestVersion Version
+		if opts.Versioned {
+			// TODO(ver): fold this into the queries below using a subquery.
+			v, err := db.queryHighestVersion(ctx, opts.Location(), tx)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			highestVersion = v
+		} else {
+			// TODO(ver): fold this into the query below using a subquery using `ON CONFLICT` on the unique index.
+			// Note, we are prematurely deleting the object without permissions
+			// and then rolling the action back, if we were not allowed to.
+			deleteResult, err := db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			if deleteResult.DeletedObjectCount > 0 && opts.DisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
+			}
 
-		if deleteResult.DeletedObjectCount > 0 && opts.DisallowDelete {
-			return ErrPermissionDenied.New("no permissions to delete existing object")
+			highestVersion = deleteResult.MaxVersion
 		}
 
 		if opts.UsePendingObjectsTable {
-			opts.Version = deleteResult.MaxVersion + 1
+			opts.Version = highestVersion + 1
 			args[versionArgIndex] = opts.Version
 
 			args = append(args,
@@ -736,27 +753,27 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				)
 				SELECT
 					$1 as project_id, $2 as bucket_name, $3 as object_key, $4::INT4 as version, $5 as stream_id,
-					`+statusCommittedUnversioned+` as status, $6::INT4 as segment_count, $7::INT8 as total_plain_size, $8::INT8 as total_encrypted_size,
-					$9::INT4 as fixed_segment_size, NULL::timestamp as zombie_deletion_deadline, expires_at,
+					$6 as status, $7::INT4 as segment_count, $8::INT8 as total_plain_size, $9::INT8 as total_encrypted_size,
+					$10::INT4 as fixed_segment_size, NULL::timestamp as zombie_deletion_deadline, expires_at,
 					-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
 					CASE
-						WHEN encryption = 0 AND $10 <> 0 THEN $10
-						WHEN encryption = 0 AND $10 = 0 THEN NULL
+						WHEN encryption = 0 AND $11 <> 0 THEN $11
+						WHEN encryption = 0 AND $11 = 0 THEN NULL
 						ELSE encryption
 					END as
 					encryption,
 					CASE
-						WHEN $14::BOOL = true THEN $11
+						WHEN $15::BOOL = true THEN $12
 						ELSE encrypted_metadata_nonce
 					END as
 					encrypted_metadata_nonce,
 					CASE
-						WHEN $14::BOOL = true THEN $12
+						WHEN $15::BOOL = true THEN $13
 						ELSE encrypted_metadata
 					END as
 					encrypted_metadata,
 					CASE
-						WHEN $14::BOOL = true THEN $13
+						WHEN $15::BOOL = true THEN $14
 						ELSE encrypted_metadata_encrypted_key
 					END as
 					encrypted_metadata_encrypted_key
@@ -790,25 +807,25 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					opts.EncryptedMetadataEncryptedKey,
 				)
 				metadataColumns = `,
-					encrypted_metadata_nonce         = $11,
-					encrypted_metadata               = $12,
-					encrypted_metadata_encrypted_key = $13
+					encrypted_metadata_nonce         = $12,
+					encrypted_metadata               = $13,
+					encrypted_metadata_encrypted_key = $14
 				`
 			}
 			err = tx.QueryRowContext(ctx, `
 				UPDATE objects SET
-					status =`+statusCommittedUnversioned+`,
-					segment_count = $6,
+					status = $6,
+					segment_count = $7,
 
-					total_plain_size     = $7,
-					total_encrypted_size = $8,
-					fixed_segment_size   = $9,
+					total_plain_size     = $8,
+					total_encrypted_size = $9,
+					fixed_segment_size   = $10,
 					zombie_deletion_deadline = NULL,
 
 					-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
 					encryption = CASE
-						WHEN objects.encryption = 0 AND $10 <> 0 THEN $10
-						WHEN objects.encryption = 0 AND $10 = 0 THEN NULL
+						WHEN objects.encryption = 0 AND $11 <> 0 THEN $11
+						WHEN objects.encryption = 0 AND $11 = 0 THEN NULL
 						ELSE objects.encryption
 					END
 					`+metadataColumns+`
@@ -844,7 +861,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
 		object.Version = opts.Version
-		object.Status = CommittedUnversioned
+		object.Status = nextStatus
 		object.SegmentCount = int32(len(segments))
 		object.TotalPlainSize = totalPlainSize
 		object.TotalEncryptedSize = totalEncryptedSize
