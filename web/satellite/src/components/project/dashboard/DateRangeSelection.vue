@@ -73,10 +73,11 @@ function closePicker(): void {
 
 <style scoped lang="scss">
     .range-selection {
-        background-color: #fff;
+        background-color: var(--c-white);
         cursor: pointer;
         font-family: 'font_regular', sans-serif;
         position: relative;
+        border-radius: 8px;
 
         &__toggle-container {
             display: flex;

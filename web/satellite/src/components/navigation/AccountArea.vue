@@ -8,8 +8,10 @@
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
                 <p class="account-area__wrap__left__label-small">Account</p>
-                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                <template v-if="billingEnabled">
+                    <TierBadgePro v-if="isPaidTier" class="account-area__wrap__left__tier-badge" />
+                    <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                </template>
             </div>
             <ArrowImage class="account-area__wrap__arrow" />
         </div>
@@ -31,11 +33,11 @@
                     </a>
                 </div>
             </div>
-            <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+            <div v-if="!isPaidTier && billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
                 <UpgradeIcon />
                 <p class="account-area__dropdown__item__label">Upgrade</p>
             </div>
-            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
+            <div v-if="billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
             </div>
@@ -55,7 +57,6 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { User } from '@/types/users';
 import { RouteConfig } from '@/types/router';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -109,6 +110,11 @@ const dropdownXPos = ref<number>(0);
 const accountArea = ref<HTMLDivElement>();
 
 /**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+/**
  * Returns bottom and left position of dropdown.
  */
 const style = computed((): Record<string, string> => {
@@ -130,10 +136,10 @@ const satellite = computed((): string => {
 });
 
 /**
- * Returns user entity from store.
+ * Indicates if user is in paid tier.
  */
-const user = computed((): User => {
-    return usersStore.state.user;
+const isPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
 });
 
 /**
@@ -141,6 +147,8 @@ const user = computed((): User => {
  */
 function onUpgrade(): void {
     closeDropdown();
+
+    if (!billingEnabled.value) return;
 
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
@@ -204,12 +212,15 @@ function toggleDropdown(): void {
     }
 
     const DROPDOWN_HEIGHT = 224; // pixels
-    const SIXTEEN_PIXELS = 16;
+    const FIFTY_THREE_PIXELS = 53; // height of a single child element.
     const TWENTY_PIXELS = 20;
-    const SEVENTY_PIXELS = 70;
     const accountContainer = accountArea.value.getBoundingClientRect();
 
-    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (usersStore.state.user.paidTier ? SIXTEEN_PIXELS : SEVENTY_PIXELS);
+    if (billingEnabled.value) {
+        dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (isPaidTier.value ? 0 : FIFTY_THREE_PIXELS);
+    } else {
+        dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT + FIFTY_THREE_PIXELS;
+    }
     dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
     appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);

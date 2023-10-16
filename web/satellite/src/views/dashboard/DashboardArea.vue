@@ -26,7 +26,7 @@
                                     />
 
                                     <v-banner
-                                        v-if="isAccountFrozen && !isLoading && dashboardContent"
+                                        v-if="isAccountFrozen && !isLoading && dashboardContent && billingEnabled"
                                         title="Your account was frozen due to billing issues."
                                         message="Please update your payment information."
                                         link-text="To Billing Page"
@@ -36,7 +36,7 @@
                                     />
 
                                     <v-banner
-                                        v-if="isAccountWarned && !isLoading && dashboardContent"
+                                        v-if="isAccountWarned && !isLoading && dashboardContent && billingEnabled"
                                         title="Your account will be frozen soon due to billing issues."
                                         message="Please update your payment information."
                                         link-text="To Billing Page"
@@ -46,7 +46,7 @@
                                     />
 
                                     <limit-warning-banners
-                                        v-if="dashboardContent"
+                                        v-if="dashboardContent && billingEnabled"
                                         :reached-thresholds="reachedThresholds"
                                         :dashboard-ref="dashboardContent"
                                         :on-upgrade-click="togglePMModal"
@@ -72,7 +72,7 @@
                     <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ session.debugTimerText.value }}</b></p>
                 </div>
                 <limit-warning-modal
-                    v-if="limitModalThreshold && !isLoading"
+                    v-if="limitModalThreshold && !isLoading && billingEnabled"
                     :reached-thresholds="reachedThresholds"
                     :threshold="limitModalThreshold"
                     :on-close="() => limitModalThreshold = null"
@@ -145,6 +145,11 @@ const recoveryCodeWarningThreshold = 4;
 const limitModalThreshold = ref<LimitThreshold | null>(null);
 
 const dashboardContent = ref<HTMLElement | null>(null);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates whether objects upload modal should be shown.
@@ -236,7 +241,8 @@ const isPaidTierBannerShown = computed((): boolean => {
     return !isPaidTier.value
         && !isOnboardingTour.value
         && joinedWhileAgo.value
-        && isDashboardPage.value;
+        && isDashboardPage.value
+        && billingEnabled.value;
 });
 
 /* whether the user joined more than 7 days ago */
@@ -305,13 +311,6 @@ const isPaidTier = computed((): boolean => {
 });
 
 /**
- * Returns the URL for the general request page from the store.
- */
-const requestURL = computed((): string => {
-    return configStore.state.config.generalRequestURL;
-});
-
-/**
  * Closes upload large files warning notification.
  */
 function onWarningNotificationCloseClick(): void {
@@ -356,7 +355,7 @@ function toggleMFARecoveryModal(): void {
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
-    if (isPaidTier.value) return;
+    if (isPaidTier.value || !billingEnabled.value) return;
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
@@ -404,18 +403,20 @@ onMounted(async () => {
         notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
-    try {
-        const couponType = await billingStore.setupAccount();
-        if (couponType === CouponType.NoCoupon) {
-            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        }
+    if (billingEnabled.value) {
+        try {
+            const couponType = await billingStore.setupAccount();
+            if (couponType === CouponType.NoCoupon) {
+                notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }
 
-        if (couponType === CouponType.SignupCoupon) {
-            notify.success(`The coupon code was added successfully`);
+            if (couponType === CouponType.SignupCoupon) {
+                notify.success(`The coupon code was added successfully`);
+            }
+        } catch (error) {
+            error.message = `Unable to setup account. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
-    } catch (error) {
-        error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
 
     try {

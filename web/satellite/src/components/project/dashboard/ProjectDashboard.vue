@@ -22,7 +22,7 @@
                     :toggle="toggleChartsDatePicker"
                 />
                 <VButton
-                    v-if="!isProAccount"
+                    v-if="!isProAccount && billingEnabled"
                     label="Upgrade Plan"
                     width="114px"
                     height="40px"
@@ -145,6 +145,7 @@
                 </template>
             </InfoContainer>
             <InfoContainer
+                v-if="billingEnabled"
                 :icon="BillingIcon"
                 title="Billing"
                 :subtitle="status"
@@ -191,7 +192,8 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { centsToDollars } from '@/utils/strings';
 import { User } from '@/types/users';
-import { ProjectRole } from '@/types/projectMembers';
+import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
+import { AccessGrantsPage } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
@@ -236,6 +238,11 @@ const areBucketsFetching = ref<boolean>(true);
 const isServerSideEncryptionBannerHidden = ref<boolean>(true);
 const chartWidth = ref<number>(0);
 const chartContainer = ref<HTMLDivElement>();
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates if charts date picker is shown.
@@ -393,6 +400,8 @@ function getDimension(dataStamps: DataStamp[]): Dimensions {
  * Holds on upgrade button click logic.
  */
 function onUpgradeClick(): void {
+    if (!billingEnabled.value) return;
+
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
@@ -472,21 +481,26 @@ onMounted(async (): Promise<void> => {
             appStore.toggleHasJustLoggedIn();
         }
 
-        await Promise.all([
+        const promises: Promise<void | ProjectMembersPage | AccessGrantsPage>[] = [
             projectsStore.getDailyProjectData({ since: past, before: now }),
-            billingStore.getCoupon(),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
-        ]);
+        ];
+
+        if (billingEnabled.value) promises.push(billingStore.getCoupon());
+
+        await Promise.all(promises);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {
         isDataFetching.value = false;
     }
 
-    billingStore.getProjectUsageAndChargesCurrentRollup().catch(error => {
-        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-    });
+    if (billingEnabled.value) {
+        billingStore.getProjectUsageAndChargesCurrentRollup().catch(error => {
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        });
+    }
 
     try {
         await bucketsStore.getBuckets(FIRST_PAGE, projectID);
@@ -656,8 +670,7 @@ onBeforeUnmount((): void => {
         &__info {
             display: flex;
             margin-top: 16px;
-            justify-content: space-between;
-            align-items: stretch;
+            column-gap: 10px;
             flex-wrap: wrap;
 
             .info-container {

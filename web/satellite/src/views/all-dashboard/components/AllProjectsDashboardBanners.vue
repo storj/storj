@@ -10,7 +10,7 @@
         />
 
         <v-banner
-            v-if="isAccountFrozen && parentRef"
+            v-if="isAccountFrozen && parentRef && billingEnabled"
             class="all-dashboard-banners__freeze"
             title="Your account was frozen due to billing issues."
             message="Please update your payment information."
@@ -21,7 +21,7 @@
         />
 
         <v-banner
-            v-if="isAccountWarned && parentRef"
+            v-if="isAccountWarned && parentRef && billingEnabled"
             class="all-dashboard-banners__warning"
             title="Your account will be frozen soon due to billing issues."
             message="Please update your payment information."
@@ -52,6 +52,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { RouteConfig } from '@/types/router';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
@@ -61,10 +62,16 @@ const router = useRouter();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 
 const props = defineProps<{
   parentRef: HTMLElement;
 }>();
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates if account was frozen due to billing issues.
@@ -92,7 +99,8 @@ const isLowBalance = computed((): boolean => {
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
     return !usersStore.state.user.paidTier
-      && joinedWhileAgo.value;
+        && joinedWhileAgo.value
+        && billingEnabled.value;
 });
 
 /* whether the user joined more than 7 days ago */
@@ -107,7 +115,7 @@ const joinedWhileAgo = computed((): boolean => {
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
-    if (usersStore.state.user.paidTier) return;
+    if (usersStore.state.user.paidTier || !billingEnabled.value) return;
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 

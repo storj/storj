@@ -46,7 +46,7 @@
                 'https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212'"
         />
         <LimitCard
-            v-if="coupon && isFreeTierCoupon"
+            v-if="coupon && isFreeTierCoupon && billingEnabled"
             :icon="CheckmarkIcon"
             title="Free Tier"
             color="#091c45"
@@ -62,7 +62,7 @@
             link="https://docs.storj.io/dcs/pricing#free-tier"
         />
         <LimitCard
-            v-if="coupon && !isFreeTierCoupon"
+            v-if="coupon && !isFreeTierCoupon && billingEnabled"
             :icon="CheckmarkIcon"
             title="Coupon"
             color="#091c45"
@@ -95,6 +95,7 @@ import { Coupon, ProjectCharges } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/types/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import LimitCard from '@/components/project/dashboard/LimitCard.vue';
 
@@ -107,6 +108,8 @@ const appStore = useAppStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
+
 const router = useRouter();
 
 const props = defineProps<{
@@ -115,6 +118,11 @@ const props = defineProps<{
 
 const EIGHTY_PERCENT = 80;
 const HUNDRED_PERCENT = 100;
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns coupon from store.
@@ -305,6 +313,8 @@ function usageAction(limit: LimitToChange): void {
  * Starts upgrade account flow.
  */
 function startUpgradeFlow(): void {
+    if (!billingEnabled.value) return;
+
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
