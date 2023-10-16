@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -154,34 +155,87 @@ func TestGetObjectExactVersion(t *testing.T) {
 			}}.Check(ctx, t, db)
 		})
 
-		t.Run("Get object", func(t *testing.T) {
+		t.Run("get committed/deletemarker unversioned/versioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CreateObject(ctx, t, db, obj, 0)
+			unversionedLocation := obj
+			unversioned := metabasetest.CreateObject(ctx, t, db, unversionedLocation, 0)
 
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
-					ObjectLocation: location,
-					Version:        obj.Version,
+					ObjectLocation: unversioned.Location(),
+					Version:        unversioned.Version,
 				},
-				Result: metabase.Object{
-					ObjectStream: obj,
-					CreatedAt:    now,
-					Status:       metabase.CommittedUnversioned,
+				Result: unversioned,
+			}.Check(ctx, t, db)
 
-					Encryption: metabasetest.DefaultEncryption,
+			versionedLocation := obj
+			versionedLocation.Version++
+			versioned := metabasetest.CreateObjectVersioned(ctx, t, db, versionedLocation, 0)
+
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: versioned.Location(),
+					Version:        versioned.Version,
+				},
+				Result: versioned,
+			}.Check(ctx, t, db)
+
+			markerLocation := obj
+			markerLocation.StreamID = uuid.UUID{}
+			markerLocation.Version = versioned.Version + 1
+			versionedMarker := metabase.Object{
+				ObjectStream: markerLocation,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			// this creates a versioned delete marker
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{versionedMarker},
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{Objects: []metabase.RawObject{
-				{
-					ObjectStream: obj,
-					CreatedAt:    now,
-					Status:       metabase.CommittedUnversioned,
-
-					Encryption: metabasetest.DefaultEncryption,
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: versionedMarker.Location(),
+					Version:        versionedMarker.Version,
 				},
-			}}.Check(ctx, t, db)
+				Result: versionedMarker,
+			}.Check(ctx, t, db)
+
+			unversionedMarkerLocation := obj
+			unversionedMarkerLocation.StreamID = uuid.UUID{}
+			unversionedMarkerLocation.Version = versionedMarker.Version + 1
+			unversionedMarker := metabase.Object{
+				ObjectStream: unversionedMarkerLocation,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerUnversioned,
+			}
+
+			// this creates an unversioned delete marker
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Suspended:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{unversionedMarker},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: unversionedMarker.Location(),
+					Version:        unversionedMarker.Version,
+				},
+				Result: unversionedMarker,
+			}.Check(ctx, t, db)
 		})
 	})
 }
@@ -331,6 +385,61 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					Status:       metabase.CommittedUnversioned,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
+				metabase.RawObject(secondObject),
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("Get object last committed version, multiple versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			first := obj
+			first.Version = metabase.Version(10)
+			firstObject := metabasetest.CreateObjectVersioned(ctx, t, db, first, 0)
+
+			second := obj
+			second.Version = metabase.Version(11)
+			secondObject := metabasetest.CreateObjectVersioned(ctx, t, db, second, 0)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: secondObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				metabase.RawObject(firstObject),
+				metabase.RawObject(secondObject),
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("Get object delete marker, multiple versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			first := obj
+			first.Version = metabase.Version(5)
+			firstObject := metabasetest.CreateObjectVersioned(ctx, t, db, first, 0)
+
+			second := obj
+			second.Version = metabase.Version(8)
+			secondObject := metabasetest.CreateObjectVersioned(ctx, t, db, second, 0)
+
+			result, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: second.Location(),
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: second.Location(),
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				metabase.RawObject(result.Objects[0]),
+				metabase.RawObject(firstObject),
 				metabase.RawObject(secondObject),
 			}}.Check(ctx, t, db)
 		})

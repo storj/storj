@@ -10,10 +10,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/private/tagsql"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.
@@ -83,7 +81,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object := Object{}
 	err = db.db.QueryRowContext(ctx, `
 		SELECT
-			stream_id,
+			stream_id, status,
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -91,15 +89,12 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			encryption
 		FROM objects
 		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			status       = `+statusCommittedUnversioned+` AND
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
+			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
-			&object.StreamID,
+			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
@@ -117,8 +112,6 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
 	object.Version = opts.Version
-
-	object.Status = CommittedUnversioned
 
 	return object, nil
 }
@@ -138,10 +131,13 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 	}
 
 	var object Object
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
 
-	err = withRows(db.db.QueryContext(ctx, `
+	row := db.db.QueryRowContext(ctx, `
 		SELECT
-			stream_id, version,
+			stream_id, version, status,
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -149,58 +145,28 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 			encryption
 		FROM objects
 		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			status       = `+statusCommittedUnversioned+` AND
+			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
+			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > now())
-		ORDER BY version desc
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
-		objectFound := false
-		for rows.Next() {
-			var scannedObject Object
-			if err = rows.Scan(
-				&scannedObject.StreamID, &scannedObject.Version,
-				&scannedObject.CreatedAt, &scannedObject.ExpiresAt,
-				&scannedObject.SegmentCount,
-				&scannedObject.EncryptedMetadataNonce, &scannedObject.EncryptedMetadata, &scannedObject.EncryptedMetadataEncryptedKey,
-				&scannedObject.TotalPlainSize, &scannedObject.TotalEncryptedSize, &scannedObject.FixedSegmentSize,
-				encryptionParameters{&scannedObject.Encryption},
-			); err != nil {
-				return Error.New("unable to query object status: %w", err)
-			}
+		ORDER BY version DESC
+		LIMIT 1`,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey)
 
-			if objectFound {
-				db.log.Warn("object with multiple committed versions were found!",
-					zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
-					zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("Version", int(scannedObject.Version)),
-					zap.Stringer("Stream ID", scannedObject.StreamID), zap.Stack("stacktrace"))
-				mon.Meter("multiple_committed_versions").Mark(1)
-				continue
-			}
-			object = scannedObject
+	err = row.Scan(
+		&object.StreamID, &object.Version, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		&object.SegmentCount,
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+		encryptionParameters{&object.Encryption},
+	)
 
-			objectFound = true
-		}
-
-		if !objectFound {
-			return sql.ErrNoRows
-		}
-
-		return nil
-	})
+	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
+		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+	}
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
-		}
-
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
-
-	object.ProjectID = opts.ProjectID
-	object.BucketName = opts.BucketName
-	object.ObjectKey = opts.ObjectKey
-	object.Status = CommittedUnversioned
 
 	return object, nil
 }

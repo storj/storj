@@ -412,6 +412,11 @@ var (
 	_ = statusesDeleteMarker
 )
 
+// IsDeleteMarker return whether the status is a delete marker.
+func (status ObjectStatus) IsDeleteMarker() bool {
+	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
 // Pieces defines information for pieces.
 type Pieces []Piece
 
