@@ -18,6 +18,8 @@ import (
 )
 
 // CommitObjectWithSegments contains arguments necessary for committing an object.
+//
+// TODO: not ready for production.
 type CommitObjectWithSegments struct {
 	ObjectStream
 
@@ -27,9 +29,18 @@ type CommitObjectWithSegments struct {
 
 	// TODO: this probably should use segment ranges rather than individual items
 	Segments []SegmentPosition
+
+	// DisallowDelete indicates whether the user is allowed to overwrite
+	// the previous unversioned object.
+	DisallowDelete bool
+
+	// Versioned indicates whether an object is allowed to have multiple versions.
+	Versioned bool
 }
 
 // CommitObjectWithSegments commits pending object to the database.
+//
+// TODO: not ready for production.
 func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWithSegments) (object Object, deletedSegments []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -40,9 +51,24 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, nil, err
 	}
 
+	var previousObject deleteObjectUnversionedCommittedResult
+
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
+
+		if !opts.Versioned {
+			var err error
+			// Note, we are prematurely deleting the object without permissions
+			// and then rolling the action back, if we were not allowed to.
+			previousObject, err = db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
+			if err != nil {
+				return err
+			}
+			if previousObject.DeletedObjectCount > 0 && opts.DisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
+			}
+		}
 
 		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
 		if err != nil {
@@ -86,18 +112,20 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
+		nextStatus := committedWhereVersioned(opts.Versioned)
+
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
-				status =`+statusCommittedUnversioned+`,
-				segment_count = $6,
+				status = $6,
+				segment_count = $7,
 
-				encrypted_metadata_nonce         = $7,
-				encrypted_metadata               = $8,
-				encrypted_metadata_encrypted_key = $9,
+				encrypted_metadata_nonce         = $8,
+				encrypted_metadata               = $9,
+				encrypted_metadata_encrypted_key = $10,
 
-				total_plain_size     = $10,
-				total_encrypted_size = $11,
-				fixed_segment_size   = $12,
+				total_plain_size     = $11,
+				total_encrypted_size = $12,
+				fixed_segment_size   = $13,
 				zombie_deletion_deadline = NULL
 			WHERE
 				project_id   = $1 AND
@@ -109,7 +137,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
 			len(finalSegments),
 			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 			totalPlainSize,
@@ -132,7 +160,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
 		object.Version = opts.Version
-		object.Status = CommittedUnversioned
+		object.Status = nextStatus
 		object.SegmentCount = int32(len(finalSegments))
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.EncryptedMetadata = opts.EncryptedMetadata
