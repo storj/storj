@@ -123,6 +123,10 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		return nil, errs.Combine(Error.Wrap(err), retry.Close(), notFound.Close())
 	}
 
+	if nodeVerifier, ok := verifier.(*NodeVerifier); ok {
+		nodeVerifier.reportPiece = problemPieces.Write
+	}
+
 	return &Service{
 		log:    log,
 		config: config,
