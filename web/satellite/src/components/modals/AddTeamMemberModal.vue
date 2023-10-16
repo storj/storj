@@ -7,38 +7,23 @@
             <div class="modal">
                 <div class="modal__header">
                     <TeamMembersIcon />
-                    <h1 class="modal__header__title">Invite team members</h1>
+                    <h1 class="modal__header__title">Invite team member</h1>
                 </div>
 
                 <p class="modal__info">
-                    Add team members to contribute to this project.
+                    Add a team member to contribute to this project.
                 </p>
 
-                <div class="modal__input-group">
-                    <VInput
-                        v-for="(_, index) in inputs"
-                        :key="index"
-                        class="modal__input-group__item"
-                        label="Email"
-                        height="38px"
-                        placeholder="email@email.com"
-                        role-description="email"
-                        :error="formError"
-                        :max-symbols="72"
-                        @setData="(str) => setInput(index, str)"
-                    />
-                </div>
-
-                <div class="modal__more">
-                    <div
-                        tabindex="0"
-                        class="modal__more__button"
-                        @click.stop="addInput"
-                    >
-                        <AddCircleIcon class="modal__more__button__icon" :class="{ inactive: isMaxInputsCount }" />
-                        <span class="modal__more__button__label" :class="{ inactive: isMaxInputsCount }">Add more</span>
-                    </div>
-                </div>
+                <VInput
+                    class="modal__input"
+                    label="Email"
+                    height="38px"
+                    placeholder="email@email.com"
+                    role-description="email"
+                    :error="typeof formError === 'string' ? formError : undefined"
+                    :max-symbols="72"
+                    @setData="str => email = str.trim()"
+                />
 
                 <div class="modal__buttons">
                     <VButton
@@ -54,8 +39,8 @@
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
-                        :on-press="onAddUsersClick"
-                        :is-disabled="!isButtonActive"
+                        :on-press="onInviteClick"
+                        :is-disabled="!!formError || isLoading"
                     />
                 </div>
             </div>
@@ -66,7 +51,6 @@
 <script setup lang='ts'>
 import { computed, ref } from 'vue';
 
-import { EmailInput } from '@/types/EmailInput';
 import { Validator } from '@/utils/validation';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -75,13 +59,13 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import TeamMembersIcon from '@/../static/images/team/teamMembers.svg';
-import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -89,145 +73,53 @@ const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
 const FIRST_PAGE = 1;
 
-const inputs = ref<EmailInput[]>([new EmailInput()]);
-const formError = ref<string>('');
-const isLoading = ref<boolean>(false);
+const email = ref<string>('');
 
 /**
- * Indicates if at least one input has error.
+ * Returns a boolean indicating whether the email is invalid
+ * or a message describing the validation error.
  */
-const hasInputError = computed((): boolean => {
-    return inputs.value.some((element: EmailInput) => {
-        return element.error;
-    });
-});
-
-/**
- * Indicates if emails count reached maximum.
- */
-const isMaxInputsCount = computed((): boolean => {
-    return inputs.value.length > 9;
-});
-
-/**
- * Indicates if add button is active.
- * Active when no errors and at least one input is not empty.
- */
-const isButtonActive = computed((): boolean => {
-    if (formError.value) return false;
-
-    const length = inputs.value.length;
-
-    for (let i = 0; i < length; i++) {
-        if (inputs.value[i].value !== '') return true;
+const formError = computed<string | boolean>(() => {
+    if (!email.value) return true;
+    if (email.value.toLocaleLowerCase() === usersStore.state.user.email.toLowerCase()) {
+        return `You can't add yourself to the project.`;
     }
-
+    if (!Validator.email(email.value)) {
+        return 'Please enter a valid email address.';
+    }
     return false;
 });
 
-function setInput(index: number, str: string) {
-    resetFormErrors(index);
-    inputs.value[index].value = str;
-}
-
 /**
- * Tries to add users related to entered emails list to current project.
+ * Tries to add the user with the input email to the current project.
  */
-async function onAddUsersClick(): Promise<void> {
-    if (isLoading.value) return;
-
-    isLoading.value = true;
-
-    const length = inputs.value.length;
-    const newInputsArray: EmailInput[] = [];
-    let areAllEmailsValid = true;
-    const emailArray: string[] = [];
-
-    inputs.value.forEach(elem => elem.value = elem.value.trim());
-
-    for (let i = 0; i < length; i++) {
-        const element = inputs.value[i];
-        const isEmail = Validator.email(element.value);
-
-        if (isEmail) {
-            emailArray.push(element.value);
+async function onInviteClick(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            await pmStore.inviteMember(email.value, projectsStore.state.selectedProject.id);
+        } catch (error) {
+            error.message = `Error inviting project member. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+            return;
         }
 
-        if (isEmail || element.value === '') {
-            element.setError(false);
-            newInputsArray.push(element);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
+        notify.notify('Invite sent!');
+        pmStore.setSearchQuery('');
 
-            continue;
+        try {
+            await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
+        } catch (error) {
+            error.message = `Unable to fetch project members. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         }
 
-        element.setError(true);
-        newInputsArray.unshift(element);
-        areAllEmailsValid = false;
-
-        formError.value = 'Please enter a valid email address';
-    }
-
-    inputs.value = [...newInputsArray];
-
-    if (length > 3) {
-        const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
-        if (scrollableDiv) {
-            const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
-            if (scrollableDivHeight) {
-                scrollableDiv.scroll(0, -scrollableDivHeight);
-            }
-        }
-    }
-
-    if (!areAllEmailsValid) {
-        isLoading.value = false;
-        return;
-    }
-
-    if (emailArray.includes(usersStore.state.user.email)) {
-        notify.error(`Error adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-        isLoading.value = false;
-
-        return;
-    }
-
-    try {
-        await pmStore.inviteMembers(emailArray, projectsStore.state.selectedProject.id);
-    } catch (error) {
-        error.message = `Error adding project members. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-        isLoading.value = false;
-
-        return;
-    }
-
-    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
-    notify.notify('Invites sent!');
-    pmStore.setSearchQuery('');
-
-    try {
-        await pmStore.getProjectMembers(FIRST_PAGE, projectsStore.state.selectedProject.id);
-    } catch (error) {
-        error.message = `Unable to fetch project members. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-    }
-
-    closeModal();
-
-    isLoading.value = false;
-}
-
-/**
- * Adds additional email input.
- */
-function addInput(): void {
-    const inputsLength = inputs.value.length;
-    if (inputsLength < 10) {
-        inputs.value.push(new EmailInput());
-    }
+        closeModal();
+    });
 }
 
 /**
@@ -235,16 +127,6 @@ function addInput(): void {
  */
 function closeModal(): void {
     appStore.removeActiveModal();
-}
-
-/**
- * Removes error for selected input.
- */
-function resetFormErrors(index: number): void {
-    inputs.value[index].setError(false);
-    if (!hasInputError.value) {
-        formError.value = '';
-    }
 }
 </script>
 
@@ -296,55 +178,10 @@ function resetFormErrors(index: number): void {
             margin-bottom: 16px;
         }
 
-        &__input-group {
-
-            &__item {
-                border-bottom: 1px solid var(--c-grey-2);
-                padding-bottom: 16px;
-                margin-bottom: 16px;
-            }
-        }
-
-        &__more {
+        &__input {
             border-bottom: 1px solid var(--c-grey-2);
             padding-bottom: 16px;
             margin-bottom: 16px;
-
-            &__button {
-                width: fit-content;
-                display: flex;
-                column-gap: 5px;
-                align-items: flex-end;
-                cursor: pointer;
-
-                &__icon {
-                    width: 18px;
-                    height: 18px;
-
-                    &.inactive {
-
-                        :deep(path) {
-                            fill: var(--c-grey-5);
-                        }
-                    }
-
-                    :deep(path) {
-                        fill: var(--c-blue-3);
-                    }
-                }
-
-                &__label {
-                    font-family: 'font_regular', sans-serif;
-                    font-size: 16px;
-                    text-decoration: underline;
-                    text-align: center;
-                    color: var(--c-blue-3);
-
-                    &.inactive {
-                        color: var(--c-grey-5);
-                    }
-                }
-            }
         }
 
         &__buttons {

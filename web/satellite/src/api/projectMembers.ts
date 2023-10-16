@@ -50,12 +50,31 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
     }
 
     /**
-     * Handles inviting users to a project.
+     * Handles inviting a user to a project.
      *
      * @throws Error
      */
-    public async invite(projectID: string, emails: string[]): Promise<void> {
-        const path = `${this.ROOT_PATH}/${projectID}/invite`;
+    public async invite(projectID: string, email: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/invite/${encodeURIComponent(email)}`;
+        const httpResponse = await this.http.post(path, null);
+
+        if (httpResponse.ok) return;
+
+        const result = await httpResponse.json();
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Failed to send project invitations',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Handles resending invitations to project.
+     *
+     * @throws Error
+     */
+    public async reinvite(projectID: string, emails: string[]): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/reinvite`;
         const body = { emails };
         const httpResponse = await this.http.post(path, JSON.stringify(body));
 
@@ -64,7 +83,7 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
         const result = await httpResponse.json();
         throw new APIError({
             status: httpResponse.status,
-            message: result.error || 'Failed to send project invitations',
+            message: result.error || 'Failed to resend project invitations',
             requestID: httpResponse.headers.get('x-request-id'),
         });
     }

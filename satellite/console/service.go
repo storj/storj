@@ -77,7 +77,10 @@ const (
 	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
 	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
 	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
-	projInviteExistsErrMsg               = "An active invitation for '%s' already exists"
+	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
+	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
+	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
+	newInviteLimitErrMsg                 = "Only one new invitation can be sent at a time"
 )
 
 var (
@@ -141,11 +144,11 @@ var (
 	// ErrAlreadyMember occurs when a user tries to reject an invitation to a project they're already a member of.
 	ErrAlreadyMember = errs.Class("already a member")
 
-	// ErrProjectInviteInvalid occurs when a user tries to respond to an invitation that doesn't exist
+	// ErrProjectInviteInvalid occurs when a user tries to act upon an invitation that doesn't exist
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 
-	// ErrAlreadyInvited occurs when trying to invite a user who already has an unexpired invitation.
+	// ErrAlreadyInvited occurs when trying to invite a user who has already been invited.
 	ErrAlreadyInvited = errs.Class("user is already invited")
 
 	// ErrInvalidProjectLimit occurs when the requested project limit is not a non-negative integer and/or greater than the current project limit.
@@ -3710,17 +3713,62 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	return nil
 }
 
-// InviteProjectMembers invites users by email to given project.
-// If an invitation already exists and has expired, it will be replaced and the user will be sent a new email.
-// projectID here may be project.PublicID or project.ID.
-func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
+// ProjectInvitationOption represents whether a project invitation request is for
+// inviting new members (creating records) or resending existing invitations (updating records).
+type ProjectInvitationOption int
+
+const (
+	// ProjectInvitationCreate indicates to insert new project member records.
+	ProjectInvitationCreate ProjectInvitationOption = iota
+	// ProjectInvitationResend indicates to update existing project member records.
+	ProjectInvitationResend
+)
+
+// ReinviteProjectMembers resends project invitations to the users specified by the given email slice.
+// The provided project ID may be the public or internal ID.
+func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "invite project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+
+	user, err := s.getUserAndAuditLog(ctx,
+		"reinvite project members",
+		zap.String("projectID", projectID.String()),
+		zap.Strings("emails", emails),
+	)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	return s.inviteProjectMembers(ctx, user, projectID, emails, ProjectInvitationResend)
+}
+
+// InviteNewProjectMember invites a user by email to the project specified by the given ID,
+// which may be its public or internal ID.
+func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUID, email string) (invite *ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx,
+		"invite project member",
+		zap.String("projectID", projectID.String()),
+		zap.String("email", email),
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	invites, err := s.inviteProjectMembers(ctx, user, projectID, []string{email}, ProjectInvitationCreate)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &invites[0], nil
+}
+
+// inviteProjectMembers invites users by email to the project specified by the given ID,
+// which may be its public or internal ID.
+func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3734,8 +3782,18 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
-		if invite != nil && !s.IsProjectInvitationExpired(invite) {
-			return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
+
+		if invite != nil {
+			// If we should only insert new records, a preexisting record is an issue
+			if opt == ProjectInvitationCreate {
+				return nil, ErrAlreadyInvited.New(projInviteExistsErrMsg, email)
+			}
+			if !s.IsProjectInvitationExpired(invite) {
+				return nil, ErrAlreadyInvited.New(activeProjInviteExistsErrMsg, email)
+			}
+		} else if opt == ProjectInvitationResend {
+			// If we should only update existing records, an absence of records is an issue
+			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
 		}
 
 		invitedUser, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, email)
@@ -3770,7 +3828,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
 				Email:     email,
-				InviterID: &user.ID,
+				InviterID: &sender.ID,
 			})
 			if err != nil {
 				return err
@@ -3813,7 +3871,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			ctx,
 			[]post.Address{{Address: invited.Email, Name: userName}},
 			&ExistingUserProjectInvitationEmail{
-				InviterEmail: user.Email,
+				InviterEmail: sender.Email,
 				Region:       s.satelliteName,
 				SignInLink:   inviteLink,
 			},
@@ -3829,7 +3887,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			ctx,
 			[]post.Address{{Address: u.Email}},
 			&UnverifiedUserProjectInvitationEmail{
-				InviterEmail:   user.Email,
+				InviterEmail:   sender.Email,
 				Region:         s.satelliteName,
 				ActivationLink: activationLink,
 			},
@@ -3842,7 +3900,7 @@ func (s *Service) InviteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			ctx,
 			[]post.Address{{Address: email}},
 			&NewUserProjectInvitationEmail{
-				InviterEmail: user.Email,
+				InviterEmail: sender.Email,
 				Region:       s.satelliteName,
 				SignUpLink:   inviteLink,
 			},

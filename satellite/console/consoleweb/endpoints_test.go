@@ -691,11 +691,8 @@ func TestWrongUser(t *testing.T) {
 				},
 			},
 			{
-				endpoint: getProjectResourceUrl("invite"),
+				endpoint: getProjectResourceUrl("invite") + "/" + "some@email.com",
 				method:   http.MethodPost,
-				body: map[string]interface{}{
-					"emails": []string{"some@email.com"},
-				},
 			},
 			{
 				endpoint: getProjectResourceUrl("usage-limits"),

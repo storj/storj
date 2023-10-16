@@ -28,8 +28,12 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     const api: ProjectMembersApi = new ProjectMembersHttpApi();
 
-    async function inviteMembers(emails: string[], projectID: string): Promise<void> {
-        await api.invite(projectID, emails);
+    async function inviteMember(email: string, projectID: string): Promise<void> {
+        await api.invite(projectID, email);
+    }
+
+    async function reinviteMembers(emails: string[], projectID: string): Promise<void> {
+        await api.reinvite(projectID, emails);
     }
 
     async function getInviteLink(email: string, projectID: string): Promise<string> {
@@ -120,7 +124,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     return {
         state,
-        inviteMembers,
+        inviteMember,
+        reinviteMembers,
         getInviteLink,
         deleteProjectMembers,
         getProjectMembers,

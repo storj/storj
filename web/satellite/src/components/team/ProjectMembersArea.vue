@@ -152,7 +152,7 @@ function onResendClick(member: ProjectMemberItemModel) {
     withLoading(async () => {
         analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
-            await pmStore.inviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
+            await pmStore.reinviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
             notify.notify('Invite resent!');
             pmStore.setSearchQuery('');
         } catch (error) {

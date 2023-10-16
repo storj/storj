@@ -14,7 +14,7 @@
                 <v-card-item class="pl-7 py-4">
                     <template #prepend>
                         <v-card-title class="font-weight-bold">
-                            Add Members
+                            Add Member
                         </v-card-title>
                     </template>
 
@@ -33,10 +33,10 @@
 
             <v-divider />
 
-            <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onAddUsersClick">
+            <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onInviteClick">
                 <v-row>
                     <v-col cols="12">
-                        <p class="mb-5">Invite team members to join you in this project.</p>
+                        <p class="mb-5">Invite a team member to join you in this project.</p>
                         <v-alert
                             variant="tonal"
                             color="info"
@@ -70,7 +70,7 @@
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">Cancel</v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="primary" variant="flat" block :loading="isLoading" @click="onAddUsersClick">Send Invite</v-btn>
+                        <v-btn color="primary" variant="flat" block :loading="isLoading" @click="onInviteClick">Send Invite</v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
@@ -133,16 +133,16 @@ const emailRules: ValidationRule<string>[] = [
 /**
  * Sends a project invitation to the input email.
  */
-async function onAddUsersClick(): Promise<void> {
+async function onInviteClick(): Promise<void> {
     if (!valid.value) return;
 
     await withLoading(async () => {
         try {
-            await pmStore.inviteMembers([email.value], props.projectId);
-            notify.success('Invites sent!');
+            await pmStore.inviteMember(email.value, props.projectId);
+            notify.success('Invite sent!');
             email.value = '';
         } catch (error) {
-            error.message = `Error adding project members. ${error.message}`;
+            error.message = `Error inviting project member. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             return;
         }

@@ -120,7 +120,11 @@ const props = withDefaults(defineProps<{
     autocomplete: 'off',
 });
 
-const emit = defineEmits(['showPasswordStrength', 'hidePasswordStrength', 'setData']);
+const emit = defineEmits<{
+    showPasswordStrength: [];
+    hidePasswordStrength: [];
+    setData: [data: string];
+}>();
 
 const value = ref('');
 const isPasswordShown = ref(false);
