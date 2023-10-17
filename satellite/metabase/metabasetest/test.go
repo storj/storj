@@ -175,16 +175,16 @@ func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
-// UpdateObjectMetadata is for testing metabase.UpdateObjectMetadata.
-type UpdateObjectMetadata struct {
-	Opts     metabase.UpdateObjectMetadata
+// UpdateObjectLastCommittedMetadata is for testing metabase.UpdateObjectLastCommittedMetadata.
+type UpdateObjectLastCommittedMetadata struct {
+	Opts     metabase.UpdateObjectLastCommittedMetadata
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 // Check runs the test.
-func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	err := db.UpdateObjectMetadata(ctx, step.Opts)
+func (step UpdateObjectLastCommittedMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.UpdateObjectLastCommittedMetadata(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 

@@ -1458,7 +1458,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		encryptedMetadataNonce = req.EncryptedMetadataNonce[:]
 	}
 
-	err = endpoint.metabase.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
+	err = endpoint.metabase.UpdateObjectLastCommittedMetadata(ctx, metabase.UpdateObjectLastCommittedMetadata{
 		ProjectID:                     keyInfo.ProjectID,
 		BucketName:                    string(req.Bucket),
 		ObjectKey:                     metabase.ObjectKey(req.EncryptedObjectKey),

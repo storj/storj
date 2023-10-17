@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
-func TestUpdateObjectMetadata(t *testing.T) {
+func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
@@ -24,8 +24,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-				metabasetest.UpdateObjectMetadata{
-					Opts: metabase.UpdateObjectMetadata{
+				metabasetest.UpdateObjectLastCommittedMetadata{
+					Opts: metabase.UpdateObjectLastCommittedMetadata{
 						ProjectID:  test.ObjectLocation.ProjectID,
 						BucketName: test.ObjectLocation.BucketName,
 						ObjectKey:  test.ObjectLocation.ObjectKey,
@@ -39,8 +39,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
 					ObjectKey:  obj.ObjectKey,
@@ -55,8 +55,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 		t.Run("Metadata missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
 					ObjectKey:  obj.ObjectKey,
@@ -88,8 +88,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ProjectID:                     obj.ProjectID,
 					BucketName:                    obj.BucketName,
 					ObjectKey:                     obj.ObjectKey,
@@ -148,8 +148,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ProjectID:                     newObj.ProjectID,
 					BucketName:                    newObj.BucketName,
 					ObjectKey:                     newObj.ObjectKey,
@@ -182,5 +182,8 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		// TODO(ver): add tests for committed/deletemarker versioned/unversioned
+		// TODO(ver): check that we cannot add metadata to a delete marker
 	})
 }
