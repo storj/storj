@@ -36,6 +36,8 @@ type Config struct {
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool
 	ServerSideCopyDisabled bool
+
+	TestingUniqueUnversioned bool
 }
 
 // DB implements a database for storing objects and segments.
@@ -306,18 +308,18 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 						bucket_name  BYTEA NOT NULL,
 						object_key   BYTEA NOT NULL,
 						stream_id    BYTEA NOT NULL,
-					
+
 						created_at TIMESTAMPTZ NOT NULL default now(),
 						expires_at TIMESTAMPTZ,
-					
+
 						encrypted_metadata_nonce         BYTEA default NULL,
 						encrypted_metadata               BYTEA default NULL,
 						encrypted_metadata_encrypted_key BYTEA default NULL,
-					
+
 						encryption INT8 NOT NULL default 0,
-					
+
 						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
-					
+
 						PRIMARY KEY (project_id, bucket_name, object_key, stream_id)
 					)`,
 					`
@@ -341,6 +343,19 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			},
 		},
 	}
+
+	if db.config.TestingUniqueUnversioned {
+		// This is only part of testing, because we do not want to affect the production performance.
+		migration.Steps = append(migration.Steps, &migrate.Step{
+			DB:          &db.db,
+			Description: "Constraint for ensuring our metabase correctness.",
+			Version:     18,
+			Action: migrate.SQL{
+				`CREATE UNIQUE INDEX objects_one_unversioned_per_location ON objects (project_id, bucket_name, object_key) WHERE status IN ` + statusesUnversioned + `;`,
+			},
+		})
+	}
+
 	return migration.Run(ctx, db.log.Named("migrate"))
 }
 
