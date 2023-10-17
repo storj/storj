@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"testing"
+	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -111,7 +112,7 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					ObjectStream:                 obj,
-					NewEncryptedObjectKey:        []byte{1, 2, 3},
+					NewEncryptedObjectKey:        metabase.ObjectKey("\x01\x02\x03"),
 					NewEncryptedMetadataKey:      []byte{1, 2, 3},
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 				},
@@ -141,7 +142,7 @@ func TestFinishMoveObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			newObj, segments := metabasetest.CreateTestObject{
@@ -181,7 +182,7 @@ func TestFinishMoveObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 
 			newObj, segments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -224,7 +225,7 @@ func TestFinishMoveObject(t *testing.T) {
 				Opts: metabase.FinishMoveObject{
 					NewBucket:             newBucketName,
 					ObjectStream:          obj,
-					NewEncryptedObjectKey: []byte{0},
+					NewEncryptedObjectKey: metabase.ObjectKey("\x00"),
 				},
 				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
 				ErrClass: &metabase.ErrObjectNotFound,
@@ -234,25 +235,79 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("object already exists", func(t *testing.T) {
+		t.Run("existing object is overwritten", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			moveObjStream := metabasetest.RandObjectStream()
-			metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
+			initialObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
 
 			conflictObjStream := metabasetest.RandObjectStream()
 			conflictObjStream.ProjectID = moveObjStream.ProjectID
 			metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
 
+			newNonce := testrand.Nonce()
+			newMetadataKey := testrand.Bytes(265)
+
+			now := time.Now()
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					NewBucket:                    conflictObjStream.BucketName,
 					ObjectStream:                 moveObjStream,
-					NewEncryptedObjectKey:        []byte(conflictObjStream.ObjectKey),
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-					NewEncryptedMetadataKey:      testrand.Bytes(265),
+					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
+					NewEncryptedMetadataKeyNonce: newNonce,
+					NewEncryptedMetadataKey:      newMetadataKey,
 				},
-				ErrClass: &metabase.ErrObjectAlreadyExists,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  conflictObjStream.ProjectID,
+							BucketName: conflictObjStream.BucketName,
+							ObjectKey:  conflictObjStream.ObjectKey,
+							StreamID:   initialObject.StreamID,
+							Version:    conflictObjStream.Version + 1,
+						},
+						CreatedAt:  now,
+						Status:     metabase.CommittedUnversioned,
+						Encryption: initialObject.Encryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("existing object is not overwritten, permission denied", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			initialObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
+
+			conflictObjStream := metabasetest.RandObjectStream()
+			conflictObjStream.ProjectID = moveObjStream.ProjectID
+			conflictObject := metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
+
+			newNonce := testrand.Nonce()
+			newMetadataKey := testrand.Bytes(265)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket:                    conflictObjStream.BucketName,
+					ObjectStream:                 moveObjStream,
+					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
+					NewEncryptedMetadataKeyNonce: newNonce,
+					NewEncryptedMetadataKey:      newMetadataKey,
+
+					NewDisallowDelete: true,
+				},
+				ErrClass: &metabase.ErrPermissionDenied,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(conflictObject),
+					metabase.RawObject(initialObject),
+				},
 			}.Check(ctx, t, db)
 		})
 
@@ -264,7 +319,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newEncryptedMetadataKeyNonce := testrand.Nonce()
 			newEncryptedMetadataKey := testrand.Bytes(32)
 			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, 10)
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
@@ -286,7 +341,7 @@ func TestFinishMoveObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -335,7 +390,7 @@ func TestFinishMoveObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -385,7 +440,7 @@ func TestFinishMoveObject(t *testing.T) {
 		t.Run("source object changed", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			newObj, _ := metabasetest.CreateTestObject{
+			newObj, newSegments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					OverrideEncryptedMetadata:     true,
@@ -409,12 +464,17 @@ func TestFinishMoveObject(t *testing.T) {
 						metabasetest.RandEncryptedKeyAndNonce(0),
 						metabasetest.RandEncryptedKeyAndNonce(1),
 					},
-					NewEncryptedObjectKey:        testrand.Bytes(32),
+					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 					NewEncryptedMetadataKey:      testrand.Bytes(32),
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object was changed during move",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  []metabase.RawObject{metabase.RawObject(newObj)},
+				Segments: metabasetest.SegmentsToRaw(newSegments),
 			}.Check(ctx, t, db)
 		})
 
@@ -448,7 +508,7 @@ func TestFinishMoveObject(t *testing.T) {
 					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment(segment))
 				}
 
-				newObjectKey := testrand.Bytes(32)
+				newObjectKey := metabasetest.RandObjectKey()
 				metabasetest.FinishMoveObject{
 					Opts: metabase.FinishMoveObject{
 						NewBucket:             newBucketName,
@@ -459,8 +519,9 @@ func TestFinishMoveObject(t *testing.T) {
 					ErrText: "",
 				}.Check(ctx, t, db)
 
-				object.ObjectKey = metabase.ObjectKey(newObjectKey)
+				object.ObjectKey = newObjectKey
 				object.BucketName = newBucketName
+				object.Version = 1 // there are no overwritten object, hence it should start from 1
 
 				expectedRawObjects = append(expectedRawObjects, metabase.RawObject(object))
 			}
@@ -475,7 +536,7 @@ func TestFinishMoveObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			newObjectKey := testrand.Bytes(32)
+			newObjectKey := metabasetest.RandObjectKey()
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -516,8 +577,9 @@ func TestFinishMoveObject(t *testing.T) {
 				ErrText: "",
 			}.Check(ctx, t, db)
 
-			newObj.ObjectKey = metabase.ObjectKey(newObjectKey)
+			newObj.ObjectKey = newObjectKey
 			newObj.BucketName = newBucketName
+			newObj.Version = 1
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -527,7 +589,7 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("finish move object - different versions reject", func(t *testing.T) {
+		t.Run("finish move object - different versions reject when NewDisallowDelete", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			committedTargetStreams := []metabase.ObjectStream{}
@@ -548,9 +610,11 @@ func TestFinishMoveObject(t *testing.T) {
 					Opts: metabase.FinishMoveObject{
 						ObjectStream:          sourceStream,
 						NewBucket:             targetStream.BucketName,
-						NewEncryptedObjectKey: []byte(targetStream.ObjectKey),
+						NewEncryptedObjectKey: targetStream.ObjectKey,
+
+						NewDisallowDelete: true,
 					},
-					ErrClass: &metabase.ErrObjectAlreadyExists,
+					ErrClass: &metabase.ErrPermissionDenied,
 				}.Check(ctx, t, db)
 			}
 		})
@@ -571,7 +635,7 @@ func TestFinishMoveObject(t *testing.T) {
 				Opts: metabase.FinishMoveObject{
 					ObjectStream:          sourceStream,
 					NewBucket:             obj.BucketName,
-					NewEncryptedObjectKey: []byte(obj.ObjectKey),
+					NewEncryptedObjectKey: obj.ObjectKey,
 				},
 			}.Check(ctx, t, db)
 		})

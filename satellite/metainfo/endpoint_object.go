@@ -2032,9 +2032,12 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		},
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
 		NewBucket:                    string(req.NewBucket),
-		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
+		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+
+		// TODO(ver): currently we disallow deletion, to not change behaviour.
+		NewDisallowDelete: true,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

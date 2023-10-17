@@ -8,12 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	pgxerrcode "github.com/jackc/pgerrcode"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
 	"storj.io/private/tagsql"
 )
@@ -121,12 +118,19 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 // FinishMoveObject holds all data needed to finish object move.
 type FinishMoveObject struct {
 	ObjectStream
+
 	NewBucket             string
 	NewSegmentKeys        []EncryptedKeyAndNonce
-	NewEncryptedObjectKey []byte
+	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
 	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
+
+	// NewDisallowDelete indicates whether the user is allowed to delete an existing unversioned object.
+	NewDisallowDelete bool
+
+	// NewVersioned indicates that the object allows multiple versions.
+	NewVersioned bool
 }
 
 // Verify verifies metabase.FinishMoveObject data.
@@ -154,79 +158,72 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		targetVersion := opts.Version
+		var highestVersion Version
 
-		useNewVersion := false
-		highestVersion := Version(0)
-		err = withRows(tx.QueryContext(ctx, `
-			SELECT version, status
-			FROM objects
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3
-			ORDER BY version ASC
-			`, opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var status ObjectStatus
-				var version Version
-
-				err = rows.Scan(&version, &status)
-				if err != nil {
-					return Error.New("failed to scan objects: %w", err)
-				}
-
-				if status == CommittedUnversioned {
-					return ErrObjectAlreadyExists.New("")
-				} else if status == Pending && version == opts.Version {
-					useNewVersion = true
-				}
-				highestVersion = version
+		if !opts.NewVersioned {
+			// TODO(ver): this logic can probably merged into update query
+			//
+			// Note, we are prematurely deleting the object without permissions
+			// and then rolling the action back, if we were not allowed to.
+			deleted, err := db.deleteObjectUnversionedCommitted(ctx, ObjectLocation{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.NewBucket,
+				ObjectKey:  opts.NewEncryptedObjectKey,
+			}, tx)
+			if err != nil {
+				return Error.New("unable to delete object at target location: %w", err)
+			}
+			if deleted.DeletedObjectCount > 0 && opts.NewDisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
 			}
 
-			return nil
-		})
-		if err != nil {
-			return Error.Wrap(err)
+			highestVersion = deleted.MaxVersion
+		} else {
+			highestVersion, err = db.queryHighestVersion(ctx, ObjectLocation{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.NewBucket,
+				ObjectKey:  opts.NewEncryptedObjectKey,
+			}, tx)
+			if err != nil {
+				return Error.New("unable to query highest version: %w", err)
+			}
 		}
-
-		if useNewVersion {
-			targetVersion = highestVersion + 1
-		}
-
-		updateObjectsQuery := `
-			UPDATE objects SET
-				bucket_name = $1,
-				object_key = $2,
-				version = $9,
-				encrypted_metadata_encrypted_key = CASE WHEN objects.encrypted_metadata IS NOT NULL
-				THEN $3
-				ELSE objects.encrypted_metadata_encrypted_key
-				END,
-				encrypted_metadata_nonce = CASE WHEN objects.encrypted_metadata IS NOT NULL
-				THEN $4
-				ELSE objects.encrypted_metadata_nonce
-				END
-			WHERE
-				project_id = $5 AND
-				bucket_name = $6 AND
-				object_key = $7 AND
-				version = $8
-			RETURNING
-				segment_count,
-				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
-				stream_id
-        `
 
 		var segmentsCount int
 		var hasMetadata bool
 		var streamID uuid.UUID
 
-		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, targetVersion)
-		if err = row.Scan(&segmentsCount, &hasMetadata, &streamID); err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-				return Error.Wrap(ErrObjectAlreadyExists.New(""))
-			} else if errors.Is(err, sql.ErrNoRows) {
+		newStatus := committedWhereVersioned(opts.NewVersioned)
+
+		err = tx.QueryRowContext(ctx, `
+			UPDATE objects SET
+				bucket_name = $1,
+				object_key = $2,
+				version = $10,
+				status = $9,
+				encrypted_metadata_encrypted_key =
+					CASE WHEN objects.encrypted_metadata IS NOT NULL
+						THEN $3
+						ELSE objects.encrypted_metadata_encrypted_key
+					END,
+				encrypted_metadata_nonce =
+					CASE WHEN objects.encrypted_metadata IS NOT NULL
+						THEN $4
+						ELSE objects.encrypted_metadata_nonce
+					END
+			WHERE
+				(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
+			RETURNING
+				segment_count,
+				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
+				stream_id
+		`, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
+			opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
+			opts.ObjectKey, opts.Version, newStatus, highestVersion+1).
+			Scan(&segmentsCount, &hasMetadata, &streamID)
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
 				return ErrObjectNotFound.New("object not found")
 			}
 			return Error.New("unable to update object: %w", err)
@@ -259,14 +256,14 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		}
 
 		updateResult, err := tx.ExecContext(ctx, `
-					UPDATE segments SET
-						encrypted_key_nonce = P.encrypted_key_nonce,
-						encrypted_key = P.encrypted_key
-					FROM (SELECT unnest($2::INT8[]), unnest($3::BYTEA[]), unnest($4::BYTEA[])) as P(position, encrypted_key_nonce, encrypted_key)
-					WHERE
-						stream_id = $1 AND
-						segments.position = P.position
-			`, opts.StreamID, pgutil.Int8Array(newSegmentKeys.Positions), pgutil.ByteaArray(newSegmentKeys.EncryptedKeyNonces), pgutil.ByteaArray(newSegmentKeys.EncryptedKeys))
+			UPDATE segments SET
+				encrypted_key_nonce = P.encrypted_key_nonce,
+				encrypted_key = P.encrypted_key
+			FROM (SELECT unnest($2::INT8[]), unnest($3::BYTEA[]), unnest($4::BYTEA[])) as P(position, encrypted_key_nonce, encrypted_key)
+			WHERE
+				stream_id = $1 AND
+				segments.position = P.position
+		`, opts.StreamID, pgutil.Int8Array(newSegmentKeys.Positions), pgutil.ByteaArray(newSegmentKeys.EncryptedKeyNonces), pgutil.ByteaArray(newSegmentKeys.EncryptedKeys))
 		if err != nil {
 			return Error.Wrap(err)
 		}
