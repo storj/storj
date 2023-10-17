@@ -114,7 +114,7 @@
                         <VInput
                             label="Full Name"
                             max-symbols="72"
-                            placeholder="Enter Full Name"
+                            placeholder="Your Name"
                             :error="fullNameError"
                             role-description="name"
                             @setData="setFullName"
@@ -124,7 +124,7 @@
                         <VInput
                             label="Email Address"
                             max-symbols="72"
-                            placeholder="user@example.com"
+                            placeholder="email@example.com"
                             :init-value="email"
                             :disabled="!!email"
                             :error="emailError"
@@ -873,7 +873,7 @@ async function createUser(): Promise<void> {
         }
 
         &__input-wrapper.first-input {
-            margin-top: 10px;
+            margin-top: 20px;
         }
 
         &__container {
@@ -987,6 +987,8 @@ async function createUser(): Promise<void> {
             background-color: #fff;
             border-radius: 20px;
             width: 50%;
+            border: 1px solid #eee;
+            margin-bottom: 40px;
 
             &__expand {
                 display: flex;
@@ -999,11 +1001,15 @@ async function createUser(): Promise<void> {
                     font-weight: 700;
                     font-size: 16px;
                     line-height: 21px;
-                    color: #afb7c1;
+                    color: #777;
                     margin-right: 10px;
                     border: none;
                     cursor: pointer;
                     background: transparent;
+
+                    &:hover {
+                        color: var(--c-blue-3);
+                    }
                 }
 
                 &__dropdown {
@@ -1027,13 +1033,14 @@ async function createUser(): Promise<void> {
                         color: #7e8b9c;
                         cursor: pointer;
                         text-decoration: none;
+                        border-radius: 6px;
 
                         &__name {
                             font-family: 'font_bold', sans-serif;
                             margin-left: 15px;
                             font-size: 14px;
                             line-height: 20px;
-                            color: #7e8b9c;
+                            color: #333;
                         }
 
                         &:hover {
@@ -1046,7 +1053,7 @@ async function createUser(): Promise<void> {
             &__info-button {
                 position: relative;
                 cursor: pointer;
-                margin-right: 3px;
+                margin-right: 6px;
                 height: 18px;
 
                 &:hover p {
@@ -1055,6 +1062,11 @@ async function createUser(): Promise<void> {
 
                 &__image {
                     cursor: pointer;
+                }
+
+                & svg {
+                    width: 18px;
+                    height: 18px;
                 }
 
                 &__message {
@@ -1126,8 +1138,7 @@ async function createUser(): Promise<void> {
                 &__personal.active,
                 &__professional.active {
                     color: #fff;
-                    background: var(--c-blue-3);
-                    font-weight: bold;
+                    background: var(--c-blue-4);
                 }
             }
 
@@ -1298,7 +1309,7 @@ async function createUser(): Promise<void> {
     }
 
     .input-wrap {
-        margin-top: 10px;
+        margin-top: 20px;
     }
 
     .checkmark-container {
@@ -1323,12 +1334,17 @@ async function createUser(): Promise<void> {
 
     .checkmark {
         position: absolute;
-        top: 0;
+        top: 2px;
         left: 0;
-        height: 21px;
-        width: 21px;
-        border: 2px solid #afb7c1;
+        height: 20px;
+        width: 20px;
+        border: 1px solid #ccc;
         border-radius: 4px;
+        transition: border-color 90ms ease-in-out;
+
+        &:hover {
+            border-color: var(--c-blue-6);
+        }
     }
 
     .checkmark-container:hover input ~ .checkmark {
@@ -1336,7 +1352,7 @@ async function createUser(): Promise<void> {
     }
 
     .checkmark-container input:checked ~ .checkmark {
-        border: 2px solid #afb7c1;
+        border: 1px solid #afb7c1;
         background-color: transparent;
     }
 
@@ -1351,8 +1367,8 @@ async function createUser(): Promise<void> {
     }
 
     .checkmark-container .checkmark:after {
-        left: 7px;
-        top: 3px;
+        left: 6px;
+        top: 2px;
         width: 5px;
         height: 10px;
         border: solid #354049;
@@ -1390,16 +1406,6 @@ async function createUser(): Promise<void> {
                 &__width {
                     width: 100%;
                 }
-            }
-        }
-    }
-
-    @media screen and (width <= 1060px) {
-
-        .register-area {
-
-            &__container {
-                width: 70%;
             }
         }
     }
@@ -1486,6 +1492,7 @@ async function createUser(): Promise<void> {
 
             &__input-area {
                 width: 100%;
+                min-width: 360px;
                 padding: 0;
 
                 &__container {
