@@ -502,7 +502,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
-					Cursor: metabase.PendingObjectsCursor{Key: "b/2", StreamID: uuid.UUID{1}},
+					Cursor: metabase.PendingObjectsCursor{Key: "b/2", StreamID: uuid.UUID{15: 1}},
 				},
 				Result: pendingWithoutPrefix("b/",
 					objects["b/2"],
@@ -531,7 +531,7 @@ func TestIteratePendingObjects(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
-					Cursor: metabase.PendingObjectsCursor{Key: "c/", StreamID: uuid.UUID{1}},
+					Cursor: metabase.PendingObjectsCursor{Key: "c/", StreamID: uuid.UUID{15: 1}},
 				},
 				Result: pendingWithoutPrefix("c/",
 					objects["c/"],
