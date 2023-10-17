@@ -38,9 +38,9 @@ export class Notificator {
         notificationsStore.notifyError(message, source);
     }
 
-    public notify(message: NotificationMessage): void {
+    public notify(message: NotificationMessage, title?: string): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifyInfo(message);
+        notificationsStore.notifyInfo(message, title);
     }
 
     public warning(message: NotificationMessage): void {

@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang='ts'>
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -71,6 +71,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 
@@ -86,6 +87,8 @@ const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -135,7 +138,18 @@ async function onPrimaryClick(): Promise<void> {
         }
 
         analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
-        notify.notify('Invite sent!');
+
+        if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+            notify.notify('Invite sent!');
+        } else {
+            notify.notify(() => [
+                h('p', { class: 'message-title' }, 'Invite sent!'),
+                h('p', { class: 'message-info' }, [
+                    'An invitation will be sent to the email address if it belongs to a user on this satellite.',
+                ]),
+            ]);
+        }
+
         pmStore.setSearchQuery('');
 
         try {

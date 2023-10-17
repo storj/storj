@@ -57,11 +57,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
         addNotification(notification);
     }
 
-    function notifyInfo(message: NotificationMessage): void {
+    function notifyInfo(message: NotificationMessage, title?: string): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NotificationType.Info,
             message,
+            title,
         );
 
         addNotification(notification);

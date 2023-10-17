@@ -400,6 +400,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
+# indicates whether invitation emails can be sent to unregistered email addresses
+# console.unregistered-invite-emails-enabled: false
+
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 25.00 GB
 

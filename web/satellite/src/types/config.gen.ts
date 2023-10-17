@@ -13,7 +13,7 @@ export class FrontendConfig {
     satelliteName: string;
     satelliteNodeURL: string;
     stripePublicKey: string;
-    partneredSatellites: PartneredSatellite[];
+    partneredSatellites?: PartneredSatellite[];
     defaultProjectLimit: number;
     generalRequestURL: string;
     projectLimitsIncreaseRequestURL: string;
@@ -48,6 +48,7 @@ export class FrontendConfig {
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;
     billingFeaturesEnabled: boolean;
+    unregisteredInviteEmailsEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
@@ -55,6 +56,7 @@ export class MultiCaptchaConfig {
     hcaptcha: SingleCaptchaConfig;
 }
 
+// TODO: This class was added manually because TypeScript generation is broken.
 export class PartneredSatellite {
     name: string;
     address: string;

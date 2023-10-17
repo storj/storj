@@ -131,6 +131,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
@@ -151,6 +152,8 @@ const model = computed<boolean>({
 const usersStore = useUsersStore();
 const analyticsStore = useAnalyticsStore();
 const pmStore = useProjectMembersStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -184,7 +187,16 @@ async function onPrimaryClick(): Promise<void> {
     await withLoading(async () => {
         try {
             await pmStore.inviteMember(email.value, props.projectId);
-            notify.success('Invite sent!');
+
+            if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+                notify.success('Invite sent!');
+            } else {
+                notify.success(
+                    'An invitation will be sent to the email address if it belongs to a user on this satellite.',
+                    'Invite sent!',
+                );
+            }
+
             email.value = '';
         } catch (error) {
             error.message = `Error inviting project member. ${error.message}`;

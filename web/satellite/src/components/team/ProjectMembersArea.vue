@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 
 import { ProjectMemberItemModel } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -57,6 +57,7 @@ import { useLoading } from '@/composables/useLoading';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -69,6 +70,7 @@ const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 
 const { withLoading } = useLoading();
@@ -153,7 +155,18 @@ function onResendClick(member: ProjectMemberItemModel) {
         analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
             await pmStore.reinviteMembers([member.getEmail()], projectsStore.state.selectedProject.id);
-            notify.notify('Invite resent!');
+
+            if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+                notify.success('Invite re-sent!');
+            } else {
+                notify.success(() => [
+                    h('p', { class: 'message-title' }, 'Invites re-sent!'),
+                    h('p', { class: 'message-info' }, [
+                        'The invitation will be re-sent to the email address if it belongs to a user on this satellite.',
+                    ]),
+                ]);
+            }
+
             pmStore.setSearchQuery('');
         } catch (error) {
             error.message = `Error resending invite. ${error.message}`;

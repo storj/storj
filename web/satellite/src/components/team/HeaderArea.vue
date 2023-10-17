@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, h } from 'vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -168,7 +168,17 @@ async function resendInvites(): Promise<void> {
 
         try {
             await pmStore.reinviteMembers(pmStore.state.selectedProjectMembersEmails, projectsStore.state.selectedProject.id);
-            notify.success('Invites re-sent!');
+
+            if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+                notify.success('Invites re-sent!');
+            } else {
+                notify.success(() => [
+                    h('p', { class: 'message-title' }, 'Invites re-sent!'),
+                    h('p', { class: 'message-info' }, [
+                        'Invitations will be re-sent to the email addresses that belong to users on this satellite.',
+                    ]),
+                ]);
+            }
         } catch (error) {
             error.message = `Unable to resend project invitations. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);

@@ -3821,7 +3821,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				}
 			}
 			unverifiedUsers = append(unverifiedUsers, oldest)
-		} else {
+		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
 		}
 	}

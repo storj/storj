@@ -750,6 +750,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
+		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

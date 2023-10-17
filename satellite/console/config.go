@@ -14,19 +14,20 @@ import (
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost                int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled     bool                      `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit         int                       `help:"default project limits for users" default:"1" testDefault:"5"`
-	AsOfSystemTimeDuration      time.Duration             `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
-	LoginAttemptsWithoutPenalty int                       `help:"number of times user can try to login without penalty" default:"3"`
-	FailedLoginPenalty          float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
-	ProjectInvitationExpiration time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
-	UserBalanceForUpgrade       int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	PlacementEdgeURLOverrides   PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
-	BlockExplorerURL            string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
-	UsageLimits                 UsageLimitsConfig
-	Captcha                     CaptchaConfig
-	Session                     SessionConfig
+	PasswordCost                    int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled         bool                      `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit             int                       `help:"default project limits for users" default:"1" testDefault:"5"`
+	AsOfSystemTimeDuration          time.Duration             `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
+	LoginAttemptsWithoutPenalty     int                       `help:"number of times user can try to login without penalty" default:"3"`
+	FailedLoginPenalty              float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
+	ProjectInvitationExpiration     time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
+	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"false"`
+	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
+	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	BlockExplorerURL                string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
+	UsageLimits                     UsageLimitsConfig
+	Captcha                         CaptchaConfig
+	Session                         SessionConfig
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

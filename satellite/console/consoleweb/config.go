@@ -51,6 +51,7 @@ type FrontendConfig struct {
 	NeededTransactionConfirmations  int                   `json:"neededTransactionConfirmations"`
 	ObjectBrowserPaginationEnabled  bool                  `json:"objectBrowserPaginationEnabled"`
 	BillingFeaturesEnabled          bool                  `json:"billingFeaturesEnabled"`
+	UnregisteredInviteEmailsEnabled bool                  `json:"unregisteredInviteEmailsEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
