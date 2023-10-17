@@ -10,6 +10,7 @@
         :max-width="step === UpgradeAccountStep.Info || step === UpgradeAccountStep.PricingPlanSelection ? '700px' : '460px'"
         transition="fade-transition"
         :persistent="loading"
+        :scrim="scrim"
     >
         <v-card ref="content" rounded="xlg">
             <v-card-item class="pl-7 py-4">
@@ -123,9 +124,20 @@ const loading = ref<boolean>(false);
 const plan = ref<PricingPlanInfo | null>(null);
 const content = ref<HTMLElement | null>(null);
 
+const props = withDefaults(defineProps<{
+    modelValue: boolean,
+    scrim: boolean,
+}>(), {
+    scrim: true,
+});
+
+const emit = defineEmits<{
+    'update:modelValue': [value: boolean];
+}>();
+
 const model = computed<boolean>({
-    get: () => appStore.state.isUpgradeFlowDialogShown,
-    set: value => appStore.toggleUpgradeFlow(value),
+    get: () => props.modelValue,
+    set: value => emit('update:modelValue', value),
 });
 
 const stepTitles = computed(() => {
@@ -195,7 +207,7 @@ async function setSecondStep() {
     try {
         pkgAvailable = await payments.pricingPackageAvailable();
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
         setStep(UpgradeAccountStep.Options);
         loading.value = false;
         return;

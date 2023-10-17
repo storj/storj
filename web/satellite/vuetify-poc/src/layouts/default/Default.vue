@@ -11,7 +11,7 @@
             <ProjectNav />
             <default-view />
 
-            <UpgradeAccountDialog />
+            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
         </session-wrapper>
     </v-app>
 </template>

@@ -8,13 +8,13 @@
             <account-nav />
             <default-view />
 
-            <UpgradeAccountDialog />
+            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
         </session-wrapper>
     </v-app>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount } from 'vue';
+import { computed, onBeforeMount } from 'vue';
 import { VApp } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';

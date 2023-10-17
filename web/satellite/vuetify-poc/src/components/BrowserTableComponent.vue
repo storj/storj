@@ -37,7 +37,7 @@
             @update:itemsPerPage="onLimitChange"
         >
             <template #item="{ props: rowProps }">
-                <v-data-table-row class="pos-relative" v-bind="rowProps">
+                <v-data-table-row v-bind="rowProps">
                     <template #item.name="{ item }: ItemSlotProps">
                         <v-btn
                             class="rounded-lg w-100 px-1 justify-start font-weight-bold"

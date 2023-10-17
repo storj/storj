@@ -3,10 +3,12 @@
 
 <template>
     <v-dialog
-        v-model="model"
+        :model-value="model && !isUpgradeDialogShown"
         width="410px"
         transition="fade-transition"
         :persistent="isLoading"
+        :scrim="false"
+        @update:model-value="v => model = v"
     >
         <v-card rounded="xlg">
             <v-card-item class="pl-7 py-4">
@@ -95,7 +97,8 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            @click="() => !isProjectLimitReached && onCreateClicked()"
+                            :append-icon="isProjectLimitReached ? 'mdi-arrow-right' : undefined"
+                            @click="onPrimaryClick"
                         >
                             {{ !isProjectLimitReached ? 'Create Project' : 'Upgrade' }}
                         </v-btn>
@@ -104,10 +107,22 @@
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <upgrade-account-dialog
+        :scrim="false"
+        :model-value="model && isUpgradeDialogShown"
+        @update:model-value="v => model = isUpgradeDialogShown = v"
+    />
+
+    <teleport to="body">
+        <v-fade-transition>
+            <div v-show="model" class="v-overlay__scrim custom-scrim" />
+        </v-fade-transition>
+    </teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, Teleport } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,
@@ -121,6 +136,7 @@ import {
     VRow,
     VCol,
     VTextField,
+    VFadeTransition,
 } from 'vuetify/components';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
@@ -130,6 +146,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
+import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -155,6 +173,7 @@ const name = ref<string>('');
 const description = ref<string>('');
 const isDescriptionShown = ref<boolean>(false);
 const isProjectLimitReached = ref<boolean>(false);
+const isUpgradeDialogShown = ref<boolean>(false);
 
 const nameRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -166,9 +185,14 @@ const descriptionRules: ValidationRule<string>[] = [
 ];
 
 /**
- * Creates new project.
+ * Handles primary button click.
  */
-async function onCreateClicked(): Promise<void> {
+async function onPrimaryClick(): Promise<void> {
+    if (isProjectLimitReached.value) {
+        isUpgradeDialogShown.value = true;
+        return;
+    }
+
     if (!formValid.value) return;
     await withLoading(async () => {
         let project: Project;

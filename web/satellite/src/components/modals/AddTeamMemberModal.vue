@@ -7,14 +7,22 @@
             <div class="modal">
                 <div class="modal__header">
                     <TeamMembersIcon />
-                    <h1 class="modal__header__title">Invite team member</h1>
+                    <h1 class="modal__header__title">
+                        {{ isPaidTier ? 'Invite team member' : 'Upgrade to Pro' }}
+                    </h1>
                 </div>
 
                 <p class="modal__info">
-                    Add a team member to contribute to this project.
+                    <template v-if="isPaidTier">
+                        Add a team member to contribute to this project.
+                    </template>
+                    <template v-else>
+                        Upgrade now to unlock collaboration and bring your team together in this project.
+                    </template>
                 </p>
 
                 <VInput
+                    v-if="isPaidTier"
                     class="modal__input"
                     label="Email"
                     height="38px"
@@ -35,13 +43,17 @@
                         :on-press="closeModal"
                     />
                     <VButton
-                        label="Invite"
+                        :label="isPaidTier ? 'Invite' : 'Upgrade'"
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
-                        :on-press="onInviteClick"
+                        :on-press="onPrimaryClick"
                         :is-disabled="!!formError || isLoading"
-                    />
+                    >
+                        <template v-if="!isPaidTier" #icon-right>
+                            <ArrowIcon />
+                        </template>
+                    </VButton>
                 </div>
             </div>
         </template>
@@ -60,12 +72,14 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useLoading } from '@/composables/useLoading';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import TeamMembersIcon from '@/../static/images/team/teamMembers.svg';
+import ArrowIcon from '@/../static/images/onboardingTour/arrowRight.svg';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -84,6 +98,7 @@ const email = ref<string>('');
  * or a message describing the validation error.
  */
 const formError = computed<string | boolean>(() => {
+    if (!isPaidTier.value) return false;
     if (!email.value) return true;
     if (email.value.toLocaleLowerCase() === usersStore.state.user.email.toLowerCase()) {
         return `You can't add yourself to the project.`;
@@ -95,9 +110,21 @@ const formError = computed<string | boolean>(() => {
 });
 
 /**
- * Tries to add the user with the input email to the current project.
+ * Returns user's paid tier status from store.
  */
-async function onInviteClick(): Promise<void> {
+const isPaidTier = computed<boolean>(() => {
+    return usersStore.state.user.paidTier;
+});
+
+/**
+ * Handles primary button click.
+ */
+async function onPrimaryClick(): Promise<void> {
+    if (!isPaidTier.value) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+        return;
+    }
+
     await withLoading(async () => {
         try {
             await pmStore.inviteMember(email.value, projectsStore.state.selectedProject.id);
