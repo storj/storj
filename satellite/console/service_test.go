@@ -2166,6 +2166,15 @@ func TestProjectInvitations(t *testing.T) {
 			return invite
 		}
 
+		upgradeToPaidTier := func(t *testing.T, ctx context.Context, user *console.User) context.Context {
+			paid := true
+			err := sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &paid})
+			require.NoError(t, err)
+			ctx, err = sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			return ctx
+		}
+
 		setInviteDate := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) {
 			result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
 				"UPDATE project_invitations SET created_at = $1 WHERE project_id = $2 AND email = $3",
@@ -2189,15 +2198,23 @@ func TestProjectInvitations(t *testing.T) {
 			project, err := sat.AddProject(ctx, user.ID, "Test Project")
 			require.NoError(t, err)
 
+			// inviting without being a paid tier user should fail.
+			invite, err := service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			require.True(t, console.ErrNotPaidTier.Has(err))
+			require.Nil(t, invite)
+
+			ctx = upgradeToPaidTier(t, ctx, user)
+
 			// expect reinvitation to fail due to lack of preexisting invitation record.
 			invites, err := service.ReinviteProjectMembers(ctx, project.ID, []string{user2.Email})
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 			require.Empty(t, invites)
 
-			invite, err := service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			invite, err = service.InviteNewProjectMember(ctx, project.ID, user2.Email)
 			require.NoError(t, err)
 			require.NotNil(t, invite)
 
+			// inviting while being a paid tier user should succeed.
 			invites, err = service.GetUserProjectInvitations(ctx2)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
@@ -2208,6 +2225,7 @@ func TestProjectInvitations(t *testing.T) {
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
 			const testEmail = "other@mail.com"
+			ctx2 = upgradeToPaidTier(t, ctx2, user2)
 			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
 			require.Error(t, err)
 			require.True(t, console.ErrNoMembership.Has(err))

@@ -81,6 +81,7 @@ const (
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	newInviteLimitErrMsg                 = "Only one new invitation can be sent at a time"
+	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
 )
 
 var (
@@ -3773,6 +3774,10 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, Error.Wrap(err)
 	}
 	projectID = isMember.project.ID
+
+	if !sender.PaidTier {
+		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
+	}
 
 	var users []*User
 	var newUserEmails []string

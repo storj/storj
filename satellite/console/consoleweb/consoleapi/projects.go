@@ -473,11 +473,13 @@ func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err = p.service.InviteNewProjectMember(ctx, id, email)
 	if err != nil {
+		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-			return
+			status = http.StatusUnauthorized
+		} else if console.ErrNotPaidTier.Has(err) {
+			status = http.StatusPaymentRequired
 		}
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, status, err)
 	}
 }
 
@@ -513,11 +515,13 @@ func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 
 	_, err = p.service.ReinviteProjectMembers(ctx, id, data.Emails)
 	if err != nil {
+		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-			return
+			status = http.StatusUnauthorized
+		} else if console.ErrNotPaidTier.Has(err) {
+			status = http.StatusPaymentRequired
 		}
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, status, err)
 	}
 }
 
