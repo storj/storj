@@ -412,6 +412,9 @@ type CreateObjectCopy struct {
 	OriginalSegments []metabase.Segment
 	FinishObject     *metabase.FinishCopyObject
 	CopyObjectStream *metabase.ObjectStream
+
+	NewDisallowDelete bool
+	NewVersioned      bool
 }
 
 // Run creates the copy.
@@ -469,6 +472,9 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewEncryptedObjectKey:        copyStream.ObjectKey,
 			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
+
+			NewDisallowDelete: cc.NewDisallowDelete,
+			NewVersioned:      cc.NewVersioned,
 		}
 	}
 

@@ -967,16 +967,49 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
 			obj.StreamID = testrand.UUID()
-			_, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
+			expectedCopy, _, expectedCopySegments := metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObj,
 				CopyObjectStream: &obj,
 			}.Run(ctx, t, db)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					metabase.RawObject(originalObj),
+					metabase.RawObject(expectedCopy),
 				},
-				Segments: expectedOriginalSegments,
+				Segments: expectedCopySegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("finish copy object versioned to same destination", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// both should be preserved
+
+			obj := metabasetest.RandObjectStream()
+			numberOfSegments := 10
+			originalObj, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, obj, byte(numberOfSegments))
+
+			obj.StreamID = testrand.UUID()
+			expectedCopy, expectedOriginalSegments, expectedCopySegments := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &obj,
+
+				NewVersioned: true,
+			}.Run(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+					metabase.RawObject(expectedCopy),
+				},
+				Segments: append(expectedCopySegments, expectedOriginalSegments...),
 			}.Check(ctx, t, db)
 		})
 
@@ -1116,5 +1149,184 @@ func TestFinishCopyObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
+
+		t.Run("existing object is overwritten", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			initialStream := metabasetest.RandObjectStream()
+			initialObject := metabasetest.CreateObject(ctx, t, db, initialStream, 0)
+
+			conflictObjStream := metabasetest.RandObjectStream()
+			conflictObjStream.ProjectID = initialStream.ProjectID
+			metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
+
+			newNonce := testrand.Nonce()
+			newMetadataKey := testrand.Bytes(265)
+			newUUID := testrand.UUID()
+
+			now := time.Now()
+
+			copiedObject := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  conflictObjStream.ProjectID,
+					BucketName: conflictObjStream.BucketName,
+					ObjectKey:  conflictObjStream.ObjectKey,
+					StreamID:   newUUID,
+					Version:    conflictObjStream.Version + 1,
+				},
+				CreatedAt:                     now,
+				Status:                        metabase.CommittedUnversioned,
+				Encryption:                    initialObject.Encryption,
+				EncryptedMetadataNonce:        newNonce[:],
+				EncryptedMetadataEncryptedKey: newMetadataKey,
+			}
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					NewBucket:                    conflictObjStream.BucketName,
+					NewStreamID:                  newUUID,
+					ObjectStream:                 initialStream,
+					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
+					NewEncryptedMetadataKeyNonce: newNonce,
+					NewEncryptedMetadataKey:      newMetadataKey,
+				},
+				Result: copiedObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(initialObject),
+					metabase.RawObject(copiedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("existing object is not overwritten, permission denied", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			initialStream := metabasetest.RandObjectStream()
+			initialObject := metabasetest.CreateObject(ctx, t, db, initialStream, 0)
+
+			conflictObjStream := metabasetest.RandObjectStream()
+			conflictObjStream.ProjectID = initialStream.ProjectID
+			conflictObject := metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
+
+			newNonce := testrand.Nonce()
+			newMetadataKey := testrand.Bytes(265)
+			newUUID := testrand.UUID()
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					NewBucket:    conflictObjStream.BucketName,
+					ObjectStream: initialStream,
+					NewStreamID:  newUUID,
+
+					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
+					NewEncryptedMetadataKeyNonce: newNonce,
+					NewEncryptedMetadataKey:      newMetadataKey,
+
+					NewDisallowDelete: true,
+				},
+				ErrClass: &metabase.ErrPermissionDenied,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(conflictObject),
+					metabase.RawObject(initialObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("versioned targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			newStreamID := testrand.UUID()
+
+			copiedObject := sourceObject
+			copiedObject.ObjectStream.ProjectID = obj.ProjectID
+			copiedObject.ObjectStream.BucketName = obj.BucketName
+			copiedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			copiedObject.ObjectStream.Version = 13001
+			copiedObject.ObjectStream.StreamID = newStreamID
+			copiedObject.Status = metabase.CommittedVersioned
+
+			// versioned copy should leave everything else as is
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:          sourceStream,
+					NewBucket:             obj.BucketName,
+					NewStreamID:           newStreamID,
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: true,
+				},
+				Result: copiedObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(sourceObject),
+					metabase.RawObject(copiedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("unversioned targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			newStreamID := testrand.UUID()
+
+			copiedObject := sourceObject
+			copiedObject.ObjectStream.ProjectID = obj.ProjectID
+			copiedObject.ObjectStream.BucketName = obj.BucketName
+			copiedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			copiedObject.ObjectStream.Version = 13001
+			copiedObject.ObjectStream.StreamID = newStreamID
+			copiedObject.Status = metabase.CommittedUnversioned
+
+			// unversioned copy should only delete the unversioned object
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:          sourceStream,
+					NewBucket:             obj.BucketName,
+					NewStreamID:           newStreamID,
+					NewEncryptedObjectKey: obj.ObjectKey,
+					NewVersioned:          false,
+				},
+				Result: copiedObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(sourceObject),
+					metabase.RawObject(copiedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
 	})
 }
