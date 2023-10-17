@@ -74,7 +74,8 @@ func (db *DB) deleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		query = `
 		WITH deleted_objects AS (
 			DELETE FROM objects
-			WHERE project_id = $1 AND bucket_name = $2 LIMIT $3
+			WHERE (project_id, bucket_name) = ($1, $2)
+			LIMIT $3
 			RETURNING objects.stream_id, objects.segment_count
 		), deleted_segments AS (
 			DELETE FROM segments
@@ -89,7 +90,7 @@ func (db *DB) deleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			DELETE FROM objects
 			WHERE stream_id IN (
 				SELECT stream_id FROM objects
-				WHERE project_id = $1 AND bucket_name = $2
+				WHERE (project_id, bucket_name) = ($1, $2)
 				LIMIT $3
 			)
 			RETURNING objects.stream_id, objects.segment_count
@@ -127,7 +128,8 @@ func (db *DB) deleteBucketPendingObjects(ctx context.Context, opts DeleteBucketO
 		query = `
 		WITH deleted_objects AS (
 			DELETE FROM pending_objects
-			WHERE project_id = $1 AND bucket_name = $2 LIMIT $3
+			WHERE (project_id, bucket_name) = ($1, $2)
+			LIMIT $3
 			RETURNING pending_objects.stream_id
 		), deleted_segments AS (
 			DELETE FROM segments
@@ -142,7 +144,7 @@ func (db *DB) deleteBucketPendingObjects(ctx context.Context, opts DeleteBucketO
 			DELETE FROM pending_objects
 			WHERE stream_id IN (
 				SELECT stream_id FROM pending_objects
-				WHERE project_id = $1 AND bucket_name = $2
+				WHERE (project_id, bucket_name) = ($1, $2)
 				LIMIT $3
 			)
 			RETURNING pending_objects.stream_id

@@ -127,13 +127,8 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 				total_encrypted_size = $12,
 				fixed_segment_size   = $13,
 				zombie_deletion_deadline = NULL
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+statusPending+`
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+				status = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
 				encryption;

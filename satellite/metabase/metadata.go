@@ -57,14 +57,10 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			encrypted_metadata               = $6,
 			encrypted_metadata_encrypted_key = $7
 		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
+			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
 			version IN (SELECT version FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+statusCommittedUnversioned+` AND
+				(project_id, bucket_name, object_key) = ($1, $2, $3) AND
+				status = `+statusCommittedUnversioned+` AND
 				(expires_at IS NULL OR expires_at > now())
 				ORDER BY version desc
 			) AND

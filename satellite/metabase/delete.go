@@ -169,12 +169,8 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
-					project_id   = $1 AND
-					bucket_name  = $2 AND
-					object_key   = $3 AND
-					version      = $4 AND
-					stream_id    = $5 AND
-					status       = `+statusPending+`
+					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+					status = `+statusPending+`
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -223,10 +219,7 @@ func (db *DB) DeletePendingObjectNew(ctx context.Context, opts DeletePendingObje
 			WITH deleted_objects AS (
 				DELETE FROM pending_objects
 				WHERE
-					project_id   = $1 AND
-					bucket_name  = $2 AND
-					object_key   = $3 AND
-					stream_id    = $4
+					(project_id, bucket_name, object_key, stream_id) = ($1, $2, $3, $4)
 				RETURNING
 					stream_id, created_at, expires_at,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,

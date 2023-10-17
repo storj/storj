@@ -367,9 +367,8 @@ func doNextQueryPendingStreamsByKey(ctx context.Context, it *pendingObjectsItera
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM pending_objects
 			WHERE
-				project_id = $1 AND bucket_name = $2
-				AND object_key = $3
-				AND stream_id > $4::BYTEA
+				(project_id, bucket_name, object_key) = ($1, $2, $3) AND
+				stream_id > $4::BYTEA
 			ORDER BY stream_id ASC
 			LIMIT $5
 			`, it.projectID, it.bucketName,

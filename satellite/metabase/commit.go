@@ -136,7 +136,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 					coalesce((
 						SELECT version + 1
 						FROM objects
-						WHERE project_id = $1 AND bucket_name = $2 AND object_key = $3
+						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 						ORDER BY version DESC
 						LIMIT 1
 					), 1),
@@ -282,33 +282,30 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	//       however, we should prevent creating segements for non-partial objects.
 
 	// Verify that object exists and is partial.
-	var value int
+	var exists bool
 	if opts.UsePendingObjectsTable {
 		err = db.db.QueryRowContext(ctx, `
-			SELECT 1
-			FROM pending_objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				stream_id    = $4
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID).Scan(&value)
+			SELECT EXISTS (
+				SELECT 1
+				FROM pending_objects
+				WHERE (project_id, bucket_name, object_key, stream_id) = ($1, $2, $3, $4)
+			)
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID).Scan(&exists)
 	} else {
 		err = db.db.QueryRowContext(ctx, `
-			SELECT 1
-			FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+statusPending,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
+			SELECT EXISTS (
+				SELECT 1
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+					status = `+statusPending+`
+			)`,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
 	}
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrPendingObjectMissing.New("")
-		}
 		return Error.New("unable to query object status: %w", err)
+	}
+	if !exists {
+		return ErrPendingObjectMissing.New("")
 	}
 
 	mon.Meter("segment_begin").Mark(1)
@@ -393,12 +390,10 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 				remote_alias_pieces,
 				placement
 			) VALUES (
-				(SELECT stream_id
-					FROM pending_objects WHERE
-						project_id   = $12 AND
-						bucket_name  = $13 AND
-						object_key   = $14 AND
-						stream_id    = $15
+				(
+					SELECT stream_id
+					FROM pending_objects
+					WHERE (project_id, bucket_name, object_key, stream_id) = ($12, $13, $14, $15)
 				), $1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
@@ -432,15 +427,12 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 				remote_alias_pieces,
 				placement
 			) VALUES (
-				(SELECT stream_id
-					FROM objects WHERE
-						project_id   = $12 AND
-						bucket_name  = $13 AND
-						object_key   = $14 AND
-						version      = $15 AND
-						stream_id    = $16 AND
-						status       = `+statusPending+
-			`	), $1, $2,
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $16) AND
+						status = `+statusPending+`
+				), $1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
 				$10,
@@ -527,12 +519,10 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
 				inline_data
 			) VALUES (
-				(SELECT stream_id
-					FROM pending_objects WHERE
-						project_id   = $11 AND
-						bucket_name  = $12 AND
-						object_key   = $13 AND
-						stream_id    = $14
+				(
+					SELECT stream_id
+					FROM pending_objects
+					WHERE (project_id, bucket_name, object_key, stream_id) = ($11, $12, $13, $14)
 				), $1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
@@ -558,15 +548,13 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 						encrypted_size, plain_offset, plain_size, encrypted_etag,
 						inline_data
 					) VALUES (
-						(SELECT stream_id
-							FROM objects WHERE
-								project_id   = $11 AND
-								bucket_name  = $12 AND
-								object_key   = $13 AND
-								version      = $14 AND
-								stream_id    = $15 AND
-								status       = `+statusPending+
-			`	), $1, $2,
+						(
+							SELECT stream_id
+							FROM objects
+							WHERE (project_id, bucket_name, object_key, version, stream_id) = ($11, $12, $13, $14, $15) AND
+								status = `+statusPending+`
+						),
+						$1, $2,
 						$3, $4, $5,
 						$6, $7, $8, $9,
 						$10
@@ -737,11 +725,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 			err = tx.QueryRowContext(ctx, `
 				WITH delete_pending_object AS (
-					DELETE FROM pending_objects WHERE
-						project_id   = $1 AND
-						bucket_name  = $2 AND
-						object_key   = $3 AND
-						stream_id    = $5
+					DELETE FROM pending_objects
+					WHERE (project_id, bucket_name, object_key, stream_id) = ($1, $2, $3, $5)
 					RETURNING expires_at, encryption, encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 				)
 				INSERT INTO objects (
@@ -829,12 +814,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 						ELSE objects.encryption
 					END
 					`+metadataColumns+`
-				WHERE
-					project_id   = $1 AND
-					bucket_name  = $2 AND
-					object_key   = $3 AND
-					version      = $4 AND
-					stream_id    = $5 AND
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 					status       = `+statusPending+`
 				RETURNING
 					created_at, expires_at,
