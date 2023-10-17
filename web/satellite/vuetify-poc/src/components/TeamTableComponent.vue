@@ -303,7 +303,7 @@ async function resendInvite(email: string): Promise<void> {
     await withLoading(async () => {
         analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
-            await pmStore.inviteMembers([email], selectedProject.value.id);
+            await pmStore.reinviteMembers([email], selectedProject.value.id);
             notify.notify('Invite resent!');
         } catch (error) {
             error.message = `Error resending invite. ${error.message}`;

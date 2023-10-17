@@ -94,6 +94,10 @@ func TestInvitedRouting(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
+		paid := true
+		err = sat.DB.Console().Users().Update(ctx, owner.ID, console.UpdateUserRequest{PaidTier: &paid})
+		require.NoError(t, err)
+
 		project, err := sat.AddProject(ctx, owner.ID, "Test Project")
 		require.NoError(t, err)
 
@@ -133,7 +137,7 @@ func TestInvitedRouting(t *testing.T) {
 
 		ownerCtx, err := sat.UserContext(ctx, owner.ID)
 		require.NoError(t, err)
-		_, err = service.InviteProjectMembers(ownerCtx, project.ID, []string{invitedEmail})
+		_, err = service.InviteNewProjectMember(ownerCtx, project.ID, invitedEmail)
 		require.NoError(t, err)
 
 		// Valid invite for nonexistent user should redirect to registration page with

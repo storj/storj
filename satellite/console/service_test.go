@@ -2129,6 +2129,7 @@ func TestProjectInvitations(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
+		invitesDB := sat.DB.Console().ProjectInvitations()
 
 		addUser := func(t *testing.T, ctx context.Context) *console.User {
 			user, err := sat.AddUser(ctx, console.CreateUser{
@@ -2155,7 +2156,7 @@ func TestProjectInvitations(t *testing.T) {
 		}
 
 		addInvite := func(t *testing.T, ctx context.Context, project *console.Project, email string) *console.ProjectInvitation {
-			invite, err := sat.DB.Console().ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
+			invite, err := invitesDB.Upsert(ctx, &console.ProjectInvitation{
 				ProjectID: project.ID,
 				Email:     email,
 				InviterID: &project.OwnerID,
@@ -2163,6 +2164,15 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 
 			return invite
+		}
+
+		upgradeToPaidTier := func(t *testing.T, ctx context.Context, user *console.User) context.Context {
+			paid := true
+			err := sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &paid})
+			require.NoError(t, err)
+			ctx, err = sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			return ctx
 		}
 
 		setInviteDate := func(t *testing.T, ctx context.Context, invite *console.ProjectInvitation, createdAt time.Time) {
@@ -2176,50 +2186,65 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, 1, count)
 
-			newInvite, err := sat.DB.Console().ProjectInvitations().Get(ctx, invite.ProjectID, invite.Email)
+			newInvite, err := invitesDB.Get(ctx, invite.ProjectID, invite.Email)
 			require.NoError(t, err)
 			*invite = *newInvite
 		}
 
-		t.Run("invite users", func(t *testing.T) {
+		t.Run("invite and reinvite users", func(t *testing.T) {
 			user, ctx := getUserAndCtx(t)
 			user2, ctx2 := getUserAndCtx(t)
-			user3, ctx3 := getUserAndCtx(t)
 
 			project, err := sat.AddProject(ctx, user.ID, "Test Project")
 			require.NoError(t, err)
 
-			invites, err := service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
-			require.NoError(t, err)
-			require.Len(t, invites, 1)
+			// inviting without being a paid tier user should fail.
+			invite, err := service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			require.True(t, console.ErrNotPaidTier.Has(err))
+			require.Nil(t, invite)
 
+			ctx = upgradeToPaidTier(t, ctx, user)
+
+			// expect reinvitation to fail due to lack of preexisting invitation record.
+			invites, err := service.ReinviteProjectMembers(ctx, project.ID, []string{user2.Email})
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+			require.Empty(t, invites)
+
+			invite, err = service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			require.NoError(t, err)
+			require.NotNil(t, invite)
+
+			// inviting while being a paid tier user should succeed.
 			invites, err = service.GetUserProjectInvitations(ctx2)
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
 
 			// adding in a non-existent user should work.
-			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{user3.Email, "notauser@mail.com"})
+			_, err = service.InviteNewProjectMember(ctx, project.ID, "notauser@mail.com")
 			require.NoError(t, err)
-			require.Len(t, invites, 2)
-
-			invites, err = service.GetUserProjectInvitations(ctx3)
-			require.NoError(t, err)
-			require.Len(t, invites, 1)
 
 			// prevent unauthorized users from inviting others (user2 is not a member of the project yet).
-			_, err = service.InviteProjectMembers(ctx2, project.ID, []string{"other@mail.com"})
+			const testEmail = "other@mail.com"
+			ctx2 = upgradeToPaidTier(t, ctx2, user2)
+			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
 			require.Error(t, err)
 			require.True(t, console.ErrNoMembership.Has(err))
 
 			require.NoError(t, service.RespondToProjectInvitation(ctx2, project.ID, console.ProjectInvitationAccept))
 
-			// resending an active invitation should fail.
-			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
+			// inviting a user with a preexisting invitation record should fail.
+			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
+			require.NoError(t, err)
+			_, err = service.InviteNewProjectMember(ctx2, project.ID, testEmail)
+			require.True(t, console.ErrAlreadyInvited.Has(err))
+
+			// reinviting a user with a preexisting, unexpired invitation record should fail.
+			invites, err = service.ReinviteProjectMembers(ctx2, project.ID, []string{testEmail})
 			require.True(t, console.ErrAlreadyInvited.Has(err))
 			require.Empty(t, invites)
 
 			// expire the invitation.
-			user3Invite, err := sat.DB.Console().ProjectInvitations().Get(ctx, project.ID, user3.Email)
+			user3Invite, err := invitesDB.Get(ctx, project.ID, testEmail)
 			require.NoError(t, err)
 			require.False(t, service.IsProjectInvitationExpired(user3Invite))
 			oldCreatedAt := user3Invite.CreatedAt
@@ -2227,14 +2252,14 @@ func TestProjectInvitations(t *testing.T) {
 			require.True(t, service.IsProjectInvitationExpired(user3Invite))
 
 			// resending an expired invitation should succeed.
-			invites, err = service.InviteProjectMembers(ctx2, project.ID, []string{user3.Email})
+			invites, err = service.ReinviteProjectMembers(ctx2, project.ID, []string{testEmail})
 			require.NoError(t, err)
 			require.Len(t, invites, 1)
 			require.Equal(t, user2.ID, *invites[0].InviterID)
 			require.True(t, invites[0].CreatedAt.After(oldCreatedAt))
 
 			// inviting a project member should fail.
-			_, err = service.InviteProjectMembers(ctx, project.ID, []string{user2.Email})
+			_, err = service.InviteNewProjectMember(ctx, project.ID, user2.Email)
 			require.Error(t, err)
 
 			// test inviting unverified user.
@@ -2252,9 +2277,9 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Zero(t, unverified.Status)
 
-			invites, err = service.InviteProjectMembers(ctx, project.ID, []string{unverified.Email})
+			invite, err = service.InviteNewProjectMember(ctx, project.ID, unverified.Email)
 			require.NoError(t, err)
-			require.Equal(t, unverified.Email, strings.ToLower(invites[0].Email))
+			require.Equal(t, unverified.Email, strings.ToLower(invite.Email))
 
 			body, err := sender.Data.Get(ctx)
 			require.NoError(t, err)
@@ -2396,7 +2421,7 @@ func TestProjectInvitations(t *testing.T) {
 			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 
-			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			_, err = invitesDB.Get(ctx, proj.ID, user.Email)
 			require.NoError(t, err)
 
 			// Expect no error when accepting an active invitation.
@@ -2405,7 +2430,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept))
 
-			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			_, err = invitesDB.Get(ctx, proj.ID, user.Email)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
@@ -2433,7 +2458,7 @@ func TestProjectInvitations(t *testing.T) {
 			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
 
-			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			_, err = invitesDB.Get(ctx, proj.ID, user.Email)
 			require.NoError(t, err)
 
 			// Expect no error when rejecting an active invitation.
@@ -2442,7 +2467,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationDecline))
 
-			_, err = sat.DB.Console().ProjectInvitations().Get(ctx, proj.ID, user.Email)
+			_, err = invitesDB.Get(ctx, proj.ID, user.Email)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)

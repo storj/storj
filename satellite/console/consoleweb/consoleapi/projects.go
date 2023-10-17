@@ -448,8 +448,43 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// InviteUsers sends invites to a given project(id) to the given users (emails).
-func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
+// InviteUser sends a project invitation to a user.
+func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	email, ok := mux.Vars(r)["email"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing email route param"))
+		return
+	}
+	email = strings.TrimSpace(email)
+
+	_, err = p.service.InviteNewProjectMember(ctx, id, email)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			status = http.StatusUnauthorized
+		} else if console.ErrNotPaidTier.Has(err) {
+			status = http.StatusPaymentRequired
+		}
+		p.serveJSONError(ctx, w, status, err)
+	}
+}
+
+// ReinviteUsers resends expired project invitations.
+func (p *Projects) ReinviteUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -478,13 +513,15 @@ func (p *Projects) InviteUsers(w http.ResponseWriter, r *http.Request) {
 		data.Emails[i] = strings.TrimSpace(email)
 	}
 
-	_, err = p.service.InviteProjectMembers(ctx, id, data.Emails)
+	_, err = p.service.ReinviteProjectMembers(ctx, id, data.Emails)
 	if err != nil {
+		status := http.StatusInternalServerError
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-			return
+			status = http.StatusUnauthorized
+		} else if console.ErrNotPaidTier.Has(err) {
+			status = http.StatusPaymentRequired
 		}
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		p.serveJSONError(ctx, w, status, err)
 	}
 }
 

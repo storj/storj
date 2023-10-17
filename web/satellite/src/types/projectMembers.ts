@@ -22,14 +22,24 @@ export enum ProjectMemberOrderBy {
 export interface ProjectMembersApi {
 
     /**
-     * Invite members to project by user emails.
+     * Invites a user to a project.
      *
      * @param projectId
-     * @param emails list of project members email to add
+     * @param email email of the project member to add
      *
      * @throws Error
      */
-    invite(projectId: string, emails: string[]): Promise<void>;
+    invite(projectId: string, email: string): Promise<void>;
+
+    /**
+     * Resends invitations to pending project members.
+     *
+     * @param projectId
+     * @param emails emails of the project members whose invitations should be resent
+     *
+     * @throws Error
+     */
+    reinvite(projectId: string, emails: string[]): Promise<void>;
 
     /**
      * Get invite link for the specified project and email.
