@@ -8,6 +8,22 @@ if (!WebAssembly.instantiate) {
     self.postMessage(new Error('web assembly is not supported'));
 }
 
+async function setupWithCacheControl(mode) {
+    const go = new self.Go();
+
+    const manifestResp = await fetch('/static/static/wasm/wasm-manifest.json', { cache: 'no-cache' });
+    const manifest = await manifestResp.json();
+
+    const response = await fetch(`/static/static/wasm/${manifest.fileName}`, { cache: mode });
+    const buffer = await response.arrayBuffer();
+    const module = await WebAssembly.compile(buffer);
+    const instance = await WebAssembly.instantiate(module, go.importObject);
+
+    go.run(instance);
+
+    self.postMessage('configured');
+}
+
 self.onmessage = async function (event) {
     const data = event.data;
     let result;
@@ -15,17 +31,13 @@ self.onmessage = async function (event) {
     switch (data.type) {
     case 'Setup':
         try {
-            const go = new self.Go();
-            const response = await fetch('/static/static/wasm/access.wasm');
-            const buffer = await response.arrayBuffer();
-            const module = await WebAssembly.compile(buffer);
-            const instance = await WebAssembly.instantiate(module, go.importObject);
-
-            go.run(instance);
-
-            self.postMessage('configured');
-        } catch (e) {
-            self.postMessage(new Error(e.message));
+            await setupWithCacheControl('default');
+        } catch {
+            try {
+                await setupWithCacheControl('reload');
+            } catch (e) {
+                self.postMessage(new Error(e.message));
+            }
         }
 
         break;
