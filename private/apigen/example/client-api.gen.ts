@@ -56,6 +56,8 @@ export type DocsGetResponse = Array<DocsGetResponseItem>
 
 export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
 
+export type UsersCreateRequest = Array<UsersGetResponseItem>
+
 export type UsersGetResponse = Array<UsersGetResponseItem>
 
 class APIError extends Error {
@@ -137,5 +139,15 @@ export class UsersHttpApiV0 {
         }
         const err = await response.json();
         throw new APIError(response.status, err.error);
+    }
+
+    public async create(request: UsersCreateRequest): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new Error(err.error);
     }
 }
