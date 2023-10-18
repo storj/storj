@@ -52,6 +52,7 @@ func TestTypes(t *testing.T) {
 	})
 
 	t.Run("All nested structs and slices", func(t *testing.T) {
+		type Item struct{}
 		types := NewTypes()
 		types.Register(
 			typeCustomName{
@@ -71,12 +72,13 @@ func TestTypes(t *testing.T) {
 						Content    string
 						Valoration testTypesValoration
 					}
+					Items []Item
 				}{}),
 				name: "Response",
 			})
 
 		allTypes := types.All()
-		require.Len(t, allTypes, 9, "total number of types")
+		require.Len(t, allTypes, 10, "total number of types")
 
 		typesNames := []string{}
 		for _, name := range allTypes {
@@ -89,6 +91,7 @@ func TestTypes(t *testing.T) {
 			"ResponseAddresses", "ResponseAddressesItem",
 			"ResponseJob",
 			"ResponseDocuments", "ResponseDocumentsItem", "testTypesValoration",
+			"Item",
 		}, typesNames)
 	})
 

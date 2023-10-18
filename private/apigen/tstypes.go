@@ -84,6 +84,7 @@ func (types *Types) All() map[reflect.Type]string {
 		case reflect.Array, reflect.Slice:
 			// If element type has a TypeScript name then an array of the element type will be defined
 			// otherwise we have to create a compound type.
+			elemTypeName := t.Elem().Name()
 			if tsen := TypescriptTypeName(t.Elem()); tsen == "" {
 				if altTypeName == "" {
 					panic(
@@ -95,8 +96,9 @@ func (types *Types) All() map[reflect.Type]string {
 				}
 				all[t] = altTypeName
 				uniqueNames[altTypeName] = struct{}{}
-				walk(t.Elem(), compoundTypeName(altTypeName, "item"))
+				elemTypeName = compoundTypeName(altTypeName, "item")
 			}
+			walk(t.Elem(), elemTypeName)
 		case reflect.Struct:
 			n := t.Name()
 			if n == "" {

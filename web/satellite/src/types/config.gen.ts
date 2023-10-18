@@ -56,7 +56,6 @@ export class MultiCaptchaConfig {
     hcaptcha: SingleCaptchaConfig;
 }
 
-// TODO: This class was added manually because TypeScript generation is broken.
 export class PartneredSatellite {
     name: string;
     address: string;
