@@ -177,7 +177,6 @@ type NodeCheckInInfo struct {
 
 // InfoResponse contains node dossier info requested from the storage node.
 type InfoResponse struct {
-	Type     pb.NodeType
 	Operator *pb.NodeOperator
 	Capacity *pb.NodeCapacity
 	Version  *pb.NodeVersion
