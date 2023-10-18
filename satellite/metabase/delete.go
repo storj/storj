@@ -370,8 +370,8 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 			DELETE FROM objects
 			WHERE
 				(project_id, bucket_name) = ($1, $2) AND
-				object_key   = ANY ($3) AND
-				status       <> `+statusPending+`
+				object_key = ANY ($3) AND
+				status <> `+statusPending+`
 			RETURNING
 				project_id, bucket_name, object_key, version, stream_id, created_at, expires_at,
 				status, segment_count, encrypted_metadata_nonce, encrypted_metadata,
@@ -529,13 +529,13 @@ func (db *DB) DeleteObjectLastCommitted(
 			row := tx.QueryRowContext(ctx, `
 				INSERT INTO objects (
 					project_id, bucket_name, object_key, version, stream_id,
-					status, expires_at, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size,
-					zombie_deletion_deadline, encryption
+					status,
+					zombie_deletion_deadline
 				)
 				SELECT
 					$1, $2, $3, $4, $5,
-					`+statusDeleteMarkerUnversioned+`, NULL, 0, 0, 0, 0,
-					NULL, 0
+					`+statusDeleteMarkerUnversioned+`,
+					NULL
 				RETURNING
 					version,
 					created_at
@@ -573,8 +573,8 @@ func (db *DB) DeleteObjectLastCommitted(
 			added_object AS (
 				INSERT INTO objects (
 					project_id, bucket_name, object_key, version, stream_id,
-					status, expires_at, segment_count, total_plain_size, total_encrypted_size, fixed_segment_size,
-					zombie_deletion_deadline, encryption
+					status,
+					zombie_deletion_deadline
 				)
 				SELECT
 					$1, $2, $3,
@@ -586,8 +586,8 @@ func (db *DB) DeleteObjectLastCommitted(
 							LIMIT 1
 						), 1),
 					$4,
-					`+statusDeleteMarkerVersioned+`, NULL, 0, 0, 0, 0,
-					NULL, 0
+					`+statusDeleteMarkerVersioned+`,
+					NULL
 				WHERE EXISTS (SELECT 1 FROM check_existing_object)
 				RETURNING *
 			)
@@ -620,7 +620,7 @@ func (db *DB) DeleteObjectLastCommitted(
 				DELETE FROM objects
 				WHERE
 					(project_id, bucket_name, object_key) = ($1, $2, $3) AND
-					status       = `+statusCommittedUnversioned+` AND
+					status = `+statusCommittedUnversioned+` AND
 					(expires_at IS NULL OR expires_at > now())
 				RETURNING
 					version, stream_id,
