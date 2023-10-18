@@ -336,10 +336,10 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, CommittedUnversioned)
+	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, false)
 }
 
-func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, status ObjectStatus) (objects []ObjectEntry, err error) {
+func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, pending bool) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = db.IterateObjectsAllVersionsWithStatus(ctx,
@@ -347,7 +347,7 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 			ProjectID:             projectID,
 			BucketName:            bucketName,
 			Recursive:             true,
-			Status:                status,
+			Pending:               pending,
 			IncludeCustomMetadata: true,
 			IncludeSystemMetadata: true,
 		}, func(ctx context.Context, it ObjectsIterator) error {

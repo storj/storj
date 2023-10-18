@@ -69,7 +69,7 @@ type IterateObjectsWithStatus struct {
 	BatchSize             int
 	Prefix                ObjectKey
 	Cursor                IterateCursor
-	Status                ObjectStatus
+	Pending               bool
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
 }
@@ -92,8 +92,6 @@ func (opts *IterateObjectsWithStatus) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case opts.BatchSize < 0:
 		return ErrInvalidRequest.New("BatchSize is negative")
-	case !(opts.Status == Pending || opts.Status == CommittedUnversioned):
-		return ErrInvalidRequest.New("Status %v is not supported", opts.Status)
 	}
 	return nil
 }

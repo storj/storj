@@ -1001,7 +1001,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					},
 					Recursive:             req.Recursive,
 					BatchSize:             limit + 1,
-					Status:                metabase.Pending,
+					Pending:               true,
 					IncludeCustomMetadata: includeCustomMetadata,
 					IncludeSystemMetadata: includeSystemMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
@@ -1063,7 +1063,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					},
 					Recursive:             req.Recursive,
 					BatchSize:             limit + 1,
-					Status:                status,
+					Pending:               status == metabase.Pending,
 					IncludeCustomMetadata: includeCustomMetadata,
 					IncludeSystemMetadata: includeSystemMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
