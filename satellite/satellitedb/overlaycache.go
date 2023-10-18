@@ -1070,7 +1070,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 				Features:      uint64(info.Features),
 			},
 		},
-		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
 			Email:          info.Email,
 			Wallet:         info.Wallet,

@@ -371,7 +371,6 @@ func TestNodeInfo(t *testing.T) {
 
 		dossier := planet.StorageNodes[0].Contact.Service.Local()
 
-		assert.Equal(t, pb.NodeType_STORAGE, node.Type)
 		assert.NotEmpty(t, node.Operator.Email)
 		assert.NotEmpty(t, node.Operator.Wallet)
 		assert.Equal(t, dossier.Operator, node.Operator)
@@ -496,7 +495,6 @@ func TestUpdateCheckIn(t *testing.T) {
 					Address: info.Address.GetAddress(),
 				},
 			},
-			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
 				Email:          info.Operator.GetEmail(),
 				Wallet:         info.Operator.GetWallet(),

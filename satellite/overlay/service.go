@@ -242,7 +242,6 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                    pb.NodeType
 	Operator                pb.NodeOperator
 	Capacity                pb.NodeCapacity
 	Reputation              NodeStats
