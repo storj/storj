@@ -166,7 +166,8 @@ const emailRules: ValidationRule<string>[] = [
  * Returns whether the user should upgrade to pro tier before inviting.
  */
 const needsUpgrade = computed<boolean>(() => {
-    return !(usersStore.state.user.paidTier || configStore.state.config.freeTierInvitesEnabled);
+    const config = configStore.state.config;
+    return config.billingFeaturesEnabled && !(usersStore.state.user.paidTier || config.freeTierInvitesEnabled);
 });
 
 /**

@@ -26,6 +26,7 @@ type Config struct {
 	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
 	BlockExplorerURL                string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
+	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig

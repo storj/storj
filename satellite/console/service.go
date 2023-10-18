@@ -3775,7 +3775,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 	projectID = isMember.project.ID
 
-	if !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
+	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
 		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
 	}
 
