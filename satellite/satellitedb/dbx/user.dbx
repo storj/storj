@@ -196,10 +196,13 @@ model account_freeze_event (
 
     // user_id refers to user.id column.
     field user_id blob
-    // event indicates the console.AccountFreezeEventType. Freeze=0, Warning=1.
+    // event indicates the console.AccountFreezeEventType. BillingFreeze=0, BillingWarning=1, ViolationFreeze=2.
     field event int
     // limits are the limits before the freeze begun.
     field limits json ( nullable, updatable )
+    // days_till_escalation is the number of days till this event is escalated.
+    // e.g. if the user is warned for 15 days, the escalation is billing freeze.
+    field days_till_escalation int ( nullable, updatable )
     // created_at indicates when the freeze was created.
     field created_at timestamp ( default current_timestamp )
 )

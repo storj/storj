@@ -2484,6 +2484,26 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to account freeze event for days until next freeze event",
+				Version:     246,
+				Action: migrate.SQL{
+					`ALTER TABLE account_freeze_events ADD COLUMN days_till_escalation integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "back fill days_till_escalation column for account_freeze_events",
+				SeparateTx:  true,
+				Version:     247,
+				Action: migrate.SQL{
+					// current default days for billing warning(1)-billing freeze is 15,
+					// for billing freeze(0)-violation freeze is 60.
+					`UPDATE account_freeze_events SET days_till_escalation = 15 WHERE event = 1;`,
+					`UPDATE account_freeze_events SET days_till_escalation = 60 WHERE event = 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

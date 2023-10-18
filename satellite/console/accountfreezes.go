@@ -42,10 +42,11 @@ type AccountFreezeEvents interface {
 
 // AccountFreezeEvent represents an event related to account freezing.
 type AccountFreezeEvent struct {
-	UserID    uuid.UUID
-	Type      AccountFreezeEventType
-	Limits    *AccountFreezeEventLimits
-	CreatedAt time.Time
+	UserID             uuid.UUID
+	Type               AccountFreezeEventType
+	Limits             *AccountFreezeEventLimits
+	DaysTillEscalation *int
+	CreatedAt          time.Time
 }
 
 // AccountFreezeEventLimits represents the usage limits for a user's account and projects before they were frozen.
