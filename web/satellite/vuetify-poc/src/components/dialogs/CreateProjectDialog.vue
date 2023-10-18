@@ -17,7 +17,7 @@
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    {{ !isProjectLimitReached ? 'Create New Project' : 'Get More Projects' }}
+                    {{ isProjectLimitReached && billingEnabled ? 'Get More Projects' : 'Create New Project' }}
                 </v-card-title>
 
                 <template #append>
@@ -36,7 +36,10 @@
 
             <v-form v-model="formValid" class="pa-7" @submit.prevent>
                 <v-row>
-                    <template v-if="!isProjectLimitReached">
+                    <v-col v-if="isProjectLimitReached && billingEnabled">
+                        Upgrade to Pro Account to create more projects and gain access to higher limits.
+                    </v-col>
+                    <template v-else>
                         <v-col cols="12">
                             Projects are where you and your team can upload and manage data, and view usage statistics and billing.
                         </v-col>
@@ -76,9 +79,6 @@
                             />
                         </v-col>
                     </template>
-                    <v-col v-else>
-                        Upgrade to Pro Account to create more projects and gain access to higher limits.
-                    </v-col>
                 </v-row>
             </v-form>
 
@@ -97,10 +97,10 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="isProjectLimitReached ? 'mdi-arrow-right' : undefined"
+                            :append-icon="isProjectLimitReached && billingEnabled ? 'mdi-arrow-right' : undefined"
                             @click="onPrimaryClick"
                         >
-                            {{ !isProjectLimitReached ? 'Create Project' : 'Upgrade' }}
+                            {{ isProjectLimitReached && billingEnabled ? 'Upgrade' : 'Create Project' }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -146,6 +146,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useAppStore } from '@poc/store/appStore';
 
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
@@ -164,6 +166,9 @@ const model = computed<boolean>({
 
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
+const appStore = useAppStore();
+
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
@@ -185,10 +190,20 @@ const descriptionRules: ValidationRule<string>[] = [
 ];
 
 /**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+function startUpgradeFlow(): void {
+    model.value = false;
+    appStore.toggleUpgradeFlow(true);
+}
+
+/**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (isProjectLimitReached.value) {
+    if (isProjectLimitReached.value && billingEnabled.value) {
         isUpgradeDialogShown.value = true;
         return;
     }

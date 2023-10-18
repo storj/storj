@@ -104,6 +104,16 @@ export const router = createRouter({
     routes,
 });
 
+router.beforeEach((to, _, next) => {
+    const configStore = useConfigStore();
+    if (!configStore.state.config.billingFeaturesEnabled && to.name === RouteName.Billing) {
+        next({ name: RouteName.AccountSettings });
+        return;
+    }
+
+    next();
+});
+
 export function startTitleWatcher(): void {
     const projectsStore = useProjectsStore();
     const configStore = useConfigStore();

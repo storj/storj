@@ -30,7 +30,7 @@
                     </template>
                 </navigation-item>
 
-                <navigation-item title="Account Billing" to="billing">
+                <navigation-item v-if="billingEnabled" title="Account Billing" to="billing">
                     <template #prepend>
                         <icon-card />
                     </template>
@@ -54,6 +54,7 @@ import { useDisplay } from 'vuetify';
 
 import { useAppStore } from '@poc/store/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
@@ -62,6 +63,7 @@ import NavigationItem from '@poc/layouts/default/NavigationItem.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 
 const { mdAndDown } = useDisplay();
 
@@ -69,6 +71,11 @@ const model = computed<boolean>({
     get: () => appStore.state.isNavigationDrawerShown,
     set: value => appStore.toggleNavigationDrawer(value),
 });
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns the path to the most recent non-account-related page.

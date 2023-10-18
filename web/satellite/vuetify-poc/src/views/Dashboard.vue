@@ -32,14 +32,14 @@
                     link="https://docs.storj.io/dcs/pricing#per-segment-fee"
                 />
             </v-col>
-            <v-col v-if="!isPaidTier" cols="auto">
+            <v-col v-if="!isPaidTier && billingEnabled" cols="auto">
                 <v-btn @click="appStore.toggleUpgradeFlow(true)">
                     Upgrade
                 </v-btn>
             </v-col>
         </v-row>
 
-        <v-row class="d-flex align-center justify-center mt-2">
+        <v-row class="d-flex align-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
                 <CardStatsComponent icon="file" title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" to="buckets" />
             </v-col>
@@ -55,7 +55,7 @@
             <v-col cols="12" sm="6" md="4" lg="2">
                 <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
             </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
+            <v-col v-if="billingEnabled" cols="12" sm="6" md="4" lg="2">
                 <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
             </v-col>
         </v-row>
@@ -135,13 +135,13 @@
                     :used="`${limits.segmentUsed.toLocaleString()} Used`"
                     :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`"
                     :available="`${availableSegment.toLocaleString()} Available`"
-                    :cta="isPaidTier ? 'Learn more' : 'Need more?'"
+                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Learn more'"
                     @cta-click="onSegmentsCTAClicked"
                 />
             </v-col>
             <v-col cols="12" md="6">
                 <UsageProgressComponent
-                    v-if="billingStore.state.coupon"
+                    v-if="billingStore.state.coupon && billingEnabled"
                     icon="check"
                     :title="isFreeTierCoupon ? 'Free Usage' : 'Coupon'"
                     :progress="couponProgress"
@@ -184,6 +184,9 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@poc/store/appStore';
 import { LocalData } from '@/utils/localData';
+import { ProjectMembersPage } from '@/types/projectMembers';
+import { AccessGrantsPage } from '@/types/accessGrants';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -205,6 +208,7 @@ const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -217,6 +221,11 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogShown = ref<boolean>(false);
 const isSetPassphraseDialogShown = ref<boolean>(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns percent of coupon used.
@@ -266,25 +275,6 @@ const couponRemainingPercent = computed((): number => {
 const isPaidTier = computed((): boolean => {
     return usersStore.state.user.paidTier;
 });
-
-/**
- * Returns formatted amount.
- */
-function usedLimitFormatted(value: number): string {
-    return formattedValue(new Size(value, 2));
-}
-
-/**
- * Formats value to needed form and returns it.
- */
-function formattedValue(value: Size): string {
-    switch (value.label) {
-    case Dimensions.Bytes:
-        return '0';
-    default:
-        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
-    }
-}
 
 /**
  * Returns user account tier string.
@@ -410,6 +400,25 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
+ * Returns formatted amount.
+ */
+function usedLimitFormatted(value: number): string {
+    return formattedValue(new Size(value, 2));
+}
+
+/**
+ * Formats value to needed form and returns it.
+ */
+function formattedValue(value: Size): string {
+    switch (value.label) {
+    case Dimensions.Bytes:
+        return '0';
+    default:
+        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
+    }
+}
+
+/**
  * Used container size recalculation for charts resizing.
  */
 function recalculateChartWidth(): void {
@@ -429,7 +438,7 @@ function getDimension(dataStamps: DataStamp[]): Dimensions {
  * or the edit limit dialog.
  */
 function onNeedMoreClicked(source: LimitToChange): void {
-    if (!isPaidTier.value) {
+    if (!isPaidTier.value && billingEnabled.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -442,7 +451,7 @@ function onNeedMoreClicked(source: LimitToChange): void {
  * Conditionally opens the upgrade dialog or docs link.
  */
 function onSegmentsCTAClicked(): void {
-    if (!isPaidTier.value) {
+    if (!isPaidTier.value && billingEnabled.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -477,16 +486,24 @@ onMounted(async (): Promise<void> => {
     const past = new Date();
     past.setDate(past.getDate() - 30);
 
-    try {
-        await Promise.all([
-            projectsStore.getDailyProjectData({ since: past, before: now }),
-            projectsStore.getProjectLimits(projectID),
+    let promises: Promise<void | ProjectMembersPage | AccessGrantsPage>[] = [
+        projectsStore.getDailyProjectData({ since: past, before: now }),
+        projectsStore.getProjectLimits(projectID),
+        pmStore.getProjectMembers(FIRST_PAGE, projectID),
+        agStore.getAccessGrants(FIRST_PAGE, projectID),
+        bucketsStore.getBuckets(FIRST_PAGE, projectID),
+    ];
+
+    if (billingEnabled.value) {
+        promises = [
+            ...promises,
             billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getCoupon(),
-            pmStore.getProjectMembers(FIRST_PAGE, projectID),
-            agStore.getAccessGrants(FIRST_PAGE, projectID),
-            bucketsStore.getBuckets(FIRST_PAGE, projectID),
-        ]);
+        ];
+    }
+
+    try {
+        await Promise.all(promises);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }

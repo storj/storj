@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VApp, VProgressCircular } from 'vuetify/components';
 
@@ -36,6 +36,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -51,8 +52,14 @@ const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
+const configStore = useConfigStore();
 
 const isLoading = ref<boolean>(true);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Selects the project with the given URL ID, redirecting to the
@@ -121,11 +128,13 @@ onBeforeMount(async () => {
         return;
     }
 
-    try {
-        await billingStore.setupAccount();
-    } catch (error) {
-        error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    if (billingEnabled.value) {
+        try {
+            await billingStore.setupAccount();
+        } catch (error) {
+            error.message = `Unable to setup account. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        }
     }
 
     await selectProject(route.params.id as string);

@@ -87,7 +87,7 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
-                    <v-list-item class="py-2 rounded-lg">
+                    <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
                         <!-- <template #prepend>
                             <icon-team size="18"></icon-team>
                         </template> -->
@@ -104,16 +104,18 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
-                        <template #prepend>
-                            <icon-upgrade size="18" />
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">
-                            Upgrade to Pro
-                        </v-list-item-title>
-                    </v-list-item>
+                    <template v-if="billingEnabled">
+                        <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
+                            <template #prepend>
+                                <icon-upgrade size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Upgrade to Pro
+                            </v-list-item-title>
+                        </v-list-item>
 
-                    <v-divider class="my-2" />
+                        <v-divider class="my-2" />
+                    </template>
 
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
@@ -127,7 +129,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
+                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
@@ -230,6 +232,11 @@ const props = withDefaults(defineProps<{
 }>(), {
     showNavDrawerButton: false,
 });
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns the name of the current satellite.
