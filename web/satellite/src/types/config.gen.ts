@@ -49,6 +49,7 @@ export class FrontendConfig {
     objectBrowserPaginationEnabled: boolean;
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
+    freeTierInvitesEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

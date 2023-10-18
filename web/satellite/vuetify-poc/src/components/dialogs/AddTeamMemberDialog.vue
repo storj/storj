@@ -2,6 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
+    <v-overlay v-model="model" persistent />
+
     <v-dialog
         :model-value="model && !isUpgradeDialogShown"
         width="auto"
@@ -18,7 +20,7 @@
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    {{ isPaidTier ? 'Add Member' : 'Upgrade to Pro' }}
+                    {{ needsUpgrade ? 'Upgrade to Pro' : 'Add Member' }}
                 </v-card-title>
 
                 <template #append>
@@ -37,7 +39,10 @@
 
             <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onPrimaryClick">
                 <v-row>
-                    <template v-if="isPaidTier">
+                    <v-col v-if="needsUpgrade">
+                        Upgrade now to unlock collaboration and bring your team together in this project.
+                    </v-col>
+                    <template v-else>
                         <v-col cols="12">
                             <p class="mb-5">Invite a team member to join you in this project.</p>
                             <v-alert
@@ -63,9 +68,6 @@
                             />
                         </v-col>
                     </template>
-                    <v-col v-else>
-                        Upgrade now to unlock collaboration and bring your team together in this project.
-                    </v-col>
                 </v-row>
             </v-form>
 
@@ -82,10 +84,10 @@
                             variant="flat"
                             block
                             :loading="isLoading"
-                            :append-icon="!isPaidTier ? 'mdi-arrow-right' : undefined"
+                            :append-icon="needsUpgrade ? 'mdi-arrow-right' : undefined"
                             @click="onPrimaryClick"
                         >
-                            {{ isPaidTier ? 'Send Invite' : 'Upgrade' }}
+                            {{ needsUpgrade ? 'Upgrade' : 'Send Invite' }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -98,12 +100,6 @@
         :model-value="model && isUpgradeDialogShown"
         @update:model-value="v => model = isUpgradeDialogShown = v"
     />
-
-    <teleport to="body">
-        <v-fade-transition>
-            <div v-show="model" class="v-overlay__scrim custom-scrim" />
-        </v-fade-transition>
-    </teleport>
 </template>
 
 <script setup lang="ts">
@@ -121,7 +117,7 @@ import {
     VAlert,
     VTextField,
     VCardActions,
-    VFadeTransition,
+    VOverlay,
 } from 'vuetify/components';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
@@ -167,17 +163,17 @@ const emailRules: ValidationRule<string>[] = [
 ];
 
 /**
- * Returns user's paid tier status from store.
+ * Returns whether the user should upgrade to pro tier before inviting.
  */
-const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
+const needsUpgrade = computed<boolean>(() => {
+    return !(usersStore.state.user.paidTier || configStore.state.config.freeTierInvitesEnabled);
 });
 
 /**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (!isPaidTier.value) {
+    if (needsUpgrade.value) {
         isUpgradeDialogShown.value = true;
         return;
     }

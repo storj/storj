@@ -2,6 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
+    <v-overlay v-model="model" persistent />
+
     <v-dialog
         :model-value="model && !isUpgradeDialogShown"
         width="410px"
@@ -113,16 +115,10 @@
         :model-value="model && isUpgradeDialogShown"
         @update:model-value="v => model = isUpgradeDialogShown = v"
     />
-
-    <teleport to="body">
-        <v-fade-transition>
-            <div v-show="model" class="v-overlay__scrim custom-scrim" />
-        </v-fade-transition>
-    </teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, Teleport } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,
@@ -136,7 +132,7 @@ import {
     VRow,
     VCol,
     VTextField,
-    VFadeTransition,
+    VOverlay,
 } from 'vuetify/components';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';

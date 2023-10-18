@@ -8,21 +8,21 @@
                 <div class="modal__header">
                     <TeamMembersIcon />
                     <h1 class="modal__header__title">
-                        {{ isPaidTier ? 'Invite team member' : 'Upgrade to Pro' }}
+                        {{ needsUpgrade ? 'Upgrade to Pro' : 'Invite team member' }}
                     </h1>
                 </div>
 
                 <p class="modal__info">
-                    <template v-if="isPaidTier">
-                        Add a team member to contribute to this project.
+                    <template v-if="needsUpgrade">
+                        Upgrade now to unlock collaboration and bring your team together in this project.
                     </template>
                     <template v-else>
-                        Upgrade now to unlock collaboration and bring your team together in this project.
+                        Add a team member to contribute to this project.
                     </template>
                 </p>
 
                 <VInput
-                    v-if="isPaidTier"
+                    v-if="!needsUpgrade"
                     class="modal__input"
                     label="Email"
                     height="38px"
@@ -43,14 +43,14 @@
                         :on-press="closeModal"
                     />
                     <VButton
-                        :label="isPaidTier ? 'Invite' : 'Upgrade'"
+                        :label="needsUpgrade ? 'Upgrade' : 'Invite'"
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
                         :on-press="onPrimaryClick"
                         :is-disabled="!!formError || isLoading"
                     >
-                        <template v-if="!isPaidTier" #icon-right>
+                        <template v-if="needsUpgrade" #icon-right>
                             <ArrowIcon />
                         </template>
                     </VButton>
@@ -101,7 +101,7 @@ const email = ref<string>('');
  * or a message describing the validation error.
  */
 const formError = computed<string | boolean>(() => {
-    if (!isPaidTier.value) return false;
+    if (needsUpgrade.value) return false;
     if (!email.value) return true;
     if (email.value.toLocaleLowerCase() === usersStore.state.user.email.toLowerCase()) {
         return `You can't add yourself to the project.`;
@@ -113,17 +113,17 @@ const formError = computed<string | boolean>(() => {
 });
 
 /**
- * Returns user's paid tier status from store.
+ * Returns whether the user should upgrade to pro tier before inviting.
  */
-const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
+const needsUpgrade = computed<boolean>(() => {
+    return !(usersStore.state.user.paidTier || configStore.state.config.freeTierInvitesEnabled);
 });
 
 /**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (!isPaidTier.value) {
+    if (needsUpgrade.value) {
         appStore.updateActiveModal(MODALS.upgradeAccount);
         return;
     }

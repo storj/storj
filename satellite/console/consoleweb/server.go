@@ -753,6 +753,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
+		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

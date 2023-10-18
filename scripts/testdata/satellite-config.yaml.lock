@@ -280,6 +280,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
 
+# indicates whether free tier users can send project invitations
+# console.free-tier-invites-enabled: false
+
 # server address of the front-end app
 # console.frontend-address: :10200
 
