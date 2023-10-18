@@ -6,7 +6,6 @@ package contact
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -41,9 +40,6 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	mutex sync.Mutex
-	self  *overlay.NodeDossier
-
 	overlay *overlay.Service
 	peerIDs overlay.PeerIdentities
 	dialer  rpc.Dialer
@@ -56,10 +52,9 @@ type Service struct {
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, authority nodetag.Authority, config Config) *Service {
+func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, authority nodetag.Authority, config Config) *Service {
 	return &Service{
 		log:              log,
-		self:             self,
 		overlay:          overlay,
 		peerIDs:          peerIDs,
 		dialer:           dialer,
@@ -68,13 +63,6 @@ func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Ser
 		allowPrivateIP:   config.AllowPrivateIP,
 		nodeTagAuthority: authority,
 	}
-}
-
-// Local returns the satellite node dossier.
-func (service *Service) Local() overlay.NodeDossier {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	return *service.self
 }
 
 // Close closes resources.
