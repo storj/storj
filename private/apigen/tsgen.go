@@ -11,7 +11,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// MustWriteTS writes generated TypeScript code into a file.
+// MustWriteTS writes generated TypeScript code into a file indicated by path.
+// The generated code is an API client to run in the browser.
+//
 // If an error occurs, it panics.
 func (a *API) MustWriteTS(path string) {
 	f := newTSGenFile(path, a)
@@ -58,13 +60,11 @@ func (f *tsGenFile) generateTS() {
 	f.result += f.types.GenerateTypescriptDefinitions()
 
 	for _, group := range f.api.EndpointGroups {
-		// Not sure if this is a good name
 		f.createAPIClient(group)
 	}
 }
 
 func (f *tsGenFile) registerTypes() {
-	// TODO: what happen with path parameters?
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
 			if method.Request != nil {
@@ -75,7 +75,6 @@ func (f *tsGenFile) registerTypes() {
 			}
 			if len(method.QueryParams) > 0 {
 				for _, p := range method.QueryParams {
-					// TODO: Is this call needed? this breaks the named type for slices and arrays and pointers.
 					t := getElementaryType(p.namedType(method.Endpoint, "query"))
 					f.types.Register(t)
 				}
