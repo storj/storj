@@ -104,21 +104,29 @@ func (et AccountFreezeEventType) String() string {
 	}
 }
 
+// AccountFreezeConfig contains configurable values for account freeze service.
+type AccountFreezeConfig struct {
+	BillingWarnGracePeriod   time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
+	BillingFreezeGracePeriod time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
+}
+
 // AccountFreezeService encapsulates operations concerning account freezes.
 type AccountFreezeService struct {
 	freezeEventsDB AccountFreezeEvents
 	usersDB        Users
 	projectsDB     Projects
 	tracker        analytics.FreezeTracker
+	config         AccountFreezeConfig
 }
 
 // NewAccountFreezeService creates a new account freeze service.
-func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects, tracker analytics.FreezeTracker) *AccountFreezeService {
+func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects, tracker analytics.FreezeTracker, config AccountFreezeConfig) *AccountFreezeService {
 	return &AccountFreezeService{
 		freezeEventsDB: freezeEventsDB,
 		usersDB:        usersDB,
 		projectsDB:     projectsDB,
 		tracker:        tracker,
+		config:         config,
 	}
 }
 
@@ -176,11 +184,13 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 		Segment:   user.ProjectSegmentLimit,
 	}
 
+	daysTillEscalation := int(s.config.BillingFreezeGracePeriod.Hours() / 24)
 	billingFreeze := freezes.BillingFreeze
 	if billingFreeze == nil {
 		billingFreeze = &AccountFreezeEvent{
-			UserID: userID,
-			Type:   BillingFreeze,
+			UserID:             userID,
+			Type:               BillingFreeze,
+			DaysTillEscalation: &daysTillEscalation,
 			Limits: &AccountFreezeEventLimits{
 				User:     userLimits,
 				Projects: make(map[uuid.UUID]UsageLimits),
@@ -313,9 +323,11 @@ func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.
 		return nil
 	}
 
+	daysTillEscalation := int(s.config.BillingWarnGracePeriod.Hours() / 24)
 	_, err = s.freezeEventsDB.Upsert(ctx, &AccountFreezeEvent{
-		UserID: userID,
-		Type:   BillingWarning,
+		UserID:             userID,
+		Type:               BillingWarning,
+		DaysTillEscalation: &daysTillEscalation,
 	})
 	if err != nil {
 		return ErrAccountFreeze.Wrap(err)
@@ -519,6 +531,25 @@ func (s *AccountFreezeService) GetAllEvents(ctx context.Context, cursor FreezeEv
 	}
 
 	return events, nil
+}
+
+// EscalateBillingFreeze deactivates escalation for this freeze event and sets the user status to pending deletion.
+func (s *AccountFreezeService) EscalateBillingFreeze(ctx context.Context, userID uuid.UUID, event AccountFreezeEvent) error {
+	event.DaysTillEscalation = nil
+	_, err := s.freezeEventsDB.Upsert(ctx, &event)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+
+	status := PendingDeletion
+	err = s.usersDB.Update(ctx, userID, UpdateUserRequest{
+		Status: &status,
+	})
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+
+	return nil
 }
 
 // TestChangeFreezeTracker changes the freeze tracker service for tests.

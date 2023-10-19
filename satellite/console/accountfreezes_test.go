@@ -45,7 +45,9 @@ func TestAccountBillingFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		billingFreezeGracePeriod := int(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod.Hours() / 24)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -82,6 +84,23 @@ func TestAccountBillingFreeze(t *testing.T) {
 		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, frozen)
+
+		freezes, err := service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.BillingFreeze)
+		require.Equal(t, &billingFreezeGracePeriod, freezes.BillingFreeze.DaysTillEscalation)
+
+		err = service.EscalateBillingFreeze(ctx, user.ID, *freezes.BillingFreeze)
+		require.NoError(t, err)
+
+		freezes, err = service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.BillingFreeze)
+		require.Nil(t, freezes.BillingFreeze.DaysTillEscalation)
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.PendingDeletion, user.Status)
 	})
 }
 
@@ -92,7 +111,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -144,7 +163,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -178,6 +197,10 @@ func TestAccountViolationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, frozen)
 
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.PendingDeletion, user.Status)
+
 		checkLimits(t)
 
 		require.NoError(t, service.ViolationUnfreezeUser(ctx, user.ID))
@@ -206,6 +229,11 @@ func TestAccountViolationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, frozen)
 
+		freezes, err := service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.ViolationFreeze)
+		require.Nil(t, freezes.ViolationFreeze.DaysTillEscalation)
+
 		checkLimits(t)
 	})
 }
@@ -217,7 +245,9 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		billingWarnGracePeriod := int(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod.Hours() / 24)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
@@ -240,6 +270,7 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 		freezes, err = service.GetAll(ctx, user.ID)
 		require.NoError(t, err)
 		require.NotNil(t, freezes.BillingWarning)
+		require.Equal(t, &billingWarnGracePeriod, freezes.BillingWarning.DaysTillEscalation)
 		require.Nil(t, freezes.BillingFreeze)
 		require.Nil(t, freezes.ViolationFreeze)
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
@@ -276,7 +307,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -382,7 +413,7 @@ func TestFreezeEffects(t *testing.T) {
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		consoleService := sat.API.Console.Service
-		freezeService := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
+		freezeService := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		uplink1 := planet.Uplinks[0]
 		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)

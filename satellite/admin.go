@@ -182,6 +182,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			db.Console().Users(),
 			db.Console().Projects(),
 			peer.Analytics.Service,
+			config.Console.AccountFreeze,
 		)
 
 		peer.Payments.Service, err = stripe.NewService(

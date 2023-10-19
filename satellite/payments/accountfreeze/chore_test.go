@@ -40,7 +40,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
 
 		chore.Loop.Pause()
@@ -112,7 +112,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().AddDate(0, 0, 50)
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -184,7 +184,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().AddDate(0, 0, 50)
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -241,7 +241,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing warn grace period
-				return time.Now().AddDate(0, 0, 50)
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -252,7 +252,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing freeze grace period
-				return time.Now().AddDate(0, 0, 70)
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -261,6 +261,12 @@ func TestAutoFreezeChore(t *testing.T) {
 			userPD, err := usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, console.PendingDeletion, userPD.Status)
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.BillingFreeze)
+			// the billing freeze event should have escalation disabled.
+			require.Nil(t, freezes.BillingFreeze.DaysTillEscalation)
 
 			// Pay invoice so user qualifies to be removed from billing freeze.
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
@@ -338,7 +344,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing warn grace period
-				return time.Now().AddDate(0, 0, 50)
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -455,7 +461,7 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
 
 		chore.Loop.Pause()

@@ -1,9 +1,3 @@
-# How long to wait between a billing freeze event and setting pending deletion account status.
-# account-freeze.billing-freeze-grace-period: 1440h0m0s
-
-# How long to wait between a billing warning event and billing freezing an account.
-# account-freeze.billing-warn-grace-period: 360h0m0s
-
 # whether to run this chore.
 # account-freeze.enabled: false
 
@@ -177,6 +171,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
+
+# How long to wait between a billing freeze event and setting pending deletion account status.
+# console.account-freeze.billing-freeze-grace-period: 1440h0m0s
+
+# How long to wait between a billing warning event and billing freezing an account.
+# console.account-freeze.billing-warn-grace-period: 360h0m0s
 
 # server address of the http api gateway and frontend app
 # console.address: :10100

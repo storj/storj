@@ -30,6 +30,7 @@ type Config struct {
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
+	AccountFreeze                   AccountFreezeConfig
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

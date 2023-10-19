@@ -29,12 +29,10 @@ var (
 
 // Config contains configurable values for account freeze chore.
 type Config struct {
-	Enabled                  bool          `help:"whether to run this chore." default:"false"`
-	Interval                 time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
-	BillingWarnGracePeriod   time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
-	BillingFreezeGracePeriod time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
-	PriceThreshold           int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
-	ExcludeStorjscan         bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
+	Enabled          bool          `help:"whether to run this chore." default:"false"`
+	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
+	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
+	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.
@@ -194,8 +192,19 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			continue
 		}
 
+		shouldEscalate := func(event *console.AccountFreezeEvent) bool {
+			if event == nil || event.DaysTillEscalation == nil {
+				return false
+			}
+			daysElapsed := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
+			return daysElapsed > *event.DaysTillEscalation
+		}
+
 		if freezes.BillingFreeze != nil {
-			if chore.nowFn().Sub(freezes.BillingFreeze.CreatedAt) > chore.config.BillingFreezeGracePeriod {
+			if freezes.BillingFreeze.DaysTillEscalation == nil {
+				continue
+			}
+			if shouldEscalate(freezes.BillingFreeze) {
 				if user.Status == console.PendingDeletion {
 					infoLog("Ignoring invoice; account already marked for deletion")
 					continue
@@ -212,10 +221,7 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 					continue
 				}
 
-				status := console.PendingDeletion
-				err = chore.usersDB.Update(ctx, userID, console.UpdateUserRequest{
-					Status: &status,
-				})
+				err = chore.freezeService.EscalateBillingFreeze(ctx, userID, *freezes.BillingFreeze)
 				if err != nil {
 					errorLog("Could not mark account for deletion", err)
 					continue
@@ -250,7 +256,10 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			continue
 		}
 
-		if chore.nowFn().Sub(freezes.BillingWarning.CreatedAt) > chore.config.BillingWarnGracePeriod {
+		if freezes.BillingWarning.DaysTillEscalation == nil {
+			continue
+		}
+		if shouldEscalate(freezes.BillingWarning) {
 			// check if the invoice has been paid by the time the chore gets here.
 			isPaid, err := checkInvPaid(invoice.ID)
 			if err != nil {
