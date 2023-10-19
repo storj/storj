@@ -140,8 +140,12 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 
 // convertAliasToNodeURL converts a node alias to node url, using a cache if needed.
 func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
+	service.mu.RLock()
 	nodeURL, ok := service.aliasToNodeURL[alias]
+	service.mu.RUnlock()
 	if !ok {
+		service.mu.Lock()
+		defer service.mu.Unlock()
 		nodeID, ok := service.aliasMap.Node(alias)
 		if !ok {
 			latest, err := service.metabase.LatestNodesAliasMap(ctx)

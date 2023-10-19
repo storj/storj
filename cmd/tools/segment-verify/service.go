@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -94,8 +95,9 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap        *metabase.NodeAliasMap
+	mu              sync.RWMutex
 	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	aliasMap        *metabase.NodeAliasMap
 	priorityNodes   NodeAliasSet
 	ignoreNodes     NodeAliasSet
 	offlineNodes    *nodeAliasExpiringSet
