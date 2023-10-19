@@ -3,6 +3,8 @@
 
 <template>
     <v-app-bar :elevation="0">
+        <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" />
+
         <v-app-bar-nav-icon
             v-if="showNavDrawerButton"
             variant="text"
@@ -179,6 +181,7 @@ import {
     VListItemSubtitle,
     VDivider,
     VChip,
+    VProgressLinear,
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
@@ -298,7 +301,7 @@ async function onLogout(): Promise<void> {
         analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        notify.error(error.message, null);
+        notify.error(error.message);
     }
 
     analyticsStore.pageVisit(RouteConfig.Login.path);
