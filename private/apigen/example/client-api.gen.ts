@@ -58,6 +58,15 @@ export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRet
 
 export type UsersGetResponse = Array<UsersGetResponseItem>
 
+class APIError extends Error {
+    constructor(
+        public readonly msg: string,
+        public readonly responseStatusCode?: number,
+    ) {
+        super(msg);
+    }
+}
+
 export class DocumentsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
@@ -69,7 +78,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsGetResponse);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getOne(path: string): Promise<Document> {
@@ -79,7 +88,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Document);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
@@ -89,7 +98,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as string[]);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getVersions(path: string): Promise<Version[]> {
@@ -99,7 +108,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Version[]);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
@@ -112,7 +121,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsUpdateContentResponse);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 }
 
@@ -127,6 +136,6 @@ export class UsersHttpApiV0 {
             return response.json().then((body) => body as UsersGetResponse);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 }

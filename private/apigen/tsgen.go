@@ -59,6 +59,17 @@ func (f *tsGenFile) generateTS() {
 	f.registerTypes()
 	f.result += f.types.GenerateTypescriptDefinitions()
 
+	f.result += `
+class APIError extends Error {
+	constructor(
+		public readonly msg: string,
+		public readonly responseStatusCode?: number,
+	) {
+		super(msg);
+	}
+}
+`
+
 	for _, group := range f.api.EndpointGroups {
 		f.createAPIClient(group)
 	}
@@ -122,7 +133,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		f.pf("\t\t\t%s", returnStmt)
 		f.pf("\t\t}")
 		f.pf("\t\tconst err = await response.json();")
-		f.pf("\t\tthrow new Error(err.error);")
+		f.pf("\t\tthrow new APIError(err.error,response.status);")
 		f.pf("\t}")
 	}
 	f.pf("}")
