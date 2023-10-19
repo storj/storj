@@ -42,6 +42,8 @@ func TestAutoFreezeChore(t *testing.T) {
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
 		chore := sat.Core.Payments.AccountFreeze
+
+		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -455,6 +457,8 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
 		chore := sat.Core.Payments.AccountFreeze
+
+		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
 
 		amount := int64(100)
