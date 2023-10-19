@@ -2504,6 +2504,48 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`UPDATE account_freeze_events SET days_till_escalation = 60 WHERE event = 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove type column from indices on nodes",
+				Version:     248,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					storingClause := func(fields ...string) string {
+						if db.impl == dbutil.Cockroach {
+							return fmt.Sprintf("STORING (%s)", strings.Join(fields, ", "))
+						}
+
+						return ""
+					}
+					queries := [4]string{
+						`CREATE INDEX IF NOT EXISTS  nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+							ON nodes (last_contact_success, free_disk, major, minor, patch, vetted_at)
+							` + storingClause("last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true AND
+							last_net != ''`,
+						`CREATE INDEX IF NOT EXISTS  nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index
+							ON nodes (disqualified ASC, unknown_audit_suspended ASC, exit_initiated_at ASC, release ASC, last_contact_success DESC)
+							` + storingClause("free_disk", "minor", "major", "patch", "vetted_at", "last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true`,
+						`DROP INDEX IF EXISTS nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+						`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index`,
+					}
+
+					for _, query := range queries {
+						_, err := tx.ExecContext(ctx, query)
+						if err != nil {
+							return err
+						}
+					}
+
+					return nil
+				}),
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
