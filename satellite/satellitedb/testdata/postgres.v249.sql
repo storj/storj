@@ -486,7 +486,6 @@ CREATE TABLE value_attributions (
                                     project_id bytea NOT NULL,
                                     bucket_name bytea NOT NULL,
                                     user_agent bytea,
-                                    partner_id bytea DEFAULT null,
                                     last_updated timestamp with time zone NOT NULL,
                                     PRIMARY KEY ( project_id, bucket_name )
 );
