@@ -407,6 +407,8 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 		return nil, Error.New("no ids provided")
 	}
 
+	indexesToZero := []int{}
+
 	err = withRows(cache.db.Query(ctx, `
 		SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code,
 			n.last_contact_success > $2 AS online,
@@ -423,7 +425,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			node, tag, err := scanSelectedNodeWithTag(rows)
+			node, tag, disqualifiedOrExited, err := scanSelectedNodeWithTag(rows)
 			if err != nil {
 				return err
 			}
@@ -439,11 +441,18 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			}
 
 			records = append(records, node)
+			if disqualifiedOrExited {
+				indexesToZero = append(indexesToZero, len(records)-1)
+			}
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	for _, i := range indexesToZero {
+		records[i] = nodeselection.SelectedNode{}
 	}
 
 	return records, Error.Wrap(err)
@@ -555,7 +564,7 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	return node, nil
 }
 
-func scanSelectedNodeWithTag(rows tagsql.Rows) (nodeselection.SelectedNode, nodeselection.NodeTag, error) {
+func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
 	var nodeID nullNodeID
@@ -567,22 +576,19 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (nodeselection.SelectedNode, node
 	signedAt := &time.Time{}
 	signer := nullNodeID{}
 
-	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
+	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
 		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer)
 	if err != nil {
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, err
+		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
 	}
 
 	// If node ID was null, no record was found for the specified ID. For our purposes
 	// here, we will treat that as equivalent to a node being DQ'd or exited.
 	if !nodeID.Valid {
 		// return an empty record
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, nil
+		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, nil
 	}
 	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
-	if disqualified.Bool || exited.Bool {
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, nil
-	}
 	node.ID = nodeID.NodeID
 	node.Address.Address = address.String
 	node.Email = email.String
@@ -607,7 +613,7 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (nodeselection.SelectedNode, node
 		tag.NodeID = node.ID
 	}
 
-	return node, tag, nil
+	return node, tag, disqualified.Bool || exited.Bool, nil
 }
 
 func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
