@@ -24,6 +24,9 @@ type ListVerifySegments struct {
 	StreamIDs []uuid.UUID
 	Limit     int
 
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+
 	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
 }
@@ -62,12 +65,16 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			(stream_id, position) > ($1, $2) AND
 			inline_data IS NULL AND
 			remote_alias_pieces IS NOT NULL AND
-			(segments.expires_at IS NULL OR segments.expires_at > now())
+			(segments.expires_at IS NULL OR segments.expires_at > now()) AND
+			($3::TIMESTAMPTZ IS NULL OR segments.created_at > $3) AND -- created after
+			($4::TIMESTAMPTZ IS NULL OR segments.created_at < $4)     -- created before 
 		ORDER BY stream_id ASC, position ASC
-		LIMIT $3
+		LIMIT $5
 	`, []interface{}{
 				opts.CursorStreamID,
 				opts.CursorPosition,
+				opts.CreatedAfter,
+				opts.CreatedBefore,
 				opts.Limit,
 			}
 	}
@@ -84,13 +91,17 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			(segments.stream_id, segments.position) > ($2, $3) AND
 			segments.inline_data IS NULL AND
 			segments.remote_alias_pieces IS NOT NULL AND
-			(segments.expires_at IS NULL OR segments.expires_at > now())
+			(segments.expires_at IS NULL OR segments.expires_at > now()) AND
+			($4::TIMESTAMPTZ IS NULL OR segments.created_at > $4) AND -- created after
+			($5::TIMESTAMPTZ IS NULL OR segments.created_at < $5)     -- created before 
 		ORDER BY segments.stream_id ASC, segments.position ASC
-		LIMIT $4
+		LIMIT $6
 	`, []interface{}{
 			pgutil.UUIDArray(opts.StreamIDs),
 			opts.CursorStreamID,
 			opts.CursorPosition,
+			opts.CreatedAfter,
+			opts.CreatedBefore,
 			opts.Limit,
 		}
 }
