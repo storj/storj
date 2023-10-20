@@ -219,7 +219,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				Status:       metabase.DeleteMarkerUnversioned,
 			}
 
-			// this creates an unversioned delete marker
+			// this creates an unversioned delete marker and replace unversioned object
 			metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
@@ -238,6 +238,12 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 				Result: unversionedMarker,
 			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				metabase.RawObject(versionedMarker),
+				metabase.RawObject(unversionedMarker),
+				metabase.RawObject(versioned),
+			}}.Check(ctx, t, db)
 		})
 	})
 }
@@ -439,15 +445,28 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				ErrClass: &metabase.ErrObjectNotFound,
 			}.Check(ctx, t, db)
 
+			third := obj
+			third.Version = metabase.Version(10)
+			thirdObject := metabasetest.CreateObjectVersioned(ctx, t, db, third, 0)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: second.Location(),
+				},
+				Result: thirdObject,
+			}.Check(ctx, t, db)
+
 			metabasetest.Verify{Objects: []metabase.RawObject{
 				metabase.RawObject(result.Markers[0]),
 				metabase.RawObject(firstObject),
 				metabase.RawObject(secondObject),
+				metabase.RawObject(thirdObject),
 			}}.Check(ctx, t, db)
 		})
 
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.Version = 1 // auto assigned the first available version
 			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
