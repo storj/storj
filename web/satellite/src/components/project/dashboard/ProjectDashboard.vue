@@ -2,7 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-dashboard">
+    <div ref="content" class="project-dashboard">
+        <v-banner
+            v-if="isLowBalance && content && billingEnabled"
+            class="project-dashboard__low-balance"
+            message="Your STORJ Token balance is low. Deposit more STORJ tokens or add a credit card to avoid interruptions in service."
+            link-text="Go to billing"
+            severity="warning"
+            :dashboard-ref="content"
+            :on-link-click="redirectToBillingOverview"
+        />
         <div class="project-dashboard__heading">
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
             <project-ownership-tag :role="(selectedProject.ownerId === user.id) ? ProjectRole.Owner : ProjectRole.Member" />
@@ -196,6 +205,8 @@ import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
+import { AccountBalance, CreditCard } from '@/types/payments';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -209,6 +220,7 @@ import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import LimitsArea from '@/components/project/dashboard/LimitsArea.vue';
+import VBanner from '@/components/common/VBanner.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -228,11 +240,13 @@ const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
 
 const { handleCreateProjectClick } = useCreateProjectClickHandler();
+const isLowBalance = useLowTokenBalance();
 const notify = useNotify();
 const router = useRouter();
 
 const now = new Date().toLocaleDateString('en-US');
 
+const content = ref<HTMLElement | null>(null);
 const isDataFetching = ref<boolean>(true);
 const areBucketsFetching = ref<boolean>(true);
 const isServerSideEncryptionBannerHidden = ref<boolean>(true);
@@ -374,6 +388,13 @@ const bucketsCount = computed((): number => {
 });
 
 /**
+ * Redirects to Billing Page Overview tab.
+ */
+function redirectToBillingOverview(): void {
+    router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview)).path);
+}
+
+/**
  * Hides server-side encryption banner.
  */
 function hideBanner(): void {
@@ -481,13 +502,21 @@ onMounted(async (): Promise<void> => {
             appStore.toggleHasJustLoggedIn();
         }
 
-        const promises: Promise<void | ProjectMembersPage | AccessGrantsPage>[] = [
+        let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
             projectsStore.getDailyProjectData({ since: past, before: now }),
             pmStore.getProjectMembers(FIRST_PAGE, projectID),
             agStore.getAccessGrants(FIRST_PAGE, projectID),
         ];
 
-        if (billingEnabled.value) promises.push(billingStore.getCoupon());
+        if (billingEnabled.value) {
+            promises = [
+                ...promises,
+                billingStore.getBalance(),
+                billingStore.getCreditCards(),
+                billingStore.getNativePaymentsHistory(),
+                billingStore.getCoupon(),
+            ];
+        }
 
         await Promise.all(promises);
     } catch (error) {
@@ -529,6 +558,10 @@ onBeforeUnmount((): void => {
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
         padding-bottom: 55px;
+
+        &__low-balance {
+            margin-bottom: 20px;
+        }
 
         &__heading {
             display: flex;

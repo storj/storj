@@ -158,7 +158,6 @@ onMounted(async () => {
     try {
         await Promise.all([
             billingStore.getBalance(),
-            billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getCreditCards(),
             billingStore.getNativePaymentsHistory(),
         ]);

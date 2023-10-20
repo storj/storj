@@ -24,11 +24,9 @@
 import { onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';

@@ -50,6 +50,7 @@ export class FrontendConfig {
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
     freeTierInvitesEnabled: boolean;
+    userBalanceForUpgrade: number;
 }
 
 export class MultiCaptchaConfig {

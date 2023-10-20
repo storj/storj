@@ -90,6 +90,14 @@ export function centsToDollars(cents: number) {
 }
 
 /**
+ * microDollarsToCents converts micro dollars to cents.
+ * @param microDollars - the micro dollars value
+ */
+export function microDollarsToCents(microDollars: number): number {
+    return microDollars / 10000;
+}
+
+/**
  * bytesToBase10String Converts bytes to base-10 types.
  * @param amountInBytes
  */
