@@ -157,8 +157,10 @@
                             <AccountIcon class="account-area__wrap__left__icon" />
                             <p class="account-area__wrap__left__label">My Account</p>
                             <p class="account-area__wrap__left__label-small">Account</p>
-                            <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                            <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                            <template v-if="billingEnabled">
+                                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
+                                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                            </template>
                         </div>
                         <ArrowIcon class="account-area__wrap__arrow" />
                     </div>
@@ -180,11 +182,11 @@
                                 </a>
                             </div>
                         </div>
-                        <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                        <div v-if="!user.paidTier && billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
                             <UpgradeIcon />
                             <p class="account-area__dropdown__item__label">Upgrade</p>
                         </div>
-                        <div class="account-area__dropdown__item" @click="navigateToBilling">
+                        <div v-if="billingEnabled" class="account-area__dropdown__item" @click="navigateToBilling">
                             <BillingIcon />
                             <p class="account-area__dropdown__item__label">Billing</p>
                         </div>
@@ -294,7 +296,12 @@ const isAccountDropdownShown = ref<boolean>(false);
 const isOpened = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
 
-/*
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+/**
  * Whether the user is the owner of the selected project.
  */
 const isProjectOwner = computed((): boolean => {
@@ -525,6 +532,9 @@ function onCreateLinkClick(): void {
  */
 function onUpgrade(): void {
     isOpened.value = false;
+
+    if (!billingEnabled.value) return;
+
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
@@ -893,7 +903,7 @@ async function onLogout(): Promise<void> {
 
     &__wrap {
         box-sizing: border-box;
-        padding: 16px 32px;
+        padding: 16px 32px 16px 36px;
         height: 48px;
         width: 100%;
         display: flex;
@@ -930,7 +940,7 @@ async function onLogout(): Promise<void> {
 
         &__header {
             background: var(--c-grey-1);
-            padding: 16px 32px;
+            padding: 16px 32px 16px 36px;
             border: 1px solid var(--c-grey-2);
             display: flex;
             align-items: center;
@@ -964,7 +974,7 @@ async function onLogout(): Promise<void> {
         &__item {
             display: flex;
             align-items: center;
-            padding: 16px 32px;
+            padding: 16px 32px 16px 36px;
             background: var(--c-grey-1);
 
             &__label {

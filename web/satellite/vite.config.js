@@ -32,8 +32,10 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
 }
 
 export default defineConfig(({ mode }) => {
+    const isProd = mode === 'production';
+
     // compress chunks only for production mode builds.
-    if (mode === 'production') {
+    if (isProd) {
         plugins.push(viteCompression({
             algorithm: 'brotliCompress',
             threshold: 1024,
@@ -57,6 +59,7 @@ export default defineConfig(({ mode }) => {
         build: {
             outDir: resolve(__dirname, 'dist'),
             emptyOutDir: true,
+            reportCompressedSize: isProd,
             rollupOptions: {
                 output: {
                     experimentalMinChunkSize: 50*1024,

@@ -4358,6 +4358,726 @@ func TestCommitObject(t *testing.T) {
 	})
 }
 
+func TestCommitObjectVersioned(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+		obj.Version = metabase.NextVersion
+		now := time.Now()
+		zombieExpiration := now.Add(24 * time.Hour)
+
+		t.Run("Commit versioned only", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			v1 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			v1.Version = 1
+
+			v2 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v2,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+			v2.Version = 2
+
+			v3 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v3,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+			v3.Version = 3
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           v1,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v1,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v2,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v3,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v2,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v3,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Commit unversioned then versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			v1 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			v1.Version = 1
+
+			v2 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v2,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+			v2.Version = 2
+
+			v3 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v3,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+			v3.Version = 3
+
+			v4 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v4,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 4,
+			}.Check(ctx, t, db)
+			v4.Version = 4
+
+			// allow having multiple pending objects
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           v1,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v3,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v1,
+				},
+			}.Check(ctx, t, db)
+
+			// The latter commit should overwrite the v3.
+			// When pending objects table is enabled, then objects
+			// get the version during commit, hence the latest version
+			// will be the max.
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v2,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v4,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v2,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v4,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Commit versioned then unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			v1 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			v1.Version = 1
+
+			v2 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v2,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+			v2.Version = 2
+
+			v3 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v3,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+			v3.Version = 3
+
+			v4 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v4,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 4,
+			}.Check(ctx, t, db)
+			v4.Version = 4
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           v1,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v1,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v3,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream: v3,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v2,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v4,
+				},
+			}.Check(ctx, t, db)
+
+			// committing v4 should overwrite the previous unversioned commit (v2),
+			// so v2 is not in the result check
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v3,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v4,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Commit mixed versioned and unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			v1 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			v1.Version = 1
+
+			v2 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v2,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+			v2.Version = 2
+
+			v3 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v3,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+			v3.Version = 3
+
+			v4 := obj
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           v4,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieExpiration,
+				},
+				Version: 4,
+			}.Check(ctx, t, db)
+			v4.Version = 4
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           v1,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v1,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v2,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v2,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v2,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v3,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v3,
+					Versioned:    true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v2,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v3,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream:           v4,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: v4,
+				},
+			}.Check(ctx, t, db)
+
+			// committing v4 should overwrite the previous unversioned commit (v2),
+			// so v2 is not in the result check
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: v1,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v3,
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: v4,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Commit large number mixed versioned and unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// half the commits are versioned half are unversioned
+			numCommits := 1000
+			objs := make([]*metabase.ObjectStream, numCommits)
+			for i := 0; i < numCommits; i++ {
+				v := obj
+				objs[i] = &v
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream:           v,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieExpiration,
+					},
+					Version: metabase.Version(i + 1),
+				}.Check(ctx, t, db)
+				v.Version = metabase.Version(i + 1)
+			}
+
+			rawObjects := make([]metabase.RawObject, 0, len(objs))
+			for i := 0; i < len(objs); i++ {
+				versioned := i%2 == 0
+
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: *objs[i],
+						Versioned:    versioned,
+					},
+				}.Check(ctx, t, db)
+
+				if versioned {
+					rawObjects = append(rawObjects, metabase.RawObject{
+						ObjectStream: *objs[i],
+						CreatedAt:    now,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   metabasetest.DefaultEncryption,
+					})
+				}
+			}
+
+			// all the unversioned commits overwrite previous unversioned commits,
+			// so the result should only contain a single unversioned commit.
+			rawObjects = append(rawObjects, metabase.RawObject{
+				ObjectStream: *objs[len(objs)-1],
+				CreatedAt:    now,
+				Status:       metabase.CommittedUnversioned,
+				Encryption:   metabasetest.DefaultEncryption,
+			})
+			metabasetest.Verify{
+				Objects: rawObjects,
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 	metabasetest.RunWithConfig(t, metabase.Config{
 		ApplicationName:  "satellite-test",

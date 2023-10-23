@@ -205,6 +205,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# indicates if billing features should be enabled
+# console.billing-features-enabled: true
+
 # url of the transaction block explorer
 # console.block-explorer-url: https://etherscan.io/
 
@@ -276,6 +279,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
+
+# indicates whether free tier users can send project invitations
+# console.free-tier-invites-enabled: false
 
 # server address of the front-end app
 # console.frontend-address: :10200
@@ -396,6 +402,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
+
+# indicates whether invitation emails can be sent to unregistered email addresses
+# console.unregistered-invite-emails-enabled: false
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 25.00 GB

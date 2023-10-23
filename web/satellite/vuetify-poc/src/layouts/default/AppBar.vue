@@ -3,6 +3,8 @@
 
 <template>
     <v-app-bar :elevation="0">
+        <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" />
+
         <v-app-bar-nav-icon
             v-if="showNavDrawerButton"
             variant="text"
@@ -87,7 +89,7 @@
 
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
-                    <v-list-item class="py-2 rounded-lg">
+                    <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
                         <!-- <template #prepend>
                             <icon-team size="18"></icon-team>
                         </template> -->
@@ -104,16 +106,18 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
-                        <template #prepend>
-                            <icon-upgrade size="18" />
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">
-                            Upgrade to Pro
-                        </v-list-item-title>
-                    </v-list-item>
+                    <template v-if="billingEnabled">
+                        <v-list-item v-if="!isPaidTier" link class="my-1 rounded-lg" @click="toggleUpgradeFlow">
+                            <template #prepend>
+                                <icon-upgrade size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Upgrade to Pro
+                            </v-list-item-title>
+                        </v-list-item>
 
-                    <v-divider class="my-2" />
+                        <v-divider class="my-2" />
+                    </template>
 
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
@@ -127,7 +131,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
+                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
@@ -177,6 +181,7 @@ import {
     VListItemSubtitle,
     VDivider,
     VChip,
+    VProgressLinear,
 } from 'vuetify/components';
 
 import { useAppStore } from '@poc/store/appStore';
@@ -230,6 +235,11 @@ const props = withDefaults(defineProps<{
 }>(), {
     showNavDrawerButton: false,
 });
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns the name of the current satellite.
@@ -291,7 +301,7 @@ async function onLogout(): Promise<void> {
         analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        notify.error(error.message, null);
+        notify.error(error.message);
     }
 
     analyticsStore.pageVisit(RouteConfig.Login.path);

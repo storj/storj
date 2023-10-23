@@ -2,11 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
+    <v-overlay v-model="model" persistent />
+
     <v-dialog
-        v-model="model"
+        :model-value="model && !isUpgradeDialogShown"
         width="410px"
         transition="fade-transition"
         :persistent="isLoading"
+        :scrim="false"
+        @update:model-value="v => model = v"
     >
         <v-card rounded="xlg">
             <v-card-item class="pl-7 py-4">
@@ -15,7 +19,7 @@
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    {{ !isProjectLimitReached ? 'Create New Project' : 'Get More Projects' }}
+                    {{ isProjectLimitReached && billingEnabled ? 'Get More Projects' : 'Create New Project' }}
                 </v-card-title>
 
                 <template #append>
@@ -34,7 +38,10 @@
 
             <v-form v-model="formValid" class="pa-7" @submit.prevent>
                 <v-row>
-                    <template v-if="!isProjectLimitReached">
+                    <v-col v-if="isProjectLimitReached && billingEnabled">
+                        Upgrade to Pro Account to create more projects and gain access to higher limits.
+                    </v-col>
+                    <template v-else>
                         <v-col cols="12">
                             Projects are where you and your team can upload and manage data, and view usage statistics and billing.
                         </v-col>
@@ -74,9 +81,6 @@
                             />
                         </v-col>
                     </template>
-                    <v-col v-else>
-                        Upgrade to Pro Account to create more projects and gain access to higher limits.
-                    </v-col>
                 </v-row>
             </v-form>
 
@@ -95,15 +99,22 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            @click="() => !isProjectLimitReached && onCreateClicked()"
+                            :append-icon="isProjectLimitReached && billingEnabled ? 'mdi-arrow-right' : undefined"
+                            @click="onPrimaryClick"
                         >
-                            {{ !isProjectLimitReached ? 'Create Project' : 'Upgrade' }}
+                            {{ isProjectLimitReached && billingEnabled ? 'Upgrade' : 'Create Project' }}
                         </v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
         </v-card>
     </v-dialog>
+
+    <upgrade-account-dialog
+        :scrim="false"
+        :model-value="model && isUpgradeDialogShown"
+        @update:model-value="v => model = isUpgradeDialogShown = v"
+    />
 </template>
 
 <script setup lang="ts">
@@ -121,6 +132,7 @@ import {
     VRow,
     VCol,
     VTextField,
+    VOverlay,
 } from 'vuetify/components';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
@@ -130,6 +142,10 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useAppStore } from '@poc/store/appStore';
+
+import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
 const props = defineProps<{
     modelValue: boolean,
@@ -146,6 +162,9 @@ const model = computed<boolean>({
 
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
+const appStore = useAppStore();
+
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
@@ -155,6 +174,7 @@ const name = ref<string>('');
 const description = ref<string>('');
 const isDescriptionShown = ref<boolean>(false);
 const isProjectLimitReached = ref<boolean>(false);
+const isUpgradeDialogShown = ref<boolean>(false);
 
 const nameRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -166,9 +186,24 @@ const descriptionRules: ValidationRule<string>[] = [
 ];
 
 /**
- * Creates new project.
+ * Indicates if billing features are enabled.
  */
-async function onCreateClicked(): Promise<void> {
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+function startUpgradeFlow(): void {
+    model.value = false;
+    appStore.toggleUpgradeFlow(true);
+}
+
+/**
+ * Handles primary button click.
+ */
+async function onPrimaryClick(): Promise<void> {
+    if (isProjectLimitReached.value && billingEnabled.value) {
+        isUpgradeDialogShown.value = true;
+        return;
+    }
+
     if (!formValid.value) return;
     await withLoading(async () => {
         let project: Project;

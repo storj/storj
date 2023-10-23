@@ -104,6 +104,20 @@ export const router = createRouter({
     routes,
 });
 
+router.beforeEach((to, _, next) => {
+    useAppStore().setIsNavigating(true);
+
+    const configStore = useConfigStore();
+    if (!configStore.state.config.billingFeaturesEnabled && to.name === RouteName.Billing) {
+        next({ name: RouteName.AccountSettings });
+        return;
+    }
+
+    next();
+});
+
+router.afterEach(() => useAppStore().setIsNavigating(false));
+
 export function startTitleWatcher(): void {
     const projectsStore = useProjectsStore();
     const configStore = useConfigStore();

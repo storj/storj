@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -94,8 +95,9 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap        *metabase.NodeAliasMap
+	mu              sync.RWMutex
 	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	aliasMap        *metabase.NodeAliasMap
 	priorityNodes   NodeAliasSet
 	ignoreNodes     NodeAliasSet
 	offlineNodes    *nodeAliasExpiringSet
@@ -486,6 +488,9 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 			}
 			for n, verifySegment := range verifySegments.Segments {
 				segmentsData[n].VerifySegment = verifySegment
+				segmentsData[n].Status.Found = 0
+				segmentsData[n].Status.Retry = 0
+				segmentsData[n].Status.NotFound = 0
 				segments[n] = &segmentsData[n]
 			}
 

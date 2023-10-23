@@ -172,13 +172,13 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     17,
+				Version:     18,
 				Action: migrate.SQL{
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
 						bucket_name  BYTEA NOT NULL, -- we're using bucket_name here to avoid a lookup into buckets table
 						object_key   BYTEA NOT NULL, -- using 'object_key' instead of 'key' to avoid reserved word
-						version      INT4  NOT NULL,
+						version      INT8  NOT NULL,
 						stream_id    BYTEA NOT NULL,
 
 						created_at TIMESTAMPTZ NOT NULL default now(),
@@ -349,7 +349,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 		migration.Steps = append(migration.Steps, &migrate.Step{
 			DB:          &db.db,
 			Description: "Constraint for ensuring our metabase correctness.",
-			Version:     18,
+			Version:     19,
 			Action: migrate.SQL{
 				`CREATE UNIQUE INDEX objects_one_unversioned_per_location ON objects (project_id, bucket_name, object_key) WHERE status IN ` + statusesUnversioned + `;`,
 			},
@@ -689,6 +689,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
 
 					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
+				`},
+			},
+			{
+				DB:          &db.db,
+				Description: "change objects.version from INT4 to INT8",
+				Version:     18,
+				Action: migrate.SQL{`
+					-- change type from INT4 to INT8; this is practically instant on cockroachdb because
+					-- it uses INT8 storage for INT4 values already.
+					ALTER TABLE objects ALTER COLUMN version TYPE INT8;
 				`},
 			},
 		},

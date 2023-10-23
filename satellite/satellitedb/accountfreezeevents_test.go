@@ -25,9 +25,11 @@ func TestAccountFreezeEvents(t *testing.T) {
 			return console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
 		}
 
+		days := 60
 		event := &console.AccountFreezeEvent{
-			UserID: testrand.UUID(),
-			Type:   console.BillingFreeze,
+			UserID:             testrand.UUID(),
+			Type:               console.BillingFreeze,
+			DaysTillEscalation: &days,
 			Limits: &console.AccountFreezeEventLimits{
 				User: randUsageLimits(),
 				Projects: map[uuid.UUID]console.UsageLimits{

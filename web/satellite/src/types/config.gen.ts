@@ -13,7 +13,7 @@ export class FrontendConfig {
     satelliteName: string;
     satelliteNodeURL: string;
     stripePublicKey: string;
-    partneredSatellites: PartneredSatellite[];
+    partneredSatellites?: PartneredSatellite[];
     defaultProjectLimit: number;
     generalRequestURL: string;
     projectLimitsIncreaseRequestURL: string;
@@ -47,6 +47,9 @@ export class FrontendConfig {
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;
+    billingFeaturesEnabled: boolean;
+    unregisteredInviteEmailsEnabled: boolean;
+    freeTierInvitesEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

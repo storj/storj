@@ -177,7 +177,6 @@ type NodeCheckInInfo struct {
 
 // InfoResponse contains node dossier info requested from the storage node.
 type InfoResponse struct {
-	Type     pb.NodeType
 	Operator *pb.NodeOperator
 	Capacity *pb.NodeCapacity
 	Version  *pb.NodeVersion
@@ -242,7 +241,6 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                    pb.NodeType
 	Operator                pb.NodeOperator
 	Capacity                pb.NodeCapacity
 	Reputation              NodeStats

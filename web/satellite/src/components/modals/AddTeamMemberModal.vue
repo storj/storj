@@ -7,14 +7,22 @@
             <div class="modal">
                 <div class="modal__header">
                     <TeamMembersIcon />
-                    <h1 class="modal__header__title">Invite team member</h1>
+                    <h1 class="modal__header__title">
+                        {{ needsUpgrade ? 'Upgrade to Pro' : 'Invite team member' }}
+                    </h1>
                 </div>
 
                 <p class="modal__info">
-                    Add a team member to contribute to this project.
+                    <template v-if="needsUpgrade">
+                        Upgrade now to unlock collaboration and bring your team together in this project.
+                    </template>
+                    <template v-else>
+                        Add a team member to contribute to this project.
+                    </template>
                 </p>
 
                 <VInput
+                    v-if="!needsUpgrade"
                     class="modal__input"
                     label="Email"
                     height="38px"
@@ -35,13 +43,17 @@
                         :on-press="closeModal"
                     />
                     <VButton
-                        label="Invite"
+                        :label="needsUpgrade ? 'Upgrade' : 'Invite'"
                         height="48px"
                         font-size="14px"
                         border-radius="10px"
-                        :on-press="onInviteClick"
+                        :on-press="onPrimaryClick"
                         :is-disabled="!!formError || isLoading"
-                    />
+                    >
+                        <template v-if="needsUpgrade" #icon-right>
+                            <ArrowIcon />
+                        </template>
+                    </VButton>
                 </div>
             </div>
         </template>
@@ -49,7 +61,7 @@
 </template>
 
 <script setup lang='ts'>
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -59,19 +71,24 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import TeamMembersIcon from '@/../static/images/team/teamMembers.svg';
+import ArrowIcon from '@/../static/images/onboardingTour/arrowRight.svg';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -84,6 +101,7 @@ const email = ref<string>('');
  * or a message describing the validation error.
  */
 const formError = computed<string | boolean>(() => {
+    if (needsUpgrade.value) return false;
     if (!email.value) return true;
     if (email.value.toLocaleLowerCase() === usersStore.state.user.email.toLowerCase()) {
         return `You can't add yourself to the project.`;
@@ -95,9 +113,22 @@ const formError = computed<string | boolean>(() => {
 });
 
 /**
- * Tries to add the user with the input email to the current project.
+ * Returns whether the user should upgrade to pro tier before inviting.
  */
-async function onInviteClick(): Promise<void> {
+const needsUpgrade = computed<boolean>(() => {
+    const config = configStore.state.config;
+    return config.billingFeaturesEnabled && !(usersStore.state.user.paidTier || config.freeTierInvitesEnabled);
+});
+
+/**
+ * Handles primary button click.
+ */
+async function onPrimaryClick(): Promise<void> {
+    if (needsUpgrade.value) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+        return;
+    }
+
     await withLoading(async () => {
         try {
             await pmStore.inviteMember(email.value, projectsStore.state.selectedProject.id);
@@ -108,7 +139,18 @@ async function onInviteClick(): Promise<void> {
         }
 
         analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
-        notify.notify('Invite sent!');
+
+        if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+            notify.notify('Invite sent!');
+        } else {
+            notify.notify(() => [
+                h('p', { class: 'message-title' }, 'Invite sent!'),
+                h('p', { class: 'message-info' }, [
+                    'An invitation will be sent to the email address if it belongs to a user on this satellite.',
+                ]),
+            ]);
+        }
+
         pmStore.setSearchQuery('');
 
         try {

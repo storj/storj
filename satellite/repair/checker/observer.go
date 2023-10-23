@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -323,7 +325,6 @@ var (
 	segmentHealthyCountIntVal         = mon.IntVal("checker_segment_healthy_count") //mon:locked
 	segmentClumpedCountIntVal         = mon.IntVal("checker_segment_clumped_count") //mon:locked
 	segmentExitingCountIntVal         = mon.IntVal("checker_segment_exiting_count")
-	segmentOffPlacementCountIntVal    = mon.IntVal("checker_segment_off_placement_count")    //mon:locked
 	segmentAgeIntVal                  = mon.IntVal("checker_segment_age")                    //mon:locked
 	segmentHealthFloatVal             = mon.FloatVal("checker_segment_health")               //mon:locked
 	segmentsBelowMinReqCounter        = mon.Counter("checker_segments_below_min_req")        //mon:locked
@@ -396,11 +397,13 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 
 	segmentHealthyCountIntVal.Observe(int64(numHealthy))
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
+
 	segmentClumpedCountIntVal.Observe(int64(piecesCheck.Clumped.Size()))
 	stats.segmentStats.segmentClumpedCount.Observe(int64(piecesCheck.Clumped.Size()))
 	segmentExitingCountIntVal.Observe(int64(piecesCheck.Exiting.Size()))
 	stats.segmentStats.segmentExitingCount.Observe(int64(piecesCheck.Exiting.Size()))
-	segmentOffPlacementCountIntVal.Observe(int64(piecesCheck.OutOfPlacement.Size()))
+	mon.IntVal("checker_segment_off_placement_count",
+		monkit.NewSeriesTag("placement", strconv.Itoa(int(segment.Placement)))).Observe(int64(piecesCheck.OutOfPlacement.Size())) //mon:locked
 	stats.segmentStats.segmentOffPlacementCount.Observe(int64(piecesCheck.OutOfPlacement.Size()))
 
 	segmentAge := time.Since(segment.CreatedAt)

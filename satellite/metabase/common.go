@@ -393,6 +393,13 @@ const (
 	statusesUnversioned           = "(3,5)"
 )
 
+func committedWhereVersioned(versioned bool) ObjectStatus {
+	if versioned {
+		return CommittedVersioned
+	}
+	return CommittedUnversioned
+}
+
 // stub uses so the linter wouldn't complain.
 var (
 	_ = CommittedVersioned

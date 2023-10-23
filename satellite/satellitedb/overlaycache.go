@@ -71,16 +71,13 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
 			AND exit_initiated_at IS NULL
-			AND type = $1
-			AND free_disk >= $2
-			AND last_contact_success > $3
+			AND free_disk >= $1
+			AND last_contact_success > $2
 	`
 	args := []interface{}{
 		// $1
-		int(pb.NodeType_STORAGE),
-		// $2
 		selectionCfg.MinimumDiskSpace.Int64(),
-		// $3
+		// $2
 		time.Now().Add(-selectionCfg.OnlineWindow),
 	}
 	if selectionCfg.MinimumVersion != "" {
@@ -88,9 +85,9 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		if err != nil {
 			return nil, nil, err
 		}
-		query += `AND (major > $4 OR (major = $5 AND (minor > $6 OR (minor = $7 AND patch >= $8)))) AND release`
+		query += `AND (major > $3 OR (major = $4 AND (minor > $5 OR (minor = $6 AND patch >= $7)))) AND release`
 		args = append(args,
-			// $4 - $8
+			// $3 - $7
 			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 		)
 	}
@@ -670,9 +667,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 
 	var updateFields dbx.Node_Update_Fields
 	if nodeInfo != nil {
-		if nodeInfo.Type != pb.NodeType_INVALID {
-			updateFields.Type = dbx.Node_Type(int(nodeInfo.Type))
-		}
 		if nodeInfo.Operator != nil {
 			walletFeatures, err := encodeWalletFeatures(nodeInfo.Operator.GetWalletFeatures())
 			if err != nil {
@@ -1070,7 +1064,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 				Features:      uint64(info.Features),
 			},
 		},
-		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
 			Email:          info.Email,
 			Wallet:         info.Wallet,
@@ -1357,7 +1350,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
-				id, address, last_net, protocol, type,
+				id, address, last_net, protocol,
 				email, wallet, free_disk,
 				last_contact_success,
 				last_contact_failure,
@@ -1367,18 +1360,18 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				features
 			)
 			VALUES (
-				$1, $2, $3, $4, $5,
-				$6, $7, $8,
-				CASE WHEN $9::bool IS TRUE THEN $16::timestamptz
+				$1, $2, $3, $4,
+				$5, $6, $7,
+				CASE WHEN $8::bool IS TRUE THEN $15::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $9::bool IS FALSE THEN $16::timestamptz
+				CASE WHEN $8::bool IS FALSE THEN $15::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				$10, $11, $12, $13, $14, $15,
-				$17, $18, $19,
-				$22, $23, $24,
-				$25
+				$9, $10, $11, $12, $13, $14,
+				$16, $17, $18,
+				$21, $22, $23,
+				$24
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1386,50 +1379,50 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				address=$2,
 				last_net=$3,
 				protocol=$4,
-				email=$6,
-				wallet=$7,
-				free_disk=$8,
-				major=$10, minor=$11, patch=$12, hash=$13, timestamp=$14, release=$15,
-				last_contact_success = CASE WHEN $9::bool IS TRUE
-					THEN $16::timestamptz
+				email=$5,
+				wallet=$6,
+				free_disk=$7,
+				major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+				last_contact_success = CASE WHEN $8::bool IS TRUE
+					THEN $15::timestamptz
 					ELSE nodes.last_contact_success
 				END,
-				last_contact_failure = CASE WHEN $9::bool IS FALSE
-					THEN $16::timestamptz
+				last_contact_failure = CASE WHEN $8::bool IS FALSE
+					THEN $15::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$17,
-				wallet_features=$18,
-				country_code=$19,
-				noise_proto=$22,
-				noise_public_key=$23,
-				debounce_limit=$24,
-				features=$25,
+				last_ip_port=$16,
+				wallet_features=$17,
+				country_code=$18,
+				noise_proto=$21,
+				noise_public_key=$22,
+				debounce_limit=$23,
+				features=$24,
 				last_software_update_email = CASE
-					WHEN $20::bool IS TRUE THEN $16::timestamptz
-					WHEN $21::bool IS FALSE THEN NULL
+					WHEN $19::bool IS TRUE THEN $15::timestamptz
+					WHEN $20::bool IS FALSE THEN NULL
 					ELSE nodes.last_software_update_email
 				END,
-				last_offline_email = CASE WHEN $9::bool IS TRUE
+				last_offline_email = CASE WHEN $8::bool IS TRUE
 					THEN NULL
 					ELSE nodes.last_offline_email
 				END;
 			`,
-		// args $1 - $5
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC, int(pb.NodeType_STORAGE),
-		// args $6 - $8
+		// args $1 - $4
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC,
+		// args $5 - $7
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
-		// args $9
+		// args $8
 		node.IsUp,
-		// args $10 - $15
+		// args $9 - $14
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		// args $16
+		// args $15
 		timestamp,
-		// args $17 - $19
+		// args $16 - $18
 		node.LastIPPort, walletFeatures, node.CountryCode.String(),
-		// args $20 - $21
+		// args $19 - $20
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
-		// args $22 - $25
+		// args $21 - $24
 		noiseProto, noisePublicKey, node.Address.DebounceLimit, node.Address.Features,
 	)
 	if err != nil {

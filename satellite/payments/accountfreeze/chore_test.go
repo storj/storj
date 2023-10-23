@@ -42,6 +42,8 @@ func TestAutoFreezeChore(t *testing.T) {
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
 		chore := sat.Core.Payments.AccountFreeze
+
+		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -328,12 +330,24 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.Loop.TriggerWait()
 
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+			require.Nil(t, freezes.ViolationFreeze)
+
+			chore.TestSetNow(func() time.Time {
+				// current date is now after billing warn grace period
+				return time.Now().AddDate(0, 0, 50)
+			})
+			chore.Loop.TriggerWait()
+
 			// Payment should have succeeded in the chore.
 			failed, err = invoicesDB.ListFailed(ctx, nil)
 			require.NoError(t, err)
 			require.Equal(t, 0, len(failed))
 
-			freezes, err := service.GetAll(ctx, user.ID)
+			freezes, err = service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, freezes.BillingWarning)
 			require.Nil(t, freezes.BillingFreeze)
@@ -443,6 +457,8 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t))
 		chore := sat.Core.Payments.AccountFreeze
+
+		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
 
 		amount := int64(100)

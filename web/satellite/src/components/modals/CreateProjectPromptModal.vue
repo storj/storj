@@ -9,7 +9,7 @@
                     <ProjectIcon />
                     <h1 class="modal__header__title">Get more projects</h1>
                 </div>
-                <p v-if="!isPaidTier" class="modal__info">
+                <p v-if="!isPaidTier && billingEnabled" class="modal__info">
                     Upgrade to Pro Account to create more projects and gain access to higher limits.
                 </p>
                 <p v-else class="modal__info">
@@ -45,6 +45,7 @@ import { computed } from 'vue';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -53,14 +54,20 @@ import ProjectIcon from '@/../static/images/common/blueBox.svg';
 
 const appStore = useAppStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const isPaidTier = computed<boolean>(() => userStore.state.user.paidTier);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns button text label depending on if the user is in the free or paid tier.
  */
 const buttonLabel = computed<string>(() => {
-    return isPaidTier.value ? 'Request -->' : 'Upgrade -->';
+    return !isPaidTier.value && billingEnabled.value ? 'Upgrade -->' : 'Request -->';
 });
 
 /**
@@ -69,7 +76,7 @@ const buttonLabel = computed<string>(() => {
  * Redirects to upgrade modal or opens new tab to request increase project limits .
  */
 function onClick(): void {
-    if (!isPaidTier.value) {
+    if (!isPaidTier.value && billingEnabled.value) {
         appStore.updateActiveModal(MODALS.upgradeAccount);
     } else {
         appStore.removeActiveModal();

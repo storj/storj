@@ -3775,7 +3775,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	}
 	projectID = isMember.project.ID
 
-	if !sender.PaidTier {
+	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
 		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
 	}
 
@@ -3821,7 +3821,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				}
 			}
 			unverifiedUsers = append(unverifiedUsers, oldest)
-		} else {
+		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
 		}
 	}

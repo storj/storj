@@ -24,13 +24,6 @@ import (
 )
 
 func TestDurability(t *testing.T) {
-	createUUID := func() uuid.UUID {
-		id, err := uuid.New()
-		require.NoError(t, err)
-		return id
-
-	}
-
 	var storageNodes []*nodeselection.SelectedNode
 	var aliases []metabase.NodeAliasEntry
 	for i := 0; i < 10; i++ {
@@ -63,20 +56,12 @@ func TestDurability(t *testing.T) {
 		// first batch
 		err = fork.Process(ctx, []rangedloop.Segment{
 			{
-				StreamID: createUUID(),
+				StreamID: testrand.UUID(),
 				Position: metabase.SegmentPosition{
 					Part:  1,
 					Index: 1,
 				},
 				AliasPieces: pieces(storageNodes, 3, 6, 9, 1),
-			},
-			{
-				StreamID: createUUID(),
-				Position: metabase.SegmentPosition{
-					Part:  1,
-					Index: 1,
-				},
-				AliasPieces: pieces(storageNodes, 1, 2, 3, 4),
 			},
 		})
 		require.NoError(t, err)
@@ -89,7 +74,7 @@ func TestDurability(t *testing.T) {
 		// second batch
 		err = fork.Process(ctx, []rangedloop.Segment{
 			{
-				StreamID: createUUID(),
+				StreamID: testrand.UUID(),
 				Position: metabase.SegmentPosition{
 					Part:  1,
 					Index: 1,
@@ -97,7 +82,7 @@ func TestDurability(t *testing.T) {
 				AliasPieces: pieces(storageNodes, 2, 3, 4, 7),
 			},
 			{
-				StreamID: createUUID(),
+				StreamID: testrand.UUID(),
 				Position: metabase.SegmentPosition{
 					Part:  1,
 					Index: 1,
@@ -114,6 +99,62 @@ func TestDurability(t *testing.T) {
 	require.Equal(t, 1, c.healthStat["net:127.0.0.0"].Min())
 	require.Equal(t, 2, c.healthStat["net:127.0.1.0"].Min())
 	require.Equal(t, 3, c.healthStat["net:127.0.2.0"].Min())
+}
+
+func TestDurabilityUnknownNode(t *testing.T) {
+	var storageNodes []*nodeselection.SelectedNode
+	var aliases []metabase.NodeAliasEntry
+
+	node := &nodeselection.SelectedNode{
+		ID:      testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID,
+		LastNet: "127.0.0.1",
+	}
+	storageNodes = append(storageNodes, node)
+	aliases = append(aliases, metabase.NodeAliasEntry{
+		ID:    node.ID,
+		Alias: metabase.NodeAlias(0),
+	})
+
+	ctx := testcontext.New(t)
+	c := NewDurability(nil, nil, []NodeClassifier{
+		func(node *nodeselection.SelectedNode) string {
+			return "net:" + node.LastNet
+		}}, 0, 0)
+
+	c.aliasMap = metabase.NewNodeAliasMap(aliases)
+	for _, node := range storageNodes {
+		c.nodes[node.ID] = node
+	}
+
+	fork, err := c.Fork(ctx)
+	require.NoError(t, err)
+
+	// note: second piece points to an alias which was not preloaded (newly inserted).
+	err = fork.Process(ctx, []rangedloop.Segment{
+		{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  1,
+				Index: 1,
+			},
+			AliasPieces: metabase.AliasPieces{
+				metabase.AliasPiece{
+					Number: 1,
+					Alias:  0,
+				},
+				metabase.AliasPiece{
+					Number: 2,
+					Alias:  9999,
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	err = c.Join(ctx, fork)
+	require.NoError(t, err)
+	// note: the newly created node (alias 9999) is not considered.
+	require.Equal(t, 0, c.healthStat["net:127.0.0.1"].Min())
 }
 
 func pieces(nodes []*nodeselection.SelectedNode, ix ...int) (res metabase.AliasPieces) {

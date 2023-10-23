@@ -388,6 +388,12 @@ router.beforeEach(async (to, from, next) => {
         appStore.toggleHasJustLoggedIn(false);
     }
 
+    if (!configStore.state.config.billingFeaturesEnabled && to.path.includes(RouteConfig.Billing.path)) {
+        next(RouteConfig.Account.with(RouteConfig.Settings).path);
+
+        return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 

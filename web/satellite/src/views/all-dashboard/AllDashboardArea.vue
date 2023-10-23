@@ -73,6 +73,11 @@ const projectsStore = useProjectsStore();
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
 const isMyProjectsPage = computed((): boolean => {
     return route.path === RouteConfig.AllProjectsDashboard.path;
 });
@@ -135,18 +140,20 @@ onMounted(async () => {
         notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
-    try {
-        const couponType = await billingStore.setupAccount();
-        if (couponType === CouponType.NoCoupon) {
-            notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-        }
+    if (billingEnabled.value) {
+        try {
+            const couponType = await billingStore.setupAccount();
+            if (couponType === CouponType.NoCoupon) {
+                notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+            }
 
-        if (couponType === CouponType.SignupCoupon) {
-            notify.success(`The coupon code was added successfully`);
+            if (couponType === CouponType.SignupCoupon) {
+                notify.success(`The coupon code was added successfully`);
+            }
+        } catch (error) {
+            error.message = `Unable to setup account. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
-    } catch (error) {
-        error.message = `Unable to setup account. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }
 
     try {

@@ -174,6 +174,10 @@ func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
 		return nil
 	}
 
+	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil {
+		return nil
+	}
+
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
 		return err

@@ -8,6 +8,7 @@ class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
+    public isNavigating = false;
 }
 
 export const useAppStore = defineStore('vuetifyApp', () => {
@@ -25,6 +26,10 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state.pathBeforeAccountPage = path;
     }
 
+    function setIsNavigating(isLoading: boolean) {
+        state.isNavigating = isLoading;
+    }
+
     function clear(): void {
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
@@ -36,6 +41,7 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         toggleNavigationDrawer,
         toggleUpgradeFlow,
         setPathBeforeAccountPage,
+        setIsNavigating,
         clear,
     };
 });

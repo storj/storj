@@ -248,6 +248,54 @@ func TestPlacementFromString(t *testing.T) {
 
 	})
 
+	t.Run("OR", func(t *testing.T) {
+		p := NewPlacementDefinitions()
+		err := p.AddPlacementFromString(`11:country("GB") || country("DE")`)
+		require.NoError(t, err)
+
+		filters := p.placements[storj.PlacementConstraint(11)]
+		require.NotNil(t, filters)
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
+			CountryCode: location.UnitedKingdom,
+		}))
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
+			CountryCode: location.Germany,
+		}))
+		require.Equal(t, `(country("GB") || country("DE"))`, fmt.Sprintf("%s", filters))
+	})
+
+	t.Run("OR combined with AND", func(t *testing.T) {
+		p := NewPlacementDefinitions()
+		err := p.AddPlacementFromString(`11:((country("GB") || country("DE")) && tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar"))`)
+		require.NoError(t, err)
+
+		filters := p.placements[storj.PlacementConstraint(11)]
+		require.NotNil(t, filters)
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
+			CountryCode: location.UnitedKingdom,
+		}))
+		require.False(t, filters.Match(&nodeselection.SelectedNode{
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "foo",
+					Value:  []byte("bar"),
+				},
+			},
+		}))
+		require.True(t, filters.Match(&nodeselection.SelectedNode{
+			CountryCode: location.Germany,
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "foo",
+					Value:  []byte("bar"),
+				},
+			},
+		}))
+		require.Equal(t, `((country("GB") || country("DE")) && tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","foo","bar"))`, fmt.Sprintf("%s", filters))
+	})
+
 	t.Run("annotation usage", func(t *testing.T) {
 		t.Run("normal", func(t *testing.T) {
 			t.Parallel()

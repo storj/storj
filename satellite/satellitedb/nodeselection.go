@@ -168,7 +168,6 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	conds.add(`offline_suspended IS NULL`)
 	conds.add(`exit_initiated_at IS NULL`)
 
-	conds.add(`type = ?`, int(pb.NodeType_STORAGE))
 	conds.add(`free_disk >= ?`, criteria.FreeDisk)
 	conds.add(`last_contact_success > ?`, time.Now().UTC().Add(-criteria.OnlineWindow))
 

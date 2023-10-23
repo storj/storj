@@ -215,6 +215,12 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 		s := &segments[i]
 		healthyPieceCount := 0
 		for _, piece := range s.AliasPieces {
+			if len(c.classified) <= int(piece.Alias) {
+				// this is a new node, but we can ignore it.
+				// will be included in the next execution cycle.
+				continue
+			}
+
 			classes := c.classified[piece.Alias]
 
 			// unavailable/offline nodes were not classified

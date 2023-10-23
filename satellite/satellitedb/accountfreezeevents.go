@@ -31,6 +31,9 @@ func (events *accountFreezeEvents) Upsert(ctx context.Context, event *console.Ac
 	}
 
 	createFields := dbx.AccountFreezeEvent_Create_Fields{}
+	if event.DaysTillEscalation != nil {
+		createFields.DaysTillEscalation = dbx.AccountFreezeEvent_DaysTillEscalation(*event.DaysTillEscalation)
+	}
 	if event.Limits != nil {
 		limitBytes, err := json.Marshal(event.Limits)
 		if err != nil {
@@ -188,9 +191,10 @@ func fromDBXAccountFreezeEvent(dbxEvent *dbx.AccountFreezeEvent) (_ *console.Acc
 		return nil, err
 	}
 	event := &console.AccountFreezeEvent{
-		UserID:    userID,
-		Type:      console.AccountFreezeEventType(dbxEvent.Event),
-		CreatedAt: dbxEvent.CreatedAt,
+		UserID:             userID,
+		Type:               console.AccountFreezeEventType(dbxEvent.Event),
+		DaysTillEscalation: dbxEvent.DaysTillEscalation,
+		CreatedAt:          dbxEvent.CreatedAt,
 	}
 	if dbxEvent.Limits != nil {
 		err := json.Unmarshal(dbxEvent.Limits, &event.Limits)

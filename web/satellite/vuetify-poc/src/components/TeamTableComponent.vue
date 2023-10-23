@@ -157,6 +157,7 @@ import { useNotify } from '@/utils/hooks';
 import { Project } from '@/types/projects';
 import { SortDirection, tableSizeOptions } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconCopy from '@poc/components/icons/IconCopy.vue';
@@ -174,9 +175,9 @@ type RenderedItem = {
 
 const usersStore = useUsersStore();
 const analyticsStore = useAnalyticsStore();
-const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const notify = useNotify();
@@ -304,7 +305,14 @@ async function resendInvite(email: string): Promise<void> {
         analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
         try {
             await pmStore.reinviteMembers([email], selectedProject.value.id);
-            notify.notify('Invite resent!');
+            if (configStore.state.config.unregisteredInviteEmailsEnabled) {
+                notify.notify('Invite re-sent!');
+            } else {
+                notify.notify(
+                    'The invitation will be re-sent to the email address if it belongs to a user on this satellite.',
+                    'Invite re-sent!',
+                );
+            }
         } catch (error) {
             error.message = `Error resending invite. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);

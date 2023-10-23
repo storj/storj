@@ -69,8 +69,10 @@
                                 <AccountIcon class="account-area__wrap__left__icon" />
                                 <p class="account-area__wrap__left__label">My Account</p>
                                 <p class="account-area__wrap__left__label-small">Account</p>
-                                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                                <template v-if="billingEnabled">
+                                    <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
+                                    <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                                </template>
                             </div>
                             <ArrowIcon class="account-area__wrap__arrow" />
                         </div>
@@ -92,7 +94,7 @@
                                     </a>
                                 </div>
                             </div>
-                            <div class="account-area__dropdown__item" @click="navigateToBilling">
+                            <div v-if="billingEnabled" class="account-area__dropdown__item" @click="navigateToBilling">
                                 <BillingIcon />
                                 <p class="account-area__dropdown__item__label">Billing</p>
                             </div>
@@ -176,6 +178,11 @@ const link = 'https://docs.storj.io/';
 
 const isAccountDropdownShown = ref(false);
 const isNavOpened = ref(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns satellite name from store.

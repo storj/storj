@@ -45,7 +45,7 @@
 
                 <v-divider />
 
-                <v-list-item v-if="!isPaidTier">
+                <v-list-item v-if="!isPaidTier && billingEnabled">
                     <v-list-item-title>Free Account</v-list-item-title>
                     <v-list-item-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth.
@@ -159,6 +159,11 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns selected project from the store.

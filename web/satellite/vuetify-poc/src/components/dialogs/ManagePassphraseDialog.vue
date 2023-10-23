@@ -4,7 +4,7 @@
 <template>
     <v-dialog v-model="model" max-width="420" transition="fade-transition">
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4 pos-relative">
+            <v-card-item class="pl-7 py-4">
                 <template #prepend>
                     <img class="d-block" :src="stepInfo[step].ref.value?.iconSrc || LockIcon">
                 </template>

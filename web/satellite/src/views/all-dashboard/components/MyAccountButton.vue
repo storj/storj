@@ -32,7 +32,7 @@
                     </a>
                 </div>
             </div>
-            <div tabindex="0" class="account-button__dropdown__item" @click.stop="navigateToBilling" @keyup.enter="navigateToBilling">
+            <div v-if="billingEnabled" tabindex="0" class="account-button__dropdown__item" @click.stop="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-button__dropdown__item__label">Billing</p>
             </div>
@@ -101,6 +101,11 @@ const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
 const isHoveredOver = ref(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates if account dropdown is open.
