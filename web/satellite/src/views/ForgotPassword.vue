@@ -46,7 +46,7 @@
                         </ul>
                     </div>
                 </div>
-                <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
+                <p class="forgot-area__content-area__container__message">Enter your email to reset your password. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <VInput
                         label="Email Address"
@@ -278,12 +278,17 @@ onMounted((): void => {
             &__value {
                 font-size: 16px;
                 line-height: 21px;
-                color: #acbace;
+                color: #777;
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
                 background: none;
                 border: none;
+                cursor: pointer;
+
+                &:hover {
+                    color: var(--c-blue-3);
+                }
             }
 
             &__dropdown {
@@ -308,13 +313,14 @@ onMounted((): void => {
                     color: #7e8b9c;
                     cursor: pointer;
                     text-decoration: none;
+                    border-radius: 6px;
 
                     &__name {
                         font-family: 'font_bold', sans-serif;
                         margin-left: 15px;
                         font-size: 14px;
                         line-height: 20px;
-                        color: #7e8b9c;
+                        color: #333;
                     }
 
                     &:hover {
@@ -338,13 +344,15 @@ onMounted((): void => {
             box-sizing: border-box;
 
             &__container {
-                width: 610px;
-                padding: 60px 80px;
+                max-width: 480px;
+                min-width: 360px;
+                padding: 30px 40px 40px;
                 display: flex;
                 flex-direction: column;
                 background-color: #fff;
                 border-radius: 20px;
                 box-sizing: border-box;
+                border: 1px solid #eee;
 
                 &__title-area {
                     display: flex;
@@ -352,7 +360,7 @@ onMounted((): void => {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 21px;
                         margin: 10px 0;
                         letter-spacing: -0.1007px;
                         color: #252525;
@@ -361,12 +369,17 @@ onMounted((): void => {
                     }
                 }
 
+                &__message {
+                    margin-top: 10px;
+                    font-size: 15px;
+                }
+
                 &__input-wrapper {
-                    margin-top: 20px;
+                    margin-top: 10px;
                 }
 
                 &__button {
-                    margin-top: 40px;
+                    margin-top: 30px;
                 }
 
                 &__login-container {
@@ -454,11 +467,6 @@ onMounted((): void => {
 
             &__content-area {
                 padding: 0;
-
-                &__container {
-                    padding: 60px;
-                    border-radius: 0;
-                }
             }
         }
     }

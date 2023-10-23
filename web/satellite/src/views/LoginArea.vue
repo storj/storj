@@ -504,7 +504,6 @@ function validateFields(): boolean {
         }
 
         &__input-wrapper {
-            margin-top: 16px;
             width: 100%;
         }
 
@@ -517,13 +516,17 @@ function validateFields(): boolean {
             &__value {
                 font-size: 16px;
                 line-height: 21px;
-                color: #acbace;
+                color: #777;
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
                 border: none;
                 cursor: pointer;
                 background: transparent;
+
+                &:hover {
+                    color: var(--c-blue-3);
+                }
             }
 
             &__dropdown {
@@ -547,13 +550,14 @@ function validateFields(): boolean {
                     color: #7e8b9c;
                     cursor: pointer;
                     text-decoration: none;
+                    border-radius: 6px;
 
                     &__name {
                         font-family: 'font_bold', sans-serif;
                         margin-left: 15px;
                         font-size: 14px;
                         line-height: 20px;
-                        color: #7e8b9c;
+                        color: #333;
                     }
 
                     &:hover {
@@ -604,6 +608,7 @@ function validateFields(): boolean {
                 border-radius: 20px;
                 box-sizing: border-box;
                 margin-bottom: 20px;
+                border: 1px solid #eee;
 
                 &__title-area {
                     display: flex;
@@ -742,7 +747,7 @@ function validateFields(): boolean {
 
                 &__container {
                     width: 100%;
-                    padding: 60px;
+                    min-width: 360px;
                 }
             }
 
@@ -765,11 +770,6 @@ function validateFields(): boolean {
 
             &__content-area {
                 padding: 0;
-
-                &__container {
-                    padding: 0 20px 20px;
-                    background: transparent;
-                }
             }
         }
     }

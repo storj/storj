@@ -451,11 +451,6 @@ onMounted((): void => {
 
             &__content-area {
                 padding: 0;
-
-                &__container {
-                    padding: 60px;
-                    border-radius: 0;
-                }
             }
         }
     }

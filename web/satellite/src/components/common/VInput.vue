@@ -203,7 +203,7 @@ onBeforeMount(() => {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        margin-top: 10px;
+        margin-top: 20px;
         width: 100%;
         font-family: 'font_regular', sans-serif;
         position: relative;
@@ -245,8 +245,7 @@ onBeforeMount(() => {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                font-size: 16px;
-                line-height: 21px;
+                font-size: 15px;
                 color: #354049;
 
                 & .add-label {
@@ -288,18 +287,21 @@ onBeforeMount(() => {
 
     .input,
     .textarea {
-        font-size: 16px;
-        line-height: 21px;
+        font-size: 15px;
         resize: none;
-        height: 48px;
+        height: 52px;
         width: 100%;
         padding: 0;
-        text-indent: 20px;
-        border-color: rgb(56 75 101 / 40%);
+        text-indent: 16px;
+        border-color: #ccc;
         border-radius: 6px;
-        outline: none;
         box-shadow: none;
         box-sizing: border-box;
+        transition: border-color 50ms ease-in-out;
+
+        &:hover {
+            border-color: var(--c-blue-6);
+        }
 
         &::placeholder {
             opacity: 0.6;

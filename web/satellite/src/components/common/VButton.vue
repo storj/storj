@@ -282,6 +282,7 @@ function handleClick(): void {
         background-color: var(--c-blue-3);
         cursor: pointer;
         box-sizing: border-box;
+        transition: background-color 100ms ease-in-out;
 
         :deep(path),
         :deep(rect) {
@@ -316,7 +317,7 @@ function handleClick(): void {
         }
 
         &:hover {
-            background-color: #0059d0;
+            background-color: var(--c-blue-5);
 
             &.transparent,
             &.blue-white {
