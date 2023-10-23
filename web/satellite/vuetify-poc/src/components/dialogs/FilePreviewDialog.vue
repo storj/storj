@@ -2,7 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" transition="fade-transition" class="preview-dialog" fullscreen theme="dark" persistent no-click-animation>
+    <v-dialog
+        v-model="model"
+        transition="fade-transition"
+        class="preview-dialog"
+        fullscreen
+        theme="dark"
+        no-click-animation
+    >
         <v-card class="preview-card">
             <v-toolbar
                 color="rgba(0, 0, 0, 0.3)"
@@ -60,7 +67,16 @@
                 </template>
             </v-toolbar>
             <div class="flex-grow-1">
-                <v-carousel v-model="constCarouselIndex" hide-delimiters show-arrows="hover" class="h-100">
+                <v-carousel
+                    ref="carousel"
+                    v-model="constCarouselIndex"
+                    tabindex="0"
+                    hide-delimiters
+                    show-arrows="hover"
+                    class="h-100 no-outline"
+                    @keydown.right="onNext"
+                    @keydown.left="onPrevious"
+                >
                     <template #prev>
                         <v-btn
                             v-if="files.length > 1"
@@ -100,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref, watch } from 'vue';
+import { computed, h, nextTick, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -128,6 +144,7 @@ const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
+const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
 const isGeographicDistributionDialogShown = ref<boolean>(false);
@@ -135,11 +152,11 @@ const isGeographicDistributionDialogShown = ref<boolean>(false);
 const folderType = 'folder';
 
 const props = defineProps<{
-  modelValue: boolean,
+    modelValue: boolean,
 }>();
 
 const emit = defineEmits<{
-  (event: 'update:modelValue', value: boolean): void,
+    (event: 'update:modelValue', value: boolean): void,
 }>();
 
 const model = computed<boolean>({
@@ -258,6 +275,14 @@ function setNewObjectPath(objectKey: string): void {
 }
 
 /**
+ * Sets focus on carousel so that keyboard navigation works.
+ */
+async function focusOnCarousel(): Promise<void> {
+    await nextTick();
+    carousel.value?.$el.focus();
+}
+
+/**
  * Watch for changes on the filepath and changes the current carousel item accordingly.
  */
 watch(filePath, () => {
@@ -266,10 +291,34 @@ watch(filePath, () => {
     carouselIndex.value = fileIndex.value;
 });
 
-watch(() => props.modelValue, shown => {
+watch(() => props.modelValue, async (shown) => {
     if (!shown) {
         return;
     }
+
     carouselIndex.value = fileIndex.value;
+    await focusOnCarousel();
 }, { immediate: true });
+
+watch(isShareDialogShown, async () => {
+    if (isShareDialogShown.value) {
+        return;
+    }
+
+    await focusOnCarousel();
+});
+
+watch(isGeographicDistributionDialogShown, async () => {
+    if (isGeographicDistributionDialogShown.value) {
+        return;
+    }
+
+    await focusOnCarousel();
+});
 </script>
+
+<style scoped lang="scss">
+.no-outline {
+    outline: none;
+}
+</style>
