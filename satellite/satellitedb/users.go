@@ -88,6 +88,71 @@ func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) 
 	return verified, unverified, errors.Err()
 }
 
+func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, cursor console.UserCursor) (page *console.UsersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if cursor.Limit == 0 {
+		return nil, Error.New("limit cannot be 0")
+	}
+
+	if cursor.Page == 0 {
+		return nil, Error.New("page cannot be 0")
+	}
+
+	page = &console.UsersPage{
+		Limit:  cursor.Limit,
+		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	count, err := users.db.Count_User_By_Status(ctx, dbx.User_Status(int(status)))
+	if err != nil {
+		return nil, err
+	}
+	page.TotalCount = uint64(count)
+
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, Error.New("page is out of range")
+	}
+
+	dbxUsers, err := users.db.Limited_User_Id_User_Email_User_FullName_By_Status(ctx,
+		dbx.User_Status(int(status)),
+		int(page.Limit), int64(page.Offset))
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return &console.UsersPage{
+				Users: []console.User{},
+			}, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	for _, usr := range dbxUsers {
+		id, err := uuid.FromBytes(usr.Id)
+		if err != nil {
+			return &console.UsersPage{
+				Users: []console.User{},
+			}, nil
+		}
+		page.Users = append(page.Users, console.User{
+			ID:       id,
+			Email:    usr.Email,
+			FullName: usr.FullName,
+		})
+	}
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, nil
+}
+
 // GetByEmail is a method for querying user by verified email from the database.
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)

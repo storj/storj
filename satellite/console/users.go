@@ -30,6 +30,8 @@ type Users interface {
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
+	// GetByStatus is a method for querying user by status from the database.
+	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
@@ -64,6 +66,24 @@ type Users interface {
 type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
+}
+
+// UserCursor holds info for user info cursor pagination.
+type UserCursor struct {
+	Limit uint `json:"limit"`
+	Page  uint `json:"page"`
+}
+
+// UsersPage represent user info page result.
+type UsersPage struct {
+	Users []User `json:"users"`
+
+	Limit  uint   `json:"limit"`
+	Offset uint64 `json:"offset"`
+
+	PageCount   uint   `json:"pageCount"`
+	CurrentPage uint   `json:"currentPage"`
+	TotalCount  uint64 `json:"totalCount"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.

@@ -336,6 +336,53 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 }
 
+func TestGetUsersByStatus(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		inactiveUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Inactive User",
+			Email:        email,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err := usersRepo.Insert(ctx, &inactiveUser)
+		require.NoError(t, err)
+
+		activeUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Active User",
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err = usersRepo.Insert(ctx, &activeUser)
+		require.NoError(t, err)
+
+		// Required to set the active status.
+		err = usersRepo.Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &activeUser.Status,
+		})
+		require.NoError(t, err)
+
+		cursor := console.UserCursor{
+			Limit: 50,
+			Page:  1,
+		}
+		usersPage, err := usersRepo.GetByStatus(ctx, console.Inactive, cursor)
+		require.NoError(t, err)
+		require.Lenf(t, usersPage.Users, 1, "expected 1 inactive user")
+		require.Equal(t, inactiveUser.ID, usersPage.Users[0].ID)
+
+		usersPage, err = usersRepo.GetByStatus(ctx, console.Active, cursor)
+		require.NoError(t, err)
+		require.Lenf(t, usersPage.Users, 1, "expected 1 active user")
+		require.Equal(t, activeUser.ID, usersPage.Users[0].ID)
+	})
+}
+
 func TestGetUnverifiedNeedingReminder(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		Reconfigure: testplanet.Reconfigure{

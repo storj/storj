@@ -206,6 +206,96 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	sendJSONData(w, http.StatusOK, data)
 }
 
+func (server *Server) usersPendingDeletion(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	type User struct {
+		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"fullName"`
+		Email    string    `json:"email"`
+	}
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		sendJSONError(w, "Bad request", "parameter 'limit' can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		sendJSONError(w, "Bad request", "parameter 'page' can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var sendingPage struct {
+		Users       []User `json:"users"`
+		PageCount   uint   `json:"pageCount"`
+		CurrentPage uint   `json:"currentPage"`
+		TotalCount  uint64 `json:"totalCount"`
+		HasMore     bool   `json:"hasMore"`
+	}
+	usersPage, err := server.db.Console().Users().GetByStatus(
+		ctx, console.PendingDeletion, console.UserCursor{
+			Limit: uint(limit),
+			Page:  uint(page),
+		},
+	)
+	if err != nil {
+		sendJSONError(w, "failed retrieving a usersPage of users", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendingPage.PageCount = usersPage.PageCount
+	sendingPage.CurrentPage = usersPage.CurrentPage
+	sendingPage.TotalCount = usersPage.TotalCount
+	sendingPage.Users = make([]User, 0, len(usersPage.Users))
+
+	if sendingPage.PageCount > sendingPage.CurrentPage {
+		sendingPage.HasMore = true
+	}
+
+	for _, user := range usersPage.Users {
+		invoices, err := server.payments.Invoices().ListFailed(ctx, &user.ID)
+		if err != nil {
+			sendJSONError(w, "getting invoices failed",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(invoices) != 0 {
+			sendingPage.TotalCount--
+			continue
+		}
+		sendingPage.Users = append(sendingPage.Users, User{
+			ID:       user.ID,
+			FullName: user.FullName,
+			Email:    user.Email,
+		})
+	}
+
+	data, err := json.Marshal(sendingPage)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
 func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

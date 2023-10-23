@@ -174,6 +174,7 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-warning", server.billingUnWarnUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationFreezeUser).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationUnfreezeUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/pending-deletion", server.usersPendingDeletion).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 

@@ -24,6 +24,7 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}/violation-freeze](#put-apiusersuser-emailviolation-freeze)
             * [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
+            * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
         * [OAuth Client Management](#oauth-client-management)
@@ -198,6 +199,12 @@ User status is set back to Active. This is the only way to exit the violation fr
 #### DELETE /api/users/{user-email}/billing-warning
 
 Removes the billing warning status from a user's account.
+
+#### GET /api/users/pending-deletion
+
+Returns a limited list of users pending deletion and have no unpaid invoices.
+Required parameters: `limit` and `page`.
+Example: `/api/users/pending-deletion?limit=10&page=1`
 
 #### PATCH /api/users/{user-email}/geofence
 
@@ -454,7 +461,7 @@ A successful response body:
   },
   "project": {
     "id": "12345678-1234-1234-1234-123456789abc",
-    "name": "My Project",
+    "name": "My Project"
   },
   "owner": {
     "id": "12345678-1234-1234-1234-123456789abc",
