@@ -71,7 +71,9 @@ func TestCollectBucketTallies(t *testing.T) {
 						ObjectKey:  randStream.ObjectKey,
 					},
 				},
-				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{obj}},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{obj},
+				},
 			}.Check(ctx, t, db)
 
 			metabasetest.CollectBucketTallies{

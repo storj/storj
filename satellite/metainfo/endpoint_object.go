@@ -1819,13 +1819,20 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 }
 
 func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
-	deletedObjects = make([]*pb.Object, len(result.Objects))
-	for i, object := range result.Objects {
+	deletedObjects = make([]*pb.Object, 0, len(result.Removed)+len(result.Markers))
+	for _, object := range result.Removed {
 		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
 		if err != nil {
 			return nil, err
 		}
-		deletedObjects[i] = deletedObject
+		deletedObjects = append(deletedObjects, deletedObject)
+	}
+	for _, object := range result.Markers {
+		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
+		if err != nil {
+			return nil, err
+		}
+		deletedObjects = append(deletedObjects, deletedObject)
 	}
 
 	return deletedObjects, nil

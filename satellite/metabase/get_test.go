@@ -197,7 +197,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{versionedMarker},
+					Markers: []metabase.Object{versionedMarker},
 				},
 			}.Check(ctx, t, db)
 
@@ -225,7 +225,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 					Suspended:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{unversionedMarker},
+					Removed: []metabase.Object{unversioned},
+					Markers: []metabase.Object{unversionedMarker},
 				},
 			}.Check(ctx, t, db)
 
@@ -438,7 +439,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{Objects: []metabase.RawObject{
-				metabase.RawObject(result.Objects[0]),
+				metabase.RawObject(result.Markers[0]),
 				metabase.RawObject(firstObject),
 				metabase.RawObject(secondObject),
 			}}.Check(ctx, t, db)
@@ -461,7 +462,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{originalObject},
+					Removed: []metabase.Object{originalObject},
 				},
 			}.Check(ctx, t, db)
 

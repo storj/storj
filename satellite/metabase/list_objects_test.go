@@ -966,7 +966,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Markers: []metabase.Object{
 						{
 							ObjectStream: metabase.ObjectStream{
 								ProjectID:  objA0.ProjectID,
@@ -998,7 +998,7 @@ func TestListObjectsVersioned(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					metabase.RawObject(deletionResult.Objects[0]),
+					metabase.RawObject(deletionResult.Markers[0]),
 					metabase.RawObject(objA0),
 					metabase.RawObject(objA1),
 					metabase.RawObject(objB0),

@@ -416,16 +416,24 @@ type DeleteObjectExactVersion struct {
 	ErrText  string
 }
 
+func compareDeleteObjectResult(t testing.TB, got, exp metabase.DeleteObjectResult) {
+	t.Helper()
+
+	sortObjects(got.Markers)
+	sortObjects(exp.Markers)
+
+	sortObjects(got.Removed)
+	sortObjects(exp.Removed)
+
+	diff := cmp.Diff(exp, got, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
 // Check runs the test.
 func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeletePendingObject is for testing metabase.DeletePendingObject.
@@ -440,12 +448,7 @@ type DeletePendingObject struct {
 func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeletePendingObjectNew is for testing metabase.DeletePendingObjectNew.
@@ -460,12 +463,7 @@ type DeletePendingObjectNew struct {
 func (step DeletePendingObjectNew) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObjectNew(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeleteObjectsAllVersions is for testing metabase.DeleteObjectsAllVersions.
@@ -480,12 +478,7 @@ type DeleteObjectsAllVersions struct {
 func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeleteExpiredObjects is for testing metabase.DeleteExpiredObjects.
@@ -796,13 +789,7 @@ type DeleteObjectLastCommitted struct {
 func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.DeleteObjectResult {
 	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
-
+	compareDeleteObjectResult(t, result, step.Result)
 	return result
 }
 
