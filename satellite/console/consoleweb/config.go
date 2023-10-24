@@ -32,7 +32,6 @@ type FrontendConfig struct {
 	PublicLinksharingURL            string                `json:"publicLinksharingURL"`
 	PathwayOverviewEnabled          bool                  `json:"pathwayOverviewEnabled"`
 	Captcha                         console.CaptchaConfig `json:"captcha"`
-	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
 	LimitsAreaEnabled               bool                  `json:"limitsAreaEnabled"`
 	DefaultPaidStorageLimit         memory.Size           `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit       memory.Size           `json:"defaultPaidBandwidthLimit"`

@@ -25,7 +25,6 @@ export abstract class RouteConfig {
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access');
-    public static ProjectsList = new NavigationLink('/projects', 'Projects');
     public static Buckets = new NavigationLink('/buckets', 'Buckets');
 
     // account child paths

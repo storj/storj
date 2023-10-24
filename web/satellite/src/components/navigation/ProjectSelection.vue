@@ -78,21 +78,17 @@
                 </div>
             </template>
 
-            <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+            <div v-if="isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
                 <SettingsIcon />
                 <p class="project-selection__dropdown__link-container__label">Project Settings</p>
             </div>
-            <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
                 <ProjectIcon />
                 <p class="project-selection__dropdown__link-container__label">All projects</p>
             </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
-            </div>
-            <div v-if="!isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
-                <ManageIcon />
-                <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
             </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
@@ -129,7 +125,6 @@ import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
-import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
@@ -174,13 +169,6 @@ const isOnboardingTour = computed((): boolean => {
  */
 const isProjectOwner = computed((): boolean => {
     return userStore.state.user.id === projectsStore.state.selectedProject.ownerId;
-});
-
-/**
- * Indicates if all projects dashboard is enabled.
- */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -333,19 +321,6 @@ async function onProjectSelected(projectID: string): Promise<void> {
  */
 function closeDropdown(): void {
     appStore.closeDropdowns();
-}
-
-/**
- * Route to projects list page.
- */
-function onProjectsLinkClick(): void {
-    if (route.name !== RouteConfig.ProjectsList.name) {
-        analyticsStore.pageVisit(RouteConfig.ProjectsList.path);
-        analyticsStore.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-        router.push(RouteConfig.ProjectsList.path);
-    }
-
-    closeDropdown();
 }
 
 /**

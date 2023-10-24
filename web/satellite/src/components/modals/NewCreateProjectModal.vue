@@ -159,7 +159,8 @@ async function onCreateProjectClick(): Promise<void> {
     }
 
     try {
-        createdProjectId.value = await projectsStore.createProject(project);
+        const newProj = await projectsStore.createProject(project);
+        createdProjectId.value = newProj.id;
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
         isLoading.value = false;
@@ -176,7 +177,7 @@ async function onCreateProjectClick(): Promise<void> {
 
     bucketsStore.clearS3Data();
 
-    if (usersStore.shouldOnboard && configStore.state.config.allProjectsDashboard) {
+    if (usersStore.shouldOnboard) {
         analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;

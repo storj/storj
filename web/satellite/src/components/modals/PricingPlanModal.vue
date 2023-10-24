@@ -123,7 +123,7 @@ const plan = computed((): PricingPlanInfo | null => {
 watch(plan, () => {
     if (!plan.value) {
         appStore.removeActiveModal();
-        notify.error('No pricing plan has been selected.', null);
+        notify.error('No pricing plan has been selected.');
     }
 });
 
@@ -143,13 +143,8 @@ function onClose(): void {
     if (usersStore.state.settings.onboardingEnd) {
         return;
     }
-    if (isSuccess.value) {
-        if (configStore.state.config.allProjectsDashboard) {
-            router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
-        router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-    }
+
+    if (isSuccess.value) router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 /**
@@ -187,7 +182,7 @@ async function onCardAdded(token: string): Promise<void> {
         // Fetch cards to hide paid tier banner
         await billingStore.getCreditCards();
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
     }
 
     isLoading.value = false;

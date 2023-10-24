@@ -99,7 +99,6 @@ type Config struct {
 	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"true"`
 	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
@@ -734,7 +733,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
-		AllProjectsDashboard:            server.config.AllProjectsDashboard,
 		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,

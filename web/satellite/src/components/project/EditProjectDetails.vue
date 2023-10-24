@@ -637,7 +637,7 @@ onMounted(async (): Promise<void> => {
     if (!projectID) return;
 
     if (projectsStore.state.selectedProject.ownerId !== usersStore.state.user.id) {
-        await router.replace(configStore.state.config.allProjectsDashboard ? RouteConfig.AllProjectsDashboard : RouteConfig.ProjectDashboard.path);
+        await router.replace(RouteConfig.AllProjectsDashboard.path);
         return;
     }
 

@@ -206,7 +206,7 @@ const isDropdownShown = ref(false);
 const pathEmail = ref<string | null>(null);
 const inviteInvalid = ref(false);
 
-const returnURL = ref(RouteConfig.ProjectDashboard.path);
+const returnURL = ref(RouteConfig.AllProjectsDashboard.path);
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const mfaInput = ref<typeof ConfirmMFAInput & ClearInput | null>(null);
@@ -267,11 +267,7 @@ onMounted(() => {
     isActivatedBannerShown.value = !!route.query.activated;
     isActivatedError.value = route.query.activated === 'false';
 
-    if (configStore.state.config.allProjectsDashboard) {
-        returnURL.value = RouteConfig.AllProjectsDashboard.path;
-    }
-
-    returnURL.value = route.query.return_url as string || returnURL.value;
+    if (route.query.return_url) returnURL.value = route.query.return_url as string;
 });
 
 /**
@@ -433,7 +429,7 @@ async function login(): Promise<void> {
 
         if (isMFARequired.value && !(error instanceof ErrorTooManyRequests)) {
             if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                notify.error(error.message, null);
+                notify.error(error.message);
             }
 
             isMFAError.value = true;
@@ -447,7 +443,7 @@ async function login(): Promise<void> {
             return;
         }
 
-        notify.notifyError(error, null);
+        notify.notifyError(error);
         isLoading.value = false;
         return;
     }

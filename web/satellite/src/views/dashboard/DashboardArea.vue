@@ -18,8 +18,6 @@
                                 <BetaSatBar v-if="isBetaSatellite" />
                                 <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="toggleMFARecoveryModal" />
                                 <div class="dashboard__wrap__main-area__content-wrap__container__content banners">
-                                    <ProjectInvitationBanner v-if="isProjectInvitationBannerShown" />
-
                                     <UpgradeNotification
                                         v-if="isPaidTierBannerShown"
                                         :open-add-p-m-modal="togglePMModal"
@@ -86,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, toRaw } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -119,7 +117,6 @@ import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
-import ProjectInvitationBanner from '@/components/notifications/ProjectInvitationBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import ObjectsUploadingModal from '@/components/modals/objectUpload/ObjectsUploadingModal.vue';
 import LimitWarningBanners from '@/views/dashboard/components/LimitWarningBanners.vue';
@@ -290,13 +287,6 @@ const isLargeUploadWarningNotificationShown = computed((): boolean => {
 });
 
 /**
- * Indicates whether the project member invitation banner should be shown.
- */
-const isProjectInvitationBannerShown = computed((): boolean => {
-    return !configStore.state.config.allProjectsDashboard;
-});
-
-/**
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
@@ -434,26 +424,7 @@ onMounted(async () => {
         return;
     }
 
-    if (projects.length) {
-        selectProject(projects);
-    }
-
-    if (!configStore.state.config.allProjectsDashboard) {
-        try {
-            if (!projects.length) {
-                await projectsStore.createDefaultProject(usersStore.state.user.id);
-            }
-
-            const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
-            if (usersStore.shouldOnboard && route.path !== onboardingPath) {
-                analyticsStore.pageVisit(onboardingPath);
-                await router.push(onboardingPath);
-            }
-        } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-            return;
-        }
-    }
+    if (projects.length) selectProject(projects);
 
     appStore.changeState(FetchState.LOADED);
 });

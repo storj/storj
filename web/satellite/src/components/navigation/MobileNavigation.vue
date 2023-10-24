@@ -80,21 +80,17 @@
                                 </div>
                             </div>
                         </template>
-                        <div v-if="isAllProjectsDashboard && isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                        <div v-if="isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
                             <SettingsIcon />
                             <p class="project-selection__dropdown__link-container__label">Project Settings</p>
                         </div>
-                        <div v-if="isAllProjectsDashboard" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                        <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
                             <ProjectIcon />
                             <p class="project-selection__dropdown__link-container__label">All projects</p>
                         </div>
                         <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                             <PassphraseIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
-                        </div>
-                        <div v-if="!isAllProjectsDashboard" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
-                            <ManageIcon />
-                            <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
                         </div>
                         <div class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick">
                             <CreateProjectIcon />
@@ -248,7 +244,6 @@ import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
-import ManageIcon from '@/../static/images/navigation/manage.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
@@ -309,13 +304,6 @@ const isProjectOwner = computed((): boolean => {
 });
 
 /**
- * Indicates if all projects dashboard should be used.
- */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
-});
-
-/**
  * Returns user's own projects.
  */
 const ownProjects = computed((): Project[] => {
@@ -372,16 +360,7 @@ function compareProjects(a: Project, b: Project) {
  * Redirects to project dashboard.
  */
 function onLogoClick(): void {
-    if (isAllProjectsDashboard.value) {
-        router.push(RouteConfig.AllProjectsDashboard.path);
-        return;
-    }
-
-    if (route.name === RouteConfig.ProjectDashboard.name) {
-        return;
-    }
-
-    router.push(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 function onNavClick(path: string): void {
@@ -504,19 +483,6 @@ async function onProjectSelected(projectID: string): Promise<void> {
         error.message = `Unable to select project. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
-}
-
-/**
- * Route to projects list page.
- */
-function onProjectsLinkClick(): void {
-    if (route.name !== RouteConfig.ProjectsList.name) {
-        analyticsStore.pageVisit(RouteConfig.ProjectsList.path);
-        analyticsStore.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-        router.push(RouteConfig.ProjectsList.path);
-    }
-
-    isProjectDropdownShown.value = false;
 }
 
 /**
