@@ -66,48 +66,46 @@
                     </v-btn>
                 </template>
             </v-toolbar>
-            <div class="flex-grow-1">
-                <v-carousel
-                    ref="carousel"
-                    v-model="constCarouselIndex"
-                    tabindex="0"
-                    hide-delimiters
-                    show-arrows="hover"
-                    class="h-100 no-outline"
-                    @keydown.right="onNext"
-                    @keydown.left="onPrevious"
-                >
-                    <template #prev>
-                        <v-btn
-                            v-if="files.length > 1"
-                            color="default"
-                            class="rounded-circle"
-                            icon
-                            @click="onPrevious"
-                        >
-                            <v-icon icon="mdi-chevron-left" size="x-large" />
-                        </v-btn>
-                    </template>
-                    <template #next>
-                        <v-btn
-                            v-if="files.length > 1"
-                            color="default"
-                            class="rounded-circle"
-                            icon
-                            @click="onNext"
-                        >
-                            <v-icon icon="mdi-chevron-right" size="x-large" />
-                        </v-btn>
-                    </template>
+            <v-carousel
+                ref="carousel"
+                v-model="constCarouselIndex"
+                tabindex="0"
+                hide-delimiters
+                show-arrows="hover"
+                class="h-100 no-outline"
+                @keydown.right="onNext"
+                @keydown.left="onPrevious"
+            >
+                <template #prev>
+                    <v-btn
+                        v-if="files.length > 1"
+                        color="default"
+                        class="rounded-circle"
+                        icon
+                        @click="onPrevious"
+                    >
+                        <v-icon icon="mdi-chevron-left" size="x-large" />
+                    </v-btn>
+                </template>
+                <template #next>
+                    <v-btn
+                        v-if="files.length > 1"
+                        color="default"
+                        class="rounded-circle"
+                        icon
+                        @click="onNext"
+                    >
+                        <v-icon icon="mdi-chevron-right" size="x-large" />
+                    </v-btn>
+                </template>
 
-                    <v-carousel-item v-for="(file, i) in files" :key="file.Key">
-                        <!-- v-carousel will mount all items at the same time -->
-                        <!-- so :active will tell file-preview-item if it is the current. -->
-                        <!-- If it is, it'll load the preview. -->
-                        <file-preview-item :active="i === fileIndex" :file="file" @download="download" />
-                    </v-carousel-item>
-                </v-carousel>
-            </div>
+                <v-carousel-item v-for="(file, i) in files" :key="file.Key">
+                    <!-- v-carousel will mount all items at the same time -->
+                    <!-- so :active will tell file-preview-item if it is the current. -->
+                    <!-- If it is, it'll load the preview. -->
+                    <file-preview-item :active="i === fileIndex" :file="file" @download="download" />
+                </v-carousel-item>
+            </v-carousel>
         </v-card>
     </v-dialog>
 

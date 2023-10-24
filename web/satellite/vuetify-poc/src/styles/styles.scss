@@ -282,3 +282,14 @@ table {
 .text-cursor-pointer {
   cursor: pointer;
 }
+
+.break-word {
+  word-break: break-word;
+}
+
+// Vuetify has a bug where any element with the attribute "disabled" forces the default cursor
+// even if the value of this attribute is "false".
+// This causes text in window items to appear to be unselectable.
+[disabled=false] {
+  cursor: unset;
+}
