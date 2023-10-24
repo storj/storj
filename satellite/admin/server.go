@@ -20,7 +20,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
-	backofficeui "storj.io/storj/satellite/admin/back-office/ui"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
@@ -44,13 +44,13 @@ const (
 
 // Config defines configuration for debug server.
 type Config struct {
-	Address             string `help:"admin peer http listening address"                                                                                                                  releaseDefault:"" devDefault:""`
-	StaticDir           string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets"                                     releaseDefault:"" devDefault:""`
-	StaticDirBackOffice string `help:"an alternate directory path which contains the static assets for the currently in development back-office. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
-	AllowedOauthHost    string `help:"the oauth host allowed to bypass token authentication."`
-	Groups              Groups
+	Address          string `help:"admin peer http listening address"                                                                              releaseDefault:"" devDefault:""`
+	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
+	Groups           Groups
 
 	AuthorizationToken string `internal:"true"`
+	BackOffice         backoffice.Config
 }
 
 // Groups defines permission groups.
@@ -178,16 +178,15 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
-	// Temporary path until the new back-office is implemented and we can remove the current admin UI.
-	if config.StaticDirBackOffice == "" {
-		root.PathPrefix("/back-office").Handler(
-			http.StripPrefix("/back-office/", http.FileServer(http.FS(backofficeui.Assets))),
-		).Methods("GET")
-	} else {
-		root.PathPrefix("/back-office").Handler(
-			http.StripPrefix("/back-office/", http.FileServer(http.Dir(config.StaticDirBackOffice))),
-		).Methods("GET")
-	}
+	_ = backoffice.NewServer(
+		log.Named("back-office"),
+		nil,
+		&backoffice.ParentRouter{
+			Router:     root.PathPrefix("/back-office/").Subrouter(),
+			PathPrefix: "/back-office",
+		},
+		config.BackOffice,
+	)
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
