@@ -216,6 +216,34 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 	}
 }
 
+// CreateVersionedObjectsWithKeys creates multiple versioned objects with the specified keys and versions.
+func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
+	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
+	for key, versions := range keys {
+		for _, version := range versions {
+			obj := RandObjectStream()
+			obj.ProjectID = projectID
+			obj.BucketName = bucketName
+			obj.ObjectKey = key
+			obj.Version = version
+			now := time.Now()
+
+			CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			objects[key] = metabase.ObjectEntry{
+				ObjectKey:  obj.ObjectKey,
+				Version:    obj.Version,
+				StreamID:   obj.StreamID,
+				CreatedAt:  now,
+				Status:     metabase.CommittedVersioned,
+				Encryption: DefaultEncryption,
+			}
+		}
+	}
+
+	return objects
+}
+
 // CreateTestObject is for testing metabase.CreateTestObject.
 type CreateTestObject struct {
 	BeginObjectExactVersion *metabase.BeginObjectExactVersion
