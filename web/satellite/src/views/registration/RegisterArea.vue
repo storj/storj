@@ -1300,7 +1300,7 @@ async function createUser(): Promise<void> {
 
     .logo-no-partner {
         cursor: pointer;
-        width: 100%;
+        max-width: 100%;
     }
 
     .register-input {
