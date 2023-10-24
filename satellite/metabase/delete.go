@@ -272,12 +272,16 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 
 	var deleted Object
 
+	// TODO(ver): this scanning can probably simplified somehow.
+
 	var version sql.NullInt64
 	var streamID uuid.NullUUID
 	var createdAt sql.NullTime
+	var segmentCount, fixedSegmentSize sql.NullInt32
+	var totalPlainSize, totalEncryptedSize sql.NullInt64
 	var status sql.NullByte
-	var params nullableValue[encryptionParameters]
-	params.value.EncryptionParameters = &deleted.Encryption
+	var encryptionParams nullableValue[encryptionParameters]
+	encryptionParams.value.EncryptionParameters = &deleted.Encryption
 
 	err = stmt.QueryRowContext(ctx, `
 		WITH highest_object AS (
@@ -290,8 +294,11 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND status IN `+statusesUnversioned+`
 			RETURNING
-				version, stream_id, status, created_at, expires_at,
+				version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption
 		), deleted_segments AS (
 			DELETE FROM segments
@@ -301,12 +308,16 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 		SELECT
 			(SELECT version FROM deleted_objects),
 			(SELECT stream_id FROM deleted_objects),
-			(SELECT status FROM deleted_objects),
 			(SELECT created_at FROM deleted_objects),
 			(SELECT expires_at FROM deleted_objects),
+			(SELECT status FROM deleted_objects),
+			(SELECT segment_count FROM deleted_objects),
 			(SELECT encrypted_metadata_nonce FROM deleted_objects),
 			(SELECT encrypted_metadata FROM deleted_objects),
 			(SELECT encrypted_metadata_encrypted_key FROM deleted_objects),
+			(SELECT total_plain_size FROM deleted_objects),
+			(SELECT total_encrypted_size FROM deleted_objects),
+			(SELECT fixed_segment_size FROM deleted_objects),
 			(SELECT encryption FROM deleted_objects),
 			(SELECT count(*) FROM deleted_objects),
 			(SELECT count(*) FROM deleted_segments),
@@ -315,18 +326,25 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 		Scan(
 			&version,
 			&streamID,
-			&status,
 			&createdAt,
 			&deleted.ExpiresAt,
+			&status,
+			&segmentCount,
 			&deleted.EncryptedMetadataNonce,
 			&deleted.EncryptedMetadata,
 			&deleted.EncryptedMetadataEncryptedKey,
-			&params,
-
+			&totalPlainSize,
+			&totalEncryptedSize,
+			&fixedSegmentSize,
+			&encryptionParams,
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
 			&result.MaxVersion,
 		)
+
+	if err != nil {
+		return deleteObjectUnversionedCommittedResult{}, Error.Wrap(err)
+	}
 
 	deleted.ProjectID = loc.ProjectID
 	deleted.BucketName = loc.BucketName
@@ -336,10 +354,11 @@ func (db *DB) deleteObjectUnversionedCommitted(ctx context.Context, loc ObjectLo
 	deleted.Status = ObjectStatus(status.Byte)
 	deleted.StreamID = streamID.UUID
 	deleted.CreatedAt = createdAt.Time
+	deleted.SegmentCount = segmentCount.Int32
 
-	if err != nil {
-		return deleteObjectUnversionedCommittedResult{}, Error.Wrap(err)
-	}
+	deleted.TotalPlainSize = totalPlainSize.Int64
+	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
+	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
 	// TODO: this should happen outside of this func
 	mon.Meter("object_delete").Mark(result.DeletedObjectCount)
