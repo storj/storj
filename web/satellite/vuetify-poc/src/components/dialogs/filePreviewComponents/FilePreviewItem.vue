@@ -54,18 +54,10 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLinksharing } from '@/composables/useLinksharing';
+import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import FilePreviewPlaceholder from '@poc/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
 import TextFilePreview from '@poc/components/dialogs/filePreviewComponents/TextFilePreview.vue';
-
-enum PreviewType {
-    None,
-    Text,
-    Image,
-    Video,
-    Audio,
-    PDF,
-}
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
@@ -74,14 +66,6 @@ const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
-
-const extInfos = new Map<string[], PreviewType>([
-    [['txt'], PreviewType.Text],
-    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'], PreviewType.Image],
-    [['m4v', 'mp4', 'webm', 'mov', 'mkv'], PreviewType.Video],
-    [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
-    [['pdf'], PreviewType.PDF],
-]);
 
 const props = defineProps<{
   file: BrowserObject,
@@ -132,7 +116,7 @@ const previewType = computed<PreviewType>(() => {
     if (dotIdx === -1) return PreviewType.None;
 
     const ext = props.file.Key.toLowerCase().slice(dotIdx + 1);
-    for (const [exts, previewType] of extInfos) {
+    for (const [exts, previewType] of EXTENSION_PREVIEW_TYPES) {
         if (exts.includes(ext)) return previewType;
     }
 

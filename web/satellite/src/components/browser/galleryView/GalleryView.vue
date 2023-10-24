@@ -8,8 +8,8 @@
                 <LogoIcon class="gallery__header__logo" />
                 <SmallLogoIcon class="gallery__header__small-logo" />
                 <div class="gallery__header__name">
-                    <ImageIcon v-if="previewIsImage" />
-                    <VideoIcon v-else-if="previewIsAudio || previewIsVideo" />
+                    <ImageIcon v-if="previewType === PreviewType.Image" />
+                    <VideoIcon v-else-if="previewType === PreviewType.Audio || previewType === PreviewType.Video" />
                     <EmptyIcon v-else />
                     <p class="gallery__header__name__label" :title="file?.Key || ''">{{ file?.Key || '' }}</p>
                 </div>
@@ -57,40 +57,31 @@
                 <ArrowIcon class="gallery__main__left-arrow" @click="onPrevious" />
                 <VLoader v-if="isLoading" class="gallery__main__loader" width="100px" height="100px" is-white />
                 <div v-else class="gallery__main__preview">
+                    <text-file-preview v-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
+                        <file-preview-placeholder :file="file" @download="download" />
+                    </text-file-preview>
                     <img
-                        v-if="previewIsImage && !isLoading"
+                        v-else-if="previewType === PreviewType.Image"
                         :src="objectPreviewUrl"
                         class="gallery__main__preview__item"
                         aria-roledescription="image-preview"
                         alt="preview"
                     >
                     <video
-                        v-if="previewIsVideo && !isLoading"
+                        v-else-if="previewType === PreviewType.Video"
                         controls
                         :src="objectPreviewUrl"
                         class="gallery__main__preview__item"
                         aria-roledescription="video-preview"
                     />
                     <audio
-                        v-if="previewIsAudio && !isLoading"
+                        v-else-if="previewType === PreviewType.Audio"
                         controls
                         :src="objectPreviewUrl"
                         class="gallery__main__preview__item"
                         aria-roledescription="audio-preview"
                     />
-                    <div v-if="placeHolderDisplayable || previewAndMapFailed" class="gallery__main__preview__empty">
-                        <p class="gallery__main__preview__empty__key">{{ file?.Key || '' }}</p>
-                        <p class="gallery__main__preview__empty__label">No preview available</p>
-                        <VButton
-                            icon="download"
-                            :label="`Download (${prettyBytes(file?.Size || 0)})`"
-                            :on-press="download"
-                            width="188px"
-                            height="52px"
-                            border-radius="10px"
-                            font-size="14px"
-                        />
-                    </div>
+                    <file-preview-placeholder v-else :file="file" @download="download" />
                     <div class="gallery__main__preview__buttons">
                         <ArrowIcon class="gallery__main__preview__buttons__left-arrow" @click="onPrevious" />
                         <ArrowIcon @click="onNext" />
@@ -114,7 +105,6 @@
 <script setup lang="ts">
 import { Component, computed, h, onBeforeMount, onMounted, ref, Teleport, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import prettyBytes from 'pretty-bytes';
 
 import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -123,7 +113,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { RouteConfig } from '@/types/router';
-import { ShareType } from '@/types/browser';
+import { EXTENSION_PREVIEW_TYPES, PreviewType, ShareType } from '@/types/browser';
 
 import ButtonIcon from '@/components/browser/galleryView/ButtonIcon.vue';
 import OptionsDropdown from '@/components/browser/galleryView/OptionsDropdown.vue';
@@ -132,7 +122,8 @@ import ShareModal from '@/components/modals/ShareModal.vue';
 import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
 import DistributionModal from '@/components/browser/galleryView/modals/Distribution.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VButton from '@/components/common/VButton.vue';
+import TextFilePreview from '@/components/browser/galleryView/TextFilePreview.vue';
+import FilePreviewPlaceholder from '@/components/browser/galleryView/FilePreviewPlaceholder.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -193,13 +184,6 @@ const filePath = computed((): string => {
 });
 
 /**
- * Get the extension of the current file.
- */
-const extension = computed((): string | undefined => {
-    return filePath.value.split('.').pop();
-});
-
-/**
  * Returns bucket name from store.
  */
 const bucket = computed((): string => {
@@ -207,58 +191,27 @@ const bucket = computed((): string => {
 });
 
 /**
- * Check to see if the current file is an image file.
- */
-const previewIsImage = computed((): boolean => {
-    if (!extension.value) {
-        return false;
-    }
-
-    return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
-        extension.value.toLowerCase(),
-    );
-});
-
-/**
- * Check to see if the current file is a video file.
- */
-const previewIsVideo = computed((): boolean => {
-    if (!extension.value) {
-        return false;
-    }
-
-    return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
-        extension.value.toLowerCase(),
-    );
-});
-
-/**
- * Check to see if the current file is an audio file.
- */
-const previewIsAudio = computed((): boolean => {
-    if (!extension.value) {
-        return false;
-    }
-
-    return ['mp3', 'wav', 'ogg'].includes(extension.value.toLowerCase());
-});
-
-/**
- * Check to see if the current file is neither an image file, video file, or audio file.
- */
-const placeHolderDisplayable = computed((): boolean => {
-    return [
-        previewIsImage.value,
-        previewIsVideo.value,
-        previewIsAudio.value,
-    ].every((value) => !value);
-});
-
-/**
  * Returns current path without object key.
  */
 const currentPath = computed((): string => {
     return decodeURIComponent(route.path.replace(RouteConfig.Buckets.with(RouteConfig.UploadFile).path, ''));
+});
+
+/**
+ * Returns the type of object being previewed.
+ */
+const previewType = computed<PreviewType>(() => {
+    if (previewAndMapFailed.value) return PreviewType.None;
+
+    const dotIdx = file.value.Key.lastIndexOf('.');
+    if (dotIdx === -1) return PreviewType.None;
+
+    const ext = file.value.Key.toLowerCase().slice(dotIdx + 1);
+    for (const [exts, previewType] of EXTENSION_PREVIEW_TYPES) {
+        if (exts.includes(ext)) return previewType;
+    }
+
+    return PreviewType.None;
 });
 
 /**
@@ -626,30 +579,6 @@ watch(filePath, () => {
 
                 @media screen and (width <= 600px) {
                     align-self: flex-start;
-                }
-            }
-
-            &__empty {
-                width: 100%;
-                align-self: center;
-                display: flex;
-                align-items: center;
-                flex-direction: column;
-
-                &__key {
-                    font-size: 16px;
-                    line-height: 24px;
-                    color: var(--c-white);
-                    margin-bottom: 14px;
-                }
-
-                &__label {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 28px;
-                    line-height: 36px;
-                    letter-spacing: -0.02em;
-                    color: var(--c-white);
-                    margin-bottom: 17px;
                 }
             }
 
