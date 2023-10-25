@@ -234,6 +234,44 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
+// It uses payment method id instead of token.
+func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	pmID := string(bodyBytes)
+
+	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if stripe.ErrDuplicateCard.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = p.triggerAttemptPayment(ctx)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
 // ListCreditCards returns a list of credit cards for a given payment account.
 func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -605,6 +643,9 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	// whether to use payment method id instead of token for adding card.
+	usePmID := r.URL.Query().Get("pmID") == "true"
+
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -625,7 +666,14 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := p.service.Payments().AddCreditCard(ctx, token)
+	var addCardFunc func(context.Context, string) (payments.CreditCard, error)
+	if usePmID {
+		addCardFunc = p.service.Payments().AddCardByPaymentMethodID
+	} else {
+		addCardFunc = p.service.Payments().AddCreditCard
+	}
+
+	card, err := addCardFunc(ctx, token)
 	if err != nil {
 		switch {
 		case console.ErrUnauthorized.Has(err):

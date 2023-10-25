@@ -424,6 +424,27 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 	return &paymentmethod.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
+func (m *mockPaymentMethods) Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	for _, method := range m.unattached {
+		if method.ID == id {
+			return method, nil
+		}
+	}
+
+	for _, methods := range m.attached {
+		for _, method := range methods {
+			if method.ID == id {
+				return method, nil
+			}
+		}
+	}
+
+	return nil, errors.New("payment method not found")
+}
+
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
 	id := fmt.Sprintf("pm_card_%s", randID)
