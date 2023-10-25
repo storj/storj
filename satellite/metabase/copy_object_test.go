@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -1028,125 +1029,131 @@ func TestFinishCopyObject(t *testing.T) {
 			// - expected copy version
 
 			testCases := []struct {
-				Bucket                      string
-				Key                         metabase.ObjectKey
-				NewBucket                   string
-				NewKey                      metabase.ObjectKey
-				sourcePendingVersions       []metabase.Version
-				sourceCommittedVersion      metabase.Version
-				destinationPendingVersions  []metabase.Version
-				destinationCommittedVersion metabase.Version
-				expectedCopyVersion         metabase.Version
+				Bucket                       string
+				Key                          metabase.ObjectKey
+				NewBucket                    string
+				NewKey                       metabase.ObjectKey
+				sourcePendingVersions        []metabase.Version
+				sourceCommitVersion          metabase.Version
+				sourceCommittedVersion       metabase.Version
+				destinationPendingVersions   []metabase.Version
+				destinationCommitVersion     metabase.Version
+				destionationCommittedVersion metabase.Version
+				expectedCopyVersion          metabase.Version
 			}{
 				// the same bucket
-				{"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 2,
-					[]metabase.Version{}, 1,
+				0: {"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{}, 2, 2,
+					[]metabase.Version{}, 1, 1,
 					2},
-				{"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 1,
-					[]metabase.Version{1}, 2,
+				1: {"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{}, 1, 1,
+					[]metabase.Version{1}, 2, 2,
 					3},
-				{"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 1,
-					[]metabase.Version{1, 3}, 2,
-					4},
-				{"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{1, 5}, 2,
-					[]metabase.Version{1, 3}, 2,
-					4},
-				{"testbucket", "object", "newbucket", "object",
-					[]metabase.Version{2, 3}, 1,
-					[]metabase.Version{1, 5}, 2,
-					6},
+				2: {"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{}, 1, 1,
+					[]metabase.Version{1, 3}, 2, 4,
+					5},
+				3: {"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{1, 5}, 2, 6,
+					[]metabase.Version{1, 3}, 2, 4,
+					5},
+				4: {"testbucket", "object", "newbucket", "object",
+					[]metabase.Version{2, 3}, 1, 4,
+					[]metabase.Version{1, 5}, 2, 6,
+					7},
 			}
 
-			for _, tc := range testCases {
-				metabasetest.DeleteAll{}.Check(ctx, t, db)
-				sourceObjStream.BucketName = tc.Bucket
-				sourceObjStream.ObjectKey = tc.Key
-				destinationObjStream.BucketName = tc.NewBucket
-				destinationObjStream.ObjectKey = tc.NewKey
+			for i, tc := range testCases {
+				t.Run(strconv.Itoa(i), func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					sourceObjStream.BucketName = tc.Bucket
+					sourceObjStream.ObjectKey = tc.Key
+					destinationObjStream.BucketName = tc.NewBucket
+					destinationObjStream.ObjectKey = tc.NewKey
 
-				var rawObjects []metabase.RawObject
-				for _, version := range tc.sourcePendingVersions {
-					sourceObjStream.Version = version
+					var rawObjects []metabase.RawObject
+					for _, version := range tc.sourcePendingVersions {
+						sourceObjStream.Version = version
+						sourceObjStream.StreamID = testrand.UUID()
+						metabasetest.CreatePendingObject(ctx, t, db, sourceObjStream, 0)
+
+						rawObjects = append(rawObjects, metabase.RawObject{
+							ObjectStream: sourceObjStream,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
+
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						})
+					}
+					sourceObjStream.Version = tc.sourceCommitVersion
 					sourceObjStream.StreamID = testrand.UUID()
-					metabasetest.CreatePendingObject(ctx, t, db, sourceObjStream, 0)
-
-					rawObjects = append(rawObjects, metabase.RawObject{
-						ObjectStream: sourceObjStream,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					})
-				}
-				sourceObjStream.Version = tc.sourceCommittedVersion
-				sourceObjStream.StreamID = testrand.UUID()
-				sourceObj, _ := metabasetest.CreateTestObject{
-					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-						ObjectStream: sourceObjStream,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-					CommitObject: &metabase.CommitObject{
-						ObjectStream:                  sourceObjStream,
-						OverrideEncryptedMetadata:     true,
-						EncryptedMetadata:             testrand.Bytes(64),
-						EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-						EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-					},
-				}.Run(ctx, t, db, sourceObjStream, 0)
-
-				rawObjects = append(rawObjects, metabase.RawObject(sourceObj))
-
-				for _, version := range tc.destinationPendingVersions {
-					destinationObjStream.Version = version
-					destinationObjStream.StreamID = testrand.UUID()
-					metabasetest.CreatePendingObject(ctx, t, db, destinationObjStream, 0)
-
-					rawObjects = append(rawObjects, metabase.RawObject{
-						ObjectStream: destinationObjStream,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					})
-				}
-
-				if tc.destinationCommittedVersion != 0 {
-					destinationObjStream.StreamID = testrand.UUID()
-					destinationObjStream.Version = tc.destinationCommittedVersion
-					_, _ = metabasetest.CreateTestObject{
+					sourceObj, _ := metabasetest.CreateTestObject{
 						BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-							ObjectStream: destinationObjStream,
+							ObjectStream: sourceObjStream,
 							Encryption:   metabasetest.DefaultEncryption,
 						},
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  destinationObjStream,
+							ObjectStream:                  sourceObjStream,
 							OverrideEncryptedMetadata:     true,
 							EncryptedMetadata:             testrand.Bytes(64),
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 						},
-					}.Run(ctx, t, db, destinationObjStream, 0)
-				}
+						ExpectVersion: tc.sourceCommittedVersion,
+					}.Run(ctx, t, db, sourceObjStream, 0)
 
-				copyObj, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
-					OriginalObject:   sourceObj,
-					CopyObjectStream: &destinationObjStream,
-				}.Run(ctx, t, db)
+					rawObjects = append(rawObjects, metabase.RawObject(sourceObj))
 
-				require.Equal(t, tc.expectedCopyVersion, copyObj.Version)
+					for _, version := range tc.destinationPendingVersions {
+						destinationObjStream.Version = version
+						destinationObjStream.StreamID = testrand.UUID()
+						metabasetest.CreatePendingObject(ctx, t, db, destinationObjStream, 0)
 
-				rawObjects = append(rawObjects, metabase.RawObject(copyObj))
+						rawObjects = append(rawObjects, metabase.RawObject{
+							ObjectStream: destinationObjStream,
+							CreatedAt:    now,
+							Status:       metabase.Pending,
 
-				metabasetest.Verify{
-					Objects:  rawObjects,
-					Segments: expectedOriginalSegments,
-				}.Check(ctx, t, db)
+							Encryption:             metabasetest.DefaultEncryption,
+							ZombieDeletionDeadline: &zombieDeadline,
+						})
+					}
+
+					if tc.destinationCommitVersion != 0 {
+						destinationObjStream.StreamID = testrand.UUID()
+						destinationObjStream.Version = tc.destinationCommitVersion
+						_, _ = metabasetest.CreateTestObject{
+							BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+								ObjectStream: destinationObjStream,
+								Encryption:   metabasetest.DefaultEncryption,
+							},
+							CommitObject: &metabase.CommitObject{
+								ObjectStream:                  destinationObjStream,
+								OverrideEncryptedMetadata:     true,
+								EncryptedMetadata:             testrand.Bytes(64),
+								EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+								EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							},
+							ExpectVersion: tc.destionationCommittedVersion,
+						}.Run(ctx, t, db, destinationObjStream, 0)
+					}
+
+					copyObj, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
+						OriginalObject:   sourceObj,
+						CopyObjectStream: &destinationObjStream,
+					}.Run(ctx, t, db)
+
+					require.Equal(t, tc.expectedCopyVersion, copyObj.Version)
+
+					rawObjects = append(rawObjects, metabase.RawObject(copyObj))
+
+					metabasetest.Verify{
+						Objects:  rawObjects,
+						Segments: expectedOriginalSegments,
+					}.Check(ctx, t, db)
+				})
 			}
 		})
 

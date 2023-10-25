@@ -902,13 +902,13 @@ func TestListObjectsVersioned(t *testing.T) {
 
 			a1 := a0
 			a1.Version = 1001
-			b1 := a0
+			b1 := b0
 			b1.Version = 500
 
 			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
 			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
 			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
-			objB1 := metabasetest.CreateObjectVersioned(ctx, t, db, b1, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
 
 			metabasetest.ListObjects{
 				Opts: metabase.ListObjects{
@@ -922,7 +922,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						objectEntryFromRaw(metabase.RawObject(objA1)),
-						objectEntryFromRaw(metabase.RawObject(objB0)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -952,13 +952,13 @@ func TestListObjectsVersioned(t *testing.T) {
 
 			a1 := a0
 			a1.Version = 1001
-			b1 := a0
+			b1 := b0
 			b1.Version = 500
 
 			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
 			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
 			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
-			objB1 := metabasetest.CreateObjectVersioned(ctx, t, db, b1, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
 
 			deletionResult := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
@@ -992,7 +992,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objB0)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 

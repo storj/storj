@@ -124,6 +124,19 @@ func CreateObjectVersioned(ctx *testcontext.Context, t testing.TB, db *metabase.
 	}.Check(ctx, t, db)
 }
 
+// CreateObjectVersionedOutOfOrder creates a new committed object with the specified number of segments.
+func CreateObjectVersionedOutOfOrder(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, expectVersion metabase.Version) metabase.Object {
+	CreatePendingObject(ctx, t, db, obj, numberOfSegments)
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+			Versioned:    true,
+		},
+		ExpectVersion: expectVersion,
+	}.Check(ctx, t, db)
+}
+
 // CreateExpiredObject creates a new committed expired object with the specified number of segments.
 func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, expiresAt time.Time) metabase.Object {
 	BeginObjectExactVersion{
@@ -206,6 +219,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 type CreateTestObject struct {
 	BeginObjectExactVersion *metabase.BeginObjectExactVersion
 	CommitObject            *metabase.CommitObject
+	ExpectVersion           metabase.Version
 	CreateSegment           func(object metabase.Object, index int) metabase.Segment
 }
 
@@ -302,7 +316,8 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 
 	createdObject := CommitObject{
-		Opts: coOpts,
+		Opts:          coOpts,
+		ExpectVersion: co.ExpectVersion,
 	}.Check(ctx, t, db)
 
 	return createdObject, createdSegments
