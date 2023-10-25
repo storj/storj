@@ -90,7 +90,7 @@ func TestListObjects(t *testing.T) {
 					expected[i] = metabase.ObjectEntry{
 						IsPrefix:  true,
 						ObjectKey: obj.ObjectKey[:delimiterIndex+1],
-						Status:    3,
+						Status:    metabase.Prefix,
 					}
 				} else {
 					expected[i] = objectEntryFromRaw(obj)
@@ -388,9 +388,9 @@ func TestListObjects(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						objects["a"],
-						prefixEntry("b/", metabase.CommittedUnversioned),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.CommittedUnversioned),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -407,9 +407,9 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.CommittedUnversioned),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.CommittedUnversioned),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -426,9 +426,9 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.CommittedUnversioned),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.CommittedUnversioned),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -516,7 +516,7 @@ func TestListObjects(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("c/",
 						objects["c/"],
-						prefixEntry("c//", metabase.CommittedUnversioned),
+						prefixEntry("c//"),
 						objects["c/1"],
 					)},
 			}.Check(ctx, t, db)
@@ -570,8 +570,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -590,9 +590,9 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("08/")),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -611,8 +611,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -641,9 +641,9 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("08/")),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -662,8 +662,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -682,8 +682,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -729,10 +729,10 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("08/")),
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -754,8 +754,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -776,8 +776,8 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})

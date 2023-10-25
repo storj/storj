@@ -162,12 +162,7 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 		*item = ObjectEntry{
 			IsPrefix:  true,
 			ObjectKey: item.ObjectKey[:p+1],
-		}
-		// TODO(ver): should we return something else here?
-		if it.pending {
-			item.Status = Pending
-		} else {
-			item.Status = CommittedUnversioned
+			Status:    Prefix,
 		}
 	}
 

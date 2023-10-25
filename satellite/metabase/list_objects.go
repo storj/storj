@@ -266,12 +266,7 @@ func scanListObjectsResult(rows tagsql.Rows, opts ListObjects) (entries []Object
 			item = ObjectEntry{
 				IsPrefix:  true,
 				ObjectKey: item.ObjectKey,
-			}
-			// TODO(ver): should we use `0` for prefixes instead?
-			if opts.Pending {
-				item.Status = Pending
-			} else {
-				item.Status = CommittedUnversioned
+				Status:    Prefix,
 			}
 		}
 

@@ -448,9 +448,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -466,9 +466,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -484,9 +484,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -570,7 +570,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: withoutPrefix("c/",
 					objects["c/"],
-					prefixEntry("c//", metabase.CommittedUnversioned),
+					prefixEntry("c//"),
 					objects["c/1"],
 				),
 			}.Check(ctx, t, db)
@@ -1003,8 +1003,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1022,9 +1022,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1042,8 +1042,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1071,9 +1071,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1091,8 +1091,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1110,8 +1110,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1157,10 +1157,10 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1181,8 +1181,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1202,8 +1202,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1520,11 +1520,11 @@ func withoutPrefix1(prefix metabase.ObjectKey, entry metabase.ObjectEntry) metab
 	return entry
 }
 
-func prefixEntry(key metabase.ObjectKey, status metabase.ObjectStatus) metabase.ObjectEntry {
+func prefixEntry(key metabase.ObjectKey) metabase.ObjectEntry {
 	return metabase.ObjectEntry{
 		IsPrefix:  true,
 		ObjectKey: key,
-		Status:    status,
+		Status:    metabase.Prefix,
 	}
 }
 

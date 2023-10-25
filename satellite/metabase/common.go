@@ -414,8 +414,10 @@ const (
 	CommittedVersioned = ObjectStatus(4)
 	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
 	DeleteMarkerUnversioned = ObjectStatus(5)
-	// DeleteMarkerVersioned is inserted when an  object is deleted in a versioning enabled bucket.
+	// DeleteMarkerVersioned is inserted when an object is deleted in a versioning enabled bucket.
 	DeleteMarkerVersioned = ObjectStatus(6)
+	// Prefix is an ephemeral status used during non-recursive listing.
+	Prefix = ObjectStatus(7)
 
 	// Constants that can be used while constructing SQL queries.
 	statusPending                 = "1"
