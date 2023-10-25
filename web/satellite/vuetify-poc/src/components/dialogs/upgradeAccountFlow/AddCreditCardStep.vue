@@ -10,9 +10,10 @@
     <v-divider />
 
     <div class="py-4">
-        <StripeCardInput
+        <StripeCardElement
             ref="stripeCardInput"
-            :on-stripe-response-callback="addCardToDB"
+            :is-dark-theme="theme.global.current.value.dark"
+            @pm-created="addCardToDB"
         />
     </div>
 
@@ -51,6 +52,7 @@
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VDivider, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
+import { useTheme } from 'vuetify';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';
@@ -60,7 +62,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -71,6 +73,7 @@ const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+const theme = useTheme();
 const router = useRouter();
 const route = useRoute();
 
@@ -80,7 +83,7 @@ const emit = defineEmits<{
 }>();
 
 const loading = ref<boolean>(false);
-const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 /**
  * Provides card information to Stripe.
@@ -101,12 +104,12 @@ async function onSaveCardClick(): Promise<void> {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param token from Stripe
+ * @param pmID - payment method ID from Stripe
  */
-async function addCardToDB(token: string): Promise<void> {
+async function addCardToDB(pmID: string): Promise<void> {
     loading.value = true;
     try {
-        await billingStore.addCreditCard(token);
+        await billingStore.addCardByPaymentMethodID(pmID);
         notify.success('Card successfully added');
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();

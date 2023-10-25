@@ -72,6 +72,10 @@ export const useBillingStore = defineStore('billing', () => {
         await api.addCreditCard(token);
     }
 
+    async function addCardByPaymentMethodID(pmID: string): Promise<void> {
+        await api.addCardByPaymentMethodID(pmID);
+    }
+
     function toggleCardSelection(id: string): void {
         state.creditCards = state.creditCards.map(card => {
             if (card.id === id) {
@@ -183,8 +187,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = await api.getCoupon();
     }
 
-    async function purchasePricingPackage(token: string): Promise<void> {
-        await api.purchasePricingPackage(token);
+    async function purchasePricingPackage(pmID: string): Promise<void> {
+        await api.purchasePricingPackage(pmID);
     }
 
     function clear(): void {
@@ -209,6 +213,7 @@ export const useBillingStore = defineStore('billing', () => {
         setupAccount,
         getCreditCards,
         addCreditCard,
+        addCardByPaymentMethodID,
         toggleCardSelection,
         clearCardsSelection,
         makeCardDefault,

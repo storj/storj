@@ -33,10 +33,10 @@
 
         <div v-if="!isFree" class="py-4">
             <p class="text-caption">Add Card Info</p>
-            <StripeCardInput
+            <StripeCardElement
                 ref="stripeCardInput"
-                class="content__bottom__card-area__input"
-                :on-stripe-response-callback="onCardAdded"
+                :is-dark-theme="theme.global.current.value.dark"
+                @pm-created="onCardAdded"
             />
         </div>
 
@@ -110,6 +110,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { useTheme } from 'vuetify';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';
@@ -117,7 +118,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -128,11 +129,12 @@ const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
+const theme = useTheme();
 
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 const props = defineProps<{
     plan: PricingPlanInfo;
@@ -174,14 +176,14 @@ async function onActivateClick() {
 /**
  * Adds card after Stripe confirmation.
  */
-async function onCardAdded(token: string): Promise<void> {
-    let action = billingStore.addCreditCard;
+async function onCardAdded(pmID: string): Promise<void> {
+    let action = billingStore.addCardByPaymentMethodID;
     if (props.plan.type === PricingPlanType.PARTNER) {
         action = billingStore.purchasePricingPackage;
     }
 
     try {
-        await action(token);
+        await action(pmID);
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
