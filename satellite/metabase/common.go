@@ -277,7 +277,7 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 		return obj.ObjectKey < b.ObjectKey
 	}
 	if obj.Version != b.Version {
-		return obj.Version > b.Version
+		return obj.Version < b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
