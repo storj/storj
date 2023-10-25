@@ -42,8 +42,8 @@ func RandEncryptedKeyAndNonce(position int) metabase.EncryptedKeyAndNonce {
 }
 
 // CreatePendingObject creates a new pending object with the specified number of segments.
-func CreatePendingObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) {
-	BeginObjectExactVersion{
+func CreatePendingObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
+	object := BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{
 			ObjectStream: obj,
 			Encryption:   DefaultEncryption,
@@ -51,6 +51,7 @@ func CreatePendingObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	}.Check(ctx, t, db)
 
 	CreateSegments(ctx, t, db, obj, nil, numberOfSegments)
+	return object
 }
 
 // CreatePendingObjectNew creates a new pending object with the specified number of segments.
