@@ -324,9 +324,17 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 	committedObject = &object
 
+	pbObject, err := endpoint.objectToProto(ctx, object, nil)
+	if err != nil {
+		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+
 	mon.Meter("req_commit_object").Mark(1)
 
-	return &pb.ObjectCommitResponse{}, nil
+	return &pb.ObjectCommitResponse{
+		Object: pbObject,
+	}, nil
 }
 
 // GetObject gets single object metadata.
@@ -1551,6 +1559,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
 		Version:            int32(object.Version), // TODO incompatible types
+		ObjectVersion:      object.Version.Encode(),
 		StreamId:           streamID,
 		ExpiresAt:          expires,
 		CreatedAt:          object.CreatedAt,

@@ -1441,13 +1441,22 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				NumberOfSegments: 1,
 			})
 			require.NoError(t, err)
-			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID:                      beginObjectResponse.StreamID,
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+			coResponse, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
 				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
+			require.NotNil(t, coResponse.Object)
+			require.NotEmpty(t, coResponse.Object.ObjectVersion)
+
+			// TODO(ver): add tests more detailed tests for returning object on commit, including returned version
 
 			objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket:                []byte(bucket.Name),
