@@ -14,6 +14,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -586,7 +587,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
 	stats.healthyRatioAfterRepair.Observe(healthyRatioAfterRepair)
 
-	var toRemove metabase.Pieces
+	toRemove := make(map[uint16]metabase.Piece, piecesCheck.Unhealthy.Size())
 	switch {
 	case healthyAfterRepair >= int(segment.Redundancy.OptimalShares):
 		// Repair was fully successful; remove all unhealthy pieces except those in
@@ -599,7 +600,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 				if retrievable && inExcludedCountry {
 					continue
 				}
-				toRemove = append(toRemove, piece)
+				toRemove[piece.Number] = piece
 			}
 		}
 	case healthyAfterRepair > int(segment.Redundancy.RepairShares):
@@ -608,7 +609,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		// jeopardy.
 		for _, piece := range pieces {
 			if piecesCheck.OutOfPlacement.Contains(int(piece.Number)) {
-				toRemove = append(toRemove, piece)
+				toRemove[piece.Number] = piece
 			}
 		}
 	default:
@@ -620,16 +621,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// in any case, we want to remove pieces for which we have replacements now.
 	for _, piece := range pieces {
 		if repairedMap[piece.Number] {
-			toRemove = append(toRemove, piece)
+			toRemove[piece.Number] = piece
 		}
 	}
 
 	// add pieces that failed piece hash verification to the removal list
 	for _, outcome := range piecesReport.Failed {
-		toRemove = append(toRemove, outcome.Piece)
+		toRemove[outcome.Piece.Number] = outcome.Piece
 	}
 
-	newPieces, err := segment.Pieces.Update(repairedPieces, toRemove)
+	newPieces, err := segment.Pieces.Update(repairedPieces, maps.Values(toRemove))
 	if err != nil {
 		return false, repairPutError.Wrap(err)
 	}
