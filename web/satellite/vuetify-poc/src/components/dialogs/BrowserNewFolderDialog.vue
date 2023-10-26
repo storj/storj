@@ -3,8 +3,7 @@
 
 <template>
     <v-dialog
-        v-model="dialog"
-        activator="parent"
+        v-model="model"
         width="auto"
         min-width="400px"
         transition="fade-transition"
@@ -26,7 +25,7 @@
                             size="small"
                             color="default"
                             :disabled="isLoading"
-                            @click="dialog = false"
+                            @click="model = false"
                         />
                     </template>
                 </v-card-item>
@@ -62,7 +61,7 @@
                             color="default"
                             block
                             :disabled="isLoading"
-                            @click="dialog = false"
+                            @click="model = false"
                         >
                             Cancel
                         </v-btn>
@@ -114,7 +113,19 @@ const notify = useNotify();
 
 const { isLoading, withLoading } = useLoading();
 
-const dialog = ref<boolean>(false);
+const props = defineProps<{
+  modelValue: boolean,
+}>();
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean];
+}>();
+
+const model = computed<boolean>({
+    get: () => props.modelValue,
+    set: value => emit('update:modelValue', value),
+});
+
 const formValid = ref<boolean>(false);
 const folder = ref<string>('');
 const innerContent = ref<Component | null>(null);
@@ -141,7 +152,7 @@ function createFolder(): void {
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
         }
-        dialog.value = false;
+        model.value = false;
     });
 }
 

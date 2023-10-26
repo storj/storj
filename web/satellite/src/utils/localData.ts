@@ -15,6 +15,7 @@ export class LocalData {
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
     private static projectTableViewEnabled = 'projectTableViewEnabled';
+    private static browserCardViewEnabled = 'browserCardViewEnabled';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -123,6 +124,21 @@ export class LocalData {
 
     public static setProjectTableViewEnabled(enabled: boolean): void {
         localStorage.setItem(LocalData.projectTableViewEnabled, enabled.toString());
+    }
+
+    /*
+    * Whether the file browser should use the card view.
+    */
+    public static getBrowserCardViewEnabled(): boolean {
+        const value = localStorage.getItem(LocalData.browserCardViewEnabled);
+        return value === 'true';
+    }
+
+    /*
+    * Set whether the file browser should use the card view.
+    */
+    public static setBrowserCardViewEnabled(enabled: boolean): void {
+        localStorage.setItem(LocalData.browserCardViewEnabled, enabled.toString());
     }
 
     /*

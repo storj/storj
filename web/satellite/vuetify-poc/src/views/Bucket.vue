@@ -11,7 +11,7 @@
 
         <browser-breadcrumbs-component />
         <v-col>
-            <v-row class="mt-2 mb-4">
+            <v-row align="center" class="mt-2 mb-4">
                 <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
                     <template #activator="{ props }">
                         <v-btn
@@ -70,17 +70,56 @@
                     color="default"
                     class="mx-4"
                     :disabled="!isInitialized"
+                    @click="isNewFolderDialogOpen = true"
                 >
                     <icon-folder />
                     New Folder
-                    <browser-new-folder-dialog />
                 </v-btn>
+
+                <template v-if="isCardViewEnabled">
+                    <v-spacer v-if="smAndUp" />
+
+                    <v-col class="pa-0" :class="{ 'pt-2': !smAndUp }" cols="auto">
+                        <v-btn-toggle
+                            mandatory
+                            border
+                            inset
+                            density="comfortable"
+                            class="pa-1"
+                        >
+                            <v-btn
+                                size="small"
+                                rounded="xl"
+                                active-class="active"
+                                :active="isCardView"
+                                aria-label="Toggle Cards View"
+                                @click="isCardView = true"
+                            >
+                                <icon-card-view />
+                                Cards
+                            </v-btn>
+                            <v-btn
+                                size="small"
+                                rounded="xl"
+                                active-class="active"
+                                :active="!isCardView"
+                                aria-label="Toggle Table View"
+                                @click="isCardView = false"
+                            >
+                                <icon-table-view />
+                                Table
+                            </v-btn>
+                        </v-btn-toggle>
+                    </v-col>
+                </template>
             </v-row>
         </v-col>
 
-        <browser-table-component :loading="isFetching" :force-empty="!isInitialized" />
+        <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @new-folder-click="isNewFolderDialogOpen = true" @upload-click="menu = true" />
+        <browser-table-component v-else :loading="isFetching" :force-empty="!isInitialized" />
     </v-container>
 
+    <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
 </template>
 
@@ -96,8 +135,11 @@ import {
     VList,
     VListItem,
     VListItemTitle,
+    VSpacer,
     VDivider,
+    VBtnToggle,
 } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -107,6 +149,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@poc/components/BrowserBreadcrumbsComponent.vue';
@@ -117,16 +160,21 @@ import IconFolder from '@poc/components/icons/IconFolder.vue';
 import IconFile from '@poc/components/icons/IconFile.vue';
 import EnterBucketPassphraseDialog from '@poc/components/dialogs/EnterBucketPassphraseDialog.vue';
 import DropzoneDialog from '@poc/components/dialogs/DropzoneDialog.vue';
+import BrowserCardViewComponent from '@poc/components/BrowserCardViewComponent.vue';
+import IconTableView from '@poc/components/icons/IconTableView.vue';
+import IconCardView from '@poc/components/icons/IconCardView.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
+const config = useConfigStore();
 const appStore = useAppStore();
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
+const { smAndUp } = useDisplay();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
@@ -136,6 +184,7 @@ const isInitialized = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
 const snackbar = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
+const isNewFolderDialogOpen = ref<boolean>(false);
 
 /**
  * Returns the name of the selected bucket.
@@ -156,6 +205,19 @@ const projectId = computed<string>(() => projectsStore.state.selectedProject.id)
  * Returns whether the user should be prompted to enter the passphrase.
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
+
+/**
+ * Returns total object count from store.
+ */
+const isCardViewEnabled = computed<boolean>(() => config.state.config.objectBrowserCardViewEnabled);
+
+/**
+ * Returns whether to use the card view.
+ */
+const isCardView = computed<boolean>({
+    get: () => isCardViewEnabled.value && appStore.state.isBrowserCardViewEnabled,
+    set: value => appStore.toggleBrowserCardViewEnabled(value),
+});
 
 /**
  * Open the operating system's file system for file upload.

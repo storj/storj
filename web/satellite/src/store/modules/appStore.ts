@@ -35,6 +35,7 @@ class AppState {
     public isLargeUploadWarningNotificationShown = false;
     public activeChangeLimit: LimitToChange = LimitToChange.Storage;
     public isProjectTableViewEnabled = LocalData.getProjectTableViewEnabled();
+    public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
     public shareModalType: ShareType = ShareType.File;
 }
 
@@ -97,6 +98,15 @@ export const useAppStore = defineStore('app', () => {
             state.isProjectTableViewEnabled = isProjectTableViewEnabled;
         }
         LocalData.setProjectTableViewEnabled(state.isProjectTableViewEnabled);
+    }
+
+    function toggleBrowserTableViewEnabled(isBrowserCardViewEnabled: boolean | null = null): void {
+        if (isBrowserCardViewEnabled === null) {
+            state.isBrowserCardViewEnabled = !state.isBrowserCardViewEnabled;
+        } else {
+            state.isBrowserCardViewEnabled = isBrowserCardViewEnabled;
+        }
+        LocalData.setBrowserCardViewEnabled(state.isBrowserCardViewEnabled);
     }
 
     function changeState(newFetchState: FetchState): void {
@@ -195,6 +205,7 @@ export const useAppStore = defineStore('app', () => {
         toggleActiveDropdown,
         toggleSuccessfulPasswordReset,
         toggleProjectTableViewEnabled,
+        toggleBrowserCardViewEnabled: toggleBrowserTableViewEnabled,
         hasProjectTableViewConfigured,
         updateActiveModal,
         removeActiveModal,

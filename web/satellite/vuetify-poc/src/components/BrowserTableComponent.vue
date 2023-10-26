@@ -131,22 +131,13 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
 import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
+import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
-
-import folderIcon from '@poc/assets/icon-folder-tonal.svg';
-import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
-import imageIcon from '@poc/assets/icon-image-tonal.svg';
-import videoIcon from '@poc/assets/icon-video-tonal.svg';
-import audioIcon from '@poc/assets/icon-audio-tonal.svg';
-import textIcon from '@poc/assets/icon-text-tonal.svg';
-import zipIcon from '@poc/assets/icon-zip-tonal.svg';
-import spreadsheetIcon from '@poc/assets/icon-spreadsheet-tonal.svg';
-import fileIcon from '@poc/assets/icon-file-tonal.svg';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -157,21 +148,6 @@ type TableOptions = {
         key: SortKey;
         order: 'asc' | 'desc';
     }[];
-};
-
-type BrowserObjectTypeInfo = {
-    title: string;
-    icon: string;
-};
-
-/**
- * Contains extra information to aid in the display, filtering, and sorting of browser objects.
- */
-type BrowserObjectWrapper = {
-    browserObject: BrowserObject;
-    typeInfo: BrowserObjectTypeInfo;
-    lowerName: string;
-    ext: string;
 };
 
 type ItemSlotProps = { item: { raw: BrowserObjectWrapper } };
@@ -216,18 +192,6 @@ const headers = [
 ];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
-const extensionInfos: Map<string[], BrowserObjectTypeInfo> = new Map([
-    [['jpg', 'jpeg', 'png', 'gif', 'svg'], { title: 'Image', icon: imageIcon }],
-    [['mp4', 'mkv', 'mov'], { title: 'Video', icon: videoIcon }],
-    [['mp3', 'aac', 'wav', 'm4a'], { title: 'Audio', icon: audioIcon }],
-    [['txt', 'docx', 'doc', 'pages'], { title: 'Text', icon: textIcon }],
-    [['pdf'], { title: 'PDF', icon: pdfIcon }],
-    [['zip'], { title: 'ZIP', icon: zipIcon }],
-    [['xls', 'numbers', 'csv', 'xlsx', 'tsv'], { title: 'Spreadsheet', icon: spreadsheetIcon }],
-]);
-const folderInfo: BrowserObjectTypeInfo = { title: 'Folder', icon: folderIcon };
-const fileInfo: BrowserObjectTypeInfo = { title: 'File', icon: fileIcon };
-
 /**
  * Returns the name of the selected bucket.
  */
@@ -267,7 +231,7 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
     const objects = isPaginationEnabled.value ? obStore.displayedObjects : obStore.state.files;
     return objects.map<BrowserObjectWrapper>(file => {
         const lowerName = file.Key.toLowerCase();
-        const dotIdx = lowerName.indexOf('.');
+        const dotIdx = lowerName.lastIndexOf('.');
         const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1);
         return {
             browserObject: file,
@@ -390,14 +354,14 @@ function getFormattedSize(file: BrowserObject): string {
  * Returns the title and icon representing a file's type.
  */
 function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjectTypeInfo {
-    if (!type) return fileInfo;
-    if (type === 'folder') return folderInfo;
+    if (!type) return FILE_INFO;
+    if (type === 'folder') return FOLDER_INFO;
 
     ext = ext.toLowerCase();
-    for (const [exts, info] of extensionInfos.entries()) {
+    for (const [exts, info] of EXTENSION_INFOS.entries()) {
         if (exts.indexOf(ext) !== -1) return info;
     }
-    return fileInfo;
+    return FILE_INFO;
 }
 
 /**
