@@ -60,6 +60,9 @@
                     <text-file-preview v-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
                         <file-preview-placeholder :file="file" @download="download" />
                     </text-file-preview>
+                    <c-s-v-file-preview v-else-if="previewType === PreviewType.CSV" :src="objectPreviewUrl">
+                        <file-preview-placeholder :file="file" @download="download" />
+                    </c-s-v-file-preview>
                     <img
                         v-else-if="previewType === PreviewType.Image"
                         :src="objectPreviewUrl"
@@ -123,6 +126,7 @@ import DetailsModal from '@/components/browser/galleryView/modals/Details.vue';
 import DistributionModal from '@/components/browser/galleryView/modals/Distribution.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import TextFilePreview from '@/components/browser/galleryView/TextFilePreview.vue';
+import CSVFilePreview from '@/components/browser/galleryView/CSVFilePreview.vue';
 import FilePreviewPlaceholder from '@/components/browser/galleryView/FilePreviewPlaceholder.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';

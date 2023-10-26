@@ -8,6 +8,9 @@
     <text-file-preview v-else-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
         <file-preview-placeholder :file="file" @download="emit('download')" />
     </text-file-preview>
+    <c-s-v-file-preview v-else-if="previewType === PreviewType.CSV" :src="objectPreviewUrl">
+        <file-preview-placeholder :file="file" @download="emit('download')" />
+    </c-s-v-file-preview>
     <v-container v-else-if="previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
         <video
             controls
@@ -58,6 +61,7 @@ import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import FilePreviewPlaceholder from '@poc/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
 import TextFilePreview from '@poc/components/dialogs/filePreviewComponents/TextFilePreview.vue';
+import CSVFilePreview from '@poc/components/dialogs/filePreviewComponents/CSVFilePreview.vue';
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();

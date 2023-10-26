@@ -243,6 +243,7 @@ table {
 // Scrollbar
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background-color: rgb(var(--v-theme-background));
@@ -251,6 +252,9 @@ table {
   background-color: rgba(var(--v-theme-on-background), 0.33);
   border-radius: 2px;
   min-height: 5px;
+}
+::-webkit-scrollbar-corner {
+  background-color: transparent;
 }
 
 // Alerts
@@ -276,6 +280,11 @@ table {
 // Positions
 .pos-relative {
   position: relative !important;
+}
+
+// Sizing
+.max-h-100 {
+  max-height: 100%;
 }
 
 // text styles
