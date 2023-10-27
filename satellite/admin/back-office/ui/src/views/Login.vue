@@ -54,7 +54,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, watch } from 'vue';
 import { useTheme } from 'vuetify';
 import {
     VAppBar,
@@ -71,51 +72,24 @@ import {
     VSelect,
 } from 'vuetify/components';
 
-export default {
-    components: {
-        VAppBar,
-        VAppBarTitle,
-        VImg,
-        VBtnToggle,
-        VTooltip,
-        VBtn,
-        VContainer,
-        VRow,
-        VCol,
-        VCard,
-        VCardText,
-        VSelect,
-    },
-    setup() {
-        const theme = useTheme();
-        return {
-            theme,
-            toggleTheme: (newTheme) => {
-                if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
-                    return;
-                }
-                theme.global.name.value = newTheme;
-                localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
-            },
-        };
-    },
-    data: () => ({
-        activeTheme: null,
-        selectedSatellite: 'North America US1',
-    }),
-    watch: {
-        'theme.global.current.value.dark': function (newVal) {
-            this.activeTheme = newVal ? 1 : 0;
-        },
-    },
-    mounted() {
-        document.title = 'Storj Admin - Login';
-    },
-    created() {
-    // Check for stored theme in localStorage. If none, default to 'light'
-        const storedTheme = localStorage.getItem('theme') || 'light';
-        this.toggleTheme(storedTheme);
-        this.activeTheme = this.theme.global.current.value.dark ? 1 : 0;
-    },
-};
+const theme = useTheme();
+
+const activeTheme = ref<number>(0);
+const selectedSatellite = ref<string>('North America US1');
+
+function toggleTheme(newTheme: string) {
+    if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
+        return;
+    }
+    theme.global.name.value = newTheme;
+    localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
+}
+
+watch(() => theme.global.current.value.dark, newVal => {
+    activeTheme.value = newVal ? 1 : 0;
+});
+
+// Check for stored theme in localStorage. If none, default to 'light'
+toggleTheme(localStorage.getItem('theme') || 'light');
+activeTheme.value = theme.global.current.value.dark ? 1 : 0;
 </script>

@@ -58,146 +58,130 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 
-export default {
-    name: 'BucketsTableComponent',
-    components: {
-        VCard,
-        VTextField,
-        VBtn,
-        VIcon,
-        VChip,
-        VDataTable,
-        BucketActionsMenu,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'name', order: 'asc' }]);
+
+const headers = [
+    { title: 'Bucket', key: 'name' },
+    { title: 'Storage', key: 'storage' },
+    { title: 'Download', key: 'download' },
+    { title: 'Segments', key: 'segments' },
+    { title: 'Placement', key: 'placement' },
+    { title: 'Value', key: 'agent' },
+    { title: 'Created', key: 'date' },
+];
+const files = [
+    {
+        name: 'First',
+        placement: 'global',
+        bucketid: '1Q284JF',
+        storage: '300TB',
+        download: '100TB',
+        segments: '23,456',
+        agent: 'Test Agent',
+        date: '02 Mar 2023',
     },
-    data() {
-        return {
-            // search in the table
-            search: '',
-            selected: [],
-            sortBy: [{ key: 'name', order: 'asc' }],
-            headers: [
-                { title: 'Bucket', key: 'name' },
-                { title: 'Storage', key: 'storage' },
-                { title: 'Download', key: 'download' },
-                { title: 'Segments', key: 'segments' },
-                { title: 'Placement', key: 'placement' },
-                { title: 'Value', key: 'agent' },
-                { title: 'Created', key: 'date' },
-            ],
-            files: [
-                {
-                    name: 'First',
-                    placement: 'global',
-                    bucketid: '1Q284JF',
-                    storage: '300TB',
-                    download: '100TB',
-                    segments: '23,456',
-                    agent: 'Test Agent',
-                    date: '02 Mar 2023',
-                },
-                {
-                    name: 'Personal',
-                    placement: 'global',
-                    bucketid: '82SR21Q',
-                    storage: '30TB',
-                    download: '10TB',
-                    segments: '123,456',
-                    agent: 'Agent',
-                    date: '21 Apr 2023',
-                },
-                {
-                    name: 'Invitation',
-                    placement: 'global',
-                    bucketid: '4JFF82S',
-                    storage: '500TB',
-                    download: '200TB',
-                    segments: '456',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Videos',
-                    placement: 'global',
-                    bucketid: '1Q223JA',
-                    storage: '300TB',
-                    download: '100TB',
-                    segments: '3,456',
-                    agent: 'Test Agent',
-                    date: '11 Mar 2023',
-                },
-                {
-                    name: 'App',
-                    placement: 'global',
-                    bucketid: 'R21Q284',
-                    storage: '300TB',
-                    download: '100TB',
-                    segments: '56',
-                    agent: 'Test Agent',
-                    date: '11 Mar 2023',
-                },
-                {
-                    name: 'Backup',
-                    placement: 'global',
-                    bucketid: '42SR20S',
-                    storage: '30TB',
-                    download: '10TB',
-                    segments: '1,456',
-                    agent: 'Agent',
-                    date: '21 Apr 2023',
-                },
-                {
-                    name: 'My Bucket',
-                    placement: 'global',
-                    bucketid: '4JFF8FF',
-                    storage: '500TB',
-                    download: '200TB',
-                    segments: '6',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Sync',
-                    placement: 'global',
-                    bucketid: '4JFF8ZZ',
-                    storage: '500TB',
-                    download: '200TB',
-                    segments: '3,123,456',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Backupss',
-                    placement: 'global',
-                    bucketid: '4JFF8TS',
-                    storage: '500TB',
-                    download: '200TB',
-                    segments: '10,123,456',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Destiny',
-                    placement: 'global',
-                    bucketid: '4IF42TM',
-                    storage: '500TB',
-                    download: '200TB',
-                    segments: '3,456',
-                    agent: 'Random',
-                    date: '29 Mar 2023',
-                },
-            ],
-        };
+    {
+        name: 'Personal',
+        placement: 'global',
+        bucketid: '82SR21Q',
+        storage: '30TB',
+        download: '10TB',
+        segments: '123,456',
+        agent: 'Agent',
+        date: '21 Apr 2023',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
+    {
+        name: 'Invitation',
+        placement: 'global',
+        bucketid: '4JFF82S',
+        storage: '500TB',
+        download: '200TB',
+        segments: '456',
+        agent: 'Random',
+        date: '24 Mar 2023',
     },
-};
+    {
+        name: 'Videos',
+        placement: 'global',
+        bucketid: '1Q223JA',
+        storage: '300TB',
+        download: '100TB',
+        segments: '3,456',
+        agent: 'Test Agent',
+        date: '11 Mar 2023',
+    },
+    {
+        name: 'App',
+        placement: 'global',
+        bucketid: 'R21Q284',
+        storage: '300TB',
+        download: '100TB',
+        segments: '56',
+        agent: 'Test Agent',
+        date: '11 Mar 2023',
+    },
+    {
+        name: 'Backup',
+        placement: 'global',
+        bucketid: '42SR20S',
+        storage: '30TB',
+        download: '10TB',
+        segments: '1,456',
+        agent: 'Agent',
+        date: '21 Apr 2023',
+    },
+    {
+        name: 'My Bucket',
+        placement: 'global',
+        bucketid: '4JFF8FF',
+        storage: '500TB',
+        download: '200TB',
+        segments: '6',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Sync',
+        placement: 'global',
+        bucketid: '4JFF8ZZ',
+        storage: '500TB',
+        download: '200TB',
+        segments: '3,123,456',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Backupss',
+        placement: 'global',
+        bucketid: '4JFF8TS',
+        storage: '500TB',
+        download: '200TB',
+        segments: '10,123,456',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Destiny',
+        placement: 'global',
+        bucketid: '4IF42TM',
+        storage: '500TB',
+        download: '200TB',
+        segments: '3,456',
+        agent: 'Random',
+        date: '29 Mar 2023',
+    },
+];
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
 </script>

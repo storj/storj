@@ -86,7 +86,7 @@
     </v-dialog>
 
     <v-snackbar v-model="snackbar" :timeout="7000" color="error">
-        {{ text }}
+        Error. Cannot change project limits.
         <template #actions>
             <v-btn color="default" variant="text" @click="snackbar = false">
                 Close
@@ -95,7 +95,8 @@
     </v-snackbar>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -112,34 +113,11 @@ import {
     VSnackbar,
 } from 'vuetify/components';
 
-export default {
-    components: {
-        VDialog,
-        VCard,
-        VSheet,
-        VCardItem,
-        VCardTitle,
-        VBtn,
-        VDivider,
-        VForm,
-        VRow,
-        VCol,
-        VTextField,
-        VCardActions,
-        VSnackbar,
-    },
-    data() {
-        return {
-            snackbar: false,
-            text: `Error. Cannot change project limits.`,
-            dialog: false,
-        };
-    },
-    methods: {
-        onButtonClick() {
-            this.snackbar = true;
-            this.dialog = false;
-        },
-    },
-};
+const snackbar = ref<boolean>(false);
+const dialog = ref<boolean>(false);
+
+function onButtonClick() {
+    snackbar.value = true;
+    dialog.value = false;
+}
 </script>

@@ -130,7 +130,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -151,33 +152,7 @@ import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
 import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VChip,
-        VTooltip,
-        VBtn,
-        VIcon,
-        VCard,
-        VCardText,
-        VDivider,
-        PageTitleComponent,
-        BucketActionsMenu,
-        BucketGeofenceDialog,
-        BucketUserAgentsDialog,
-        BucketInformationDialog,
-        CardStatsComponent,
-    },
-    data() {
-        return {
-            dialog: false,
-            valid: false,
-        };
-    },
-    mounted() {
-        document.title = 'Storj Admin - Bucket Details';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Bucket Details';
+});
 </script>

@@ -47,64 +47,50 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VCard, VTextField, VChip, VListItem } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
-export default {
-    components: {
-        VCard,
-        VTextField,
-        VChip,
-        VListItem,
-        VDataTable,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'date', order: 'asc' }]);
+
+const headers = [
+    { title: 'Date', key: 'date' },
+    { title: 'Change', key: 'name' },
+    { title: 'Operation', key: 'operation' },
+    { title: 'Project ID', key: 'projectID' },
+    { title: 'Bucket', key: 'bucket' },
+    { title: 'Updated', key: 'updated' },
+    { title: 'Previous', key: 'previous' },
+    { title: 'Admin', key: 'email' },
+    { title: '', key: 'data-table-expand' },
+];
+const files = [
+    {
+        name: 'Project',
+        operation: 'Limits',
+        email: 'vduke@gmail.com',
+        projectID: 'F82SR21Q284JF',
+        bucket: 'All',
+        updated: '300TB',
+        previous: '100TB',
+        date: '02 Mar 2023',
     },
-    data() {
-        return {
-            // search in the table
-            search: '',
-            selected: [],
-            expanded: [],
-            sortBy: [{ key: 'date', order: 'asc' }],
-            headers: [
-                { title: 'Date', key: 'date' },
-                { title: 'Change', key: 'name' },
-                { title: 'Operation', key: 'operation' },
-                { title: 'Project ID', key: 'projectID' },
-                { title: 'Bucket', key: 'bucket' },
-                { title: 'Updated', key: 'updated' },
-                { title: 'Previous', key: 'previous' },
-                { title: 'Admin', key: 'email' },
-                { title: '', key: 'data-table-expand' },
-            ],
-            files: [
-                {
-                    name: 'Project',
-                    operation: 'Limits',
-                    email: 'vduke@gmail.com',
-                    projectID: 'F82SR21Q284JF',
-                    bucket: 'All',
-                    updated: '300TB',
-                    previous: '100TB',
-                    date: '02 Mar 2023',
-                },
-                {
-                    name: 'Account',
-                    operation: 'Coupon',
-                    email: 'knowles@aurora.io',
-                    projectID: '',
-                    bucket: 'All',
-                    updated: '30TB',
-                    previous: 'Free Tier',
-                    date: '21 Apr 2023',
-                },
-            ],
-        };
+    {
+        name: 'Account',
+        operation: 'Coupon',
+        email: 'knowles@aurora.io',
+        projectID: '',
+        bucket: 'All',
+        updated: '30TB',
+        previous: 'Free Tier',
+        date: '21 Apr 2023',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
-    },
-};
+];
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
 </script>

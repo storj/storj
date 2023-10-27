@@ -51,7 +51,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -67,22 +68,7 @@ import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import AdminAccountDialog from '@/components/AdminAccountDialog.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VCard,
-        VCardText,
-        VChip,
-        VDivider,
-        VBtn,
-        PageTitleComponent,
-        PageSubtitleComponent,
-        AdminAccountDialog,
-    },
-    mounted() {
-        document.title = 'Storj Admin Settings';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin Settings';
+});
 </script>

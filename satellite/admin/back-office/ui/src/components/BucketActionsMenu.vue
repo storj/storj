@@ -45,26 +45,11 @@
     </v-menu>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 
 import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
 import BucketDeleteDialog from '@/components/BucketDeleteDialog.vue';
 import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
-
-export default {
-    name: 'BucketActionsMenu',
-    components: {
-        VMenu,
-        VList,
-        VListItem,
-        VListItemTitle,
-        VDivider,
-        BucketDeleteDialog,
-        BucketGeofenceDialog,
-        BucketUserAgentsDialog,
-        BucketInformationDialog,
-    },
-};
 </script>

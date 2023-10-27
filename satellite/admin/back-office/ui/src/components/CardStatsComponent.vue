@@ -9,36 +9,14 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { VCard, VCardText, VChip } from 'vuetify/components';
 
-export default {
-    components: {
-        VCard,
-        VCardText,
-        VChip,
-    },
-    props: {
-        title: {
-            type: String,
-            required: true,
-        },
-        subtitle: {
-            type: String,
-            required: true,
-        },
-        data: {
-            type: String,
-            required: true,
-        },
-        variant: {
-            type: String,
-            required: true,
-        },
-        color: {
-            type: String,
-            required: true,
-        },
-    },
-};
+const props = defineProps<{
+    title: string;
+    subtitle: string;
+    data: string;
+    variant?: 'flat' | 'text' | 'elevated' | 'tonal' | 'outlined' | 'plain';
+    color?: string;
+}>();
 </script>

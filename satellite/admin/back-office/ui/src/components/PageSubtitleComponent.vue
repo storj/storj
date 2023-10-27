@@ -7,13 +7,8 @@
     </p>
 </template>
 
-<script lang="ts">
-export default {
-    props: {
-        subtitle: {
-            type: String,
-            required: true,
-        },
-    },
-};
+<script setup lang="ts">
+const props = defineProps<{
+    subtitle: string;
+}>();
 </script>

@@ -69,113 +69,95 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
 
-export default {
-    name: 'AccountsTableComponent',
-    components: {
-        VCard,
-        VTextField,
-        VBtn,
-        VIcon,
-        VChip,
-        VDataTable,
-        AccountActionsMenu,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'userid', order: 'asc' }]);
+
+const headers = [
+    { title: 'Account', key: 'email' },
+    { title: 'Name', key: 'name' },
+    // { title: 'ID', key: 'userid' },
+    // { title: 'Type', key: 'type' },
+    { title: 'Role', key: 'role' },
+    { title: 'Value', key: 'agent' },
+    { title: 'Date Added', key: 'date', align: 'start' },
+];
+const users = [
+    {
+        name: 'Magnolia Queen',
+        date: '12 Mar 2023',
+        type: 'Enterprise',
+        role: 'Member',
+        agent: 'Company',
+        email: 'magnolia@queen.com',
+        userid: '2521',
     },
-    data() {
-        return {
-            search: '',
-            selected: [],
-            sortBy: [{ key: 'userid', order: 'asc' }],
-            headers: [
-                { title: 'Account', key: 'email' },
-                { title: 'Name', key: 'name' },
-                // { title: 'ID', key: 'userid' },
-                // { title: 'Type', key: 'type' },
-                { title: 'Role', key: 'role' },
-                { title: 'Value', key: 'agent' },
-                { title: 'Date Added', key: 'date', align: 'start' },
-            ],
-            users: [
-                {
-                    name: 'Magnolia Queen',
-                    date: '12 Mar 2023',
-                    type: 'Enterprise',
-                    role: 'Member',
-                    agent: 'Company',
-                    email: 'magnolia@queen.com',
-                    userid: '2521',
-                },
-                {
-                    name: 'Irving Thacker',
-                    date: '30 May 2023',
-                    type: 'Pro',
-                    role: 'Owner',
-                    agent: 'Company',
-                    email: 'itacker@gmail.com',
-                    userid: '41',
-                },
-                {
-                    name: 'Brianne Deighton',
-                    date: '20 Mar 2023',
-                    type: 'Free',
-                    role: 'Member',
-                    projects: '1',
-                    storage: '1,000 TB',
-                    download: '3,000 TB',
-                    agent: 'Company',
-                    email: 'bd@rianne.net',
-                    userid: '87212',
-                },
-                {
-                    name: 'Vince Duke',
-                    date: '4 Apr 2023',
-                    type: 'Priority',
-                    role: 'Member',
-                    agent: 'User Agent',
-                    email: 'vduke@gmail.com',
-                    userid: '53212',
-                },
-                {
-                    name: 'Luvenia Breckinridge',
-                    date: '11 Jan 2023',
-                    type: 'Free',
-                    role: 'Member',
-                    agent: 'User Agent',
-                    email: 'lbreckinridge42@gmail.com',
-                    userid: '1244',
-                },
-                {
-                    name: 'Georgia Jordan',
-                    date: '15 Mar 2023',
-                    type: 'Pro',
-                    role: 'Member',
-                    agent: 'Agent',
-                    email: 'georgia@jordan.net',
-                    userid: '55524',
-                },
-            ],
-        };
+    {
+        name: 'Irving Thacker',
+        date: '30 May 2023',
+        type: 'Pro',
+        role: 'Owner',
+        agent: 'Company',
+        email: 'itacker@gmail.com',
+        userid: '41',
     },
-    computed: {
-        getColor() {
-            return (type) => {
-                if (type === 'Enterprise') return 'purple';
-                if (type === 'Priority') return 'secondary';
-                if (type === 'Pro') return 'success';
-                if (type === 'Suspended') return 'warning';
-                return 'default';
-            };
-        },
+    {
+        name: 'Brianne Deighton',
+        date: '20 Mar 2023',
+        type: 'Free',
+        role: 'Member',
+        projects: '1',
+        storage: '1,000 TB',
+        download: '3,000 TB',
+        agent: 'Company',
+        email: 'bd@rianne.net',
+        userid: '87212',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
+    {
+        name: 'Vince Duke',
+        date: '4 Apr 2023',
+        type: 'Priority',
+        role: 'Member',
+        agent: 'User Agent',
+        email: 'vduke@gmail.com',
+        userid: '53212',
     },
-};
+    {
+        name: 'Luvenia Breckinridge',
+        date: '11 Jan 2023',
+        type: 'Free',
+        role: 'Member',
+        agent: 'User Agent',
+        email: 'lbreckinridge42@gmail.com',
+        userid: '1244',
+    },
+    {
+        name: 'Georgia Jordan',
+        date: '15 Mar 2023',
+        type: 'Pro',
+        role: 'Member',
+        agent: 'Agent',
+        email: 'georgia@jordan.net',
+        userid: '55524',
+    },
+];
+
+function getColor(type: string) {
+    if (type === 'Enterprise') return 'purple';
+    if (type === 'Priority') return 'secondary';
+    if (type === 'Pro') return 'success';
+    if (type === 'Suspended') return 'warning';
+    return 'default';
+}
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
 </script>

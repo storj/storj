@@ -80,7 +80,7 @@
     </v-menu>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 
 import AccountInformationDialog from '@/components/AccountInformationDialog.vue';
@@ -92,24 +92,4 @@ import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
-
-export default {
-    name: 'AccountsActionsMenu',
-    components: {
-        VMenu,
-        VList,
-        VListItem,
-        VListItemTitle,
-        VDivider,
-        AccountResetMFADialog,
-        AccountSuspendDialog,
-        AccountDeleteDialog,
-        AccountNewProjectDialog,
-        AccountGeofenceDialog,
-        AccountUserAgentsDialog,
-        AccountLimitsDialog,
-        AccountInformationDialog,
-        AccountStatusDialog,
-    },
-};
 </script>

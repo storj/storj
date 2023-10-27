@@ -27,7 +27,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import { VContainer, VRow, VCol, VBtn } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -35,38 +36,7 @@ import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import NewProjectDialog from '@/components/NewProjectDialog.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VBtn,
-        PageTitleComponent,
-        PageSubtitleComponent,
-        ProjectsTableComponent,
-        NewProjectDialog,
-    },
-    data() {
-        return {
-            dialog: false,
-            valid: false,
-            search: '',
-            email: '',
-            emailRules: [
-                value => {
-                    if (value) return true;
-
-                    return 'E-mail is requred.';
-                },
-                value => {
-                    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) return true;
-                    return 'E-mail must be valid.';
-                },
-            ],
-        };
-    },
-    mounted() {
-        document.title = 'Storj Admin - Projects';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Projects';
+});
 </script>

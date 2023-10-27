@@ -48,7 +48,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import { VContainer, VRow, VCol, VBtn } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -56,26 +57,7 @@ import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import AccountsTableComponent from '@/components/AccountsTableComponent.vue';
 import NewAccountDialog from '@/components/NewAccountDialog.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VBtn,
-        PageTitleComponent,
-        PageSubtitleComponent,
-        AccountsTableComponent,
-        NewAccountDialog,
-    },
-    data() {
-        return {
-            dialog: false,
-            valid: false,
-            search: '',
-        };
-    },
-    mounted() {
-        document.title = 'Storj Admin - Accounts';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Accounts';
+});
 </script>

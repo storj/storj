@@ -47,7 +47,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import { VContainer, VRow, VCol, VCard, VDivider } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -55,20 +56,7 @@ import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import DashboardLimitsTableComponent from '@/components/DashboardLimitsTableComponent.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VCard,
-        VDivider,
-        PageTitleComponent,
-        PageSubtitleComponent,
-        CardStatsComponent,
-        DashboardLimitsTableComponent,
-    },
-    mounted() {
-        document.title = 'Storj Admin - Dashboard';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Dashboard';
+});
 </script>

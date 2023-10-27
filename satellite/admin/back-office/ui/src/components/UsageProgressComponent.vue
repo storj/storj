@@ -35,7 +35,7 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import {
     VCard,
     VCardItem,
@@ -46,45 +46,13 @@ import {
     VBtn,
 } from 'vuetify/components';
 
-export default {
-    components: {
-        VCard,
-        VCardItem,
-        VRow,
-        VCol,
-        VProgressLinear,
-        VDivider,
-        VBtn,
-    },
-    props: {
-        title: {
-            type: String,
-            required: true,
-        },
-        progress: {
-            type: Number,
-            required: true,
-        },
-        used: {
-            type: String,
-            required: true,
-        },
-        limit: {
-            type: String,
-            required: true,
-        },
-        available: {
-            type: String,
-            required: true,
-        },
-        percentage: {
-            type: String,
-            required: true,
-        },
-        color: {
-            type: String,
-            required: true,
-        },
-    },
-};
+const props = defineProps<{
+    title: string;
+    progress: number;
+    used: string;
+    limit: string;
+    available: string;
+    percentage: string;
+    color: string;
+}>();
 </script>

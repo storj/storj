@@ -168,7 +168,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -193,37 +194,7 @@ import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VChip,
-        VTooltip,
-        VBtn,
-        VIcon,
-        VCard,
-        VCardText,
-        VDivider,
-        PageTitleComponent,
-        UsageProgressComponent,
-        BucketsTableComponent,
-        LogsTableComponent,
-        UsersTableComponent,
-        ProjectActionsMenu,
-        ProjectGeofenceDialog,
-        ProjectUserAgentsDialog,
-        ProjectLimitsDialog,
-        ProjectInformationDialog,
-    },
-    data() {
-        return {
-            dialog: false,
-            valid: false,
-        };
-    },
-    mounted() {
-        document.title = 'Storj Admin - Project Details';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Project Details';
+});
 </script>

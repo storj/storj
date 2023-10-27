@@ -85,98 +85,83 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VCard, VTextField, VBtn, VIcon, VTooltip, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
-export default {
-    components: {
-        VCard,
-        VTextField,
-        VBtn,
-        VIcon,
-        VTooltip,
-        VChip,
-        VDataTable,
-        ProjectActionsMenu,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'name', order: 'asc' }]);
+
+const headers = [
+    { title: 'Project ID', key: 'projectid', align: 'start' },
+    // { title: 'Name', key: 'name'},
+    { title: 'Storage Used', key: 'storagepercent' },
+    { title: 'Storage Used', key: 'storageused' },
+    { title: 'Storage Limit', key: 'storagelimit' },
+    { title: 'Download Used', key: 'downloadpercent' },
+    { title: 'Download Used', key: 'downloadused' },
+    { title: 'Download Limit', key: 'downloadlimit' },
+    { title: 'Segments Used', key: 'segmentpercent' },
+    // { title: 'Value Attribution', key: 'agent' },
+    // { title: 'Date Created', key: 'date' },
+];
+const files = [
+    {
+        name: 'My First Project',
+        projectid: 'F82SR21Q284JF',
+        storageused: '150 TB',
+        storagelimit: '300 TB',
+        storagepercent: '50',
+        downloadused: '100 TB',
+        downloadlimit: '100 TB',
+        downloadpercent: '100',
+        segmentpercent: '43',
+        agent: 'Test Agent',
+        date: '02 Mar 2023',
     },
-    data() {
-        return {
-            // search in the table
-            search: '',
-            selected: [],
-            sortBy: [{ key: 'name', order: 'asc' }],
-            headers: [
-                { title: 'Project ID', key: 'projectid', align: 'start' },
-                // { title: 'Name', key: 'name'},
-                { title: 'Storage Used', key: 'storagepercent' },
-                { title: 'Storage Used', key: 'storageused' },
-                { title: 'Storage Limit', key: 'storagelimit' },
-                { title: 'Download Used', key: 'downloadpercent' },
-                { title: 'Download Used', key: 'downloadused' },
-                { title: 'Download Limit', key: 'downloadlimit' },
-                { title: 'Segments Used', key: 'segmentpercent' },
-                // { title: 'Value Attribution', key: 'agent' },
-                // { title: 'Date Created', key: 'date' },
-            ],
-            files: [
-                {
-                    name: 'My First Project',
-                    projectid: 'F82SR21Q284JF',
-                    storageused: '150 TB',
-                    storagelimit: '300 TB',
-                    storagepercent: '50',
-                    downloadused: '100 TB',
-                    downloadlimit: '100 TB',
-                    downloadpercent: '100',
-                    segmentpercent: '43',
-                    agent: 'Test Agent',
-                    date: '02 Mar 2023',
-                },
-                {
-                    name: 'Personal Project',
-                    projectid: '284JFF82SR21Q',
-                    storageused: '24 TB',
-                    storagelimit: '30 TB',
-                    storagepercent: '80',
-                    downloadused: '7 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '20',
-                    downloadpercent: '7',
-                    agent: 'Agent',
-                    date: '21 Apr 2023',
-                },
-                {
-                    name: 'Test Project',
-                    projectid: '82SR21Q284JFF',
-                    storageused: '99 TB',
-                    storagelimit: '100 TB',
-                    storagepercent: '99',
-                    downloadused: '85 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '83',
-                    downloadpercent: '85',
-                    agent: 'Company',
-                    date: '21 Apr 2023',
-                },
-            ],
-        };
+    {
+        name: 'Personal Project',
+        projectid: '284JFF82SR21Q',
+        storageused: '24 TB',
+        storagelimit: '30 TB',
+        storagepercent: '80',
+        downloadused: '7 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '20',
+        downloadpercent: '7',
+        agent: 'Agent',
+        date: '21 Apr 2023',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
-        getPercentColor(percent) {
-            if (percent >= 99) {
-                return 'error';
-            } else if (percent >= 80) {
-                return 'warning';
-            } else {
-                return 'success';
-            }
-        },
+    {
+        name: 'Test Project',
+        projectid: '82SR21Q284JFF',
+        storageused: '99 TB',
+        storagelimit: '100 TB',
+        storagepercent: '99',
+        downloadused: '85 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '83',
+        downloadpercent: '85',
+        agent: 'Company',
+        date: '21 Apr 2023',
     },
-};
+];
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
+
+function getPercentColor(percent: number) {
+    if (percent >= 99) {
+        return 'error';
+    } else if (percent >= 80) {
+        return 'warning';
+    } else {
+        return 'success';
+    }
+}
 </script>

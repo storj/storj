@@ -81,221 +81,203 @@
     </v-card>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
 
-export default {
-    name: 'AccountsTableComponent',
-    components: {
-        VCard,
-        VTextField,
-        VBtn,
-        VIcon,
-        VChip,
-        VDataTable,
-        AccountActionsMenu,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'email', order: 'asc' }]);
+
+const headers = [
+    { title: 'Account', key: 'email' },
+    { title: 'Type', key: 'type' },
+    // { title: 'Name', key: 'name' },
+    { title: 'Projects', key: 'projects' },
+    { title: 'Storage', key: 'storage' },
+    { title: 'Download', key: 'download' },
+    { title: 'Status', key: 'status' },
+    { title: 'Value', key: 'agent' },
+    { title: 'Placement', key: 'placement' },
+    { title: 'ID', key: 'userid' },
+    { title: 'Created', key: 'date', align: 'start' },
+];
+const users = [
+    {
+        name: 'Magnolia Queen',
+        date: '12 Mar 2023',
+        type: 'Enterprise',
+        status: 'Active',
+        projects: '8',
+        storage: '1,000 TB',
+        download: '3,000 TB',
+        agent: 'Company',
+        email: 'magnolia@queen.com',
+        placement: 'global',
+        userid: '2521',
     },
-    data() {
-        return {
-            search: '',
-            selected: [],
-            sortBy: [{ key: 'email', order: 'asc' }],
-            headers: [
-                { title: 'Account', key: 'email' },
-                { title: 'Type', key: 'type' },
-                // { title: 'Name', key: 'name' },
-                { title: 'Projects', key: 'projects' },
-                { title: 'Storage', key: 'storage' },
-                { title: 'Download', key: 'download' },
-                { title: 'Status', key: 'status' },
-                { title: 'Value', key: 'agent' },
-                { title: 'Placement', key: 'placement' },
-                { title: 'ID', key: 'userid' },
-                { title: 'Created', key: 'date', align: 'start' },
-            ],
-            users: [
-                {
-                    name: 'Magnolia Queen',
-                    date: '12 Mar 2023',
-                    type: 'Enterprise',
-                    status: 'Active',
-                    projects: '8',
-                    storage: '1,000 TB',
-                    download: '3,000 TB',
-                    agent: 'Company',
-                    email: 'magnolia@queen.com',
-                    placement: 'global',
-                    userid: '2521',
-                },
-                {
-                    name: 'Irving Thacker',
-                    date: '30 May 2023',
-                    type: 'Enterprise',
-                    status: 'Active',
-                    projects: '3',
-                    storage: '1,000 TB',
-                    download: '3,000 TB',
-                    agent: 'Company',
-                    email: 'itacker@gmail.com',
-                    placement: 'global',
-                    userid: '41',
-                },
-                {
-                    name: 'Brianne Deighton',
-                    date: '20 Mar 2023',
-                    type: 'Enterprise',
-                    status: 'Active',
-                    projects: '1',
-                    storage: '1,000 TB',
-                    download: '3,000 TB',
-                    agent: 'Company',
-                    email: 'bd@rianne.net',
-                    placement: 'global',
-                    userid: '87212',
-                },
-                {
-                    name: 'Vince Duke',
-                    date: '4 Apr 2023',
-                    type: 'Priority',
-                    status: 'Active',
-                    projects: '5',
-                    storage: '500 TB',
-                    download: '500 TB',
-                    agent: 'User Agent',
-                    email: 'vduke@gmail.com',
-                    placement: 'global',
-                    userid: '53212',
-                },
-                {
-                    name: 'Aurora Knowles',
-                    date: '15 Mar 2023',
-                    type: 'Priority',
-                    status: 'Active',
-                    projects: '5',
-                    storage: '500 TB',
-                    download: '500 TB',
-                    agent: 'User Agent',
-                    email: 'knowles@aurora.io',
-                    placement: 'global',
-                    userid: '2',
-                },
-                {
-                    name: 'Luvenia Breckinridge',
-                    date: '11 Jan 2023',
-                    type: 'Priority',
-                    status: 'Frozen',
-                    projects: '3',
-                    storage: '500 TB',
-                    download: '500 TB',
-                    agent: 'User Agent',
-                    email: 'lbreckinridge42@gmail.com',
-                    placement: 'global',
-                    userid: '1244',
-                },
-                {
-                    name: 'Georgia Jordan',
-                    date: '15 Mar 2023',
-                    type: 'Pro',
-                    status: 'Active',
-                    projects: '3',
-                    storage: '75 TB',
-                    download: '300 TB',
-                    agent: 'Agent',
-                    email: 'georgia@jordan.net',
-                    placement: 'global',
-                    userid: '55524',
-                },
-                {
-                    name: 'Mckayla Bird',
-                    date: '5 May 2023',
-                    type: 'Pro',
-                    status: 'Active',
-                    projects: '2',
-                    storage: '75 TB',
-                    download: '300 TB',
-                    agent: 'Agent',
-                    email: 'mckaylabird@gmail.com',
-                    placement: 'global',
-                    userid: '102852',
-                },
-                {
-                    name: 'Herb Hamilton',
-                    date: '15 Mar 2023',
-                    type: 'Pro',
-                    status: 'Active',
-                    projects: '3',
-                    storage: '75 TB',
-                    download: '300 TB',
-                    agent: 'Agent',
-                    email: 'herbh@gmail.com',
-                    placement: 'global',
-                    userid: '248',
-                },
-                {
-                    name: 'Tria Goddard',
-                    date: '10 Mar 2023',
-                    type: 'Free',
-                    status: 'Frozen',
-                    projects: '1',
-                    storage: '1 TB',
-                    download: '3 TB',
-                    agent: 'Name',
-                    email: 'tg@tria.com',
-                    placement: 'global',
-                    userid: '12515',
-                },
-                {
-                    name: 'Scarlett Trevis',
-                    date: '24 Mar 2023',
-                    type: 'Free',
-                    status: 'Active',
-                    projects: '1',
-                    storage: '1 TB',
-                    download: '3 TB',
-                    agent: 'Name',
-                    email: 'sctrevis@gmail.com',
-                    placement: 'global',
-                    userid: '821',
-                },
-                {
-                    name: 'Destiny Brett',
-                    date: '29 Mar 2023',
-                    type: 'Free',
-                    status: 'Suspended',
-                    projects: '1',
-                    storage: '0 TB',
-                    download: '0 TB',
-                    agent: 'Test',
-                    email: 'destiny@gmail.com',
-                    placement: 'global',
-                    userid: '25808',
-                },
-            ],
-        };
+    {
+        name: 'Irving Thacker',
+        date: '30 May 2023',
+        type: 'Enterprise',
+        status: 'Active',
+        projects: '3',
+        storage: '1,000 TB',
+        download: '3,000 TB',
+        agent: 'Company',
+        email: 'itacker@gmail.com',
+        placement: 'global',
+        userid: '41',
     },
-    computed: {
-        getColor() {
-            return (type) => {
-                if (type === 'Enterprise') return 'purple';
-                if (type === 'Priority') return 'secondary';
-                if (type === 'Pro') return 'success';
-                if (type === 'Free') return 'default';
-                if (type === 'Active') return 'success';
-                if (type === 'Inactive') return 'default';
-                if (type === 'Frozen') return 'warning';
-                if (type === 'Suspended') return 'error';
-                if (type === 'Deleted') return 'error';
-                return 'default';
-            };
-        },
+    {
+        name: 'Brianne Deighton',
+        date: '20 Mar 2023',
+        type: 'Enterprise',
+        status: 'Active',
+        projects: '1',
+        storage: '1,000 TB',
+        download: '3,000 TB',
+        agent: 'Company',
+        email: 'bd@rianne.net',
+        placement: 'global',
+        userid: '87212',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
+    {
+        name: 'Vince Duke',
+        date: '4 Apr 2023',
+        type: 'Priority',
+        status: 'Active',
+        projects: '5',
+        storage: '500 TB',
+        download: '500 TB',
+        agent: 'User Agent',
+        email: 'vduke@gmail.com',
+        placement: 'global',
+        userid: '53212',
     },
-};
+    {
+        name: 'Aurora Knowles',
+        date: '15 Mar 2023',
+        type: 'Priority',
+        status: 'Active',
+        projects: '5',
+        storage: '500 TB',
+        download: '500 TB',
+        agent: 'User Agent',
+        email: 'knowles@aurora.io',
+        placement: 'global',
+        userid: '2',
+    },
+    {
+        name: 'Luvenia Breckinridge',
+        date: '11 Jan 2023',
+        type: 'Priority',
+        status: 'Frozen',
+        projects: '3',
+        storage: '500 TB',
+        download: '500 TB',
+        agent: 'User Agent',
+        email: 'lbreckinridge42@gmail.com',
+        placement: 'global',
+        userid: '1244',
+    },
+    {
+        name: 'Georgia Jordan',
+        date: '15 Mar 2023',
+        type: 'Pro',
+        status: 'Active',
+        projects: '3',
+        storage: '75 TB',
+        download: '300 TB',
+        agent: 'Agent',
+        email: 'georgia@jordan.net',
+        placement: 'global',
+        userid: '55524',
+    },
+    {
+        name: 'Mckayla Bird',
+        date: '5 May 2023',
+        type: 'Pro',
+        status: 'Active',
+        projects: '2',
+        storage: '75 TB',
+        download: '300 TB',
+        agent: 'Agent',
+        email: 'mckaylabird@gmail.com',
+        placement: 'global',
+        userid: '102852',
+    },
+    {
+        name: 'Herb Hamilton',
+        date: '15 Mar 2023',
+        type: 'Pro',
+        status: 'Active',
+        projects: '3',
+        storage: '75 TB',
+        download: '300 TB',
+        agent: 'Agent',
+        email: 'herbh@gmail.com',
+        placement: 'global',
+        userid: '248',
+    },
+    {
+        name: 'Tria Goddard',
+        date: '10 Mar 2023',
+        type: 'Free',
+        status: 'Frozen',
+        projects: '1',
+        storage: '1 TB',
+        download: '3 TB',
+        agent: 'Name',
+        email: 'tg@tria.com',
+        placement: 'global',
+        userid: '12515',
+    },
+    {
+        name: 'Scarlett Trevis',
+        date: '24 Mar 2023',
+        type: 'Free',
+        status: 'Active',
+        projects: '1',
+        storage: '1 TB',
+        download: '3 TB',
+        agent: 'Name',
+        email: 'sctrevis@gmail.com',
+        placement: 'global',
+        userid: '821',
+    },
+    {
+        name: 'Destiny Brett',
+        date: '29 Mar 2023',
+        type: 'Free',
+        status: 'Suspended',
+        projects: '1',
+        storage: '0 TB',
+        download: '0 TB',
+        agent: 'Test',
+        email: 'destiny@gmail.com',
+        placement: 'global',
+        userid: '25808',
+    },
+];
+
+function getColor(type: string) {
+    if (type === 'Enterprise') return 'purple';
+    if (type === 'Priority') return 'secondary';
+    if (type === 'Pro') return 'success';
+    if (type === 'Free') return 'default';
+    if (type === 'Active') return 'success';
+    if (type === 'Inactive') return 'default';
+    if (type === 'Frozen') return 'warning';
+    if (type === 'Suspended') return 'error';
+    if (type === 'Deleted') return 'error';
+    return 'default';
+}
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
 </script>

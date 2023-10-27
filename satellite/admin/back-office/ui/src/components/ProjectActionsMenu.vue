@@ -65,7 +65,7 @@
     </v-menu>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
 
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
@@ -75,22 +75,4 @@ import ProjectGeofenceDialog from '@/components/ProjectGeofenceDialog.vue';
 import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectAddUserDialog from '@/components/ProjectAddUserDialog.vue';
-
-export default {
-    name: 'ProjectActionsMenu',
-    components: {
-        VMenu,
-        VList,
-        VListItem,
-        VListItemTitle,
-        VDivider,
-        ProjectDeleteDialog,
-        ProjectNewBucketDialog,
-        ProjectGeofenceDialog,
-        ProjectUserAgentsDialog,
-        ProjectLimitsDialog,
-        ProjectAddUserDialog,
-        ProjectInformationDialog,
-    },
-};
 </script>

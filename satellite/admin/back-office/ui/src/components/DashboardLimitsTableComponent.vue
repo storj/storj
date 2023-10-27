@@ -98,180 +98,167 @@
         </template>
     </v-data-table>
 </template>
-<script lang="ts">
+
+<script setup lang="ts">
+import { ref } from 'vue';
 import { VTextField, VBtn, VIcon, VChip, VTooltip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
-export default {
-    components: {
-        VTextField,
-        VBtn,
-        VIcon,
-        VChip,
-        VTooltip,
-        VDataTable,
-        ProjectActionsMenu,
+const search = ref<string>('');
+const selected = ref<string[]>([]);
+const sortBy = ref([{ key: 'name', order: 'asc' }]);
+
+const headers = [
+    { title: 'Project ID', key: 'projectid', align: 'start' },
+    // { title: 'Name', key: 'name'},
+    { title: 'Account', key: 'email' },
+    { title: 'Storage Used', key: 'storagepercent' },
+    { title: 'Storage Used', key: 'storageused' },
+    { title: 'Storage Limit', key: 'storagelimit' },
+    { title: 'Download Used', key: 'downloadpercent' },
+    { title: 'Download Used', key: 'downloadused' },
+    { title: 'Download Limit', key: 'downloadlimit' },
+    { title: 'Segments Used', key: 'segmentpercent' },
+    { title: 'Value', key: 'agent' },
+    { title: 'Placement', key: 'placement' },
+    { title: 'Created', key: 'date' },
+];
+const projects = [
+    {
+        name: 'Personal Project',
+        email: 'knowles@aurora.io',
+        projectid: '284JFF82SR21Q',
+        storageused: '150 TB',
+        storagelimit: '300 TB',
+        storagepercent: '50',
+        downloadused: '100 TB',
+        downloadlimit: '100 TB',
+        downloadpercent: '100',
+        segmentpercent: '43',
+        placement: 'Global',
+        agent: 'Agent',
+        date: '21 Apr 2023',
     },
-    data() {
-        return {
-            // search in the table
-            search: '',
-            selected: [],
-            sortBy: [{ key: 'name', order: 'asc' }],
-            headers: [
-                { title: 'Project ID', key: 'projectid', align: 'start' },
-                // { title: 'Name', key: 'name'},
-                { title: 'Account', key: 'email' },
-                { title: 'Storage Used', key: 'storagepercent' },
-                { title: 'Storage Used', key: 'storageused' },
-                { title: 'Storage Limit', key: 'storagelimit' },
-                { title: 'Download Used', key: 'downloadpercent' },
-                { title: 'Download Used', key: 'downloadused' },
-                { title: 'Download Limit', key: 'downloadlimit' },
-                { title: 'Segments Used', key: 'segmentpercent' },
-                { title: 'Value', key: 'agent' },
-                { title: 'Placement', key: 'placement' },
-                { title: 'Created', key: 'date' },
-            ],
-            projects: [
-                {
-                    name: 'Personal Project',
-                    email: 'knowles@aurora.io',
-                    projectid: '284JFF82SR21Q',
-                    storageused: '150 TB',
-                    storagelimit: '300 TB',
-                    storagepercent: '50',
-                    downloadused: '100 TB',
-                    downloadlimit: '100 TB',
-                    downloadpercent: '100',
-                    segmentpercent: '43',
-                    placement: 'Global',
-                    agent: 'Agent',
-                    date: '21 Apr 2023',
-                },
-                {
-                    name: 'Videos',
-                    email: 'vduke@gmail.com',
-                    projectid: '482SR21Q223JA',
-                    storageused: '24 TB',
-                    storagelimit: '30 TB',
-                    storagepercent: '80',
-                    downloadused: '7 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '20',
-                    downloadpercent: '7',
-                    placement: 'Global',
-                    agent: 'Test Agent',
-                    date: '11 Mar 2023',
-                },
-                {
-                    name: 'App',
-                    email: 'vduke@gmail.com',
-                    projectid: '56F82SR21Q284',
-                    storageused: '150 TB',
-                    storagelimit: '300 TB',
-                    storagepercent: '50',
-                    downloadused: '100 TB',
-                    downloadlimit: '100 TB',
-                    downloadpercent: '100',
-                    segmentpercent: '43',
-                    placement: 'Global',
-                    agent: 'Test Agent',
-                    date: '11 Mar 2023',
-                },
-                {
-                    name: 'Backup',
-                    email: 'knowles@aurora.io',
-                    projectid: '624QXF42SR20S',
-                    storageused: '99 TB',
-                    storagelimit: '100 TB',
-                    storagepercent: '99',
-                    downloadused: '85 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '83',
-                    downloadpercent: '85',
-                    placement: 'Global',
-                    agent: 'Agent',
-                    date: '21 Apr 2023',
-                },
-                {
-                    name: 'My Project',
-                    email: 'sctrevis@gmail.com',
-                    projectid: 'P33Q284JFF8FF',
-                    storageused: '24 TB',
-                    storagelimit: '30 TB',
-                    storagepercent: '80',
-                    downloadused: '7 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '20',
-                    downloadpercent: '7',
-                    placement: 'Global',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Sync',
-                    email: 'sctrevis@gmail.com',
-                    projectid: 'W22S284JFF8ZZ',
-                    storageused: '150 TB',
-                    storagelimit: '300 TB',
-                    storagepercent: '50',
-                    downloadused: '100 TB',
-                    downloadlimit: '100 TB',
-                    downloadpercent: '100',
-                    segmentpercent: '43',
-                    placement: 'Global',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Backupss',
-                    email: 'destiny@gmail.com',
-                    projectid: '2SFX284JFF8TS',
-                    storageused: '99 TB',
-                    storagelimit: '100 TB',
-                    storagepercent: '99',
-                    downloadused: '85 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '83',
-                    downloadpercent: '85',
-                    placement: 'Global',
-                    agent: 'Random',
-                    date: '24 Mar 2023',
-                },
-                {
-                    name: 'Destiny',
-                    email: 'destiny@gmail.com',
-                    projectid: 'FGXZ484IF42TM',
-                    storageused: '24 TB',
-                    storagelimit: '30 TB',
-                    storagepercent: '80',
-                    downloadused: '7 TB',
-                    downloadlimit: '100 TB',
-                    segmentpercent: '20',
-                    downloadpercent: '7',
-                    placement: 'Global',
-                    agent: 'Random',
-                    date: '29 Mar 2023',
-                },
-            ],
-        };
+    {
+        name: 'Videos',
+        email: 'vduke@gmail.com',
+        projectid: '482SR21Q223JA',
+        storageused: '24 TB',
+        storagelimit: '30 TB',
+        storagepercent: '80',
+        downloadused: '7 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '20',
+        downloadpercent: '7',
+        placement: 'Global',
+        agent: 'Test Agent',
+        date: '11 Mar 2023',
     },
-    methods: {
-        setSearch(searchText) {
-            this.search = searchText;
-        },
-        getPercentColor(percent) {
-            if (percent >= 99) {
-                return 'error';
-            } else if (percent >= 80) {
-                return 'warning';
-            } else {
-                return 'success';
-            }
-        },
+    {
+        name: 'App',
+        email: 'vduke@gmail.com',
+        projectid: '56F82SR21Q284',
+        storageused: '150 TB',
+        storagelimit: '300 TB',
+        storagepercent: '50',
+        downloadused: '100 TB',
+        downloadlimit: '100 TB',
+        downloadpercent: '100',
+        segmentpercent: '43',
+        placement: 'Global',
+        agent: 'Test Agent',
+        date: '11 Mar 2023',
     },
-};
+    {
+        name: 'Backup',
+        email: 'knowles@aurora.io',
+        projectid: '624QXF42SR20S',
+        storageused: '99 TB',
+        storagelimit: '100 TB',
+        storagepercent: '99',
+        downloadused: '85 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '83',
+        downloadpercent: '85',
+        placement: 'Global',
+        agent: 'Agent',
+        date: '21 Apr 2023',
+    },
+    {
+        name: 'My Project',
+        email: 'sctrevis@gmail.com',
+        projectid: 'P33Q284JFF8FF',
+        storageused: '24 TB',
+        storagelimit: '30 TB',
+        storagepercent: '80',
+        downloadused: '7 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '20',
+        downloadpercent: '7',
+        placement: 'Global',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Sync',
+        email: 'sctrevis@gmail.com',
+        projectid: 'W22S284JFF8ZZ',
+        storageused: '150 TB',
+        storagelimit: '300 TB',
+        storagepercent: '50',
+        downloadused: '100 TB',
+        downloadlimit: '100 TB',
+        downloadpercent: '100',
+        segmentpercent: '43',
+        placement: 'Global',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Backupss',
+        email: 'destiny@gmail.com',
+        projectid: '2SFX284JFF8TS',
+        storageused: '99 TB',
+        storagelimit: '100 TB',
+        storagepercent: '99',
+        downloadused: '85 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '83',
+        downloadpercent: '85',
+        placement: 'Global',
+        agent: 'Random',
+        date: '24 Mar 2023',
+    },
+    {
+        name: 'Destiny',
+        email: 'destiny@gmail.com',
+        projectid: 'FGXZ484IF42TM',
+        storageused: '24 TB',
+        storagelimit: '30 TB',
+        storagepercent: '80',
+        downloadused: '7 TB',
+        downloadlimit: '100 TB',
+        segmentpercent: '20',
+        downloadpercent: '7',
+        placement: 'Global',
+        agent: 'Random',
+        date: '29 Mar 2023',
+    },
+];
+
+function setSearch(searchText: string) {
+    search.value = searchText;
+}
+
+function getPercentColor(percent: number) {
+    if (percent >= 99) {
+        return 'error';
+    } else if (percent >= 80) {
+        return 'warning';
+    } else {
+        return 'success';
+    }
+}
 </script>

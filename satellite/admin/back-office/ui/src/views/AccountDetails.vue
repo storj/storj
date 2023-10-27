@@ -135,7 +135,8 @@
     </v-container>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -159,36 +160,7 @@ import AccountInformationDialog from '@/components/AccountInformationDialog.vue'
 import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 
-export default {
-    components: {
-        VContainer,
-        VRow,
-        VCol,
-        VChip,
-        VTooltip,
-        VIcon,
-        VCard,
-        VCardText,
-        VDivider,
-        VBtn,
-        PageTitleComponent,
-        AccountProjectsTableComponent,
-        LogsTableComponent,
-        AccountActionsMenu,
-        AccountUserAgentsDialog,
-        AccountGeofenceDialog,
-        AccountInformationDialog,
-        AccountStatusDialog,
-        CardStatsComponent,
-    },
-    data() {
-        return {
-            dialog: false,
-            valid: false,
-        };
-    },
-    mounted() {
-        document.title = 'Storj Admin - Account Details';
-    },
-};
+onMounted(() => {
+    document.title = 'Storj Admin - Account Details';
+});
 </script>

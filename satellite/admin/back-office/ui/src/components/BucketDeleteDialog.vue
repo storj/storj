@@ -74,7 +74,7 @@
     </v-dialog>
 
     <v-snackbar v-model="snackbar" :timeout="7000" color="success">
-        {{ text }}
+        The bucket was deleted successfully.
         <template #actions>
             <v-btn color="default" variant="text" @click="snackbar = false">
                 Close
@@ -83,7 +83,8 @@
     </v-snackbar>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -102,36 +103,11 @@ import {
     VAlert,
 } from 'vuetify/components';
 
-export default {
-    components: {
-        VDialog,
-        VCard,
-        VSheet,
-        VCardItem,
-        VCardTitle,
-        VBtn,
-        VDivider,
-        VForm,
-        VRow,
-        VCol,
-        VSelect,
-        VTextField,
-        VCardActions,
-        VSnackbar,
-        VAlert,
-    },
-    data() {
-        return {
-            snackbar: false,
-            text: `The bucket was deleted successfully.`,
-            dialog: false,
-        };
-    },
-    methods: {
-        onButtonClick() {
-            this.snackbar = true;
-            this.dialog = false;
-        },
-    },
-};
+const snackbar = ref<boolean>(false);
+const dialog = ref<boolean>(false);
+
+function onButtonClick() {
+    snackbar.value = true;
+    dialog.value = false;
+}
 </script>
