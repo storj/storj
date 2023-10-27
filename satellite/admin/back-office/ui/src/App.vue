@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-  <router-view />
+    <router-view />
 </template>
 
-<script setup>
-  //
+<script setup lang="ts">
+//
 </script>

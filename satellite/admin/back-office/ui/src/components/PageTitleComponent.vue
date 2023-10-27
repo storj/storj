@@ -2,11 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-  <h1 class="text-h5 font-weight-bold my-2">{{ title }}</h1>
+    <h1 class="text-h5 font-weight-bold my-2">{{ title }}</h1>
 </template>
 
-<script>
+<script lang="ts">
 export default {
-  props: ['title']
-}
+    props: {
+        title: {
+            type: String,
+            required: true,
+        },
+    },
+};
 </script>

@@ -2,91 +2,125 @@
 // See LICENSE for copying information.
 
 <template>
-  <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
-    <v-card rounded="xlg">
+    <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
+        <v-card rounded="xlg">
+            <v-sheet>
+                <v-card-item class="pl-7 py-4">
+                    <template #prepend>
+                        <v-card-title class="font-weight-bold">
+                            Account Information
+                        </v-card-title>
+                    </template>
 
-      <v-sheet>
-        <v-card-item class="pl-7 py-4">
-          <template v-slot:prepend>
-            <v-card-title class="font-weight-bold">
-              Account Information
-            </v-card-title>
-          </template>
+                    <template #append>
+                        <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false" />
+                    </template>
+                </v-card-item>
+            </v-sheet>
 
-          <template v-slot:append>
-            <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false"></v-btn>
-          </template>
-        </v-card-item>
-      </v-sheet>
+            <v-divider />
 
-      <v-divider></v-divider>
+            <v-form v-model="valid" class="pa-7">
+                <v-row>
+                    <v-col cols="12">
+                        <p>Edit the name, email, and account type.</p>
+                    </v-col>
+                </v-row>
 
-      <v-form v-model="valid" class="pa-7">
+                <v-row>
+                    <v-col cols="12">
+                        <v-text-field
+                            model-value="Irving Tacker" label="Account Name" variant="outlined"
+                            hide-details="auto"
+                        />
+                    </v-col>
 
-        <v-row>
-          <v-col cols="12">
-            <p>Edit the name, email, and account type.</p>
-          </v-col>
-        </v-row>
+                    <v-col cols="12">
+                        <v-text-field model-value="itacker@gmail.com" label="Account Email" hide-details="auto" />
+                    </v-col>
 
-        <v-row>
-          <v-col cols="12">
-            <v-text-field model-value="Irving Tacker" label="Account Name" variant="outlined"
-              hide-details="auto"></v-text-field>
-          </v-col>
+                    <v-col cols="12">
+                        <v-select
+                            label="Account Type" placeholder="Select the account type"
+                            :items="['Free', 'Pro', 'Priority', 'Enterprise']" model-value="Pro" chips required variant="outlined"
+                            hide-details="auto"
+                        />
+                    </v-col>
+                </v-row>
+            </v-form>
 
-          <v-col cols="12">
-            <v-text-field model-value="itacker@gmail.com" label="Account Email" hide-details="auto"></v-text-field>
-          </v-col>
+            <v-divider />
 
-          <v-col cols="12">
-            <v-select label="Account Type" placeholder="Select the account type"
-              :items="['Free', 'Pro', 'Priority', 'Enterprise']" model-value="Pro" chips required variant="outlined"
-              hide-details="auto"></v-select>
-          </v-col>
-        </v-row>
+            <v-card-actions class="pa-7">
+                <v-row>
+                    <v-col>
+                        <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn color="primary" variant="flat" block :loading="loading" @click="onButtonClick">Save</v-btn>
+                    </v-col>
+                </v-row>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 
-      </v-form>
-
-      <v-divider></v-divider>
-
-      <v-card-actions class="pa-7">
-        <v-row>
-          <v-col>
-            <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
-          </v-col>
-          <v-col>
-            <v-btn color="primary" variant="flat" block :loading="loading" @click="onButtonClick">Save</v-btn>
-          </v-col>
-        </v-row>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <v-snackbar :timeout="7000" v-model="snackbar" color="success">
-    {{ text }}
-    <template v-slot:actions>
-      <v-btn color="default" variant="text" @click="snackbar = false">
-        Close
-      </v-btn>
-    </template>
-  </v-snackbar>
+    <v-snackbar v-model="snackbar" :timeout="7000" color="success">
+        {{ text }}
+        <template #actions>
+            <v-btn color="default" variant="text" @click="snackbar = false">
+                Close
+            </v-btn>
+        </template>
+    </v-snackbar>
 </template>
-  
-<script>
+
+<script lang="ts">
+import {
+    VDialog,
+    VCard,
+    VSheet,
+    VCardItem,
+    VCardTitle,
+    VBtn,
+    VDivider,
+    VForm,
+    VRow,
+    VCol,
+    VTextField,
+    VCardActions,
+    VSnackbar,
+    VSelect,
+} from 'vuetify/components';
+
 export default {
-  data() {
-    return {
-      snackbar: false,
-      text: `Successfully saved the account information.`,
-      dialog: false,
-    }
-  },
-  methods: {
-    onButtonClick() {
-      this.snackbar = true;
-      this.dialog = false;
-    }
-  }
-}
+    components: {
+        VDialog,
+        VCard,
+        VSheet,
+        VCardItem,
+        VCardTitle,
+        VBtn,
+        VDivider,
+        VForm,
+        VRow,
+        VCol,
+        VTextField,
+        VCardActions,
+        VSnackbar,
+        VSelect,
+    },
+    data() {
+        return {
+            snackbar: false,
+            text: `Successfully saved the account information.`,
+            dialog: false,
+        };
+    },
+    methods: {
+        onButtonClick() {
+            this.snackbar = true;
+            this.dialog = false;
+        },
+    },
+};
 </script>
