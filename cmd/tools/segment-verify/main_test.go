@@ -58,6 +58,7 @@ func TestCommandLineTool(t *testing.T) {
 		problemPiecesCSV := ctx.File("problempieces.csv")
 
 		// set up global config that the main func will use
+		satelliteCfg := satelliteCfg
 		satelliteCfg.Config = satellite.Config
 		satelliteCfg.Database = dbConnString
 		satelliteCfg.Metainfo.DatabaseURL = metaDBConnString
@@ -122,7 +123,7 @@ func TestCommandLineTool(t *testing.T) {
 
 		// perform the verify!
 		log := zaptest.NewLogger(t)
-		err = verifySegmentsInContext(ctx, log, &cobra.Command{Use: "range"}, rangeCfg)
+		err = verifySegmentsInContext(ctx, log, &cobra.Command{Use: "range"}, satelliteCfg, rangeCfg)
 		require.NoError(t, err)
 
 		// open the CSVs to check that we get the expected results
