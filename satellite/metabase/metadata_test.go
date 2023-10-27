@@ -23,9 +23,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.UpdateObjectLastCommittedMetadata{
 					Opts: metabase.UpdateObjectLastCommittedMetadata{
-						ProjectID:  test.ObjectLocation.ProjectID,
-						BucketName: test.ObjectLocation.BucketName,
-						ObjectKey:  test.ObjectLocation.ObjectKey,
+						ObjectLocation: test.ObjectLocation,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -40,10 +38,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			obj := metabasetest.RandObjectStream()
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					ObjectKey:  obj.ObjectKey,
-					StreamID:   uuid.UUID{},
+					ObjectLocation: obj.Location(),
+					StreamID:       uuid.UUID{},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
@@ -57,10 +53,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			obj := metabasetest.RandObjectStream()
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					ObjectKey:  obj.ObjectKey,
-					StreamID:   obj.StreamID,
+					ObjectLocation: obj.Location(),
+					StreamID:       obj.StreamID,
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object with specified version and committed status is missing",
@@ -80,10 +74,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     obj.ProjectID,
-					BucketName:                    obj.BucketName,
-					ObjectKey:                     obj.ObjectKey,
-					StreamID:                      obj.StreamID,
+					ObjectLocation:                object.Location(),
+					StreamID:                      object.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
@@ -117,9 +109,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object2.ProjectID,
-					BucketName:                    object2.BucketName,
-					ObjectKey:                     object2.ObjectKey,
+					ObjectLocation:                object2.Location(),
 					StreamID:                      object2.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -151,9 +141,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object.ProjectID,
-					BucketName:                    object.BucketName,
-					ObjectKey:                     object.ObjectKey,
+					ObjectLocation:                object.Location(),
 					StreamID:                      object.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -203,9 +191,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			// verify we cannot update the metadata of a deleted object
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object.ProjectID,
-					BucketName:                    object.BucketName,
-					ObjectKey:                     object.ObjectKey,
+					ObjectLocation:                object.Location(),
 					StreamID:                      object.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -218,9 +204,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			// verify cannot update the metadata of the delete marker either
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     marker.ProjectID,
-					BucketName:                    marker.BucketName,
-					ObjectKey:                     marker.ObjectKey,
+					ObjectLocation:                marker.Location(),
 					StreamID:                      marker.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -276,9 +260,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			// verify we cannot update the metadata of a deleted object
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object2.ProjectID,
-					BucketName:                    object2.BucketName,
-					ObjectKey:                     object2.ObjectKey,
+					ObjectLocation:                object2.Location(),
 					StreamID:                      object2.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -291,9 +273,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			// verify cannot update the metadata of the delete marker either
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     marker.ProjectID,
-					BucketName:                    marker.BucketName,
-					ObjectKey:                     marker.ObjectKey,
+					ObjectLocation:                marker.Location(),
 					StreamID:                      marker.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -346,9 +326,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object2.ProjectID,
-					BucketName:                    object2.BucketName,
-					ObjectKey:                     object2.ObjectKey,
+					ObjectLocation:                object2.Location(),
 					StreamID:                      object2.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -391,9 +369,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
-					ProjectID:                     object3.ProjectID,
-					BucketName:                    object3.BucketName,
-					ObjectKey:                     object3.ObjectKey,
+					ObjectLocation:                object3.Location(),
 					StreamID:                      object3.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],

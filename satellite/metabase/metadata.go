@@ -13,10 +13,8 @@ import (
 
 // UpdateObjectLastCommittedMetadata contains arguments necessary for replacing an object metadata.
 type UpdateObjectLastCommittedMetadata struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	ObjectKey  ObjectKey
-	StreamID   uuid.UUID
+	ObjectLocation
+	StreamID uuid.UUID
 
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
@@ -25,14 +23,10 @@ type UpdateObjectLastCommittedMetadata struct {
 
 // Verify object stream fields.
 func (obj *UpdateObjectLastCommittedMetadata) Verify() error {
-	switch {
-	case obj.ProjectID.IsZero():
-		return ErrInvalidRequest.New("ProjectID missing")
-	case obj.BucketName == "":
-		return ErrInvalidRequest.New("BucketName missing")
-	case len(obj.ObjectKey) == 0:
-		return ErrInvalidRequest.New("ObjectKey missing")
-	case obj.StreamID.IsZero():
+	if err := obj.ObjectLocation.Verify(); err != nil {
+		return err
+	}
+	if obj.StreamID.IsZero() {
 		return ErrInvalidRequest.New("StreamID missing")
 	}
 	return nil
