@@ -331,6 +331,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # how long oauth refresh tokens are issued for
 # console.oauth-refresh-token-expiry: 720h0m0s
 
+# whether to use object browser card view
+# console.object-browser-card-view-enabled: false
+
 # whether to use object browser pagination
 # console.object-browser-pagination-enabled: false
 

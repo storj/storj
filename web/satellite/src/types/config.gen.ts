@@ -46,6 +46,7 @@ export class FrontendConfig {
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;
+    objectBrowserCardViewEnabled: boolean;
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
     freeTierInvitesEnabled: boolean;
