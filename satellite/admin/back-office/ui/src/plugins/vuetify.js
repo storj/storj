@@ -9,7 +9,7 @@
 
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
-// import 'vuetify/styles'
+import 'vuetify/styles'
 
 // Inter Font using FontSource
 import '@fontsource-variable/inter';

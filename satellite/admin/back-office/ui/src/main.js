@@ -13,10 +13,6 @@ import App from './App.vue'
 // Composables
 import { createApp } from 'vue'
 
-// Styles
-import './styles/settings.scss'
-// import './styles/styles.scss'
-
 // Plugins
 import { registerPlugins } from '@/plugins'
 
