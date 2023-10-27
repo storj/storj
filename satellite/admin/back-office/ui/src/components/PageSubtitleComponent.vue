@@ -2,12 +2,18 @@
 // See LICENSE for copying information.
 
 <template>
-  <p class="text-medium-emphasis">{{ subtitle }}
-  </p>
+    <p class="text-medium-emphasis">
+        {{ subtitle }}
+    </p>
 </template>
 
-<script>
+<script lang="ts">
 export default {
-  props: ['subtitle']
-}
+    props: {
+        subtitle: {
+            type: String,
+            required: true,
+        },
+    },
+};
 </script>
