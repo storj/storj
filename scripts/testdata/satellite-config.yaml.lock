@@ -19,6 +19,18 @@
 # an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
 # admin.back-office.static-dir: ""
 
+# the list of groups whose users has the administration role
+# admin.back-office.user-groups-role-admin: []
+
+# the list of groups whose users has the customer support role
+# admin.back-office.user-groups-role-customer-support: []
+
+# the list of groups whose users has the finance manager role
+# admin.back-office.user-groups-role-finance-manager: []
+
+# the list of groups whose users has the viewer role
+# admin.back-office.user-groups-role-viewer: []
+
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
 # admin.groups.limit-update: ""
 

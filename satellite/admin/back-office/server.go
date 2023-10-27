@@ -1,12 +1,6 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package admin implements a server which serves a REST API and a web application to allow
-// performing satellite administration tasks.
-//
-// NOTE this is work in progress and will eventually replace the current satellite administration
-// server implemented in the parent package, hence this package name is the same than its parent
-// because it will simplify the replace once it's ready.
 package admin
 
 import (
@@ -34,6 +28,11 @@ var Error = errs.Class("satellite-admin")
 // Config defines configuration for the satellite administration server.
 type Config struct {
 	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+
+	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
+	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
+	UserGroupsRoleCustomerSupport []string `help:"the list of groups whose users has the customer support role" releaseDefault:"" devDefault:""`
+	UserGroupsRoleFinanceManager  []string `help:"the list of groups whose users has the finance manager role"  releaseDefault:"" devDefault:""`
 }
 
 // Server serves the API endpoints and the web application to allow preforming satellite
