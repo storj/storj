@@ -187,7 +187,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				Status:       metabase.DeleteMarkerVersioned,
 				CreatedAt:    time.Now(),
 			}
-			marker.StreamID = uuid.UUID{}
 			marker.Version++
 
 			metabasetest.DeleteObjectLastCommitted{
@@ -198,6 +197,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				Result: metabase.DeleteObjectResult{
 					Markers: []metabase.Object{marker},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			// verify we cannot update the metadata of a deleted object
@@ -226,8 +226,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "StreamID missing",
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -255,7 +255,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				CreatedAt:    time.Now(),
 			}
 			marker.Version++
-			marker.StreamID = uuid.UUID{}
 
 			metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
@@ -267,6 +266,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					Markers: []metabase.Object{marker},
 					Removed: []metabase.Object{object2},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			encryptedMetadata := testrand.Bytes(1024)
@@ -299,8 +299,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "StreamID missing",
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -322,7 +322,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				Status:       metabase.DeleteMarkerVersioned,
 				CreatedAt:    time.Now(),
 			}
-			marker.StreamID = uuid.UUID{}
 			marker.Version++
 
 			metabasetest.DeleteObjectLastCommitted{
@@ -333,6 +332,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				Result: metabase.DeleteObjectResult{
 					Markers: []metabase.Object{marker},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			obj2 := obj

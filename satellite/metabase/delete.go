@@ -586,6 +586,11 @@ func (db *DB) DeleteObjectLastCommitted(
 	}
 
 	if opts.Suspended {
+		deleterMarkerStreamID, err := generateDeleteMarkerStreamID()
+		if err != nil {
+			return DeleteObjectResult{}, Error.Wrap(err)
+		}
+
 		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 			// TODO(ver) fold deleteObjectUnversionedCommitted into query below using ON CONFLICT
 			deleted, err := db.deleteObjectUnversionedCommitted(ctx, opts.ObjectLocation, tx)
@@ -609,13 +614,14 @@ func (db *DB) DeleteObjectLastCommitted(
 				RETURNING
 					version,
 					created_at
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleted.MaxVersion+1, uuid.UUID{})
+			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleted.MaxVersion+1, deleterMarkerStreamID)
 
 			var marker Object
 			marker.ProjectID = opts.ProjectID
 			marker.BucketName = opts.BucketName
 			marker.ObjectKey = opts.ObjectKey
 			marker.Status = DeleteMarkerUnversioned
+			marker.StreamID = deleterMarkerStreamID
 
 			err = row.Scan(&marker.Version, &marker.CreatedAt)
 			if err != nil {
@@ -630,7 +636,11 @@ func (db *DB) DeleteObjectLastCommitted(
 	}
 	if opts.Versioned {
 		// Instead of deleting we insert a deletion marker.
-		streamID := uuid.UUID{}
+		deleterMarkerStreamID, err := generateDeleteMarkerStreamID()
+		if err != nil {
+			return DeleteObjectResult{}, Error.Wrap(err)
+		}
+
 		row := db.db.QueryRowContext(ctx, `
 			WITH check_existing_object AS (
 				SELECT status
@@ -663,13 +673,13 @@ func (db *DB) DeleteObjectLastCommitted(
 				RETURNING *
 			)
 			SELECT version, created_at FROM added_object
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, streamID)
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleterMarkerStreamID)
 
 		var deleted Object
 		deleted.ProjectID = opts.ProjectID
 		deleted.BucketName = opts.BucketName
 		deleted.ObjectKey = opts.ObjectKey
-		deleted.StreamID = streamID
+		deleted.StreamID = deleterMarkerStreamID
 		deleted.Status = DeleteMarkerVersioned
 
 		err = row.Scan(&deleted.Version, &deleted.CreatedAt)
@@ -724,4 +734,18 @@ func (db *DB) DeleteObjectLastCommitted(
 	}
 
 	return result, nil
+}
+
+// generateDeleteMarkerStreamID returns a uuid that has the first 6 bytes as 0xff.
+// Creating a stream id, where the first bytes are 0xff makes it easily recognizable as a delete marker.
+func generateDeleteMarkerStreamID() (uuid.UUID, error) {
+	v, err := uuid.New()
+	if err != nil {
+		return v, Error.Wrap(err)
+	}
+
+	for i := range v[:6] {
+		v[i] = 0xFF
+	}
+	return v, nil
 }

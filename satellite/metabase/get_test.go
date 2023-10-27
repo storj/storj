@@ -200,6 +200,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				Result: metabase.DeleteObjectResult{
 					Markers: []metabase.Object{versionedMarker},
 				},
+				OutputMarkerStreamID: &versionedMarker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectExactVersion{
@@ -229,6 +230,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 					Removed: []metabase.Object{unversioned},
 					Markers: []metabase.Object{unversionedMarker},
 				},
+				OutputMarkerStreamID: &unversionedMarker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectExactVersion{
@@ -1678,6 +1680,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Result: metabase.DeleteObjectResult{
 					Markers: []metabase.Object{marker},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetLatestObjectLastSegment{
@@ -1737,6 +1740,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					Markers: []metabase.Object{marker},
 					Removed: []metabase.Object{unversioned},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetLatestObjectLastSegment{

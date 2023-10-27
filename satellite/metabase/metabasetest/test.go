@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -430,6 +431,13 @@ func compareDeleteObjectResult(t testing.TB, got, exp metabase.DeleteObjectResul
 
 	sortObjects(got.Markers)
 	sortObjects(exp.Markers)
+	if len(got.Markers) == len(exp.Markers) {
+		// marker stream ID-s are internally generated, so we cannot upfront figure out what
+		// the values are.
+		for i := range got.Markers {
+			exp.Markers[i].StreamID = got.Markers[i].StreamID
+		}
+	}
 
 	sortObjects(got.Removed)
 	sortObjects(exp.Removed)
@@ -788,10 +796,13 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 
 // DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
 type DeleteObjectLastCommitted struct {
-	Opts     metabase.DeleteObjectLastCommitted
-	Result   metabase.DeleteObjectResult
+	Opts   metabase.DeleteObjectLastCommitted
+	Result metabase.DeleteObjectResult
+
 	ErrClass *errs.Class
 	ErrText  string
+
+	OutputMarkerStreamID *uuid.UUID
 }
 
 // Check runs the test.
@@ -799,6 +810,11 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	compareDeleteObjectResult(t, result, step.Result)
+
+	if step.OutputMarkerStreamID != nil && len(result.Markers) > 0 {
+		*step.OutputMarkerStreamID = result.Markers[0].StreamID
+	}
+
 	return result
 }
 

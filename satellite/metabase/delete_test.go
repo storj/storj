@@ -782,7 +782,6 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.StreamID = uuid.UUID{}
 			marker.Version = committed.Version + 1
 
 			now := time.Now()
@@ -800,6 +799,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -829,7 +829,6 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.StreamID = uuid.UUID{}
 			marker.Version = committed.Version + 1
 
 			now := time.Now()
@@ -847,6 +846,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			marker2 := marker
@@ -865,6 +865,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker2.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1165,6 +1166,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		// TODO(ver): these tests look like they are in the wrong location
 		t.Run("delete last committed unversioned with suspended", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -1200,6 +1202,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 						object,
 					},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1241,6 +1244,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 				Result: metabase.DeleteObjectResult{
 					Markers: []metabase.Object{marker},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
