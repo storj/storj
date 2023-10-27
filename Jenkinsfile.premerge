@@ -229,50 +229,64 @@ pipeline {
             }
         }
 
-        stage('wasm npm') {
-            steps {
-                dir(".build") {
-                    sh 'cp -r ../satellite/console/wasm/tests/ .'
-                    sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                    sh 'cd tests && npm install && npm run test'
+        stage('Test Web') {
+            parallel {
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('web/satellite') {
-            steps {
-                dir("web/satellite") {
-                    sh 'npm run lint-ci'
-                    sh script: 'npm audit', returnStatus: true
-                    sh 'npm run test'
+                stage('web/satellite') {
+                    steps {
+                        dir("web/satellite") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('web/storagenode') {
-            steps {
-                dir("web/storagenode") {
-                    sh 'npm run lint-ci'
-                    sh script: 'npm audit', returnStatus: true
-                    sh 'npm run test'
+                stage('web/storagenode') {
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('web/multinode') {
-            steps {
-                dir("web/multinode") {
-                    sh 'npm run lint-ci'
-                    sh script: 'npm audit', returnStatus: true
-                    sh 'npm run test'
+                stage('web/multinode') {
+                    steps {
+                        dir("web/multinode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('satellite/admin/ui') {
-            steps {
-                dir("satellite/admin/ui") {
-                    sh script: 'npm audit', returnStatus: true
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir("satellite/admin/ui") {
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
+                }
+
+                stage('satellite/admin/back-office/ui') {
+                    steps {
+                        dir("satellite/admin/back-office/ui") {
+                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
                 }
             }
         }
