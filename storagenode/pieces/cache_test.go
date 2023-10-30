@@ -199,6 +199,7 @@ func TestCacheServiceRun(t *testing.T) {
 
 		store, err := filestore.NewAt(log, db.Config().Pieces, filestore.DefaultConfig)
 		require.NoError(t, err)
+		defer ctx.Check(store.Close)
 
 		// Prior to initializing the cache service (which should walk the files),
 		// write a single file so something exists to be counted
@@ -279,6 +280,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 
 		store, err := filestore.NewAt(log, dbConfig.Pieces, dbConfig.Filestore)
 		require.NoError(t, err)
+		defer ctx.Check(store.Close)
 
 		// Prior to initializing the cache service (which should walk the files),
 		// write a single file so something exists to be counted
