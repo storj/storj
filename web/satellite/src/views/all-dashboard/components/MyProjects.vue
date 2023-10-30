@@ -151,7 +151,7 @@ function onViewChangeClicked(view: string): void {
 }
 
 onMounted(async () => {
-    if (!configStore.state.config.nativeTokenPaymentsEnabled) {
+    if (!(configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled)) {
         return;
     }
 

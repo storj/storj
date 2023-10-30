@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -57,12 +58,14 @@ func TestCommandLineTool(t *testing.T) {
 		problemPiecesCSV := ctx.File("problempieces.csv")
 
 		// set up global config that the main func will use
+		satelliteCfg := satelliteCfg
 		satelliteCfg.Config = satellite.Config
 		satelliteCfg.Database = dbConnString
 		satelliteCfg.Metainfo.DatabaseURL = metaDBConnString
 		satelliteCfg.Identity.KeyPath = ctx.File("identity-key")
 		satelliteCfg.Identity.CertPath = ctx.File("identity-cert")
 		require.NoError(t, satelliteCfg.Identity.Save(satellite.Identity))
+		rangeCfg := rangeCfg
 		rangeCfg.Verify = VerifierConfig{
 			PerPieceTimeout:    time.Second,
 			OrderRetryThrottle: 500 * time.Millisecond,
@@ -119,7 +122,8 @@ func TestCommandLineTool(t *testing.T) {
 		require.Len(t, result.Segments, uplinkCount*nodeCount)
 
 		// perform the verify!
-		err = verifySegments(&cobra.Command{Use: "range"}, nil)
+		log := zaptest.NewLogger(t)
+		err = verifySegmentsInContext(ctx, log, &cobra.Command{Use: "range"}, satelliteCfg, rangeCfg)
 		require.NoError(t, err)
 
 		// open the CSVs to check that we get the expected results

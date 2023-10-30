@@ -34,7 +34,7 @@
         <v-banner
             v-if="isLowBalance && parentRef && billingEnabled"
             class="all-dashboard-banners__low-balance"
-            message="Your STORJ Token balance is low. Deposit more STORJ tokens or add a credit card to avoid interruptions in service."
+            message="Your STORJ Token balance is low. Deposit more STORJ tokens or make sure you have a credit card on file to avoid interruptions in service."
             link-text="Go to billing"
             severity="warning"
             :dashboard-ref="parentRef"
