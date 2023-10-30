@@ -42,6 +42,7 @@
                 <v-divider class="mt-1 mb-4" />
                 <browser-row-actions
                     :file="item.browserObject"
+                    align="left"
                     @preview-click="emit('previewClick', item.browserObject)"
                     @delete-file-click="emit('deleteFileClick', item.browserObject)"
                     @share-click="emit('shareClick', item.browserObject)"

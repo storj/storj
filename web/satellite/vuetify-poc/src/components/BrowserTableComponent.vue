@@ -81,6 +81,7 @@
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
                             :file="item.raw.browserObject"
+                            align="right"
                             @preview-click="onFileClick(item.raw.browserObject)"
                             @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
                             @share-click="onShareClick(item.raw.browserObject)"

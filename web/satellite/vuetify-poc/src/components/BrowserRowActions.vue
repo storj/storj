@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="text-no-wrap text-right">
+    <div class="text-no-wrap" :class="alignClass">
         <v-btn
             v-if="file.type !== 'folder'"
             variant="outlined"
@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h } from 'vue';
+import { ref, h, computed } from 'vue';
 import {
     VMenu,
     VList,
@@ -97,7 +97,6 @@ import {
     VIcon,
     VBtn,
     VTooltip,
-    VOverlay,
 } from 'vuetify/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -116,6 +115,7 @@ const notify = useNotify();
 
 const props = defineProps<{
     file: BrowserObject;
+    align: 'left' | 'right';
 }>();
 
 const emit = defineEmits<{
@@ -125,6 +125,10 @@ const emit = defineEmits<{
 }>();
 
 const isDownloading = ref<boolean>(false);
+
+const alignClass = computed<string>(() => {
+    return 'text-' + props.align;
+});
 
 async function onDownloadClick(): Promise<void> {
     if (isDownloading.value) {
