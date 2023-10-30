@@ -148,9 +148,9 @@ func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []b
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 		// only suspend versioning if current versioning state is enabled, or suspended.
-		dbx.BucketMetainfo_Versioning(int(buckets.Unversioned)),
+		dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
 		dbx.BucketMetainfo_Update_Fields{
-			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
+			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningSuspended)),
 		})
 	if err != nil {
 		return buckets.ErrBucket.Wrap(err)

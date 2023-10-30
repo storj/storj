@@ -180,6 +180,32 @@ func TestExtendedConfig_UsePendingObjectsTableRollout(t *testing.T) {
 	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("FFFFFFFF-0000-0000-0000-000000000000")))
 }
 
+func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
+	projectA := testrand.UUID()
+	projectB := testrand.UUID()
+	projectC := testrand.UUID()
+	config, err := metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioningProjects: []string{
+			projectA.String(),
+			projectB.String(),
+		},
+	})
+	require.NoError(t, err)
+
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectC))
+
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UsePendingObjectsTable: false,
+		UseBucketLevelObjectVersioningProjects: []string{
+			"01000000-0000-0000-0000-000000000000",
+		},
+	})
+	require.NoError(t, err)
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(uuid.UUID{1}))
+}
+
 func makeUUID(uuidString string) uuid.UUID {
 	value, _ := uuid.FromString(uuidString)
 	return value
