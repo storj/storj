@@ -1455,7 +1455,148 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
-		// TODO(ver): add tests for delete markers and versioned/unversioned
+		t.Run("committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.RandObjectStream()
+			location := pending.Location()
+			pending.Version = 1000
+			pendingObject := metabasetest.CreatePendingObject(ctx, t, db, pending, 0)
+
+			a0 := metabasetest.RandObjectStream()
+			a0.ProjectID = location.ProjectID
+			a0.BucketName = location.BucketName
+			a0.ObjectKey = location.ObjectKey
+			a0.Version = 2000
+			metabasetest.CreateObject(ctx, t, db, a0, 0)
+
+			deletedSuspended, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: location,
+				Suspended:      true,
+			})
+			require.NoError(t, err)
+
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = location.ProjectID
+			b0.BucketName = location.BucketName
+			b0.ObjectKey = location.ObjectKey
+			b0.Version = 3000
+
+			obj2 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+
+			deletedVersioned, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: location,
+				Versioned:      true,
+			})
+			require.NoError(t, err)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      10,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(metabase.RawObject(pendingObject))},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				metabase.RawObject(pendingObject),
+				metabase.RawObject(deletedSuspended.Markers[0]),
+				metabase.RawObject(obj2),
+				metabase.RawObject(deletedVersioned.Markers[0]),
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("batch iterate committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			var objects []metabase.RawObject
+			var expected []metabase.ObjectEntry
+			var objLocation metabase.ObjectLocation
+
+			// create 1 pending object first
+			pendingStream1 := metabasetest.RandObjectStream()
+			objLocation = pendingStream1.Location()
+			pendingStream1.Version = 100
+			metabasetest.CreatePendingObject(ctx, t, db, pendingStream1, 0)
+			pendingObject1 := metabase.RawObject{
+				ObjectStream: pendingStream1,
+				CreatedAt:    now,
+				Status:       metabase.Pending,
+
+				Encryption:             metabasetest.DefaultEncryption,
+				ZombieDeletionDeadline: &zombieDeadline,
+			}
+			objects = append(objects, pendingObject1)
+			expected = append(expected, objectEntryFromRaw(pendingObject1))
+
+			// create one unversioned committed object and 9 versioned committed objects
+			for i := 0; i < 10; i++ {
+				unversionedStream := metabasetest.RandObjectStream()
+
+				unversionedStream.ProjectID = objLocation.ProjectID
+				unversionedStream.BucketName = objLocation.BucketName
+				unversionedStream.ObjectKey = objLocation.ObjectKey
+				unversionedStream.Version = metabase.Version(200 + i)
+				var comittedtObject metabase.RawObject
+				if i%10 == 0 {
+					comittedtObject = metabase.RawObject(metabasetest.CreateObject(ctx, t, db, unversionedStream, 0))
+				} else {
+					comittedtObject = metabase.RawObject(metabasetest.CreateObjectVersioned(ctx, t, db, unversionedStream, 0))
+				}
+				objects = append(objects, comittedtObject)
+			}
+
+			// create a second pending object
+			pendingStream2 := metabasetest.RandObjectStream()
+			pendingStream2.ProjectID = objLocation.ProjectID
+			pendingStream2.BucketName = objLocation.BucketName
+			pendingStream2.ObjectKey = objLocation.ObjectKey
+			pendingStream2.Version = 300
+			metabasetest.CreatePendingObject(ctx, t, db, pendingStream2, 0)
+			pendingObject2 := metabase.RawObject{
+				ObjectStream: pendingStream2,
+				CreatedAt:    now,
+				Status:       metabase.Pending,
+
+				Encryption:             metabasetest.DefaultEncryption,
+				ZombieDeletionDeadline: &zombieDeadline,
+			}
+			objects = append(objects, pendingObject2)
+			expected = append(expected, objectEntryFromRaw(pendingObject2))
+
+			sort.Slice(expected, func(i, j int) bool {
+				return expected[i].StreamID.Less(expected[j].StreamID)
+			})
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: objLocation,
+					BatchSize:      3,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: objLocation,
+					BatchSize:      1,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: objLocation,
+					BatchSize:      1,
+					Cursor: metabase.StreamIDCursor{
+						StreamID: expected[0].StreamID,
+					},
+				},
+				Result: expected[1:],
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
 	})
 }
 
