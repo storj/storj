@@ -217,6 +217,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		},
 	}
 
+	if os.Getenv("STORJ_TEST_DISABLEQUIC") != "" {
+		config.Server.DisableQUIC = true
+	}
+
 	// enable the lazy filewalker
 	config.Pieces.EnableLazyFilewalker = true
 

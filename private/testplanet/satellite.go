@@ -464,6 +464,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.StaticDir = filepath.Join(developmentRoot, "web/satellite")
 	config.Payments.Storjscan.DisableLoop = true
 
+	if os.Getenv("STORJ_TEST_DISABLEQUIC") != "" {
+		config.Server.DisableQUIC = true
+	}
+
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
