@@ -197,7 +197,7 @@ async function resendInvites(): Promise<void> {
  * Set up listener to clear search bar.
  */
 onMounted((): void => {
-    if (configStore.state.config.allProjectsDashboard && !projectsStore.state.selectedProject.id) {
+    if (!projectsStore.state.selectedProject.id) {
         // navigation back to the all projects dashboard is done in ProjectMembersArea.vue
         return;
     }

@@ -144,13 +144,6 @@ const isQuickStartDropdownShown = computed((): boolean => {
 });
 
 /**
- * Indicates if all projects dashboard should be used.
- */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
-});
-
-/**
  * On screen resize handler.
  */
 function onResize(): void {
@@ -162,16 +155,7 @@ function onResize(): void {
  * Redirects to project dashboard.
  */
 function onLogoClick(): void {
-    if (isAllProjectsDashboard.value) {
-        router.push(RouteConfig.AllProjectsDashboard.path);
-        return;
-    }
-
-    if (route.name === RouteConfig.ProjectDashboard.name) {
-        return;
-    }
-
-    router.push(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 /**

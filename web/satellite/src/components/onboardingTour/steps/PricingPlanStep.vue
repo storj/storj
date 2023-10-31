@@ -69,16 +69,12 @@ const plans = ref<PricingPlanInfo[]>([
     ),
 ]);
 
-/*
+/**
  * Loads pricing plan config.
  */
 onBeforeMount(async () => {
     const user: User = usersStore.state.user;
-    let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
-    if (configStore.state.config.allProjectsDashboard) {
-        nextPath = RouteConfig.AllProjectsDashboard.path;
-    }
-
+    const nextPath = RouteConfig.AllProjectsDashboard.path;
     const pricingPkgsEnabled = configStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
@@ -89,7 +85,7 @@ onBeforeMount(async () => {
     try {
         pkgAvailable = await payments.pricingPackageAvailable();
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
     }
     if (!pkgAvailable) {
         router.push(nextPath);
@@ -100,14 +96,14 @@ onBeforeMount(async () => {
     try {
         config = require('@/components/account/billing/pricingPlans/pricingPlanConfig.json');
     } catch {
-        notify.error('No pricing plan configuration file.', null);
+        notify.error('No pricing plan configuration file.');
         router.push(nextPath);
         return;
     }
 
     const plan = config[user.partner] as PricingPlanInfo;
     if (!plan) {
-        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
+        notify.error(`No pricing plan configuration for partner '${user.partner}'.`);
         router.push(nextPath);
         return;
     }

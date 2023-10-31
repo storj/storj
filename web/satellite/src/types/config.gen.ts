@@ -29,7 +29,6 @@ export class FrontendConfig {
     publicLinksharingURL: string;
     pathwayOverviewEnabled: boolean;
     captcha: CaptchaConfig;
-    allProjectsDashboard: boolean;
     limitsAreaEnabled: boolean;
     defaultPaidStorageLimit: MemorySize;
     defaultPaidBandwidthLimit: MemorySize;
@@ -50,6 +49,7 @@ export class FrontendConfig {
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
     freeTierInvitesEnabled: boolean;
+    userBalanceForUpgrade: number;
 }
 
 export class MultiCaptchaConfig {

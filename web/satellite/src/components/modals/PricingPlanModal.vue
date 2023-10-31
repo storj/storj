@@ -26,10 +26,10 @@
                 <div class="content__bottom">
                     <div v-if="!isFree" class="content__bottom__card-area">
                         <p class="content__bottom__card-area__label">Add Card Info</p>
-                        <StripeCardInput
+                        <StripeCardElement
                             ref="stripeCardInput"
                             class="content__bottom__card-area__input"
-                            :on-stripe-response-callback="onCardAdded"
+                            @pm-created="onCardAdded"
                         />
                     </div>
                     <VButton
@@ -89,9 +89,9 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 import CheckIcon from '@/../static/images/common/check.svg';
 import CircleCheck from '@/../static/images/onboardingTour/circleCheck.svg';
@@ -111,7 +111,7 @@ const notify = useNotify();
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 /**
  * Returns the pricing plan selected from the onboarding tour.
@@ -123,7 +123,7 @@ const plan = computed((): PricingPlanInfo | null => {
 watch(plan, () => {
     if (!plan.value) {
         appStore.removeActiveModal();
-        notify.error('No pricing plan has been selected.', null);
+        notify.error('No pricing plan has been selected.');
     }
 });
 
@@ -143,13 +143,8 @@ function onClose(): void {
     if (usersStore.state.settings.onboardingEnd) {
         return;
     }
-    if (isSuccess.value) {
-        if (configStore.state.config.allProjectsDashboard) {
-            router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
-        router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-    }
+
+    if (isSuccess.value) router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 /**
@@ -170,16 +165,16 @@ function onActivateClick(): void {
 /**
  * Adds card after Stripe confirmation.
  */
-async function onCardAdded(token: string): Promise<void> {
+async function onCardAdded(pmID: string): Promise<void> {
     if (!plan.value) return;
 
-    let action = billingStore.addCreditCard;
+    let action = billingStore.addCardByPaymentMethodID;
     if (plan.value.type === PricingPlanType.PARTNER) {
         action = billingStore.purchasePricingPackage;
     }
 
     try {
-        await action(token);
+        await action(pmID);
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
@@ -187,7 +182,7 @@ async function onCardAdded(token: string): Promise<void> {
         // Fetch cards to hide paid tier banner
         await billingStore.getCreditCards();
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
     }
 
     isLoading.value = false;

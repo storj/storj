@@ -28,7 +28,6 @@ import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/dashboard/ProjectDashboard.vue';
-import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from '@/components/onboardingTour/steps/cliFlow/CLIInstall.vue';
 import APIKey from '@/components/onboardingTour/steps/cliFlow/APIKey.vue';
@@ -265,11 +264,6 @@ export const router = createRouter({
                     ],
                 },
                 {
-                    path: RouteConfig.ProjectsList.path,
-                    name: RouteConfig.ProjectsList.name,
-                    component: ProjectsList,
-                },
-                {
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
                     component: ObjectsArea,
@@ -388,7 +382,9 @@ router.beforeEach(async (to, from, next) => {
         appStore.toggleHasJustLoggedIn(false);
     }
 
-    if (!configStore.state.config.billingFeaturesEnabled && to.path.includes(RouteConfig.Billing.path)) {
+    // Config value has to be compared exactly to 'false'
+    // because value is 'undefined' on initial load (API request is still processing).
+    if (configStore.state.config.billingFeaturesEnabled === false && to.path.includes(RouteConfig.Billing.path)) {
         next(RouteConfig.Account.with(RouteConfig.Settings).path);
 
         return;

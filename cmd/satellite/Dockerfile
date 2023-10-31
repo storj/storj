@@ -41,7 +41,7 @@ COPY --from=ui /app/static /app/static
 COPY --from=ui /app/dist /app/dist
 COPY --from=ui /app/dist_vuetify_poc /app/dist_vuetify_poc
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY release/${TAG}/wasm /app/static/
+COPY release/${TAG}/wasm /app/static/wasm
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
 COPY --from=storjup /go/bin/storj-up /usr/local/bin/storj-up
 COPY --from=dlv /go/bin/dlv /usr/local/bin/dlv

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	stripeLib "github.com/stripe/stripe-go/v75"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
@@ -82,6 +83,42 @@ func TestCreditCards_Add(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestCreditCards_AddByPaymentMethodID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		u, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@storj.test",
+		}, 1)
+		require.NoError(t, err)
+
+		_, err = satellite.API.Payments.Accounts.CreditCards().AddByPaymentMethodID(ctx, u.ID, "non-existent")
+		require.Error(t, err)
+
+		pm, err := satellite.API.Payments.StripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token: stripeLib.String("test"),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = satellite.API.Payments.Accounts.CreditCards().AddByPaymentMethodID(ctx, u.ID, pm.ID)
+		require.NoError(t, err)
+
+		_, err = satellite.API.Payments.Accounts.CreditCards().AddByPaymentMethodID(ctx, u.ID, pm.ID)
+		require.Error(t, err)
+		require.True(t, stripe.ErrDuplicateCard.Has(err))
+
+		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
+		require.NoError(t, err)
+		require.Len(t, cards, 1)
 	})
 }
 

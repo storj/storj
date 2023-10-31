@@ -292,6 +292,76 @@ func TestListVerifySegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("creation time filtering", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			expectedVerifySegments := []metabase.VerifySegment{}
+
+			for i := 0; i < 5; i++ {
+				obj = metabasetest.RandObjectStream()
+				obj.StreamID[0] = byte(i) // make StreamIDs ordered
+				_ = metabasetest.CreateObject(ctx, t, db, obj, 1)
+
+				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(obj.StreamID, 0))
+			}
+
+			date := func(t time.Time) *time.Time {
+				return &t
+			}
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedAfter: date(now.Add(-time.Hour)),
+					Limit:        10,
+				},
+				Result: metabase.ListVerifySegmentsResult{Segments: expectedVerifySegments},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedAfter: date(now.Add(time.Hour)),
+					Limit:        10,
+				},
+				Result: metabase.ListVerifySegmentsResult{},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedBefore: date(now.Add(time.Hour)),
+					Limit:         10,
+				},
+				Result: metabase.ListVerifySegmentsResult{Segments: expectedVerifySegments},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedBefore: date(now.Add(-time.Hour)),
+					Limit:         10,
+				},
+				Result: metabase.ListVerifySegmentsResult{},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedAfter:  date(now.Add(-time.Hour)),
+					CreatedBefore: date(now.Add(time.Hour)),
+					Limit:         10,
+				},
+				Result: metabase.ListVerifySegmentsResult{Segments: expectedVerifySegments},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListVerifySegments{
+				Opts: metabase.ListVerifySegments{
+					CreatedAfter:  date(now.Add(time.Hour)),
+					CreatedBefore: date(now.Add(2 * time.Hour)),
+					Limit:         10,
+				},
+				Result: metabase.ListVerifySegmentsResult{},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 

@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -87,9 +88,10 @@ func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.Te
 
 // CommitObject is for testing metabase.CommitObject.
 type CommitObject struct {
-	Opts     metabase.CommitObject
-	ErrClass *errs.Class
-	ErrText  string
+	Opts          metabase.CommitObject
+	ExpectVersion metabase.Version
+	ErrClass      *errs.Class
+	ErrText       string
 }
 
 // Check runs the test.
@@ -97,6 +99,9 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
+		if step.ExpectVersion != 0 {
+			step.Opts.ObjectStream.Version = step.ExpectVersion
+		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
 	}
 	return object
@@ -104,8 +109,10 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 
 // CommitObjectWithSegments is for testing metabase.CommitObjectWithSegments.
 type CommitObjectWithSegments struct {
-	Opts     metabase.CommitObjectWithSegments
-	Deleted  []metabase.DeletedSegmentInfo
+	Opts          metabase.CommitObjectWithSegments
+	Deleted       []metabase.DeletedSegmentInfo
+	ExpectVersion metabase.Version
+
 	ErrClass *errs.Class
 	ErrText  string
 }
@@ -115,6 +122,9 @@ func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.T
 	object, deleted, err := db.CommitObjectWithSegments(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
+		if step.ExpectVersion != 0 {
+			step.Opts.ObjectStream.Version = step.ExpectVersion
+		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
 	}
 	require.Equal(t, step.Deleted, deleted)
@@ -175,16 +185,16 @@ func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
-// UpdateObjectMetadata is for testing metabase.UpdateObjectMetadata.
-type UpdateObjectMetadata struct {
-	Opts     metabase.UpdateObjectMetadata
+// UpdateObjectLastCommittedMetadata is for testing metabase.UpdateObjectLastCommittedMetadata.
+type UpdateObjectLastCommittedMetadata struct {
+	Opts     metabase.UpdateObjectLastCommittedMetadata
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 // Check runs the test.
-func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	err := db.UpdateObjectMetadata(ctx, step.Opts)
+func (step UpdateObjectLastCommittedMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.UpdateObjectLastCommittedMetadata(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
@@ -416,16 +426,31 @@ type DeleteObjectExactVersion struct {
 	ErrText  string
 }
 
+func compareDeleteObjectResult(t testing.TB, got, exp metabase.DeleteObjectResult) {
+	t.Helper()
+
+	sortObjects(got.Markers)
+	sortObjects(exp.Markers)
+	if len(got.Markers) == len(exp.Markers) {
+		// marker stream ID-s are internally generated, so we cannot upfront figure out what
+		// the values are.
+		for i := range got.Markers {
+			exp.Markers[i].StreamID = got.Markers[i].StreamID
+		}
+	}
+
+	sortObjects(got.Removed)
+	sortObjects(exp.Removed)
+
+	diff := cmp.Diff(exp, got, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
 // Check runs the test.
 func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeletePendingObject is for testing metabase.DeletePendingObject.
@@ -440,12 +465,7 @@ type DeletePendingObject struct {
 func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeletePendingObjectNew is for testing metabase.DeletePendingObjectNew.
@@ -460,12 +480,7 @@ type DeletePendingObjectNew struct {
 func (step DeletePendingObjectNew) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObjectNew(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeleteObjectsAllVersions is for testing metabase.DeleteObjectsAllVersions.
@@ -480,12 +495,7 @@ type DeleteObjectsAllVersions struct {
 func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
+	compareDeleteObjectResult(t, result, step.Result)
 }
 
 // DeleteExpiredObjects is for testing metabase.DeleteExpiredObjects.
@@ -786,22 +796,24 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 
 // DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
 type DeleteObjectLastCommitted struct {
-	Opts     metabase.DeleteObjectLastCommitted
-	Result   metabase.DeleteObjectResult
+	Opts   metabase.DeleteObjectLastCommitted
+	Result metabase.DeleteObjectResult
+
 	ErrClass *errs.Class
 	ErrText  string
+
+	OutputMarkerStreamID *uuid.UUID
 }
 
 // Check runs the test.
 func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.DeleteObjectResult {
 	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
+	compareDeleteObjectResult(t, result, step.Result)
 
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
+	if step.OutputMarkerStreamID != nil && len(result.Markers) > 0 {
+		*step.OutputMarkerStreamID = result.Markers[0].StreamID
+	}
 
 	return result
 }

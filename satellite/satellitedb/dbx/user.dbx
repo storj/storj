@@ -112,6 +112,16 @@ read one (
     where user.id = ?
 )
 
+read count (
+	select user
+	where user.status = ?
+)
+
+read limitoffset (
+	select user.id user.email user.full_name
+	where user.status = ?
+)
+
 model webapp_session (
     key id
     index ( fields user_id )

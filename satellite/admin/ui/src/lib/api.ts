@@ -344,6 +344,17 @@ export class Admin {
 				}
 			},
 			{
+				name: 'get users pending deletion',
+				desc: 'Get the information of a users pending deletion and have no unpaid invoices',
+				params: [
+					['Limit', new InputText('number', true)],
+					['Page', new InputText('number', true)]
+				],
+				func: async (limit: number, page: number): Promise<Record<string, unknown>> => {
+					return this.fetch('GET', `users-pending-deletion?limit=${limit}&page=${page}`);
+				}
+			},
+			{
 				name: 'get user limits',
 				desc: 'Get the current limits for a user',
 				params: [['email', new InputText('email', true)]],

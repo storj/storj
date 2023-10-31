@@ -529,7 +529,7 @@ func (cr *clumpingReport) String() string {
 	netCounts := make(map[string]int)
 	for _, lastNet := range cr.lastNets {
 		if lastNet == "" {
-			lastNet = "unknown"
+			continue
 		}
 		netCounts[lastNet]++
 	}

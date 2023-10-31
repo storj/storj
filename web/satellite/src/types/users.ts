@@ -76,6 +76,12 @@ export interface UsersApi {
      * @throws Error
      */
     regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
+    /**
+     * Request increase for user's project limit.
+     *
+     * @throws Error
+     */
+    requestProjectLimitIncrease(limit: string): Promise<void>;
 }
 
 /**
@@ -104,7 +110,7 @@ export class User {
         public _createdAt: string | null = null,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
-    ) {}
+    ) { }
 
     public get createdAt(): Date | null {
         if (!this._createdAt) {
@@ -129,7 +135,7 @@ export class UpdatedUser {
     public constructor(
         public fullName: string = '',
         public shortName: string = '',
-    ) {}
+    ) { }
 
     public setFullName(value: string): void {
         this.fullName = value.trim();
@@ -151,7 +157,7 @@ export class DisableMFARequest {
     public constructor(
         public passcode: string = '',
         public recoveryCode: string = '',
-    ) {}
+    ) { }
 }
 
 /**
@@ -161,7 +167,7 @@ export class TokenInfo {
     public constructor(
         public token: string,
         public expiresAt: Date,
-    ) {}
+    ) { }
 }
 
 /**
@@ -174,7 +180,7 @@ export class UserSettings {
         public onboardingEnd = false,
         public passphrasePrompt = true,
         public onboardingStep: string | null = null,
-    ) {}
+    ) { }
 
     public get sessionDuration(): Duration | null {
         if (this._sessionDuration) {
@@ -199,5 +205,5 @@ export class FreezeStatus {
     public constructor(
         public frozen = false,
         public warned = false,
-    ) {}
+    ) { }
 }

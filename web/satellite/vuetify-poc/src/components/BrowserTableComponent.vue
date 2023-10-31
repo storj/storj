@@ -416,7 +416,7 @@ function onFileClick(file: BrowserObject): void {
         return;
     }
 
-    obStore.setObjectPathForModal(file.path + file.Key);
+    obStore.setObjectPathForModal(file.path ?? '' + file.Key);
     previewDialog.value = true;
     isFileGuideShown.value = false;
     LocalData.setFileGuideHidden();

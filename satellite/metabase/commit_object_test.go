@@ -332,6 +332,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
+				ExpectVersion: obj.Version + 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -341,7 +342,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 							ProjectID:  obj.ProjectID,
 							BucketName: obj.BucketName,
 							ObjectKey:  obj.ObjectKey,
-							Version:    5,
+							Version:    obj.Version + 1,
 							StreamID:   obj.StreamID,
 						},
 						CreatedAt: now,

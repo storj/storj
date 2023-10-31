@@ -12,14 +12,15 @@
         :scrim="false"
         @update:model-value="v => model = v"
     >
-        <v-card rounded="xlg">
+        <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pl-7 py-4">
                 <template #prepend>
-                    <img class="d-block" src="@/../static/images/common/blueBox.svg" alt="Box">
+                    <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/../static/images/modals/limit.svg" alt="Speedometer">
+                    <img v-else class="d-block" src="@/../static/images/common/blueBox.svg" alt="Box">
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    {{ isProjectLimitReached && billingEnabled ? 'Get More Projects' : 'Create New Project' }}
+                    {{ cardTitle }}
                 </v-card-title>
 
                 <template #append>
@@ -38,10 +39,7 @@
 
             <v-form v-model="formValid" class="pa-7" @submit.prevent>
                 <v-row>
-                    <v-col v-if="isProjectLimitReached && billingEnabled">
-                        Upgrade to Pro Account to create more projects and gain access to higher limits.
-                    </v-col>
-                    <template v-else>
+                    <template v-if="!billingEnabled || !isProjectLimitReached">
                         <v-col cols="12">
                             Projects are where you and your team can upload and manage data, and view usage statistics and billing.
                         </v-col>
@@ -81,6 +79,42 @@
                             />
                         </v-col>
                     </template>
+                    <template v-else-if="isProjectLimitReached && usersStore.state.user.paidTier && !showLimitIncreaseDialog">
+                        <v-col cols="12">
+                            Request project limit increase.
+                        </v-col>
+                    </template>
+                    <template v-else-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog">
+                        <v-col cols="12">
+                            Request a projects limit increase for your account.
+                        </v-col>
+                        <v-col cols="6">
+                            <p>Projects Limit</p>
+                            <v-text-field
+                                class="edit-project-limit__text-field"
+                                variant="solo-filled"
+                                density="compact"
+                                flat
+                                readonly
+                                :model-value="usersStore.state.user.projectLimit"
+                            />
+                        </v-col>
+                        <v-col cols="6">
+                            <p>Requested Limit</p>
+                            <v-text-field
+                                class="edit-project-limit__text-field"
+                                density="compact"
+                                flat
+                                type="number"
+                                :rules="projectLimitRules"
+                                :model-value="inputText"
+                                @update:model-value="updateInputText"
+                            />
+                        </v-col>
+                    </template>
+                    <v-col v-else>
+                        Upgrade to Pro Account to create more projects and gain access to higher limits.
+                    </v-col>
                 </v-row>
             </v-form>
 
@@ -102,7 +136,7 @@
                             :append-icon="isProjectLimitReached && billingEnabled ? 'mdi-arrow-right' : undefined"
                             @click="onPrimaryClick"
                         >
-                            {{ isProjectLimitReached && billingEnabled ? 'Upgrade' : 'Create Project' }}
+                            {{ buttonTitle }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -118,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { Component, ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,
@@ -169,12 +203,15 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
+const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
+const inputText = ref<string>('');
 const name = ref<string>('');
 const description = ref<string>('');
 const isDescriptionShown = ref<boolean>(false);
 const isProjectLimitReached = ref<boolean>(false);
 const isUpgradeDialogShown = ref<boolean>(false);
+const showLimitIncreaseDialog = ref<boolean>(false);
 
 const nameRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -190,42 +227,99 @@ const descriptionRules: ValidationRule<string>[] = [
  */
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
-function startUpgradeFlow(): void {
-    model.value = false;
-    appStore.toggleUpgradeFlow(true);
-}
-
 /**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (isProjectLimitReached.value && billingEnabled.value) {
-        isUpgradeDialogShown.value = true;
-        return;
-    }
-
-    if (!formValid.value) return;
-    await withLoading(async () => {
-        let project: Project;
-        try {
-            const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id);
-            project = await projectsStore.createProject(fields);
-        } catch (error) {
-            error.message = `Failed to create project. ${error.message}`;
-            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
-            return;
+    if (!isProjectLimitReached.value || !billingEnabled.value) {
+        if (!formValid.value) return;
+        await withLoading(async () => {
+            let project: Project;
+            try {
+                const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id);
+                project = await projectsStore.createProject(fields);
+            } catch (error) {
+                error.message = `Failed to create project. ${error.message}`;
+                notify.notifyError(error, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+                return;
+            }
+            model.value = false;
+            router.push(`/projects/${project.urlId}/dashboard`);
+            notify.success('Project created.');
+        });
+    } else if (usersStore.state.user.paidTier) {
+        if (showLimitIncreaseDialog.value) {
+            if (!formValid.value) return;
+            await withLoading(async () => {
+                try {
+                    await usersStore.requestProjectLimitIncrease(inputText.value);
+                } catch (error) {
+                    error.message = `Failed to request project limit increase. ${error.message}`;
+                    notify.notifyError(error, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+                    return;
+                }
+                model.value = false;
+                notify.success('Project limit increase requested');
+                return;
+            });
+        } else {
+            showLimitIncreaseDialog.value = true;
         }
-        model.value = false;
-        router.push(`/projects/${project.urlId}/dashboard`);
-        notify.success('Project created.');
-    });
+    } else {
+        isUpgradeDialogShown.value = true;
+    }
 }
 
-watch(() => model.value, shown => {
-    if (!shown) return;
-    isProjectLimitReached.value = projectsStore.state.projects.length >= usersStore.state.user.projectLimit;
-    isDescriptionShown.value = false;
-    name.value = '';
-    description.value = '';
+/*
+ * Returns an array of validation rules applied to the text input.
+ */
+const projectLimitRules = computed<ValidationRule<string>[]>(() => {
+    return [
+        RequiredRule,
+        v => !(isNaN(+v) || !Number.isInteger((parseFloat(v)))) || 'Invalid number',
+        v => (parseFloat(v) > 0) || 'Number must be positive',
+    ];
+});
+
+/**
+ * Updates input refs with value from text field.
+ */
+function updateInputText(value: string): void {
+    inputText.value = value;
+}
+
+const buttonTitle = computed((): string => {
+    if (!isProjectLimitReached.value || !billingEnabled.value) {
+        return 'Create Project';
+    }
+    if (usersStore.state.user.paidTier) {
+        if (showLimitIncreaseDialog.value) {
+            return 'Submit';
+        }
+        return 'Request';
+    }
+    return 'Upgrade';
+});
+
+const cardTitle = computed((): string => {
+    if (!isProjectLimitReached.value || !billingEnabled.value) {
+        return 'Create New Project';
+    }
+    if (usersStore.state.user.paidTier && showLimitIncreaseDialog.value) {
+        return 'Projects Limit Request';
+    }
+    return 'Get More Projects';
+});
+
+watch(innerContent, comp => {
+    if (comp) {
+        isProjectLimitReached.value = projectsStore.state.projects.length >= usersStore.state.user.projectLimit;
+        isDescriptionShown.value = false;
+        name.value = '';
+        description.value = '';
+        inputText.value = String(usersStore.state.user.projectLimit + 1);
+    } else {
+        showLimitIncreaseDialog.value = false;
+    }
 });
 </script>

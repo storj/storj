@@ -77,3 +77,22 @@ export enum ShareType {
     Folder = 'Folder',
     Bucket = 'Bucket',
 }
+
+export enum PreviewType {
+    None,
+    Text,
+    CSV,
+    Image,
+    Video,
+    Audio,
+    PDF,
+}
+
+export const EXTENSION_PREVIEW_TYPES = new Map<string[], PreviewType>([
+    [['txt'], PreviewType.Text],
+    [['csv'], PreviewType.CSV],
+    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'], PreviewType.Image],
+    [['m4v', 'mp4', 'webm', 'mov', 'mkv'], PreviewType.Video],
+    [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
+    [['pdf'], PreviewType.PDF],
+]);

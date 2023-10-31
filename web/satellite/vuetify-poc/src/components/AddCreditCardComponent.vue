@@ -7,10 +7,10 @@
             <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" class="mr-2" @click="isCardInputShown = true">+ Add New Card</v-btn>
 
             <template v-else>
-                <StripeCardInput
+                <StripeCardElement
                     ref="stripeCardInput"
-                    class="mb-4"
-                    :on-stripe-response-callback="addCardToDB"
+                    :is-dark-theme="theme.global.current.value.dark"
+                    @pm-created="addCardToDB"
                 />
             </template>
 
@@ -26,7 +26,6 @@
                 <v-btn
                     variant="outlined" color="default" size="small" class="mr-2"
                     :disabled="isLoading"
-                    :loading="isLoading"
                     @click="isCardInputShown = false"
                 >
                     Cancel
@@ -37,8 +36,9 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText, VCardActions } from 'vuetify/components';
+import { VBtn, VCard, VCardText } from 'vuetify/components';
 import { ref } from 'vue';
+import { useTheme } from 'vuetify';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
@@ -46,7 +46,7 @@ import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 interface StripeForm {
   onSubmit(): Promise<void>;
@@ -55,9 +55,10 @@ interface StripeForm {
 const usersStore = useUsersStore();
 const notify = useNotify();
 const billingStore = useBillingStore();
+const theme = useTheme();
 const { isLoading } = useLoading();
 
-const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 const isCardInputShown = ref(false);
 
@@ -79,12 +80,12 @@ async function onSaveCardClick(): Promise<void> {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param token from Stripe
+ * @param pmID - payment method ID from Stripe
  */
-async function addCardToDB(token: string): Promise<void> {
+async function addCardToDB(pmID: string): Promise<void> {
     isLoading.value = true;
     try {
-        await billingStore.addCreditCard(token);
+        await billingStore.addCardByPaymentMethodID(pmID);
         notify.success('Card successfully added');
         isCardInputShown.value = false;
         isLoading.value = false;

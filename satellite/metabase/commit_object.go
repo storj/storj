@@ -51,23 +51,31 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, nil, err
 	}
 
-	var previousObject deleteObjectUnversionedCommittedResult
+	var deleted deleteObjectUnversionedCommittedResult
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
+		var highestVersion Version
 		if !opts.Versioned {
 			var err error
 			// Note, we are prematurely deleting the object without permissions
 			// and then rolling the action back, if we were not allowed to.
-			previousObject, err = db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
+			deleted, err = db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
 			if err != nil {
 				return err
 			}
-			if previousObject.DeletedObjectCount > 0 && opts.DisallowDelete {
+			if deleted.DeletedObjectCount > 0 && opts.DisallowDelete {
 				return ErrPermissionDenied.New("no permissions to delete existing object")
 			}
+			highestVersion = deleted.MaxVersion
+		} else {
+			v, err := db.queryHighestVersion(ctx, opts.Location(), tx)
+			if err != nil {
+				return err
+			}
+			highestVersion = v
 		}
 
 		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
@@ -113,9 +121,14 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		}
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
+		nextVersion := opts.Version
+		if nextVersion < highestVersion {
+			nextVersion = highestVersion + 1
+		}
 
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
+				version = $14,
 				status = $6,
 				segment_count = $7,
 
@@ -138,6 +151,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
+			nextVersion,
 		).
 			Scan(
 				&object.CreatedAt, &object.ExpiresAt,
@@ -154,7 +168,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		object.ProjectID = opts.ProjectID
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
-		object.Version = opts.Version
+		object.Version = nextVersion
 		object.Status = nextStatus
 		object.SegmentCount = int32(len(finalSegments))
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce

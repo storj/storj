@@ -127,6 +127,20 @@ func TestEndpoint_Validate(t *testing.T) {
 			},
 			errMsg: fmt.Sprintf("Response cannot be of a type %q", reflect.Map),
 		},
+		{
+			testName: "different ResponseMock type",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.Response = int(0)
+				e.ResponseMock = int8(0)
+				return &e
+			},
+			errMsg: fmt.Sprintf(
+				"ResponseMock isn't of the same type than Response. Have=%q Want=%q",
+				reflect.TypeOf(int8(0)),
+				reflect.TypeOf(int(0)),
+			),
+		},
 	}
 
 	for _, tc := range tcases {

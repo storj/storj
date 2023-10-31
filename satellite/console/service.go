@@ -348,41 +348,76 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
 
 	if !user.PaidTier {
-		// put this user into the paid tier and convert projects to upgraded limits.
-		err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
-			payment.service.config.UsageLimits.Bandwidth.Paid,
-			payment.service.config.UsageLimits.Storage.Paid,
-			payment.service.config.UsageLimits.Segment.Paid,
-			payment.service.config.UsageLimits.Project.Paid,
-		)
+		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, Error.Wrap(err)
-		}
-
-		projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
-		if err != nil {
-			return payments.CreditCard{}, Error.Wrap(err)
-		}
-		for _, project := range projects {
-			if project.StorageLimit == nil || *project.StorageLimit < payment.service.config.UsageLimits.Storage.Paid {
-				project.StorageLimit = new(memory.Size)
-				*project.StorageLimit = payment.service.config.UsageLimits.Storage.Paid
-			}
-			if project.BandwidthLimit == nil || *project.BandwidthLimit < payment.service.config.UsageLimits.Bandwidth.Paid {
-				project.BandwidthLimit = new(memory.Size)
-				*project.BandwidthLimit = payment.service.config.UsageLimits.Bandwidth.Paid
-			}
-			if project.SegmentLimit == nil || *project.SegmentLimit < payment.service.config.UsageLimits.Segment.Paid {
-				*project.SegmentLimit = payment.service.config.UsageLimits.Segment.Paid
-			}
-			err = payment.service.store.Projects().Update(ctx, &project)
-			if err != nil {
-				return payments.CreditCard{}, Error.Wrap(err)
-			}
 		}
 	}
 
 	return card, nil
+}
+
+// AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
+func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID string) (card payments.CreditCard, err error) {
+	defer mon.Task()(&ctx, pmID)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, pmID)
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
+
+	if !user.PaidTier {
+		err = payment.upgradeToPaidTier(ctx, user)
+		if err != nil {
+			return payments.CreditCard{}, Error.Wrap(err)
+		}
+	}
+
+	return card, nil
+}
+
+func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
+	// put this user into the paid tier and convert projects to upgraded limits.
+	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
+		payment.service.config.UsageLimits.Bandwidth.Paid,
+		payment.service.config.UsageLimits.Storage.Paid,
+		payment.service.config.UsageLimits.Segment.Paid,
+		payment.service.config.UsageLimits.Project.Paid,
+	)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	for _, project := range projects {
+		if project.StorageLimit == nil || *project.StorageLimit < payment.service.config.UsageLimits.Storage.Paid {
+			project.StorageLimit = new(memory.Size)
+			*project.StorageLimit = payment.service.config.UsageLimits.Storage.Paid
+		}
+		if project.BandwidthLimit == nil || *project.BandwidthLimit < payment.service.config.UsageLimits.Bandwidth.Paid {
+			project.BandwidthLimit = new(memory.Size)
+			*project.BandwidthLimit = payment.service.config.UsageLimits.Bandwidth.Paid
+		}
+		if project.SegmentLimit == nil || *project.SegmentLimit < payment.service.config.UsageLimits.Segment.Paid {
+			*project.SegmentLimit = payment.service.config.UsageLimits.Segment.Paid
+		}
+		err = payment.service.store.Projects().Update(ctx, &project)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.

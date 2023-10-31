@@ -11,12 +11,10 @@ import (
 	"storj.io/common/uuid"
 )
 
-// UpdateObjectMetadata contains arguments necessary for replacing an object metadata.
-type UpdateObjectMetadata struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	ObjectKey  ObjectKey
-	StreamID   uuid.UUID
+// UpdateObjectLastCommittedMetadata contains arguments necessary for replacing an object metadata.
+type UpdateObjectLastCommittedMetadata struct {
+	ObjectLocation
+	StreamID uuid.UUID
 
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
@@ -24,22 +22,18 @@ type UpdateObjectMetadata struct {
 }
 
 // Verify object stream fields.
-func (obj *UpdateObjectMetadata) Verify() error {
-	switch {
-	case obj.ProjectID.IsZero():
-		return ErrInvalidRequest.New("ProjectID missing")
-	case obj.BucketName == "":
-		return ErrInvalidRequest.New("BucketName missing")
-	case len(obj.ObjectKey) == 0:
-		return ErrInvalidRequest.New("ObjectKey missing")
-	case obj.StreamID.IsZero():
+func (obj *UpdateObjectLastCommittedMetadata) Verify() error {
+	if err := obj.ObjectLocation.Verify(); err != nil {
+		return err
+	}
+	if obj.StreamID.IsZero() {
 		return ErrInvalidRequest.New("StreamID missing")
 	}
 	return nil
 }
 
-// UpdateObjectMetadata updates an object metadata.
-func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadata) (err error) {
+// UpdateObjectLastCommittedMetadata updates an object metadata.
+func (db *DB) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -60,12 +54,13 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
 			version IN (SELECT version FROM objects WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3) AND
-				status = `+statusCommittedUnversioned+` AND
+				status <> `+statusPending+` AND
 				(expires_at IS NULL OR expires_at > now())
 				ORDER BY version desc
+				LIMIT 1
 			) AND
 			stream_id    = $4 AND
-			status       = `+statusCommittedUnversioned,
+			status       IN `+statusesCommitted,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {

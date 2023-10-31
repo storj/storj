@@ -35,6 +35,30 @@ func main() {
 				When time.Time `json:"when"`
 			} `json:"last_retrievals"`
 		}{},
+		ResponseMock: []struct {
+			ID             uuid.UUID      `json:"id"`
+			Path           string         `json:"path"`
+			Date           time.Time      `json:"date"`
+			Metadata       myapi.Metadata `json:"metadata"`
+			LastRetrievals []struct {
+				User string    `json:"user"`
+				When time.Time `json:"when"`
+			} `json:"last_retrievals"`
+		}{{
+			ID:   uuid.UUID{},
+			Path: "/workspace/notes.md",
+			Metadata: myapi.Metadata{
+				Owner: "Storj",
+				Tags:  [][2]string{{"category", "general"}},
+			},
+			LastRetrievals: []struct {
+				User string    `json:"user"`
+				When time.Time `json:"when"`
+			}{{
+				User: "Storj",
+				When: time.Now().Add(-time.Hour),
+			}},
+		}},
 	})
 
 	g.Get("/{path}", &apigen.Endpoint{
@@ -45,6 +69,16 @@ func main() {
 		Response:       myapi.Document{},
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
+		},
+		ResponseMock: myapi.Document{
+			ID:        uuid.UUID{},
+			Date:      time.Now().Add(-24 * time.Hour),
+			PathParam: "ID",
+			Body:      "## Notes",
+			Version: myapi.Version{
+				Date:   time.Now().Add(-30 * time.Minute),
+				Number: 1,
+			},
 		},
 	})
 
@@ -58,6 +92,7 @@ func main() {
 			apigen.NewParam("path", ""),
 			apigen.NewParam("tagName", ""),
 		},
+		ResponseMock: [2]string{"category", "notes"},
 	})
 
 	g.Get("/{path}/versions", &apigen.Endpoint{
@@ -68,6 +103,10 @@ func main() {
 		Response:       []myapi.Version{},
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
+		},
+		ResponseMock: []myapi.Version{
+			{Date: time.Now().Add(-360 * time.Hour), Number: 1},
+			{Date: time.Now().Add(-5 * time.Hour), Number: 2},
 		},
 	})
 
@@ -92,6 +131,17 @@ func main() {
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 		},
+		ResponseMock: struct {
+			ID        uuid.UUID `json:"id"`
+			Date      time.Time `json:"date"`
+			PathParam string    `json:"pathParam"`
+			Body      string    `json:"body"`
+		}{
+			ID:        uuid.UUID{},
+			Date:      time.Now(),
+			PathParam: "ID",
+			Body:      "## Notes\n### General",
+		},
 	})
 
 	g = a.Group("Users", "users")
@@ -106,9 +156,31 @@ func main() {
 			Surname string `json:"surname"`
 			Email   string `json:"email"`
 		}{},
+		ResponseMock: []struct {
+			Name    string `json:"name"`
+			Surname string `json:"surname"`
+			Email   string `json:"email"`
+		}{
+			{Name: "Storj", Surname: "Labs", Email: "storj@storj.test"},
+			{Name: "Test1", Surname: "Testing", Email: "test1@example.test"},
+			{Name: "Test2", Surname: "Testing", Email: "test2@example.test"},
+		},
+	})
+
+	g.Post("/", &apigen.Endpoint{
+		Name:           "Create User",
+		Description:    "Create a user",
+		GoName:         "Create",
+		TypeScriptName: "create",
+		Request: []struct {
+			Name    string `json:"name"`
+			Surname string `json:"surname"`
+			Email   string `json:"email"`
+		}{},
 	})
 
 	a.MustWriteGo("api.gen.go")
 	a.MustWriteTS("client-api.gen.ts")
+	a.MustWriteTSMock("client-api-mock.gen.ts")
 	a.MustWriteDocs("apidocs.gen.md")
 }

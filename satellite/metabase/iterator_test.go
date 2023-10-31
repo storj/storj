@@ -29,7 +29,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						ProjectID:  uuid.UUID{},
 						BucketName: "sj://mybucket",
 						Recursive:  true,
-						Status:     metabase.CommittedUnversioned,
+						Pending:    false,
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ProjectID missing",
@@ -41,7 +41,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						ProjectID:  uuid.UUID{1},
 						BucketName: "",
 						Recursive:  true,
-						Status:     metabase.CommittedUnversioned,
+						Pending:    false,
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "BucketName missing",
@@ -54,22 +54,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						BucketName: "mybucket",
 						BatchSize:  -1,
 						Recursive:  true,
-						Status:     metabase.CommittedUnversioned,
+						Pending:    false,
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "BatchSize is negative",
-				}.Check(ctx, t, db)
-			})
-			t.Run("Status is invalid", func(t *testing.T) {
-				metabasetest.IterateObjectsWithStatus{
-					Opts: metabase.IterateObjectsWithStatus{
-						ProjectID:  uuid.UUID{1},
-						BucketName: "test",
-						Recursive:  true,
-						Status:     255,
-					},
-					ErrClass: &metabase.ErrInvalidRequest,
-					ErrText:  "Status 255 is not supported",
 				}.Check(ctx, t, db)
 			})
 		})
@@ -83,7 +71,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					BucketName: "myemptybucket",
 					BatchSize:  10,
 					Recursive:  true,
-					Status:     metabase.CommittedUnversioned,
+					Pending:    false,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -135,7 +123,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -157,7 +145,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Pending,
+					Pending:               true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -187,7 +175,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					BucketName:            "mybucket",
 					Recursive:             true,
 					BatchSize:             limit,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -211,7 +199,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					BucketName:            "mybucket",
 					Recursive:             true,
 					BatchSize:             limit,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -238,7 +226,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "bucket-a",
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -267,7 +255,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "mybucket",
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -300,7 +288,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -322,7 +310,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -345,7 +333,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -368,7 +356,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -386,7 +374,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -405,7 +393,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -423,7 +411,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -454,15 +442,15 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -471,16 +459,16 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -489,16 +477,16 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry("b/", metabase.CommittedUnversioned),
+					prefixEntry("b/"),
 					objects["c"],
-					prefixEntry("c/", metabase.CommittedUnversioned),
+					prefixEntry("c/"),
 					objects["g"],
 				},
 			}.Check(ctx, t, db)
@@ -507,7 +495,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -524,7 +512,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -542,7 +530,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -559,7 +547,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -573,7 +561,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -582,7 +570,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: withoutPrefix("c/",
 					objects["c/"],
-					prefixEntry("c//", metabase.CommittedUnversioned),
+					prefixEntry("c//"),
 					objects["c/1"],
 				),
 			}.Check(ctx, t, db)
@@ -591,7 +579,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -635,7 +623,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							Version: -1,
 						},
 						Prefix:                prefix,
-						Status:                metabase.CommittedUnversioned,
+						Pending:               false,
 						IncludeCustomMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
@@ -650,7 +638,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						},
 						Prefix:                prefix,
 						Recursive:             true,
-						Status:                metabase.CommittedUnversioned,
+						Pending:               false,
 						IncludeCustomMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
@@ -672,7 +660,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Version: -1,
 				},
 				Prefix:                metabase.ObjectKey([]byte{1}),
-				Status:                metabase.CommittedUnversioned,
+				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
 			}, collector.Add)
@@ -695,7 +683,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				BucketName:            bucketName,
 				Prefix:                metabase.ObjectKey("a/"),
 				BatchSize:             1,
-				Status:                metabase.CommittedUnversioned,
+				Pending:               false,
 				IncludeCustomMetadata: true,
 			}, collector.Add)
 			require.NoError(t, err)
@@ -721,7 +709,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ProjectID:             obj1.ProjectID,
 				BucketName:            obj1.BucketName,
 				Recursive:             true,
-				Status:                metabase.CommittedUnversioned,
+				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
 			}, collector.Add)
@@ -754,7 +742,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ProjectID:             obj1.ProjectID,
 				BucketName:            obj1.BucketName,
 				Recursive:             true,
-				Status:                metabase.CommittedUnversioned,
+				Pending:               false,
 				IncludeCustomMetadata: false,
 				IncludeSystemMetadata: true,
 			}, collector.Add)
@@ -788,7 +776,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ProjectID:             obj1.ProjectID,
 				BucketName:            obj1.BucketName,
 				Recursive:             true,
-				Status:                metabase.CommittedUnversioned,
+				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: false,
 			}, collector.Add)
@@ -830,7 +818,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ProjectID:  projectID,
 				BucketName: bucketName,
 				Prefix:     metabase.ObjectKey("a/"),
-				Status:     metabase.CommittedUnversioned,
+				Pending:    false,
 				BatchSize:  1,
 			}, collector.Add)
 			require.NoError(t, err)
@@ -891,7 +879,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							ProjectID:             stream.ProjectID,
 							BucketName:            stream.BucketName,
 							BatchSize:             batchSize,
-							Status:                3,
+							Pending:               false,
 							IncludeSystemMetadata: true,
 						}
 						metabasetest.IterateObjectsWithStatus{
@@ -927,7 +915,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					BucketName:            bucketName,
 					Recursive:             false,
 					Prefix:                "aaaa/",
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					BatchSize:             2,
 					IncludeSystemMetadata: true,
 				},
@@ -974,7 +962,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					BatchSize:             3,
 					IncludeSystemMetadata: true,
 				},
@@ -1010,13 +998,13 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1030,13 +1018,13 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1050,12 +1038,12 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1079,13 +1067,13 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1099,12 +1087,12 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1118,12 +1106,12 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1164,15 +1152,15 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: objects["2017/05/08"].Version,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					prefixEntry(metabase.ObjectKey("08/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("08/")),
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1187,14 +1175,14 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 
@@ -1208,14 +1196,14 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.CommittedUnversioned,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-					prefixEntry(metabase.ObjectKey("09/"), metabase.CommittedUnversioned),
-					prefixEntry(metabase.ObjectKey("10/"), metabase.CommittedUnversioned),
+					prefixEntry(metabase.ObjectKey("09/")),
+					prefixEntry(metabase.ObjectKey("10/")),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1466,6 +1454,8 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
+
+		// TODO(ver): add tests for delete markers and versioned/unversioned
 	})
 }
 
@@ -1530,11 +1520,11 @@ func withoutPrefix1(prefix metabase.ObjectKey, entry metabase.ObjectEntry) metab
 	return entry
 }
 
-func prefixEntry(key metabase.ObjectKey, status metabase.ObjectStatus) metabase.ObjectEntry {
+func prefixEntry(key metabase.ObjectKey) metabase.ObjectEntry {
 	return metabase.ObjectEntry{
 		IsPrefix:  true,
 		ObjectKey: key,
-		Status:    status,
+		Status:    metabase.Prefix,
 	}
 }
 
@@ -1584,7 +1574,7 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					BatchSize:  5,
-					Status:     metabase.CommittedUnversioned,
+					Pending:    false,
 				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for oi.Next(ctx, &entry) {
@@ -1602,7 +1592,7 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 					BucketName: baseObj.BucketName,
 					Prefix:     "foo/",
 					BatchSize:  5,
-					Status:     metabase.CommittedUnversioned,
+					Pending:    false,
 				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for oi.Next(ctx, &entry) {
@@ -1620,7 +1610,7 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 					BucketName: baseObj.BucketName,
 					Prefix:     "boo/",
 					BatchSize:  5,
-					Status:     metabase.CommittedUnversioned,
+					Pending:    false,
 				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for oi.Next(ctx, &entry) {

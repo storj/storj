@@ -51,6 +51,7 @@ type Customers interface {
 type PaymentMethods interface {
 	List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter
 	New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
+	Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error)
 	Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error)
 }

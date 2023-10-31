@@ -303,6 +303,13 @@ func validateBucketLabel(label []byte) error {
 	return nil
 }
 
+func validateObjectVersion(version []byte) error {
+	if len(version) != 0 && len(version) != 8 {
+		return Error.New("invalid object version")
+	}
+	return nil
+}
+
 func isLowerLetter(r byte) bool {
 	return r >= 'a' && r <= 'z'
 }

@@ -50,6 +50,13 @@ export interface PaymentsApi {
     addCreditCard(token: string): Promise<void>;
 
     /**
+     * Add payment method.
+     * @param pmID - stripe payment method id of the credit card
+     * @throws Error
+     */
+    addCardByPaymentMethodID(pmID: string): Promise<void>;
+
+    /**
      * Detach credit card from payment account.
      * @param cardId
      * @throws Error
@@ -128,10 +135,10 @@ export interface PaymentsApi {
     /**
      * Purchases the pricing package associated with the user's partner.
      *
-     * @param token - the Stripe token used to add a credit card as a payment method
+     * @param pmID - the Stripe payment method id of the credit card
      * @throws Error
      */
-    purchasePricingPackage(token: string): Promise<void>;
+    purchasePricingPackage(pmID: string): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.

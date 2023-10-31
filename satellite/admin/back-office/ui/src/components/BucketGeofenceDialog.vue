@@ -2,86 +2,98 @@
 // See LICENSE for copying information.
 
 <template>
-  <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
-    <v-card rounded="xlg">
+    <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
+        <v-card rounded="xlg">
+            <v-sheet>
+                <v-card-item class="pl-7 py-4">
+                    <template #prepend>
+                        <v-card-title class="font-weight-bold">
+                            Set Bucket Placement
+                        </v-card-title>
+                    </template>
 
-      <v-sheet>
-        <v-card-item class="pl-7 py-4">
-          <template v-slot:prepend>
-            <v-card-title class="font-weight-bold">
-              Set Bucket Placement
-            </v-card-title>
-          </template>
+                    <template #append>
+                        <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false" />
+                    </template>
+                </v-card-item>
+            </v-sheet>
 
-          <template v-slot:append>
-            <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false"></v-btn>
-          </template>
-        </v-card-item>
-      </v-sheet>
+            <v-divider />
 
-      <v-divider></v-divider>
+            <v-form v-model="valid" class="pa-7">
+                <v-row>
+                    <v-col cols="12">
+                        <p>Select a placement region for this bucket.</p>
+                        <p>Applies to all the data in this bucket.</p>
+                    </v-col>
+                </v-row>
+                <v-row>
+                    <v-col cols="12">
+                        <v-select
+                            label="Placement region" placeholder="Select the placement region."
+                            :items="['global', 'us-select-1']" variant="outlined" autofocus hide-details="auto"
+                        />
+                    </v-col>
+                </v-row>
+                <v-row>
+                    <v-col cols="12">
+                        <v-text-field
+                            model-value="Backups" label="Bucket Name" variant="solo-filled" flat readonly
+                            hide-details="auto"
+                        />
+                    </v-col>
+                </v-row>
+            </v-form>
 
-      <v-form v-model="valid" class="pa-7">
-        <v-row>
-          <v-col cols="12">
-            <p>Select a placement region for this bucket.</p>
-            <p>Applies to all the data in this bucket.</p>
-          </v-col>
-        </v-row>
-        <v-row>
-          <v-col cols="12">
-            <v-select label="Placement region" placeholder="Select the placement region."
-              :items="['global', 'us-select-1']" variant="outlined" autofocus hide-details="auto"></v-select>
-          </v-col>
-        </v-row>
-        <v-row>
-          <v-col cols="12">
-            <v-text-field model-value="Backups" label="Bucket Name" variant="solo-filled" flat readonly
-              hide-details="auto"></v-text-field>
-          </v-col>
-        </v-row>
+            <v-divider />
 
-      </v-form>
+            <v-card-actions class="pa-7">
+                <v-row>
+                    <v-col>
+                        <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn color="primary" variant="flat" block :loading="loading" @click="onButtonClick">Save</v-btn>
+                    </v-col>
+                </v-row>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 
-      <v-divider></v-divider>
-
-      <v-card-actions class="pa-7">
-        <v-row>
-          <v-col>
-            <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
-          </v-col>
-          <v-col>
-            <v-btn color="primary" variant="flat" block :loading="loading" @click="onButtonClick">Save</v-btn>
-          </v-col>
-        </v-row>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <v-snackbar :timeout="7000" v-model="snackbar" color="success">
-    {{ text }}
-    <template v-slot:actions>
-      <v-btn color="default" variant="text" @click="snackbar = false">
-        Close
-      </v-btn>
-    </template>
-  </v-snackbar>
+    <v-snackbar v-model="snackbar" :timeout="7000" color="success">
+        The bucket placement was set successfully.
+        <template #actions>
+            <v-btn color="default" variant="text" @click="snackbar = false">
+                Close
+            </v-btn>
+        </template>
+    </v-snackbar>
 </template>
-  
-<script>
-export default {
-  data() {
-    return {
-      snackbar: false,
-      text: `The bucket placement was set successfully.`,
-      dialog: false,
-    }
-  },
-  methods: {
-    onButtonClick() {
-      this.snackbar = true;
-      this.dialog = false;
-    }
-  }
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+    VDialog,
+    VCard,
+    VSheet,
+    VCardItem,
+    VCardTitle,
+    VBtn,
+    VDivider,
+    VForm,
+    VRow,
+    VCol,
+    VSelect,
+    VTextField,
+    VCardActions,
+    VSnackbar,
+} from 'vuetify/components';
+
+const snackbar = ref<boolean>(false);
+const dialog = ref<boolean>(false);
+
+function onButtonClick() {
+    snackbar.value = true;
+    dialog.value = false;
 }
 </script>

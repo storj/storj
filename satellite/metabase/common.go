@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"math"
 	"sort"
 	"strconv"
@@ -276,7 +277,7 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 		return obj.ObjectKey < b.ObjectKey
 	}
 	if obj.Version != b.Version {
-		return obj.Version > b.Version
+		return obj.Version < b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
@@ -366,6 +367,23 @@ const PendingVersion = Version(0)
 // Version in DB is represented as INT4.
 const MaxVersion = Version(math.MaxInt32)
 
+// Encode encodes version to bytes.
+// TODO(ver): this is not final approach to version encoding. It's simplified
+// version for internal testing purposes. Will be changed in future.
+func (v Version) Encode() []byte {
+	var bytes [8]byte
+	binary.BigEndian.PutUint64(bytes[:], uint64(v))
+	return bytes[:]
+}
+
+// VersionFromBytes decodes version from bytes.
+func VersionFromBytes(bytes []byte) (Version, error) {
+	if len(bytes) != 8 {
+		return Version(0), ErrInvalidRequest.New("invalid version")
+	}
+	return Version(binary.BigEndian.Uint64(bytes)), nil
+}
+
 // ObjectStatus defines the status that the object is in.
 //
 // There are two types of objects:
@@ -396,8 +414,10 @@ const (
 	CommittedVersioned = ObjectStatus(4)
 	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
 	DeleteMarkerUnversioned = ObjectStatus(5)
-	// DeleteMarkerVersioned is inserted when an  object is deleted in a versioning enabled bucket.
+	// DeleteMarkerVersioned is inserted when an object is deleted in a versioning enabled bucket.
 	DeleteMarkerVersioned = ObjectStatus(6)
+	// Prefix is an ephemeral status used during non-recursive listing.
+	Prefix = ObjectStatus(7)
 
 	// Constants that can be used while constructing SQL queries.
 	statusPending                 = "1"

@@ -27,7 +27,7 @@
                     @remove="removePaymentMethodHandler"
                 />
             </div>
-            <div class="payments-area__container__new-payments">
+            <div class="payments-area__container__new-payments" :class="{ 'white-background': isAddingPayment }">
                 <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                     <span>+&nbsp;</span>
                     <span
@@ -41,10 +41,10 @@
                     </div>
                     <div class="payments-area__create-header">Credit Card</div>
                     <div class="payments-area__create-subheader">Add Card Info</div>
-                    <StripeCardInput
+                    <StripeCardElement
                         ref="stripeCardInput"
                         class="add-card-area__stripe stripe_input"
-                        :on-stripe-response-callback="addCard"
+                        @pm-created="addCard"
                     />
                     <VButton
                         class="add-card-button"
@@ -202,12 +202,12 @@ import { useLoading } from '@/composables/useLoading';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import SortingHeader from '@/components/account/billing/billingTabs/SortingHeader.vue';
 import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
 import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
 import VTable from '@/components/common/VTable.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
@@ -381,12 +381,13 @@ function closeAddPayment(): void {
     isAddingPayment.value = false;
 }
 
-async function addCard(token: string): Promise<void> {
+async function addCard(pmID: string): Promise<void> {
     try {
-        await billingStore.addCreditCard(token);
+        await billingStore.addCardByPaymentMethodID(pmID);
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
+        isLoading.value = false;
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         return;
     }
@@ -770,7 +771,7 @@ $align: center;
 
         &__new-payments {
             width: 348px;
-            height: 203px;
+            min-height: 203px;
             padding: 24px;
             box-sizing: border-box;
             border: 2px dashed var(--c-grey-5);
@@ -778,6 +779,10 @@ $align: center;
             display: flex;
             align-items: center;
             justify-content: center;
+
+            &.white-background {
+                background: var(--c-white);
+            }
 
             &__text-area {
                 display: flex;

@@ -120,6 +120,27 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * Add payment method.
+     * @param pmID - stripe payment method id of the credit card
+     * @throws Error
+     */
+    public async addCardByPaymentMethodID(pmID: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/payment-methods`;
+        const response = await this.client.post(path, pmID);
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not add payment method',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Add credit card.
      *
      * @param token - stripe token used to add a credit card as a payment method
@@ -474,12 +495,12 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * Purchases the pricing package associated with the user's partner.
      *
-     * @param token - the Stripe token used to add a credit card as a payment method
+     * @param pmID - the Stripe payment method id of the credit card
      * @throws Error
      */
-    public async purchasePricingPackage(token: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/purchase-package`;
-        const response = await this.client.post(path, token);
+    public async purchasePricingPackage(pmID: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package?pmID=true`;
+        const response = await this.client.post(path, pmID);
 
         if (response.ok) {
             return;

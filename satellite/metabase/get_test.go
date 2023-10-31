@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -197,8 +198,9 @@ func TestGetObjectExactVersion(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{versionedMarker},
+					Markers: []metabase.Object{versionedMarker},
 				},
+				OutputMarkerStreamID: &versionedMarker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectExactVersion{
@@ -218,15 +220,17 @@ func TestGetObjectExactVersion(t *testing.T) {
 				Status:       metabase.DeleteMarkerUnversioned,
 			}
 
-			// this creates an unversioned delete marker
+			// this creates an unversioned delete marker and replace unversioned object
 			metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Suspended:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{unversionedMarker},
+					Removed: []metabase.Object{unversioned},
+					Markers: []metabase.Object{unversionedMarker},
 				},
+				OutputMarkerStreamID: &unversionedMarker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.GetObjectExactVersion{
@@ -236,6 +240,12 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 				Result: unversionedMarker,
 			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				metabase.RawObject(versionedMarker),
+				metabase.RawObject(unversionedMarker),
+				metabase.RawObject(versioned),
+			}}.Check(ctx, t, db)
 		})
 	})
 }
@@ -437,15 +447,28 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				ErrClass: &metabase.ErrObjectNotFound,
 			}.Check(ctx, t, db)
 
+			third := obj
+			third.Version = metabase.Version(10)
+			thirdObject := metabasetest.CreateObjectVersioned(ctx, t, db, third, 0)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: second.Location(),
+				},
+				Result: thirdObject,
+			}.Check(ctx, t, db)
+
 			metabasetest.Verify{Objects: []metabase.RawObject{
-				metabase.RawObject(result.Objects[0]),
+				metabase.RawObject(result.Markers[0]),
 				metabase.RawObject(firstObject),
 				metabase.RawObject(secondObject),
+				metabase.RawObject(thirdObject),
 			}}.Check(ctx, t, db)
 		})
 
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.Version = 1 // auto assigned the first available version
 			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
@@ -461,7 +484,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{originalObject},
+					Removed: []metabase.Object{originalObject},
 				},
 			}.Check(ctx, t, db)
 
@@ -1606,9 +1629,140 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		// TODO(ver): add test for committed versioned
-		// TODO(ver): add test for delete marker versioned
-		// TODO(ver): add test for delete marker unversioned
+		t.Run("versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 2)
+
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 2)
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: location,
+				},
+				Result: segments[1],
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("versioned delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 2)
+
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 2)
+
+			markerLocation := obj
+			markerLocation.StreamID = uuid.UUID{}
+			markerLocation.Version = object.Version + 1
+			marker := metabase.Object{
+				ObjectStream: markerLocation,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerVersioned,
+			}
+
+			// this creates a versioned delete marker
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: location,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+					metabase.RawObject(marker),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
+		t.Run("unversioned delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			unversioned := metabasetest.CreateObject(ctx, t, db, obj, 2)
+			versionedobj := obj
+			versionedobj.Version++
+			versionedobj.StreamID = testrand.UUID()
+			versioned := metabasetest.CreateObjectVersioned(ctx, t, db, versionedobj, 2)
+
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 4)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversioned),
+					metabase.RawObject(versioned),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+
+			markerLocation := obj
+			markerLocation.StreamID = uuid.UUID{}
+			markerLocation.Version = unversioned.Version + 2
+			marker := metabase.Object{
+				ObjectStream: markerLocation,
+				CreatedAt:    time.Now(),
+				Status:       metabase.DeleteMarkerUnversioned,
+			}
+
+			// this creates a versioned delete marker
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      false,
+					Suspended:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+					Removed: []metabase.Object{unversioned},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: location,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			segments = slices.DeleteFunc(segments, func(seg metabase.Segment) bool {
+				return seg.StreamID == unversioned.StreamID
+			})
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(versioned),
+					metabase.RawObject(marker),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
 	})
 }
 

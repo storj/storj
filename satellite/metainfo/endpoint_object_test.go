@@ -102,33 +102,46 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.NotEmpty(t, item.EncryptedObjectKey)
 				require.True(t, item.CreatedAt.Before(time.Now()))
 
-				object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				response, err := satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
 				})
 				require.NoError(t, err)
-				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
-
-				require.NotEmpty(t, object.StreamID)
-				require.EqualValues(t, item.Version, object.Version)
+				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
+				require.NotEmpty(t, response.Object.StreamId)
 
 				// get with version
-				object, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				response, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					Version:            item.Version,
+					ObjectVersion:      response.Object.ObjectVersion,
 				})
 				require.NoError(t, err)
-				require.Equal(t, item.EncryptedObjectKey, object.EncryptedObjectKey)
+				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
 
 				// get with WRONG version, should return error
-				_, err = metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
+				version, err := metabase.VersionFromBytes(response.Object.ObjectVersion)
+				require.NoError(t, err)
+				version++
+				nonExistingVersion := version.Encode()
+				_, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					Version:            item.Version + 1,
+					ObjectVersion:      nonExistingVersion,
 				})
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
+
+			// TODO(ver): add tests with delete marker
 
 			items, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket: []byte(expectedBucketName),
@@ -689,6 +702,66 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 		})
 
+		t.Run("delete specific version", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test-object", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// get encrypted object key and version
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+			// first try to delete not existing version
+			nonExistingVersion := objects[0].Version + 1
+			response, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      nonExistingVersion.Encode(),
+			})
+			require.NoError(t, err)
+			require.Nil(t, response.Object)
+
+			// now delete using explicit version
+			response, err = endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      objects[0].Version.Encode(),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, response.Object)
+			require.EqualValues(t, objects[0].ObjectKey, response.Object.EncryptedObjectKey)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test-object", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// now delete using empty version (latest version)
+			response, err = endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      nil,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, response.Object)
+			require.EqualValues(t, objects[0].ObjectKey, response.Object.EncryptedObjectKey)
+
+			objects, err = planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Empty(t, objects)
+		})
 	})
 }
 
@@ -1381,13 +1454,22 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				NumberOfSegments: 1,
 			})
 			require.NoError(t, err)
-			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID:                      beginObjectResponse.StreamID,
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+			coResponse, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
 				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
+			require.NotNil(t, coResponse.Object)
+			require.NotEmpty(t, coResponse.Object.ObjectVersion)
+
+			// TODO(ver): add tests more detailed tests for returning object on commit, including returned version
 
 			objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket:                []byte(bucket.Name),
@@ -1973,7 +2055,7 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucket, metabase.ObjectKey(encryptedKey))
+		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucket, metabase.ObjectKey(encryptedKey), []byte{})
 		require.NoError(t, err)
 	}
 	testDeleteObject(t, createObject, deleteObject)

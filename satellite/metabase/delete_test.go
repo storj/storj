@@ -182,7 +182,7 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{metabase.Object(object)},
+					Removed: []metabase.Object{metabase.Object(object)},
 				},
 			}.Check(ctx, t, db)
 
@@ -199,7 +199,7 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
 							CreatedAt:    now,
@@ -243,7 +243,7 @@ func TestDeletePendingObject(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
 							CreatedAt:    now,
@@ -420,7 +420,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{metabase.Object(object)},
+					Removed: []metabase.Object{metabase.Object(object)},
 				},
 			}.Check(ctx, t, db)
 
@@ -467,7 +467,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
 							CreatedAt:    now,
@@ -516,7 +516,7 @@ func TestDeletePendingObjectNew(t *testing.T) {
 					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
 							CreatedAt:    now,
@@ -578,7 +578,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        1,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{},
+					Removed: []metabase.Object{},
 				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -593,7 +593,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        33,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{},
+					Removed: []metabase.Object{},
 				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -615,7 +615,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{{
+					Removed: []metabase.Object{{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Encryption:   metabasetest.DefaultEncryption,
@@ -649,7 +649,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -667,7 +667,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -711,7 +711,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -782,7 +782,6 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.StreamID = uuid.UUID{}
 			marker.Version = committed.Version + 1
 
 			now := time.Now()
@@ -792,7 +791,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Markers: []metabase.Object{
 						{
 							ObjectStream: marker,
 							CreatedAt:    now,
@@ -800,6 +799,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -829,7 +829,6 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.StreamID = uuid.UUID{}
 			marker.Version = committed.Version + 1
 
 			now := time.Now()
@@ -839,7 +838,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Markers: []metabase.Object{
 						{
 							ObjectStream: marker,
 							CreatedAt:    now,
@@ -847,6 +846,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			marker2 := marker
@@ -857,7 +857,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					Versioned:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{
+					Markers: []metabase.Object{
 						{
 							ObjectStream: marker2,
 							CreatedAt:    now,
@@ -865,6 +865,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 						},
 					},
 				},
+				OutputMarkerStreamID: &marker2.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1006,7 +1007,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Locations: []metabase.ObjectLocation{location},
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1023,7 +1024,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Locations: []metabase.ObjectLocation{location},
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1045,7 +1046,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Locations: []metabase.ObjectLocation{location, obj2.Location()},
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object1, object2},
+					Removed: []metabase.Object{object1, object2},
 				},
 			}.Check(ctx, t, db)
 
@@ -1088,7 +1089,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Locations: []metabase.ObjectLocation{location},
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1137,7 +1138,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Locations: []metabase.ObjectLocation{location, object2.Location()},
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object1, object2},
+					Removed: []metabase.Object{object1, object2},
 				},
 			}.Check(ctx, t, db)
 
@@ -1152,7 +1153,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			for i := 1; i <= 10; i++ {
 				obj.StreamID = testrand.UUID()
 				obj.Version = metabase.Version(i)
-				expected.Objects = append(expected.Objects, metabasetest.CreateObjectVersioned(ctx, t, db, obj, 1))
+				expected.Removed = append(expected.Removed, metabasetest.CreateObjectVersioned(ctx, t, db, obj, 1))
 			}
 
 			metabasetest.DeleteObjectsAllVersions{
@@ -1165,13 +1166,14 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		// TODO(ver): these tests look like they are in the wrong location
 		t.Run("delete last committed unversioned with suspended", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
 
 			obj := metabasetest.RandObjectStream()
-			_ = metabasetest.CreateObject(ctx, t, db, obj, 0)
+			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			marker := metabase.Object{
 				ObjectStream: metabase.ObjectStream{
@@ -1194,7 +1196,13 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Versioned: false,
 					Suspended: true,
 				},
-				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{marker}},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+					Removed: []metabase.Object{
+						object,
+					},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1233,7 +1241,10 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Versioned: false,
 					Suspended: true,
 				},
-				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{marker}},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1282,7 +1293,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        copyObj.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Objects: []metabase.Object{copyObj},
+							Removed: []metabase.Object{copyObj},
 						},
 					}.Check(ctx, t, db)
 
@@ -1321,7 +1332,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        copyObject1.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Objects: []metabase.Object{copyObject1},
+							Removed: []metabase.Object{copyObject1},
 						},
 					}.Check(ctx, t, db)
 
@@ -1358,7 +1369,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        originalObj.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Objects: []metabase.Object{originalObj},
+							Removed: []metabase.Object{originalObj},
 						},
 					}.Check(ctx, t, db)
 
@@ -1471,9 +1482,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 				},
-				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{},
-				},
+				Result: metabase.DeleteObjectResult{},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -1498,7 +1507,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1515,7 +1524,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1555,7 +1564,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
-					Objects: []metabase.Object{object},
+					Removed: []metabase.Object{object},
 				},
 			}.Check(ctx, t, db)
 
@@ -1610,7 +1619,9 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 						BucketName: newObj.BucketName,
 						ObjectKey:  newObj.ObjectKey,
 					}},
-				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{committedObject}},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{committedObject},
+				},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{

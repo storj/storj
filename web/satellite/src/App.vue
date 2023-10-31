@@ -160,6 +160,7 @@ onBeforeUnmount((): void => {
 
     ::-webkit-scrollbar {
         width: 4px;
+        height: 4px;
     }
 
     ::-webkit-scrollbar-track {
@@ -170,5 +171,9 @@ onBeforeUnmount((): void => {
         background: #afb7c1;
         border-radius: 6px;
         height: 5px;
+    }
+
+    ::-webkit-scrollbar-corner {
+        background-color: transparent;
     }
 </style>

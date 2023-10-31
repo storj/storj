@@ -54,6 +54,11 @@ type UsersService interface {
 		Surname string "json:\"surname\""
 		Email   string "json:\"email\""
 	}, api.HTTPError)
+	Create(ctx context.Context, request []struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}) api.HTTPError
 }
 
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
@@ -100,6 +105,7 @@ func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *
 
 	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
 	usersRouter.HandleFunc("/", handler.handleGet).Methods("GET")
+	usersRouter.HandleFunc("/", handler.handleCreate).Methods("POST")
 
 	return handler
 }
@@ -319,5 +325,35 @@ func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json Get response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := []struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	httpErr := h.service.Create(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }

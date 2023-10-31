@@ -20,7 +20,7 @@ type objectsIterator struct {
 
 	projectID             uuid.UUID
 	bucketName            []byte
-	status                ObjectStatus
+	pending               bool
 	prefix                ObjectKey
 	prefixLimit           ObjectKey
 	batchSize             int
@@ -54,7 +54,7 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 
 		projectID:             opts.ProjectID,
 		bucketName:            []byte(opts.BucketName),
-		status:                opts.Status,
+		pending:               opts.Pending,
 		prefix:                opts.Prefix,
 		prefixLimit:           prefixLimit(opts.Prefix),
 		batchSize:             opts.BatchSize,
@@ -98,7 +98,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		recursive:             true,
 		includeCustomMetadata: true,
 		includeSystemMetadata: true,
-		status:                Pending,
+		pending:               true,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -162,7 +162,7 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 		*item = ObjectEntry{
 			IsPrefix:  true,
 			ObjectKey: item.ObjectKey[:p+1],
-			Status:    it.status,
+			Status:    Prefix,
 		}
 	}
 
@@ -231,6 +231,11 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 		cursorCompare = ">="
 	}
 
+	statusFilter := `AND status <> ` + statusPending
+	if it.pending {
+		statusFilter = `AND status = ` + statusPending
+	}
+
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
 		return it.db.db.QueryContext(ctx, `
@@ -238,14 +243,13 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 				`+querySelectFields+`
 			FROM objects
 			WHERE
-				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-				AND (project_id, bucket_name) < ($1, $7)
-				AND status = $3
+				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $3, $4)
+				AND (project_id, bucket_name) < ($1, $6)
+				`+statusFilter+`
 				AND (expires_at IS NULL OR expires_at > now())
 				ORDER BY (project_id, bucket_name, object_key, version) ASC
-			LIMIT $6
+			LIMIT $5
 			`, it.projectID, it.bucketName,
-			it.status,
 			[]byte(it.cursor.Key), int(it.cursor.Version),
 			it.batchSize,
 			nextBucket(it.bucketName),
@@ -257,20 +261,19 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 		fromSubstring = len(it.prefix) + 1
 	}
 
-	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $8)", it)
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
 	return it.db.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
-			AND status = $3
+			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $3, $4)
+			AND (project_id, bucket_name, object_key) < ($1, $2, $5)
+			`+statusFilter+`
 			AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY (project_id, bucket_name, object_key, version) ASC
-		LIMIT $7
+		LIMIT $6
 		`, it.projectID, it.bucketName,
-		it.status,
 		[]byte(it.cursor.Key), int(it.cursor.Version),
 		[]byte(it.prefixLimit),
 		it.batchSize,
@@ -282,6 +285,7 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 	querySelectFields := objectKeyColumn + `
 		,stream_id
 		,version
+		,status
 		,encryption`
 
 	if it.includeSystemMetadata {
@@ -317,7 +321,7 @@ func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_
 
 	return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, encryption,
+				object_key, stream_id, version, status, encryption,
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
@@ -339,12 +343,12 @@ func doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_
 // scanItem scans doNextQuery results into ObjectEntry.
 func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
-	item.Status = it.status
 
 	fields := []interface{}{
 		&item.ObjectKey,
 		&item.StreamID,
 		&item.Version,
+		&item.Status,
 		encryptionParameters{&item.Encryption},
 	}
 

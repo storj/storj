@@ -142,10 +142,13 @@ type ReadCSVConfig struct {
 }
 
 func verifySegments(cmd *cobra.Command, args []string) error {
-
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
+	return verifySegmentsInContext(ctx, log, cmd, satelliteCfg, rangeCfg)
+}
+
+func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Command, satelliteCfg Satellite, rangeCfg RangeConfig) error {
 	// open default satellite database
 	db, err := satellitedb.Open(ctx, log.Named("db"), satelliteCfg.Database, satellitedb.Options{
 		ApplicationName:     "segment-verify",
@@ -247,7 +250,6 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	verifier.reportPiece = service.problemPieces.Write
 	defer func() { err = errs.Combine(err, service.Close()) }()
 
 	log.Debug("starting", zap.Any("config", service.config), zap.String("command", cmd.Name()))

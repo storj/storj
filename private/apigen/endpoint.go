@@ -54,6 +54,10 @@ type Endpoint struct {
 	// PathParams is the list of path parameters that appear in the path associated with this
 	// endpoint.
 	PathParams []Param
+	// ResponseMock is the data to use as a response for the generated mocks.
+	// It must be of the same type than Response.
+	// If a mock generator is called it must not be nil unless Response is nil.
+	ResponseMock interface{}
 }
 
 // CookieAuth returns endpoint's cookie auth status.
@@ -111,6 +115,14 @@ func (e *Endpoint) Validate() error {
 			reflect.Pointer,
 			reflect.UnsafePointer:
 			return errsEndpoint.New("Response cannot be of a type %q", k)
+		}
+
+		if e.ResponseMock != nil {
+			if m, r := reflect.TypeOf(e.ResponseMock), reflect.TypeOf(e.Response); m != r {
+				return errsEndpoint.New(
+					"ResponseMock isn't of the same type than Response. Have=%q Want=%q", m, r,
+				)
+			}
 		}
 	}
 

@@ -402,14 +402,16 @@ func TestPlacementFromString(t *testing.T) {
 		rules1 := NewPlacementDefinitions()
 		err := rules1.AddPlacementFromString(`
 						10:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","selected",notEmpty());
+						13:tag("12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4","datacenter","true");
 						11:placement(10) && annotation("autoExcludeSubnet","off") && annotation("location","do-not-use");
 						12:placement(10) && annotation("autoExcludeSubnet","off") && country("US") && annotation("location","us-select-1");
-						0:exclude(placement(10)) && annotation("location","global");
-						1:country("EU") && exclude(placement(10)) && annotation("location","eu-1");
-						2:country("EEA") && exclude(placement(10)) && annotation("location","eea-1");
-						3:country("US") && exclude(placement(10)) && annotation("location","us-1");
-						4:country("DE") && exclude(placement(10)) && annotation("location","de-1");
-						6:country("*","!BY", "!RU", "!NONE") && exclude(placement(10)) && annotation("location","custom-1");`)
+						0:exclude(placement(10)) && exclude(placement(13)) && annotation("location","global");
+						1:country("EU") && exclude(placement(10)) && exclude(placement(13)) && annotation("location","eu-1");
+						2:country("EEA") && exclude(placement(10)) && exclude(placement(13)) && annotation("location","eea-1");
+						3:country("US") && exclude(placement(10)) && exclude(placement(13)) && annotation("location","us-1");
+						4:country("DE") && exclude(placement(10)) && exclude(placement(13)) && annotation("location","de-1");
+						6:country("*","!BY", "!RU", "!NONE") && exclude(placement(10)) && exclude(placement(13)) && annotation("location","custom-1");
+						14:placement(13) && annotation("autoExcludeSubnet","off") && annotation("location","global-datacenter");`)
 		require.NoError(t, err)
 
 		// for countries, it should be the same as above
@@ -486,10 +488,35 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}))
 
+		datacenterNode := &nodeselection.SelectedNode{
+			CountryCode: location.UnitedStates,
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "datacenter",
+					Value:  []byte("true"),
+				},
+			},
+		}
+		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
+			value := rules1.CreateFilters(placement).Match(datacenterNode)
+			assert.False(t, value)
+		}
+
+		assert.True(t, rules1.CreateFilters(13).Match(&nodeselection.SelectedNode{
+			Tags: nodeselection.NodeTags{
+				{
+					Signer: signer,
+					Name:   "datacenter",
+					Value:  []byte("true"),
+				},
+			},
+		}))
+
 		// check if annotation present on 11,12, but not on other
 		for i := 0; i < 20; i++ {
 			subnetDisabled := nodeselection.GetAnnotation(rules1.CreateFilters(storj.PlacementConstraint(i)), nodeselection.AutoExcludeSubnet) == nodeselection.AutoExcludeSubnetOFF
-			if i == 11 || i == 12 {
+			if i == 11 || i == 12 || i == 14 {
 				require.True(t, subnetDisabled, "Placement filter should be disabled for %d", i)
 			} else {
 				require.False(t, subnetDisabled, "Placement filter should be enabled for %d", i)

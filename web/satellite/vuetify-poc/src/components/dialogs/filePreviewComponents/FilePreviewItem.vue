@@ -5,6 +5,12 @@
     <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center mt-n16">
         <v-progress-circular indeterminate />
     </v-container>
+    <text-file-preview v-else-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
+        <file-preview-placeholder :file="file" @download="emit('download')" />
+    </text-file-preview>
+    <c-s-v-file-preview v-else-if="previewType === PreviewType.CSV" :src="objectPreviewUrl">
+        <file-preview-placeholder :file="file" @download="emit('download')" />
+    </c-s-v-file-preview>
     <v-container v-else-if="previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
         <video
             controls
@@ -39,7 +45,7 @@
             <file-preview-placeholder :file="file" @download="emit('download')" />
         </object>
     </v-container>
-    <file-preview-placeholder v-else class="mt-n16" :file="file" @download="emit('download')" />
+    <file-preview-placeholder v-else :file="file" @download="emit('download')" />
 </template>
 
 <script setup lang="ts">
@@ -51,16 +57,11 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLinksharing } from '@/composables/useLinksharing';
+import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import FilePreviewPlaceholder from '@poc/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
-
-enum PreviewType {
-    None,
-    Image,
-    Video,
-    Audio,
-    PDF,
-}
+import TextFilePreview from '@poc/components/dialogs/filePreviewComponents/TextFilePreview.vue';
+import CSVFilePreview from '@poc/components/dialogs/filePreviewComponents/CSVFilePreview.vue';
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
@@ -69,13 +70,6 @@ const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
-
-const extInfos = new Map<string[], PreviewType>([
-    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'], PreviewType.Image],
-    [['m4v', 'mp4', 'webm', 'mov', 'mkv'], PreviewType.Video],
-    [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
-    [['pdf'], PreviewType.PDF],
-]);
 
 const props = defineProps<{
   file: BrowserObject,
@@ -126,7 +120,7 @@ const previewType = computed<PreviewType>(() => {
     if (dotIdx === -1) return PreviewType.None;
 
     const ext = props.file.Key.toLowerCase().slice(dotIdx + 1);
-    for (const [exts, previewType] of extInfos) {
+    for (const [exts, previewType] of EXTENSION_PREVIEW_TYPES) {
         if (exts.includes(ext)) return previewType;
     }
 

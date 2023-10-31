@@ -34,7 +34,7 @@
         <v-banner
             v-if="isLowBalance && parentRef && billingEnabled"
             class="all-dashboard-banners__low-balance"
-            message="Your STORJ Token balance is low. Deposit more STORJ tokens or add a credit card to avoid interruptions in service."
+            message="Your STORJ Token balance is low. Deposit more STORJ tokens or make sure you have a credit card on file to avoid interruptions in service."
             link-text="Go to billing"
             severity="warning"
             :dashboard-ref="parentRef"
@@ -51,18 +51,19 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { RouteConfig } from '@/types/router';
-import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
 const router = useRouter();
 
-const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const configStore = useConfigStore();
+
+const isLowBalance = useLowTokenBalance();
 
 const props = defineProps<{
   parentRef: HTMLElement;
@@ -85,15 +86,6 @@ const isAccountFrozen = computed((): boolean => {
  */
 const isAccountWarned = computed((): boolean => {
     return usersStore.state.user.freezeStatus.warned;
-});
-
-/**
- * Indicates if low STORJ token balance banner is shown.
- */
-const isLowBalance = computed((): boolean => {
-    return !billingStore.state.creditCards.length &&
-        billingStore.state.nativePaymentsHistory.length > 0 &&
-        billingStore.state.balance.sum < billingStore.state.projectCharges.getPrice();
 });
 
 /* whether the paid tier banner should be shown */

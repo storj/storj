@@ -692,11 +692,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		var highestVersion Version
 		if opts.Versioned {
 			// TODO(ver): fold this into the queries below using a subquery.
-			v, err := db.queryHighestVersion(ctx, opts.Location(), tx)
+			maxVersion, err := db.queryHighestVersion(ctx, opts.Location(), tx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			highestVersion = v
+			highestVersion = maxVersion
 		} else {
 			// TODO(ver): fold this into the query below using a subquery using `ON CONFLICT` on the unique index.
 			// Note, we are prematurely deleting the object without permissions
@@ -708,7 +708,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			if deleteResult.DeletedObjectCount > 0 && opts.DisallowDelete {
 				return ErrPermissionDenied.New("no permissions to delete existing object")
 			}
-
 			highestVersion = deleteResult.MaxVersion
 		}
 
@@ -784,6 +783,13 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				return Error.New("failed to update object: %w", err)
 			}
 		} else {
+			nextVersion := opts.Version
+			if nextVersion < highestVersion {
+				nextVersion = highestVersion + 1
+			}
+			args = append(args, nextVersion)
+			opts.Version = nextVersion
+
 			metadataColumns := ""
 			if opts.OverrideEncryptedMetadata {
 				args = append(args,
@@ -792,13 +798,14 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					opts.EncryptedMetadataEncryptedKey,
 				)
 				metadataColumns = `,
-					encrypted_metadata_nonce         = $12,
-					encrypted_metadata               = $13,
-					encrypted_metadata_encrypted_key = $14
+					encrypted_metadata_nonce         = $13,
+					encrypted_metadata               = $14,
+					encrypted_metadata_encrypted_key = $15
 				`
 			}
 			err = tx.QueryRowContext(ctx, `
 				UPDATE objects SET
+					version = $12,
 					status = $6,
 					segment_count = $7,
 

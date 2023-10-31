@@ -6,9 +6,9 @@
         <template #content>
             <div class="add-tokens">
                 <p class="add-tokens__info">
-                    Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
-                    Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
-                    If your account is not automatically upgraded, please fill out this
+                    Send more than {{ amountForUpgrade }} in STORJ Tokens to the following deposit address to upgrade to
+                    a Pro account. Your account will be upgraded after your transaction receives {{ neededConfirmations }}
+                    confirmations. If your account is not automatically upgraded, please fill out this
                     <a
                         class="add-tokens__info__link"
                         href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
@@ -72,6 +72,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { centsToDollars, microDollarsToCents } from '@/utils/strings';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -93,6 +94,12 @@ const notify = useNotify();
 const canvas = ref<HTMLCanvasElement>();
 const intervalID = ref<NodeJS.Timer>();
 const viewState = ref<ViewState>(ViewState.Default);
+
+const amountForUpgrade = computed<string>(() => {
+    const balanceForUpgrade = configStore.state.config.userBalanceForUpgrade;
+
+    return centsToDollars(microDollarsToCents(balanceForUpgrade));
+});
 
 /**
  * Returns wallet from store.

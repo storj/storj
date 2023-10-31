@@ -8,9 +8,9 @@
                 By saving your card information, you allow Storj to charge your card for future payments in accordance with
                 the terms.
             </p>
-            <StripeCardInput
+            <StripeCardElement
                 ref="stripeCardInput"
-                :on-stripe-response-callback="addCardToDB"
+                @pm-created="addCardToDB"
             />
             <VButton
                 class="button"
@@ -42,8 +42,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -62,7 +62,7 @@ const props = defineProps<{
 }>();
 
 const loading = ref<boolean>(false);
-const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 /**
  * Provides card information to Stripe.
@@ -83,11 +83,11 @@ async function onSaveCardClick(): Promise<void> {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param token from Stripe
+ * @param pmID from Stripe
  */
-async function addCardToDB(token: string): Promise<void> {
+async function addCardToDB(pmID: string): Promise<void> {
     try {
-        await billingStore.addCreditCard(token);
+        await billingStore.addCardByPaymentMethodID(pmID);
         notify.success('Card successfully added');
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();

@@ -298,13 +298,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(1, 2, 4, 4),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Checker.DoDeclumping = true
-					config.Repairer.DoDeclumping = true
-				},
-			),
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))

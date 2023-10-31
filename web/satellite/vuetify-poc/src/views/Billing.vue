@@ -166,15 +166,15 @@
 
             <v-window-item>
                 <v-row>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4" sm="6">
                         <StorjTokenCardComponent @historyClicked="goToTransactionsTab" />
                     </v-col>
 
-                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" sm="4">
+                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" md="4" sm="6">
                         <CreditCardComponent :card="card" />
                     </v-col>
 
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4" sm="6">
                         <AddCreditCardComponent />
                     </v-col>
                 </v-row>

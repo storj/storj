@@ -56,7 +56,18 @@ export type DocsGetResponse = Array<DocsGetResponseItem>
 
 export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
 
+export type UsersCreateRequest = Array<UsersGetResponseItem>
+
 export type UsersGetResponse = Array<UsersGetResponseItem>
+
+class APIError extends Error {
+    constructor(
+        public readonly msg: string,
+        public readonly responseStatusCode?: number,
+    ) {
+        super(msg);
+    }
+}
 
 export class DocumentsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
@@ -69,7 +80,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsGetResponse);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getOne(path: string): Promise<Document> {
@@ -79,7 +90,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Document);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
@@ -89,7 +100,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as string[]);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async getVersions(path: string): Promise<Version[]> {
@@ -99,7 +110,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Version[]);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
@@ -112,7 +123,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsUpdateContentResponse);
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(response.status, err.error);
     }
 }
 
@@ -125,6 +136,16 @@ export class UsersHttpApiV0 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as UsersGetResponse);
+        }
+        const err = await response.json();
+        throw new APIError(response.status, err.error);
+    }
+
+    public async create(request: UsersCreateRequest): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new Error(err.error);

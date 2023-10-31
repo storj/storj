@@ -135,7 +135,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Version:    req.Version,
 	}
 
-	endpoint.emitEvenkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
+	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
 
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
@@ -151,7 +151,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}, nil
 }
 
-func (endpoint *Endpoint) emitEvenkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
+func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
 	var sourceAddr string
 	transport, found := drpcctx.Transport(ctx)
 	if found {
@@ -163,18 +163,26 @@ func (endpoint *Endpoint) emitEvenkitEvent(ctx context.Context, req *pb.CheckInR
 		}
 	}
 
-	ek.Event("checkin",
+	tags := []eventkit.Tag{
 		eventkit.String("id", nodeInfo.NodeID.String()),
 		eventkit.String("addr", req.Address),
 		eventkit.String("resolved-addr", nodeInfo.LastIPPort),
 		eventkit.String("source-addr", sourceAddr),
-		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp),
-		eventkit.String("version", nodeInfo.Version.Version),
 		eventkit.String("country", nodeInfo.CountryCode.String()),
-		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk),
 		eventkit.Bool("ping-tpc-success", pingNodeTCPSuccess),
 		eventkit.Bool("ping-quic-success", pingNodeQUICSuccess),
-	)
+	}
+
+	if nodeInfo.Capacity != nil {
+		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk)
+	}
+
+	if nodeInfo.Version != nil {
+		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp)
+		eventkit.String("version", nodeInfo.Version.Version)
+	}
+
+	ek.Event("checkin", tags...)
 }
 
 // GetTime returns current timestamp.

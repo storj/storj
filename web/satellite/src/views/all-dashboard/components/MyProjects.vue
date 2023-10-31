@@ -151,14 +151,13 @@ function onViewChangeClicked(view: string): void {
 }
 
 onMounted(async () => {
-    if (!configStore.state.config.nativeTokenPaymentsEnabled) {
+    if (!(configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled)) {
         return;
     }
 
     try {
         await Promise.all([
             billingStore.getBalance(),
-            billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getCreditCards(),
             billingStore.getNativePaymentsHistory(),
         ]);

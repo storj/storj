@@ -171,7 +171,7 @@ onMounted(async () => {
 
     appStore.changeState(FetchState.LOADED);
 
-    if (usersStore.shouldOnboard && !appStore.state.hasShownPricingPlan) {
+    if (usersStore.shouldOnboard && configStore.state.config.pricingPackagesEnabled && !appStore.state.hasShownPricingPlan) {
         appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.
