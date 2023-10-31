@@ -434,13 +434,15 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
+		var precommit precommitConstraintResult
 		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			// TODO(ver) fold deleteObjectUnversionedCommitted into query below using ON CONFLICT
-			deleted, err := db.deleteObjectUnversionedCommitted(ctx, opts.ObjectLocation, tx)
+			precommit, err = db.precommitDeleteUnversioned(ctx, opts.ObjectLocation, tx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			if deleted.MaxVersion == 0 {
+			// TODO(ver): currently it allows adding delete markers when pending objects are present.
+			if precommit.HighestVersion == 0 {
+				// an object didn't exist in the first place
 				return ErrObjectNotFound.New("unable to delete object")
 			}
 
@@ -457,7 +459,7 @@ func (db *DB) DeleteObjectLastCommitted(
 				RETURNING
 					version,
 					created_at
-			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleted.MaxVersion+1, deleterMarkerStreamID)
+			`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
 
 			var marker Object
 			marker.ProjectID = opts.ProjectID
@@ -472,9 +474,13 @@ func (db *DB) DeleteObjectLastCommitted(
 			}
 
 			result.Markers = append(result.Markers, marker)
-			result.Removed = deleted.Deleted
+			result.Removed = precommit.Deleted
 			return nil
 		})
+		if err != nil {
+			return result, err
+		}
+		precommit.submitMetrics()
 		return result, err
 	}
 	if opts.Versioned {

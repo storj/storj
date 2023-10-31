@@ -133,6 +133,15 @@ type FinishMoveObject struct {
 	NewVersioned bool
 }
 
+// NewLocation returns the new object location.
+func (finishMove FinishMoveObject) NewLocation() ObjectLocation {
+	return ObjectLocation{
+		ProjectID:  finishMove.ProjectID,
+		BucketName: finishMove.NewBucket,
+		ObjectKey:  finishMove.NewEncryptedObjectKey,
+	}
+}
+
 // Verify verifies metabase.FinishMoveObject data.
 func (finishMove FinishMoveObject) Verify() error {
 	if err := finishMove.ObjectStream.Verify(); err != nil {
@@ -157,36 +166,15 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		return err
 	}
 
+	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		var highestVersion Version
-
-		if !opts.NewVersioned {
-			// TODO(ver): this logic can probably merged into update query
-			//
-			// Note, we are prematurely deleting the object without permissions
-			// and then rolling the action back, if we were not allowed to.
-			deleted, err := db.deleteObjectUnversionedCommitted(ctx, ObjectLocation{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.NewBucket,
-				ObjectKey:  opts.NewEncryptedObjectKey,
-			}, tx)
-			if err != nil {
-				return Error.New("unable to delete object at target location: %w", err)
-			}
-			if deleted.DeletedObjectCount > 0 && opts.NewDisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
-			}
-
-			highestVersion = deleted.MaxVersion
-		} else {
-			highestVersion, err = db.queryHighestVersion(ctx, ObjectLocation{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.NewBucket,
-				ObjectKey:  opts.NewEncryptedObjectKey,
-			}, tx)
-			if err != nil {
-				return Error.New("unable to query highest version: %w", err)
-			}
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.NewLocation(),
+			Versioned:      opts.NewVersioned,
+			DisallowDelete: opts.NewDisallowDelete,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		var segmentsCount int
@@ -219,7 +207,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				stream_id
 		`, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
 			opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
-			opts.ObjectKey, opts.Version, newStatus, highestVersion+1).
+			opts.ObjectKey, opts.Version, newStatus, precommit.HighestVersion+1).
 			Scan(&segmentsCount, &hasMetadata, &streamID)
 
 		if err != nil {
@@ -282,6 +270,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		return err
 	}
 
+	precommit.submitMetrics()
 	mon.Meter("finish_move_object").Mark(1)
 
 	return nil

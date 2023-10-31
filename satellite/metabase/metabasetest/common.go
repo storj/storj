@@ -85,7 +85,7 @@ func sortRawSegments(segments []metabase.RawSegment) {
 
 func checkError(t require.TestingT, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
-		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)
+		require.True(t, errClass.Has(err), "expected an error %q got %q", *errClass, err)
 	}
 	if errText != "" {
 		require.EqualError(t, err, errClass.New(errText).Error())
