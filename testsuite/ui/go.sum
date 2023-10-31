@@ -1155,8 +1155,6 @@ github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a h1:0R4NLDRDZX6Jc
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49uaYMPRU=
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
-github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3 h1:zMsHhfK9+Wdl1F7sIKLyx3wrOFofpb3rWFbA4HgcK5k=
-github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3/go.mod h1:R0Gbuw7ElaGSLOZUSwBm/GgVwMd30jWxBDdAyMOeTuc=
 github.com/willf/bitset v1.1.11 h1:N7Z7E9UvjW+sGsEl7k/SJrvY2reP1A07MrGuCjIOjRE=
 github.com/willf/bitset v1.1.11/go.mod h1:83CECat5yLh5zVOf4P1ErAgKA5UDvKtgyUABdr3+MjI=
 github.com/willf/bloom v2.0.3+incompatible h1:QDacWdqcAUI1MPOwIQZRy9kOR7yxfyEmxX8Wdm2/JPA=
@@ -1564,8 +1562,8 @@ golang.org/x/sys v0.0.0-20220704084225-05e143d24a9e/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.11.0 h1:eG7RXZHdqOJ1i+0lgLgCpSXAp6M3LYlAo6osgSi0xOM=
-golang.org/x/sys v0.11.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
+golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
@@ -1982,6 +1980,8 @@ storj.io/gateway v1.8.4-0.20230411184137-387420cf640f h1:VB9U9rvLwwgHe+k+Xb+j9t2
 storj.io/gateway v1.8.4-0.20230411184137-387420cf640f/go.mod h1:FPMhOUqTJgqi+FFY2pmUZkBeAt7QzQa16gVAE7NawEc=
 storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297 h1:SEH4Tp23hGOGeddAOMjmCJcfRKVm0EYUEZppFxuictk=
 storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297/go.mod h1:eI35NSRCW2VjhdzcnBmDxIiAG8vxHptd8EVTUohwt5c=
+storj.io/infectious v0.0.1 h1:/EdG6zvf589iTaTBdv+7+Q34/gR/evAGyYT3I2XYRxw=
+storj.io/infectious v0.0.1/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
 storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 h1:FT3ChvMha2DIwCQE49Pbkj+k+oQ2o6UfL0Omt/uyis0=
 storj.io/minio v0.0.0-20230118205046-c025fcc9eef3/go.mod h1:3knaZE6oHV2TQA/H2hQ00llsP3cJixUALYznzkP3enY=
 storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c h1:92Hl7mBzjfMNNkkO3uVp62ZC8yZuBNcz20EVcKNzpkQ=
@@ -1990,6 +1990,6 @@ storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c h1:or/DtG5uaZpzimL61ahlgAA
 storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c/go.mod h1:JCuc3C0gzCJHQ4J6SOx/Yjg+QTpX0D+Fvs5H46FETCk=
 storj.io/private v0.0.0-20231012141933-ae62725d6691 h1:s/TxryjR2RkyYrZg6SkM30QCAKU7mAHQJeUFUdjcQXI=
 storj.io/private v0.0.0-20231012141933-ae62725d6691/go.mod h1:LuJVzguWEMXd8y/XRQZhWCUTmo5LpnYumiUgX+JAs6A=
-storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45 h1:E/GofUHItoF0zK6cjodrCyxQ+EYwE1yYhg+i13cKHDc=
-storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45/go.mod h1:fAG0iABJishA1w6K2mlQ/ekoqXdVtb7ysfkq5tZiCHI=
+storj.io/uplink v1.12.2-0.20231101155507-0de4b39f3dc5 h1:H2wA0FW+yEaVBq63tt1y6k2k2VeX6kSeXvuyvEU60Nc=
+storj.io/uplink v1.12.2-0.20231101155507-0de4b39f3dc5/go.mod h1:FijbSlvLWgzDg/gYyE+rVxTNOlQhCGTn7qPsbFHgeQU=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
