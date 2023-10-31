@@ -462,8 +462,8 @@ github.com/prometheus/procfs v0.0.0-20190507164030-5867b95ac084/go.mod h1:TjEm7z
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/quic-go/qtls-go1-20 v0.3.4 h1:MfFAPULvst4yoMgY9QmtpYmfij/em7O8UUi+bNVm7Cg=
 github.com/quic-go/qtls-go1-20 v0.3.4/go.mod h1:X9Nh97ZL80Z+bX/gUXMbipO6OxdiDi58b/fMC9mAL+k=
-github.com/quic-go/quic-go v0.39.2 h1:hmwAf8zAHlvan0Y5PXxeeBFZEW17IW99sXLry8I2kjk=
-github.com/quic-go/quic-go v0.39.2/go.mod h1:T09QsDQWjLiQ74ZmacDfqZmhY/NLnw5BC40MANNNZ1Q=
+github.com/quic-go/quic-go v0.39.3 h1:o3YB6t2SR+HU/pgwF29kJ6g4jJIJEwEZ8CKia1h1TKg=
+github.com/quic-go/quic-go v0.39.3/go.mod h1:T09QsDQWjLiQ74ZmacDfqZmhY/NLnw5BC40MANNNZ1Q=
 github.com/redis/go-redis/v9 v9.0.3 h1:+7mmR26M0IvyLxGZUHxu4GiBkJkVDid0Un+j4ScYu4k=
 github.com/redis/go-redis/v9 v9.0.3/go.mod h1:WqMKv5vnQbRuZstUwxQI195wHy+t4PuXDOjzMvcuQHk=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
@@ -1015,8 +1015,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2zzQcaEFbx8wA8rck=
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20231025115457-490795610a23 h1:rlqQafxX6tVP5FOtXAXXG+84avcdXMkSElWtRB0vA2M=
-storj.io/common v0.0.0-20231025115457-490795610a23/go.mod h1:gAwUxRl45+egUXf54Nm2bl6f2LlQjIT/2sJwSrisIfE=
+storj.io/common v0.0.0-20231030160447-a6058ddbb07f h1:uDxZur9MAc0FB/+totmncekkGT7+YYGZE9b8BZskLTo=
+storj.io/common v0.0.0-20231030160447-a6058ddbb07f/go.mod h1:qzung7BKWOk/EHHKNkXUBevcVPCocfp90tMU3jUsEa0=
 storj.io/drpc v0.0.32/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
 storj.io/drpc v0.0.33 h1:yCGZ26r66ZdMP0IcTYsj7WDAUIIjzXk6DJhbhvt9FHI=
 storj.io/drpc v0.0.33/go.mod h1:vR804UNzhBa49NOJ6HeLjd2H3MakC1j5Gv8bsOQT6N4=
@@ -1026,5 +1026,5 @@ storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c h1:or/DtG5uaZpzimL61ahlgAA
 storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c/go.mod h1:JCuc3C0gzCJHQ4J6SOx/Yjg+QTpX0D+Fvs5H46FETCk=
 storj.io/private v0.0.0-20231012141933-ae62725d6691 h1:s/TxryjR2RkyYrZg6SkM30QCAKU7mAHQJeUFUdjcQXI=
 storj.io/private v0.0.0-20231012141933-ae62725d6691/go.mod h1:LuJVzguWEMXd8y/XRQZhWCUTmo5LpnYumiUgX+JAs6A=
-storj.io/uplink v1.12.2-0.20231020093444-f991cbc7f64d h1:960x86sn1DicnAmAkcflIJAOFDfxlU9+TeOpTSHKBeY=
-storj.io/uplink v1.12.2-0.20231020093444-f991cbc7f64d/go.mod h1:gEWsb17U41qDFOso1+Ubr5/k/2g9qnxQ2j5wycDfCFY=
+storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45 h1:E/GofUHItoF0zK6cjodrCyxQ+EYwE1yYhg+i13cKHDc=
+storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45/go.mod h1:fAG0iABJishA1w6K2mlQ/ekoqXdVtb7ysfkq5tZiCHI=

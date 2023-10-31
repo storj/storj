@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20231025115457-490795610a23
+	storj.io/common v0.0.0-20231030160447-a6058ddbb07f
 	storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297
 	storj.io/private v0.0.0-20231012141933-ae62725d6691
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
@@ -152,7 +152,7 @@ require (
 	github.com/prometheus/common v0.14.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
-	github.com/quic-go/quic-go v0.39.2 // indirect
+	github.com/quic-go/quic-go v0.39.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -233,5 +233,5 @@ require (
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
-	storj.io/uplink v1.12.2-0.20231020093444-f991cbc7f64d // indirect
+	storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45 // indirect
 )

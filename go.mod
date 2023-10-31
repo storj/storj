@@ -40,7 +40,6 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/stripe/stripe-go/v75 v75.8.0
 	github.com/vbauerster/mpb/v8 v8.4.0
-	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d
@@ -62,11 +61,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20231025115457-490795610a23
+	storj.io/common v0.0.0-20231030160447-a6058ddbb07f
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
 	storj.io/private v0.0.0-20231012141933-ae62725d6691
-	storj.io/uplink v1.12.2-0.20231020093444-f991cbc7f64d
+	storj.io/uplink v1.12.2-0.20231031134744-8966f4365d45
 )
 
 require (
@@ -114,7 +113,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
-	github.com/quic-go/quic-go v0.39.2 // indirect
+	github.com/quic-go/quic-go v0.39.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
@@ -122,6 +121,7 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect

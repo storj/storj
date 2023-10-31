@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/calebcase/tmpfile"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -249,7 +248,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, pieces, Error.New("expected %d failures, but only observed %d", ec.minFailures, errorCount)
 	}
 
-	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
+	fec, err := eestream.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
 		return nil, pieces, Error.Wrap(err)
 	}

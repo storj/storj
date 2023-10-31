@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vivint/infectious"
-
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
@@ -96,7 +94,7 @@ func (rs *RSConfig) Set(s string) error {
 
 // RedundancyStrategy creates eestream.RedundancyStrategy from config values.
 func (rs *RSConfig) RedundancyStrategy() (eestream.RedundancyStrategy, error) {
-	fec, err := infectious.NewFEC(rs.Min, rs.Total)
+	fec, err := eestream.NewFEC(rs.Min, rs.Total)
 	if err != nil {
 		return eestream.RedundancyStrategy{}, err
 	}
