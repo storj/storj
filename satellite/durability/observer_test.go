@@ -74,6 +74,8 @@ func TestDurability(t *testing.T) {
 		c.nodes[node.ID] = node
 	}
 
+	c.classifyNodeAliases()
+
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
 
@@ -85,11 +87,6 @@ func TestDurability(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = c.Join(ctx, fork)
-		require.NoError(t, err)
-	}
-
-	{
 		// second batch
 		err = fork.Process(ctx, []rangedloop.Segment{
 			segment(storageNodes, 2, 3, 4, 7),
@@ -133,6 +130,7 @@ func TestDurabilityUnknownNode(t *testing.T) {
 		c.nodes[node.ID] = node
 	}
 
+	c.classifyNodeAliases()
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
 
@@ -244,7 +242,6 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 			},
 		},
 	}
-	d.classifyNodeAliases()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
