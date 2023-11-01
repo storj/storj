@@ -165,9 +165,17 @@ type BucketUsageRollup struct {
 	Before time.Time `json:"before"`
 }
 
+// ProjectBucketUsageRollup is total bucket usage info with project details for certain period.
+type ProjectBucketUsageRollup struct {
+	ProjectName string `json:"projectName"`
+
+	BucketUsageRollup
+}
+
 // ToStringSlice converts rollup values to a slice of strings.
-func (b *BucketUsageRollup) ToStringSlice() []string {
+func (b *ProjectBucketUsageRollup) ToStringSlice() []string {
 	return []string{
+		b.ProjectName,
 		b.ProjectID.String(),
 		b.BucketName,
 		fmt.Sprintf("%f", b.TotalStoredData),

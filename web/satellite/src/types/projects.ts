@@ -69,7 +69,7 @@ export interface ProjectsApi {
      *
      * @throws Error
      */
-    getTotalUsageReportLink(start: Date, end: Date): string
+    getTotalUsageReportLink(start: Date, end: Date, projectID: string): string
 
     /**
      * Get project daily usage by specific date range.

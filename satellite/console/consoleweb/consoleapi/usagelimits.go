@@ -106,8 +106,8 @@ func (ul *UsageLimits) TotalUsageLimits(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// TotalUsageReport returns total usage report for all the projects that user owns.
-func (ul *UsageLimits) TotalUsageReport(w http.ResponseWriter, r *http.Request) {
+// UsageReport returns usage report for all the projects that user owns or a single user's project.
+func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -126,7 +126,18 @@ func (ul *UsageLimits) TotalUsageReport(w http.ResponseWriter, r *http.Request) 
 	since := time.Unix(sinceStamp, 0).UTC()
 	before := time.Unix(beforeStamp, 0).UTC()
 
-	usage, err := ul.service.GetTotalUsageReport(ctx, since, before)
+	var projectID uuid.UUID
+
+	idParam := r.URL.Query().Get("projectID")
+	if idParam != "" {
+		projectID, err = uuid.FromString(idParam)
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+			return
+		}
+	}
+
+	usage, err := ul.service.GetUsageReport(ctx, since, before, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -137,14 +148,15 @@ func (ul *UsageLimits) TotalUsageReport(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fileName := "storj-report-" + since.Format("2006-01-02") + "-to-" + before.Format("2006-01-02") + ".csv"
+	dateFormat := "2006-01-02"
+	fileName := "storj-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
 
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)
 
 	wr := csv.NewWriter(w)
 
-	csvHeaders := []string{"ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
 
 	err = wr.Write(csvHeaders)
 	if err != nil {

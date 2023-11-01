@@ -49,12 +49,12 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsHttpApi();
 
-    function getTotalUsageReportLink(): string {
+    function getUsageReportLink(projectID = ''): string {
         const now = new Date();
         const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
         const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
 
-        return api.getTotalUsageReportLink(startUTC, endUTC);
+        return api.getTotalUsageReportLink(startUTC, endUTC, projectID);
     }
 
     async function getProjects(): Promise<Project[]> {
@@ -349,7 +349,7 @@ export const useProjectsStore = defineStore('projects', () => {
         requestLimitIncrease,
         getProjectLimits,
         getTotalLimits,
-        getTotalUsageReportLink,
+        getUsageReportLink,
         getProjectSalt,
         getUserInvitations,
         respondToInvitation,
