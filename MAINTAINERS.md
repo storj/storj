@@ -67,7 +67,7 @@ Update Jenkins job.
 ## Where to find the release binaries
 
 After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
-Update this tag with changelog that you previosly created. Leave the status as draft as this will be updated after the storage node roll out is completed.
+Update this tag with changelog that you previosly created.
 
 ## Which tests do we want to execute
 Everything that could break production.
