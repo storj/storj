@@ -10,6 +10,7 @@ import (
 
 	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
@@ -73,6 +74,7 @@ type ReportConfig struct {
 //	in this case this reporter will return 38 for the class "country:DE" (assuming all the other segments are more lucky).
 type Report struct {
 	healthStat         map[string]*HealthStat
+	busFactor          HealthStat
 	classifiers        []NodeClassifier
 	aliasMap           *metabase.NodeAliasMap
 	nodes              map[storj.NodeID]*nodeselection.SelectedNode
@@ -80,6 +82,7 @@ type Report struct {
 	metabaseDB         *metabase.DB
 	reporter           func(n time.Time, name string, stat *HealthStat)
 	reportThreshold    int
+	busFactorThreshold int
 	asOfSystemInterval time.Duration
 
 	// map between classes (like "country:hu" and integer IDs)
@@ -88,19 +91,23 @@ type Report struct {
 
 	// contains the available classes for each node alias.
 	classified [][]classID
+
+	maxPieceCount int
 }
 
 // NewDurability creates the new instance.
-func NewDurability(db overlay.DB, metabaseDB *metabase.DB, classifiers []NodeClassifier, reportThreshold int, asOfSystemInterval time.Duration) *Report {
+func NewDurability(db overlay.DB, metabaseDB *metabase.DB, classifiers []NodeClassifier, maxPieceCount int, reportThreshold int, busFactorThreshold int, asOfSystemInterval time.Duration) *Report {
 	return &Report{
 		db:                 db,
 		metabaseDB:         metabaseDB,
 		classifiers:        classifiers,
 		reportThreshold:    reportThreshold,
+		busFactorThreshold: busFactorThreshold,
 		asOfSystemInterval: asOfSystemInterval,
 		nodes:              make(map[storj.NodeID]*nodeselection.SelectedNode),
 		healthStat:         make(map[string]*HealthStat),
 		reporter:           reportToEventkit,
+		maxPieceCount:      maxPieceCount,
 	}
 }
 
@@ -159,6 +166,7 @@ func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 		reportThreshold:        c.reportThreshold,
 		healthStat:             make([]HealthStat, len(c.classID)),
 		controlledByClassCache: make([]int32, len(c.classID)),
+		busFactorCache:         make([]int32, 0, c.maxPieceCount),
 		classified:             c.classified,
 	}
 	return d, nil
@@ -184,6 +192,7 @@ func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err erro
 		}
 
 	}
+	c.busFactor.Update(fork.busFactor.Min(), fork.busFactor.Exemplar)
 	return nil
 }
 
@@ -209,12 +218,15 @@ type ObserverFork struct {
 	controlledByClassCache []int32
 
 	healthStat      []HealthStat
+	busFactor       HealthStat
 	classifiers     []NodeClassifier
 	aliasMap        *metabase.NodeAliasMap
 	nodes           map[storj.NodeID]*nodeselection.SelectedNode
 	classifierCache [][]string
+	busFactorCache  []int32
 
-	reportThreshold int
+	reportThreshold    int
+	busFactorThreshold int
 
 	classified [][]classID
 }
@@ -248,6 +260,8 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			}
 		}
 
+		busFactorGroups := c.busFactorCache
+
 		streamLocation := fmt.Sprintf("%s/%d", s.StreamID, s.Position.Encode())
 		for classID, count := range controlledByClass {
 			if count == 0 {
@@ -259,12 +273,30 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 			diff := healthyPieceCount - int(count)
 
+			busFactorGroups = append(busFactorGroups, count)
+
 			if c.reportThreshold > 0 && diff > c.reportThreshold {
 				continue
 			}
-			c.healthStat[classID].Update(diff, streamLocation)
 
+			c.healthStat[classID].Update(diff, streamLocation)
 		}
+
+		slices.SortFunc[int32](busFactorGroups, func(a int32, b int32) bool {
+			return a > b
+		})
+		rollingSum := 0
+		busFactor := 0
+		for _, count := range busFactorGroups {
+			if rollingSum < c.busFactorThreshold {
+				busFactor++
+				rollingSum += int(count)
+			} else {
+				break
+			}
+		}
+
+		c.busFactor.Update(busFactor, streamLocation)
 	}
 	return nil
 }

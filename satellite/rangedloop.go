@@ -160,7 +160,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			func(node *nodeselection.SelectedNode) string {
 				return "c:" + node.CountryCode.String()
 			},
-		}, config.Metainfo.RS.Repair, config.RangedLoop.AsOfSystemInterval)
+		}, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval)
 	}
 
 	{ // setup overlay
