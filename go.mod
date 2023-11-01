@@ -61,7 +61,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20231030160447-a6058ddbb07f
+	storj.io/common v0.0.0-20231101115145-09481ec98b57
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
 	storj.io/private v0.0.0-20231012141933-ae62725d6691
@@ -112,8 +112,8 @@ require (
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
-	github.com/quic-go/quic-go v0.39.3 // indirect
+	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
+	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
