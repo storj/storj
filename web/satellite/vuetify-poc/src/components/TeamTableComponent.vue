@@ -2,38 +2,36 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row v-if="selectedMembers.length > 0" class="justify-end align-center ma-0">
-        <v-col>
-            <p>{{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }} selected</p>
-        </v-col>
-    </v-row>
     <v-card variant="flat" :border="true" rounded="xlg">
-        <div v-if="selectedMembers.length" cols="auto">
-            <v-btn
-                class=" text-caption"
-                prepend-icon="mdi-trash-can-outline"
-                variant="outlined"
-                size="large"
-                color="default"
-                @click="showDeleteDialog"
-            >
-                Remove
-            </v-btn>
-        </div>
-
-        <v-text-field
-            v-model="search"
-            label="Search"
-            prepend-inner-icon="mdi-magnify"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
-        />
+        <v-row align="center" class="ma-0">
+            <v-col v-if="selectedMembers.length" class="pa-0" cols="auto">
+                <v-btn
+                    class="text-caption ml-2 mt-2"
+                    prepend-icon="mdi-trash-can-outline"
+                    variant="outlined"
+                    size="large"
+                    color="default"
+                    @click="showDeleteDialog"
+                >
+                    Remove {{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }}
+                </v-btn>
+            </v-col>
+            <v-col class="pa-0">
+                <v-text-field
+                    v-model="search"
+                    label="Search"
+                    prepend-inner-icon="mdi-magnify"
+                    single-line
+                    variant="solo-filled"
+                    flat
+                    hide-details
+                    clearable
+                    density="comfortable"
+                    rounded="lg"
+                    class="mx-2 mt-2"
+                />
+            </v-col>
+        </v-row>
 
         <v-data-table-server
             v-model="selectedMembers"
