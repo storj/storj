@@ -352,15 +352,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		trackCreateUserFields := analytics.TrackCreateUserFields{
-			ID:           user.ID,
-			AnonymousID:  loadSession(r),
-			FullName:     user.FullName,
-			Email:        user.Email,
-			Type:         analytics.Personal,
-			OriginHeader: r.Header.Get("Origin"),
-			Referrer:     referrer,
-			HubspotUTK:   hubspotUTK,
-			UserAgent:    string(user.UserAgent),
+			ID:            user.ID,
+			AnonymousID:   loadSession(r),
+			FullName:      user.FullName,
+			Email:         user.Email,
+			Type:          analytics.Personal,
+			OriginHeader:  r.Header.Get("Origin"),
+			Referrer:      referrer,
+			HubspotUTK:    hubspotUTK,
+			UserAgent:     string(user.UserAgent),
+			SignupCaptcha: user.SignupCaptcha,
 		}
 		if user.IsProfessional {
 			trackCreateUserFields.Type = analytics.Professional
