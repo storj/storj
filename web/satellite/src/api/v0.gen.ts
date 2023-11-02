@@ -114,7 +114,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as Project);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async updateProject(request: UpsertProjectInfo, id: UUID): Promise<Project> {
@@ -124,7 +124,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as Project);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async deleteProject(id: UUID): Promise<void> {
@@ -134,7 +134,7 @@ export class ProjectManagementHttpApiV0 {
             return;
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async getProjects(): Promise<Project[]> {
@@ -144,7 +144,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as Project[]);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async getBucketRollup(projectID: UUID, bucket: string, since: Time, before: Time): Promise<BucketUsageRollup> {
@@ -159,7 +159,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as BucketUsageRollup);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<BucketUsageRollup[]> {
@@ -173,7 +173,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as BucketUsageRollup[]);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async getAPIKeys(projectID: UUID, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
@@ -189,7 +189,7 @@ export class ProjectManagementHttpApiV0 {
             return response.json().then((body) => body as APIKeyPage);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 }
 
@@ -204,7 +204,7 @@ export class APIKeyManagementHttpApiV0 {
             return response.json().then((body) => body as CreateAPIKeyResponse);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 
     public async deleteAPIKey(id: UUID): Promise<void> {
@@ -214,7 +214,7 @@ export class APIKeyManagementHttpApiV0 {
             return;
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 }
 
@@ -229,6 +229,6 @@ export class UserManagementHttpApiV0 {
             return response.json().then((body) => body as ResponseUser);
         }
         const err = await response.json();
-        throw new APIError(response.status, err.error);
+        throw new APIError(err.error, response.status);
     }
 }

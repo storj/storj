@@ -144,7 +144,12 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 	var out StringBuilder
 	pf := out.Writelnf
 
-	pf(types.getTypescriptImports())
+	{
+		i := types.getTypescriptImports()
+		if i != "" {
+			pf(i)
+		}
+	}
 
 	allTypes := types.All()
 	namedTypes := mapToSlice(allTypes)
