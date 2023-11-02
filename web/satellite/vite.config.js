@@ -19,7 +19,7 @@ const plugins = [
             plugins: [{ name: 'removeViewBox', fn: () => {} }],
         },
     }),
-    vitePluginRequire(),
+    vitePluginRequire.default(),
 ];
 
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {

@@ -40,7 +40,8 @@
     "src/**/*.ts",
     "src/**/*.vue",
     "src/types/*.d.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "vitePlugins/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"
