@@ -2,13 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8">
+    <v-form ref="form" class="pa-7">
         <v-row>
             <v-col cols="12">
+                <p class="text-subtitle-2 font-weight-bold mb-5">Select the permissions for this access</p>
+
                 <v-select
                     v-model="permissions"
                     :items="allPermissions"
-                    label="Permissions"
+                    label="Access Permissions"
                     variant="outlined"
                     color="default"
                     multiple
@@ -20,15 +22,14 @@
                     <template #prepend-item>
                         <v-list-item
                             title="All permissions"
-                            color="primary"
                             :active="areAllPermsSelected"
+                            density="compact"
                             @click="toggleSelectedPerms"
                         >
                             <template #prepend>
                                 <v-checkbox-btn
                                     v-model="areAllPermsSelected"
                                     :indeterminate="permissions.length != 0 && !areAllPermsSelected"
-                                    color="primary"
                                 />
                             </template>
                         </v-list-item>
@@ -36,22 +37,52 @@
                     </template>
 
                     <template #item="{ props: slotProps }">
-                        <v-list-item v-bind="slotProps" color="primary">
+                        <v-list-item v-bind="slotProps" density="compact">
                             <template #prepend="{ isSelected }">
-                                <v-checkbox-btn :model-value="isSelected" color="primary" />
+                                <v-checkbox-btn :model-value="isSelected" />
                             </template>
                         </v-list-item>
                     </template>
                 </v-select>
+
+                <!-- <v-chip-group
+                    v-model="permissions"
+                    column
+                    multiple
+                    class="mb-3"
+                >
+                    <v-chip
+                        rounded="xl"
+                        class="text-body-2"
+                        filter
+                        variant="outlined"
+                        value="All"
+                    >
+                        All
+                    </v-chip>
+                    <v-chip
+                        v-for="perm in allPermissions"
+                        :key="perm"
+                        :value="perm"
+                        rounded="xl"
+                        class="text-body-2"
+                        filter
+                        variant="outlined"
+                    >
+                        {{ perm }}
+                    </v-chip>
+                </v-chip-group> -->
             </v-col>
 
             <v-col cols="12">
+                <p class="text-subtitle-2 font-weight-bold mb-5">Choose buckets to give access to</p>
+
                 <v-autocomplete
                     v-model="buckets"
                     v-model:search="bucketSearch"
                     class="choose-permissions-step__buckets-field"
                     :items="allBucketNames"
-                    label="Buckets"
+                    label="Access Buckets"
                     variant="outlined"
                     color="default"
                     no-data-text="No buckets found."
@@ -67,34 +98,53 @@
                     <template #prepend-item>
                         <v-list-item
                             title="All buckets"
-                            color="primary"
                             :active="isAllBucketsSelected"
+                            density="compact"
                             @click="isAllBucketsSelected = !isAllBucketsSelected"
                         >
                             <template #prepend>
-                                <v-checkbox-btn v-model="isAllBucketsSelected" color="primary" />
+                                <v-checkbox-btn v-model="isAllBucketsSelected" />
                             </template>
                         </v-list-item>
                         <v-divider />
                     </template>
 
                     <template #item="{ props: slotProps }">
-                        <v-list-item v-bind="slotProps" color="primary">
+                        <v-list-item v-bind="slotProps" density="compact">
                             <template #prepend="{ isSelected }">
-                                <v-checkbox-btn :model-value="isSelected" color="primary" />
+                                <v-checkbox-btn :model-value="isSelected" />
                             </template>
                         </v-list-item>
                     </template>
                 </v-autocomplete>
+
+                <!-- <v-chip-group
+                    v-model="buckets"
+                    column
+                    multiple
+                    class="mb-3"
+                >
+                    <v-chip
+                        class="text-body-2"
+                        rounded="xl"
+                        filter
+                        variant="outlined"
+                        value="All Buckets"
+                    >
+                        All Buckets
+                    </v-chip>
+                </v-chip-group> -->
             </v-col>
 
             <v-col cols="12">
+                <p class="text-subtitle-2 font-weight-bold mb-5">Choose when your access will expire</p>
+
                 <v-select
                     ref="endDateSelector"
                     v-model="endDate"
                     variant="outlined"
                     color="default"
-                    label="End date"
+                    label="Access Expiration Date"
                     return-object
                     :hide-details="false"
                     :items="endDateItems"
@@ -112,9 +162,24 @@
 
                     <template #item="{ item, props: itemProps }">
                         <v-divider v-if="(item.raw as AccessGrantEndDate).date === null" />
-                        <v-list-item v-bind="itemProps" />
+                        <v-list-item v-bind="itemProps" density="compact" />
                     </template>
                 </v-select>
+
+                <!-- <v-chip-group
+                    v-model="endDate"
+                    column
+                >
+                    <v-chip
+                        class="text-body-2"
+                        rounded="xl"
+                        filter
+                        variant="outlined"
+                        value="No end date"
+                    >
+                        No expiration
+                    </v-chip>
+                </v-chip-group> -->
             </v-col>
         </v-row>
 
@@ -167,7 +232,7 @@ const endDateItems: EndDateListItem[] = [
     { title: '1 month', date: getNowOffset(0, 1) },
     { title: '6 months', date: getNowOffset(0, 6) },
     { title: '1 year', date: getNowOffset(0, 0, 1) },
-    { title: 'No end date', date: null },
+    { title: 'No expiration', date: null },
 ];
 
 const emit = defineEmits<{

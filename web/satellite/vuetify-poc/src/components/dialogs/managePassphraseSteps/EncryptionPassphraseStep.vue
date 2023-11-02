@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8 pb-4">
+    <div class="pa-8">
         <v-row>
             <v-col cols="12">
                 The encryption passphrase will be used to encrypt the files you upload in this project.

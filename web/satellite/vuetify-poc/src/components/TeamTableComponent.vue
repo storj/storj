@@ -2,40 +2,38 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card min-height="24" :border="0" class="mb-2 elevation-0">
-        <v-row v-if="selectedMembers.length > 0" class="justify-end align-center ma-0">
+    <v-row v-if="selectedMembers.length > 0" class="justify-end align-center ma-0">
+        <v-col>
             <p>{{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }} selected</p>
-        </v-row>
-    </v-card>
+        </v-col>
+    </v-row>
     <v-card variant="flat" :border="true" rounded="xlg">
-        <v-row align="center" class="ma-0">
-            <v-col v-if="selectedMembers.length" class="px-0 mr-0 ml-2 mt-2" cols="auto">
-                <v-btn
-                    class=" text-caption"
-                    prepend-icon="mdi-trash-can-outline"
-                    variant="outlined"
-                    color="default"
-                    @click="showDeleteDialog"
-                >
-                    Remove
-                </v-btn>
-            </v-col>
+        <div v-if="selectedMembers.length" cols="auto">
+            <v-btn
+                class=" text-caption"
+                prepend-icon="mdi-trash-can-outline"
+                variant="outlined"
+                size="large"
+                color="default"
+                @click="showDeleteDialog"
+            >
+                Remove
+            </v-btn>
+        </div>
 
-            <v-col class="px-0 mx-2 mt-2">
-                <v-text-field
-                    v-model="search"
-                    label="Search"
-                    prepend-inner-icon="mdi-magnify"
-                    single-line
-                    variant="solo-filled"
-                    flat
-                    hide-details
-                    clearable
-                    density="comfortable"
-                    rounded="lg"
-                />
-            </v-col>
-        </v-row>
+        <v-text-field
+            v-model="search"
+            label="Search"
+            prepend-inner-icon="mdi-magnify"
+            single-line
+            variant="solo-filled"
+            flat
+            hide-details
+            clearable
+            density="comfortable"
+            rounded="lg"
+            class="mx-2 mt-2"
+        />
 
         <v-data-table-server
             v-model="selectedMembers"
@@ -46,7 +44,6 @@
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No results found"
-            class="elevation-1"
             item-value="email"
             select-strategy="all"
             item-selectable="selectable"

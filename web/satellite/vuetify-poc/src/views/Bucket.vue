@@ -24,24 +24,24 @@
                             Upload
                         </v-btn>
                     </template>
-                    <v-list class="pa-2">
+                    <v-list class="pa-1">
                         <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
                                 <IconFile size="16" class="mr-2" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Upload File
+                            <v-list-item-title class="text-body-2 ml-2">
+                                Upload Files
                             </v-list-item-title>
                         </v-list-item>
 
-                        <v-divider class="my-2" />
+                        <v-divider class="my-1" />
 
                         <v-list-item class="mt-1" rounded="lg" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
                                 <icon-folder />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Upload Folder
+                            <v-list-item-title class="text-body-2 ml-2">
+                                Upload Folders
                             </v-list-item-title>
                         </v-list-item>
                     </v-list>

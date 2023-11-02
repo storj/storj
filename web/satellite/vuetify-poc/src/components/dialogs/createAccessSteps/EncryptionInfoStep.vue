@@ -13,7 +13,9 @@
             <v-checkbox
                 density="compact"
                 label="I understand, don't show this again."
-                hide-details
+                color="default"
+                :hide-details="false"
+                :rules="[ RequiredRule ]"
                 @update:model-value="value => LocalData.setServerSideEncryptionModalHidden(value)"
             />
         </v-col>

@@ -9,7 +9,7 @@
         :persistent="isLoading"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@/../static/images/modals/limit.svg" alt="Speedometer">
                 </template>

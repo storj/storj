@@ -3,11 +3,13 @@
 
 <template>
     <v-container>
-        <!-- <v-breadcrumbs :items="['My Account', 'Billing']" class="pl-0"></v-breadcrumbs> -->
+        <v-row>
+            <v-col>
+                <PageTitleComponent title="Account Billing" />
+            </v-col>
+        </v-row>
 
-        <h1 class="text-h5 font-weight-bold mb-6">Billing</h1>
-
-        <v-card variant="flat" :border="true" color="default" class="mb-6 rounded">
+        <v-card variant="flat" :border="true" color="default" class="mt-2 mb-6 rounded">
             <v-tabs
                 v-model="tab"
                 color="default"
@@ -53,7 +55,6 @@
                                 </v-chip>
                                 <v-divider class="my-4" />
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2">View Billing History</v-btn>
-                                <!-- <v-btn variant="tonal" color="default" size="small" class="mr-2">Payment Methods</v-btn> -->
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -71,7 +72,6 @@
                                 <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus">
                                     Add STORJ Tokens
                                 </v-btn>
-                                <!-- <v-btn variant="tonal" color="default" size="small" class="mr-2">View Transactions</v-btn> -->
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -193,7 +193,6 @@
                     <v-col cols="12" sm="4">
                         <v-card title="Billing Information" subtitle="Add info for your invoices." variant="flat" :border="true" rounded="xlg">
                             <v-card-text>
-                                <!-- <v-chip rounded color="purple2" variant="tonal" class="font-weight-bold mb-2">$0</v-chip> -->
                                 <p>You can add personal or company info, billing email, and VAT.</p>
                                 <v-divider class="my-4" />
                                 <v-btn color="primary" size="small" prepend-icon="mdi-plus">Add Billing Information</v-btn>
@@ -237,6 +236,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { Download } from '@/utils/download';
 
+import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
 import AddCreditCardComponent from '@poc/components/AddCreditCardComponent.vue';
 import BillingHistoryTab from '@poc/components/billing/BillingHistoryTab.vue';

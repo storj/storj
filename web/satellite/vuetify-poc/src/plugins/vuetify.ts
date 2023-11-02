@@ -62,7 +62,6 @@ export default createVuetify({
                     yellow2: '#FFB701',
                     orange: '#FFA800',
                     warning: '#FF8A00',
-                    // green: '#00B150',
                     green: '#00e366',
                     purple2: '#A18EFF',
                 },
@@ -87,14 +86,17 @@ export default createVuetify({
             transition: 'fade-transition',
         },
         VSelect: {
-            rounded: 'lg',
+            // rounded: 'lg',
+            variant: 'outlined',
+            color: 'secondary',
         },
         VTextField: {
             rounded: 'lg',
             variant: 'outlined',
+            color: 'secondary',
         },
         VList: {
-            rounded: 'xlg',
+            rounded: 'lg',
         },
         VListItem: {
             rounded: 'lg',
@@ -104,6 +106,22 @@ export default createVuetify({
         },
         VCard: {
             border: true,
+            rounded: 'xlg',
         },
+        VTable: {
+            class: 'elevation-0',
+        },
+        VCheckbox: {
+            color: 'primary',
+        },
+        VAlert: {
+            rounded: 'xlg',
+        },
+        VChip: {
+            rounded: 'lg',
+        },
+        // VTable: {
+        //     elevation: 0,
+        // },
     },
 });
