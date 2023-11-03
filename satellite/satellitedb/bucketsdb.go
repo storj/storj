@@ -355,6 +355,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
+		Versioning: buckets.Versioning(dbxBucket.Versioning),
 	}
 
 	if dbxBucket.Placement != nil {

@@ -107,7 +107,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
@@ -174,7 +174,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		StreamId:             object.StreamID[:],
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
-		Placement:            int32(placement),
+		Placement:            int32(bucket.Placement),
+		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
 
 		UsePendingObjectsTable: usePendingObjectsTable,
 	})
@@ -295,6 +296,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		DisallowDelete: !allowDelete,
 
 		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
+
+		Versioned: streamID.Versioned,
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
