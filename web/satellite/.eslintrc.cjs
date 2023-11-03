@@ -61,6 +61,7 @@ module.exports = {
             ],
             'newlines-between': 'always',
         }],
+        'import/no-unresolved': ['error', { ignore: ['^virtual:'] }],
         'no-duplicate-imports': 'error',
         'import/default': 'off',
         'vue/script-setup-uses-vars': 'error',
