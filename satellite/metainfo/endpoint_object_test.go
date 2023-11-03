@@ -702,6 +702,53 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 		})
 
+		t.Run("download specific version", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			expectedData := testrand.Bytes(256)
+			err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object", expectedData)
+			require.NoError(t, err)
+
+			objects, err := satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			committedObject := objects[0]
+
+			// download without specifying version
+			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
+			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
+			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+
+			// download using explicit version
+			downloadObjectResponse, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+				ObjectVersion:      committedObject.Version.Encode(),
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
+			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
+			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+
+			// download using NON EXISTING version
+			nonExistingVersion := committedObject.Version + 1
+			_, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+				ObjectVersion:      nonExistingVersion.Encode(),
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
+
 		t.Run("delete specific version", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
