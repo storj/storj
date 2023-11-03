@@ -21,7 +21,7 @@ export default createVuetify({
     // Use blueprint for Material Design 3
     blueprint: md3,
     theme: THEME_OPTIONS,
-    defaults: {w
+    defaults: {
         global: {
             // ripple: false,
         },
