@@ -3,6 +3,11 @@
 
 <template>
     <v-container>
+        <low-token-balance-banner
+            v-if="isLowBalance && billingEnabled"
+            cta-label="Go to billing"
+            @click="redirectToBilling"
+        />
         <PageTitleComponent title="My Projects" />
         <!-- <PageSubtitleComponent subtitle="Projects are where you and your team can upload and manage data, view usage statistics and billing."/> -->
 
@@ -105,12 +110,17 @@ import {
     VBtnToggle,
     VProgressCircular,
 } from 'vuetify/components';
+import { useRouter } from 'vue-router';
 
 import { ProjectItemModel } from '@poc/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ProjectRole } from '@/types/projectMembers';
 import { useAppStore } from '@/store/modules/appStore';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { RouteName } from '@poc/router';
 
 import ProjectCard from '@poc/components/ProjectCard.vue';
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
@@ -120,18 +130,28 @@ import CreateProjectDialog from '@poc/components/dialogs/CreateProjectDialog.vue
 import AddTeamMemberDialog from '@poc/components/dialogs/AddTeamMemberDialog.vue';
 import IconCardView from '@poc/components/icons/IconCardView.vue';
 import IconTableView from '@poc/components/icons/IconTableView.vue';
+import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
+const billingStore = useBillingStore();
+
+const router = useRouter();
+const isLowBalance = useLowTokenBalance();
 
 const isLoading = ref<boolean>(true);
-
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
 const addMemberProjectId = ref<string>('');
 const isAddMemberDialogShown = ref<boolean>(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns whether to use the table view.
@@ -177,6 +197,13 @@ const items = computed((): ProjectItemModel[] => {
 });
 
 /**
+ * Redirects to Billing Page tab.
+ */
+function redirectToBilling(): void {
+    router.push({ name: RouteName.Billing });
+}
+
+/**
  * Displays the Join Project modal.
  */
 function onJoinClicked(item: ProjectItemModel): void {
@@ -198,5 +225,13 @@ onMounted(async (): Promise<void> => {
     await projectsStore.getUserInvitations().catch(_ => {});
 
     isLoading.value = false;
+
+    if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
+        Promise.all([
+            billingStore.getBalance(),
+            billingStore.getCreditCards(),
+            billingStore.getNativePaymentsHistory(),
+        ]).catch(_ => {});
+    }
 });
 </script>
