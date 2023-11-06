@@ -94,7 +94,6 @@
 
                     <MultiplePassphraseBanner
                         v-if="lockedFilesEntryDisplayed && isLockedBanner"
-                        :locked-files-count="lockedFilesCount"
                         :on-close="closeLockedBanner"
                     />
 
@@ -176,8 +175,6 @@
 
                             <up-entry v-if="path.length > 0" :on-back="onBack" />
 
-                            <locked-files-entry v-if="lockedFilesEntryDisplayed" />
-
                             <file-entry
                                 v-for="file in folders"
                                 :key="file.Key"
@@ -216,7 +213,6 @@ import { useRoute, useRouter } from 'vue-router';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
-import LockedFilesEntry from './LockedFilesEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -339,13 +335,6 @@ const currentPath = computed((): string => {
 });
 
 /**
- * Return locked files number.
- */
-const lockedFilesCount = computed((): number => {
-    return objectsCount.value - obStore.state.objectsCount;
-});
-
-/**
  * Returns bucket objects count from store.
  */
 const objectsCount = computed((): number => {
@@ -359,7 +348,7 @@ const objectsCount = computed((): number => {
  * Indicates if locked files entry is displayed.
  */
 const lockedFilesEntryDisplayed = computed((): boolean => {
-    return lockedFilesCount.value > 0 &&
+    return (objectsCount.value - obStore.state.objectsCount) > 0 &&
         objectsCount.value <= NUMBER_OF_DISPLAYED_OBJECTS &&
         !isLoading.value &&
         !currentPath.value;
