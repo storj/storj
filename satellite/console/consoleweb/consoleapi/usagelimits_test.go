@@ -235,29 +235,48 @@ func Test_TotalUsageReport(t *testing.T) {
 		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
 		require.NoError(t, err)
 
-		endpoint := fmt.Sprintf("projects/total-usage-report?since=%s&before=%s", since, before)
+		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
 		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
-		content := string(body)
-		reader := csv.NewReader(strings.NewReader(content))
+		reader := csv.NewReader(strings.NewReader(string(body)))
 		records, err := reader.ReadAll()
 		require.NoError(t, err)
 		require.Len(t, records, 3)
 
-		expectedHeaders := []string{"ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+		expectedHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
 		for i, header := range expectedHeaders {
 			require.Equal(t, header, records[0][i])
 		}
 
-		require.Equal(t, project1.PublicID.String(), records[1][0])
-		require.Equal(t, project2.PublicID.String(), records[2][0])
-		require.Equal(t, bucketName, records[1][1])
-		require.Equal(t, bucketName, records[2][1])
-		for i := 2; i < 9; i++ {
+		require.Equal(t, project1.Name, records[1][0])
+		require.Equal(t, project2.Name, records[2][0])
+		require.Equal(t, project1.PublicID.String(), records[1][1])
+		require.Equal(t, project2.PublicID.String(), records[2][1])
+		require.Equal(t, bucketName, records[1][2])
+		require.Equal(t, bucketName, records[2][2])
+		for i := 3; i < 10; i++ {
 			require.Equal(t, expectedCSVValue, records[1][i])
 			require.Equal(t, expectedCSVValue, records[2][i])
+		}
+
+		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=%s", since, before, project1.PublicID)
+		body, status, err = doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		reader = csv.NewReader(strings.NewReader(string(body)))
+		records, err = reader.ReadAll()
+		require.NoError(t, err)
+		require.Len(t, records, 2)
+
+		require.Equal(t, project1.Name, records[1][0])
+		require.Equal(t, project1.PublicID.String(), records[1][1])
+		require.Equal(t, bucketName, records[1][2])
+
+		for i := 3; i < 10; i++ {
+			require.Equal(t, expectedCSVValue, records[1][i])
 		}
 	})
 }

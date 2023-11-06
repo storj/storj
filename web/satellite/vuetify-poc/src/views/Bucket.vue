@@ -87,17 +87,23 @@
                             density="comfortable"
                             class="pa-1"
                         >
-                            <v-btn
-                                size="small"
-                                rounded="xl"
-                                active-class="active"
-                                :active="isCardView"
-                                aria-label="Toggle Cards View"
-                                @click="isCardView = true"
-                            >
-                                <icon-card-view />
-                                Cards
-                            </v-btn>
+                            <v-tooltip location="top">
+                                <template #activator="{ props }">
+                                    <v-btn
+                                        size="small"
+                                        rounded="xl"
+                                        active-class="active"
+                                        :active="isCardView"
+                                        aria-label="Toggle Cards View"
+                                        v-bind="props"
+                                        @click="isCardView = true"
+                                    >
+                                        <icon-card-view />
+                                        Cards
+                                    </v-btn>
+                                </template>
+                                Using cards will preview images, which will add up to your Download.
+                            </v-tooltip>
                             <v-btn
                                 size="small"
                                 rounded="xl"
@@ -138,6 +144,7 @@ import {
     VSpacer,
     VDivider,
     VBtnToggle,
+    VTooltip,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 

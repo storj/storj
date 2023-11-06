@@ -43,10 +43,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCard, VCardText, VCol, VDivider, VRow } from 'vuetify/components';
 
-import {
-    BrowserObject,
-    useObjectBrowserStore,
-} from '@/store/modules/objectBrowserStore';
+import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -55,6 +52,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import { useLinksharing } from '@/composables/useLinksharing';
 
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
@@ -80,6 +78,8 @@ const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 
+const { generateObjectPreviewAndMapURL } = useLinksharing();
+
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
 const selected = ref([]);
@@ -89,6 +89,13 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isFileGuideShown = ref<boolean>(false);
+
+/**
+ * Returns object preview URLs cache from store.
+ */
+const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
+    return obStore.state.cachedObjectPreviewURLs;
+});
 
 /**
  * Returns the name of the selected bucket.
@@ -198,6 +205,60 @@ function onShareClick(file: BrowserObject): void {
     isShareDialogShown.value = true;
 }
 
+/**
+ * Get the object preview url.
+ */
+async function fetchPreviewUrl(file : BrowserObject) {
+    let url = '';
+    try {
+        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, file.path + file.Key);
+    } catch (error) {
+        error.message = `Unable to get file preview URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    }
+
+    if (!url) {
+        return;
+    }
+    const filePath = encodeURIComponent(`${bucketName.value}/${file.path}${file.Key}`);
+    obStore.cacheObjectPreviewURL(filePath, { url, lastModified: file.LastModified.getTime() });
+}
+
+/**
+ * Try to find current object's url in cache.
+ */
+function findCachedURL(file: BrowserObject): string | undefined {
+    const filePath = encodeURIComponent(`${bucketName.value}/${file.path}${file.Key}`);
+    const cache = cachedObjectPreviewURLs.value.get(filePath);
+
+    if (!cache) return undefined;
+
+    if (cache.lastModified !== file.LastModified.getTime()) {
+        obStore.removeFromObjectPreviewCache(filePath);
+        return undefined;
+    }
+
+    return cache.url;
+}
+
+/**
+ * Loads object URL from cache or generates new URL.
+ */
+async function processFilePath(file: BrowserObjectWrapper) {
+    if (file.browserObject.type === 'folder') return;
+    if (file.typeInfo.title !== 'Image') return;
+    const url = findCachedURL(file.browserObject);
+    if (!url) {
+        await fetchPreviewUrl(file.browserObject);
+    }
+}
+
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
+
+watch(allFiles, async (files: BrowserObjectWrapper[]) => {
+    for (const file of files) {
+        await processFilePath(file);
+    }
+});
 </script>

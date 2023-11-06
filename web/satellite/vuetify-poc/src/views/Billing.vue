@@ -330,8 +330,9 @@ const isCouponActive = computed((): boolean => {
 });
 
 function downloadReport(): void {
-    const link = projectsStore.getTotalUsageReportLink();
+    const link = projectsStore.getUsageReportLink();
     Download.fileByLink(link);
+    notify.success('Usage report download started successfully.');
 }
 
 function goToTransactionsTab() {

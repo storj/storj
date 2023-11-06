@@ -41,7 +41,7 @@ export class Metadata {
     tags?: string[][];
 }
 
-export class UsersGetResponseItem {
+export class UsersCreateRequestItem {
     name: string;
     surname: string;
     email: string;
@@ -56,9 +56,9 @@ export type DocsGetResponse = Array<DocsGetResponseItem>
 
 export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
 
-export type UsersCreateRequest = Array<UsersGetResponseItem>
+export type UsersCreateRequest = Array<UsersCreateRequestItem>
 
-export type UsersGetResponse = Array<UsersGetResponseItem>
+export type UsersGetResponse = Array<UsersCreateRequestItem>
 
 class APIError extends Error {
     constructor(
@@ -80,7 +80,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsGetResponse);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 
     public async getOne(path: string): Promise<Document> {
@@ -90,7 +90,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Document);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
@@ -100,7 +100,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as string[]);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 
     public async getVersions(path: string): Promise<Version[]> {
@@ -110,7 +110,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as Version[]);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
@@ -123,7 +123,7 @@ export class DocumentsHttpApiV0 {
             return response.json().then((body) => body as DocsUpdateContentResponse);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 }
 
@@ -138,7 +138,7 @@ export class UsersHttpApiV0 {
             return response.json().then((body) => body as UsersGetResponse);
         }
         const err = await response.json();
-        throw new APIError(err.error,response.status);
+        throw new APIError(err.error, response.status);
     }
 
     public async create(request: UsersCreateRequest): Promise<void> {
@@ -148,6 +148,6 @@ export class UsersHttpApiV0 {
             return;
         }
         const err = await response.json();
-        throw new Error(err.error);
+        throw new APIError(err.error, response.status);
     }
 }

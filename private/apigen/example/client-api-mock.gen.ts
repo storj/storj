@@ -39,7 +39,7 @@ export class Metadata {
     tags?: string[][];
 }
 
-export class UsersCreateRequestItem {
+export class UsersGetResponseItem {
     name: string;
     surname: string;
     email: string;
@@ -54,9 +54,9 @@ export type DocsGetResponse = Array<DocsGetResponseItem>
 
 export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
 
-export type UsersCreateRequest = Array<UsersCreateRequestItem>
+export type UsersCreateRequest = Array<UsersGetResponseItem>
 
-export type UsersGetResponse = Array<UsersCreateRequestItem>
+export type UsersGetResponse = Array<UsersGetResponseItem>
 
 class APIError extends Error {
     constructor(
@@ -87,43 +87,43 @@ export class DocumentsHttpApiV0 {
     }
 
     public async get(): Promise<DocsGetResponse> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"path\":\"/workspace/notes.md\",\"date\":\"0001-01-01T00:00:00Z\",\"metadata\":{\"owner\":\"Storj\",\"tags\":[[\"category\",\"general\"]]},\"last_retrievals\":[{\"user\":\"Storj\",\"when\":\"2023-10-19T12:54:40.418932461+02:00\"}]}]") as DocsGetResponse;
+        return JSON.parse('[{"id":"00000000-0000-0000-0000-000000000000","path":"/workspace/notes.md","date":"0001-01-01T00:00:00Z","metadata":{"owner":"Storj","tags":[["category","general"]]},"last_retrievals":[{"user":"Storj","when":"2023-11-03T15:41:14.288101181+01:00"}]}]') as DocsGetResponse;
     }
 
     public async getOne(path: string): Promise<Document> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("{\"id\":\"00000000-0000-0000-0000-000000000000\",\"date\":\"2023-10-18T13:54:40.418935224+02:00\",\"pathParam\":\"ID\",\"body\":\"## Notes\",\"version\":{\"date\":\"2023-10-19T13:24:40.418935292+02:00\",\"number\":1}}") as Document;
+        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2023-11-02T16:41:14.288104016+01:00","pathParam":"ID","body":"## Notes","version":{"date":"2023-11-03T16:11:14.288104112+01:00","number":1}}') as Document;
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("[\"category\",\"notes\"]") as string[];
+        return JSON.parse('["category","notes"]') as string[];
     }
 
     public async getVersions(path: string): Promise<Version[]> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("[{\"date\":\"2023-10-04T13:54:40.418937913+02:00\",\"number\":1},{\"date\":\"2023-10-19T08:54:40.418937979+02:00\",\"number\":2}]") as Version[];
+        return JSON.parse('[{"date":"2023-10-19T17:41:14.288106868+02:00","number":1},{"date":"2023-11-03T11:41:14.288106932+01:00","number":2}]') as Version[];
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("{\"id\":\"00000000-0000-0000-0000-000000000000\",\"date\":\"2023-10-19T13:54:40.418939503+02:00\",\"pathParam\":\"ID\",\"body\":\"## Notes\\n### General\"}") as DocsUpdateContentResponse;
+        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2023-11-03T16:41:14.288108437+01:00","pathParam":"ID","body":"## Notes\n### General"}') as DocsUpdateContentResponse;
     }
 }
 
@@ -147,15 +147,15 @@ export class UsersHttpApiV0 {
     }
 
     public async get(): Promise<UsersGetResponse> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse("[{\"name\":\"Storj\",\"surname\":\"Labs\",\"email\":\"storj@storj.test\"},{\"name\":\"Test1\",\"surname\":\"Testing\",\"email\":\"test1@example.test\"},{\"name\":\"Test2\",\"surname\":\"Testing\",\"email\":\"test2@example.test\"}]") as UsersGetResponse;
+        return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test"},{"name":"Test1","surname":"Testing","email":"test1@example.test"},{"name":"Test2","surname":"Testing","email":"test2@example.test"}]') as UsersGetResponse;
     }
 
     public async create(request: UsersCreateRequest): Promise<void> {
-        if (this.respStatusCode != 0) {
+        if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 

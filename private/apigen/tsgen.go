@@ -133,7 +133,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		f.pf("\t\t\t%s", returnStmt)
 		f.pf("\t\t}")
 		f.pf("\t\tconst err = await response.json();")
-		f.pf("\t\tthrow new APIError(err.error,response.status);")
+		f.pf("\t\tthrow new APIError(err.error, response.status);")
 		f.pf("\t}")
 	}
 	f.pf("}")
