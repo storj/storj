@@ -103,7 +103,7 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 		}
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.TypeScriptName, funcArgs, returnType)
-		f.pf("\t\tif (this.respStatusCode != 0) {")
+		f.pf("\t\tif (this.respStatusCode !== 0) {")
 		f.pf("\t\t\tthrow new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);")
 		f.pf("\t\t}")
 		f.pf("")
@@ -118,7 +118,7 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 					))
 			}
 
-			f.pf("\t\treturn JSON.parse(%q) as %s;", string(res), returnType)
+			f.pf("\t\treturn JSON.parse('%s') as %s;", string(res), returnType)
 		} else {
 			f.pf("\t\treturn;")
 		}

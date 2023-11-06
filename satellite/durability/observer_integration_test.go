@@ -6,6 +6,7 @@ package durability_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,7 +64,7 @@ func TestDurabilityIntegration(t *testing.T) {
 		}
 
 		result := make(map[string]*durability.HealthStat)
-		planet.Satellites[0].RangedLoop.DurabilityReport.Observer.TestChangeReporter(func(name string, stat *durability.HealthStat) {
+		planet.Satellites[0].RangedLoop.DurabilityReport.Observer.TestChangeReporter(func(n time.Time, name string, stat *durability.HealthStat) {
 			result[name] = stat
 		})
 

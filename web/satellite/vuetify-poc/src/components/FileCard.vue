@@ -4,12 +4,18 @@
 <template>
     <v-card variant="flat" :border="true" rounded="xlg">
         <div class="h-100 d-flex flex-column justify-space-between">
-            <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center mt-n16">
-                <v-progress-circular indeterminate />
-            </v-container>
+            <v-img
+                v-if="objectPreviewUrl && previewType === PreviewType.Image"
+                :src="objectPreviewUrl"
+                alt="preview"
+                height="200px"
+                cover
+                @click="emit('previewClick', item.browserObject)"
+            />
             <div
                 v-else
                 class="d-flex flex-column justify-center align-center file-icon-container"
+                @click="emit('previewClick', item.browserObject)"
             >
                 <img
                     :src="item.typeInfo.icon"
@@ -26,10 +32,10 @@
                     </a>
                 </v-card-title>
                 <v-card-subtitle>
-                    {{ getFormattedSize(item.browserObject) }}
+                    {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedSize(item.browserObject) }}
                 </v-card-subtitle>
                 <v-card-subtitle>
-                    {{ getFormattedDate(item.browserObject) }}
+                    {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedDate(item.browserObject) }}
                 </v-card-subtitle>
             </v-card-item>
             <v-card-text class="flex-grow-0">
@@ -47,24 +53,16 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import {
-    VCard,
-    VCardItem,
-    VCardSubtitle,
-    VCardText,
-    VCardTitle,
-    VContainer,
-    VDivider,
-    VProgressCircular,
-} from 'vuetify/components';
+import { VCard, VCardItem, VCardSubtitle, VCardText, VCardTitle, VDivider, VImg } from 'vuetify/components';
+import { computed } from 'vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { Size } from '@/utils/bytesSize';
-import { useLoading } from '@/composables/useLoading';
+import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 
@@ -88,8 +86,6 @@ const obStore = useObjectBrowserStore();
 const router = useRouter();
 const notify = useNotify();
 
-const { isLoading, withLoading } = useLoading();
-
 const props = defineProps<{
     item: BrowserObjectWrapper,
 }>();
@@ -101,10 +97,54 @@ const emit = defineEmits<{
 }>();
 
 /**
+ * Returns object preview URL from cache.
+ */
+const objectPreviewUrl = computed((): string => {
+    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
+    const url = cache?.url || '';
+    return `${url}?view=1`;
+});
+
+/**
+ * Returns object preview URLs cache from store.
+ */
+const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
+    return obStore.state.cachedObjectPreviewURLs;
+});
+
+/**
+ * Retrieve the encoded filepath.
+ */
+const encodedFilePath = computed((): string => {
+    return encodeURIComponent(`${bucket.value}/${props.item.browserObject.path}${props.item.browserObject.Key}`);
+});
+
+/**
+ * Returns bucket name from store.
+ */
+const bucket = computed((): string => {
+    return bucketsStore.state.fileComponentBucketName;
+});
+
+/**
+ * Returns the type of object being previewed.
+ */
+const previewType = computed<PreviewType>(() => {
+    const dotIdx = props.item.browserObject.Key.lastIndexOf('.');
+    if (dotIdx === -1) return PreviewType.None;
+
+    const ext = props.item.browserObject.Key.toLowerCase().slice(dotIdx + 1);
+    for (const [exts, previewType] of EXTENSION_PREVIEW_TYPES) {
+        if (exts.includes(ext)) return previewType;
+    }
+
+    return PreviewType.None;
+});
+
+/**
  * Returns the string form of the file's size.
  */
 function getFormattedSize(file: BrowserObject): string {
-    if (file.type === 'folder') return '---';
     const size = new Size(file.Size);
     return `${size.formattedBytes} ${size.label}`;
 }
@@ -113,7 +153,6 @@ function getFormattedSize(file: BrowserObject): string {
  * Returns the string form of the file's last modified date.
  */
 function getFormattedDate(file: BrowserObject): string {
-    if (file.type === 'folder') return '---';
     const date = file.LastModified;
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }

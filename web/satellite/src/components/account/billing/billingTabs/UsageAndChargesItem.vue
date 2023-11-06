@@ -51,6 +51,15 @@
                         <p class="price">{{ centsToDollars(charge.segmentPrice) }}</p>
                     </div>
                 </div>
+                <v-button
+                    class="usage-charges-item-container__detailed-info-container__btn"
+                    label="Download Report"
+                    width="140px"
+                    height="30px"
+                    font-size="14px"
+                    is-transparent
+                    :on-press="downloadUsageReport"
+                />
             </div>
         </template>
     </div>
@@ -66,6 +75,10 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Download } from '@/utils/download';
+import { useNotify } from '@/utils/hooks';
+
+import VButton from '@/components/common/VButton.vue';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -85,6 +98,8 @@ const props = withDefaults(defineProps<{
 
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+
+const notify = useNotify();
 
 /**
  * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
@@ -117,6 +132,15 @@ const projectName = computed((): string => {
 const projectCharges = computed((): ProjectCharges => {
     return billingStore.state.projectCharges as ProjectCharges;
 });
+
+/**
+ * Handles download usage report click logic.
+ */
+function downloadUsageReport(): void {
+    const link = projectsStore.getUsageReportLink(props.projectId);
+    Download.fileByLink(link);
+    notify.success('Usage report download started successfully.');
+}
 
 /**
  * Returns project usage price model from store.
@@ -324,6 +348,10 @@ function toggleDetailedInfo(): void {
                 &__resource-container {
                     width: 40%;
                 }
+            }
+
+            &__btn {
+                margin-top: 16px;
             }
         }
     }

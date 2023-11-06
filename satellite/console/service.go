@@ -2723,22 +2723,35 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
-// GetTotalUsageReport retrieves usage rollups for every bucket of all user owned projects for a given period.
-func (s *Service) GetTotalUsageReport(ctx context.Context, since, before time.Time) ([]accounting.BucketUsageRollup, error) {
+// GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
+func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectBucketUsageRollup, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get user report")
+	user, err := s.getUserAndAuditLog(ctx, "get usage report")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var projects []Project
+
+	if projectID.IsZero() {
+		pr, err := s.store.Projects().GetOwn(ctx, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		projects = append(projects, pr...)
+	} else {
+		_, pr, err := s.isProjectOwner(ctx, user.ID, projectID)
+		if err != nil {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+
+		projects = append(projects, *pr)
 	}
 
-	usage := make([]accounting.BucketUsageRollup, 0)
+	usage := make([]accounting.ProjectBucketUsageRollup, 0)
 
 	for _, p := range projects {
 		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, since, before)
@@ -2746,9 +2759,23 @@ func (s *Service) GetTotalUsageReport(ctx context.Context, since, before time.Ti
 			return nil, Error.Wrap(err)
 		}
 
-		for i := range rollups {
-			rollups[i].ProjectID = p.PublicID
-			usage = append(usage, rollups[i])
+		for _, r := range rollups {
+			usage = append(usage, accounting.ProjectBucketUsageRollup{
+				ProjectName: p.Name,
+				BucketUsageRollup: accounting.BucketUsageRollup{
+					ProjectID:       p.PublicID,
+					BucketName:      r.BucketName,
+					TotalStoredData: r.TotalStoredData,
+					TotalSegments:   r.TotalSegments,
+					ObjectCount:     r.ObjectCount,
+					MetadataSize:    r.MetadataSize,
+					RepairEgress:    r.RepairEgress,
+					GetEgress:       r.GetEgress,
+					AuditEgress:     r.AuditEgress,
+					Since:           r.Since,
+					Before:          r.Before,
+				},
+			})
 		}
 	}
 

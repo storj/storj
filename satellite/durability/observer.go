@@ -5,6 +5,7 @@ package durability
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -23,12 +24,15 @@ var ek = eventkit.Package()
 type HealthStat struct {
 	// because 0 means uninitialized, we store the min +1
 	minPlusOne int
+	Exemplar   string
 }
 
 // Update updates the stat with one measurement: number of pieces which are available even without the nodes of the selected class.
-func (h *HealthStat) Update(num int) {
+// Exemplar is one example identifier with such measurement. Useful to dig deeper, based on this one example.
+func (h *HealthStat) Update(num int, exemplar string) {
 	if num < h.minPlusOne-1 || h.minPlusOne == 0 {
 		h.minPlusOne = num + 1
+		h.Exemplar = exemplar
 	}
 }
 
@@ -36,7 +40,9 @@ func (h *HealthStat) Update(num int) {
 func (h *HealthStat) Merge(stat *HealthStat) {
 	if stat.minPlusOne < h.minPlusOne && stat.minPlusOne > 0 {
 		h.minPlusOne = stat.minPlusOne
+		h.Exemplar = stat.Exemplar
 	}
+
 }
 
 // Min returns the minimal number.
@@ -72,7 +78,7 @@ type Report struct {
 	nodes              map[storj.NodeID]*nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
-	reporter           func(name string, stat *HealthStat)
+	reporter           func(n time.Time, name string, stat *HealthStat)
 	reportThreshold    int
 	asOfSystemInterval time.Duration
 }
@@ -136,6 +142,7 @@ func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err erro
 		if !found {
 			c.healthStat[name] = &HealthStat{
 				minPlusOne: stat.minPlusOne,
+				Exemplar:   stat.Exemplar,
 			}
 		} else {
 			existing.Merge(&stat)
@@ -147,14 +154,15 @@ func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err erro
 
 // Finish implements rangedloop.Observer.
 func (c *Report) Finish(ctx context.Context) error {
+	reportTime := time.Now()
 	for name, stat := range c.healthStat {
-		c.reporter(name, stat)
+		c.reporter(reportTime, name, stat)
 	}
 	return nil
 }
 
 // TestChangeReporter modifies the reporter for unit tests.
-func (c *Report) TestChangeReporter(r func(name string, stat *HealthStat)) {
+func (c *Report) TestChangeReporter(r func(n time.Time, name string, stat *HealthStat)) {
 	c.reporter = r
 }
 
@@ -213,6 +221,10 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 	controlledByClass := c.controlledByClassCache
 	for i := range segments {
 		s := &segments[i]
+
+		if s.Inline() {
+			continue
+		}
 		healthyPieceCount := 0
 		for _, piece := range s.AliasPieces {
 			if len(c.classified) <= int(piece.Alias) {
@@ -233,6 +245,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			}
 		}
 
+		streamLocation := fmt.Sprintf("%s/%d", s.StreamID, s.Position.Encode())
 		for classID, count := range controlledByClass {
 			if count == 0 {
 				continue
@@ -243,18 +256,23 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 			diff := healthyPieceCount - int(count)
 
-			// if value is high, it's not a problem. faster to ignore it...
 			if c.reportThreshold > 0 && diff > c.reportThreshold {
 				continue
 			}
-			c.healthStat[classID].Update(diff)
+			c.healthStat[classID].Update(diff, streamLocation)
+
 		}
 	}
 	return nil
 }
 
-func reportToEventkit(name string, stat *HealthStat) {
-	ek.Event("durability", eventkit.String("name", name), eventkit.Int64("min", int64(stat.Min())))
+func reportToEventkit(n time.Time, name string, stat *HealthStat) {
+	ek.Event("durability",
+		eventkit.String("name", name),
+		eventkit.String("exemplar", stat.Exemplar),
+		eventkit.Timestamp("report_time", n),
+		eventkit.Int64("min", int64(stat.Min())),
+	)
 }
 
 var _ rangedloop.Observer = &Report{}

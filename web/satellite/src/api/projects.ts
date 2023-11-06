@@ -204,10 +204,10 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @throws Error
      */
-    public getTotalUsageReportLink(start: Date, end: Date): string {
+    public getTotalUsageReportLink(start: Date, end: Date, projectID: string): string {
         const since = Time.toUnixTimestamp(start).toString();
         const before = Time.toUnixTimestamp(end).toString();
-        return `${this.ROOT_PATH}/total-usage-report?since=${since}&before=${before}`;
+        return `${this.ROOT_PATH}/usage-report?since=${since}&before=${before}&projectID=${projectID}`;
     }
 
     /**

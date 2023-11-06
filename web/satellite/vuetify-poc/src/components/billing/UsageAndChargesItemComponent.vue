@@ -63,6 +63,9 @@
                             </tr>
                         </tbody>
                     </v-table>
+                    <v-btn class="mt-4 ml-4" variant="outlined" color="default" size="small" @click="downloadReport">
+                        Download Report
+                    </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
         </v-expansion-panels>
@@ -72,6 +75,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
+    VBtn,
     VCard,
     VCol,
     VExpansionPanel,
@@ -89,6 +93,8 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Download } from '@/utils/download';
+import { useNotify } from '@/utils/hooks';
 
 /**
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
@@ -106,6 +112,8 @@ const props = withDefaults(defineProps<{
 
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+
+const notify = useNotify();
 
 /**
  * An array of tuples containing the partner name and usage charge for the specified project ID.
@@ -133,6 +141,15 @@ const projectName = computed((): string => {
 const projectCharges = computed((): ProjectCharges => {
     return billingStore.state.projectCharges as ProjectCharges;
 });
+
+/**
+ * Handles download usage report click logic.
+ */
+function downloadReport(): void {
+    const link = projectsStore.getUsageReportLink(props.projectId);
+    Download.fileByLink(link);
+    notify.success('Usage report download started successfully.');
+}
 
 /**
  * Returns project usage price model from store.
