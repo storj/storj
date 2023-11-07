@@ -37,16 +37,6 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "Login" */ '@poc/views/Login.vue'),
             },
             {
-                path: '/login-2fa',
-                name: 'Login 2FA',
-                component: () => import(/* webpackChunkName: "Login 2FA" */ '@poc/views/Login2FA.vue'),
-            },
-            {
-                path: '/login-2fa-recovery',
-                name: 'Login 2FA Recovery Code',
-                component: () => import(/* webpackChunkName: "Login 2FA Recovery Code" */ '@poc/views/Login2FARecovery.vue'),
-            },
-            {
                 path: '/signup',
                 name: 'Signup',
                 component: () => import(/* webpackChunkName: "Signup" */ '@poc/views/Signup.vue'),
