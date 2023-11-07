@@ -151,6 +151,18 @@ export class UpdatedUser {
 }
 
 /**
+ * Describes data used to set up user account.
+ */
+export interface AccountSetupData {
+    fullName: string
+    isProfessional: boolean
+    position?: string
+    companyName?: string
+    employeeCount?: string
+    storageNeeds?: string
+}
+
+/**
  * DisableMFARequest represents a request to disable multi-factor authentication.
  */
 export class DisableMFARequest {
@@ -206,4 +218,14 @@ export class FreezeStatus {
         public frozen = false,
         public warned = false,
     ) { }
+}
+
+/**
+ * AccountSetupStep are the steps in the account setup dialog.
+ */
+export enum AccountSetupStep {
+    Choice,
+    Personal,
+    Business,
+    Success,
 }

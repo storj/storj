@@ -97,6 +97,7 @@
     />
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="addMemberProjectId" />
+    <account-setup-dialog />
 </template>
 
 <script setup lang="ts">
@@ -131,6 +132,7 @@ import AddTeamMemberDialog from '@poc/components/dialogs/AddTeamMemberDialog.vue
 import IconCardView from '@poc/components/icons/IconCardView.vue';
 import IconTableView from '@poc/components/icons/IconTableView.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
+import AccountSetupDialog from '@poc/components/dialogs/AccountSetupDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();

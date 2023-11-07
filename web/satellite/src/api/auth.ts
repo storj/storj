@@ -5,6 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
+    AccountSetupData,
     FreezeStatus,
     SetUserSettingsData,
     TokenInfo,
@@ -206,6 +207,26 @@ export class AuthHttpApi implements UsersApi {
         throw new APIError({
             status: response.status,
             message: 'Can not update user data',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Used to update user details after signup.
+     *
+     * @param userInfo - the information to be added to account.
+     * @throws Error
+     */
+    public async setupAccount(userInfo: AccountSetupData): Promise<void> {
+        const path = `${this.ROOT_PATH}/account/setup`;
+        const response = await this.http.patch(path, JSON.stringify(userInfo));
+        if (response.ok) {
+            return;
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: 'Can not setup account',
             requestID: response.headers.get('x-request-id'),
         });
     }
