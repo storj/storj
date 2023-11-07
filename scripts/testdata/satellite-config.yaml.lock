@@ -16,14 +16,14 @@
 # the oauth host allowed to bypass token authentication.
 # admin.allowed-oauth-host: ""
 
+# an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
+# admin.back-office.static-dir: ""
+
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
 # admin.groups.limit-update: ""
 
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
-
-# an alternate directory path which contains the static assets for the currently in development back-office. When empty, it uses the embedded assets
-# admin.static-dir-back-office: ""
 
 # enable analytics reporting
 # analytics.enabled: false

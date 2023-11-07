@@ -28,7 +28,7 @@ func TestBasic(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.StaticDir = "ui"
-				config.Admin.StaticDirBackOffice = "back-office/ui"
+				config.Admin.BackOffice.StaticDir = "back-office/ui"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
