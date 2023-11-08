@@ -8,8 +8,8 @@ export function RequiredRule(value: unknown): string | boolean {
     return (Array.isArray(value) ? !!value.length : !!value) || 'Required';
 }
 
-export function EmailRule(value: string): string | boolean {
-    return Validator.email(value) || 'E-mail must be valid.';
+export function EmailRule(value: string, strict = false): string | boolean {
+    return Validator.email(value, strict) || 'E-mail must be valid.';
 }
 
 export interface DialogStepComponent {

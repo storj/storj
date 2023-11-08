@@ -90,7 +90,6 @@
                             />
 
                             <v-btn
-                                :disabled="!formValid"
                                 color="primary"
                                 size="large"
                                 block
@@ -220,7 +219,7 @@ const satellite = computed({
 });
 
 /**
- * Information about partnered satellites, including name and signup link.
+ * Information about partnered satellites.
  */
 const satellites = computed(() => {
     const satellites = configStore.state.config.partneredSatellites ?? [];
@@ -258,7 +257,7 @@ function onCaptchaError(): void {
  * Holds on login button click logic.
  */
 async function onLoginClick(): Promise<void> {
-    if (isLoading.value) {
+    if (!formValid.value || isLoading.value) {
         return;
     }
 
@@ -276,7 +275,6 @@ async function onLoginClick(): Promise<void> {
  * Then changes location to project dashboard page.
  */
 async function login(): Promise<void> {
-    if (!formValid.value) return;
 
     try {
         const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value);
