@@ -1931,11 +1931,15 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 				config.Reputation.FlushInterval = 0
 				config.GracefulExit.MinimumOnlineScore = 0.6
 				config.GracefulExit.TimeBased = true
+				config.GracefulExit.GracefulExitDurationInDays = 30
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
+
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+		exitingNode.Contact.Chore.Pause(ctx)
 
 		simTime := time.Now()
 		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
