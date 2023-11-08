@@ -837,7 +837,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	var mu sync.Mutex
 
 	for _, cus := range customers {
-		cusID := cus.ID
+		cus := cus
 		limiter.Go(ctx, func() {
 			if inactive, err := service.isUserInactive(ctx, cus.UserID); err != nil {
 				mu.Lock()
@@ -848,7 +848,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 				return
 			}
 
-			inv, err := service.createInvoice(ctx, cusID, period)
+			inv, err := service.createInvoice(ctx, cus.ID, period)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
