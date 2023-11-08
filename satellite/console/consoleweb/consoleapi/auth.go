@@ -331,6 +331,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				SignupPromoCode:  registerData.SignupPromoCode,
 				ActivationCode:   code,
 				SignupId:         requestID,
+				// signup from the v2 app doesn't require name.
+				AllowNoName: strings.Contains(r.Referer(), "v2"),
 			},
 			secret,
 		)
@@ -575,6 +577,25 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
+// SetupAccount updates user's full name and short name.
+func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updatedInfo console.SetUpAccountRequest
+
+	err = json.NewDecoder(r.Body).Decode(&updatedInfo)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if err = a.service.SetupAccount(ctx, updatedInfo); err != nil {
 		a.serveJSONError(ctx, w, err)
 	}
 }

@@ -630,6 +630,19 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.SignupId = dbx.User_SignupId(*request.SignupId)
 	}
 
+	if request.IsProfessional != nil {
+		update.IsProfessional = dbx.User_IsProfessional(*request.IsProfessional)
+	}
+	if request.Position != nil {
+		update.Position = dbx.User_Position(*request.Position)
+	}
+	if request.CompanyName != nil {
+		update.CompanyName = dbx.User_CompanyName(*request.CompanyName)
+	}
+	if request.EmployeeCount != nil {
+		update.EmployeeCount = dbx.User_EmployeeCount(*request.EmployeeCount)
+	}
+
 	return &update, nil
 }
 

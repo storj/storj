@@ -52,7 +52,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		SignupPromoCode: input.SignupPromoCode,
 	}
 
-	err = user.IsValid()
+	err = user.IsValid(false)
 	if err != nil {
 		sendJSONError(w, "user data is not valid",
 			err.Error(), http.StatusBadRequest)

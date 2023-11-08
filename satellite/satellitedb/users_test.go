@@ -88,6 +88,11 @@ func TestUpdateUser(t *testing.T) {
 			FailedLoginCount:       1,
 			LoginLockoutExpiration: time.Now().Truncate(time.Second),
 			DefaultPlacement:       13,
+
+			IsProfessional: true,
+			Position:       "Engineer",
+			CompanyName:    "Storj",
+			EmployeeCount:  "1-200",
 		}
 
 		require.NotEqual(t, u.FullName, newInfo.FullName)
@@ -104,6 +109,10 @@ func TestUpdateUser(t *testing.T) {
 		require.NotEqual(t, u.FailedLoginCount, newInfo.FailedLoginCount)
 		require.NotEqual(t, u.LoginLockoutExpiration, newInfo.LoginLockoutExpiration)
 		require.NotEqual(t, u.DefaultPlacement, newInfo.DefaultPlacement)
+		require.NotEqual(t, u.IsProfessional, newInfo.IsProfessional)
+		require.NotEqual(t, u.Position, newInfo.Position)
+		require.NotEqual(t, u.CompanyName, newInfo.CompanyName)
+		require.NotEqual(t, u.EmployeeCount, newInfo.EmployeeCount)
 
 		// update just fullname
 		updateReq := console.UpdateUserRequest{
@@ -303,6 +312,26 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.DefaultPlacement = newInfo.DefaultPlacement
+		require.Equal(t, u, updatedUser)
+
+		// update professional info
+		updateReq = console.UpdateUserRequest{
+			IsProfessional: &newInfo.IsProfessional,
+			Position:       &newInfo.Position,
+			CompanyName:    &newInfo.CompanyName,
+			EmployeeCount:  &newInfo.EmployeeCount,
+		}
+
+		err = users.Update(ctx, id, updateReq)
+		require.NoError(t, err)
+
+		updatedUser, err = users.Get(ctx, id)
+		require.NoError(t, err)
+
+		u.IsProfessional = newInfo.IsProfessional
+		u.Position = newInfo.Position
+		u.CompanyName = newInfo.CompanyName
+		u.EmployeeCount = newInfo.EmployeeCount
 		require.Equal(t, u, updatedUser)
 	})
 }

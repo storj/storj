@@ -115,17 +115,23 @@ type CreateUser struct {
 	SignupPromoCode  string `json:"signupPromoCode"`
 	ActivationCode   string `json:"-"`
 	SignupId         string `json:"-"`
+	AllowNoName      bool   `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 // The returned error has the class ErrValiation.
-func (user *CreateUser) IsValid() error {
+func (user *CreateUser) IsValid(allowNoName bool) error {
 	errgrp := errs.Group{}
 
 	errgrp.Add(
-		ValidateFullName(user.FullName),
 		ValidateNewPassword(user.Password),
 	)
+
+	if !allowNoName {
+		errgrp.Add(
+			ValidateFullName(user.FullName),
+		)
+	}
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)
@@ -283,6 +289,12 @@ type UpdateUserRequest struct {
 	FullName  *string
 	ShortName **string
 
+	Position       *string
+	CompanyName    *string
+	WorkingOn      *string
+	IsProfessional *bool
+	EmployeeCount  *string
+
 	Email        *string
 	PasswordHash []byte
 
@@ -327,4 +339,14 @@ type UpsertUserSettingsRequest struct {
 	OnboardingEnd    *bool
 	PassphrasePrompt *bool
 	OnboardingStep   *string
+}
+
+// SetUpAccountRequest holds data for completing account setup.
+type SetUpAccountRequest struct {
+	FullName       string  `json:"fullName"`
+	IsProfessional bool    `json:"isProfessional"`
+	Position       *string `json:"position"`
+	CompanyName    *string `json:"companyName"`
+	EmployeeCount  *string `json:"employeeCount"`
+	StorageNeeds   *string `json:"storageNeeds"`
 }

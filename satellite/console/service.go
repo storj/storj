@@ -806,7 +806,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		captchaScore = score
 	}
 
-	if err := user.IsValid(); err != nil {
+	if err := user.IsValid(user.AllowNoName); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
 		return nil, err
 	}
@@ -1488,6 +1488,36 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	return nil
+}
+
+// SetupAccount completes User's information.
+func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "update account")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// validate fullName
+	err = ValidateFullName(requestData.FullName)
+	if err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		FullName:       &requestData.FullName,
+		IsProfessional: &requestData.IsProfessional,
+		Position:       requestData.Position,
+		CompanyName:    requestData.CompanyName,
+		EmployeeCount:  requestData.EmployeeCount,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: track setup account
 
 	return nil
 }
