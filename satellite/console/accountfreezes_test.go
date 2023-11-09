@@ -71,6 +71,11 @@ func TestAccountBillingFreeze(t *testing.T) {
 		require.Error(t, service.BillingFreezeUser(ctx, user.ID))
 		require.NoError(t, service.ViolationUnfreezeUser(ctx, user.ID))
 
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		// cannot billing freeze a legal-frozen user.
+		require.Error(t, service.BillingFreezeUser(ctx, user.ID))
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 		user, err = usersDB.Get(ctx, user.ID)
@@ -238,6 +243,88 @@ func TestAccountViolationFreeze(t *testing.T) {
 	})
 }
 
+func TestAccountLegalFreeze(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		projectsDB := sat.DB.Console().Projects()
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		userLimits := randUsageLimits()
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "user@mail.test",
+		}, 2)
+		require.NoError(t, err)
+		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
+
+		projLimits := randUsageLimits()
+		proj, err := sat.AddProject(ctx, user.ID, "")
+		require.NoError(t, err)
+		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+
+		checkLimits := func(testT *testing.T) {
+			user, err = usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Zero(t, getUserLimits(user))
+
+			proj, err = projectsDB.Get(ctx, proj.ID)
+			require.NoError(t, err)
+			require.Zero(t, getProjectLimits(proj))
+		}
+
+		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.False(t, frozen)
+
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.True(t, frozen)
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.LegalHold, user.Status)
+
+		checkLimits(t)
+
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.False(t, frozen)
+
+		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.False(t, frozen)
+		// legal freezing a warned user should be possible.
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.True(t, frozen)
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.False(t, frozen)
+		// legal freezing a billing frozen user should be possible.
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
+		require.NoError(t, err)
+		require.True(t, frozen)
+
+		freezes, err := service.GetAll(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.LegalFreeze)
+		require.Nil(t, freezes.LegalFreeze.DaysTillEscalation)
+
+		checkLimits(t)
+	})
+}
+
 func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -285,6 +372,11 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 		// cannot warn a billing-frozen user.
 		require.Error(t, service.BillingWarnUser(ctx, user.ID))
 		require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
+
+		require.NoError(t, service.LegalFreezeUser(ctx, user.ID))
+		// cannot warn a legal-frozen user.
+		require.Error(t, service.BillingWarnUser(ctx, user.ID))
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
 
 		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
 		require.NoError(t, service.ViolationFreezeUser(ctx, user.ID))
@@ -391,12 +483,6 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, userLimits, getUserLimits(user))
 		})
-
-		// Billing freezing a violation frozen user should not be possible.
-		t.Run("ViolationFrozen user", func(t *testing.T) {
-			require.NoError(t, service.ViolationFreezeUser(ctx, user.ID))
-			require.Error(t, service.BillingFreezeUser(ctx, user.ID))
-		})
 	})
 }
 
@@ -463,32 +549,42 @@ func TestFreezeEffects(t *testing.T) {
 		t.Run("BillingFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
 
-			err = freezeService.BillingWarnUser(ctx, user1.ID)
-			require.NoError(t, err)
+			require.NoError(t, freezeService.BillingWarnUser(ctx, user1.ID))
 
 			// Should be able to download because account is not frozen.
 			shouldUploadAndDownload(t)
 
-			err = freezeService.BillingFreezeUser(ctx, user1.ID)
-			require.NoError(t, err)
+			require.NoError(t, freezeService.BillingFreezeUser(ctx, user1.ID))
 
 			shouldNotUploadAndDownload(t)
 
 			shouldListAndDelete(t)
 
-			err = freezeService.BillingUnfreezeUser(ctx, user1.ID)
-			require.NoError(t, err)
+			require.NoError(t, freezeService.BillingUnfreezeUser(ctx, user1.ID))
 		})
 
 		t.Run("ViolationFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
 
-			err = freezeService.ViolationFreezeUser(ctx, user1.ID)
-			require.NoError(t, err)
+			require.NoError(t, freezeService.ViolationFreezeUser(ctx, user1.ID))
 
 			shouldNotUploadAndDownload(t)
 
 			shouldListAndDelete(t)
+
+			require.NoError(t, freezeService.ViolationUnfreezeUser(ctx, user1.ID))
+		})
+
+		t.Run("LegalFreeze effect on project owner", func(t *testing.T) {
+			shouldUploadAndDownload(t)
+
+			require.NoError(t, freezeService.LegalFreezeUser(ctx, user1.ID))
+
+			shouldNotUploadAndDownload(t)
+
+			shouldListAndDelete(t)
+
+			require.NoError(t, freezeService.LegalUnfreezeUser(ctx, user1.ID))
 		})
 	})
 }
