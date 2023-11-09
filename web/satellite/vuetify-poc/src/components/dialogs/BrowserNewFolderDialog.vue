@@ -11,12 +11,21 @@
     >
         <v-card ref="innerContent" rounded="xlg">
             <v-sheet>
-                <v-card-item class="pl-7 py-4">
+                <v-card-item class="pa-5 pl-7">
                     <template #prepend>
-                        <v-card-title class="font-weight-bold">
-                            New Folder
-                        </v-card-title>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <img src="@poc/assets/icon-folder.svg" alt="folder icon">
+                        </v-sheet>
                     </template>
+
+                    <v-card-title class="font-weight-bold">
+                        New Folder
+                    </v-card-title>
 
                     <template #append>
                         <v-btn
@@ -33,7 +42,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-8 pb-3">
+            <v-form v-model="formValid" class="px-7 pt-9 pb-4">
                 <v-row>
                     <v-col
                         cols="12"
@@ -42,7 +51,8 @@
                             v-model="folder"
                             variant="outlined"
                             :rules="folderRules"
-                            label="Enter Folder Name"
+                            label="Folder Name"
+                            placeholder="Enter a folder name"
                             :hide-details="false"
                             required
                             autofocus

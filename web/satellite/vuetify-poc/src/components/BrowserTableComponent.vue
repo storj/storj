@@ -24,9 +24,8 @@
             :headers="headers"
             :items="tableFiles"
             :search="search"
-            class="elevation-1"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject.Key"
-            no-data-text="No results found"
+            no-data-text="No data found"
             :page="cursor.page"
             hover
             must-sort

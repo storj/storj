@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-navigation-drawer v-model="model" class="py-1">
+    <v-navigation-drawer v-model="model">
         <v-sheet class="pa-2">
             <!-- Project -->
             <v-menu location="end" transition="scale-transition">
@@ -26,8 +26,8 @@
                                 <!-- <img src="@poc/assets/icon-project.svg" alt="Projects"> -->
                                 <IconProject />
                             </template>
-                            <v-list-item-title>
-                                <v-chip color="purple2" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                            <v-list-item-title class="ml-3">
+                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>

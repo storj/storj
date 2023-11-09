@@ -2,38 +2,36 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8" @submit.prevent>
+    <v-form ref="form" class="pa-7 pb-4" @submit.prevent>
         <v-row>
             <v-col cols="12">
+                <p class="text-subtitle-2 font-weight-bold mb-5">Enter Access Name</p>
                 <v-text-field
                     v-model="name"
                     label="Access Name"
-                    placeholder="Enter name for this access"
                     variant="outlined"
-                    color="default"
                     autofocus
                     :hide-details="false"
                     :rules="nameRules"
+                    class="mb-n2"
                 />
             </v-col>
-
             <v-col cols="12">
-                <h4 class="mb-2">Type</h4>
-                <v-input v-model="types" :rules="[ RequiredRule ]" :hide-details="false">
+                <p class="text-subtitle-2 font-weight-bold mb-2">Select Access Type</p>
+                <v-input v-model="types" :rules="[ RequiredRule ]" :hide-details="false" class="mb-n2">
                     <div>
                         <v-checkbox
                             v-for="accessType in typeOrder"
                             :key="accessType"
                             v-model="typeInfos[accessType].model.value"
-                            color="primary"
                             density="compact"
                             :hide-details="true"
                         >
                             <template #label>
-                                <span class="ml-2">{{ typeInfos[accessType].name }}</span>
+                                <span>{{ typeInfos[accessType].name }}</span>
                                 <info-tooltip>
                                     {{ typeInfos[accessType].description }}
-                                    <a class="text-surface" :href="ACCESS_TYPE_LINKS[accessType]" target="_blank">
+                                    <a class="link" :href="ACCESS_TYPE_LINKS[accessType]" target="_blank">
                                         Learn more
                                     </a>
                                 </info-tooltip>

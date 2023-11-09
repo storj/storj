@@ -8,10 +8,11 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <v-sheet
-                        class="bg-on-surface-variant d-flex justify-center align-center"
+                        class="border-sm d-flex justify-center align-center"
+                        variant="tonal"
                         width="40"
                         height="40"
                         rounded="lg"
@@ -54,19 +55,25 @@
                     <v-col>
                         <v-btn
                             variant="outlined"
+                            color="default"
+                            block
+                            @click="model = false"
+                        >
+                            Close
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn
+                            variant="outlined"
                             block
                             color="default"
                             link
                             href="https://docs.storj.io/learn#what-happens-when-you-upload"
                             target="_blank"
                             rel="noopener noreferrer"
+                            append-icon="mdi-open-in-new"
                         >
                             Learn more
-                        </v-btn>
-                    </v-col>
-                    <v-col>
-                        <v-btn variant="flat" block @click="model = false">
-                            Close
                         </v-btn>
                     </v-col>
                 </v-row>

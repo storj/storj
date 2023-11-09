@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-mfa.svg" alt="MFA">
                 </template>
@@ -26,42 +26,37 @@
                     />
                 </template>
             </v-card-item>
-            <v-divider class="mx-8" />
+            <v-divider />
             <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
                 <!-- QR code step -->
                 <v-window-item :value="0">
-                    <v-card-item class="px-8 py-4">
+                    <v-card-item class="pa-7">
                         <p>Scan this QR code in your two-factor application.</p>
                     </v-card-item>
-                    <v-card-item align="center" justify="center" class="rounded-lg border mx-8 py-4">
+                    <v-card-item align="center" justify="center" class="rounded-lg border mx-7">
                         <v-col cols="auto">
                             <canvas ref="canvas" />
                         </v-col>
                     </v-card-item>
-                    <v-divider class="mx-8 my-4" />
-                    <v-card-item class="px-8 py-4 pt-0">
+                    <v-card-item class="pa-7">
                         <p>Unable to scan? Enter the following code instead.</p>
                     </v-card-item>
-                    <v-card-item class="rounded-lg border mx-8 pa-0">
-                        <v-col class="py-2 px-3" cols="auto">
-                            <p class="font-weight-bold"> {{ userMFASecret }}</p>
+                    <v-card-item class="rounded-lg border mx-7 mb-7 py-2">
+                        <v-col>
+                            <p class="font-weight-medium text-body-2 text-center"> {{ userMFASecret }}</p>
                         </v-col>
                     </v-card-item>
                 </v-window-item>
 
                 <!-- Enter code step -->
                 <v-window-item :value="1">
-                    <v-card-item class="px-8 py-4">
+                    <v-card-item class="pa-7">
                         <p>Enter the authentication code generated in your two-factor application to confirm your setup.</p>
-                    </v-card-item>
-                    <v-divider class="mx-8" />
-                    <v-card-item class="px-8 pt-4 pb-0">
-                        <v-form v-model="formValid" class="pt-2" @submit.prevent>
+                        <v-form v-model="formValid" class="pt-7" @submit.prevent>
                             <v-text-field
                                 v-model="confirmPasscode"
                                 variant="outlined"
-                                density="compact"
-                                hint="e.g.: 000000"
+                                hint="Example: 123456"
                                 :rules="rules"
                                 :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
                                 label="2FA Code"
@@ -75,11 +70,11 @@
 
                 <!-- Save codes step -->
                 <v-window-item :value="2">
-                    <v-card-item class="px-8 py-4">
+                    <v-card-item class="px-7 py-4">
                         <p>Please save these codes somewhere to be able to recover access to your account.</p>
                     </v-card-item>
-                    <v-divider class="mx-8" />
-                    <v-card-item class="px-8 py-4">
+                    <v-divider />
+                    <v-card-item class="px-7 py-4">
                         <p
                             v-for="(code, index) in userMFARecoveryCodes"
                             :key="index"
@@ -89,53 +84,55 @@
                     </v-card-item>
                 </v-window-item>
             </v-window>
-            <v-divider class="mx-8 my-4" />
-            <v-card-actions dense class="px-7 pb-5 pt-0">
-                <v-col v-if="step !== 2" class="pl-0">
-                    <v-btn
-                        variant="outlined"
-                        color="default"
-                        block
-                        :disabled="isLoading"
-                        :loading="isLoading"
-                        @click="model = false"
-                    >
-                        Cancel
-                    </v-btn>
-                </v-col>
-                <v-col class="px-0">
-                    <v-btn
-                        v-if="step === 0"
-                        color="primary"
-                        variant="flat"
-                        block
-                        :loading="isLoading"
-                        @click="step++"
-                    >
-                        Continue
-                    </v-btn>
-                    <v-btn
-                        v-else-if="step === 1"
-                        color="primary"
-                        variant="flat"
-                        block
-                        :loading="isLoading"
-                        :disabled="!formValid"
-                        @click="enable"
-                    >
-                        Enable
-                    </v-btn>
+            <v-divider />
+            <v-card-actions class="pa-7">
+                <v-row>
+                    <v-col v-if="step !== 2">
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            block
+                            :disabled="isLoading"
+                            :loading="isLoading"
+                            @click="model = false"
+                        >
+                            Cancel
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn
+                            v-if="step === 0"
+                            color="primary"
+                            variant="flat"
+                            block
+                            :loading="isLoading"
+                            @click="step++"
+                        >
+                            Continue
+                        </v-btn>
+                        <v-btn
+                            v-else-if="step === 1"
+                            color="primary"
+                            variant="flat"
+                            block
+                            :loading="isLoading"
+                            :disabled="!formValid"
+                            @click="enable"
+                        >
+                            Confirm
+                        </v-btn>
 
-                    <v-btn
-                        v-else
-                        color="primary"
-                        variant="flat"
-                        block
-                        @click="model = false"
-                    >
-                        Done
-                    </v-btn>
-                </v-col>
+                        <v-btn
+                            v-else
+                            color="primary"
+                            variant="flat"
+                            block
+                            @click="model = false"
+                        >
+                            Done
+                        </v-btn>
+                    </v-col>
+                </v-row>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -153,6 +150,7 @@ import {
     VDialog,
     VDivider,
     VForm,
+    VRow,
     VTextField,
     VWindow,
     VWindowItem,

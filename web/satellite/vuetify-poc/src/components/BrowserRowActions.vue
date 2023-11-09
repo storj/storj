@@ -28,13 +28,13 @@
         >
             <v-icon icon="mdi-dots-horizontal" />
             <v-menu activator="parent">
-                <v-list class="pa-2">
+                <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
                         <v-list-item density="comfortable" link rounded="lg" @click="emit('previewClick')">
                             <template #prepend>
                                 <icon-preview />
                             </template>
-                            <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                            <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                                 Preview
                             </v-list-item-title>
                         </v-list-item>
@@ -49,7 +49,7 @@
                                 <icon-download />
                             </template>
                             <v-fade-transition>
-                                <v-list-item-title v-show="!isDownloading" class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title v-show="!isDownloading" class="pl-2 ml-2 text-body-2 font-weight-medium">
                                     Download
                                 </v-list-item-title>
                             </v-fade-transition>
@@ -63,18 +63,18 @@
                         <template #prepend>
                             <icon-share bold />
                         </template>
-                        <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Share
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-divider class="my-2" />
+                    <v-divider class="my-1" />
 
                     <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="emit('deleteFileClick')">
                         <template #prepend>
                             <icon-trash bold />
                         </template>
-                        <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Delete
                         </v-list-item-title>
                     </v-list-item>

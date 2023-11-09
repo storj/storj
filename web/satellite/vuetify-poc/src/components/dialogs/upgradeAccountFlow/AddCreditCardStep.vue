@@ -2,12 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="pb-4">
+    <p class="pt-2 pb-4">
         By saving your card information, you allow Storj to charge your card for future payments in accordance with
         the terms.
     </p>
-
-    <v-divider />
 
     <div class="py-4">
         <StripeCardElement
@@ -23,7 +21,7 @@
                 <v-btn
                     block
                     variant="outlined"
-                    color="grey-lighten-1"
+                    color="default"
                     :disabled="loading"
                     @click="emit('back')"
                 >
@@ -44,7 +42,7 @@
                 </v-btn>
             </v-col>
         </v-row>
-        <p class="mt-1 text-caption text-center">Your information is secured with 128-bit SSL & AES-256 encryption.</p>
+        <p class="mt-1 text-caption text-center">Information is secured with 128-bit SSL & AES-256 encryption.</p>
     </div>
 </template>
 
