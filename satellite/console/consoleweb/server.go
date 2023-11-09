@@ -111,6 +111,7 @@ type Config struct {
 	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 	ObjectBrowserPaginationEnabled  bool       `help:"whether to use object browser pagination" default:"false"`
 	ObjectBrowserCardViewEnabled    bool       `help:"whether to use object browser card view" default:"false"`
+	LimitIncreaseRequestEnabled     bool       `help:"whether to allow request limit increases directly from the UI" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -755,6 +756,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
 		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
+		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
