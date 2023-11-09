@@ -83,6 +83,18 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("get objects", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
+			// check version validation
+			_, err := satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte("test-bucket"),
+				EncryptedObjectKey: []byte("test-object"),
+				ObjectVersion:      []byte("broken-version"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
 			files := make([]string, 10)
 			data := testrand.Bytes(1 * memory.KiB)
 			for i := 0; i < len(files); i++ {

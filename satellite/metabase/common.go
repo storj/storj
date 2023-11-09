@@ -371,14 +371,14 @@ const MaxVersion = Version(math.MaxInt32)
 // TODO(ver): this is not final approach to version encoding. It's simplified
 // version for internal testing purposes. Will be changed in future.
 func (v Version) Encode() []byte {
-	var bytes [8]byte
+	var bytes [16]byte
 	binary.BigEndian.PutUint64(bytes[:], uint64(v))
 	return bytes[:]
 }
 
 // VersionFromBytes decodes version from bytes.
 func VersionFromBytes(bytes []byte) (Version, error) {
-	if len(bytes) != 8 {
+	if len(bytes) != 16 {
 		return Version(0), ErrInvalidRequest.New("invalid version")
 	}
 	return Version(binary.BigEndian.Uint64(bytes)), nil
