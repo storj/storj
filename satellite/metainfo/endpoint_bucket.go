@@ -144,7 +144,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	bucketReq.Placement = project.DefaultPlacement
 
 	if endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) {
-		bucketReq.Versioning = buckets.Unversioned
+		if endpoint.config.TestEnableBucketVersioning {
+			bucketReq.Versioning = buckets.VersioningEnabled
+		} else {
+			bucketReq.Versioning = buckets.Unversioned
+		}
 	}
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {

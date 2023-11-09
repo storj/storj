@@ -412,10 +412,11 @@ const (
 	CommittedUnversioned = ObjectStatus(3)
 	// CommittedVersioned means that the object is finished and should be visible for general listing.
 	CommittedVersioned = ObjectStatus(4)
-	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
-	DeleteMarkerUnversioned = ObjectStatus(5)
 	// DeleteMarkerVersioned is inserted when an object is deleted in a versioning enabled bucket.
-	DeleteMarkerVersioned = ObjectStatus(6)
+	DeleteMarkerVersioned = ObjectStatus(5)
+	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
+	DeleteMarkerUnversioned = ObjectStatus(6)
+
 	// Prefix is an ephemeral status used during non-recursive listing.
 	Prefix = ObjectStatus(7)
 
@@ -424,8 +425,8 @@ const (
 	statusCommittedUnversioned    = "3"
 	statusCommittedVersioned      = "4"
 	statusesCommitted             = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + ")"
-	statusDeleteMarkerUnversioned = "5"
-	statusDeleteMarkerVersioned   = "6"
+	statusDeleteMarkerVersioned   = "5"
+	statusDeleteMarkerUnversioned = "6"
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 )

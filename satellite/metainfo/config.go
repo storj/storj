@@ -157,6 +157,9 @@ type Config struct {
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+
+	// flag will be effective only if UseBucketLevelObjectVersioning or UseBucketLevelObjectVersioningProjects are enabled
+	TestEnableBucketVersioning bool `default:"false" help:"if enabled all new created buckets will have versioning enabled (use only for testing)" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.

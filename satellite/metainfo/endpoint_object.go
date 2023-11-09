@@ -922,6 +922,12 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 	metabase.ListLimit.Ensure(&limit)
 
+	// TODO(ver): this is only temporary logic for testing, will be cleanup later
+	useListObjects := false
+	if endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) && endpoint.config.TestEnableBucketVersioning {
+		useListObjects = !req.IncludeAllVersions
+	}
+
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
@@ -965,7 +971,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	resp = &pb.ObjectListResponse{}
-	if endpoint.config.TestListingQuery {
+	if endpoint.config.TestListingQuery || useListObjects {
 		result, err := endpoint.metabase.ListObjects(ctx,
 			metabase.ListObjects{
 				ProjectID:  keyInfo.ProjectID,
@@ -1599,6 +1605,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		Version:            int32(object.Version), // TODO incompatible types
 		ObjectVersion:      object.Version.Encode(),
 		StreamId:           streamID,
+		Status:             pb.Object_Status(object.Status),
 		ExpiresAt:          expires,
 		CreatedAt:          object.CreatedAt,
 
@@ -1806,24 +1813,36 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 	}
 
 	var result metabase.DeleteObjectResult
-	if endpoint.config.ServerSideCopy {
-		if len(version) == 0 {
-			result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
-				ObjectLocation: req,
-			})
-		} else {
-			var v metabase.Version
-			v, err = metabase.VersionFromBytes(version)
+	if len(version) == 0 {
+		versioned := false
+		suspended := false
+		if endpoint.config.UseBucketLevelObjectVersioningByProject(projectID) {
+			// TODO(ver): for production we need to avoid somehow additional GetBucket call
+			bucket, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
 			if err != nil {
-				return nil, err
+				endpoint.log.Error("unable to check bucket", zap.Error(err))
+				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket versioning state")
 			}
-			result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
-				ObjectLocation: req,
-				Version:        v,
-			})
+
+			versioned = bucket.Versioning == buckets.VersioningEnabled
+			suspended = bucket.Versioning == buckets.VersioningSuspended
 		}
+
+		result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+			ObjectLocation: req,
+			Versioned:      versioned,
+			Suspended:      suspended,
+		})
 	} else {
-		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+		var v metabase.Version
+		v, err = metabase.VersionFromBytes(version)
+		if err != nil {
+			return nil, err
+		}
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: req,
+			Version:        v,
+		})
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
