@@ -230,6 +230,7 @@ type TrackCreateUserFields struct {
 	Referrer         string
 	HubspotUTK       string
 	UserAgent        string
+	SignupCaptcha    *float64
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -286,6 +287,9 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	props.Set("origin_header", fields.OriginHeader)
 	props.Set("signup_referrer", fields.Referrer)
 	props.Set("account_created", true)
+	if fields.SignupCaptcha != nil {
+		props.Set("signup_captcha", &fields.SignupCaptcha)
+	}
 
 	if fields.Type == Professional {
 		props.Set("company_size", fields.EmployeeCount)

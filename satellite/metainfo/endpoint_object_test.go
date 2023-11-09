@@ -1518,19 +1518,26 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			// TODO(ver): add tests more detailed tests for returning object on commit, including returned version
 
-			objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-				Bucket:                []byte(bucket.Name),
-				IncludeSystemMetadata: true,
+			listResponse, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket: []byte(bucket.Name),
+				ObjectIncludes: &pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: false,
+					Metadata:              false,
+				},
 			})
+
 			require.NoError(t, err)
-			require.Len(t, objects, 1)
-			require.Equal(t, params.EncryptedObjectKey, objects[0].EncryptedObjectKey)
-			// TODO find better way to compare (one ExpiresAt contains time zone informations)
-			require.Equal(t, params.ExpiresAt.Unix(), objects[0].ExpiresAt.Unix())
+			require.Len(t, listResponse.Items, 1)
+			require.Equal(t, params.EncryptedObjectKey, listResponse.Items[0].EncryptedObjectKey)
+			require.Equal(t, params.ExpiresAt.Truncate(time.Millisecond), params.ExpiresAt.Truncate(time.Millisecond))
+			require.Equal(t, coResponse.Object.ObjectVersion, listResponse.Items[0].ObjectVersion)
 
 			object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{
 				Bucket:             []byte(bucket.Name),
-				EncryptedObjectKey: objects[0].EncryptedObjectKey,
+				EncryptedObjectKey: listResponse.Items[0].EncryptedObjectKey,
 			})
 			require.NoError(t, err)
 
@@ -1538,6 +1545,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 			require.NoError(t, err)
 			require.Len(t, allObjects, 1)
+			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].Version.Encode())
 		})
 
 		t.Run("get object IP", func(t *testing.T) {

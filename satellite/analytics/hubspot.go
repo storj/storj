@@ -130,7 +130,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		firstName = fullName
 	}
 
-	newField := func(name, value string) map[string]interface{} {
+	newField := func(name string, value interface{}) map[string]interface{} {
 		return map[string]interface{}{
 			"name":  name,
 			"value": value,
@@ -147,6 +147,9 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
 		newField("signup_partner", fields.UserAgent),
 		newField("lifecyclestage", lifecycleStage),
+	}
+	if fields.SignupCaptcha != nil {
+		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
 	}
 
 	properties := map[string]interface{}{
