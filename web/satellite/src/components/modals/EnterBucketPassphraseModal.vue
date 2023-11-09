@@ -28,8 +28,8 @@
                     <OpenWarningIcon class="modal__warning__icon" />
                     <div class="modal__warning__info">
                         <p class="modal__warning__info__title">
-                            This bucket includes files that are uploaded using a different encryption passphrase from
-                            the one you entered.
+                            Object count mismatch: files may be uploaded with a different passphrase, or files have
+                            been recently deleted and are not reflected yet.
                         </p>
                     </div>
                 </div>

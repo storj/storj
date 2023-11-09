@@ -1624,6 +1624,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Version:            int32(entry.Version), // TODO incompatible types
 		Status:             pb.Object_Status(entry.Status),
+		ObjectVersion:      entry.Version.Encode(),
 	}
 
 	expiresAt := time.Time{}
