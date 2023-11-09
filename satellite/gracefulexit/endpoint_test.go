@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -2033,6 +2034,113 @@ func TestSuspendedNodesFailGracefulExit(t *testing.T) {
 		require.IsType(t, (*pb.SatelliteMessage_ExitFailed)(nil), msg)
 		failure := msg.(*pb.SatelliteMessage_ExitFailed)
 		require.Equal(t, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED, failure.ExitFailed.Reason)
+	})
+}
+
+func TestNodeStartedGracefulExitBeforeUpgradeToTimeBased(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 8,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(4, 5, 6, 6),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Reputation.FlushInterval = 0
+					config.GracefulExit.GracefulExitDurationInDays = 1
+					config.GracefulExit.EndpointBatchSize = 1
+					// starts off as false; we will recreate the API server halfway through with true
+					config.GracefulExit.TimeBased = false
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+		uplink := planet.Uplinks[0]
+
+		simTime := time.Now()
+		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
+
+		// Get some data on the node.
+		for i := 0; i < 10; i++ {
+			path := fmt.Sprintf("test/path/%d", i)
+			err := uplink.Upload(ctx, satellite, "test-bucket", path, testrand.Bytes(24*memory.KiB))
+			require.NoError(t, err, path)
+		}
+		_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite.ID())
+		require.NoError(t, err)
+		require.NotZero(t, piecesContentSize)
+
+		// Pause the GE chore on the node so it doesn't start transferring pieces too quickly
+		// and finish before we even do the test.
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		// Initiate GE on the node (this affects only the storagenode DB).
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
+		require.NoError(t, err)
+
+		// Allow the node to start talking to the satellite about its graceful exit. This will make
+		// the Process() call to the API, but the transfer queue won't get built yet because the
+		// chore is stopped. The worker should exit almost immediately after determining that the
+		// server doesn't have any pieces for it to transfer yet.
+		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+		err = exitingNode.GracefulExit.Chore.TestWaitForNoWorkers(ctx)
+		require.NoError(t, err)
+
+		// Run the ranged loop once to build the transfer queue.
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// Ensure there are elements in the queue.
+		queue, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0)
+		require.NoError(t, err)
+		require.Len(t, queue, 1)
+
+		// Change the setting of TimeBased on the API server. It shouldn't be necessary
+		// to restart the subsystem because TimeBased does not affect how an API server
+		// object is initialized. It _does_ affect whether the gracefulexit ranged loop
+		// observer gets registered, but having the non-time-based ranged loop observer
+		// registered should not break anything.
+		satellite.GracefulExit.Endpoint.TestSetTimeBased(true)
+
+		// Allow the node to proceed with graceful exit. Again, the worker should exit almost
+		// immediately after determining that the server doesn't have any pieces for it to
+		// transfer yet.
+		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+		err = exitingNode.GracefulExit.Chore.TestWaitForNoWorkers(ctx)
+		require.NoError(t, err)
+
+		// It shouldn't be done yet, because graceful exit is time-based now
+		exits, err := exitingNode.DB.Satellites().ListGracefulExits(ctx)
+		require.NoError(t, err)
+		require.Len(t, exits, 1)
+		nodeInfo, err := satellite.Overlay.Service.Get(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.False(t, nodeInfo.ExitStatus.ExitSuccess)
+		require.NotNil(t, nodeInfo.ExitStatus.ExitInitiatedAt)
+		require.Nil(t, nodeInfo.ExitStatus.ExitFinishedAt)
+
+		// Move time forward 2 days so that the node should be done
+		simTime = simTime.Add(48 * time.Hour)
+
+		// Have the node check in to the graceful exit endpoint again. This time, the API server
+		// should respond that the node has completed GE.
+		exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+		err = exitingNode.GracefulExit.Chore.TestWaitForNoWorkers(ctx)
+		require.NoError(t, err)
+
+		// The node should know it's done
+		exits, err = exitingNode.DB.Satellites().ListGracefulExits(ctx)
+		require.NoError(t, err)
+		require.Len(t, exits, 1)
+		require.Equal(t, satellites.ExitSucceeded, exits[0].Status)
+		require.NotNil(t, exits[0].FinishedAt)
+		// and the satellite should know it's done.
+		nodeInfo, err = satellite.Overlay.Service.Get(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.True(t, nodeInfo.ExitStatus.ExitSuccess)
+		require.NotNil(t, nodeInfo.ExitStatus.ExitFinishedAt)
 	})
 }
 

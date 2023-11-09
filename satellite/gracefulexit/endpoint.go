@@ -121,6 +121,12 @@ func (endpoint *Endpoint) SetNowFunc(timeFunc func() time.Time) {
 	endpoint.nowFunc = timeFunc
 }
 
+// TestSetTimeBased changes the setting of config.TimeBased at runtime. To be used for testing
+// purposes only.
+func (endpoint *Endpoint) TestSetTimeBased(enabled bool) {
+	endpoint.config.TimeBased = enabled
+}
+
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
 func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStream) (err error) {
 	ctx := stream.Context()
