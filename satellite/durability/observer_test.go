@@ -38,57 +38,59 @@ func TestDurability(t *testing.T) {
 		})
 	}
 
+	segment := func(nodes []*nodeselection.SelectedNode, ix ...int) (res rangedloop.Segment) {
+		var pieces metabase.AliasPieces
+		for n, i := range ix {
+			pieces = append(pieces, metabase.AliasPiece{
+				Number: uint16(n),
+				Alias:  metabase.NodeAlias(i),
+			})
+		}
+
+		res.StreamID = testrand.UUID()
+		res.Position = metabase.SegmentPosition{
+			Part:  0,
+			Index: 0,
+		}
+
+		// it's not inline if non-default redundancy is set.
+		res.Redundancy = storj.RedundancyScheme{
+			ShareSize: 123,
+		}
+
+		res.AliasPieces = pieces
+
+		return res
+	}
+
 	ctx := testcontext.New(t)
 	c := NewDurability(nil, nil, []NodeClassifier{
 		func(node *nodeselection.SelectedNode) string {
 			return "net:" + node.LastNet
-		}}, 0, 0)
+		}}, 110, 0, 0, 0)
 
 	c.aliasMap = metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {
 		c.nodes[node.ID] = node
 	}
 
+	c.classifyNodeAliases()
+
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
 
+	segment1 := segment(storageNodes, 3, 6, 9, 1)
 	{
 		// first batch
 		err = fork.Process(ctx, []rangedloop.Segment{
-			{
-				StreamID: testrand.UUID(),
-				Position: metabase.SegmentPosition{
-					Part:  1,
-					Index: 1,
-				},
-				AliasPieces: pieces(storageNodes, 3, 6, 9, 1),
-			},
+			segment1,
 		})
 		require.NoError(t, err)
 
-		err = c.Join(ctx, fork)
-		require.NoError(t, err)
-	}
-
-	{
 		// second batch
 		err = fork.Process(ctx, []rangedloop.Segment{
-			{
-				StreamID: testrand.UUID(),
-				Position: metabase.SegmentPosition{
-					Part:  1,
-					Index: 1,
-				},
-				AliasPieces: pieces(storageNodes, 2, 3, 4, 7),
-			},
-			{
-				StreamID: testrand.UUID(),
-				Position: metabase.SegmentPosition{
-					Part:  1,
-					Index: 1,
-				},
-				AliasPieces: pieces(storageNodes, 1, 2, 3, 4, 6, 7, 8),
-			},
+			segment(storageNodes, 2, 3, 4, 7),
+			segment(storageNodes, 1, 2, 3, 4, 6, 7, 8),
 		})
 		require.NoError(t, err)
 
@@ -96,7 +98,9 @@ func TestDurability(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	require.NotNil(t, c.healthStat["net:127.0.0.0"])
 	require.Equal(t, 1, c.healthStat["net:127.0.0.0"].Min())
+	require.Equal(t, segment1.StreamID.String()+"/0", c.healthStat["net:127.0.0.0"].Exemplar)
 	require.Equal(t, 2, c.healthStat["net:127.0.1.0"].Min())
 	require.Equal(t, 3, c.healthStat["net:127.0.2.0"].Min())
 }
@@ -119,13 +123,14 @@ func TestDurabilityUnknownNode(t *testing.T) {
 	c := NewDurability(nil, nil, []NodeClassifier{
 		func(node *nodeselection.SelectedNode) string {
 			return "net:" + node.LastNet
-		}}, 0, 0)
+		}}, 110, 0, 0, 0)
 
 	c.aliasMap = metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {
 		c.nodes[node.ID] = node
 	}
 
+	c.classifyNodeAliases()
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
 
@@ -134,8 +139,11 @@ func TestDurabilityUnknownNode(t *testing.T) {
 		{
 			StreamID: testrand.UUID(),
 			Position: metabase.SegmentPosition{
-				Part:  1,
-				Index: 1,
+				Part:  0,
+				Index: 0,
+			},
+			Redundancy: storj.RedundancyScheme{
+				ShareSize: 123,
 			},
 			AliasPieces: metabase.AliasPieces{
 				metabase.AliasPiece{
@@ -157,14 +165,46 @@ func TestDurabilityUnknownNode(t *testing.T) {
 	require.Equal(t, 0, c.healthStat["net:127.0.0.1"].Min())
 }
 
-func pieces(nodes []*nodeselection.SelectedNode, ix ...int) (res metabase.AliasPieces) {
-	for n, i := range ix {
-		res = append(res, metabase.AliasPiece{
-			Number: uint16(n),
-			Alias:  metabase.NodeAlias(i),
-		})
+func TestBusFactor(t *testing.T) {
+	ctx := testcontext.New(t)
+	f := ObserverFork{}
+
+	for i := 0; i < 100; i++ {
+		f.classified = append(f.classified, []classID{classID((i))})
 	}
-	return res
+	f.controlledByClassCache = make([]int32, 100)
+	f.busFactorCache = make([]int32, 300)
+	f.healthStat = make([]HealthStat, 100)
+	f.busFactorThreshold = 26
+
+	createSegments := func(groups ...int) []rangedloop.Segment {
+		var pieces []metabase.AliasPiece
+		ix := uint16(0)
+		groupIndex := 0
+		for _, group := range groups {
+			for i := 0; i < group; i++ {
+				pieces = append(pieces, metabase.AliasPiece{
+					Number: ix,
+					Alias:  metabase.NodeAlias(groupIndex),
+				})
+				ix++
+			}
+			groupIndex++
+		}
+		return []rangedloop.Segment{
+			{
+				StreamID:    testrand.UUID(),
+				AliasPieces: pieces,
+				Redundancy: storj.RedundancyScheme{
+					ShareSize: 123,
+				},
+			},
+		}
+	}
+
+	err := f.Process(ctx, createSegments(10, 10, 10, 10, 5, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1))
+	require.NoError(t, err)
+	require.Equal(t, 3, f.busFactor.Min())
 }
 
 func BenchmarkDurabilityProcess(b *testing.B) {
@@ -173,8 +213,13 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 	rng := rand.New(rand.NewSource(0))
 
 	nodeNo := 20000
+	// create 2500 segments (usual observer loop batch size) with 80 pieces
+	segmentNo := 2500
+	pieceNo := 80
 	if testing.Short() {
 		nodeNo = 10
+		segmentNo = 10
+		pieceNo = 10
 	}
 
 	nodeMap := make(map[storj.NodeID]*nodeselection.SelectedNode)
@@ -203,14 +248,14 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 
 	var segments []rangedloop.Segment
 	{
-		// create 2500 segments (usual observer loop batch size) with 80 pieces
-		for i := 0; i < 2500; i++ {
+
+		for i := 0; i < segmentNo; i++ {
 			var id uuid.UUID
 			rng.Read(id[:])
 
 			var pieces metabase.Pieces
 			var aliasPieces metabase.AliasPieces
-			for j := 0; j < 80; j++ {
+			for j := 0; j < pieceNo; j++ {
 				nodeIx := rand.Intn(len(aliasToNode) - 1)
 				pieces = append(pieces, metabase.Piece{
 					Number:      uint16(j),
@@ -244,7 +289,6 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 			},
 		},
 	}
-	d.classifyNodeAliases()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

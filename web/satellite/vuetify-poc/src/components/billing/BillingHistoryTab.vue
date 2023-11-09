@@ -45,6 +45,7 @@
                                 density="compact"
                                 :items="pageSizes"
                                 variant="outlined"
+                                hide-details
                                 @update:model-value="sizeChanged"
                             />
                         </v-col>

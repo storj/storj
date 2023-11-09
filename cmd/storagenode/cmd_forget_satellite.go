@@ -91,6 +91,7 @@ func cmdForgetSatellite(ctx context.Context, log *zap.Logger, cfg *forgetSatelli
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
+	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	satelliteDB := db.Satellites()
 

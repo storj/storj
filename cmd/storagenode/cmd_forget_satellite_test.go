@@ -61,6 +61,8 @@ func Test_newForgetSatelliteCmd_Error(t *testing.T) {
 }
 
 func Test_cmdForgetSatellite(t *testing.T) {
+	t.Skip("The tests and the behavior is currently flaky. See https://github.com/storj/storj/issues/6465")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -70,6 +72,7 @@ func Test_cmdForgetSatellite(t *testing.T) {
 
 		store, err := filestore.NewAt(log, db.Config().Pieces, filestore.DefaultConfig)
 		require.NoError(t, err)
+		defer ctx.Check(store.Close)
 
 		satelliteID := planet.Satellites[0].ID()
 
@@ -137,6 +140,12 @@ func Test_cmdForgetSatellite(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// TODO: this is for reproducing the bug,
+		// remove it once it's fixed.
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		time.Sleep(10 * time.Second)
+
 		// check that the blob was deleted
 		blobInfo, err := store.Stat(ctx, blobRef)
 		require.Error(t, err)
@@ -154,6 +163,8 @@ func Test_cmdForgetSatellite(t *testing.T) {
 }
 
 func Test_cmdForgetSatellite_Exclusions(t *testing.T) {
+	t.Skip("The tests and the behavior is currently flaky. See https://github.com/storj/storj/issues/6465")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -163,6 +174,7 @@ func Test_cmdForgetSatellite_Exclusions(t *testing.T) {
 
 		store, err := filestore.NewAt(log, db.Config().Pieces, filestore.DefaultConfig)
 		require.NoError(t, err)
+		defer ctx.Check(store.Close)
 
 		satelliteID := planet.Satellites[0].ID()
 

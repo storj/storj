@@ -490,6 +490,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	if err := validateObjectVersion(req.ObjectVersion); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
 		if errs2.IsCanceled(err) {
 			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
@@ -508,14 +512,30 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	// get the object information
-	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-		ObjectLocation: metabase.ObjectLocation{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-		},
-	})
+	var object metabase.Object
+	if len(req.ObjectVersion) == 0 {
+		object, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			},
+		})
+	} else {
+		var v metabase.Version
+		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+		object, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			},
+			Version: v,
+		})
+	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -1604,6 +1624,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Version:            int32(entry.Version), // TODO incompatible types
 		Status:             pb.Object_Status(entry.Status),
+		ObjectVersion:      entry.Version.Encode(),
 	}
 
 	expiresAt := time.Time{}

@@ -187,8 +187,9 @@ function balanceClicked(): void {
  * Handles download usage report click logic.
  */
 function downloadUsageReport(): void {
-    const link = projectsStore.getTotalUsageReportLink();
+    const link = projectsStore.getUsageReportLink();
     Download.fileByLink(link);
+    notify.success('Usage report download started successfully.');
 }
 
 /**

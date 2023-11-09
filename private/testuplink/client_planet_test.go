@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vivint/infectious"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -41,7 +40,7 @@ func TestECClient(t *testing.T) {
 
 		k := storageNodes / 2
 		n := storageNodes
-		fc, err := infectious.NewFEC(k, n)
+		fc, err := eestream.NewFEC(k, n)
 		require.NoError(t, err)
 
 		es := eestream.NewRSScheme(fc, dataSize.Int()/n)

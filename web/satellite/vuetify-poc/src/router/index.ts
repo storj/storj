@@ -28,6 +28,47 @@ const routes: RouteRecordRaw[] = [
         redirect: { path: '/projects' }, // redirect
     },
     {
+        path: '/',
+        component: () => import('@poc/layouts/default/Auth.vue'),
+        children: [
+            {
+                path: '/login',
+                name: 'Login',
+                component: () => import(/* webpackChunkName: "Login" */ '@poc/views/Login.vue'),
+            },
+            {
+                path: '/signup',
+                name: 'Signup',
+                component: () => import(/* webpackChunkName: "Signup" */ '@poc/views/Signup.vue'),
+            },
+            {
+                path: '/signup-confirmation',
+                name: 'Signup Confirmation',
+                component: () => import(/* webpackChunkName: "SignupConfirmation" */ '@poc/views/SignupConfirmation.vue'),
+            },
+            {
+                path: '/password-reset',
+                name: 'Password Reset',
+                component: () => import(/* webpackChunkName: "PasswordReset" */ '@poc/views/PasswordReset.vue'),
+            },
+            {
+                path: '/password-reset-confirmation',
+                name: 'Password Reset Confirmation',
+                component: () => import(/* webpackChunkName: "PasswordResetConfirmation" */ '@poc/views/PasswordResetConfirmation.vue'),
+            },
+            {
+                path: '/password-reset-new',
+                name: 'Password Reset New',
+                component: () => import(/* webpackChunkName: "PasswordResetNew" */ '@poc/views/PasswordResetNew.vue'),
+            },
+            {
+                path: '/password-reset-new-confirmation',
+                name: 'Password Reset New Confirmation',
+                component: () => import(/* webpackChunkName: "PasswordResetNewConfirmation" */ '@poc/views/PasswordResetNewConfirmation.vue'),
+            },
+        ],
+    },
+    {
         path: '/account',
         component: () => import('@poc/layouts/default/Account.vue'),
         beforeEnter: (_, from) => useAppStore().setPathBeforeAccountPage(from.path),

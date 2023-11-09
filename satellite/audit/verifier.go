@@ -14,7 +14,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -492,9 +492,9 @@ func (verifier *Verifier) SetNow(nowFn func() time.Time) {
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares,
 // and a slice of the corrected shares.
-func auditShares(ctx context.Context, required, total int16, originals map[int]Share) (pieceNums []int, corrected []infectious.Share, err error) {
+func auditShares(ctx context.Context, required, total int16, originals map[int]Share) (pieceNums []int, corrected []eestream.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	f, err := infectious.NewFEC(int(required), int(total))
+	f, err := eestream.NewFEC(int(required), int(total))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -517,12 +517,12 @@ func auditShares(ctx context.Context, required, total int16, originals map[int]S
 	return pieceNums, copies, nil
 }
 
-// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares.
-func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
+// makeCopies takes in a map of audit Shares and deep copies their data to a slice of eestream Shares.
+func makeCopies(ctx context.Context, originals map[int]Share) (copies []eestream.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	copies = make([]infectious.Share, 0, len(originals))
+	copies = make([]eestream.Share, 0, len(originals))
 	for _, original := range originals {
-		copies = append(copies, infectious.Share{
+		copies = append(copies, eestream.Share{
 			Data:   append([]byte{}, original.Data...),
 			Number: original.PieceNum})
 	}

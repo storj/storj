@@ -1931,11 +1931,15 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 				config.Reputation.FlushInterval = 0
 				config.GracefulExit.MinimumOnlineScore = 0.6
 				config.GracefulExit.TimeBased = true
+				config.GracefulExit.GracefulExitDurationInDays = 30
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
+
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+		exitingNode.Contact.Chore.Pause(ctx)
 
 		simTime := time.Now()
 		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
@@ -1990,6 +1994,45 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 		require.Equal(t, satellite.ID(), failure.ExitFailed.SatelliteId)
 		require.Equal(t, pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED, failure.ExitFailed.Reason)
 		require.NoError(t, err)
+	})
+}
+
+func TestSuspendedNodesFailGracefulExit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.FlushInterval = 0
+				config.GracefulExit.TimeBased = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		exitingNode := planet.StorageNodes[0]
+
+		simTime := time.Now()
+		satellite.GracefulExit.Endpoint.SetNowFunc(func() time.Time { return simTime })
+		doneTime := simTime.AddDate(0, 0, satellite.Config.GracefulExit.GracefulExitDurationInDays)
+
+		// initiate GE
+		response, err := callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		require.IsType(t, (*pb.SatelliteMessage_NotReady)(nil), response.GetMessage())
+
+		// suspend the node
+		err = satellite.Reputation.Service.TestSuspendNodeUnknownAudit(ctx, exitingNode.ID(), simTime)
+		require.NoError(t, err)
+
+		// expect failure when the time is up
+		simTime = doneTime.Add(time.Second)
+
+		response, err = callProcess(ctx, exitingNode, satellite)
+		require.NoError(t, err)
+		msg := response.GetMessage()
+		require.IsType(t, (*pb.SatelliteMessage_ExitFailed)(nil), msg)
+		failure := msg.(*pb.SatelliteMessage_ExitFailed)
+		require.Equal(t, pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED, failure.ExitFailed.Reason)
 	})
 }
 

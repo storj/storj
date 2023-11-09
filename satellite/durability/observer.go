@@ -5,10 +5,12 @@ package durability
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
@@ -23,12 +25,15 @@ var ek = eventkit.Package()
 type HealthStat struct {
 	// because 0 means uninitialized, we store the min +1
 	minPlusOne int
+	Exemplar   string
 }
 
 // Update updates the stat with one measurement: number of pieces which are available even without the nodes of the selected class.
-func (h *HealthStat) Update(num int) {
+// Exemplar is one example identifier with such measurement. Useful to dig deeper, based on this one example.
+func (h *HealthStat) Update(num int, exemplar string) {
 	if num < h.minPlusOne-1 || h.minPlusOne == 0 {
 		h.minPlusOne = num + 1
+		h.Exemplar = exemplar
 	}
 }
 
@@ -36,7 +41,9 @@ func (h *HealthStat) Update(num int) {
 func (h *HealthStat) Merge(stat *HealthStat) {
 	if stat.minPlusOne < h.minPlusOne && stat.minPlusOne > 0 {
 		h.minPlusOne = stat.minPlusOne
+		h.Exemplar = stat.Exemplar
 	}
+
 }
 
 // Min returns the minimal number.
@@ -67,27 +74,40 @@ type ReportConfig struct {
 //	in this case this reporter will return 38 for the class "country:DE" (assuming all the other segments are more lucky).
 type Report struct {
 	healthStat         map[string]*HealthStat
+	busFactor          HealthStat
 	classifiers        []NodeClassifier
 	aliasMap           *metabase.NodeAliasMap
 	nodes              map[storj.NodeID]*nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
-	reporter           func(name string, stat *HealthStat)
+	reporter           func(n time.Time, name string, stat *HealthStat)
 	reportThreshold    int
+	busFactorThreshold int
 	asOfSystemInterval time.Duration
+
+	// map between classes (like "country:hu" and integer IDs)
+	classID   map[string]classID
+	className map[classID]string
+
+	// contains the available classes for each node alias.
+	classified [][]classID
+
+	maxPieceCount int
 }
 
 // NewDurability creates the new instance.
-func NewDurability(db overlay.DB, metabaseDB *metabase.DB, classifiers []NodeClassifier, reportThreshold int, asOfSystemInterval time.Duration) *Report {
+func NewDurability(db overlay.DB, metabaseDB *metabase.DB, classifiers []NodeClassifier, maxPieceCount int, reportThreshold int, busFactorThreshold int, asOfSystemInterval time.Duration) *Report {
 	return &Report{
 		db:                 db,
 		metabaseDB:         metabaseDB,
 		classifiers:        classifiers,
 		reportThreshold:    reportThreshold,
+		busFactorThreshold: busFactorThreshold,
 		asOfSystemInterval: asOfSystemInterval,
 		nodes:              make(map[storj.NodeID]*nodeselection.SelectedNode),
 		healthStat:         make(map[string]*HealthStat),
 		reporter:           reportToEventkit,
+		maxPieceCount:      maxPieceCount,
 	}
 }
 
@@ -106,81 +126,11 @@ func (c *Report) Start(ctx context.Context, startTime time.Time) error {
 		return errs.Wrap(err)
 	}
 	c.aliasMap = aliasMap
+	c.classifyNodeAliases()
 	return nil
 }
 
-// Fork implements rangedloop.Observer.
-func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
-	d := &ObserverFork{
-		classifiers:     c.classifiers,
-		healthStat:      nil,
-		aliasMap:        c.aliasMap,
-		nodes:           c.nodes,
-		classifierCache: make([][]string, c.aliasMap.Max()+1),
-		reportThreshold: c.reportThreshold,
-	}
-	d.classifyNodeAliases()
-	return d, nil
-}
-
-// Join implements rangedloop.Observer.
-func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	fork := partial.(*ObserverFork)
-	for cid, stat := range fork.healthStat {
-		if stat.Unused() {
-			continue
-		}
-		name := fork.className[classID(cid)]
-		existing, found := c.healthStat[name]
-		if !found {
-			c.healthStat[name] = &HealthStat{
-				minPlusOne: stat.minPlusOne,
-			}
-		} else {
-			existing.Merge(&stat)
-		}
-
-	}
-	return nil
-}
-
-// Finish implements rangedloop.Observer.
-func (c *Report) Finish(ctx context.Context) error {
-	for name, stat := range c.healthStat {
-		c.reporter(name, stat)
-	}
-	return nil
-}
-
-// TestChangeReporter modifies the reporter for unit tests.
-func (c *Report) TestChangeReporter(r func(name string, stat *HealthStat)) {
-	c.reporter = r
-}
-
-// classID is a fork level short identifier for each class.
-type classID int32
-
-// ObserverFork is the durability calculator for each segment range.
-type ObserverFork struct {
-	// map between classes (like "country:hu" and integer IDs)
-	classID   map[string]classID
-	className map[classID]string
-
-	controlledByClassCache []int32
-
-	healthStat      []HealthStat
-	classifiers     []NodeClassifier
-	aliasMap        *metabase.NodeAliasMap
-	nodes           map[storj.NodeID]*nodeselection.SelectedNode
-	classifierCache [][]string
-
-	// contains the available classes for each node alias.
-	classified      [][]classID
-	reportThreshold int
-}
-
-func (c *ObserverFork) classifyNodeAliases() {
+func (c *Report) classifyNodeAliases() {
 	c.classID = make(map[string]classID, len(c.classifiers))
 	c.className = make(map[classID]string, len(c.classifiers))
 
@@ -204,8 +154,81 @@ func (c *ObserverFork) classifyNodeAliases() {
 		}
 		c.classified[alias] = classes
 	}
-	c.healthStat = make([]HealthStat, len(c.classID))
-	c.controlledByClassCache = make([]int32, len(c.classID))
+}
+
+// Fork implements rangedloop.Observer.
+func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
+	d := &ObserverFork{
+		classifiers:            c.classifiers,
+		aliasMap:               c.aliasMap,
+		nodes:                  c.nodes,
+		classifierCache:        make([][]string, c.aliasMap.Max()+1),
+		reportThreshold:        c.reportThreshold,
+		healthStat:             make([]HealthStat, len(c.classID)),
+		controlledByClassCache: make([]int32, len(c.classID)),
+		busFactorCache:         make([]int32, 0, c.maxPieceCount),
+		classified:             c.classified,
+	}
+	return d, nil
+}
+
+// Join implements rangedloop.Observer.
+func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	fork := partial.(*ObserverFork)
+	for cid, stat := range fork.healthStat {
+		if stat.Unused() {
+			continue
+		}
+		name := c.className[classID(cid)]
+		existing, found := c.healthStat[name]
+		if !found {
+			c.healthStat[name] = &HealthStat{
+				minPlusOne: stat.minPlusOne,
+				Exemplar:   stat.Exemplar,
+			}
+		} else {
+			existing.Merge(&stat)
+		}
+
+	}
+	c.busFactor.Update(fork.busFactor.Min(), fork.busFactor.Exemplar)
+	return nil
+}
+
+// Finish implements rangedloop.Observer.
+func (c *Report) Finish(ctx context.Context) error {
+	reportTime := time.Now()
+	for name, stat := range c.healthStat {
+		c.reporter(reportTime, name, stat)
+	}
+	return nil
+}
+
+// TestChangeReporter modifies the reporter for unit tests.
+func (c *Report) TestChangeReporter(r func(n time.Time, name string, stat *HealthStat)) {
+	c.reporter = r
+}
+
+// classID is a fork level short identifier for each class.
+type classID int32
+
+// ObserverFork is the durability calculator for each segment range.
+type ObserverFork struct {
+	controlledByClassCache []int32
+
+	healthStat      []HealthStat
+	busFactor       HealthStat
+	classifiers     []NodeClassifier
+	aliasMap        *metabase.NodeAliasMap
+	nodes           map[storj.NodeID]*nodeselection.SelectedNode
+	classifierCache [][]string
+	busFactorCache  []int32
+
+	reportThreshold    int
+	busFactorThreshold int
+
+	classified [][]classID
 }
 
 // Process implements rangedloop.Partial.
@@ -213,6 +236,10 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 	controlledByClass := c.controlledByClassCache
 	for i := range segments {
 		s := &segments[i]
+
+		if s.Inline() {
+			continue
+		}
 		healthyPieceCount := 0
 		for _, piece := range s.AliasPieces {
 			if len(c.classified) <= int(piece.Alias) {
@@ -233,6 +260,9 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			}
 		}
 
+		busFactorGroups := c.busFactorCache
+
+		streamLocation := fmt.Sprintf("%s/%d", s.StreamID, s.Position.Encode())
 		for classID, count := range controlledByClass {
 			if count == 0 {
 				continue
@@ -243,18 +273,41 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 
 			diff := healthyPieceCount - int(count)
 
-			// if value is high, it's not a problem. faster to ignore it...
+			busFactorGroups = append(busFactorGroups, count)
+
 			if c.reportThreshold > 0 && diff > c.reportThreshold {
 				continue
 			}
-			c.healthStat[classID].Update(diff)
+
+			c.healthStat[classID].Update(diff, streamLocation)
 		}
+
+		slices.SortFunc[int32](busFactorGroups, func(a int32, b int32) bool {
+			return a > b
+		})
+		rollingSum := 0
+		busFactor := 0
+		for _, count := range busFactorGroups {
+			if rollingSum < c.busFactorThreshold {
+				busFactor++
+				rollingSum += int(count)
+			} else {
+				break
+			}
+		}
+
+		c.busFactor.Update(busFactor, streamLocation)
 	}
 	return nil
 }
 
-func reportToEventkit(name string, stat *HealthStat) {
-	ek.Event("durability", eventkit.String("name", name), eventkit.Int64("min", int64(stat.Min())))
+func reportToEventkit(n time.Time, name string, stat *HealthStat) {
+	ek.Event("durability",
+		eventkit.String("name", name),
+		eventkit.String("exemplar", stat.Exemplar),
+		eventkit.Timestamp("report_time", n),
+		eventkit.Int64("min", int64(stat.Min())),
+	)
 }
 
 var _ rangedloop.Observer = &Report{}

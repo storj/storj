@@ -423,11 +423,11 @@ const (
 	statusPending                 = "1"
 	statusCommittedUnversioned    = "3"
 	statusCommittedVersioned      = "4"
-	statusesCommitted             = "(3,4)"
+	statusesCommitted             = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + ")"
 	statusDeleteMarkerUnversioned = "5"
 	statusDeleteMarkerVersioned   = "6"
-	statusesDeleteMarker          = "(5,6)"
-	statusesUnversioned           = "(3,5)"
+	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
+	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 )
 
 func committedWhereVersioned(versioned bool) ObjectStatus {
@@ -436,18 +436,6 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 	}
 	return CommittedUnversioned
 }
-
-// stub uses so the linter wouldn't complain.
-var (
-	_ = CommittedVersioned
-	_ = DeleteMarkerUnversioned
-	_ = DeleteMarkerVersioned
-	_ = statusCommittedVersioned
-	_ = statusesCommitted
-	_ = statusDeleteMarkerUnversioned
-	_ = statusDeleteMarkerVersioned
-	_ = statusesDeleteMarker
-)
 
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {

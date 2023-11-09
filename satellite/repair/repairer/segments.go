@@ -163,6 +163,7 @@ func NewSegmentRepairer(
 func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue.InjuredSegment) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode())(&err)
 
+	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
 	segment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: queueSegment.StreamID,
 		Position: queueSegment.Position,
@@ -171,7 +172,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		if metabase.ErrSegmentNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
 			mon.Meter("segment_deleted_before_repair").Mark(1) //mon:locked
-			repairer.log.Debug("segment was deleted")
+			log.Info("segment was deleted")
 			return true, nil
 		}
 		return false, metainfoGetError.Wrap(err)
@@ -185,7 +186,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	if segment.Expired(repairer.nowFn()) {
 		mon.Meter("repair_unnecessary").Mark(1)
 		mon.Meter("segment_expired_before_repair").Mark(1)
-		repairer.log.Debug("segment has expired", zap.Stringer("Stream ID", segment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
+		log.Info("segment has expired")
 		return true, nil
 	}
 
@@ -218,7 +219,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 	if len(selectedNodes) != len(segment.Pieces) {
-		repairer.log.Error("GetNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selectedNodes", selectedNodes), zap.Error(err))
+		log.Error("GetNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selectedNodes", selectedNodes))
 		return false, overlayQueryError.New("GetNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
@@ -231,9 +232,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 		stats.repairerNodesUnavailable.Mark(1)
 
-		repairer.log.Warn("irreparable segment",
-			zap.String("StreamID", queueSegment.StreamID.String()),
-			zap.Uint64("Position", queueSegment.Position.Encode()),
+		log.Warn("irreparable segment",
 			zap.Int("piecesAvailable", piecesCheck.Retrievable.Size()),
 			zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
 		)
@@ -295,7 +294,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
-		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", piecesCheck.Healthy.Size()), zap.Int32("repairThreshold", repairThreshold),
+		log.Info("segment above repair threshold", zap.Int("numHealthy", piecesCheck.Healthy.Size()), zap.Int32("repairThreshold", repairThreshold),
 			zap.Int("numClumped", piecesCheck.Clumped.Size()), zap.Int("numExiting", piecesCheck.Exiting.Size()), zap.Int("numOffPieces", piecesCheck.OutOfPlacement.Size()),
 			zap.Int("numExcluded", piecesCheck.InExcludedCountry.Size()), zap.Int("droppedPieces", len(dropPieces)))
 		return true, nil
@@ -323,9 +322,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 			mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 			stats.repairerNodesUnavailable.Mark(1)
 
-			repairer.log.Warn("irreparable segment: too many nodes offline",
-				zap.String("StreamID", queueSegment.StreamID.String()),
-				zap.Uint64("Position", queueSegment.Position.Encode()),
+			log.Warn("irreparable segment: too many nodes offline",
 				zap.Int("piecesAvailable", len(retrievablePieces)),
 				zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
 				zap.Error(err),
@@ -411,19 +408,19 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	if checkSegmentError != nil {
 		if segmentDeletedError.Has(checkSegmentError) {
 			// mon.Meter("segment_deleted_during_repair").Mark(1) //mon:locked
-			repairer.log.Debug("segment deleted during Repair")
+			log.Info("segment deleted during Repair")
 			return true, nil
 		}
 		if segmentModifiedError.Has(checkSegmentError) {
 			// mon.Meter("segment_modified_during_repair").Mark(1) //mon:locked
-			repairer.log.Debug("segment modified during Repair")
+			log.Info("segment modified during Repair")
 			return true, nil
 		}
 		return false, segmentVerificationError.Wrap(checkSegmentError)
 	}
 
 	if len(piecesReport.Contained) > 0 {
-		repairer.log.Debug("unexpected contained pieces during repair", zap.Int("count", len(piecesReport.Contained)))
+		log.Debug("unexpected contained pieces during repair", zap.Int("count", len(piecesReport.Contained)))
 	}
 
 	if err != nil {
@@ -483,9 +480,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 				unknownErrs = append(unknownErrs, fmt.Sprintf("node ID [%s] err: %v", outcome.Piece.StorageNode, outcome.Err))
 			}
 
-			repairer.log.Warn("irreparable segment: could not acquire enough shares",
-				zap.String("StreamID", queueSegment.StreamID.String()),
-				zap.Uint64("Position", queueSegment.Position.Encode()),
+			log.Warn("irreparable segment: could not acquire enough shares",
 				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
 				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
 				zap.Int("numFailedNodes", len(failedNodeIDs)),
@@ -664,9 +659,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
 	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 
-	repairer.log.Debug("repaired segment",
-		zap.Stringer("Stream ID", segment.StreamID),
-		zap.Uint64("Position", segment.Position.Encode()),
+	log.Info("repaired segment",
 		zap.Int("clumped pieces", piecesCheck.Clumped.Size()),
 		zap.Int("exiting-node pieces", piecesCheck.Exiting.Size()),
 		zap.Int("out of placement pieces", piecesCheck.OutOfPlacement.Size()),

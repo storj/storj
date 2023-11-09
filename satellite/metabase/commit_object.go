@@ -51,31 +51,18 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, nil, err
 	}
 
-	var deleted deleteObjectUnversionedCommittedResult
-
+	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
-		var highestVersion Version
-		if !opts.Versioned {
-			var err error
-			// Note, we are prematurely deleting the object without permissions
-			// and then rolling the action back, if we were not allowed to.
-			deleted, err = db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
-			if err != nil {
-				return err
-			}
-			if deleted.DeletedObjectCount > 0 && opts.DisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
-			}
-			highestVersion = deleted.MaxVersion
-		} else {
-			v, err := db.queryHighestVersion(ctx, opts.Location(), tx)
-			if err != nil {
-				return err
-			}
-			highestVersion = v
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.Location(),
+			Versioned:      opts.Versioned,
+			DisallowDelete: opts.DisallowDelete,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
@@ -122,8 +109,8 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 
 		nextStatus := committedWhereVersioned(opts.Versioned)
 		nextVersion := opts.Version
-		if nextVersion < highestVersion {
-			nextVersion = highestVersion + 1
+		if nextVersion < precommit.HighestVersion {
+			nextVersion = precommit.HighestVersion + 1
 		}
 
 		err = tx.QueryRowContext(ctx, `
@@ -182,6 +169,8 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	if err != nil {
 		return Object{}, nil, err
 	}
+
+	precommit.submitMetrics()
 
 	mon.Meter("object_commit").Mark(1)
 	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))

@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vivint/infectious"
 
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/uplink/private/eestream"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -22,11 +22,11 @@ func TestFailingAudit(t *testing.T) {
 		total    = 14
 	)
 
-	f, err := infectious.NewFEC(required, total)
+	f, err := eestream.NewFEC(required, total)
 	require.NoError(t, err)
 
-	shares := make([]infectious.Share, total)
-	output := func(s infectious.Share) {
+	shares := make([]eestream.Share, total)
+	output := func(s eestream.Share) {
 		shares[s.Number] = s.DeepCopy()
 	}
 
@@ -35,7 +35,7 @@ func TestFailingAudit(t *testing.T) {
 	err = f.Encode([]byte("hello, world! __"), output)
 	require.NoError(t, err)
 
-	modifiedShares := make([]infectious.Share, len(shares))
+	modifiedShares := make([]eestream.Share, len(shares))
 	for i := range shares {
 		modifiedShares[i] = shares[i].DeepCopy()
 	}
@@ -76,11 +76,11 @@ func TestNotEnoughShares(t *testing.T) {
 		total    = 14
 	)
 
-	f, err := infectious.NewFEC(required, total)
+	f, err := eestream.NewFEC(required, total)
 	require.NoError(t, err)
 
-	shares := make([]infectious.Share, total)
-	output := func(s infectious.Share) {
+	shares := make([]eestream.Share, total)
+	output := func(s eestream.Share) {
 		shares[s.Number] = s.DeepCopy()
 	}
 
@@ -108,11 +108,11 @@ func TestCreatePendingAudits(t *testing.T) {
 		total    = 14
 	)
 
-	f, err := infectious.NewFEC(required, total)
+	f, err := eestream.NewFEC(required, total)
 	require.NoError(t, err)
 
-	shares := make([]infectious.Share, total)
-	output := func(s infectious.Share) {
+	shares := make([]eestream.Share, total)
+	output := func(s eestream.Share) {
 		shares[s.Number] = s.DeepCopy()
 	}
 

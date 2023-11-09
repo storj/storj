@@ -101,7 +101,14 @@ func newTestPeer(t *testing.T, ctx *testcontext.Context) *versioncontrol.Peer {
 		},
 		Binary: testVersions,
 	}
-	peer, err := versioncontrol.New(zaptest.NewLogger(t), serverConfig)
+
+	return newTestPeerWithConfig(t, ctx, serverConfig)
+}
+
+func newTestPeerWithConfig(t *testing.T, ctx *testcontext.Context, config *versioncontrol.Config) *versioncontrol.Peer {
+	t.Helper()
+
+	peer, err := versioncontrol.New(zaptest.NewLogger(t), config)
 	require.NoError(t, err)
 
 	ctx.Go(func() error {

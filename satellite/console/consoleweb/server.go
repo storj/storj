@@ -110,6 +110,7 @@ type Config struct {
 	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
 	ObjectBrowserPaginationEnabled  bool       `help:"whether to use object browser pagination" default:"false"`
+	ObjectBrowserCardViewEnabled    bool       `help:"whether to use object browser card view" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -296,7 +297,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/usage-limits", http.HandlerFunc(usageLimitsController.ProjectUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-limits", http.HandlerFunc(usageLimitsController.TotalUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/daily-usage", http.HandlerFunc(usageLimitsController.DailyUsage)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/total-usage-report", http.HandlerFunc(usageLimitsController.TotalUsageReport)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/usage-report", http.HandlerFunc(usageLimitsController.UsageReport)).Methods(http.MethodGet, http.MethodOptions)
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -749,6 +750,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		GalleryViewEnabled:              server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
+		ObjectBrowserCardViewEnabled:    server.config.ObjectBrowserCardViewEnabled,
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
 		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,

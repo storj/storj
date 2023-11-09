@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -381,7 +380,7 @@ func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 			len(pieceReaders), redundancy.RequiredCount())
 	}
 
-	fec, err := infectious.NewFEC(redundancy.RequiredCount(), redundancy.TotalCount())
+	fec, err := eestream.NewFEC(redundancy.RequiredCount(), redundancy.TotalCount())
 	if err != nil {
 		return nil, failedDownloads, err
 	}

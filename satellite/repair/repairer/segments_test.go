@@ -103,9 +103,17 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 				for index, piece := range segments[0].Pieces {
 					// make node offline if needed
-					require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.FindNode(piece.StorageNode), index < tc.piecesOutOfPlacementOffline, defaultLocation))
+					node := planet.FindNode(piece.StorageNode)
+					if index < tc.piecesOutOfPlacementOffline {
+						t.Logf("marking node %s as offline", node.ID())
+						require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], node, true, defaultLocation))
+					} else {
+						t.Logf("marking node %s as online", node.ID())
+						require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], node, false, defaultLocation))
+					}
 
 					if index < tc.piecesOutOfPlacement {
+						t.Logf("marking node %s as out of placement", node.ID())
 						require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
 					}
 				}
@@ -121,10 +129,12 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
+				t.Log("starting repair")
 				_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, &queue.InjuredSegment{
 					StreamID: segments[0].StreamID,
 					Position: segments[0].Position,
 				})
+				t.Log("repair complete")
 				require.NoError(t, err)
 
 				// confirm that all pieces have correct placement

@@ -91,14 +91,14 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 		peer.GarbageCollection.Config = config.GarbageCollectionBF
 
 		var observer rangedloop.Observer
-		if config.GarbageCollectionBF.UseSyncObserver {
+		if peer.GarbageCollection.Config.UseSyncObserver {
 			observer = bloomfilter.NewSyncObserver(log.Named("gc-bf"),
-				config.GarbageCollectionBF,
+				peer.GarbageCollection.Config,
 				peer.Overlay.DB,
 			)
 		} else {
 			observer = bloomfilter.NewObserver(log.Named("gc-bf"),
-				config.GarbageCollectionBF,
+				peer.GarbageCollection.Config,
 				peer.Overlay.DB,
 			)
 		}
@@ -109,7 +109,7 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 			observer,
 		})
 
-		if !config.GarbageCollectionBF.RunOnce {
+		if !peer.GarbageCollection.Config.RunOnce {
 			peer.Services.Add(lifecycle.Item{
 				Name:  "garbage-collection-bf",
 				Run:   peer.RangedLoop.Service.Run,

@@ -637,6 +637,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		return Object{}, err
 	}
 
+	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
 		if err != nil {
@@ -689,30 +690,17 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			encryptionParameters{&opts.Encryption},
 		}
 
-		var highestVersion Version
-		if opts.Versioned {
-			// TODO(ver): fold this into the queries below using a subquery.
-			maxVersion, err := db.queryHighestVersion(ctx, opts.Location(), tx)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			highestVersion = maxVersion
-		} else {
-			// TODO(ver): fold this into the query below using a subquery using `ON CONFLICT` on the unique index.
-			// Note, we are prematurely deleting the object without permissions
-			// and then rolling the action back, if we were not allowed to.
-			deleteResult, err := db.deleteObjectUnversionedCommitted(ctx, opts.Location(), tx)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if deleteResult.DeletedObjectCount > 0 && opts.DisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
-			}
-			highestVersion = deleteResult.MaxVersion
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.Location(),
+			Versioned:      opts.Versioned,
+			DisallowDelete: opts.DisallowDelete,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		if opts.UsePendingObjectsTable {
-			opts.Version = highestVersion + 1
+			opts.Version = precommit.HighestVersion + 1
 			args[versionArgIndex] = opts.Version
 
 			args = append(args,
@@ -784,8 +772,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			}
 		} else {
 			nextVersion := opts.Version
-			if nextVersion < highestVersion {
-				nextVersion = highestVersion + 1
+			if nextVersion < precommit.HighestVersion {
+				nextVersion = precommit.HighestVersion + 1
 			}
 			args = append(args, nextVersion)
 			opts.Version = nextVersion
@@ -858,6 +846,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	if err != nil {
 		return Object{}, err
 	}
+
+	precommit.submitMetrics()
 
 	mon.Meter("object_commit").Mark(1)
 	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))

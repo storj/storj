@@ -109,9 +109,33 @@
             <v-col cols="12" md="6">
                 <v-card class="pb-4" variant="flat" :border="true" rounded="xlg">
                     <template #title>
-                        <v-card-title class="d-flex align-center">
-                            <IconArrowDown class="mr-2" width="16" height="16" />
-                            Download
+                        <v-card-title class="d-flex align-center justify-space-between">
+                            <v-row class="ma-0 align-center">
+                                <IconArrowDown class="mr-2" width="16" height="16" />
+                                Download
+                            </v-row>
+                            <v-row class="ma-0 align-center justify-end">
+                                <v-badge dot inline color="#929fb1" />
+                                <v-card-text class="pa-0 mx-2 flex-0-0">Download</v-card-text>
+                                <v-tooltip width="250" location="bottom">
+                                    <template #activator="{ props }">
+                                        <v-icon v-bind="props" size="20" icon="mdi-information-outline" />
+                                    </template>
+                                    <template #default>
+                                        <p>
+                                            The most recent data points may change as traffic moves from "allocated" to "settled".
+                                            <a
+                                                class="link"
+                                                href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                Learn more
+                                            </a>
+                                        </p>
+                                    </template>
+                                </v-tooltip>
+                            </v-row>
                         </v-card-title>
                     </template>
                     <h5 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h5>
@@ -167,7 +191,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { VBtn, VCard, VCardTitle, VCol, VContainer, VRow } from 'vuetify/components';
+import { VBtn, VCard, VCardTitle, VCardText, VCol, VContainer, VRow, VBadge, VIcon, VTooltip } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
 

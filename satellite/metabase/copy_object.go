@@ -64,6 +64,15 @@ type FinishCopyObject struct {
 	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
 }
 
+// NewLocation returns the new object location.
+func (finishCopy FinishCopyObject) NewLocation() ObjectLocation {
+	return ObjectLocation{
+		ProjectID:  finishCopy.ProjectID,
+		BucketName: finishCopy.NewBucket,
+		ObjectKey:  finishCopy.NewEncryptedObjectKey,
+	}
+}
+
 // Verify verifies metabase.FinishCopyObject data.
 func (finishCopy FinishCopyObject) Verify() error {
 	if err := finishCopy.ObjectStream.Verify(); err != nil {
@@ -111,6 +120,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject := Object{}
 	var copyMetadata []byte
 
+	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		sourceObject, err := getObjectExactVersion(ctx, tx, opts)
 		if err != nil {
@@ -225,34 +235,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			copyMetadata = sourceObject.EncryptedMetadata
 		}
 
-		var highestVersion Version
-		if !opts.NewVersioned {
-			// TODO(ver): this logic can probably merged into update query
-			//
-			// Note, we are prematurely deleting the object without permissions
-			// and then rolling the action back, if we were not allowed to.
-			deleted, err := db.deleteObjectUnversionedCommitted(ctx, ObjectLocation{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.NewBucket,
-				ObjectKey:  opts.NewEncryptedObjectKey,
-			}, tx)
-			if err != nil {
-				return Error.New("unable to delete object at target location: %w", err)
-			}
-			if deleted.DeletedObjectCount > 0 && opts.NewDisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
-			}
-
-			highestVersion = deleted.MaxVersion
-		} else {
-			highestVersion, err = db.queryHighestVersion(ctx, ObjectLocation{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.NewBucket,
-				ObjectKey:  opts.NewEncryptedObjectKey,
-			}, tx)
-			if err != nil {
-				return Error.New("unable to query highest version: %w", err)
-			}
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.NewLocation(),
+			Versioned:      opts.NewVersioned,
+			DisallowDelete: opts.NewDisallowDelete,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
@@ -275,7 +264,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			)
 			RETURNING
 				created_at`,
-			opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, highestVersion+1, opts.NewStreamID,
+			opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, precommit.HighestVersion+1, opts.NewStreamID,
 			newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 			encryptionParameters{&sourceObject.Encryption},
 			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
@@ -283,7 +272,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		)
 
 		newObject = sourceObject
-		newObject.Version = highestVersion + 1
+		newObject.Version = precommit.HighestVersion + 1
 		newObject.Status = newStatus
 
 		err = row.Scan(&newObject.CreatedAt)
@@ -340,6 +329,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
 	}
 
+	precommit.submitMetrics()
 	mon.Meter("finish_copy_object").Mark(1)
 
 	return newObject, nil

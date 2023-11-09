@@ -3,6 +3,8 @@
 
 import { Component } from 'vue';
 
+import { BrowserObject } from '@/store/modules/objectBrowserStore';
+
 import RedditIcon from '@poc/components/icons/share/IconReddit.vue';
 import FacebookIcon from '@poc/components/icons/share/IconFacebook.vue';
 import TwitterIcon from '@poc/components/icons/share/IconTwitter.vue';
@@ -11,6 +13,16 @@ import LinkedInIcon from '@poc/components/icons/share/IconLinkedIn.vue';
 import TelegramIcon from '@poc/components/icons/share/IconTelegram.vue';
 import WhatsAppIcon from '@poc/components/icons/share/IconWhatsApp.vue';
 import EmailIcon from '@poc/components/icons/share/IconEmail.vue';
+
+import imageIcon from '@poc/assets/icon-image-tonal.svg';
+import videoIcon from '@poc/assets/icon-video-tonal.svg';
+import audioIcon from '@poc/assets/icon-audio-tonal.svg';
+import textIcon from '@poc/assets/icon-text-tonal.svg';
+import pdfIcon from '@poc/assets/icon-pdf-tonal.svg';
+import zipIcon from '@poc/assets/icon-zip-tonal.svg';
+import spreadsheetIcon from '@poc/assets/icon-spreadsheet-tonal.svg';
+import folderIcon from '@poc/assets/icon-folder-tonal.svg';
+import fileIcon from '@poc/assets/icon-file-tonal.svg';
 
 export enum ShareOptions {
     Reddit = 'Reddit',
@@ -96,3 +108,30 @@ export const EXTENSION_PREVIEW_TYPES = new Map<string[], PreviewType>([
     [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
     [['pdf'], PreviewType.PDF],
 ]);
+
+export type BrowserObjectTypeInfo = {
+    title: string;
+    icon: string;
+};
+
+/**
+ * Contains extra information to aid in the display, filtering, and sorting of browser objects.
+ */
+export type BrowserObjectWrapper = {
+    browserObject: BrowserObject;
+    typeInfo: BrowserObjectTypeInfo;
+    lowerName: string;
+    ext: string;
+};
+
+export const EXTENSION_INFOS: Map<string[], BrowserObjectTypeInfo> = new Map([
+    [['jpg', 'jpeg', 'png', 'gif', 'svg'], { title: 'Image', icon: imageIcon }],
+    [['mp4', 'mkv', 'mov'], { title: 'Video', icon: videoIcon }],
+    [['mp3', 'aac', 'wav', 'm4a'], { title: 'Audio', icon: audioIcon }],
+    [['txt', 'docx', 'doc', 'pages'], { title: 'Text', icon: textIcon }],
+    [['pdf'], { title: 'PDF', icon: pdfIcon }],
+    [['zip'], { title: 'ZIP', icon: zipIcon }],
+    [['xls', 'numbers', 'csv', 'xlsx', 'tsv'], { title: 'Spreadsheet', icon: spreadsheetIcon }],
+]);
+export const FOLDER_INFO: BrowserObjectTypeInfo = { title: 'Folder', icon: folderIcon };
+export const FILE_INFO: BrowserObjectTypeInfo = { title: 'File', icon: fileIcon };

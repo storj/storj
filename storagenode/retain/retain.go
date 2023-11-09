@@ -343,7 +343,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 					zap.Stringer("Satellite ID", satelliteID),
 					zap.Stringer("Piece ID", pieceID),
 					zap.Error(err))
-				return nil
+				continue
 			}
 		}
 		numDeleted++
