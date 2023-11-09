@@ -51,6 +51,7 @@ export class FrontendConfig {
     unregisteredInviteEmailsEnabled: boolean;
     freeTierInvitesEnabled: boolean;
     userBalanceForUpgrade: number;
+    limitIncreaseRequestEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

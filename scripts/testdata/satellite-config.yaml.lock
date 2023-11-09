@@ -307,6 +307,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# whether to allow request limit increases directly from the UI
+# console.limit-increase-request-enabled: false
+
 # indicates whether limit card section of the UI is enabled
 # console.limits-area-enabled: true
 
