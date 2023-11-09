@@ -77,12 +77,22 @@
                 <p class="modal__info">
                     If you need more storage,
                     <span
+                        v-if="isLimitIncreaseRequestEnabled"
                         class="modal__info__link"
                         rel="noopener noreferrer"
                         @click="openRequestLimitModal"
                     >
                         request limit increase.
                     </span>
+                    <a
+                        v-else
+                        class="modal__info__link"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        request limit increase.
+                    </a>
                 </p>
                 <div class="modal__buttons">
                     <VButton
@@ -186,6 +196,11 @@ const measurementOptions = computed((): string[] => {
 const isBandwidthUpdating = computed((): boolean => {
     return activeLimit.value === LimitToChange.Bandwidth;
 });
+
+/**
+ * Indicates if limit increase requests can be sent directly from the UI.
+ */
+const isLimitIncreaseRequestEnabled = computed<boolean>(() => configStore.state.config.limitIncreaseRequestEnabled);
 
 function openRequestLimitModal(): void {
     appStore.updateActiveModal(MODALS.requestProjectLimitIncrease);

@@ -228,6 +228,11 @@ const descriptionRules: ValidationRule<string>[] = [
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
+ * Indicates if limit increase requests can be sent directly from the UI.
+ */
+const isLimitIncreaseRequestEnabled = computed<boolean>(() => configStore.state.config.limitIncreaseRequestEnabled);
+
+/**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
@@ -248,7 +253,11 @@ async function onPrimaryClick(): Promise<void> {
             notify.success('Project created.');
         });
     } else if (usersStore.state.user.paidTier) {
-        if (showLimitIncreaseDialog.value) {
+        if (!isLimitIncreaseRequestEnabled.value) {
+            model.value = false;
+            window.open('https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212', '_blank', 'noopener');
+            return;
+        } else if (showLimitIncreaseDialog.value) {
             if (!formValid.value) return;
             await withLoading(async () => {
                 try {
