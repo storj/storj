@@ -34,8 +34,6 @@ import (
 )
 
 const (
-	// UnauthorizedThroughOauth - message for full accesses through Oauth.
-	UnauthorizedThroughOauth = "This operation is not authorized through oauth."
 	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
 	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
 	// AuthorizationNotEnabled - message for when authorization is disabled.
@@ -133,7 +131,7 @@ func NewServer(
 
 	// prod owners only
 	fullAccessAPI := api.NewRoute().Subrouter()
-	fullAccessAPI.Use(server.withAuth(nil))
+	fullAccessAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, true))
 	fullAccessAPI.HandleFunc("/users", server.addUser).Methods("POST")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	fullAccessAPI.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
@@ -165,7 +163,7 @@ func NewServer(
 
 	// limit update access required
 	limitUpdateAPI := api.NewRoute().Subrouter()
-	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}))
+	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
@@ -240,36 +238,26 @@ func (server *Server) SetAllowedOauthHost(host string) {
 // withAuth checks if the requester is authorized to perform an operation. If the request did not come from the oauth proxy, verify the auth token.
 // Otherwise, check that the user has the required permissions to conduct the operation. `allowedGroups` is a list of groups that are authorized.
 // If it is nil, then the api method is not accessible from the oauth proxy.
-func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) http.Handler {
+func (server *Server) withAuth(allowedGroups []string, requireAPIKey bool) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if server.config.AuthorizationToken == "" {
+				sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
+				return
+			}
+
 			if r.Host != server.config.AllowedOauthHost {
 				// not behind the proxy; use old authentication method.
-				if server.config.AuthorizationToken == "" {
-					sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
-					return
-				}
-
-				equality := subtle.ConstantTimeCompare(
-					[]byte(r.Header.Get("Authorization")),
-					[]byte(server.config.AuthorizationToken),
-				)
-				if equality != 1 {
-					sendJSONError(w, "Forbidden",
-						"", http.StatusForbidden)
+				if !validateAPIKey(server.config.AuthorizationToken, r.Header.Get("Authorization")) {
+					sendJSONError(w, "Forbidden", "required a valid authorization token", http.StatusForbidden)
 					return
 				}
 			} else {
-				// request made from oauth proxy. Check user groups against allowedGroups.
-				if allowedGroups == nil {
-					// Endpoint is a full access endpoint, and requires token auth.
-					sendJSONError(w, "Forbidden", UnauthorizedThroughOauth, http.StatusForbidden)
-					return
-				}
-
 				var allowed bool
 				userGroupsString := r.Header.Get("X-Forwarded-Groups")
 				userGroups := strings.Split(userGroupsString, ",")
+
+			AUTHENTICATED:
 				for _, userGroup := range userGroups {
 					if userGroup == "" {
 						continue
@@ -277,16 +265,23 @@ func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) h
 					for _, permGroup := range allowedGroups {
 						if userGroup == permGroup {
 							allowed = true
-							break
+							break AUTHENTICATED
 						}
-					}
-					if allowed {
-						break
 					}
 				}
 
 				if !allowed {
 					sendJSONError(w, "Forbidden", fmt.Sprintf(UnauthorizedNotInGroup, allowedGroups), http.StatusForbidden)
+					return
+				}
+
+				// The operation requires to provide a valid authorization token.
+				if requireAPIKey && !validateAPIKey(server.config.AuthorizationToken, r.Header.Get("Authorization")) {
+					sendJSONError(
+						w, "Forbidden",
+						"you are part of one of the authorized groups, but this operation requires a valid authorization token",
+						http.StatusForbidden,
+					)
 					return
 				}
 			}
@@ -303,4 +298,9 @@ func (server *Server) withAuth(allowedGroups []string) func(next http.Handler) h
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func validateAPIKey(configured, sent string) bool {
+	equality := subtle.ConstantTimeCompare([]byte(sent), []byte(configured))
+	return equality == 1
 }

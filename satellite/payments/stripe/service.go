@@ -662,21 +662,21 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 		nextCursor = customersPage.Cursor
 
 		for _, c := range customersPage.Customers {
-			cusID := c.ID
+			c := c
 			limiter.Go(ctx, func() {
 				if inactive, err := service.isUserInactive(ctx, c.UserID); err != nil {
 					mu.Lock()
-					failedUsers = append(failedUsers, cusID)
+					failedUsers = append(failedUsers, c.ID)
 					mu.Unlock()
 					return
 				} else if inactive {
 					return
 				}
 
-				applied, err := service.applyFreeTierCoupon(ctx, cusID)
+				applied, err := service.applyFreeTierCoupon(ctx, c.ID)
 				if err != nil {
 					mu.Lock()
-					failedUsers = append(failedUsers, cusID)
+					failedUsers = append(failedUsers, c.ID)
 					mu.Unlock()
 					return
 				}
