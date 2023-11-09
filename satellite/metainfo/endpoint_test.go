@@ -224,6 +224,20 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 					})
 					assertInvalidArgument(t, err, false)
 
+					_, err = planet.Satellites[0].Metainfo.Endpoint.GetBucketVersioning(ctx, &pb.GetBucketVersioningRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: []byte(invalidAPIKey),
+						},
+					})
+					assertInvalidArgument(t, err, false)
+
+					_, err = planet.Satellites[0].Metainfo.Endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: []byte(invalidAPIKey),
+						},
+					})
+					assertInvalidArgument(t, err, false)
+
 					_, err = client.GetObject(ctx, metaclient.GetObjectParams{})
 					assertInvalidArgument(t, err, false)
 
