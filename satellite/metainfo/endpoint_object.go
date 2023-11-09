@@ -401,9 +401,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	if mbObject.Status.IsDeleteMarker() {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "object not found")
-	}
+	// TODO(ver): initially we returned 'object not found' error if delete marker is returned but
+	// S3 HeadObject request in such case requires 'Method Not Allowed' error so libuplink needs
+	// to know that delete marker was retured. We can remove this comment when we will know that
+	// there is no better aproach.
 
 	{
 		tags := []eventkit.Tag{
