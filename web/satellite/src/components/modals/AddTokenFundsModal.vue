@@ -9,7 +9,7 @@
                     Add STORJ Tokens
                 </h1>
                 <p class="modal__info">
-                    Send STORJ Tokens to the following deposit address to credit your Storj DCS account:
+                    Send STORJ Tokens to the following deposit address to credit your Storj account:
                 </p>
                 <div class="modal__qr">
                     <canvas ref="canvas" class="modal__qr__canvas" />

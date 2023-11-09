@@ -798,7 +798,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 		return nil, nil
 	}
 
-	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
+	description := fmt.Sprintf("Storj Cloud Storage for %s %d", period.Month(), period.Year())
 	stripeInvoice, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
 			Params:                      stripe.Params{Context: ctx},
