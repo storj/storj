@@ -2828,13 +2828,34 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 			})
-
 			require.NoError(t, err)
 			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, response.Object.Status)
 
 			objects, err = satelliteSys.Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 3)
+
+			// version is not set, object not found error
+			_, err = satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+
+			// with version set we should get object delete marker
+			getResponse, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      response.Object.ObjectVersion,
+			})
+			require.NoError(t, err)
+			require.Zero(t, getResponse.Object.PlainSize)
+			require.Zero(t, getResponse.Object.TotalSize)
+			require.Nil(t, getResponse.Object.RedundancyScheme)
+			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, getResponse.Object.Status)
 		})
 	})
 }
