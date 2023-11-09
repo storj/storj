@@ -1294,13 +1294,13 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 	return errGrp.Err()
 }
 
-// isUserInactive checks whether a user has a status of console.Deleted or console.PendingDeletion.
+// isUserInactive checks whether a user does not have a status of console.Active.
 func (service *Service) isUserInactive(ctx context.Context, userID uuid.UUID) (bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return user.Status == console.Deleted || user.Status == console.PendingDeletion, nil
+	return user.Status != console.Active, nil
 }
 
 // projectUsagePrice represents pricing for project usage.
