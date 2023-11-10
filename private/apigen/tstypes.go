@@ -52,73 +52,35 @@ func (types *Types) Register(t reflect.Type) {
 }
 
 // All returns a map containing every top-level and their dependency types with their associated name.
-//
-// TODO: see how to have a better implementation for adding to seen, uniqueNames, and all.
 func (types *Types) All() map[reflect.Type]string {
 	all := map[reflect.Type]string{}
-	uniqueNames := map[string]struct{}{}
 
-	var walk func(t reflect.Type, alternateTypeName string)
-	walk = func(t reflect.Type, altTypeName string) {
+	var walk func(t reflect.Type)
+	walk = func(t reflect.Type) {
 		if _, ok := all[t]; ok {
 			return
 		}
 
-		if t.Name() != "" {
-			// Type isn't seen it but it has the same name than a seen it one.
-			// This cannot be because we would generate more than one TypeScript type with the same name.
-			if _, ok := uniqueNames[t.Name()]; ok {
-				panic(fmt.Sprintf("Found different types with the same name (%s)", t.Name()))
-			}
-		}
-
 		if n, ok := commonClasses[t]; ok {
 			all[t] = n
-			uniqueNames[n] = struct{}{}
 			return
 		}
 
 		switch k := t.Kind(); k {
 		case reflect.Ptr:
-			walk(t.Elem(), altTypeName)
+			walk(t.Elem())
 		case reflect.Array, reflect.Slice:
-			// If element type has a TypeScript name then an array of the element type will be defined
-			// otherwise we have to create a compound type.
-			elemTypeName := t.Elem().Name()
-			if tsen := TypescriptTypeName(t.Elem()); tsen == "" {
-				if altTypeName == "" {
-					panic(
-						fmt.Sprintf(
-							"BUG: found a %q with elements of an anonymous type and without an alternative name. Found type=%q",
-							t.Kind(),
-							t,
-						))
-				}
-				all[t] = altTypeName
-				uniqueNames[altTypeName] = struct{}{}
-				elemTypeName = compoundTypeName(altTypeName, "item")
-			}
-			walk(t.Elem(), elemTypeName)
+			walk(t.Elem())
 		case reflect.Struct:
-			n := t.Name()
-			if n == "" {
-				if altTypeName == "" {
-					panic(
-						fmt.Sprintf(
-							"BUG: found an anonymous 'struct' and without an alternative name; an alternative name is required. Found type=%q",
-							t,
-						))
-				}
-
-				n = altTypeName
+			if t.Name() == "" {
+				panic(fmt.Sprintf("BUG: found an anonymous 'struct'. Found type=%q", t))
 			}
 
-			all[t] = n
-			uniqueNames[n] = struct{}{}
+			all[t] = t.Name()
 
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
-				walk(field.Type, compoundTypeName(altTypeName, field.Name))
+				walk(field.Type)
 			}
 		case reflect.Bool,
 			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -126,14 +88,13 @@ func (types *Types) All() map[reflect.Type]string {
 			reflect.Float32, reflect.Float64,
 			reflect.String:
 			all[t] = t.Name()
-			uniqueNames[t.Name()] = struct{}{}
 		default:
 			panic(fmt.Sprintf("type %q is not supported", t.Kind().String()))
 		}
 	}
 
 	for t := range types.top {
-		walk(t, t.Name())
+		walk(t)
 	}
 
 	return all
@@ -186,40 +147,9 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 					isOptional = "?"
 				}
 
-				if field.Type.Name() != "" {
-					pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(field.Type))
-				} else {
-					typeName := allTypes[field.Type]
-					pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(typeCustomName{Type: field.Type, name: typeName}))
-				}
+				pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(field.Type))
 			}
 		}()
-	}
-
-	allArraySlices := filter(namedTypes, func(t typeAndName) bool {
-		if _, ok := commonClasses[t.Type]; ok {
-			return false
-		}
-
-		switch t.Type.Kind() {
-		case reflect.Array, reflect.Slice:
-			return true
-		default:
-			return false
-		}
-	})
-
-	for _, t := range allArraySlices {
-		elemTypeName, ok := allTypes[t.Type.Elem()]
-		if !ok {
-			panic("BUG: the element types of an Slice or Array isn't in the all types map")
-		}
-		pf(
-			"\nexport type %s = Array<%s>",
-			TypescriptTypeName(
-				typeCustomName{Type: t.Type, name: t.Name}),
-			TypescriptTypeName(typeCustomName{Type: t.Type.Elem(), name: elemTypeName}),
-		)
 	}
 
 	return out.String()
@@ -279,6 +209,9 @@ func TypescriptTypeName(t reflect.Type) string {
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Struct:
+		if t.Name() == "" {
+			panic(fmt.Sprintf(`anonymous struct aren't accepted because their type doesn't have a name. Type="%+v"`, t))
+		}
 		return capitalize(t.Name())
 	default:
 		panic(fmt.Sprintf(`unhandled type. Type="%+v"`, t))

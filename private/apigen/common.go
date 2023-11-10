@@ -102,17 +102,6 @@ func (s *StringBuilder) Writelnf(format string, a ...interface{}) {
 	s.WriteString(fmt.Sprintf(format+"\n", a...))
 }
 
-// typeCustomName is a reflect.Type with a customized type's name.
-type typeCustomName struct {
-	reflect.Type
-
-	name string
-}
-
-func (t typeCustomName) Name() string {
-	return t.name
-}
-
 // getElementaryType simplifies a Go type.
 func getElementaryType(t reflect.Type) reflect.Type {
 	switch t.Kind() {
@@ -130,17 +119,6 @@ func isNillableType(t reflect.Type) bool {
 		return true
 	}
 	return false
-}
-
-// compoundTypeName create a name composed with base and parts, by joining base as it's and
-// capitalizing each part. base is not altered.
-func compoundTypeName(base string, parts ...string) string {
-	titled := make([]string, len(parts))
-	for i := 0; i < len(parts); i++ {
-		titled[i] = capitalize(parts[i])
-	}
-
-	return base + strings.Join(titled, "")
 }
 
 func capitalize(s string) string {
