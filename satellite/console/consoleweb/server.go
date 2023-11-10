@@ -753,6 +753,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
 		ObjectBrowserCardViewEnabled:    server.config.ObjectBrowserCardViewEnabled,
 		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
+		StripePaymentElementEnabled:     server.config.StripePaymentElementEnabled,
 		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
 		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,

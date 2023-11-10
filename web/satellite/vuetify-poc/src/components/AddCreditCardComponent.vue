@@ -8,9 +8,16 @@
 
             <template v-else>
                 <StripeCardElement
+                    v-if="paymentElementEnabled"
                     ref="stripeCardInput"
                     :is-dark-theme="theme.global.current.value.dark"
                     @pm-created="addCardToDB"
+                />
+                <StripeCardInput
+                    v-else
+                    ref="stripeCardInput"
+                    class="mb-4"
+                    :on-stripe-response-callback="addCardToDB"
                 />
             </template>
 
@@ -37,7 +44,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardText } from 'vuetify/components';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useTheme } from 'vuetify';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -45,13 +52,16 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 interface StripeForm {
   onSubmit(): Promise<void>;
 }
 
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 const billingStore = useBillingStore();
@@ -62,6 +72,12 @@ const stripeCardInput = ref<StripeForm | null>(null);
 
 const isCardInputShown = ref(false);
 
+/**
+ * Indicates whether stripe payment element is enabled.
+ */
+const paymentElementEnabled = computed(() => {
+    return configStore.state.config.stripePaymentElementEnabled;
+});
 /**
  * Provides card information to Stripe.
  */
@@ -80,12 +96,14 @@ async function onSaveCardClick(): Promise<void> {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param pmID - payment method ID from Stripe
+ * @param res - the response from stripe. Could be a token or a payment method id.
+ * depending on the paymentElementEnabled flag.
  */
-async function addCardToDB(pmID: string): Promise<void> {
+async function addCardToDB(res: string): Promise<void> {
     isLoading.value = true;
     try {
-        await billingStore.addCardByPaymentMethodID(pmID);
+        const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
+        await action(res);
         notify.success('Card successfully added');
         isCardInputShown.value = false;
         isLoading.value = false;
