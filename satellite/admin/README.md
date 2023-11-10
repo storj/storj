@@ -23,6 +23,8 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}/billing-freeze](#delete-apiusersuser-emailbilling-freeze)
             * [PUT /api/users/{user-email}/violation-freeze](#put-apiusersuser-emailviolation-freeze)
             * [DELETE /api/users/{user-email}/violation-freeze](#delete-apiusersuser-emailviolation-freeze)
+            * [PUT /api/users/{user-email}/legal-freeze](#put-apiusersuser-emaillegal-freeze)
+            * [DELETE /api/users/{user-email}/legal-freeze](#delete-apiusersuser-emaillegal-freeze)
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
             * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
@@ -195,6 +197,17 @@ User status is also set to Pending Deletion. The user cannot exit this state aut
 
 Removes the violation freeze on a user account so uploads and downloads may resume.
 User status is set back to Active. This is the only way to exit the violation frozen state.
+
+#### PUT /api/users/{user-email}/legal-freeze
+
+Freezes a user account for legal review so no uploads or downloads may occur
+User status is also set to Legal hold. The user cannot exit this state automatically.
+
+#### DELETE /api/users/{user-email}/legal-freeze
+
+Removes the legal freeze on a user account so uploads and downloads may resume.
+User status is set back to Active. This is the only way to exit the legal frozen state.
+
 
 #### DELETE /api/users/{user-email}/billing-warning
 
