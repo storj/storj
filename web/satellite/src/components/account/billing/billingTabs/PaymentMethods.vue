@@ -14,11 +14,13 @@
             />
             <add-token-card-native
                 v-else-if="nativeTokenPaymentsEnabled"
+                class="payments-area__container__token-card"
                 :parent-init-loading="parentInitLoading"
                 @showTransactions="showTransactionsTable"
             />
             <add-token-card
                 v-else
+                class="payments-area__container__token-card"
                 :total-count="transactionCount"
             />
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
@@ -784,11 +786,15 @@ $align: center;
         flex-wrap: wrap;
         gap: 10px;
 
-        &__cards {
-            width: 348px;
+        &__cards, &__token-card {
             height: 203px;
-            padding: 24px;
+            width: 348px;
             box-sizing: border-box;
+            margin-right: 10px;
+        }
+
+        &__cards {
+            padding: 24px;
             background: #fff;
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;

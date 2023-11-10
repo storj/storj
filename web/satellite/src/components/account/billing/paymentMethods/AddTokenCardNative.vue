@@ -196,8 +196,6 @@ onMounted(async (): Promise<void> => {
 <style scoped lang="scss">
     .token {
         border-radius: 10px;
-        width: 300px;
-        margin-right: 10px;
         padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         position: relative;
