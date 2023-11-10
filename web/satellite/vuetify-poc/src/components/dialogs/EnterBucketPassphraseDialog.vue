@@ -62,7 +62,7 @@
                     class="mt-3"
                     density="compact"
                     type="warning"
-                    text="This bucket includes files that are uploaded using a different encryption passphrase from the one you entered."
+                    text="Object count mismatch: files may be uploaded with a different passphrase, or files have been recently deleted and are not reflected yet."
                 />
             </v-card-item>
 
