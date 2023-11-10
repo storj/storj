@@ -135,10 +135,11 @@ export interface PaymentsApi {
     /**
      * Purchases the pricing package associated with the user's partner.
      *
-     * @param pmID - the Stripe payment method id of the credit card
+     * @param dataStr - the Stripe payment method id or token of the credit card
+     * @param isPMID - whether the dataStr is a payment method id or token
      * @throws Error
      */
-    purchasePricingPackage(pmID: string): Promise<void>;
+    purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.
