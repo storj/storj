@@ -42,9 +42,15 @@
                     <div class="payments-area__create-header">Credit Card</div>
                     <div class="payments-area__create-subheader">Add Card Info</div>
                     <StripeCardElement
+                        v-if="paymentElementEnabled"
                         ref="stripeCardInput"
                         class="add-card-area__stripe stripe_input"
                         @pm-created="addCard"
+                    />
+                    <StripeCardInput
+                        v-else
+                        ref="stripeCardInput"
+                        :on-stripe-response-callback="addCard"
                     />
                     <VButton
                         class="add-card-button"
@@ -208,6 +214,7 @@ import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddT
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
 import VTable from '@/components/common/VTable.vue';
 import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
@@ -253,11 +260,18 @@ const displayedHistory = ref<NativePaymentHistoryItem[]>([]);
 const transactionCount = ref<number>(0);
 const defaultCreditCardSelection = ref<string>('');
 const cardBeingEdited = ref<CardEdited>({});
-const stripeCardInput = ref<typeof StripeCardInput & StripeForm>();
+const stripeCardInput = ref<StripeForm>();
 const canvas = ref<HTMLCanvasElement>();
 
 const pageCount = computed((): number => {
     return Math.ceil(transactionCount.value / DEFAULT_PAGE_LIMIT);
+});
+
+/**
+ * Indicates whether stripe payment element is enabled.
+ */
+const paymentElementEnabled = computed(() => {
+    return configStore.state.config.stripePaymentElementEnabled;
 });
 
 /**
@@ -381,15 +395,25 @@ function closeAddPayment(): void {
     isAddingPayment.value = false;
 }
 
-async function addCard(pmID: string): Promise<void> {
+/**
+ * Adds card after Stripe confirmation.
+ *
+ * @param res - the response from stripe. Could be a token or a payment method id.
+ * depending on the paymentElementEnabled flag.
+ */
+async function addCard(res: string): Promise<void> {
+    isLoading.value = true;
     try {
-        await billingStore.addCardByPaymentMethodID(pmID);
+        const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
+        await action(res);
+        closeAddPayment();
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
-        isLoading.value = false;
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         return;
+    } finally {
+        isLoading.value = false;
     }
 
     notify.success('Card successfully added');
@@ -408,7 +432,8 @@ async function onConfirmAddStripe(): Promise<void> {
     if (isLoading.value || !stripeCardInput.value) return;
 
     isLoading.value = true;
-    await stripeCardInput.value.onSubmit().then(() => {isLoading.value = false;});
+    await stripeCardInput.value.onSubmit();
+    isLoading.value = false;
     analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
 }
 

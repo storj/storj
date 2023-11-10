@@ -403,6 +403,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # path to static resources
 # console.static-dir: ""
 
+# indicates whether the stripe payment element should be used to collect card info
+# console.stripe-payment-element-enabled: true
+
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
