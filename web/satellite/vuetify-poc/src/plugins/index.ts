@@ -10,7 +10,7 @@
 // Plugins
 import { App, watch } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { themeURLs } from 'virtual:vuetify-theme-css';
+import THEME_URLS from 'virtual:vuetify-theme-css';
 
 import { router, startTitleWatcher } from '../router';
 
@@ -35,7 +35,7 @@ function setupTheme() {
 
     const themeLinks: Record<string, HTMLLinkElement> = {};
 
-    for (const [name, url] of Object.entries(themeURLs)) {
+    for (const [name, url] of Object.entries(THEME_URLS)) {
         let link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = url;

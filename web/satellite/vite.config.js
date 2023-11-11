@@ -10,6 +10,8 @@ import viteCompression from 'vite-plugin-compression';
 import vitePluginRequire from 'vite-plugin-require';
 import svgLoader from 'vite-svg-loader';
 
+import papaParseWorker from './vitePlugins/papaParseWorker';
+
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 
 const plugins = [
@@ -20,6 +22,7 @@ const plugins = [
         },
     }),
     vitePluginRequire.default(),
+    papaParseWorker(),
 ];
 
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
