@@ -3,7 +3,8 @@
 
 <template>
     <v-container>
-        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="mt-10 mb-15">
+        <limit-warning-banners v-if="billingEnabled" />
+        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="my-0">
             <v-col cols="12">
                 <p class="text-h5 font-weight-bold">Set an encryption passphrase<br>to start uploading files.</p>
             </v-col>
@@ -13,7 +14,7 @@
                 </v-btn>
             </v-col>
         </v-row>
-        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="mt-10 mb-15">
+        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="my-0">
             <v-col cols="12">
                 <p class="text-h5 font-weight-bold">Create a bucket to start<br>uploading data in your project.</p>
             </v-col>
@@ -224,6 +225,7 @@ import CreateBucketDialog from '@poc/components/dialogs/CreateBucketDialog.vue';
 import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
 import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
+import LimitWarningBanners from '@poc/components/LimitWarningBanners.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

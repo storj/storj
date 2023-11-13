@@ -32,6 +32,8 @@ message StreamID {
     // temporary field to determine if we should go with new pending_objects table or
     // fallback to pending object in objects table.
     bool use_pending_objects_table = 14;
+
+    bool versioned = 15;
 }
 
 message SegmentID {

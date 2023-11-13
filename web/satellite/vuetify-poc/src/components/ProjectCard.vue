@@ -47,9 +47,9 @@
                 <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" density="comfortable" icon>
                     <v-icon icon="mdi-dots-horizontal" />
 
-                    <v-menu activator="parent" location="end" transition="scale-transition">
-                        <v-list class="pa-2">
-                            <v-list-item link rounded="lg" @click="() => onSettingsClick()">
+                    <v-menu activator="parent" location="bottom" transition="fade-transition">
+                        <v-list class="pa-1">
+                            <v-list-item link @click="() => onSettingsClick()">
                                 <template #prepend>
                                     <icon-settings />
                                 </template>
@@ -58,9 +58,9 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-divider class="my-2" />
+                            <v-divider class="my-1" />
 
-                            <v-list-item link class="mt-1" rounded="lg" @click="emit('inviteClick')">
+                            <v-list-item link class="mt-1" @click="emit('inviteClick')">
                                 <template #prepend>
                                     <icon-team size="18" />
                                 </template>

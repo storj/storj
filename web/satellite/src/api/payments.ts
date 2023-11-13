@@ -495,12 +495,13 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * Purchases the pricing package associated with the user's partner.
      *
-     * @param pmID - the Stripe payment method id of the credit card
+     * @param dataStr - the Stripe payment method id or token of the credit card
+     * @param isPMID - whether the dataStr is a payment method id or token
      * @throws Error
      */
-    public async purchasePricingPackage(pmID: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/purchase-package?pmID=true`;
-        const response = await this.client.post(path, pmID);
+    public async purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package?pmID=${isPMID}`;
+        const response = await this.client.post(path, dataStr);
 
         if (response.ok) {
             return;

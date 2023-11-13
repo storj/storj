@@ -151,8 +151,15 @@ type Config struct {
 	UsePendingObjectsTableProjects []string `help:"list of projects which will have UsePendingObjectsTable feature flag enabled" default:"" hidden:"true"`
 	UsePendingObjectsTableRollout  int      `help:"percentage (0-100) of projects which should have this feature enabled" default:"0" hidden:"true"`
 
+	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
+	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
+	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
+
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+
+	// flag will be effective only if UseBucketLevelObjectVersioning or UseBucketLevelObjectVersioningProjects are enabled
+	TestEnableBucketVersioning bool `default:"false" help:"if enabled all new created buckets will have versioning enabled (use only for testing)" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -172,6 +179,8 @@ type ExtendedConfig struct {
 
 	usePendingObjectsTableProjects      []uuid.UUID
 	usePendingObjectsTableRolloutCursor uuid.UUID
+
+	useBucketLevelObjectVersioningProjects []uuid.UUID
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -188,6 +197,14 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 	extendedConfig.usePendingObjectsTableRolloutCursor, err = createRolloutCursor(config.UsePendingObjectsTableRollout)
 	if err != nil {
 		return ExtendedConfig{}, err
+	}
+
+	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
+		projectID, err := uuid.FromString(projectIDString)
+		if err != nil {
+			return ExtendedConfig{}, err
+		}
+		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
 	}
 
 	return extendedConfig, nil
@@ -207,6 +224,21 @@ func (ec ExtendedConfig) UsePendingObjectsTableByProject(projectID uuid.UUID) bo
 
 	if !ec.usePendingObjectsTableRolloutCursor.IsZero() {
 		if projectID.Less(ec.usePendingObjectsTableRolloutCursor) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
+func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(projectID uuid.UUID) bool {
+	// if its globally enabled don't look at projects
+	if ec.UseBucketLevelObjectVersioning {
+		return true
+	}
+	for _, p := range ec.useBucketLevelObjectVersioningProjects {
+		if p == projectID {
 			return true
 		}
 	}

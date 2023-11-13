@@ -7,17 +7,22 @@ html {
   overflow-y: auto !important;
 }
 
+body {
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+}
+
 // Light Theme
 .v-theme--light {
   --v-border-color: 0, 0, 0;
-  --v-border-opacity: 0.1;
-  --v-theme-overlay-multiplier: 0.75;
-  --v-border-color: #e0e0e0;
+  --v-theme-overlay-multiplier: 0.75 !important;
+  --v-border-opacity: 0.07 !important;
 }
 
 // Dark Theme
 .v-theme--dark {
-  --v-theme-overlay-multiplier: 0.75;
+  --v-theme-overlay-multiplier: 0.75 !important;
+  --v-border-opacity: 0.07 !important;
 }
 
 // Nav
@@ -41,8 +46,17 @@ html {
 }
 
 // Button Shadow
-.v-btn--variant-outlined, .v-btn--elevated, .v-btn--variant-flat  {
-  box-shadow: rgba(50, 50, 93, 0.07) 0px 2px 5px 0px, rgba(0, 0, 0, 0.04) 0px 1px 1px 0px !important;
+.v-btn--elevated,
+.v-btn--variant-flat {
+  box-shadow: rgba(31, 35, 40, 0.04) 0px 1px 0px 0px, rgba(255, 255, 255, 0.25) 0px 1px 0px 0px inset;
+}
+.v-btn--variant-outlined {
+  box-shadow: rgba(31, 35, 40, 0.04) 0px 1px 0px 0px;
+}
+.v-btn--elevated:hover,
+.v-btn--variant-flat:hover,
+.v-btn--variant-outlined {
+  box-shadow: rgba(31, 35, 40, 0.04) 0px 1px 0px 0px;
 }
 
 // Button Outlines
@@ -62,10 +76,8 @@ html {
 }
 
 // Button focus style
-.v-btn:focus {
-  // box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px, rgb(103, 146, 244) 0px 0px 0px 3px !important;
-  // box-shadow: rgb(255, 255, 255) 0px 0px 0px 1px, currentColor 0px 0px 0px 1px !important;
-  // outline: none !important;
+.v-btn:focus:active {
+  box-shadow: currentColor 0px 0px 0px 1px, currentColor 0px 0px 0px 1px !important;
 }
 
 // Button sizes
@@ -81,9 +93,15 @@ html {
 
 
 // Menu border
-.v-overlay__content .v-list {
+.v-menu > .v-overlay__content > .v-card, .v-menu > .v-overlay__content > .v-sheet, .v-menu > .v-overlay__content > .v-list {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  // border-radius: 12px !important;
+  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 10px 10px !important;
+}
+.v-navigation-drawer--temporary {
+  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 10px 10px !important;
+}
+.v-navigation-drawer__scrim {
+  opacity: 0.3;
 }
 
 // Menu list item
@@ -93,14 +111,15 @@ html {
 
 // Card Light Theme
 .v-card.v-theme--light {
-  border: 1px solid #e0e0e0;
-  box-shadow: rgba(0, 0, 0, 0.07) 0px 1px 0px 0px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  box-shadow: rgba(88, 102, 126, 0.07) 0px 4px 20px;
 }
 
 // Card Dark Theme
 .v-card.v-theme--dark {
   background: --v-theme-surface;
-  box-shadow: rgba(255, 255, 255, 0.07) 0px 1px 0px 0px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 
 // Cards Padding
@@ -129,16 +148,22 @@ html {
 
 // Make the checkbox selection square instead of rounded
 .v-selection-control__input {
-  border-radius: 8px;
+  border-radius: 8px !important;
 }
 .v-selection-control__input::before {
-  border-radius: 8px;
+  border-radius: 8px !important;
+}
+
+// Label opacity
+.v-label {
+    opacity: 1 !important;
 }
 
 // Ensure that the compact checkbox isn't too close to its label
 .v-selection-control--density-compact .v-label {
   margin-left: 8px;
 }
+
 
 // Sorting icon
 .mdi-arrow-up::before, .mdi-arrow-down::before {
@@ -208,7 +233,6 @@ table {
 
 // Links
 .link {
-  color: rgb(var(--v-theme-primary));
   text-decoration: none;
   background-image: linear-gradient(currentColor,currentColor);
   background-size: 0 1px;
@@ -217,17 +241,29 @@ table {
   transition: background-size .15s ease;
 }
 .link:hover {
-  color: rgb(var(--v-theme-secondary));
   background-size: 100% 1px;
   cursor: pointer;
+}
+.v-theme--light .link {
+  color: rgb(var(--v-theme-primary));
+}
+.v-theme--light .link:hover {
+  color: rgb(var(--v-theme-secondary));
+}
+.v-theme--dark .link {
+  color: rgb(var(--v-theme-secondary));
+}
+.v-theme--dark .link:hover {
+  color: rgb(var(--v-theme-info));
 }
 
 
 // Tooltips
 .v-tooltip>.v-overlay__content {
-  background: rgba(var(--v-theme-on-surface),0.9) !important;
-  color: rgb(var(--v-theme-surface)) !important;
-  border: 1px solid rgba(var(--v-theme-surface),0.2);
+  background: rgba(var(--v-theme-surface),0.9) !important;
+  color: rgba(var(--v-theme-on-surface),0.9) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface),0.2);
+  box-shadow: rgba(0, 0, 0, 0.03) 0px 1px 10px 10px !important;
   font-weight: 500;
   border-radius: 20px !important;
   padding: 6px 14px;
@@ -263,13 +299,17 @@ table {
   letter-spacing: 0 !important;
 }
 .v-alert__prepend {
-  margin-top: 12px;
+  margin-top: 4px;
+  margin-inline-end: 12px;
 }
 .v-alert__append, .v-alert__close {
   margin-top: 4px;
 }
 .v-alert__close .v-btn {
   color: rgb(var(--v-theme-on-surface)) !important;
+}
+.v-alert__content {
+  font-size: 14px;
 }
 
 .bg-on-surface-variant {
@@ -287,7 +327,12 @@ table {
   max-height: 100%;
 }
 
-// text styles
+// Sizing
+.max-h-100 {
+  max-height: 100%;
+}
+
+// Text styles
 .text-cursor-pointer {
   cursor: pointer;
 }
@@ -301,4 +346,20 @@ table {
 // This causes text in window items to appear to be unselectable.
 [disabled=false] {
   cursor: unset;
+}
+
+.break-word {
+  word-break: break-word;
+}
+
+// Vuetify has a bug where any element with the attribute "disabled" forces the default cursor
+// even if the value of this attribute is "false".
+// This causes text in window items to appear to be unselectable.
+[disabled=false] {
+  cursor: unset;
+}
+
+// Opacity
+.opacity-100 {
+  opacity: 1 !important;
 }

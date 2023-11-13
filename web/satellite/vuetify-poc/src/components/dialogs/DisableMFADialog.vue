@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-mfa.svg" alt="MFA">
                 </template>
@@ -26,11 +26,11 @@
                     />
                 </template>
             </v-card-item>
-            <v-divider class="mx-8" />
+            <v-divider />
             <v-card-item class="px-8 py-4">
                 <p>Enter the authentication code generated in your two-factor application to disable 2FA.</p>
             </v-card-item>
-            <v-divider class="mx-8" />
+            <v-divider />
             <v-card-item class="px-8 pt-4 pb-0">
                 <v-form v-model="formValid" class="pt-2" @submit.prevent="disable">
                     <v-text-field
@@ -52,7 +52,7 @@
                     {{ useRecoveryCode ? "or use 2FA code" : "or use a recovery code" }}
                 </a>
             </v-card-item>
-            <v-divider class="mx-8 my-4" />
+            <v-divider class="my-4" />
             <v-card-actions dense class="px-7 pb-5 pt-0">
                 <v-col class="pl-0">
                     <v-btn

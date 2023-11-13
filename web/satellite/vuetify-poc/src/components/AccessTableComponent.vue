@@ -27,7 +27,6 @@
             item-value="name"
             no-data-text="No results found"
             select-strategy="all"
-            class="elevation-1"
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
             @update:sortBy="onUpdateSortBy"
@@ -53,7 +52,7 @@
                 >
                     <v-icon icon="mdi-dots-horizontal" />
                     <v-menu activator="parent">
-                        <v-list class="pa-2">
+                        <v-list class="pa-1">
                             <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.raw.name)">
                                 <template #prepend>
                                     <icon-trash bold />

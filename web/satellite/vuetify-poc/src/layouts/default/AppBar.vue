@@ -3,7 +3,7 @@
 
 <template>
     <v-app-bar :elevation="0">
-        <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" />
+        <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" height="3" />
 
         <v-app-bar-nav-icon
             v-if="showNavDrawerButton"

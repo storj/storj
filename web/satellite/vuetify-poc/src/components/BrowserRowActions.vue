@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="text-no-wrap text-right">
+    <div class="text-no-wrap" :class="alignClass">
         <v-btn
             v-if="file.type !== 'folder'"
             variant="outlined"
@@ -28,13 +28,13 @@
         >
             <v-icon icon="mdi-dots-horizontal" />
             <v-menu activator="parent">
-                <v-list class="pa-2">
+                <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
                         <v-list-item density="comfortable" link rounded="lg" @click="emit('previewClick')">
                             <template #prepend>
                                 <icon-preview />
                             </template>
-                            <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                            <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                                 Preview
                             </v-list-item-title>
                         </v-list-item>
@@ -49,7 +49,7 @@
                                 <icon-download />
                             </template>
                             <v-fade-transition>
-                                <v-list-item-title v-show="!isDownloading" class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title v-show="!isDownloading" class="pl-2 ml-2 text-body-2 font-weight-medium">
                                     Download
                                 </v-list-item-title>
                             </v-fade-transition>
@@ -63,18 +63,18 @@
                         <template #prepend>
                             <icon-share bold />
                         </template>
-                        <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Share
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-divider class="my-2" />
+                    <v-divider class="my-1" />
 
                     <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="emit('deleteFileClick')">
                         <template #prepend>
                             <icon-trash bold />
                         </template>
-                        <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                        <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
                             Delete
                         </v-list-item-title>
                     </v-list-item>
@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h } from 'vue';
+import { ref, h, computed } from 'vue';
 import {
     VMenu,
     VList,
@@ -97,7 +97,6 @@ import {
     VIcon,
     VBtn,
     VTooltip,
-    VOverlay,
 } from 'vuetify/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -116,6 +115,7 @@ const notify = useNotify();
 
 const props = defineProps<{
     file: BrowserObject;
+    align: 'left' | 'right';
 }>();
 
 const emit = defineEmits<{
@@ -125,6 +125,10 @@ const emit = defineEmits<{
 }>();
 
 const isDownloading = ref<boolean>(false);
+
+const alignClass = computed<string>(() => {
+    return 'text-' + props.align;
+});
 
 async function onDownloadClick(): Promise<void> {
     if (isDownloading.value) {

@@ -2,14 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card :border="true" rounded="xlg">
         <v-data-table
             :loading="isLoading"
             :headers="headers"
             :items="historyItems"
             :must-sort="false"
             no-data-text="No results found"
-            class="elevation-1"
             hover
         >
             <template #item.amount="{ item }">

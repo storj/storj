@@ -168,6 +168,8 @@ const (
 	Deleted UserStatus = 2
 	// PendingDeletion is a user status that he receives before deleting account.
 	PendingDeletion UserStatus = 3
+	// LegalHold is a user status that he receives for legal reasons.
+	LegalHold UserStatus = 4
 )
 
 // User is a database object that describes User entity.

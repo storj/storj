@@ -48,9 +48,11 @@ export class FrontendConfig {
     objectBrowserPaginationEnabled: boolean;
     objectBrowserCardViewEnabled: boolean;
     billingFeaturesEnabled: boolean;
+    stripePaymentElementEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
     freeTierInvitesEnabled: boolean;
     userBalanceForUpgrade: number;
+    limitIncreaseRequestEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

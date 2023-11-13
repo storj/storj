@@ -12,22 +12,23 @@
                 <v-text-field
                     v-model="passphrase"
                     label="Encryption Passphrase"
-                    :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
+                    :append-inner-icon="isPassphraseVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                     :type="isPassphraseVisible ? 'text' : 'password'"
                     variant="outlined"
                     :hide-details="false"
                     :rules="[ RequiredRule ]"
+                    autofocus
+                    class="mt-2 mb-n4"
                     @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
                 />
-            </v-col>
-
-            <v-col v-if="ackRequired" cols="12">
                 <v-checkbox
+                    v-if="ackRequired"
                     density="compact"
                     color="primary"
-                    label="Yes, I saved my encryption passphrase."
+                    label="I saved my encryption passphrase."
                     :hide-details="false"
                     :rules="[ RequiredRule ]"
+                    class="mt-4 mb-n7"
                 />
             </v-col>
         </v-row>

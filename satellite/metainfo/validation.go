@@ -304,8 +304,8 @@ func validateBucketLabel(label []byte) error {
 }
 
 func validateObjectVersion(version []byte) error {
-	if len(version) != 0 && len(version) != 8 {
-		return Error.New("invalid object version")
+	if len(version) != 0 && len(version) != 16 {
+		return Error.New("invalid object version length")
 	}
 	return nil
 }
