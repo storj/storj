@@ -3,7 +3,13 @@
 
 package checker
 
-import "github.com/spacemonkeygo/monkit/v3"
+import (
+	"fmt"
+
+	"github.com/spacemonkeygo/monkit/v3"
+
+	"storj.io/common/uuid"
+)
 
 type observerRSStats struct {
 	// iterationAggregates contains the aggregated counters across all partials.
@@ -96,6 +102,9 @@ type segmentRSStats struct {
 	segmentsBelowMinReq         *monkit.Counter
 	segmentTotalCount           *monkit.IntVal
 	segmentHealthyCount         *monkit.IntVal
+	segmentClumpedCount         *monkit.IntVal
+	segmentExitingCount         *monkit.IntVal
+	segmentOffPlacementCount    *monkit.IntVal
 	segmentAge                  *monkit.IntVal
 	segmentHealth               *monkit.FloatVal
 	injuredSegmentHealth        *monkit.FloatVal
@@ -107,6 +116,9 @@ func newSegmentRSStats(rs string) *segmentRSStats {
 		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs)),
 		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs)),
 		segmentHealthyCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs)),
+		segmentClumpedCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs)),
+		segmentExitingCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_exiting_count").WithTag("rs_scheme", rs)),
+		segmentOffPlacementCount:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_off_placement_count").WithTag("rs_scheme", rs)),
 		segmentAge:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs)),
 		segmentHealth:               monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs)),
 		injuredSegmentHealth:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs)),
@@ -136,4 +148,38 @@ func (stats *observerRSStats) collectAggregates() {
 
 	// resetting iteration aggregates after loop run finished
 	stats.iterationAggregates = aggregateStats{}
+}
+
+// aggregateStats tallies data over the full checker iteration.
+type aggregateStats struct {
+	objectsChecked                 int64
+	remoteSegmentsChecked          int64
+	remoteSegmentsNeedingRepair    int64
+	newRemoteSegmentsNeedingRepair int64
+	remoteSegmentsLost             int64
+	remoteSegmentsFailedToCheck    int64
+	objectsLost                    []uuid.UUID
+
+	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
+	remoteSegmentsOverThreshold [5]int64
+}
+
+func (a *aggregateStats) combine(stats aggregateStats) {
+	a.objectsChecked += stats.objectsChecked
+	a.remoteSegmentsChecked += stats.remoteSegmentsChecked
+	a.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
+	a.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
+	a.remoteSegmentsLost += stats.remoteSegmentsLost
+	a.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck
+	a.objectsLost = append(a.objectsLost, stats.objectsLost...)
+
+	a.remoteSegmentsOverThreshold[0] += stats.remoteSegmentsOverThreshold[0]
+	a.remoteSegmentsOverThreshold[1] += stats.remoteSegmentsOverThreshold[1]
+	a.remoteSegmentsOverThreshold[2] += stats.remoteSegmentsOverThreshold[2]
+	a.remoteSegmentsOverThreshold[3] += stats.remoteSegmentsOverThreshold[3]
+	a.remoteSegmentsOverThreshold[4] += stats.remoteSegmentsOverThreshold[4]
+}
+
+func getRSString(min, repair, success, total int) string {
+	return fmt.Sprintf("%d/%d/%d/%d", min, repair, success, total)
 }

@@ -4,6 +4,8 @@
 package consoleapi
 
 import (
+	"context"
+	"encoding/csv"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -50,27 +52,27 @@ func (ul *UsageLimits) ProjectUsageLimits(w http.ResponseWriter, r *http.Request
 	var idParam string
 
 	if idParam, ok = mux.Vars(r)["id"]; !ok {
-		ul.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
 		return
 	}
 
 	projectID, err := uuid.FromString(idParam)
 	if err != nil {
-		ul.serveJSONError(w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
 		return
 	}
 
 	usageLimits, err := ul.service.GetProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		switch {
-		case console.ErrUnauthorized.Has(err):
-			ul.serveJSONError(w, http.StatusUnauthorized, err)
+		case console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err):
+			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		case accounting.ErrInvalidArgument.Has(err):
-			ul.serveJSONError(w, http.StatusBadRequest, err)
+			ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return
 		default:
-			ul.serveJSONError(w, http.StatusInternalServerError, err)
+			ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
 	}
@@ -90,11 +92,11 @@ func (ul *UsageLimits) TotalUsageLimits(w http.ResponseWriter, r *http.Request) 
 	usageLimits, err := ul.service.GetTotalUsageLimits(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			ul.serveJSONError(w, http.StatusUnauthorized, err)
+			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		ul.serveJSONError(w, http.StatusInternalServerError, err)
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -102,6 +104,75 @@ func (ul *UsageLimits) TotalUsageLimits(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		ul.log.Error("error encoding project usage limits", zap.Error(ErrUsageLimitsAPI.Wrap(err)))
 	}
+}
+
+// UsageReport returns usage report for all the projects that user owns or a single user's project.
+func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	since := time.Unix(sinceStamp, 0).UTC()
+	before := time.Unix(beforeStamp, 0).UTC()
+
+	var projectID uuid.UUID
+
+	idParam := r.URL.Query().Get("projectID")
+	if idParam != "" {
+		projectID, err = uuid.FromString(idParam)
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+			return
+		}
+	}
+
+	usage, err := ul.service.GetUsageReport(ctx, since, before, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	dateFormat := "2006-01-02"
+	fileName := "storj-report-" + idParam + "-" + since.Format(dateFormat) + "-to-" + before.Format(dateFormat) + ".csv"
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename="+fileName)
+
+	wr := csv.NewWriter(w)
+
+	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+
+	err = wr.Write(csvHeaders)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+		return
+	}
+
+	for _, u := range usage {
+		err = wr.Write(u.ToStringSlice())
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+			return
+		}
+	}
+
+	wr.Flush()
 }
 
 // DailyUsage returns daily usage by project ID.
@@ -114,23 +185,23 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 	var idParam string
 
 	if idParam, ok = mux.Vars(r)["id"]; !ok {
-		ul.serveJSONError(w, http.StatusBadRequest, errs.New("missing project id route param"))
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
 		return
 	}
 	projectID, err := uuid.FromString(idParam)
 	if err != nil {
-		ul.serveJSONError(w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
 		return
 	}
 
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
 	if err != nil {
-		ul.serveJSONError(w, http.StatusBadRequest, err)
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
 	if err != nil {
-		ul.serveJSONError(w, http.StatusBadRequest, err)
+		ul.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -139,12 +210,12 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 
 	dailyUsage, err := ul.service.GetDailyProjectUsage(ctx, projectID, since, before)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			ul.serveJSONError(w, http.StatusUnauthorized, err)
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
 
-		ul.serveJSONError(w, http.StatusInternalServerError, err)
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -155,6 +226,6 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (ul *UsageLimits) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(ul.log, w, status, err)
+func (ul *UsageLimits) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, ul.log, w, status, err)
 }

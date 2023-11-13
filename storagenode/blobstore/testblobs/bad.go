@@ -160,6 +160,14 @@ func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBe
 	return bad.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 }
 
+// TryRestoreTrashPiece attempts to restore a piece from the trash.
+func (bad *BadBlobs) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) error {
+	if err := bad.err.Err(); err != nil {
+		return err
+	}
+	return bad.blobs.TryRestoreTrashPiece(ctx, ref)
+}
+
 // Delete deletes the blob with the namespace and key.
 func (bad *BadBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := bad.err.Err(); err != nil {
@@ -182,6 +190,14 @@ func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error
 		return err
 	}
 	return bad.blobs.DeleteNamespace(ctx, ref)
+}
+
+// DeleteTrashNamespace deletes the trash folder for the namespace.
+func (bad *BadBlobs) DeleteTrashNamespace(ctx context.Context, namespace []byte) error {
+	if err := bad.err.Err(); err != nil {
+		return err
+	}
+	return bad.blobs.DeleteTrashNamespace(ctx, namespace)
 }
 
 // Stat looks up disk metadata on the blob file.

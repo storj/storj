@@ -4,13 +4,14 @@
 package gracefulexit_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -28,6 +29,12 @@ import (
 func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		geDB := planet.Satellites[0].DB.GracefulExit()
@@ -81,6 +88,12 @@ func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 func TestGracefulExit_HandleAsOfSystemTimeBadInput(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		gracefulexitDB := planet.Satellites[0].DB.GracefulExit()
 		now := time.Now().UTC()
@@ -97,6 +110,12 @@ func TestGracefulExit_HandleAsOfSystemTimeBadInput(t *testing.T) {
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 7,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This test can be removed entirely when we are using time-based GE everywhere.
+				config.GracefulExit.TimeBased = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var (
 			cache       = planet.Satellites[0].DB.OverlayCache()
@@ -233,14 +252,20 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		testGETransferQueue := func(node storj.NodeID) {
+		testGETransferQueue := func(node storj.NodeID, segmentsToTransfer int) {
 			_, err = planet.Satellites[0].Overlay.DB.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 				NodeID:          node,
 				ExitInitiatedAt: time.Now().UTC(),
@@ -251,26 +276,21 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 			_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 			require.NoError(t, err)
 
-			// we should get only one item from GE queue as we have only one remote segments
+			// we should get two items from GE queue as we have remote segment and its copy
 			items, err := planet.Satellites[0].DB.GracefulExit().GetIncomplete(ctx, node, 100, 0)
 			require.NoError(t, err)
-			require.Len(t, items, 1)
+			require.Len(t, items, segmentsToTransfer)
 
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 
-			// find non copy remote segment
-			segment := metabase.Segment{}
-			for _, s := range segments {
-				if len(s.Pieces) > 0 {
-					if !segment.StreamID.IsZero() {
-						t.Fatal("we should have only one remote non copy segment")
-					}
-					segment = s
+			for _, segment := range segments {
+				if !segment.Inline() {
+					require.True(t, slices.ContainsFunc(items, func(item *gracefulexit.TransferQueueItem) bool {
+						return item.StreamID == segment.StreamID
+					}))
 				}
 			}
-			require.True(t, !segment.StreamID.IsZero())
-			require.Equal(t, segment.StreamID, items[0].StreamID)
 		}
 
 		// upload inline and remote and make copies
@@ -282,20 +302,22 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		testGETransferQueue(planet.StorageNodes[0].ID())
+		testGETransferQueue(planet.StorageNodes[0].ID(), 2)
 
-		// delete original objects to promote copies as new ancestors
+		// delete original objects
 		for _, size := range []memory.Size{memory.KiB, 10 * memory.KiB} {
 			_, err = project.DeleteObject(ctx, "my-bucket", "my-object-"+size.String())
 			require.NoError(t, err)
 		}
 
-		testGETransferQueue(planet.StorageNodes[1].ID())
+		testGETransferQueue(planet.StorageNodes[1].ID(), 1)
 	})
 }
 
 // TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batch
 // ensures that deletion works as expected using different batch sizes.
+//
+// This test can be removed entirely when we are using time-based GE everywhere.
 func TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batchsize(t *testing.T) {
 	var testCases = []struct {
 		name                      string
@@ -366,7 +388,7 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 		nodeID := generateNodeIDFromPostiveInt(t, i)
 		exitedNodeIDs = append(exitedNodeIDs, nodeID)
 		if _, ok := nodeIDsMap[nodeID]; ok {
-			fmt.Printf("this %v already exists\n", nodeID.Bytes())
+			t.Logf("this %v already exists\n", nodeID.Bytes())
 		}
 		nodeIDsMap[nodeID] = struct{}{}
 
@@ -399,6 +421,8 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 // TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch verifies that
 // the CRDB batch logic for delete all the transfer queue items of exited nodes
 // works as expected.
+//
+// This test can be removed entirely when we are using time-based GE everywhere.
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		const (
@@ -434,7 +458,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 			nodeID := generateNodeIDFromPostiveInt(t, i)
 			exitedNodeIDs = append(exitedNodeIDs, nodeID)
 			if _, ok := nodeIDsMap[nodeID]; ok {
-				fmt.Printf("this %v already exists\n", nodeID.Bytes())
+				t.Logf("this %v already exists\n", nodeID.Bytes())
 			}
 			nodeIDsMap[nodeID] = struct{}{}
 

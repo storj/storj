@@ -2,62 +2,80 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-billing-area">
-        <div class="account-billing-area__header__div">
-            <div class="account-billing-area__title">
-                <h1 class="account-billing-area__title__text">Billing</h1>
+    <div ref="content" class="account-billing-area">
+        <div class="account-billing-area__wrap">
+            <div class="account-billing-area__wrap__title">
+                <h1 class="account-billing-area__wrap__title__text">Billing</h1>
             </div>
-            <div class="account-billing-area__header">
+            <v-banner
+                v-if="isLowBalance && content"
+                class="account-billing-area__wrap__low-balance"
+                message="Your STORJ Token balance is low. Deposit more STORJ tokens or make sure you have a credit card on file to avoid interruptions in service."
+                link-text="Deposit tokens"
+                severity="warning"
+                :dashboard-ref="content"
+                :on-link-click="onAddTokensClick"
+            />
+            <div class="account-billing-area__wrap__header">
                 <div
-                    :class="`account-billing-area__header__tab first-header-tab ${routeHas('overview') ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__wrap__header__tab first-header-tab ${routeHas('overview') ? 'selected-tab' : ''}`"
                     @click="routeToOverview"
                 >
                     <p>Overview</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab ${routeHas('methods') ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__wrap__header__tab ${routeHas('methods') ? 'selected-tab' : ''}`"
                     @click="routeToPaymentMethods"
                 >
                     <p>Payment Methods</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab ${routeHas('history') ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__wrap__header__tab ${routeHas('history') ? 'selected-tab' : ''}`"
                     @click="routeToBillingHistory"
                 >
                     <p>Billing History</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab last-header-tab ${routeHas('coupons') ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__wrap__header__tab last-header-tab ${routeHas('coupons') ? 'selected-tab' : ''}`"
                     @click="routeToCoupons"
                 >
                     <p>Coupons</p>
                 </div>
             </div>
-            <div class="account-billing-area__divider" />
+            <div class="account-billing-area__wrap__divider" />
         </div>
         <router-view />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { RouteConfig } from '@/types/router';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
-import { useNotify, useRouter } from '@/utils/hooks';
-import { useBillingStore } from '@/store/modules/billingStore';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 
+import VBanner from '@/components/common/VBanner.vue';
+
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
-const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const configStore = useConfigStore();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const notify = useNotify();
+const router = useRouter();
+const route = useRoute();
+const isLowBalance = useLowTokenBalance();
+
+const content = ref<HTMLElement | null>(null);
 
 /**
  * Indicates if free credits dropdown shown.
@@ -74,10 +92,17 @@ const isBalanceDropdownShown = computed((): boolean => {
 });
 
 /**
+ * Returns whether we're on the settings/billing page on the all projects dashboard.
+ */
+const isOnAllDashboardSettings = computed((): boolean => {
+    return route.path.includes(RouteConfig.AccountSettings.path);
+});
+
+/**
  * Returns the base account route based on if we're on all projects dashboard.
  */
 const baseAccountRoute = computed((): NavigationLink => {
-    if (router.currentRoute.path.includes(RouteConfig.AccountSettings.path)) {
+    if (isOnAllDashboardSettings.value) {
         return RouteConfig.AccountSettings;
     }
 
@@ -85,10 +110,19 @@ const baseAccountRoute = computed((): NavigationLink => {
 });
 
 /**
+ * Holds on add tokens button click logic.
+ * Triggers Add funds popup.
+ */
+function onAddTokensClick(): void {
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+    appStore.updateActiveModal(MODALS.addTokenFunds);
+}
+
+/**
  * Whether current route name contains term.
  */
 function routeHas(term: string): boolean {
-    return !!router.currentRoute.name?.toLowerCase().includes(term);
+    return (route.name as string).toLowerCase().includes(term);
 }
 
 /**
@@ -105,134 +139,62 @@ function closeDropdown(): void {
  */
 function routeToOverview(): void {
     const overviewPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
-    if (router.currentRoute.path !== overviewPath) {
-        analytics.pageVisit(overviewPath);
+    if (route.path !== overviewPath) {
+        analyticsStore.pageVisit(overviewPath);
         router.push(overviewPath);
     }
 }
 
 function routeToPaymentMethods(): void {
     const payMethodsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
-    if (router.currentRoute.path !== payMethodsPath) {
-        analytics.pageVisit(payMethodsPath);
+    if (route.path !== payMethodsPath) {
+        analyticsStore.pageVisit(payMethodsPath);
         router.push(payMethodsPath);
     }
 }
 
 function routeToBillingHistory(): void {
     const billingPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path;
-    if (router.currentRoute.path !== billingPath) {
-        analytics.pageVisit(billingPath);
+    if (route.path !== billingPath) {
+        analyticsStore.pageVisit(billingPath);
         router.push(billingPath);
     }
 }
 
 function routeToCoupons(): void {
     const couponsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
-    if (router.currentRoute.path !== couponsPath) {
-        analytics.pageVisit(couponsPath);
+    if (route.path !== couponsPath) {
+        analyticsStore.pageVisit(couponsPath);
         router.push(couponsPath);
     }
 }
 
-/**
- * Mounted lifecycle hook after initial render.
- * Fetches account balance.
- */
-onMounted(async (): Promise<void> => {
+onMounted(async () => {
+    if (!configStore.state.config.nativeTokenPaymentsEnabled) {
+        return;
+    }
+
     try {
-        await billingStore.getBalance();
+        await Promise.all([
+            billingStore.getBalance(),
+            billingStore.getCreditCards(),
+            billingStore.getNativePaymentsHistory(),
+        ]);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
     }
 });
 </script>
 
 <style scoped lang="scss">
-    .label-header {
-        display: none;
-    }
+.selected-tab {
+    border-bottom: 5px solid black;
+}
 
-    .credit-history {
+.account-billing-area {
+    padding-bottom: 40px;
 
-        &__coupon-modal-wrapper {
-            background: #1b2533c7 75%;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: 1000;
-        }
-
-        &__coupon-modal {
-            width: 741px;
-            height: 298px;
-            background: #fff;
-            border-radius: 8px;
-            margin: 15% auto;
-            position: relative;
-
-            &__header-wrapper {
-                display: flex;
-                justify-content: space-between;
-            }
-
-            &__header {
-                font-family: 'font_bold', sans-serif;
-                font-style: normal;
-                font-weight: bold;
-                font-size: 16px;
-                line-height: 148.31%;
-                margin: 30px 0 10px;
-                display: inline-block;
-            }
-
-            &__input-wrapper {
-                position: relative;
-                width: 85%;
-                margin: 0 auto;
-
-                .headerless-input::placeholder {
-                    color: #384b65;
-                    opacity: 0.4;
-                    position: relative;
-                    left: 20px;
-                }
-            }
-
-            &__claim-button {
-                position: absolute;
-                bottom: 11px;
-                right: 10px;
-            }
-
-            &__apply-button {
-                width: 85%;
-                height: 44px;
-                position: absolute;
-                left: 0;
-                right: 0;
-                margin: 0 auto;
-                bottom: 50px;
-                background: #93a1af;
-            }
-
-            &__icon {
-                position: absolute;
-                top: 90px;
-                z-index: 1;
-                left: 20px;
-            }
-        }
-    }
-
-    .selected-tab {
-        border-bottom: 5px solid black;
-    }
-
-    .account-billing-area {
-        padding-bottom: 40px;
+    &__wrap {
 
         &__title {
             padding-top: 20px;
@@ -242,9 +204,8 @@ onMounted(async (): Promise<void> => {
             }
         }
 
-        &__divider {
-            width: 100%;
-            border-bottom: 1px solid #dadfe7;
+        &__low-balance {
+            margin-top: 25px;
         }
 
         &__header {
@@ -284,107 +245,37 @@ onMounted(async (): Promise<void> => {
             }
         }
 
-        &__title-area {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin: 20px 0;
-
-            &__balance-area {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                font-family: 'font_regular', sans-serif;
-
-                &__tokens-area {
-                    display: flex;
-                    align-items: center;
-                    position: relative;
-                    cursor: pointer;
-                    color: #768394;
-                    font-size: 16px;
-                    line-height: 19px;
-
-                    &__label {
-                        margin-right: 10px;
-                        white-space: nowrap;
-                    }
-                }
-
-                &__free-credits {
-                    display: flex;
-                    align-items: center;
-                    position: relative;
-                    cursor: default;
-                    margin-right: 50px;
-                    color: #768394;
-                    font-size: 16px;
-                    line-height: 19px;
-
-                    &__label {
-                        margin-right: 10px;
-                        white-space: nowrap;
-                    }
-                }
-            }
-        }
-
-        &__notification-container {
-            margin-top: 20px;
-
-            &__negative-balance,
-            &__low-balance {
-                display: flex;
-                align-items: center;
-                justify-content: flex-start;
-                padding: 20px;
-                border-radius: 12px;
-
-                &__text {
-                    font-family: 'font_medium', sans-serif;
-                    margin: 0 17px;
-                    font-size: 14px;
-                    font-weight: 500;
-                    line-height: 19px;
-                }
-            }
-
-            &__negative-balance {
-                background-color: #ffd4d2;
-            }
-
-            &__low-balance {
-                background-color: #fcf8e3;
-            }
+        &__divider {
+            width: 100%;
+            border-bottom: 1px solid #dadfe7;
         }
     }
+}
 
-    .custom-position {
-        margin: 30px 0 20px;
-    }
+@media only screen and (width <= 625px) {
 
-    .icon {
-        min-width: 14px;
-        margin-left: 10px;
-    }
+    .account-billing-area {
 
-    @media only screen and (max-width: 625px) {
-
-        .account-billing-area__header__div {
+        &__wrap {
             margin-right: -24px;
             margin-left: -24px;
-        }
 
-        .account-billing-area__title {
-            margin-left: 24px;
-        }
+            &__title {
+                margin-left: 24px;
+            }
 
-        .first-header-tab {
-            margin-left: 24px;
-        }
-
-        .last-header-tab {
-            margin-right: 24px;
+            &__low-balance {
+                margin: 25px 24px 0;
+            }
         }
     }
+
+    .first-header-tab {
+        margin-left: 24px;
+    }
+
+    .last-header-tab {
+        margin-right: 24px;
+    }
+}
 </style>

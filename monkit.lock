@@ -6,6 +6,7 @@ storj.io/storj/satellite/accounting."bucket_segments" IntVal
 storj.io/storj/satellite/accounting."total_bytes" IntVal
 storj.io/storj/satellite/accounting."total_objects" IntVal
 storj.io/storj/satellite/accounting."total_segments" IntVal
+storj.io/storj/satellite/accounting/tally."bucket_tally_error" Event
 storj.io/storj/satellite/accounting/tally."nodetallies.totalsum" IntVal
 storj.io/storj/satellite/audit."audit_contained_nodes" IntVal
 storj.io/storj/satellite/audit."audit_contained_nodes_global" Meter
@@ -78,12 +79,7 @@ storj.io/storj/satellite/gracefulexit."graceful_exit_successful_pieces_transfer_
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_fail" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_success" Meter
 storj.io/storj/satellite/metabase/rangedloop."rangedloop_error" Event
-storj.io/storj/satellite/metabase/segmentloop."segmentloop_error" Event
-storj.io/storj/satellite/metabase/segmentloop."segmentsProcessed" IntVal
-storj.io/storj/satellite/metabase/segmentloop.*Service.RunOnce Task
 storj.io/storj/satellite/metainfo."metainfo_rate_limit_exceeded" Event
-storj.io/storj/satellite/metainfo/piecedeletion."delete_batch_size" IntVal
-storj.io/storj/satellite/metainfo/piecedeletion."deletion_pieces_unhandled_count" IntVal
 storj.io/storj/satellite/metrics."total_inline_bytes" IntVal
 storj.io/storj/satellite/metrics."total_inline_segments" IntVal
 storj.io/storj/satellite/metrics."total_remote_bytes" IntVal
@@ -94,6 +90,7 @@ storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_clumped_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_health" FloatVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
+storj.io/storj/satellite/repair/checker."checker_segment_off_placement_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_total_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segments_below_min_req" Counter
@@ -131,7 +128,6 @@ storj.io/storj/satellite/repair/repairer."repair_too_many_nodes_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_unnecessary" Meter
 storj.io/storj/satellite/repair/repairer."repairer_segments_below_min_req" Counter
 storj.io/storj/satellite/repair/repairer."segment_deleted_before_repair" Meter
-storj.io/storj/satellite/repair/repairer."segment_repair_count" IntVal
 storj.io/storj/satellite/repair/repairer."segment_time_until_repair" IntVal
 storj.io/storj/satellite/repair/repairer."time_for_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."time_since_checker_queue" FloatVal

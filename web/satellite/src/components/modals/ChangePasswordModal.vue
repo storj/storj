@@ -14,6 +14,7 @@
                     label="Old Password"
                     placeholder="Old Password"
                     is-password
+                    :autocomplete="autocompleteValue"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -62,16 +63,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -80,14 +81,14 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
-const configStore = useConfigStore();
+const { config } = useConfigStore().state;
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const oldPassword = ref<string>('');
 const newPassword = ref<string>('');
@@ -96,6 +97,13 @@ const oldPasswordError = ref<string>('');
 const newPasswordError = ref<string>('');
 const confirmationPasswordError = ref<string>('');
 const isPasswordStrengthShown = ref<boolean>(false);
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${config.satelliteName.substring(0, 2).toLowerCase()} current-password`;
+});
 
 /**
  * Enables password strength info container.
@@ -145,8 +153,6 @@ async function onUpdateClick(): Promise<void> {
         hasError = true;
     }
 
-    const config = configStore.state.config;
-
     if (newPassword.value.length < config.passwordMinimumLength) {
         newPasswordError.value = `Invalid password. Use ${config.passwordMinimumLength} or more characters`;
         hasError = true;
@@ -168,14 +174,14 @@ async function onUpdateClick(): Promise<void> {
     }
 
     if (hasError) {
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         return;
     }
 
     try {
         await auth.changePassword(oldPassword.value, newPassword.value);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
 
         return;
     }
@@ -187,11 +193,11 @@ async function onUpdateClick(): Promise<void> {
             router.push(RouteConfig.Login.path);
         }, DELAY_BEFORE_REDIRECT);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
     }
 
-    analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
-    await notify.success('Password successfully changed!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
+    notify.success('Password successfully changed!');
     closeModal();
 }
 
@@ -199,7 +205,7 @@ async function onUpdateClick(): Promise<void> {
  * Closes popup.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.changePassword);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -213,16 +219,16 @@ function closeModal(): void {
         box-sizing: border-box;
         min-width: 550px;
 
-        @media screen and (max-width: 600px) {
+        @media screen and (width <= 600px) {
             min-width: 475px;
             padding: 48px 24px;
         }
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             min-width: 420px;
         }
 
-        @media screen and (max-width: 470px) {
+        @media screen and (width <= 470px) {
             min-width: unset;
         }
 
@@ -231,7 +237,7 @@ function closeModal(): void {
             align-items: center;
             margin-bottom: 20px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
 
                 svg {
                     display: none;
@@ -245,7 +251,7 @@ function closeModal(): void {
                 color: #384b65;
                 margin: 0 0 0 32px;
 
-                @media screen and (max-width: 600px) {
+                @media screen and (width <= 600px) {
                     font-size: 24px;
                     line-height: 28px;
                     margin: 0;
@@ -260,7 +266,7 @@ function closeModal(): void {
             margin-top: 32px;
             column-gap: 20px;
 
-            @media screen and (max-width: 600px) {
+            @media screen and (width <= 600px) {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 10px;
@@ -278,7 +284,7 @@ function closeModal(): void {
         margin-bottom: 15px;
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         :deep(.password-strength-container) {
             width: unset;

@@ -6,7 +6,7 @@
         <template #content>
             <div v-if="!isSuccess" class="content">
                 <div class="content__top">
-                    <h1 class="content__top__title">Activate your account</h1>
+                    <h1 class="content__top__title">Activate your plan</h1>
                     <div class="content__top__icon">
                         <CheckIcon />
                     </div>
@@ -26,9 +26,15 @@
                 <div class="content__bottom">
                     <div v-if="!isFree" class="content__bottom__card-area">
                         <p class="content__bottom__card-area__label">Add Card Info</p>
-                        <StripeCardInput
+                        <StripeCardElement
+                            v-if="paymentElementEnabled"
                             ref="stripeCardInput"
                             class="content__bottom__card-area__input"
+                            @pm-created="onCardAdded"
+                        />
+                        <StripeCardInput
+                            v-else
+                            ref="stripeCardInput"
                             :on-stripe-response-callback="onCardAdded"
                         />
                     </div>
@@ -57,7 +63,7 @@
                     <CircleCheck />
                 </div>
                 <h1 class="content-success__title">Success</h1>
-                <p class="content-success__subtitle">Your account has been successfully activated.</p>
+                <p class="content-success__subtitle">Your plan has been successfully activated.</p>
                 <div class="content-success__info">
                     <ThinCheck class="content-success__info__icon" />
                     <p class="content-success__info__title">
@@ -79,18 +85,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 import CheckIcon from '@/../static/images/common/check.svg';
 import CircleCheck from '@/../static/images/onboardingTour/circleCheck.svg';
@@ -110,7 +118,7 @@ const notify = useNotify();
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
 
 /**
  * Returns the pricing plan selected from the onboarding tour.
@@ -119,10 +127,17 @@ const plan = computed((): PricingPlanInfo | null => {
     return appStore.state.selectedPricingPlan;
 });
 
+/**
+ * Indicates whether stripe payment element is enabled.
+ */
+const paymentElementEnabled = computed(() => {
+    return configStore.state.config.stripePaymentElementEnabled;
+});
+
 watch(plan, () => {
     if (!plan.value) {
         appStore.removeActiveModal();
-        notify.error('No pricing plan has been selected.', null);
+        notify.error('No pricing plan has been selected.');
     }
 });
 
@@ -134,17 +149,16 @@ const isFree = computed((): boolean => {
 });
 
 /**
- * Closes the modal and advances to the next step in the onboarding tour.
+ * Closes the modal. If the user has not completed the onboarding tour, advance to the next step.
  */
 function onClose(): void {
     appStore.removeActiveModal();
-    if (isSuccess.value) {
-        if (configStore.state.config.allProjectsDashboard) {
-            router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
-        router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+    // do not reroute if the user has already completed onboarding
+    if (usersStore.state.settings.onboardingEnd) {
+        return;
     }
+
+    if (isSuccess.value) router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 /**
@@ -164,17 +178,18 @@ function onActivateClick(): void {
 
 /**
  * Adds card after Stripe confirmation.
+ * @param res - the response from stripe. Could be a token or a payment method id.
+ * depending on the paymentElementEnabled flag.
  */
-async function onCardAdded(token: string): Promise<void> {
+async function onCardAdded(res: string): Promise<void> {
     if (!plan.value) return;
 
-    let action = billingStore.addCreditCard;
-    if (plan.value.type === PricingPlanType.PARTNER) {
-        action = billingStore.purchasePricingPackage;
-    }
-
     try {
-        await action(token);
+        if (plan.value.type === PricingPlanType.PARTNER) {
+            await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
+        } else {
+            paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
+        }
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
@@ -182,7 +197,7 @@ async function onCardAdded(token: string): Promise<void> {
         // Fetch cards to hide paid tier banner
         await billingStore.getCreditCards();
     } catch (error) {
-        await notify.error(error.message, null);
+        notify.notifyError(error);
     }
 
     isLoading.value = false;

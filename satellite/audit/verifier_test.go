@@ -6,8 +6,12 @@ package audit_test
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -80,6 +84,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 
 		for _, share := range shares {
 			assert.NoError(t, share.Error)
+			assert.Equal(t, audit.NoFailure, share.FailurePhase)
 		}
 	})
 }
@@ -143,8 +148,10 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 				assert.True(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 				assert.False(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
 				assert.True(t, errs2.IsRPC(share.Error, rpcstatus.Unknown), "unexpected error: %+v", share.Error)
+				assert.Equal(t, audit.DialFailure, share.FailurePhase)
 			} else {
 				assert.NoError(t, share.Error)
+				assert.Equal(t, audit.NoFailure, share.FailurePhase)
 			}
 		}
 	})
@@ -202,6 +209,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		for _, share := range shares {
 			assert.True(t, errs2.IsRPC(share.Error, rpcstatus.NotFound), "unexpected error: %+v", share.Error)
+			assert.Equal(t, audit.RequestFailure, share.FailurePhase)
 		}
 	})
 }
@@ -284,7 +292,120 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		for _, share := range shares {
 			assert.True(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 			assert.True(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
+			assert.Equal(t, audit.DialFailure, share.FailurePhase)
 		}
+	})
+}
+
+// TestDownloadSharesDialIOTimeout checks that i/o timeout dial failures are
+// handled appropriately.
+//
+// This test differs from TestDownloadSharesDialTimeout in that it causes the
+// timeout error by replacing a storage node with a black hole TCP socket,
+// causing the failure directly instead of faking it with dialer.DialLatency.
+func TestDownloadSharesDialIOTimeout(t *testing.T) {
+	var group errgroup.Group
+	// we do this shutdown outside the testplanet scope, so that we can expect
+	// that planet has been shut down before waiting for the black hole goroutines
+	// to finish. (They won't finish until the remote end is closed, which happens
+	// during planet shutdown.)
+	defer func() { assert.NoError(t, group.Wait()) }()
+
+	testWithRangedLoop(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// require all nodes for each operation
+			Satellite: testplanet.ReconfigureRS(4, 4, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		pauseQueueing(satellite)
+
+		upl := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
+		require.NoError(t, err)
+
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		blackHoleNode := planet.StorageNodes[testrand.Intn(len(planet.StorageNodes))]
+		require.NoError(t, planet.StopPeer(blackHoleNode))
+
+		// create a black hole in place of the storage node: a socket that only reads
+		// bytes and never says anything back. A connection to here using a bare TCP Dial
+		// would succeed, but a TLS Dial will not be able to handshake and will time out
+		// or wait forever.
+		listener, err := net.Listen("tcp", blackHoleNode.Addr())
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, listener.Close()) }()
+		t.Logf("black hole listening on %s", listener.Addr())
+
+		group.Go(func() error {
+			for {
+				conn, err := listener.Accept()
+				if err != nil {
+					// this is terrible, but is apparently the standard and correct way to check
+					// for this specific error. See parseCloseError() in net/error_test.go in the
+					// Go stdlib.
+					assert.ErrorContains(t, err, "use of closed network connection")
+					return nil
+				}
+				t.Logf("connection made to black hole port %s", listener.Addr())
+				group.Go(func() (err error) {
+					defer func() { assert.NoError(t, conn.Close()) }()
+
+					// black hole: just read until the socket is closed on the other end
+					buf := make([]byte, 1024)
+					for {
+						_, err = conn.Read(buf)
+						if err != nil {
+							if !errors.Is(err, syscall.ECONNRESET) && !errors.Is(err, io.EOF) {
+								t.Fatalf("expected econnreset or eof, got %q", err.Error())
+							}
+							return nil
+						}
+					}
+				})
+			}
+		})
+
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
+		require.NoError(t, err)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedNodesInfo, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
+		require.NoError(t, err)
+
+		verifier := satellite.Audit.Verifier
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedNodesInfo, randomIndex, shareSize)
+		require.NoError(t, err)
+
+		observed := false
+		for _, share := range shares {
+			if share.NodeID.Compare(blackHoleNode.ID()) == 0 {
+				assert.ErrorIs(t, share.Error, context.DeadlineExceeded)
+				assert.Equal(t, audit.DialFailure, share.FailurePhase)
+				observed = true
+			} else {
+				assert.NoError(t, share.Error)
+			}
+		}
+		assert.Truef(t, observed, "No node in returned shares matched expected node ID")
 	})
 }
 
@@ -365,6 +486,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.Len(t, shares, 1)
 		share := shares[0]
 		assert.True(t, errs2.IsRPC(share.Error, rpcstatus.DeadlineExceeded), "unexpected error: %+v", share.Error)
+		assert.Equal(t, audit.RequestFailure, share.FailurePhase)
 		assert.False(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 	})
 }
@@ -846,7 +968,15 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 
 		assert.Len(t, report.Successes, origNumPieces-1)
 		require.Len(t, report.Fails, 1)
-		assert.Equal(t, report.Fails[0], piece.StorageNode)
+		assert.Equal(t, metabase.Piece{
+			StorageNode: piece.StorageNode,
+			Number:      piece.Number,
+		}, report.Fails[0])
+		require.NotNil(t, report.Segment)
+		assert.Equal(t, segment.StreamID, report.Segment.StreamID)
+		assert.Equal(t, segment.Position, report.Segment.Position)
+		assert.Equal(t, segment.Redundancy, report.Segment.Redundancy)
+		assert.Equal(t, segment.Pieces, report.Segment.Pieces)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 	})
@@ -976,6 +1106,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.MaxExcessRateOptimalThreshold = 0.0
 				},
 				testplanet.ReconfigureRS(3, 5, 8, 10),
 				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
@@ -987,7 +1118,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
 
-		satellite.Repair.Checker.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
 		satellite.Repair.Repairer.Loop.Pause()
 
 		var testData = testrand.Bytes(8 * memory.KiB)
@@ -1008,16 +1139,16 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 			nodesInExcluded = append(nodesInExcluded, remotePieces[i].StorageNode)
 		}
 
-		// make extra pieces after optimal bad
+		// make extra pieces after optimal bad, so we know there are exactly OptimalShares
+		// retrievable shares. numExcluded of them are in an excluded country.
 		for i := int(segment.Redundancy.OptimalShares); i < len(remotePieces); i++ {
 			err = planet.StopNodeAndUpdate(ctx, planet.FindNode(remotePieces[i].StorageNode))
 			require.NoError(t, err)
 		}
 
-		// trigger checker to add segment to repair queue
-		satellite.Repair.Checker.Loop.Restart()
-		satellite.Repair.Checker.Loop.TriggerWait()
-		satellite.Repair.Checker.Loop.Pause()
+		// trigger repair checker with ranged loop to add segment to repair queue
+		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
 
 		count, err := satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
@@ -1038,17 +1169,29 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		require.NotEqual(t, segment.Pieces, segmentAfterRepair.Pieces)
 		require.Equal(t, 10, len(segmentAfterRepair.Pieces))
 
-		// check excluded area nodes still exist
-		for i, n := range nodesInExcluded {
-			var found bool
+		// the number of nodes that should still be online holding intact pieces, not in
+		// excluded countries
+		expectHealthyNodes := int(segment.Redundancy.OptimalShares) - numExcluded
+		// repair should make this many new pieces to get the segment up to OptimalShares
+		// shares, not counting excluded-country nodes
+		expectNewPieces := int(segment.Redundancy.OptimalShares) - expectHealthyNodes
+		// so there should be this many pieces after repair, not counting excluded-country
+		// nodes
+		expectPiecesAfterRepair := expectHealthyNodes + expectNewPieces
+		// so there should be this many excluded-country pieces left in the segment (we
+		// couldn't keep all of them, or we would have had more than TotalShares pieces).
+		expectRemainingExcluded := int(segment.Redundancy.TotalShares) - expectPiecesAfterRepair
+
+		found := 0
+		for _, nodeID := range nodesInExcluded {
 			for _, p := range segmentAfterRepair.Pieces {
-				if p.StorageNode == n {
-					found = true
+				if p.StorageNode == nodeID {
+					found++
 					break
 				}
 			}
-			require.True(t, found, fmt.Sprintf("node %s not in segment, but should be\n", segmentAfterRepair.Pieces[i].StorageNode.String()))
 		}
+		require.Equal(t, expectRemainingExcluded, found, "found wrong number of excluded-country pieces after repair")
 		nodesInPointer := make(map[storj.NodeID]bool)
 		for _, n := range segmentAfterRepair.Pieces {
 			// check for duplicates
@@ -1075,7 +1218,15 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], lastPiece.StorageNode)
+		require.Equal(t, metabase.Piece{
+			StorageNode: lastPiece.StorageNode,
+			Number:      lastPiece.Number,
+		}, report.Fails[0])
+		require.NotNil(t, report.Segment)
+		assert.Equal(t, segmentAfterRepair.StreamID, report.Segment.StreamID)
+		assert.Equal(t, segmentAfterRepair.Position, report.Segment.Position)
+		assert.Equal(t, segmentAfterRepair.Redundancy, report.Segment.Redundancy)
+		assert.Equal(t, segmentAfterRepair.Pieces, report.Segment.Pieces)
 	})
 }
 

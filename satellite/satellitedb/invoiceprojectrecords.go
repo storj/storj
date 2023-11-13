@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -129,36 +130,41 @@ func (db *invoiceProjectRecords) Consume(ctx context.Context, id uuid.UUID) (err
 }
 
 // ListUnapplied returns project records page with unapplied project records.
-func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (_ stripe.ProjectRecordsPage, err error) {
+// Cursor is not included into listing results.
+func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page stripe.ProjectRecordsPage
+	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
+		SELECT 
+			id, project_id, storage, egress, segments, period_start, period_end, state
+		FROM 
+			stripecoinpayments_invoice_project_records 
+		WHERE 
+			id > ? AND period_start = ? AND period_end = ? AND state = ?
+		ORDER BY id
+		LIMIT ?
+	`), cursor, start, end, invoiceProjectRecordStateUnapplied.Int(), limit+1))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var record stripe.ProjectRecord
+			err := rows.Scan(&record.ID, &record.ProjectID, &record.Storage, &record.Egress, &record.Segments, &record.PeriodStart, &record.PeriodEnd, &record.State)
+			if err != nil {
+				return Error.New("failed to scan stripe invoice project records: %w", err)
+			}
 
-	dbxRecords, err := db.db.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx,
-		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
-		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
-		dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
-		limit+1,
-		offset,
-	)
+			page.Records = append(page.Records, record)
+		}
+		return nil
+	})
 	if err != nil {
 		return stripe.ProjectRecordsPage{}, err
 	}
 
-	if len(dbxRecords) == limit+1 {
+	if len(page.Records) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit)
 
-		dbxRecords = dbxRecords[:len(dbxRecords)-1]
-	}
+		page.Records = page.Records[:len(page.Records)-1]
 
-	for _, dbxRecord := range dbxRecords {
-		record, err := fromDBXInvoiceProjectRecord(dbxRecord)
-		if err != nil {
-			return stripe.ProjectRecordsPage{}, err
-		}
-
-		page.Records = append(page.Records, *record)
+		page.Cursor = page.Records[len(page.Records)-1].ID
 	}
 
 	return page, nil

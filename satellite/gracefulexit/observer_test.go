@@ -31,6 +31,8 @@ func TestObserver(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
 					config.GracefulExit.UseRangedLoop = true
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(4, 6, 8, 8),
 			),
@@ -150,6 +152,8 @@ func TestObserverDurabilityRatio(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
 					config.GracefulExit.UseRangedLoop = true
+					// This test can be removed entirely when we are using time-based GE everywhere.
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(2, 3, successThreshold, 4),
 			),

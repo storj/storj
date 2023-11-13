@@ -8,8 +8,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -32,6 +30,11 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
 		}
 	}
+	if bucket.Versioning != buckets.VersioningUnsupported {
+		optionalFields = dbx.BucketMetainfo_Create_Fields{
+			Versioning: dbx.BucketMetainfo_Versioning(int(bucket.Versioning)),
+		}
+	}
 	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
@@ -51,6 +54,9 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		optionalFields,
 	)
 	if err != nil {
+		if dbx.IsConstraintError(err) {
+			return buckets.Bucket{}, buckets.ErrBucketAlreadyExists.New("")
+		}
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 
@@ -98,6 +104,63 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 	return placement, nil
 }
 
+// GetBucketVersioningState returns with the versioning state of the bucket.
+func (db *bucketsDB) GetBucketVersioningState(ctx context.Context, bucketName []byte, projectID uuid.UUID) (versioningState buckets.Versioning, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxVersioning, err := db.db.Get_BucketMetainfo_Versioning_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return -1, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return -1, buckets.ErrBucket.Wrap(err)
+	}
+
+	return buckets.Versioning(dbxVersioning.Versioning), nil
+}
+
+// EnableBucketVersioning enables versioning for a bucket.
+func (db *bucketsDB) EnableBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// only enable versioning if current versioning state is unversioned, enabled, or suspended.
+		dbx.BucketMetainfo_Versioning(int(buckets.Unversioned)),
+		dbx.BucketMetainfo_Update_Fields{
+			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
+		})
+	if err != nil {
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket == nil || buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningEnabled {
+		return buckets.ErrBucket.New("cannot transition bucket versioning state to enabled")
+	}
+	return nil
+}
+
+// SuspendBucketVersioning disables versioning for a bucket.
+func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioning_GreaterOrEqual(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		// only suspend versioning if current versioning state is enabled, or suspended.
+		dbx.BucketMetainfo_Versioning(int(buckets.VersioningEnabled)),
+		dbx.BucketMetainfo_Update_Fields{
+			Versioning: dbx.BucketMetainfo_Versioning(int(buckets.VersioningSuspended)),
+		})
+	if err != nil {
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket == nil || buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningSuspended {
+		return buckets.ErrBucket.New("cannot transition bucket versioning state to suspended")
+	}
+	return nil
+}
+
 // GetMinimalBucket returns existing bucket with minimal number of fields.
 func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.MinimalBucket, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -128,27 +191,6 @@ func (db *bucketsDB) HasBucket(ctx context.Context, bucketName []byte, projectID
 	return exists, buckets.ErrBucket.Wrap(err)
 }
 
-// GetBucketID returns an existing bucket id.
-func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (_ uuid.UUID, err error) {
-	defer mon.Task()(&ctx)(&err)
-	dbxID, err := db.db.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx,
-		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
-		dbx.BucketMetainfo_Name([]byte(bucket.BucketName)),
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, buckets.ErrBucketNotFound.New("%s", bucket.BucketName)
-		}
-		return uuid.UUID{}, buckets.ErrBucket.Wrap(err)
-	}
-
-	id, err := uuid.FromBytes(dbxID.Id)
-	if err != nil {
-		return id, buckets.ErrBucket.Wrap(err)
-	}
-	return id, err
-}
-
 // UpdateBucket updates a bucket.
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -166,6 +208,20 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
+}
+
+// UpdateUserAgent updates buckets user agent.
+func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucketName)),
+		dbx.BucketMetainfo_Update_Fields{
+			UserAgent: dbx.BucketMetainfo_UserAgent(userAgent),
+		})
+
+	return err
 }
 
 // DeleteBucket deletes a bucket.
@@ -299,6 +355,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
+		Versioning: buckets.Versioning(dbxBucket.Versioning),
 	}
 
 	if dbxBucket.Placement != nil {
@@ -319,32 +376,26 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 	var result []metabase.BucketLocation
 
 	moreLimit := limit + 1
-	rows, err := db.db.QueryContext(ctx, `
-			SELECT project_id, name
-			FROM bucket_metainfos
-			WHERE (project_id, name) > ($1, $2)
-			GROUP BY (project_id, name)
-			ORDER BY (project_id, name) ASC LIMIT $3
-	`, projectID, bucketName, moreLimit)
+	rows, err := db.db.Limited_BucketMetainfo_ProjectId_BucketMetainfo_Name_By_ProjectId_GreaterOrEqual_And_Name_Greater_GroupBy_ProjectId_Name_OrderBy_Asc_ProjectId_Asc_Name(
+		ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucketName)),
+		moreLimit,
+		0,
+	)
 	if err != nil {
-		return false, buckets.ErrBucket.New("BatchBuckets query error: %s", err)
+		return false, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, Error.Wrap(rows.Close()))
-	}()
 
-	for rows.Next() {
-		var bucketLocation metabase.BucketLocation
-
-		if err = rows.Scan(&bucketLocation.ProjectID, &bucketLocation.BucketName); err != nil {
-			return false, buckets.ErrBucket.New("bucket location scan error: %s", err)
+	for _, row := range rows {
+		projectID, err := uuid.FromBytes(row.ProjectId)
+		if err != nil {
+			return false, Error.Wrap(err)
 		}
-
-		result = append(result, bucketLocation)
-	}
-
-	if err = rows.Err(); err != nil {
-		return false, buckets.ErrBucket.Wrap(err)
+		result = append(result, metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: string(row.Name),
+		})
 	}
 
 	if len(result) == 0 {

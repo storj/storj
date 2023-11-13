@@ -139,9 +139,14 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
+	placement, err := config.Placement.Parse()
+	if err != nil {
+		return nil, err
+	}
+
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -174,7 +179,12 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup orders
-		var err error
+
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
 		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -183,6 +193,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			// PUT and GET actions which are not used by
 			// auditor so we can set noop implementation.
 			orders.NewNoopDB(),
+			placement.CreateFilters,
 			config.Orders,
 		)
 		if err != nil {
@@ -219,6 +230,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			log.Named("reporter"),
 			peer.Reputation,
 			peer.Overlay,
+			metabaseDB,
 			containmentDB,
 			config.Audit.MaxRetriesStatDB,
 			int32(config.Audit.MaxReverifyCount))

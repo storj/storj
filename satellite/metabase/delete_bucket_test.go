@@ -5,7 +5,6 @@ package metabase_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -68,9 +67,6 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return errors.New("shouldn't be called")
-					},
 				},
 				Deleted: 0,
 			}.Check(ctx, t, db)
@@ -83,25 +79,12 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 2)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						for _, s := range segments {
-							if len(s.Pieces) != 1 {
-								return errors.New("expected 1 piece per segment")
-							}
-						}
-						return nil
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 2, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -114,9 +97,6 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket: obj1.Location().Bucket(),
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return errors.New("expected no segments")
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
@@ -131,26 +111,13 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj2, 2)
 			metabasetest.CreateObject(ctx, t, db, obj3, 2)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						for _, s := range segments {
-							if len(s.Pieces) != 1 {
-								return errors.New("expected 1 piece per segment")
-							}
-						}
-						return nil
-					},
 				},
 				Deleted: 3,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 6, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -175,7 +142,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						ObjectStream: objX,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -186,7 +153,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						ObjectStream: objY,
 						CreatedAt:    now,
-						Status:       metabase.Committed,
+						Status:       metabase.CommittedUnversioned,
 						SegmentCount: 1,
 
 						TotalPlainSize:     512,
@@ -239,21 +206,13 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 37)
 
-			nSegments := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						nSegments += len(segments)
-
-						return nil
-					},
 				},
 				Deleted: 1,
 			}.Check(ctx, t, db)
-
-			require.Equal(t, 37, nSegments)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -269,20 +228,61 @@ func TestDeleteBucketObjects(t *testing.T) {
 				metabasetest.CreateObject(ctx, t, db, obj, 5)
 			}
 
-			segmentsDeleted := 0
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 1,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						segmentsDeleted += len(segments)
-						return nil
-					},
 				},
 				Deleted: 5,
 			}.Check(ctx, t, db)
 
-			require.Equal(t, 25, segmentsDeleted)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("pending and committed objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateObject(ctx, t, db, obj1, 2)
+
+			obj1.ObjectKey = "some key"
+			obj1.Version = metabase.NextVersion
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:    obj1.Location().Bucket(),
+					BatchSize: 2,
+				},
+				Deleted: 2,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+
+			// object only in pending_objects table
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:    obj1.Location().Bucket(),
+					BatchSize: 2,
+				},
+				Deleted: 1,
+			}.Check(ctx, t, db)
+
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 	})
@@ -310,9 +310,6 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
-					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						return nil
-					},
 				})
 				return err
 			})
@@ -334,9 +331,6 @@ func TestDeleteBucketObjectsCancel(t *testing.T) {
 		_, err := db.DeleteBucketObjects(testCtx, metabase.DeleteBucketObjects{
 			Bucket:    object.Location().Bucket(),
 			BatchSize: 2,
-			DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-				return nil
-			},
 		})
 		require.Error(t, err)
 
@@ -382,9 +376,6 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "copy-bucket",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
-						},
 					})
 					require.NoError(t, err)
 
@@ -426,9 +417,6 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "original-bucket",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
-						},
 					})
 					require.NoError(t, err)
 
@@ -493,9 +481,72 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 							BucketName: "bucket2",
 						},
 						BatchSize: 2,
-						DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-							return nil
+					})
+					require.NoError(t, err)
+
+					// Prepare for check.
+					// obj1 is the same as before, copyObj2 should now be the original
+					for i := range copySegments2 {
+						copySegments2[i].Pieces = originalSegments2[i].Pieces
+					}
+
+					metabasetest.Verify{
+						Objects: []metabase.RawObject{
+							metabase.RawObject(originalObj1),
+							metabase.RawObject(copyObj2),
 						},
+						Segments: append(copySegments2, metabasetest.SegmentsToRaw(originalSegments1)...),
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("delete bucket which has one ancestor and one copy with duplicate metadata", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					originalObjStream1 := metabasetest.RandObjectStream()
+					originalObjStream1.BucketName = "bucket1"
+
+					projectID := originalObjStream1.ProjectID
+
+					originalObjStream2 := metabasetest.RandObjectStream()
+					originalObjStream2.ProjectID = projectID
+					originalObjStream2.BucketName = "bucket2"
+
+					originalObj1, originalSegments1 := metabasetest.CreateTestObject{
+						CommitObject: &metabase.CommitObject{
+							ObjectStream: originalObjStream1,
+						},
+					}.Run(ctx, t, db, originalObjStream1, byte(numberOfSegments))
+
+					originalObj2, originalSegments2 := metabasetest.CreateTestObject{
+						CommitObject: &metabase.CommitObject{
+							ObjectStream: originalObjStream2,
+						},
+					}.Run(ctx, t, db, originalObjStream2, byte(numberOfSegments))
+
+					copyObjectStream1 := metabasetest.RandObjectStream()
+					copyObjectStream1.ProjectID = projectID
+					copyObjectStream1.BucketName = "bucket2" // copy from bucket 1 to bucket 2
+
+					copyObjectStream2 := metabasetest.RandObjectStream()
+					copyObjectStream2.ProjectID = projectID
+					copyObjectStream2.BucketName = "bucket1" // copy from bucket 2 to bucket 1
+
+					metabasetest.CreateObjectCopy{
+						OriginalObject:   originalObj1,
+						CopyObjectStream: &copyObjectStream1,
+					}.Run(ctx, t, db)
+
+					copyObj2, _, copySegments2 := metabasetest.CreateObjectCopy{
+						OriginalObject:   originalObj2,
+						CopyObjectStream: &copyObjectStream2,
+					}.Run(ctx, t, db)
+
+					// done preparing, delete bucket 1
+					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+						Bucket: metabase.BucketLocation{
+							ProjectID:  projectID,
+							BucketName: "bucket2",
+						},
+						BatchSize: 2,
 					})
 					require.NoError(t, err)
 

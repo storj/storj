@@ -41,6 +41,25 @@ type RawObject struct {
 	ZombieDeletionDeadline *time.Time
 }
 
+// RawPendingObject defines the full pending object that is stored in the database. It should be rarely used directly.
+type RawPendingObject struct {
+	PendingObjectStream
+
+	CreatedAt time.Time
+	ExpiresAt *time.Time
+
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadata             []byte
+	EncryptedMetadataEncryptedKey []byte
+
+	Encryption storj.EncryptionParameters
+
+	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
+	// This is as a safeguard against objects that failed to upload and the client has not indicated
+	// whether they want to continue uploading or delete the already uploaded data.
+	ZombieDeletionDeadline *time.Time
+}
+
 // RawSegment defines the full segment that is stored in the database. It should be rarely used directly.
 type RawSegment struct {
 	StreamID uuid.UUID
@@ -77,9 +96,9 @@ type RawCopy struct {
 
 // RawState contains full state of a table.
 type RawState struct {
-	Objects  []RawObject
-	Segments []RawSegment
-	Copies   []RawCopy
+	Objects        []RawObject
+	PendingObjects []RawPendingObject
+	Segments       []RawSegment
 }
 
 // TestingGetState returns the state of the database.
@@ -91,12 +110,12 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 		return nil, Error.New("GetState: %w", err)
 	}
 
-	state.Segments, err = db.testingGetAllSegments(ctx)
+	state.PendingObjects, err = db.testingGetAllPendingObjects(ctx)
 	if err != nil {
 		return nil, Error.New("GetState: %w", err)
 	}
 
-	state.Copies, err = db.testingGetAllCopies(ctx)
+	state.Segments, err = db.testingGetAllSegments(ctx)
 	if err != nil {
 		return nil, Error.New("GetState: %w", err)
 	}
@@ -107,12 +126,11 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 // TestingDeleteAll deletes all objects and segments from the database.
 func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 	_, err = db.db.ExecContext(ctx, `
-		WITH testing AS (SELECT 1) DELETE FROM objects;
-		WITH testing AS (SELECT 1) DELETE FROM segments;
-		WITH testing AS (SELECT 1) DELETE FROM segment_copies;
-		WITH testing AS (SELECT 1) DELETE FROM node_aliases;
-		WITH testing AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
-		
+		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM objects;
+		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM pending_objects;
+		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM segments;
+		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM node_aliases;
+		WITH ignore_full_scan_for_test AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
 	`)
 	db.aliasCache = NewNodeAliasCache(db)
 	return Error.Wrap(err)
@@ -123,7 +141,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 	objs := []RawObject{}
 
 	rows, err := db.db.QueryContext(ctx, `
-		WITH testing AS (SELECT 1)
+		WITH ignore_full_scan_for_test AS (SELECT 1)
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
@@ -180,12 +198,63 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 	return objs, nil
 }
 
+// testingGetAllPendingObjects returns the state of the database.
+func (db *DB) testingGetAllPendingObjects(ctx context.Context) (_ []RawPendingObject, err error) {
+	objs := []RawPendingObject{}
+
+	rows, err := db.db.QueryContext(ctx, `
+		WITH ignore_full_scan_for_test AS (SELECT 1)
+		SELECT
+			project_id, bucket_name, object_key, stream_id,
+			created_at, expires_at,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			encryption, zombie_deletion_deadline
+		FROM pending_objects
+		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, stream_id ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllPendingObjects query: %w", err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var obj RawPendingObject
+		err := rows.Scan(
+			&obj.ProjectID,
+			&obj.BucketName,
+			&obj.ObjectKey,
+			&obj.StreamID,
+
+			&obj.CreatedAt,
+			&obj.ExpiresAt,
+
+			&obj.EncryptedMetadataNonce,
+			&obj.EncryptedMetadata,
+			&obj.EncryptedMetadataEncryptedKey,
+
+			encryptionParameters{&obj.Encryption},
+			&obj.ZombieDeletionDeadline,
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllPendingObjects scan failed: %w", err)
+		}
+		objs = append(objs, obj)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllPendingObjects scan failed: %w", err)
+	}
+
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	return objs, nil
+}
+
 // testingGetAllSegments returns the state of the database.
 func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err error) {
 	segs := []RawSegment{}
 
 	rows, err := db.db.QueryContext(ctx, `
-		WITH testing AS (SELECT 1)
+		WITH ignore_full_scan_for_test AS (SELECT 1)
 		SELECT
 			stream_id, position,
 			created_at, repaired_at, expires_at,
@@ -248,40 +317,4 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 		return nil, nil
 	}
 	return segs, nil
-}
-
-// testingGetAllCopies returns the state of the database.
-func (db *DB) testingGetAllCopies(ctx context.Context) (_ []RawCopy, err error) {
-	copies := []RawCopy{}
-
-	rows, err := db.db.QueryContext(ctx, `
-		WITH testing AS (SELECT 1)
-		SELECT
-			stream_id, ancestor_stream_id
-		FROM segment_copies
-		ORDER BY stream_id ASC, ancestor_stream_id ASC
-	`)
-	if err != nil {
-		return nil, Error.New("testingGetAllCopies query: %w", err)
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-	for rows.Next() {
-		var copy RawCopy
-		err := rows.Scan(
-			&copy.StreamID,
-			&copy.AncestorStreamID,
-		)
-		if err != nil {
-			return nil, Error.New("testingGetAllCopies scan failed: %w", err)
-		}
-		copies = append(copies, copy)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, Error.New("testingGetAllCopies scan failed: %w", err)
-	}
-
-	if len(copies) == 0 {
-		return nil, nil
-	}
-	return copies, nil
 }

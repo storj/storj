@@ -2,49 +2,46 @@
 // See LICENSE for copying information.
 
 <template>
-    <fragment>
-        <th @click="sortFunction('date')">
-            <div class="th-content">
-                <span>DATE</span>
-                <VerticalArrows
-                    :is-active="arrowController.date"
-                    :direction="dateSortDirection"
-                />
-            </div>
-        </th>
-        <th>
-            <div class="th-content">
-                <span>TRANSACTION</span>
-            </div>
-        </th>
-        <th @click="sortFunction('amount')">
-            <div class="th-content">
-                <span>AMOUNT(USD)</span>
-                <VerticalArrows
-                    :is-active="arrowController.amount"
-                    :direction="amountSortDirection"
-                />
-            </div>
-        </th>
-        <th @click="sortFunction('status')">
-            <div class="th-content">
-                <span>STATUS</span>
-                <VerticalArrows
-                    :is-active="arrowController.status"
-                    :direction="statusSortDirection"
-                />
-            </div>
-        </th>
-        <th class="laptop">
-            <div class="th-content">
-                <span>DETAILS</span>
-            </div>
-        </th>
-    </fragment>
+    <th @click="sortFunction('date')">
+        <div class="th-content">
+            <span>DATE</span>
+            <VerticalArrows
+                :is-active="arrowController.date"
+                :direction="dateSortDirection"
+            />
+        </div>
+    </th>
+    <th>
+        <div class="th-content">
+            <span>TRANSACTION</span>
+        </div>
+    </th>
+    <th @click="sortFunction('amount')">
+        <div class="th-content">
+            <span>AMOUNT(USD)</span>
+            <VerticalArrows
+                :is-active="arrowController.amount"
+                :direction="amountSortDirection"
+            />
+        </div>
+    </th>
+    <th @click="sortFunction('status')">
+        <div class="th-content">
+            <span>STATUS</span>
+            <VerticalArrows
+                :is-active="arrowController.status"
+                :direction="statusSortDirection"
+            />
+        </div>
+    </th>
+    <th class="laptop">
+        <div class="th-content">
+            <span>DETAILS</span>
+        </div>
+    </th>
 </template>
 
 <script setup lang="ts">
-import { Fragment } from 'vue-fragment';
 import { ref } from 'vue';
 
 import { SortDirection } from '@/types/common';
@@ -97,7 +94,7 @@ function sortFunction(key): void {
     text-align: left;
 }
 
-@media screen and (max-width: 1024px) and (min-width: 426px) {
+@media screen and (width <= 1024px) and (width >= 426px) {
 
     .laptop {
         display: none;

@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"storj.io/common/uuid"
 )
@@ -22,10 +20,11 @@ import (
 const DateFormat = "2006-01-02T15:04:05.999Z"
 
 // MustWriteGo writes generated Go code into a file.
+// If an error occurs, it panics.
 func (a *API) MustWriteGo(path string) {
 	generated, err := a.generateGo()
 	if err != nil {
-		panic(errs.Wrap(err))
+		panic(err)
 	}
 
 	err = os.WriteFile(path, generated, 0644)
@@ -41,7 +40,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 	getPackageName := func(path string) string {
 		pathPackages := strings.Split(path, "/")
-		return pathPackages[len(pathPackages)-1]
+		name := pathPackages[len(pathPackages)-1]
+		if name == "main" {
+			panic(errs.New(`invalid package name. Your types cannot be defined in a package named "main"`))
+		}
+
+		return name
 	}
 
 	imports := struct {
@@ -100,7 +104,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 	for _, group := range a.EndpointGroups {
 		i("github.com/zeebo/errs")
-		pf("var Err%sAPI = errs.Class(\"%s %s api\")", cases.Title(language.Und).String(group.Prefix), a.PackageName, group.Prefix)
+		pf(
+			"var Err%sAPI = errs.Class(\"%s %s api\")",
+			capitalize(group.Prefix),
+			a.PackageName,
+			strings.ToLower(group.Prefix),
+		)
 	}
 
 	pf("")
@@ -108,7 +117,7 @@ func (a *API) generateGo() ([]byte, error) {
 	params := make(map[*fullEndpoint][]Param)
 
 	for _, group := range a.EndpointGroups {
-		pf("type %sService interface {", group.Name)
+		pf("type %sService interface {", capitalize(group.Name))
 		for _, e := range group.endpoints {
 			params[e] = append(e.PathParams, e.QueryParams...)
 
@@ -131,9 +140,9 @@ func (a *API) generateGo() ([]byte, error) {
 				if !isNillableType(responseType) {
 					returnParam = "*" + returnParam
 				}
-				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.MethodName, returnParam)
+				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.GoName, returnParam)
 			} else {
-				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.MethodName)
+				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.GoName)
 			}
 		}
 		pf("}")
@@ -141,36 +150,53 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	for _, group := range a.EndpointGroups {
+		cname := capitalize(group.Name)
 		i("go.uber.org/zap", "github.com/spacemonkeygo/monkit/v3")
-		pf("// %sHandler is an api handler that exposes all %s related functionality.", group.Name, group.Prefix)
-		pf("type %sHandler struct {", group.Name)
+		pf(
+			"// %sHandler is an api handler that implements all %s API endpoints functionality.",
+			cname,
+			group.Name,
+		)
+		pf("type %sHandler struct {", cname)
 		pf("log *zap.Logger")
 		pf("mon *monkit.Scope")
-		pf("service %sService", group.Name)
+		pf("service %sService", cname)
 		pf("auth api.Auth")
 		pf("}")
 		pf("")
 	}
 
 	for _, group := range a.EndpointGroups {
+		cname := capitalize(group.Name)
 		i("github.com/gorilla/mux")
 		pf(
 			"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
-			group.Name,
-			group.Name,
-			group.Name,
+			cname,
+			cname,
+			cname,
 		)
-		pf("handler := &%sHandler{", group.Name)
+		pf("handler := &%sHandler{", cname)
 		pf("log: log,")
 		pf("mon: mon,")
 		pf("service: service,")
 		pf("auth: auth,")
 		pf("}")
 		pf("")
-		pf("%sRouter := router.PathPrefix(\"/api/v0/%s\").Subrouter()", group.Prefix, group.Prefix)
+		pf(
+			"%sRouter := router.PathPrefix(\"%s/%s\").Subrouter()",
+			uncapitalize(group.Prefix),
+			a.endpointBasePath(),
+			strings.ToLower(group.Prefix),
+		)
 		for _, endpoint := range group.endpoints {
-			handlerName := "handle" + endpoint.MethodName
-			pf("%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")", group.Prefix, endpoint.Path, handlerName, endpoint.Method)
+			handlerName := "handle" + endpoint.GoName
+			pf(
+				"%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")",
+				uncapitalize(group.Prefix),
+				endpoint.Path,
+				handlerName,
+				endpoint.Method,
+			)
 		}
 		pf("")
 		pf("return handler")
@@ -182,8 +208,8 @@ func (a *API) generateGo() ([]byte, error) {
 		for _, endpoint := range group.endpoints {
 			i("net/http")
 			pf("")
-			handlerName := "handle" + endpoint.MethodName
-			pf("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", group.Name, handlerName)
+			handlerName := "handle" + endpoint.GoName
+			pf("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", capitalize(group.Name), handlerName)
 			pf("ctx := r.Context()")
 			pf("var err error")
 			pf("defer h.mon.Task()(&ctx)(&err)")
@@ -227,7 +253,7 @@ func (a *API) generateGo() ([]byte, error) {
 			}
 
 			methodFormat += ")"
-			pf(methodFormat, endpoint.MethodName)
+			pf(methodFormat, endpoint.GoName)
 			pf("if httpErr.Err != nil {")
 			pf("api.ServeError(h.log, w, httpErr.Status, httpErr.Err)")
 			if endpoint.Response == nil {
@@ -242,7 +268,11 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("")
 			pf("err = json.NewEncoder(w).Encode(retVal)")
 			pf("if err != nil {")
-			pf("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, cases.Title(language.Und).String(group.Prefix))
+			pf(
+				"h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))",
+				endpoint.GoName,
+				capitalize(group.Prefix),
+			)
 			pf("}")
 			pf("}")
 		}
@@ -282,7 +312,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 	output, err := format.Source([]byte(result.String()))
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return output, nil

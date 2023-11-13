@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
 import {
     AccessGrant,
     AccessGrantCursor,
@@ -10,12 +9,13 @@ import {
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { HttpClient } from '@/utils/httpClient';
+import { APIError } from '@/utils/error';
 
 /**
- * AccessGrantsApiGql is a graphql implementation of Access Grants API.
+ * AccessGrantsHttpApi is a http implementation of Access Grants API.
  * Exposes all access grants-related functionality
  */
-export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
+export class AccessGrantsHttpApi implements AccessGrantsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/api-keys';
 
@@ -26,47 +26,20 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async get(projectId: string, cursor: AccessGrantCursor): Promise<AccessGrantsPage> {
-        const query =
-            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-                project (
-                    publicId: $projectId,
-                ) {
-                    apiKeys (
-                        cursor: {
-                            limit: $limit,
-                            search: $search,
-                            page: $page,
-                            order: $order,
-                            orderDirection: $orderDirection
-                        }
-                    ) {
-                        apiKeys {
-                            id,
-                            name,
-                            createdAt
-                        }
-                        search,
-                        limit,
-                        order,
-                        pageCount,
-                        currentPage,
-                        totalCount
-                    }
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/list-paged?projectID=${projectId}&search=${cursor.search}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const response = await this.client.get(path);
 
-        const variables = {
-            projectId: projectId,
-            limit: cursor.limit,
-            search: cursor.search,
-            page: cursor.page,
-            order: cursor.order,
-            orderDirection: cursor.orderDirection,
-        };
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get API keys',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const response = await this.query(query, variables);
+        const apiKeys = await response.json();
 
-        return this.getAccessGrantsPage(response.data.project.apiKeys);
+        return this.getAccessGrantsPage(apiKeys);
     }
 
     /**
@@ -78,31 +51,23 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async create(projectId: string, name: string): Promise<AccessGrant> {
-        const query =
-            `mutation($projectId: String!, $name: String!) {
-                createAPIKey(
-                    publicId: $projectId,
-                    name: $name
-                ) {
-                    key,
-                    keyInfo {
-                        id,
-                        name,
-                        createdAt
-                    }
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/create/${projectId}`;
+        const response = await this.client.post(path, name);
 
-        const variables = {
-            projectId,
-            name,
-        };
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not create new access grant',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const response = await this.mutate(query, variables);
-        const key = response.data.createAPIKey.keyInfo;
-        const secret: string = response.data.createAPIKey.key;
+        const result = await response.json();
 
-        return new AccessGrant(key.id, key.name, key.createdAt, secret);
+        const info = result.keyInfo;
+        const secret: string = result.key;
+
+        return new AccessGrant(info.id, info.name, info.createdAt, secret);
     }
 
     /**
@@ -112,24 +77,43 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async delete(ids: string[]): Promise<void> {
-        const query =
-            `mutation($id: [String!]!) {
-                deleteAPIKeys(id: $id) {
-                    id
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/delete-by-ids`;
+        const response = await this.client.delete(path, JSON.stringify({ ids }));
 
-        const variables = {
-            id: ids,
-        };
-
-        const response = await this.mutate(query, variables);
-
-        return response.data.deleteAPIKeys;
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not delete access grants',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
     }
 
     /**
-     * Used to delete access grant access grant by name and project ID.
+     * Fetch all API key names.
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    public async getAllAPIKeyNames(projectId: string): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/api-key-names?projectID=${projectId}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get access grant names',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const result = await response.json();
+
+        return result ? result : [];
+    }
+
+    /**
+     * Used to delete access grant by name and project ID.
      *
      * @param name - name of the access grant that will be deleted
      * @param projectID - id of the project where access grant was created
@@ -137,13 +121,17 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      */
     public async deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
         const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&publicID=${projectID}`;
-        const response = await this.client.delete(path);
+        const response = await this.client.delete(path, null);
 
         if (response.ok || response.status === 204) {
             return;
         }
 
-        throw new Error('can not delete access grant');
+        throw new APIError({
+            status: response.status,
+            message: 'Can not delete access grant',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -162,7 +150,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         };
         const response = await this.client.post(path, JSON.stringify(body));
         if (!response.ok) {
-            throw new Error('Cannot get gateway credentials');
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get gateway credentials',
+                requestID: response.headers.get('x-request-id'),
+            });
         }
 
         const result = await response.json();
@@ -182,7 +174,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @param page anonymous object from json
      */
     private getAccessGrantsPage(page: any): AccessGrantsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (!page) {
+        if (!(page && page.apiKeys)) {
             return new AccessGrantsPage();
         }
 

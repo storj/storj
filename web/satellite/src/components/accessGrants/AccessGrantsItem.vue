@@ -6,15 +6,17 @@
         :item="itemToRender"
         :on-click="onClick"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
-            <dots-icon />
-            <div v-if="isDropdownOpen" class="grant-item__functional__dropdown">
-                <div class="grant-item__functional__dropdown__item" @click.stop="onDeleteClick">
-                    <delete-icon />
-                    <p class="grant-item__functional__dropdown__item__label">Delete Access</p>
+        <template #options>
+            <th v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
+                <dots-icon />
+                <div v-if="isDropdownOpen" class="grant-item__functional__dropdown">
+                    <div class="grant-item__functional__dropdown__item" @click.stop="onDeleteClick">
+                        <delete-icon />
+                        <p class="grant-item__functional__dropdown__item__label">Delete Access</p>
+                    </div>
                 </div>
-            </div>
-        </th>
+            </th>
+        </template>
     </table-item>
 </template>
 
@@ -124,7 +126,7 @@ async function onDeleteClick(): Promise<void> {
         max-width: 25rem;
     }
 
-    @media screen and (max-width: 940px) {
+    @media screen and (width <= 940px) {
 
         :deep(th) {
             max-width: 10rem;

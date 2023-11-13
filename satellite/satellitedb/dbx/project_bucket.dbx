@@ -1,7 +1,6 @@
 // bucket_metainfo contains information about a bucket in a project.
 model bucket_metainfo (
-	key    id
-	unique project_id name
+	key project_id name
 
 	// id is an UUID for the bucket.
 	field id             blob
@@ -10,14 +9,17 @@ model bucket_metainfo (
 	// name is a unique name inside the project.
 	// it's a alphanumeric string similar to domain names.
 	field name           blob
-	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
-	// deprecated: use user_agent instead.
-	// note: this field is duplicated in value_attribution.project_id.
-	field partner_id     blob   (nullable, updatable)
 	// user_agent is the first User-Agent that was used to upload data,
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in value_attribution.user_agent.
 	field user_agent     blob   (nullable, updatable)
+
+	// versioning is the versioning state of the bucket.
+	//    0 - unsupported (represents a bucket where versioning is not supported)
+	//    1 - unversioned (represents a bucket where versioning has never been enabled)
+	//    2 - enabled (represents a bucket where versioning is enabled)
+	//    3 - suspended (represents a bucket where versioning is currently suspended)
+	field versioning    int (updatable, default 0)
 
 	// path_cipher is denotes how the paths have been encoded.
 	// The corresponding type storj.CipherSuite contains the relevant values.
@@ -65,6 +67,7 @@ model bucket_metainfo (
 	//    3 - US
 	//    4 - DE
 	//    5 - Invalid, when there's no information about the placement.
+	//    6 - NR (no Russia, Belarus or other sanctioned country)
 	field placement int (nullable, updatable)
 )
 
@@ -72,6 +75,12 @@ create bucket_metainfo ()
 update bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
+)
+
+update bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+	where bucket_metainfo.versioning >= ?
 )
 
 read one (
@@ -87,12 +96,6 @@ read one (
 )
 
 read one (
-	select bucket_metainfo.id
-	where bucket_metainfo.project_id = ?
-	where bucket_metainfo.name = ?
-)
-
-read one (
     select bucket_metainfo.placement
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
@@ -100,6 +103,12 @@ read one (
 
 read one (
     select bucket_metainfo.user_agent
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+    select bucket_metainfo.versioning
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )
@@ -134,6 +143,17 @@ read count (
 	where bucket_metainfo.project_id = ?
 )
 
+read limitoffset (
+	select bucket_metainfo.project_id bucket_metainfo.name
+	where bucket_metainfo.project_id >= ?
+	where bucket_metainfo.name > ?
+	groupby bucket_metainfo.project_id bucket_metainfo.name
+	orderby (
+		asc bucket_metainfo.project_id
+		asc bucket_metainfo.name
+	)
+)
+
 // value_attribution table contains information about which user-agent
 // is used to create the project. It's being stored outside of the projects
 // table because this information can be still needed after deleting the
@@ -148,19 +168,19 @@ model value_attribution (
 	// This does not use the id, because we need the attribution to last
 	// beyond the lifetime of bucket_metainfo row.
 	field bucket_name	blob
-	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
-	// deprecated: use user_agent instead.
-	// note: this field is duplicated in bucket_metainfo.project_id.
-	field partner_id	blob
 	// user_agent is the first User-Agent that was used to upload data.
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.
-	field user_agent	blob       ( nullable )
+	field user_agent	blob       ( updatable, nullable )
 	// last_updated is updated whenever the row changes.
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
 create value_attribution ()
+update value_attribution (
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
 
 read one (
     select value_attribution

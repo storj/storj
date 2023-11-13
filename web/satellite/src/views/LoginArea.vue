@@ -13,6 +13,11 @@
                     <template v-else><b>Oops!</b> This account has already been verified.</template>
                 </p>
             </div>
+            <div v-if="inviteInvalid" class="login-area__content-area__activation-banner error">
+                <p class="login-area__content-area__activation-banner__message">
+                    <b>Oops!</b> The invite link you used has expired or is invalid.
+                </p>
+            </div>
             <div class="login-area__content-area__container">
                 <div class="login-area__content-area__container__title-area">
                     <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
@@ -65,6 +70,8 @@
                         <VInput
                             label="Email Address"
                             placeholder="user@example.com"
+                            :init-value="email"
+                            :disabled="!!pathEmail"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"
@@ -76,6 +83,7 @@
                             placeholder="Password"
                             :error="passwordError"
                             is-password
+                            :autocomplete="autocompleteValue"
                             role-description="password"
                             @setData="setPassword"
                         />
@@ -100,22 +108,7 @@
                         Or use recovery code
                     </span>
                 </template>
-                <div v-if="captchaConfig.recaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
-                    <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
-                        <ErrorIcon />
-                        <p class="login-area__content-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
-                    </div>
-                    <VueRecaptcha
-                        ref="recaptcha"
-                        :sitekey="captchaConfig.recaptcha.siteKey"
-                        :load-recaptcha-script="true"
-                        size="invisible"
-                        @verify="onCaptchaVerified"
-                        @expired="onCaptchaError"
-                        @error="onCaptchaError"
-                    />
-                </div>
-                <div v-else-if="captchaConfig.hcaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
+                <div v-if="captchaConfig.hcaptcha.enabled" class="login-area__content-area__container__captcha-wrapper">
                     <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
                         <ErrorIcon />
                         <p class="login-area__content-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
@@ -135,12 +128,10 @@
                     width="100%"
                     height="48px"
                     label="Sign In"
-                    border-radius="50px"
+                    border-radius="6px"
                     :is-disabled="isLoading"
                     :on-press="onLoginClick"
-                >
-                    Sign In
-                </v-button>
+                />
                 <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
                     Cancel
                 </span>
@@ -159,25 +150,26 @@
 </template>
 
 <script setup lang="ts">
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -211,24 +203,33 @@ const isRecoveryCodeState = ref(false);
 const isBadLoginMessageShown = ref(false);
 const isDropdownShown = ref(false);
 
-const returnURL = ref(RouteConfig.ProjectDashboard.path);
+const pathEmail = ref<string | null>(null);
+const inviteInvalid = ref(false);
 
-const recaptcha = ref<VueRecaptcha | null>(null);
+const returnURL = ref(RouteConfig.AllProjectsDashboard.path);
+
 const hcaptcha = ref<VueHcaptcha | null>(null);
-const mfaInput = ref<ConfirmMFAInput & ClearInput | null>(null);
+const mfaInput = ref<typeof ConfirmMFAInput & ClearInput | null>(null);
 
 const forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
 const registerPath: string = RouteConfig.Register.path;
 
 const auth = new AuthHttpApi();
-const analytics = new AnalyticsHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${satelliteName.value.substring(0, 2).toLowerCase()} current-password`;
+});
 
 /**
  * Name of the current satellite.
@@ -241,7 +242,8 @@ const satelliteName = computed((): string => {
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return configStore.state.config.partneredSatellites;
+    const satellites = configStore.state.config.partneredSatellites;
+    return satellites.filter(s => s.name !== satelliteName.value);
 });
 
 /**
@@ -256,14 +258,16 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
-    isActivatedBannerShown.value = !!router.currentRoute.query.activated;
-    isActivatedError.value = router.currentRoute.query.activated === 'false';
-
-    if (configStore.state.config.allProjectsDashboard) {
-        returnURL.value = RouteConfig.AllProjectsDashboard.path;
+    inviteInvalid.value = (route.query.invite_invalid as string ?? null) === 'true';
+    pathEmail.value = route.query.email as string ?? null;
+    if (pathEmail.value) {
+        setEmail(pathEmail.value);
     }
 
-    returnURL.value = router.currentRoute.query.return_url as string || returnURL.value;
+    isActivatedBannerShown.value = !!route.query.activated;
+    isActivatedError.value = route.query.activated === 'false';
+
+    if (route.query.return_url) returnURL.value = route.query.return_url as string;
 });
 
 /**
@@ -330,7 +334,7 @@ function setPassword(value: string): void {
 /**
  * Redirects to chosen satellite.
  */
-function clickSatellite(address): void {
+function clickSatellite(address: string): void {
     window.location.href = address + '/login';
 }
 
@@ -338,6 +342,10 @@ function clickSatellite(address): void {
  * Toggles satellite selection dropdown visibility (Tardigrade).
  */
 function toggleDropdown(): void {
+    if (pathEmail.value) {
+        // this page was opened from an email link, so don't allow satellite selection.
+        return;
+    }
     isDropdownShown.value = !isDropdownShown.value;
 }
 
@@ -373,7 +381,7 @@ async function onLoginClick(): Promise<void> {
         return;
     }
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.id === 'loginDropdown') return;
 
@@ -383,10 +391,6 @@ async function onLoginClick(): Promise<void> {
     }
 
     isLoading.value = true;
-    if (recaptcha.value && !captchaResponseToken.value) {
-        recaptcha.value?.execute();
-        return;
-    }
     if (hcaptcha.value && !captchaResponseToken.value) {
         hcaptcha.value?.execute();
         return;
@@ -410,10 +414,6 @@ async function login(): Promise<void> {
         const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
     } catch (error) {
-        if (recaptcha.value) {
-            recaptcha.value?.reset();
-            captchaResponseToken.value = '';
-        }
         if (hcaptcha.value) {
             hcaptcha.value?.reset();
             captchaResponseToken.value = '';
@@ -427,9 +427,9 @@ async function login(): Promise<void> {
             return;
         }
 
-        if (isMFARequired.value) {
+        if (isMFARequired.value && !(error instanceof ErrorTooManyRequests)) {
             if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                await notify.error(error.message, null);
+                notify.error(error.message);
             }
 
             isMFAError.value = true;
@@ -443,7 +443,7 @@ async function login(): Promise<void> {
             return;
         }
 
-        await notify.error(error.message, null);
+        notify.notifyError(error);
         isLoading.value = false;
         return;
     }
@@ -452,7 +452,7 @@ async function login(): Promise<void> {
     appStore.changeState(FetchState.LOADING);
     isLoading.value = false;
 
-    analytics.pageVisit(returnURL.value);
+    analyticsStore.pageVisit(returnURL.value);
     await router.push(returnURL.value);
 }
 
@@ -481,18 +481,15 @@ function validateFields(): boolean {
         display: flex;
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
-        background-color: #f5f6fa;
+        background-color: #F6F7FA;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
         &__logo-wrapper {
             text-align: center;
-            margin: 70px 0;
+            margin: 60px 0;
         }
 
         &__divider {
@@ -503,7 +500,6 @@ function validateFields(): boolean {
         }
 
         &__input-wrapper {
-            margin-top: 20px;
             width: 100%;
         }
 
@@ -516,13 +512,17 @@ function validateFields(): boolean {
             &__value {
                 font-size: 16px;
                 line-height: 21px;
-                color: #acbace;
+                color: #777;
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
                 border: none;
                 cursor: pointer;
                 background: transparent;
+
+                &:hover {
+                    color: var(--c-blue-3);
+                }
             }
 
             &__dropdown {
@@ -546,13 +546,14 @@ function validateFields(): boolean {
                     color: #7e8b9c;
                     cursor: pointer;
                     text-decoration: none;
+                    border-radius: 6px;
 
                     &__name {
                         font-family: 'font_bold', sans-serif;
                         margin-left: 15px;
                         font-size: 14px;
                         line-height: 20px;
-                        color: #7e8b9c;
+                        color: #333;
                     }
 
                     &:hover {
@@ -597,12 +598,13 @@ function validateFields(): boolean {
             &__container {
                 display: flex;
                 flex-direction: column;
-                padding: 60px 80px;
+                padding: 26px 40px 40px;
                 background-color: #fff;
-                width: 610px;
+                width: 460px;
                 border-radius: 20px;
                 box-sizing: border-box;
                 margin-bottom: 20px;
+                border: 1px solid #eee;
 
                 &__title-area {
                     display: flex;
@@ -610,10 +612,10 @@ function validateFields(): boolean {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 21px;
                         line-height: 49px;
-                        letter-spacing: -0.1007px;
-                        color: #252525;
+                        letter-spacing: -0.1px;
+                        color: #091C45;
                         font-family: 'font_bold', sans-serif;
                         font-weight: 800;
                     }
@@ -640,7 +642,7 @@ function validateFields(): boolean {
                 }
 
                 &__button {
-                    margin-top: 40px;
+                    margin-top: 30px;
                 }
 
                 &__cancel {
@@ -676,8 +678,6 @@ function validateFields(): boolean {
     }
 
     .logo {
-        width: 207px;
-        height: 37px;
         cursor: pointer;
     }
 
@@ -687,8 +687,12 @@ function validateFields(): boolean {
     }
 
     .link {
-        color: #376fff;
         font-family: 'font_medium', sans-serif;
+        color: var(--c-blue-3);
+    }
+
+    .link:hover {
+        color: var(--c-blue-5);
     }
 
     .link:focus {
@@ -731,7 +735,7 @@ function validateFields(): boolean {
         visibility: hidden;
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .login-area {
 
@@ -739,7 +743,7 @@ function validateFields(): boolean {
 
                 &__container {
                     width: 100%;
-                    padding: 60px;
+                    min-width: 360px;
                 }
             }
 
@@ -752,7 +756,7 @@ function validateFields(): boolean {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .login-area {
 
@@ -762,11 +766,6 @@ function validateFields(): boolean {
 
             &__content-area {
                 padding: 0;
-
-                &__container {
-                    padding: 0 20px 20px;
-                    background: transparent;
-                }
             }
         }
     }

@@ -102,9 +102,9 @@ func TestOIDC(t *testing.T) {
 		consoleAddr := sat.API.Console.Listener.Addr().String()
 
 		issuer := "http://" + consoleAddr + "/"
-		authEndpoint := "http://" + consoleAddr + "/oauth/v2/authorize"
-		tokenEndpoint := "http://" + consoleAddr + "/oauth/v2/tokens"
-		userinfoEndpoint := "http://" + consoleAddr + "/oauth/v2/userinfo"
+		authEndpoint := "http://" + consoleAddr + "/api/v0/oauth/v2/authorize"
+		tokenEndpoint := "http://" + consoleAddr + "/api/v0/oauth/v2/tokens"
+		userinfoEndpoint := "http://" + consoleAddr + "/api/v0/oauth/v2/userinfo"
 
 		// Setup test user
 
@@ -131,7 +131,7 @@ func TestOIDC(t *testing.T) {
 
 		authed := console.WithUser(ctx, user)
 
-		project, err := sat.API.Console.Service.CreateProject(authed, console.ProjectInfo{
+		project, err := sat.API.Console.Service.CreateProject(authed, console.UpsertProjectInfo{
 			Name: "test",
 		})
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestOIDC(t *testing.T) {
 
 		// Ensure OpenID Connect's well-known configuration endpoint works.
 
-		wellKnownConfig := fmt.Sprintf("http://%s/.well-known/openid-configuration", consoleAddr)
+		wellKnownConfig := fmt.Sprintf("http://%s/api/v0/.well-known/openid-configuration", consoleAddr)
 
 		cfg := oidc.ProviderConfig{}
 		send(t, nil, &cfg, http.StatusOK, wellKnownConfig)

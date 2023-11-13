@@ -617,6 +617,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 		// manually read v1 piece
 		reader, err := tStore.ReaderWithStorageFormat(ctx, satelliteID, pieceID, filestore.FormatV1)
 		require.NoError(t, err)
+		defer ctx.Check(reader.Close)
 
 		// generate v1 pieceHash and verify signature is still valid
 		v1Header, err := reader.GetPieceHeader()

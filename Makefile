@@ -1,8 +1,8 @@
-GO_VERSION ?= 1.20.3
+GO_VERSION ?= 1.21.3
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
-NODE_VERSION ?= 16.11.1
+NODE_VERSION ?= 18.17.0
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
@@ -73,6 +73,8 @@ build-multinode-npm:
 	cd web/multinode && npm ci
 build-satellite-admin-npm:
 	cd satellite/admin/ui && npm ci
+	# Temporary until the new back-office replaces the current admin API & UI
+	cd satellite/admin/back-office/ui && npm ci
 
 ##@ Simulator
 
@@ -126,7 +128,7 @@ lint:
 		-v ${GOPATH}/pkg:/go/pkg \
 		-v ${PWD}:/storj \
 		-w /storj \
-		storjlabs/ci-slim \
+		storjlabs/ci:slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
 .PHONY: .lint/testsuite/ui
@@ -286,6 +288,14 @@ satellite-admin-ui:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
+	# Temporary until the new back-office replaces the current admin API & UI
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/satellite/admin/back-office/ui \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
+		node:${NODE_VERSION} \
+	  /bin/bash -c "npm ci && npm run build"
 
 .PHONY: satellite-wasm
 satellite-wasm:
@@ -397,9 +407,6 @@ certificates_%:
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: inspector_%
-inspector_%:
-	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONE: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -423,11 +430,11 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, inspector, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -467,7 +474,9 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 			zip -r "$${zipname}.zip" "$${filename}" \
 		; fi \
 	; done
-	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
+	cd "release/${TAG}" \
+		&& sha256sum *.zip > sha256sums \
+		&& gsutil -m cp -r *.zip sha256sums "gs://storj-v3-alpha-builds/${TAG}/"
 
 .PHONY: draft-release
 draft-release:

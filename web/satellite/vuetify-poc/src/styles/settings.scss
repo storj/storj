@@ -1,0 +1,9 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+$font-family: 'Inter Variable', sans-serif;
+
+@use 'vuetify/settings' with (
+  $color-pack: false,
+  $body-font-family: $font-family,
+);

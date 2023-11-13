@@ -6,7 +6,26 @@
         <span v-if="totalItemsCount > 0" class="pagination-container__label">{{ totalItemsCount }} {{ itemsLabel }}</span>
         <span v-else class="pagination-container__label">No {{ itemsLabel }}</span>
 
-        <div v-if="totalPageCount > 1" class="pagination-container__pages">
+        <div v-if="simplePagination" class="pagination-container__pages">
+            <span
+                tabindex="0"
+                class="pagination-container__pages__button"
+                @click="prevPage"
+                @keyup.enter="prevPage"
+            >
+                <PaginationRightIcon class="pagination-container__pages__button__image reversed" />
+            </span>
+
+            <span
+                tabindex="0"
+                class="pagination-container__pages__button"
+                @click="nextPage"
+                @keyup.enter="nextPage"
+            >
+                <PaginationRightIcon class="pagination-container__pages__button__image" />
+            </span>
+        </div>
+        <div v-else-if="totalPageCount > 1" class="pagination-container__pages">
             <template v-for="page of pageItems">
                 <span
                     v-if="page.type === 'prev'"
@@ -57,12 +76,18 @@
         </div>
         <div v-else class="pagination-container__pages-placeholder" />
 
-        <table-size-changer v-if="limit && totalPageCount && totalItemsCount > 10" :item-count="totalItemsCount" class="table-footer__sizer" :selected="pageSize" @change="sizeChanged">Size Changer</table-size-changer>
+        <table-size-changer
+            v-if="(limit && totalPageCount && totalItemsCount > 10) || simplePagination"
+            simple-pagination
+            :item-count="totalItemsCount"
+            :selected="pageSize"
+            @change="sizeChanged"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { PageChangeCallback } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
@@ -80,17 +105,27 @@ interface PaginationControlItem {
 const { withLoading } = useLoading();
 
 const props = withDefaults(defineProps<{
-  itemsLabel?: string,
-  totalPageCount?: number;
-  limit?: number;
-  totalItemsCount?: number;
-  onPageChange?: PageChangeCallback | null;
+    itemsLabel?: string,
+    totalPageCount?: number;
+    limit?: number;
+    totalItemsCount?: number;
+    simplePagination?: boolean;
+    onPageChange?: PageChangeCallback | null;
+    onNextClicked?: (() => Promise<void>) | null;
+    onPreviousClicked?: (() => Promise<void>) | null;
+    onPageSizeChanged?: ((size: number) => Promise<void> | void) | null;
+    pageNumber?: number;
 }>(), {
     itemsLabel: 'items',
     totalPageCount: 0,
     limit: 0,
     totalItemsCount: 0,
+    simplePagination: false,
     onPageChange: null,
+    onNextClicked: null,
+    onPreviousClicked: null,
+    onPageSizeChanged: null,
+    pageNumber: 1,
 });
 
 const currentPageNumber = ref<number>(1);
@@ -154,14 +189,19 @@ const isLastPage = computed((): boolean => {
     return currentPageNumber.value === props.totalPageCount;
 });
 
-async function sizeChanged(size: number) {
-    // if the new size is large enough to cause the page index to  be out of range
-    // we calculate an appropriate new page index.
-    let page = currentPageNumber.value;
-    if (size * props.totalPageCount > props.totalItemsCount) {
-        page = Math.ceil(props.totalItemsCount / size);
-    }
-    await withLoading(async () => {
+function sizeChanged(size: number) {
+    withLoading(async () => {
+        if (props.simplePagination) {
+            if (!props.onPageSizeChanged) {
+                return;
+            }
+            await props.onPageSizeChanged(size);
+            pageSize.value = size;
+        }
+        // if the new size is large enough to cause the page index to be out of range
+        // we calculate an appropriate new page index.
+        const maxPage = Math.ceil(props.totalItemsCount / size);
+        const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
         if (!props.onPageChange) {
             return;
         }
@@ -171,8 +211,8 @@ async function sizeChanged(size: number) {
     });
 }
 
-async function goToPage(index: number) {
-    if (index === currentPageNumber.value) {
+async function goToPage(index?: number): Promise<void> {
+    if (index === undefined || index === currentPageNumber.value) {
         return;
     }
     if (index < 1) {
@@ -181,7 +221,7 @@ async function goToPage(index: number) {
         index = props.totalPageCount ?? 1;
     }
     await withLoading(async () => {
-        if (!props.onPageChange) {
+        if (!props.onPageChange || index === undefined) {
             return;
         }
         await props.onPageChange(index, pageSize.value);
@@ -194,6 +234,10 @@ async function goToPage(index: number) {
  */
 async function nextPage(): Promise<void> {
     await withLoading(async () => {
+        if (props.simplePagination && props.onNextClicked) {
+            await props.onNextClicked();
+            return;
+        }
         if (isLastPage.value || !props.onPageChange) {
             return;
         }
@@ -207,6 +251,10 @@ async function nextPage(): Promise<void> {
  */
 async function prevPage(): Promise<void> {
     await withLoading(async () => {
+        if (props.simplePagination && props.onPreviousClicked) {
+            await props.onPreviousClicked();
+            return;
+        }
         if (isFirstPage.value || !props.onPageChange) {
             return;
         }
@@ -214,6 +262,10 @@ async function prevPage(): Promise<void> {
         currentPageNumber.value--;
     });
 }
+
+watch(() => props.pageNumber, () => {
+    goToPage(props.pageNumber);
+});
 </script>
 
 <style scoped lang="scss">
@@ -257,26 +309,26 @@ async function prevPage(): Promise<void> {
             color: var(--c-grey-6);
             text-align: center;
             line-height: 24px;
-            width: 24px;
-            height: 24px;
+            padding: 2px 5px;
             margin-left: 2px;
             box-sizing: border-box;
+            border: 1px solid transparent;
             cursor: pointer;
 
             &:hover {
-                border: 1px solid var(--c-grey-3);
+                border-color: var(--c-grey-3);
                 border-radius: 5px;
                 line-height: 22px;
             }
 
             &.selected {
                 background: var(--c-grey-2);
-                border: 1px solid var(--c-grey-3);
+                border-color: var(--c-grey-3);
                 border-radius: 5px;
                 line-height: 22px;
             }
 
-            @media only screen and (max-width: 550px) {
+            @media only screen and (width <= 550px) {
 
                 &.index:not(.selected),
                 &.jumper {

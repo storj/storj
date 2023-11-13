@@ -23,10 +23,9 @@ import (
 	segmentverify "storj.io/storj/cmd/tools/segment-verify"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
-
-var maxUUID = uuid.UUID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 func TestService_EmptyRange(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -48,7 +47,7 @@ func TestService_EmptyRange(t *testing.T) {
 
 	defer ctx.Check(service.Close)
 
-	err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+	err = service.ProcessRange(ctx, uuid.UUID{}, uuid.Max())
 	require.NoError(t, err)
 }
 
@@ -271,7 +270,7 @@ func TestService_Failures(t *testing.T) {
 
 		defer ctx.Check(service.Close)
 
-		err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+		err = service.ProcessRange(ctx, uuid.UUID{}, uuid.Max())
 		require.NoError(t, err)
 
 		for node, list := range verifier.processed {
@@ -346,10 +345,10 @@ func (db *metabaseMock) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.
 	}, nil
 }
 
-func (db *metabaseMock) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*overlay.SelectedNode, error) {
-	var xs []*overlay.SelectedNode
+func (db *metabaseMock) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error) {
+	var xs []*nodeselection.SelectedNode
 	for nodeID := range db.nodeIDToAlias {
-		xs = append(xs, &overlay.SelectedNode{
+		xs = append(xs, &nodeselection.SelectedNode{
 			ID: nodeID,
 			Address: &pb.NodeAddress{
 				Address: fmt.Sprintf("nodeid:%v", nodeID),

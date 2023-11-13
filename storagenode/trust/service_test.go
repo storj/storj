@@ -7,9 +7,9 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +19,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -29,172 +32,280 @@ func TestPoolRequiresCachePath(t *testing.T) {
 }
 
 func TestPoolVerifySatelliteID(t *testing.T) {
-	ctx, pool, source, _ := newPoolTest(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		pool, source, _ := newPoolTest(ctx, t, db)
 
-	id := testrand.NodeID()
+		id := testrand.NodeID()
 
-	// Assert the ID is not trusted
-	err := pool.VerifySatelliteID(context.Background(), id)
-	require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		// Assert the ID is not trusted
+		err := pool.VerifySatelliteID(context.Background(), id)
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 
-	// Refresh the pool with the new trust entry
-	source.entries = []trust.Entry{
-		{
-			SatelliteURL: trust.SatelliteURL{
-				ID:   id,
-				Host: "foo.test",
-				Port: 7777,
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id,
+					Host: "foo.test",
+					Port: 7777,
+				},
 			},
-		},
-	}
-	require.NoError(t, pool.Refresh(context.Background()))
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	// Assert the ID is now trusted
-	err = pool.VerifySatelliteID(context.Background(), id)
-	require.NoError(t, err)
+		// Assert the ID is now trusted
+		err = pool.VerifySatelliteID(context.Background(), id)
+		require.NoError(t, err)
 
-	// Refresh the pool after removing the trusted satellite
-	source.entries = nil
-	require.NoError(t, pool.Refresh(context.Background()))
+		// Refresh the pool after removing the trusted satellite
+		source.entries = nil
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	// Assert the ID is no longer trusted
-	err = pool.VerifySatelliteID(context.Background(), id)
-	require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		// Assert the ID is no longer trusted
+		err = pool.VerifySatelliteID(context.Background(), id)
+		require.ErrorIs(t, err, trust.ErrUntrusted)
+	})
 }
 
 func TestPoolGetSignee(t *testing.T) {
-	id := testrand.NodeID()
-	url := trust.SatelliteURL{
-		ID:   id,
-		Host: "foo.test",
-		Port: 7777,
-	}
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		id := testrand.NodeID()
+		url := trust.SatelliteURL{
+			ID:   id,
+			Host: "foo.test",
+			Port: 7777,
+		}
 
-	ctx, pool, source, resolver := newPoolTest(t)
-	defer ctx.Cleanup()
+		pool, source, resolver := newPoolTest(ctx, t, db)
 
-	// ID is untrusted
-	_, err := pool.GetSignee(context.Background(), id)
-	require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
+		// ID is untrusted
+		_, err := pool.GetSignee(context.Background(), id)
+		require.ErrorIs(t, err, trust.ErrUntrusted)
 
-	// Refresh the pool with the new trust entry
-	source.entries = []trust.Entry{{SatelliteURL: url}}
-	require.NoError(t, pool.Refresh(context.Background()))
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{{SatelliteURL: url}}
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	// Identity is uncached and resolving fails
-	_, err = pool.GetSignee(context.Background(), id)
-	require.EqualError(t, err, "trust: no identity")
+		// Identity is uncached and resolving fails
+		_, err = pool.GetSignee(context.Background(), id)
+		require.EqualError(t, err, "trust: no identity")
 
-	// Now make resolving succeed
-	identity := &identity.PeerIdentity{
-		ID:   id,
-		Leaf: &x509.Certificate{},
-	}
-	resolver.SetIdentity(url.NodeURL(), identity)
-	signee, err := pool.GetSignee(context.Background(), id)
-	require.NoError(t, err)
-	assert.Equal(t, id, signee.ID())
+		// Now make resolving succeed
+		identity := &identity.PeerIdentity{
+			ID:   id,
+			Leaf: &x509.Certificate{},
+		}
+		resolver.SetIdentity(url.NodeURL(), identity)
+		signee, err := pool.GetSignee(context.Background(), id)
+		require.NoError(t, err)
+		assert.Equal(t, id, signee.ID())
 
-	// Now make resolving fail but ensure we can still get the signee since
-	// the identity is cached.
-	resolver.SetIdentity(url.NodeURL(), nil)
-	signee, err = pool.GetSignee(context.Background(), id)
-	require.NoError(t, err)
-	assert.Equal(t, id, signee.ID())
+		// Now make resolving fail but ensure we can still get the signee since
+		// the identity is cached.
+		resolver.SetIdentity(url.NodeURL(), nil)
+		signee, err = pool.GetSignee(context.Background(), id)
+		require.NoError(t, err)
+		assert.Equal(t, id, signee.ID())
 
-	// Now update the address on the entry and assert that the identity is
-	// reset in the cache and needs to be refetched (and fails since we've
-	// hampered the resolver)
-	url.Host = "bar.test"
-	source.entries = []trust.Entry{{SatelliteURL: url}}
-	require.NoError(t, pool.Refresh(context.Background()))
-	_, err = pool.GetSignee(context.Background(), id)
-	require.EqualError(t, err, "trust: no identity")
+		// Now update the address on the entry and assert that the identity is
+		// reset in the cache and needs to be refetched (and fails since we've
+		// hampered the resolver)
+		url.Host = "bar.test"
+		source.entries = []trust.Entry{{SatelliteURL: url}}
+		require.NoError(t, pool.Refresh(context.Background()))
+		_, err = pool.GetSignee(context.Background(), id)
+		require.EqualError(t, err, "trust: no identity")
+	})
 }
 
 func TestPoolGetSatellites(t *testing.T) {
-	ctx, pool, source, _ := newPoolTest(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		pool, source, _ := newPoolTest(ctx, t, db)
 
-	id1 := testrand.NodeID()
-	id2 := testrand.NodeID()
+		id1 := testrand.NodeID()
+		id2 := testrand.NodeID()
 
-	// Refresh the pool with the new trust entry
-	source.entries = []trust.Entry{
-		{
-			SatelliteURL: trust.SatelliteURL{
-				ID:   id1,
-				Host: "foo.test",
-				Port: 7777,
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id1,
+					Host: "foo.test",
+					Port: 7777,
+				},
 			},
-		},
-		{
-			SatelliteURL: trust.SatelliteURL{
-				ID:   id2,
-				Host: "bar.test",
-				Port: 7777,
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
 			},
-		},
-	}
-	require.NoError(t, pool.Refresh(context.Background()))
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	expected := []storj.NodeID{id1, id2}
-	actual := pool.GetSatellites(context.Background())
-	assert.ElementsMatch(t, expected, actual)
+		expected := []storj.NodeID{id1, id2}
+		actual := pool.GetSatellites(context.Background())
+		assert.ElementsMatch(t, expected, actual)
+	})
+}
+
+func TestPool_SatelliteDB_Status(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		source := &fakeSource{}
+
+		resolver := newFakeIdentityResolver()
+
+		log := zaptest.NewLogger(t)
+		config := trust.Config{
+			Sources:         []trust.Source{source},
+			CachePath:       ctx.File("trust-cache.json"),
+			RefreshInterval: 0 * time.Second,
+		}
+
+		pool, err := trust.NewPool(log, resolver, config, db.Satellites())
+		require.NoError(t, err)
+
+		id1 := testrand.NodeID()
+		id2 := testrand.NodeID()
+
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id1,
+					Host: "foo.test",
+					Port: 7777,
+				},
+			},
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+
+		require.NoError(t, pool.Refresh(context.Background()))
+
+		sats, err := db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+		require.Equal(t, satellites.Normal, sats[0].Status)
+		require.Equal(t, satellites.Normal, sats[1].Status)
+
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
+		sats, err = db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+
+		for i := 0; i < len(sats); i++ {
+			switch sats[i].SatelliteID {
+			case id1:
+				require.Equal(t, satellites.Untrusted, sats[i].Status)
+			case id2:
+				require.Equal(t, satellites.Normal, sats[i].Status)
+			default:
+				t.Fatal("unexpected satellite")
+			}
+		}
+
+		expected := []storj.NodeID{id2}
+		actual := pool.GetSatellites(context.Background())
+		assert.ElementsMatch(t, expected, actual)
+
+		// test cases when the untrusted satellite is now trusted
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id1,
+					Host: "foo.test",
+					Port: 7777,
+				},
+			},
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id2,
+					Host: "bar.test",
+					Port: 7777,
+				},
+			},
+		}
+
+		require.NoError(t, pool.Refresh(context.Background()))
+		sats, err = db.Satellites().GetSatellites(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(sats))
+		require.Equal(t, satellites.Normal, sats[0].Status)
+		require.Equal(t, satellites.Normal, sats[1].Status)
+
+		expected = []storj.NodeID{id1, id2}
+		actual = pool.GetSatellites(context.Background())
+		assert.ElementsMatch(t, expected, actual)
+	})
 }
 
 func TestPoolGetAddress(t *testing.T) {
-	ctx, pool, source, _ := newPoolTest(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		pool, source, _ := newPoolTest(ctx, t, db)
 
-	id := testrand.NodeID()
+		id := testrand.NodeID()
 
-	// Assert the ID is not trusted
-	nodeurl, err := pool.GetNodeURL(context.Background(), id)
-	require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
-	require.Empty(t, nodeurl)
+		// Assert the ID is not trusted
+		nodeurl, err := pool.GetNodeURL(context.Background(), id)
+		require.ErrorIs(t, err, trust.ErrUntrusted)
+		require.Empty(t, nodeurl)
 
-	// Refresh the pool with the new trust entry
-	source.entries = []trust.Entry{
-		{
-			SatelliteURL: trust.SatelliteURL{
-				ID:   id,
-				Host: "foo.test",
-				Port: 7777,
+		// Refresh the pool with the new trust entry
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id,
+					Host: "foo.test",
+					Port: 7777,
+				},
 			},
-		},
-	}
-	require.NoError(t, pool.Refresh(context.Background()))
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	// Assert the ID is now trusted and the correct address is returned
-	nodeurl, err = pool.GetNodeURL(context.Background(), id)
-	require.NoError(t, err)
-	require.Equal(t, id, nodeurl.ID)
-	require.Equal(t, "foo.test:7777", nodeurl.Address)
+		// Assert the ID is now trusted and the correct address is returned
+		nodeurl, err = pool.GetNodeURL(context.Background(), id)
+		require.NoError(t, err)
+		require.Equal(t, id, nodeurl.ID)
+		require.Equal(t, "foo.test:7777", nodeurl.Address)
 
-	// Refresh the pool with an updated trust entry with a new address
-	source.entries = []trust.Entry{
-		{
-			SatelliteURL: trust.SatelliteURL{
-				ID:   id,
-				Host: "bar.test",
-				Port: 7777,
+		// Refresh the pool with an updated trust entry with a new address
+		source.entries = []trust.Entry{
+			{
+				SatelliteURL: trust.SatelliteURL{
+					ID:   id,
+					Host: "bar.test",
+					Port: 7777,
+				},
 			},
-		},
-	}
-	require.NoError(t, pool.Refresh(context.Background()))
+		}
+		require.NoError(t, pool.Refresh(context.Background()))
 
-	// Assert the ID is now trusted and the correct address is returned
-	nodeurl, err = pool.GetNodeURL(context.Background(), id)
-	require.NoError(t, err)
-	require.Equal(t, id, nodeurl.ID)
-	require.Equal(t, "bar.test:7777", nodeurl.Address)
+		// Assert the ID is now trusted and the correct address is returned
+		nodeurl, err = pool.GetNodeURL(context.Background(), id)
+		require.NoError(t, err)
+		require.Equal(t, id, nodeurl.ID)
+		require.Equal(t, "bar.test:7777", nodeurl.Address)
+	})
 }
 
-func newPoolTest(t *testing.T) (*testcontext.Context, *trust.Pool, *fakeSource, *fakeIdentityResolver) {
-	ctx := testcontext.New(t)
-
+func newPoolTest(ctx *testcontext.Context, t *testing.T, db storagenode.DB) (*trust.Pool, *fakeSource, *fakeIdentityResolver) {
 	source := &fakeSource{}
 
 	resolver := newFakeIdentityResolver()
@@ -203,13 +314,13 @@ func newPoolTest(t *testing.T) (*testcontext.Context, *trust.Pool, *fakeSource, 
 	pool, err := trust.NewPool(log, resolver, trust.Config{
 		Sources:   []trust.Source{source},
 		CachePath: ctx.File("trust-cache.json"),
-	}, nil)
+	}, db.Satellites())
 	if err != nil {
 		ctx.Cleanup()
 		require.NoError(t, err)
 	}
 
-	return ctx, pool, source, resolver
+	return pool, source, resolver
 }
 
 type fakeIdentityResolver struct {

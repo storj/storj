@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -63,22 +64,6 @@ func TestListObjects(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Status is invalid", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.ListObjects{
-				Opts: metabase.ListObjects{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					Limit:      3,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Status is invalid",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
 		t.Run("no objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -86,7 +71,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
-					Status:     metabase.Committed,
+					Pending:    false,
 				},
 				Result: metabase.ListObjectsResult{},
 			}.Check(ctx, t, db)
@@ -105,7 +90,7 @@ func TestListObjects(t *testing.T) {
 					expected[i] = metabase.ObjectEntry{
 						IsPrefix:  true,
 						ObjectKey: obj.ObjectKey[:delimiterIndex+1],
-						Status:    3,
+						Status:    metabase.Prefix,
 					}
 				} else {
 					expected[i] = objectEntryFromRaw(obj)
@@ -116,7 +101,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "mybucket",
 					Recursive:             false,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					Limit:                 limit,
@@ -143,7 +128,7 @@ func TestListObjects(t *testing.T) {
 					BucketName:            "mybucket",
 					Recursive:             true,
 					Limit:                 limit,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -172,7 +157,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "bucket-a",
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -202,7 +187,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             uuid.UUID{1},
 					BucketName:            "mybucket",
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -236,7 +221,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
@@ -259,11 +244,11 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: 10},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
@@ -283,7 +268,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -307,7 +292,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -326,7 +311,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -346,7 +331,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -365,7 +350,7 @@ func TestListObjects(t *testing.T) {
 					ProjectID:             projectID,
 					BucketName:            bucketName,
 					Recursive:             true,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -396,16 +381,16 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						objects["a"],
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -414,17 +399,17 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.ListObjectsCursor{Key: "a", Version: 10},
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -433,7 +418,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -441,9 +426,9 @@ func TestListObjects(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry("b/", metabase.Committed),
+						prefixEntry("b/"),
 						objects["c"],
-						prefixEntry("c/", metabase.Committed),
+						prefixEntry("c/"),
 						objects["g"],
 					}},
 			}.Check(ctx, t, db)
@@ -452,7 +437,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -470,7 +455,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -489,7 +474,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -507,7 +492,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -521,7 +506,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -531,7 +516,7 @@ func TestListObjects(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: withoutPrefix("c/",
 						objects["c/"],
-						prefixEntry("c//", metabase.Committed),
+						prefixEntry("c//"),
 						objects["c/1"],
 					)},
 			}.Check(ctx, t, db)
@@ -540,7 +525,7 @@ func TestListObjects(t *testing.T) {
 				Opts: metabase.ListObjects{
 					ProjectID:             projectID,
 					BucketName:            bucketName,
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
@@ -579,14 +564,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -600,14 +585,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/")),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -621,13 +606,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -651,14 +636,14 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/")),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -672,13 +657,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -692,13 +677,13 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -736,18 +721,18 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					Prefix:     metabase.ObjectKey("2017/05/"),
 					Cursor: metabase.ListObjectsCursor{
 						Key:     metabase.ObjectKey("2017/05/08"),
-						Version: 1,
+						Version: objects["2017/05/08"].Version,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("08/")),
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -762,15 +747,15 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 
@@ -784,15 +769,15 @@ func TestListObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:                metabase.Committed,
+					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
-						prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
-						prefixEntry(metabase.ObjectKey("10/"), metabase.Committed),
+						prefixEntry(metabase.ObjectKey("09/")),
+						prefixEntry(metabase.ObjectKey("10/")),
 					}},
 			}.Check(ctx, t, db)
 		})
@@ -829,7 +814,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 				result, err := db.ListObjects(ctx, metabase.ListObjects{
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
-					Status:     metabase.Committed,
+					Pending:    false,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -838,7 +823,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						ProjectID:  baseObj.ProjectID,
 						BucketName: baseObj.BucketName,
 						Cursor:     metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
-						Status:     metabase.Committed,
+						Pending:    false,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)
@@ -852,7 +837,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "foo/",
-					Status:     metabase.Committed,
+					Pending:    false,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -863,7 +848,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						BucketName: baseObj.BucketName,
 						Prefix:     "foo/",
 						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Status:     metabase.Committed,
+						Pending:    false,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)
@@ -877,7 +862,7 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "boo/",
-					Status:     metabase.Committed,
+					Pending:    false,
 					Limit:      batchsize,
 				})
 				require.NoError(b, err)
@@ -888,13 +873,889 @@ func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 						BucketName: baseObj.BucketName,
 						Prefix:     "boo/",
 						Cursor:     metabase.ListObjectsCursor{Key: cursorKey},
-						Status:     metabase.Committed,
+						Pending:    false,
 						Limit:      batchsize,
 					})
 					require.NoError(b, err)
 
 				}
 			}
+		})
+	})
+}
+
+func TestListObjectsVersioned(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+
+		t.Run("2 objects, one with versions one without", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			b1 := b0
+			b1.Version = 500
+
+			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRaw(metabase.RawObject(objA0)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objA0),
+					metabase.RawObject(objB0),
+					metabase.RawObject(objB1),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("3 objects, one with versions one without and one pending", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			b0 := metabasetest.RandObjectStream()
+			c0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+			c0.ProjectID = a0.ProjectID
+			c0.BucketName = a0.BucketName
+			c0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			b1 := b0
+			b1.Version = 500
+
+			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
+			metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRaw(metabase.RawObject(objA0)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objA0),
+					metabase.RawObject(objB0),
+					metabase.RawObject(objB1),
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  c0.ProjectID,
+							BucketName: c0.BucketName,
+							ObjectKey:  c0.ObjectKey,
+							Version:    1000,
+							StreamID:   c0.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("2 objects one with versions and one pending, list pending", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			a0.Version = 1000
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			a1 := a0
+			a1.Version = 1001
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  b0.ProjectID,
+						BucketName: b0.BucketName,
+						ObjectKey:  b0.ObjectKey,
+						Version:    b0.Version,
+						StreamID:   b0.StreamID,
+					},
+					Encryption: metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
+			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               true,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						{
+							ObjectKey: b0.ObjectKey,
+							Version:   1000,
+							StreamID:  b0.StreamID,
+							CreatedAt: now,
+							Status:    metabase.Pending,
+
+							Encryption: metabasetest.DefaultEncryption,
+						},
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objA0),
+					metabase.RawObject(objA1),
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  b0.ProjectID,
+							BucketName: b0.BucketName,
+							ObjectKey:  b0.ObjectKey,
+							Version:    1000,
+							StreamID:   b0.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("2 objects, each with 2 versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			a0.Version = 1000
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			a1 := a0
+			a1.Version = 1001
+			b1 := b0
+			b1.Version = 500
+
+			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
+			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRaw(metabase.RawObject(objA1)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objA0),
+					metabase.RawObject(objA1),
+					metabase.RawObject(objB0),
+					metabase.RawObject(objB1),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("2 objects, each with two versions and one with delete_marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			a0.Version = 1000
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			a1 := a0
+			a1.Version = 1001
+			b1 := b0
+			b1.Version = 500
+
+			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
+			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objA0.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objA0.ProjectID,
+								BucketName: objA0.BucketName,
+								ObjectKey:  objA0.ObjectKey,
+								Version:    1002,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRaw(metabase.RawObject(objB1)),
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(deletionResult.Markers[0]),
+					metabase.RawObject(objA0),
+					metabase.RawObject(objA1),
+					metabase.RawObject(objB0),
+					metabase.RawObject(objB1),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("2 objects, each with two versions and multiple delete_markers", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			a0.Version = 1000
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				b0.ObjectKey, a0.ObjectKey = a0.ObjectKey, b0.ObjectKey
+			}
+
+			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+
+			deletionResultA0 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objA0.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objA0.ProjectID,
+								BucketName: objA0.BucketName,
+								ObjectKey:  objA0.ObjectKey,
+								Version:    1001,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			deletionResultB0 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objB0.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objB0.ProjectID,
+								BucketName: objB0.BucketName,
+								ObjectKey:  objB0.ObjectKey,
+								Version:    1001,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			a1 := a0
+			a1.Version = 1002
+			b1 := b0
+			b1.Version = 1002
+
+			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
+			objB1 := metabasetest.CreateObjectVersioned(ctx, t, db, b1, 0)
+
+			deletionResultA1 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objA1.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objA1.ProjectID,
+								BucketName: objA1.BucketName,
+								ObjectKey:  objA1.ObjectKey,
+								Version:    1003,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			deletionResultB1 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objB1.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objB1.ProjectID,
+								BucketName: objB1.BucketName,
+								ObjectKey:  objB1.ObjectKey,
+								Version:    1003,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(deletionResultA1.Markers[0]),
+					metabase.RawObject(deletionResultB1.Markers[0]),
+					metabase.RawObject(objA1),
+					metabase.RawObject(objB1),
+					metabase.RawObject(deletionResultA0.Markers[0]),
+					metabase.RawObject(deletionResultB0.Markers[0]),
+					metabase.RawObject(objA0),
+					metabase.RawObject(objB0),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("3 objects, 1 unversioned, 2 with multiple versions, 1 with and 1 without delete_marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			a0 := metabasetest.RandObjectStream()
+			b0 := metabasetest.RandObjectStream()
+			b0.ProjectID = a0.ProjectID
+			b0.BucketName = a0.BucketName
+			b0.Version = 1000
+			c0 := metabasetest.RandObjectStream()
+			c0.ProjectID = a0.ProjectID
+			c0.BucketName = a0.BucketName
+			c0.Version = 1000
+
+			if a0.ObjectKey > b0.ObjectKey {
+				a0.ObjectKey, b0.ObjectKey = b0.ObjectKey, a0.ObjectKey
+			}
+			if a0.ObjectKey > c0.ObjectKey {
+				a0.ObjectKey, c0.ObjectKey = c0.ObjectKey, a0.ObjectKey
+			}
+			if b0.ObjectKey > c0.ObjectKey {
+				b0.ObjectKey, c0.ObjectKey = c0.ObjectKey, b0.ObjectKey
+			}
+
+			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
+			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
+			objC0 := metabasetest.CreateObjectVersioned(ctx, t, db, c0, 0)
+
+			deletionResultC0 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objC0.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  objC0.ProjectID,
+								BucketName: objC0.BucketName,
+								ObjectKey:  objC0.ObjectKey,
+								Version:    1001,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			b1 := b0
+			b1.Version = 1001
+			c1 := c0
+			c1.Version = 1002
+
+			objB1 := metabasetest.CreateObjectVersioned(ctx, t, db, b1, 0)
+			objC1 := metabasetest.CreateObjectVersioned(ctx, t, db, c1, 0)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             a0.ProjectID,
+					BucketName:            a0.BucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRaw(metabase.RawObject(objA0)),
+						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRaw(metabase.RawObject(objC1)),
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objC1),
+					metabase.RawObject(objB1),
+					metabase.RawObject(deletionResultC0.Markers[0]),
+					metabase.RawObject(objC0),
+					metabase.RawObject(objB0),
+					metabase.RawObject(objA0),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("list recursive objects with versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
+				"a":   {1000, 1001},
+				"b/1": {1000, 1001},
+				"b/2": {1000, 1001},
+				"b/3": {1000, 1001},
+				"c":   {1000, 1001},
+				"c/":  {1000, 1001},
+				"c//": {1000, 1001},
+				"c/1": {1000, 1001},
+				"g":   {1000, 1001},
+			})
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["a"],
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+						objects["c"],
+						objects["c/"],
+						objects["c//"],
+						objects["c/1"],
+						objects["g"],
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+						objects["c"],
+						objects["c/"],
+						objects["c//"],
+						objects["c/1"],
+						objects["g"],
+					}},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{Key: "b", Version: 0},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+						objects["c"],
+						objects["c/"],
+						objects["c//"],
+						objects["c/1"],
+						objects["g"],
+					},
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+					),
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "a"},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+					),
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "b/2", Version: -3},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/2"],
+						objects["b/3"],
+					),
+				}}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "c/"},
+				},
+				Result: metabase.ListObjectsResult{},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("list non-recursive objects with versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
+				"a":   {1000, 1001},
+				"b/1": {1000, 1001},
+				"b/2": {1000, 1001},
+				"b/3": {1000, 1001},
+				"c":   {1000, 1001},
+				"c/":  {1000, 1001},
+				"c//": {1000, 1001},
+				"c/1": {1000, 1001},
+				"g":   {1000, 1001},
+			})
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objects["a"],
+						prefixEntry("b/"),
+						objects["c"],
+						prefixEntry("c/"),
+						objects["g"],
+					}},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{Key: "a", Version: objects["a"].Version + 1},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						prefixEntry("b/"),
+						objects["c"],
+						prefixEntry("c/"),
+						objects["g"],
+					}},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Cursor: metabase.ListObjectsCursor{Key: "b", Version: 0},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						prefixEntry("b/"),
+						objects["c"],
+						prefixEntry("c/"),
+						objects["g"],
+					}},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "a"},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/1"],
+						objects["b/2"],
+						objects["b/3"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "b/2", Version: -3},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("b/",
+						objects["b/2"],
+						objects["b/3"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "b/",
+					Cursor: metabase.ListObjectsCursor{Key: "c/"},
+				},
+				Result: metabase.ListObjectsResult{},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "c/",
+					Cursor: metabase.ListObjectsCursor{Key: "c/"},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("c/",
+						objects["c/"],
+						prefixEntry("c//"),
+						objects["c/1"],
+					)},
+			}.Check(ctx, t, db)
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+
+					Prefix: "c//",
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("c//",
+						objects["c//"],
+					)},
+			}.Check(ctx, t, db)
 		})
 	})
 }

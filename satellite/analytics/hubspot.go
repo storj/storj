@@ -33,10 +33,8 @@ const (
 	professionalFormID = "cc693502-9d55-4204-ae61-406a19148cfe"
 	// This form(ID) is the personal account form.
 	basicFormID = "77cfa709-f533-44b8-bf3a-ed1278ca3202"
-	// The hubspot lifecycle stage of business accounts (Product Qualified Lead).
-	businessLifecycleStage = "66198674"
-	// The hubspot lifecycle stage of personal accounts.
-	personalLifecycleStage = "other"
+	// The hubspot lifecycle stage of all new accounts (Product Qualified Lead).
+	lifecycleStage = "66198674"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
@@ -132,7 +130,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		firstName = fullName
 	}
 
-	newField := func(name, value string) map[string]interface{} {
+	newField := func(name string, value interface{}) map[string]interface{} {
 		return map[string]interface{}{
 			"name":  name,
 			"value": value,
@@ -148,6 +146,10 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		newField("account_created", "true"),
 		newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
 		newField("signup_partner", fields.UserAgent),
+		newField("lifecyclestage", lifecycleStage),
+	}
+	if fields.SignupCaptcha != nil {
+		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
 	}
 
 	properties := map[string]interface{}{
@@ -164,7 +166,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	var formURL string
 
 	if fields.Type == Professional {
-		formFields = append(formFields, newField("lifecyclestage", businessLifecycleStage))
 		formFields = append(formFields, newField("company", fields.CompanyName))
 		formFields = append(formFields, newField("storage_needs", fields.StorageNeeds))
 
@@ -172,8 +173,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 
 		formURL = fmt.Sprintf(hubspotFormTemplate, professionalFormID)
 	} else {
-		formFields = append(formFields, newField("lifecyclestage", personalLifecycleStage))
-
 		formURL = fmt.Sprintf(hubspotFormTemplate, basicFormID)
 	}
 
@@ -204,27 +203,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
 	default:
 		q.log.Error("create user hubspot event failed, event channel is full")
-	}
-}
-
-// EnqueueEvent for sending user behavioral event to HubSpot.
-func (q *HubSpotEvents) EnqueueEvent(email, eventName string, properties map[string]interface{}) {
-	eventName = strings.ReplaceAll(eventName, " ", "_")
-	eventName = strings.ToLower(eventName)
-	eventName = eventPrefix + "_" + eventName
-
-	newEvent := HubSpotEvent{
-		Endpoint: "https://api.hubapi.com/events/v3/send",
-		Data: map[string]interface{}{
-			"email":      email,
-			"eventName":  eventName,
-			"properties": properties,
-		},
-	}
-	select {
-	case q.events <- []HubSpotEvent{newEvent}:
-	default:
-		q.log.Error("sending hubspot event failed, event channel is full")
 	}
 }
 

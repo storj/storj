@@ -17,8 +17,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import ErrorPage from '@/views/ErrorPage.vue';
 
+import ErrorPage from '@/views/ErrorPage.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
@@ -31,7 +31,7 @@ const isLoading = ref<boolean>(true);
 /**
  * Indicates whether an error page should be shown in place of the router view.
  */
-const isErrorPageShown = computed((): boolean => {
+const isErrorPageShown = computed<boolean>((): boolean => {
     return appStore.state.error.visible;
 });
 
@@ -72,7 +72,7 @@ onMounted(async (): Promise<void> => {
         await configStore.getConfig();
     } catch (error) {
         appStore.setErrorPage(500, true);
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     fixViewportHeight();
@@ -121,9 +121,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     @font-face {
@@ -133,9 +131,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     @font-face {
@@ -145,9 +141,7 @@ onBeforeUnmount((): void => {
         font-display: swap;
         src:
             local(''),
-            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
-            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
-            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
+            url('@fontsource-variable/inter/files/inter-latin-standard-normal.woff2') format('woff2');
     }
 
     a {
@@ -166,6 +160,7 @@ onBeforeUnmount((): void => {
 
     ::-webkit-scrollbar {
         width: 4px;
+        height: 4px;
     }
 
     ::-webkit-scrollbar-track {
@@ -176,5 +171,9 @@ onBeforeUnmount((): void => {
         background: #afb7c1;
         border-radius: 6px;
         height: 5px;
+    }
+
+    ::-webkit-scrollbar-corner {
+        background-color: transparent;
     }
 </style>

@@ -30,6 +30,8 @@ func TestChore(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+					// this test can be removed when we are using time-based GE everywhere
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(4, 6, 8, 8),
 			),
@@ -147,6 +149,8 @@ func TestChoreDurabilityRatio(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+					// this test can be removed when we are using time-based GE everywhere
+					config.GracefulExit.TimeBased = false
 				},
 				testplanet.ReconfigureRS(2, 3, successThreshold, 4),
 			),

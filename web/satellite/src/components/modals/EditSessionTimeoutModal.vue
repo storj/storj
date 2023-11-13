@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="withLoading(onClose)">
+    <VModal :on-close="() => withLoading(onClose)">
         <template #content>
             <div class="timeout-modal">
                 <div class="timeout-modal__header">
@@ -18,8 +18,10 @@
 
                 <div class="timeout-modal__divider" />
 
-                <p class="timeout-modal__label">Session timeout duration</p>
-                <timeout-selector :selected="sessionDuration" @select="durationChange" />
+                <div>
+                    <p class="timeout-modal__label">Session timeout duration</p>
+                    <timeout-selector :selected="sessionDuration" @select="durationChange" />
+                </div>
 
                 <div class="timeout-modal__divider" />
 
@@ -27,22 +29,20 @@
                     <VButton
                         label="Cancel"
                         width="100%"
-                        height="40px"
                         border-radius="10px"
                         font-size="13px"
                         is-white
-                        class="timeout-modal__buttons__button"
-                        :on-press="withLoading(onClose)"
+                        class="timeout-modal__buttons__button cancel"
+                        :on-press="() => withLoading(onClose)"
                         :is-disabled="isLoading"
                     />
                     <VButton
                         label="Save"
                         width="100%"
-                        height="40px"
                         border-radius="10px"
                         font-size="13px"
-                        class="timeout-modal__buttons__button save"
-                        :on-press="withLoading(save)"
+                        class="timeout-modal__buttons__button"
+                        :on-press="() => withLoading(save)"
                         :is-disabled="isLoading || !hasChanged"
                     />
                 </div>
@@ -59,6 +59,7 @@ import { Duration } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -69,8 +70,8 @@ import Icon from '@/../static/images/session/inactivityTimer.svg';
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
-const isLoading = ref(false);
 const sessionDuration = ref<Duration | null>(null);
 
 /**
@@ -116,7 +117,7 @@ async function save() {
         notify.success(`Session timeout changed successfully. Your session timeout is ${sessionDuration.value?.shortString}.`);
         onClose();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.EDIT_TIMEOUT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.EDIT_TIMEOUT_MODAL);
     } finally {
         isLoading.value = false;
     }
@@ -128,75 +129,80 @@ async function save() {
 function onClose(): void {
     appStore.removeActiveModal();
 }
-
-/**
- * Returns a function that disables modal interaction during execution.
- */
-function withLoading(fn: () => Promise<void>): () => Promise<void> {
-    return async () => {
-        if (isLoading.value) return;
-        isLoading.value = true;
-        await fn();
-        isLoading.value = false;
-    };
-}
 </script>
 
 <style scoped lang="scss">
 .timeout-modal {
+    width: calc(100vw - 48px);
+    max-width: 410px;
     padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     box-sizing: border-box;
     font-family: 'font_regular', sans-serif;
     text-align: left;
+
+    @media screen and (width <= 400px) {
+        width: 100vw;
+    }
 
     &__header {
         display: flex;
         align-items: center;
         gap: 20px;
-        margin-bottom: 20px;
 
-        @media screen and (max-width: 500px) {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
+        &__icon {
+            height: 40px;
+            width: 40px;
+            flex-shrink: 0;
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 36px;
+            font-size: 24px;
+            line-height: 31px;
         }
     }
 
     &__divider {
-        margin: 20px 0;
-        border: 1px solid var(--c-grey-2);
+        height: 1px;
+        background-color: var(--c-grey-2);
     }
 
     &__info {
         font-family: 'font_regular', sans-serif;
-        font-size: 16px;
-        line-height: 24px;
+        font-size: 14px;
+        line-height: 20px;
     }
 
     &__label {
-        font-family: 'font_regular', sans-serif;
+        margin-bottom: 4px;
+        font-family: 'font_medium', sans-serif;
         font-size: 14px;
-        line-height: 24px;
-        margin-bottom: 10px;
+        line-height: 20px;
+        color: var(--c-blue-6);
     }
 
     &__buttons {
         display: flex;
         gap: 16px;
 
-        @media screen and (max-width: 500px) {
+        @media screen and (width <= 500px) {
             flex-direction: column-reverse;
         }
 
         &__button {
             padding: 16px;
             box-sizing: border-box;
+
+            &.cancel {
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+
+                :deep(.label) {
+                    color: var(--c-black) !important;
+                }
+            }
         }
     }
 }

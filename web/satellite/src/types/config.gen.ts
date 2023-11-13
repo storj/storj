@@ -13,7 +13,7 @@ export class FrontendConfig {
     satelliteName: string;
     satelliteNodeURL: string;
     stripePublicKey: string;
-    partneredSatellites: PartneredSatellite[];
+    partneredSatellites?: PartneredSatellite[];
     defaultProjectLimit: number;
     generalRequestURL: string;
     projectLimitsIncreaseRequestURL: string;
@@ -26,13 +26,12 @@ export class FrontendConfig {
     couponCodeSignupUIEnabled: boolean;
     fileBrowserFlowDisabled: boolean;
     linksharingURL: string;
+    publicLinksharingURL: string;
     pathwayOverviewEnabled: boolean;
     captcha: CaptchaConfig;
-    allProjectsDashboard: boolean;
+    limitsAreaEnabled: boolean;
     defaultPaidStorageLimit: MemorySize;
     defaultPaidBandwidthLimit: MemorySize;
-    newBillingScreen: boolean;
-    newAccessGrantFlow: boolean;
     inactivityTimerEnabled: boolean;
     inactivityTimerDuration: number;
     inactivityTimerViewerEnabled: boolean;
@@ -43,6 +42,17 @@ export class FrontendConfig {
     passwordMaximumLength: number;
     abTestingEnabled: boolean;
     pricingPackagesEnabled: boolean;
+    newUploadModalEnabled: boolean;
+    galleryViewEnabled: boolean;
+    neededTransactionConfirmations: number;
+    objectBrowserPaginationEnabled: boolean;
+    objectBrowserCardViewEnabled: boolean;
+    billingFeaturesEnabled: boolean;
+    stripePaymentElementEnabled: boolean;
+    unregisteredInviteEmailsEnabled: boolean;
+    freeTierInvitesEnabled: boolean;
+    userBalanceForUpgrade: number;
+    limitIncreaseRequestEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

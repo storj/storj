@@ -11,11 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -98,7 +101,7 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 
 		report := audit.Report{
 			Successes: []storj.NodeID{goodNode},
-			Fails:     []storj.NodeID{dqNode},
+			Fails:     metabase.Pieces{{StorageNode: dqNode}},
 			Unknown:   []storj.NodeID{suspendedNode},
 			PendingAudits: []*audit.ReverificationJob{
 				{
@@ -213,7 +216,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		}
 		report = audit.Report{
 			Successes:     storj.NodeIDList{successNode.ID()},
-			Fails:         storj.NodeIDList{failedNode.ID()},
+			Fails:         metabase.Pieces{{StorageNode: failedNode.ID()}},
 			Offlines:      storj.NodeIDList{offlineNode.ID()},
 			PendingAudits: []*audit.ReverificationJob{&pending},
 			Unknown:       storj.NodeIDList{unknownNode.ID()},
@@ -259,5 +262,54 @@ func TestReportOfflineAudits(t *testing.T) {
 		require.EqualValues(t, satellite.Config.Reputation.InitialBeta, info.AuditReputationBeta)
 		require.EqualValues(t, 1, info.UnknownAuditReputationAlpha)
 		require.EqualValues(t, 0, info.UnknownAuditReputationBeta)
+	})
+}
+
+func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// disable reputation write cache so changes are immediate
+					config.Reputation.FlushInterval = 0
+				},
+				testplanet.ReconfigureRS(4, 5, 6, 6),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		testData := testrand.Bytes(1 * memory.MiB)
+		err := ul.Upload(ctx, satellite, "bucket-for-test", "path/of/testness", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, ul.Projects[0].ID, "bucket-for-test")
+
+		report := audit.Report{
+			Segment: &segment,
+			Fails: metabase.Pieces{
+				metabase.Piece{
+					Number:      segment.Pieces[0].Number,
+					StorageNode: segment.Pieces[0].StorageNode,
+				},
+			},
+		}
+
+		satellite.Audit.Reporter.RecordAudits(ctx, report)
+
+		// piece marked as failed is no longer in the segment
+		afterSegment, _ := getRemoteSegment(ctx, t, satellite, ul.Projects[0].ID, "bucket-for-test")
+		require.Len(t, afterSegment.Pieces, len(segment.Pieces)-1)
+		for i, p := range afterSegment.Pieces {
+			assert.NotEqual(t, segment.Pieces[0].Number, p.Number, i)
+			assert.NotEqual(t, segment.Pieces[0].StorageNode, p.StorageNode, i)
+		}
+
+		// segment is still retrievable
+		gotData, err := ul.Download(ctx, satellite, "bucket-for-test", "path/of/testness")
+		require.NoError(t, err)
+		require.Equal(t, testData, gotData)
 	})
 }

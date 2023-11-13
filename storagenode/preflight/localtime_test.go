@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/preflight"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -48,138 +49,138 @@ func TestLocalTime_InSync(t *testing.T) {
 }
 
 func TestLocalTime_OutOfSync(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 
-	log := zaptest.NewLogger(t)
+		log := zaptest.NewLogger(t)
 
-	// set up mock satellite server configuration
-	mockSatID, err := testidentity.NewTestIdentity(ctx)
-	require.NoError(t, err)
-	config := server.Config{
-		Address:        "127.0.0.1:0",
-		PrivateAddress: "127.0.0.1:0",
+		// set up mock satellite server configuration
+		mockSatID, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(t, err)
+		config := server.Config{
+			Address:        "127.0.0.1:0",
+			PrivateAddress: "127.0.0.1:0",
 
-		Config: tlsopts.Config{
-			PeerIDVersions: "*",
-			Extensions: extensions.Config{
-				Revocation:          false,
-				WhitelistSignedLeaf: false,
+			Config: tlsopts.Config{
+				PeerIDVersions: "*",
+				Extensions: extensions.Config{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
 			},
-		},
-	}
-	mockSatTLSOptions, err := tlsopts.NewOptions(mockSatID, config.Config, nil)
-	require.NoError(t, err)
-
-	t.Run("Less than 30m", func(t *testing.T) {
-		// register mock GetTime endpoint to mock server
-		var group errgroup.Group
-		defer ctx.Check(group.Wait)
-
-		contactServer, err := server.New(log, mockSatTLSOptions, config)
-		require.NoError(t, err)
-		defer ctx.Check(contactServer.Close)
-
-		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().Add(-25 * time.Minute),
-		})
-		require.NoError(t, err)
-
-		group.Go(func() error {
-			return contactServer.Run(ctx)
-		})
-
-		// get mock server address
-		_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
-		require.NoError(t, err)
-		port, err := strconv.Atoi(portStr)
-		require.NoError(t, err)
-		url := trust.SatelliteURL{
-			ID:   mockSatID.ID,
-			Host: "127.0.0.1",
-			Port: port,
 		}
+		mockSatTLSOptions, err := tlsopts.NewOptions(mockSatID, config.Config, nil)
 		require.NoError(t, err)
 
-		// set up storagenode client
-		source, err := trust.NewStaticURLSource(url.String())
-		require.NoError(t, err)
+		t.Run("Less than 30m", func(t *testing.T) {
+			// register mock GetTime endpoint to mock server
+			var group errgroup.Group
+			defer ctx.Check(group.Wait)
 
-		identity, err := testidentity.NewTestIdentity(ctx)
-		require.NoError(t, err)
-		tlsOptions, err := tlsopts.NewOptions(identity, config.Config, nil)
-		require.NoError(t, err)
-		dialer := rpc.NewDefaultDialer(tlsOptions)
-		pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
-			Sources:   []trust.Source{source},
-			CachePath: ctx.File("trust-cache.json"),
-		}, nil)
-		require.NoError(t, err)
-		err = pool.Refresh(ctx)
-		require.NoError(t, err)
+			contactServer, err := server.New(log, mockSatTLSOptions, config)
+			require.NoError(t, err)
+			defer ctx.Check(contactServer.Close)
 
-		// should not return any error when node's clock is off no more than 30m
-		localtime := preflight.NewLocalTime(log, preflight.Config{
-			LocalTimeCheck: true,
-		}, pool, dialer)
-		err = localtime.Check(ctx)
-		require.NoError(t, err)
+			err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+				localTime: time.Now().Add(-25 * time.Minute),
+			})
+			require.NoError(t, err)
 
-	})
+			group.Go(func() error {
+				return contactServer.Run(ctx)
+			})
 
-	t.Run("More than 30m", func(t *testing.T) {
-		// register mock GetTime endpoint to mock server
-		var group errgroup.Group
-		defer ctx.Check(group.Wait)
+			// get mock server address
+			_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
+			require.NoError(t, err)
+			port, err := strconv.Atoi(portStr)
+			require.NoError(t, err)
+			url := trust.SatelliteURL{
+				ID:   mockSatID.ID,
+				Host: "127.0.0.1",
+				Port: port,
+			}
+			require.NoError(t, err)
 
-		contactServer, err := server.New(log, mockSatTLSOptions, config)
-		require.NoError(t, err)
-		defer ctx.Check(contactServer.Close)
+			// set up storagenode client
+			source, err := trust.NewStaticURLSource(url.String())
+			require.NoError(t, err)
 
-		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().Add(-31 * time.Minute),
+			identity, err := testidentity.NewTestIdentity(ctx)
+			require.NoError(t, err)
+			tlsOptions, err := tlsopts.NewOptions(identity, config.Config, nil)
+			require.NoError(t, err)
+			dialer := rpc.NewDefaultDialer(tlsOptions)
+			pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
+				Sources:   []trust.Source{source},
+				CachePath: ctx.File("trust-cache.json"),
+			}, db.Satellites())
+			require.NoError(t, err)
+			err = pool.Refresh(ctx)
+			require.NoError(t, err)
+
+			// should not return any error when node's clock is off no more than 30m
+			localtime := preflight.NewLocalTime(log, preflight.Config{
+				LocalTimeCheck: true,
+			}, pool, dialer)
+			err = localtime.Check(ctx)
+			require.NoError(t, err)
+
 		})
-		require.NoError(t, err)
 
-		group.Go(func() error {
-			return contactServer.Run(ctx)
+		t.Run("More than 30m", func(t *testing.T) {
+			// register mock GetTime endpoint to mock server
+			var group errgroup.Group
+			defer ctx.Check(group.Wait)
+
+			contactServer, err := server.New(log, mockSatTLSOptions, config)
+			require.NoError(t, err)
+			defer ctx.Check(contactServer.Close)
+
+			err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+				localTime: time.Now().Add(-31 * time.Minute),
+			})
+			require.NoError(t, err)
+
+			group.Go(func() error {
+				return contactServer.Run(ctx)
+			})
+
+			// get mock server address
+			_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
+			require.NoError(t, err)
+			port, err := strconv.Atoi(portStr)
+			require.NoError(t, err)
+			url := trust.SatelliteURL{
+				ID:   mockSatID.ID,
+				Host: "127.0.0.1",
+				Port: port,
+			}
+			require.NoError(t, err)
+
+			// set up storagenode client
+			source, err := trust.NewStaticURLSource(url.String())
+			require.NoError(t, err)
+
+			identity, err := testidentity.NewTestIdentity(ctx)
+			require.NoError(t, err)
+			tlsOptions, err := tlsopts.NewOptions(identity, config.Config, nil)
+			require.NoError(t, err)
+			dialer := rpc.NewDefaultDialer(tlsOptions)
+			pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
+				Sources:   []trust.Source{source},
+				CachePath: ctx.File("trust-cache.json"),
+			}, db.Satellites())
+			require.NoError(t, err)
+			err = pool.Refresh(ctx)
+			require.NoError(t, err)
+
+			// should return an error when node's clock is off by more than 30m with all trusted satellites
+			localtime := preflight.NewLocalTime(log, preflight.Config{
+				LocalTimeCheck: true,
+			}, pool, dialer)
+			err = localtime.Check(ctx)
+			require.Error(t, err)
 		})
-
-		// get mock server address
-		_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
-		require.NoError(t, err)
-		port, err := strconv.Atoi(portStr)
-		require.NoError(t, err)
-		url := trust.SatelliteURL{
-			ID:   mockSatID.ID,
-			Host: "127.0.0.1",
-			Port: port,
-		}
-		require.NoError(t, err)
-
-		// set up storagenode client
-		source, err := trust.NewStaticURLSource(url.String())
-		require.NoError(t, err)
-
-		identity, err := testidentity.NewTestIdentity(ctx)
-		require.NoError(t, err)
-		tlsOptions, err := tlsopts.NewOptions(identity, config.Config, nil)
-		require.NoError(t, err)
-		dialer := rpc.NewDefaultDialer(tlsOptions)
-		pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
-			Sources:   []trust.Source{source},
-			CachePath: ctx.File("trust-cache.json"),
-		}, nil)
-		require.NoError(t, err)
-		err = pool.Refresh(ctx)
-		require.NoError(t, err)
-
-		// should return an error when node's clock is off by more than 30m with all trusted satellites
-		localtime := preflight.NewLocalTime(log, preflight.Config{
-			LocalTimeCheck: true,
-		}, pool, dialer)
-		err = localtime.Check(ctx)
-		require.Error(t, err)
 	})
 }
 

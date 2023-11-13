@@ -23,10 +23,11 @@ var (
 
 // Config contains configurable values for zombie object cleanup.
 type Config struct {
-	Interval    time.Duration `help:"the time between each attempt to go through the db and clean up zombie objects" releaseDefault:"12h" devDefault:"10s"`
-	Enabled     bool          `help:"set if zombie object cleanup is enabled or not" default:"true"`
-	ListLimit   int           `help:"how many objects to query in a batch" default:"100"`
-	InactiveFor time.Duration `help:"after what time object will be deleted if there where no new upload activity" default:"24h"`
+	Interval           time.Duration `help:"the time between each attempt to go through the db and clean up zombie objects" releaseDefault:"12h" devDefault:"10s"`
+	Enabled            bool          `help:"set if zombie object cleanup is enabled or not" default:"true"`
+	ListLimit          int           `help:"how many objects to query in a batch" default:"100"`
+	InactiveFor        time.Duration `help:"after what time object will be deleted if there where no new upload activity" default:"24h"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
 // Chore implements the zombie objects cleanup chore.
@@ -79,9 +80,17 @@ func (chore *Chore) deleteZombieObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting zombie objects")
 
-	return chore.metabase.DeleteZombieObjects(ctx, metabase.DeleteZombieObjects{
-		DeadlineBefore:   chore.nowFn(),
-		InactiveDeadline: chore.nowFn().Add(-chore.config.InactiveFor),
-		BatchSize:        chore.config.ListLimit,
-	})
+	opts := metabase.DeleteZombieObjects{
+		DeadlineBefore:     chore.nowFn(),
+		InactiveDeadline:   chore.nowFn().Add(-chore.config.InactiveFor),
+		BatchSize:          chore.config.ListLimit,
+		AsOfSystemInterval: chore.config.AsOfSystemInterval,
+	}
+
+	err = chore.metabase.DeleteZombieObjects(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	return chore.metabase.DeleteInactivePendingObjects(ctx, opts)
 }

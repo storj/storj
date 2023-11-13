@@ -65,11 +65,15 @@ func (ce *consoleEndpoints) Token() string {
 	return ce.appendPath("/api/v0/auth/token")
 }
 
-func (ce *consoleEndpoints) GraphQL() string {
-	return ce.appendPath("/api/v0/graphql")
+func (ce *consoleEndpoints) Projects() string {
+	return ce.appendPath("/api/v0/projects")
 }
 
-func (ce *consoleEndpoints) graphqlDo(request *http.Request, jsonResponse interface{}) error {
+func (ce *consoleEndpoints) APIKeys() string {
+	return ce.appendPath("/api/v0/api-keys")
+}
+
+func (ce *consoleEndpoints) httpDo(request *http.Request, jsonResponse interface{}) error {
 	resp, err := ce.client.Do(request)
 	if err != nil {
 		return err
@@ -81,24 +85,24 @@ func (ce *consoleEndpoints) graphqlDo(request *http.Request, jsonResponse interf
 		return err
 	}
 
-	var response struct {
-		Data   json.RawMessage
-		Errors []interface{}
-	}
-
-	if err = json.NewDecoder(bytes.NewReader(b)).Decode(&response); err != nil {
-		return err
-	}
-
-	if response.Errors != nil {
-		return errs.New("inner graphql error: %v", response.Errors)
-	}
-
 	if jsonResponse == nil {
 		return errs.New("empty response: %q", b)
 	}
 
-	return json.NewDecoder(bytes.NewReader(response.Data)).Decode(jsonResponse)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return json.NewDecoder(bytes.NewReader(b)).Decode(jsonResponse)
+	}
+
+	var errResponse struct {
+		Error string `json:"error"`
+	}
+
+	err = json.NewDecoder(bytes.NewReader(b)).Decode(&errResponse)
+	if err != nil {
+		return err
+	}
+
+	return errs.New("request failed with status %d: %s", resp.StatusCode, errResponse.Error)
 }
 
 func (ce *consoleEndpoints) createOrGetAPIKey(ctx context.Context) (string, error) {
@@ -464,49 +468,41 @@ func (ce *consoleEndpoints) getProject(ctx context.Context, token string) (strin
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		ce.GraphQL(),
+		ce.Projects(),
 		nil)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	q := request.URL.Query()
-	q.Add("query", `query {myProjects{id}}`)
-	request.URL.RawQuery = q.Encode()
-
 	request.AddCookie(&http.Cookie{
 		Name:  ce.cookieName,
 		Value: token,
 	})
 
-	request.Header.Add("Content-Type", "application/graphql")
+	request.Header.Add("Content-Type", "application/json")
 
-	var getProjects struct {
-		MyProjects []struct {
-			ID string
-		}
+	var projects []struct {
+		ID string `json:"id"`
 	}
-	if err := ce.graphqlDo(request, &getProjects); err != nil {
+	if err := ce.httpDo(request, &projects); err != nil {
 		return "", errs.Wrap(err)
 	}
-	if len(getProjects.MyProjects) == 0 {
+	if len(projects) == 0 {
 		return "", errs.New("no projects")
 	}
 
-	return getProjects.MyProjects[0].ID, nil
+	return projects[0].ID, nil
 }
 
 func (ce *consoleEndpoints) createProject(ctx context.Context, token string) (string, error) {
 	rng := rand.NewSource(time.Now().UnixNano())
-	createProjectQuery := fmt.Sprintf(
-		`mutation {createProject(input:{name:"TestProject-%d",description:""}){id}}`,
-		rng.Int63())
+	body := fmt.Sprintf(`{"name":"TestProject-%d","description":""}`, rng.Int63())
 
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		ce.GraphQL(),
-		bytes.NewReader([]byte(createProjectQuery)))
+		ce.Projects(),
+		bytes.NewReader([]byte(body)))
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -516,31 +512,27 @@ func (ce *consoleEndpoints) createProject(ctx context.Context, token string) (st
 		Value: token,
 	})
 
-	request.Header.Add("Content-Type", "application/graphql")
+	request.Header.Add("Content-Type", "application/json")
 
-	var createProject struct {
-		CreateProject struct {
-			ID string
-		}
+	var createdProject struct {
+		ID string `json:"id"`
 	}
-	if err := ce.graphqlDo(request, &createProject); err != nil {
+	if err := ce.httpDo(request, &createdProject); err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	return createProject.CreateProject.ID, nil
+	return createdProject.ID, nil
 }
 
 func (ce *consoleEndpoints) createAPIKey(ctx context.Context, token, projectID string) (string, error) {
 	rng := rand.NewSource(time.Now().UnixNano())
-	createAPIKeyQuery := fmt.Sprintf(
-		`mutation {createAPIKey(projectID:%q,name:"TestKey-%d"){key}}`,
-		projectID, rng.Int63())
+	apiKeyName := fmt.Sprintf("TestKey-%d", rng.Int63())
 
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		ce.GraphQL(),
-		bytes.NewReader([]byte(createAPIKeyQuery)))
+		ce.APIKeys()+"/create/"+projectID,
+		bytes.NewReader([]byte(apiKeyName)))
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -550,18 +542,16 @@ func (ce *consoleEndpoints) createAPIKey(ctx context.Context, token, projectID s
 		Value: token,
 	})
 
-	request.Header.Add("Content-Type", "application/graphql")
+	request.Header.Add("Content-Type", "application/json")
 
-	var createAPIKey struct {
-		CreateAPIKey struct {
-			Key string
-		}
+	var createdKey struct {
+		Key string `json:"key"`
 	}
-	if err := ce.graphqlDo(request, &createAPIKey); err != nil {
+	if err := ce.httpDo(request, &createdKey); err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	return createAPIKey.CreateAPIKey.Key, nil
+	return createdKey.Key, nil
 }
 
 func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) (string, error) {

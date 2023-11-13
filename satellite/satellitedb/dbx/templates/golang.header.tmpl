@@ -207,11 +207,6 @@ func (obj *DB) Open(ctx context.Context) (*Tx, error) {
 		txMethods: obj.wrapTx(tx),
 	}, nil
 }
-{{ if $options.SupportRx }}
-func (obj *DB) NewRx() *Rx {
-	return &Rx{db: obj}
-}
-{{ end }}
 func DeleteAll(ctx context.Context, db *DB) (int64, error) {
 	tx, err := db.Open(ctx)
 	if err != nil {

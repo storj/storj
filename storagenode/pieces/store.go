@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -156,11 +157,9 @@ type SatelliteUsage struct {
 
 // Config is configuration for Store.
 type Config struct {
-	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
-	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
-	// TODO(clement): default is set to false for now.
-	//  I will test and monitor on my node for some time before changing the default to true.
-	EnableLazyFilewalker bool `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" releaseDefault:"false" devDefault:"true" testDefault:"false"`
+	WritePreallocSize    memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
+	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
 }
 
 // DefaultConfig is the default value for the Config.
@@ -318,6 +317,16 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 
 	reader, err := NewReader(blob)
 	return reader, Error.Wrap(err)
+}
+
+// TryRestoreTrashPiece attempts to restore a piece from the trash.
+// It returns nil if the piece was restored, or an error if the piece was not in the trash.
+func (store *Store) TryRestoreTrashPiece(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.blobs.TryRestoreTrashPiece(ctx, blobstore.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}))
 }
 
 // Delete deletes the specified piece.
@@ -534,6 +543,27 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
 }
 
+// SatellitePiecesToTrash returns a list of piece IDs that are trash for the given satellite.
+//
+// If the lazy filewalker is enabled, it will be used to find the pieces to trash, otherwise
+// the regular filewalker will be used. If the lazy filewalker fails, the regular filewalker
+// will be used as a fallback.
+func (store *Store) SatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+		pieceIDs, piecesCount, piecesSkipped, err = store.lazyFilewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+		if err == nil {
+			return pieceIDs, piecesCount, piecesSkipped, nil
+		}
+		store.log.Error("lazyfilewalker failed", zap.Error(err))
+	}
+	// fallback to the regular filewalker
+	pieceIDs, piecesCount, piecesSkipped, err = store.Filewalker.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter)
+
+	return pieceIDs, piecesCount, piecesSkipped, err
+}
+
 // GetExpired gets piece IDs that are expired and were created before the given time.
 func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (_ []ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -719,6 +749,7 @@ func (store *Store) GetV0PieceInfo(ctx context.Context, satellite storj.NodeID, 
 // StorageStatus contains information about the disk store is using.
 type StorageStatus struct {
 	DiskUsed int64
+	// DiskFree is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
 	DiskFree int64
 }
 

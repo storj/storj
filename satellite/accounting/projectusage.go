@@ -218,6 +218,17 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	return total, ErrProjectUsage.Wrap(err)
 }
 
+// GetProjectSettledBandwidth returns total amount of settled bandwidth used for past 30 days.
+func (usage *Service) GetProjectSettledBandwidth(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	// from the beginning of the current month
+	year, month, _ := usage.nowFn().Date()
+
+	total, err := usage.projectAccountingDB.GetProjectSettledBandwidth(ctx, projectID, year, month, usage.asOfSystemInterval)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
 // GetProjectSegmentTotals returns total amount of allocated segments used for past 30 days.
 func (usage *Service) GetProjectSegmentTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
@@ -318,4 +329,9 @@ func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid
 // SetNow allows tests to have the Service act as if the current time is whatever they want.
 func (usage *Service) SetNow(now func() time.Time) {
 	usage.nowFn = now
+}
+
+// TestSetAsOfSystemInterval allows tests to set Service asOfSystemInterval value.
+func (usage *Service) TestSetAsOfSystemInterval(asOfSystemInterval time.Duration) {
+	usage.asOfSystemInterval = asOfSystemInterval
 }

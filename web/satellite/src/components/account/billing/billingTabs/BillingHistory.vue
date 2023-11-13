@@ -7,7 +7,14 @@
             Billing History
         </h1>
 
-        <v-table :total-items-count="historyItems.length" class="billing-history__table">
+        <v-table
+            simple-pagination
+            :total-items-count="historyItems.length"
+            class="billing-history__table"
+            :on-next-clicked="nextClicked"
+            :on-previous-clicked="previousClicked"
+            :on-page-size-changed="sizeChanged"
+        >
             <template #head>
                 <BillingHistoryHeader />
             </template>
@@ -23,16 +30,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import {
     PaymentsHistoryItem,
     PaymentsHistoryItemStatus,
-    PaymentsHistoryItemType,
+    PaymentHistoryPage,
 } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 import BillingHistoryHeader
     from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
@@ -43,20 +51,47 @@ import VTable from '@/components/common/VTable.vue';
 const billingStore = useBillingStore();
 const notify = useNotify();
 
-async function fetchHistory(): Promise<void> {
+const limit = ref(DEFAULT_PAGE_LIMIT);
+
+const historyPage = computed((): PaymentHistoryPage => {
+    return billingStore.state.paymentsHistory;
+});
+
+const historyItems = computed((): PaymentsHistoryItem[] => {
+    return historyPage.value.items;
+});
+
+async function fetchHistory(endingBefore = '', startingAfter = ''): Promise<void> {
     try {
-        await billingStore.getPaymentsHistory();
+        await billingStore.getPaymentsHistory({
+            limit: limit.value,
+            startingAfter,
+            endingBefore,
+        });
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
     }
 }
 
-const historyItems = computed((): PaymentsHistoryItem[] => {
-    return billingStore.state.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-        return item.status !== PaymentsHistoryItemStatus.Draft && item.status !== PaymentsHistoryItemStatus.Empty
-            && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
-    });
-});
+async function sizeChanged(size: number) {
+    limit.value = size;
+    await fetchHistory();
+}
+
+async function nextClicked(): Promise<void> {
+    const length = historyItems.value.length;
+    if (!historyPage.value.hasNext || !length) {
+        return;
+    }
+    await fetchHistory('', historyItems.value[length - 1].id);
+}
+
+async function previousClicked(): Promise<void> {
+    if (!historyPage.value.hasPrevious || !historyItems.value.length) {
+        return;
+    }
+    await fetchHistory(historyItems.value[0].id, '');
+}
 
 onMounted(() => {
     fetchHistory();

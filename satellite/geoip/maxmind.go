@@ -22,9 +22,12 @@ func OpenMaxmindDB(filepath string) (*MaxmindDB, error) {
 }
 
 type ipInfo struct {
-	Country struct {
-		IsoCode string `maxminddb:"iso_code"`
-	} `maxminddb:"country"`
+	Country            country `maxminddb:"country"`
+	RepresentedCountry country `maxminddb:"represented_country"`
+}
+
+type country struct {
+	IsoCode string `maxminddb:"iso_code"`
 }
 
 // MaxmindDB provides access to GeoIP data via the maxmind geoip databases.
@@ -52,5 +55,14 @@ func (m *MaxmindDB) LookupISOCountryCode(address string) (location.CountryCode, 
 		return location.CountryCode(0), err
 	}
 
-	return location.ToCountryCode(info.Country.IsoCode), nil
+	return toCountryCode(info), nil
+}
+
+func toCountryCode(info *ipInfo) location.CountryCode {
+	// it's a tricky situation when represented_country is returned (like an embassy or military base).
+	// we have only 1-2 such nodes. it's more safe to exclude them from geofencing.
+	if info.RepresentedCountry.IsoCode != "" && info.RepresentedCountry.IsoCode != info.Country.IsoCode {
+		return location.None
+	}
+	return location.ToCountryCode(info.Country.IsoCode)
 }

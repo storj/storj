@@ -21,6 +21,27 @@ type BillingHistoryItem struct {
 	Type        BillingHistoryItemType `json:"type"`
 }
 
+// BillingHistoryCursor holds info for billing history
+// cursor pagination.
+type BillingHistoryCursor struct {
+	Limit int
+
+	// StartingAfter is the last ID of the previous page.
+	// The next page will start after this ID.
+	StartingAfter string
+	// EndingBefore is the id before which a page should end.
+	EndingBefore string
+}
+
+// BillingHistoryPage returns paginated billing history items.
+type BillingHistoryPage struct {
+	Items []BillingHistoryItem `json:"items"`
+	// Next indicates whether there are more events to retrieve.
+	Next bool `json:"next"`
+	// Previous indicates whether there are previous items.
+	Previous bool `json:"previous"`
+}
+
 // BillingHistoryItemType indicates type of billing history item.
 type BillingHistoryItemType int
 

@@ -64,14 +64,19 @@ func BenchmarkOverlay(b *testing.B) {
 			check = append(check, testrand.NodeID())
 		}
 
-		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
-			criteria := &overlay.NodeCriteria{
-				OnlineWindow: 1000 * time.Hour,
-			}
+		b.Run("GetNodes", func(b *testing.B) {
+			onlineWindow := 1000 * time.Hour
 			for i := 0; i < b.N; i++ {
-				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
+				selectedNodes, err := overlaydb.GetNodes(ctx, check, onlineWindow, 0)
 				require.NoError(b, err)
-				require.Len(b, badNodes, OfflineCount)
+				require.Len(b, selectedNodes, len(check))
+				foundOnline := 0
+				for _, n := range selectedNodes {
+					if n.Online {
+						foundOnline++
+					}
+				}
+				require.Equal(b, OnlineCount, foundOnline)
 			}
 		})
 
@@ -121,7 +126,6 @@ func BenchmarkOverlay(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
 				_, err := overlaydb.UpdateNodeInfo(ctx, id, &overlay.InfoResponse{
-					Type: pb.NodeType_STORAGE,
 					Operator: &pb.NodeOperator{
 						Wallet: "0x0123456789012345678901234567890123456789",
 						Email:  "a@mail.test",
@@ -244,7 +248,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 				require.NoError(b, err)
 
 				_, err = overlaydb.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
-					Type: pb.NodeType_STORAGE,
 					Capacity: &pb.NodeCapacity{
 						FreeDisk: 1_000_000_000,
 					},
@@ -357,7 +360,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), "", "", overlay.Config{
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), overlay.NewPlacementDefinitions().CreateFilters, "", "", overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
@@ -370,32 +373,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		background.Go(func() error { return errs.Wrap(service.Run(serviceCtx)) })
 		defer func() { require.NoError(b, background.Wait()) }()
 		defer func() { serviceCancel(); _ = service.Close() }()
-
-		b.Run("FindStorageNodesWithPreference", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        nil,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
-				}, &nodeSelectionConfig)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("FindStorageNodesWithPreferenceExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount:     SelectCount,
-					ExcludedIDs:        excludedIDs,
-					MinimumVersion:     "v1.0.0",
-					AsOfSystemInterval: -time.Microsecond,
-				}, &nodeSelectionConfig)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
 
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {

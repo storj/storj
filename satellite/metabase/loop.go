@@ -255,12 +255,15 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		return err
 	}
 
+	loopIteratorBatchSizeLimit.Ensure(&opts.BatchSize)
+
 	it := &loopSegmentIterator{
 		db: db,
 
 		asOfSystemTime:     opts.AsOfSystemTime,
 		asOfSystemInterval: opts.AsOfSystemInterval,
 		batchSize:          opts.BatchSize,
+		batchPieces:        make([]Pieces, opts.BatchSize),
 
 		curIndex: 0,
 		cursor: loopSegmentIteratorCursor{
@@ -274,13 +277,8 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		it.cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
 	}
 	if it.cursor.EndStreamID.IsZero() {
-		it.cursor.EndStreamID, err = maxUUID()
-		if err != nil {
-			return err
-		}
+		it.cursor.EndStreamID = uuid.Max()
 	}
-
-	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
@@ -301,7 +299,10 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 type loopSegmentIterator struct {
 	db *DB
 
-	batchSize          int
+	batchSize int
+	// batchPieces are reused between result pages to reduce memory consumption
+	batchPieces []Pieces
+
 	asOfSystemTime     time.Time
 	asOfSystemInterval time.Duration
 
@@ -402,91 +403,17 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 		return Error.New("failed to scan segments: %w", err)
 	}
 
-	item.Pieces, err = it.db.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
+	// allocate new Pieces only if existing have not enough capacity
+	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
+		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
+	} else {
+		it.batchPieces[it.curIndex] = it.batchPieces[it.curIndex][:len(item.AliasPieces)]
+	}
+
+	item.Pieces, err = it.db.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
 	}
 
 	return nil
-}
-
-func maxUUID() (uuid.UUID, error) {
-	maxUUID, err := uuid.FromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	return maxUUID, err
-}
-
-// BucketTally contains information about aggregate data stored in a bucket.
-type BucketTally struct {
-	BucketLocation
-
-	ObjectCount int64
-
-	TotalSegments int64
-	TotalBytes    int64
-
-	MetadataSize int64
-}
-
-// CollectBucketTallies contains arguments necessary for looping through objects in metabase.
-type CollectBucketTallies struct {
-	From               BucketLocation
-	To                 BucketLocation
-	AsOfSystemTime     time.Time
-	AsOfSystemInterval time.Duration
-	Now                time.Time
-}
-
-// Verify verifies CollectBucketTallies request fields.
-func (opts *CollectBucketTallies) Verify() error {
-	if opts.To.ProjectID.Less(opts.From.ProjectID) {
-		return ErrInvalidRequest.New("project ID To is before project ID From")
-	}
-	if opts.To.ProjectID == opts.From.ProjectID && opts.To.BucketName < opts.From.BucketName {
-		return ErrInvalidRequest.New("bucket name To is before bucket name From")
-	}
-	return nil
-}
-
-// CollectBucketTallies collect limited bucket tallies from given bucket locations.
-func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return []BucketTally{}, err
-	}
-
-	if opts.Now.IsZero() {
-		opts.Now = time.Now()
-	}
-
-	err = withRows(db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name, SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0), count(*)
-			FROM objects
-			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
-			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
-			(expires_at IS NULL OR expires_at > $5)
-			GROUP BY (project_id, bucket_name)
-			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var bucketTally BucketTally
-
-			if err = rows.Scan(
-				&bucketTally.ProjectID, &bucketTally.BucketName,
-				&bucketTally.TotalBytes, &bucketTally.TotalSegments,
-				&bucketTally.MetadataSize, &bucketTally.ObjectCount,
-			); err != nil {
-				return Error.New("unable to query bucket tally: %w", err)
-			}
-
-			result = append(result, bucketTally)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return []BucketTally{}, err
-	}
-
-	return result, nil
 }

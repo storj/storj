@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"math"
 	"sort"
 	"strconv"
@@ -264,6 +265,23 @@ type ObjectStream struct {
 	StreamID   uuid.UUID
 }
 
+// Less implements sorting on object streams.
+func (obj ObjectStream) Less(b ObjectStream) bool {
+	if obj.ProjectID != b.ProjectID {
+		return obj.ProjectID.Less(b.ProjectID)
+	}
+	if obj.BucketName != b.BucketName {
+		return obj.BucketName < b.BucketName
+	}
+	if obj.ObjectKey != b.ObjectKey {
+		return obj.ObjectKey < b.ObjectKey
+	}
+	if obj.Version != b.Version {
+		return obj.Version < b.Version
+	}
+	return obj.StreamID.Less(b.StreamID)
+}
+
 // Verify object stream fields.
 func (obj *ObjectStream) Verify() error {
 	switch {
@@ -288,6 +306,29 @@ func (obj *ObjectStream) Location() ObjectLocation {
 		BucketName: obj.BucketName,
 		ObjectKey:  obj.ObjectKey,
 	}
+}
+
+// PendingObjectStream uniquely defines an pending object and stream.
+type PendingObjectStream struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	StreamID   uuid.UUID
+}
+
+// Verify object stream fields.
+func (obj *PendingObjectStream) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	case obj.StreamID.IsZero():
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
 }
 
 // SegmentPosition is segment part and index combined.
@@ -319,23 +360,88 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
+// PendingVersion represents version that is used for pending objects (with UsePendingObjects).
+const PendingVersion = Version(0)
+
 // MaxVersion represents maximum version.
 // Version in DB is represented as INT4.
 const MaxVersion = Version(math.MaxInt32)
 
-// ObjectStatus defines the statuses that the object might be in.
+// Encode encodes version to bytes.
+// TODO(ver): this is not final approach to version encoding. It's simplified
+// version for internal testing purposes. Will be changed in future.
+func (v Version) Encode() []byte {
+	var bytes [16]byte
+	binary.BigEndian.PutUint64(bytes[:], uint64(v))
+	return bytes[:]
+}
+
+// VersionFromBytes decodes version from bytes.
+func VersionFromBytes(bytes []byte) (Version, error) {
+	if len(bytes) != 16 {
+		return Version(0), ErrInvalidRequest.New("invalid version")
+	}
+	return Version(binary.BigEndian.Uint64(bytes)), nil
+}
+
+// ObjectStatus defines the status that the object is in.
+//
+// There are two types of objects:
+//   - Regular (i.e. Committed), which is used for storing data.
+//   - Delete Marker, which is used to show that an object has been deleted, while preserving older versions.
+//
+// Each object can be in two states:
+//   - Pending, meaning that it's still being uploaded.
+//   - Committed, meaning it has finished uploading.
+//     Delete Markers are always considered committed, because they do not require committing.
+//
+// There are two options for versioning:
+//   - Unversioned, there's only one allowed per project, bucket and encryption key.
+//   - Versioned, there can be any number of such objects for a given project, bucket and encryption key.
+//
+// These lead to a few meaningful distinct statuses, listed below.
 type ObjectStatus byte
 
 const (
 	// Pending means that the object is being uploaded or that the client failed during upload.
 	// The failed upload may be continued in the future.
 	Pending = ObjectStatus(1)
-	// Committed means that the object is finished and should be visible for general listing.
-	Committed = ObjectStatus(3)
+	// Committing used to one of the stages, which is not in use anymore.
+	_ = ObjectStatus(2)
+	// CommittedUnversioned means that the object is finished and should be visible for general listing.
+	CommittedUnversioned = ObjectStatus(3)
+	// CommittedVersioned means that the object is finished and should be visible for general listing.
+	CommittedVersioned = ObjectStatus(4)
+	// DeleteMarkerVersioned is inserted when an object is deleted in a versioning enabled bucket.
+	DeleteMarkerVersioned = ObjectStatus(5)
+	// DeleteMarkerUnversioned is inserted when an unversioned object is deleted in a versioning suspended bucket.
+	DeleteMarkerUnversioned = ObjectStatus(6)
 
-	pendingStatus   = "1"
-	committedStatus = "3"
+	// Prefix is an ephemeral status used during non-recursive listing.
+	Prefix = ObjectStatus(7)
+
+	// Constants that can be used while constructing SQL queries.
+	statusPending                 = "1"
+	statusCommittedUnversioned    = "3"
+	statusCommittedVersioned      = "4"
+	statusesCommitted             = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + ")"
+	statusDeleteMarkerVersioned   = "5"
+	statusDeleteMarkerUnversioned = "6"
+	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
+	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 )
+
+func committedWhereVersioned(versioned bool) ObjectStatus {
+	if versioned {
+		return CommittedVersioned
+	}
+	return CommittedUnversioned
+}
+
+// IsDeleteMarker return whether the status is a delete marker.
+func (status ObjectStatus) IsDeleteMarker() bool {
+	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
 
 // Pieces defines information for pieces.
 type Pieces []Piece

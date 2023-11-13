@@ -6,20 +6,27 @@ package satellitedb_test
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/private/version"
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -356,5 +363,463 @@ func TestGetNodesNetwork(t *testing.T) {
 
 			require.Equal(t, lastNetsPlusOne, gotLastNets)
 		})
+	})
+}
+
+func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		tagSigner := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
+		cache := db.OverlayCache()
+		const netMask = 28
+		mask := net.CIDRMask(netMask, 32)
+
+		infos := make([]overlay.NodeCheckInInfo, 5)
+
+		for n := range infos {
+			id := testrand.NodeID()
+			ip := net.IP{0, 0, 1, byte(n)}
+			lastNet := ip.Mask(mask).String()
+
+			infos[n] = overlay.NodeCheckInInfo{
+				IsUp:        true,
+				Address:     &pb.NodeAddress{Address: ip.String()},
+				LastNet:     lastNet,
+				LastIPPort:  "0.0.0.0:0",
+				Version:     &pb.NodeVersion{Version: "v0.0.0"},
+				NodeID:      id,
+				CountryCode: location.Canada,
+			}
+			err := cache.UpdateCheckIn(ctx, infos[n], time.Now().UTC(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
+			if n%2 == 0 {
+				err = cache.UpdateNodeTags(ctx, nodeselection.NodeTags{
+					nodeselection.NodeTag{
+						NodeID:   id,
+						SignedAt: time.Now(),
+						Signer:   tagSigner.ID,
+						Name:     "even",
+						Value:    []byte{1},
+					},
+				})
+				require.NoError(t, err)
+			}
+		}
+
+		checkNodes := func(selectedNodes []*nodeselection.SelectedNode) {
+			selectedNodesMap := map[storj.NodeID]*nodeselection.SelectedNode{}
+			for _, node := range selectedNodes {
+				selectedNodesMap[node.ID] = node
+			}
+
+			for _, info := range infos {
+				selectedNode, ok := selectedNodesMap[info.NodeID]
+				require.True(t, ok)
+
+				require.Equal(t, info.NodeID, selectedNode.ID)
+				require.Equal(t, info.Address, selectedNode.Address)
+				require.Equal(t, info.CountryCode, selectedNode.CountryCode)
+				require.Equal(t, info.LastIPPort, selectedNode.LastIPPort)
+				require.Equal(t, info.LastNet, selectedNode.LastNet)
+				segments := strings.Split(selectedNode.Address.Address, ".")
+				origIndex, err := strconv.Atoi(segments[len(segments)-1])
+				require.NoError(t, err)
+				if origIndex%2 == 0 {
+					require.Len(t, selectedNode.Tags, 1)
+					require.Equal(t, "even", selectedNode.Tags[0].Name)
+					require.Equal(t, []byte{1}, selectedNode.Tags[0].Value)
+				} else {
+					require.Len(t, selectedNode.Tags, 0)
+				}
+			}
+		}
+
+		selectedNodes, err := cache.SelectAllStorageNodesDownload(ctx, time.Minute, overlay.AsOfSystemTimeConfig{})
+		require.NoError(t, err)
+
+		checkNodes(selectedNodes)
+
+		reputableNodes, newNodes, err := cache.SelectAllStorageNodesUpload(ctx, overlay.NodeSelectionConfig{
+			OnlineWindow: time.Minute,
+		})
+		require.NoError(t, err)
+
+		checkNodes(append(reputableNodes, newNodes...))
+	})
+
+}
+
+type nodeDisposition struct {
+	id               storj.NodeID
+	address          string
+	email            string
+	wallet           string
+	lastIPPort       string
+	offlineInterval  time.Duration
+	countryCode      location.CountryCode
+	disqualified     bool
+	auditSuspended   bool
+	offlineSuspended bool
+	exiting          bool
+	exited           bool
+}
+
+func TestOverlayCache_GetNodes(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		allNodes := []nodeDisposition{
+			addNode(ctx, t, cache, "online           ", "127.0.0.1", time.Second, false, false, false, false, false),
+			addNode(ctx, t, cache, "offline          ", "127.0.0.2", 2*time.Hour, false, false, false, false, false),
+			addNode(ctx, t, cache, "disqualified     ", "127.0.0.3", 2*time.Hour, true, false, false, false, false),
+			addNode(ctx, t, cache, "audit-suspended  ", "127.0.0.4", time.Second, false, true, false, false, false),
+			addNode(ctx, t, cache, "offline-suspended", "127.0.0.5", 2*time.Hour, false, false, true, false, false),
+			addNode(ctx, t, cache, "exiting          ", "127.0.0.5", 2*time.Hour, false, false, false, true, false),
+			addNode(ctx, t, cache, "exited           ", "127.0.0.6", 2*time.Hour, false, false, false, false, true),
+		}
+
+		nodes := func(nodeNums ...int) []nodeDisposition {
+			nodeDisps := make([]nodeDisposition, len(nodeNums))
+			for i, nodeNum := range nodeNums {
+				nodeDisps[i] = allNodes[nodeNum]
+			}
+			return nodeDisps
+		}
+
+		sNodes := func(nodes ...int) []nodeselection.SelectedNode {
+			selectedNodes := make([]nodeselection.SelectedNode, len(nodes))
+			for i, nodeNum := range nodes {
+				selectedNodes[i] = nodeDispositionToSelectedNode(allNodes[nodeNum], time.Hour)
+			}
+			return selectedNodes
+		}
+
+		type testCase struct {
+			QueryNodes []nodeDisposition
+			Online     []nodeselection.SelectedNode
+			Offline    []nodeselection.SelectedNode
+		}
+
+		for testNum, tc := range []testCase{
+			{
+				QueryNodes: nodes(0, 1),
+				Online:     sNodes(0),
+				Offline:    sNodes(1),
+			},
+			{
+				QueryNodes: nodes(0),
+				Online:     sNodes(0),
+			},
+			{
+				QueryNodes: nodes(1),
+				Offline:    sNodes(1),
+			},
+			{ // only unreliable
+				QueryNodes: nodes(2, 3, 4, 5),
+				Online:     sNodes(3),
+				Offline:    sNodes(4, 5),
+			},
+
+			{ // all nodes
+				QueryNodes: allNodes,
+				Online:     sNodes(0, 3),
+				Offline:    sNodes(1, 4, 5),
+			},
+			// all nodes + one ID not from DB
+			{
+				QueryNodes: append(allNodes, nodeDisposition{
+					id:           testrand.NodeID(),
+					disqualified: true, // just so we expect a zero ID for this entry
+				}),
+				Online:  sNodes(0, 3),
+				Offline: sNodes(1, 4, 5),
+			},
+		} {
+			ids := make([]storj.NodeID, len(tc.QueryNodes))
+			for i := range tc.QueryNodes {
+				ids[i] = tc.QueryNodes[i].id
+			}
+			selectedNodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+			require.NoError(t, err)
+			require.Equal(t, len(tc.QueryNodes), len(selectedNodes))
+			var gotOnline []nodeselection.SelectedNode
+			var gotOffline []nodeselection.SelectedNode
+			for i, n := range selectedNodes {
+				if tc.QueryNodes[i].disqualified || tc.QueryNodes[i].exited {
+					assert.Zero(t, n, testNum, i)
+				} else {
+					assert.Equal(t, tc.QueryNodes[i].id, selectedNodes[i].ID, "%d:%d", testNum, i)
+					if n.Online {
+						gotOnline = append(gotOnline, n)
+					} else {
+						gotOffline = append(gotOffline, n)
+					}
+				}
+			}
+			assert.Equal(t, tc.Online, gotOnline)
+			assert.Equal(t, tc.Offline, gotOffline)
+		}
+
+		// test empty id list
+		_, err := cache.GetNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
+		require.Error(t, err)
+
+		// test as of system time
+		allIDs := make([]storj.NodeID, len(allNodes))
+		for i := range allNodes {
+			allIDs[i] = allNodes[i].id
+		}
+
+		selection, err := cache.GetNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
+		require.NoError(t, err)
+
+		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
+		require.Equal(t, "test@storj.io", selection[0].Email)
+	})
+}
+
+func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		allNodes := []nodeDisposition{
+			addNode(ctx, t, cache, "online           ", "127.0.0.1", time.Second, false, false, false, false, false),
+			addNode(ctx, t, cache, "offline          ", "127.0.0.2", 2*time.Hour, false, false, false, false, false),
+			addNode(ctx, t, cache, "disqualified     ", "127.0.0.3", 2*time.Hour, true, false, false, false, false),
+			addNode(ctx, t, cache, "audit-suspended  ", "127.0.0.4", time.Second, false, true, false, false, false),
+			addNode(ctx, t, cache, "offline-suspended", "127.0.0.5", 2*time.Hour, false, false, true, false, false),
+			addNode(ctx, t, cache, "exiting          ", "127.0.0.5", 2*time.Hour, false, false, false, true, false),
+			addNode(ctx, t, cache, "exited           ", "127.0.0.6", 2*time.Hour, false, false, false, false, true),
+		}
+
+		type testCase struct {
+			OnlineWindow time.Duration
+			Online       []int
+			Offline      []int
+		}
+
+		for i, tc := range []testCase{
+			{
+				OnlineWindow: 1 * time.Hour,
+				Online:       []int{0, 3},
+				Offline:      []int{1, 4, 5},
+			},
+			{
+				OnlineWindow: 20 * time.Hour,
+				Online:       []int{0, 1, 3, 4, 5},
+			},
+			{
+				OnlineWindow: 1 * time.Microsecond,
+				Offline:      []int{0, 1, 3, 4, 5},
+			},
+		} {
+			expectedNodes := make([]nodeselection.SelectedNode, 0, len(tc.Offline)+len(tc.Online))
+			for _, num := range tc.Online {
+				selectedNode := nodeDispositionToSelectedNode(allNodes[num], 0)
+				selectedNode.Online = true
+				expectedNodes = append(expectedNodes, selectedNode)
+			}
+			for _, num := range tc.Offline {
+				selectedNode := nodeDispositionToSelectedNode(allNodes[num], 0)
+				selectedNode.Online = false
+				expectedNodes = append(expectedNodes, selectedNode)
+			}
+			gotNodes, err := cache.GetParticipatingNodes(ctx, tc.OnlineWindow, 0)
+			require.NoError(t, err)
+			require.ElementsMatch(t, expectedNodes, gotNodes, "#%d", i)
+		}
+
+		// test as of system time
+		selection, err := cache.GetParticipatingNodes(ctx, 1*time.Hour, -1*time.Microsecond)
+		require.NoError(t, err)
+
+		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
+		require.Equal(t, "test@storj.io", selection[0].Email)
+	})
+}
+
+func nodeDispositionToSelectedNode(disp nodeDisposition, onlineWindow time.Duration) nodeselection.SelectedNode {
+	if disp.exited || disp.disqualified {
+		return nodeselection.SelectedNode{}
+	}
+	return nodeselection.SelectedNode{
+		ID:          disp.id,
+		Address:     &pb.NodeAddress{Address: disp.address},
+		Email:       disp.email,
+		Wallet:      disp.wallet,
+		LastNet:     disp.lastIPPort,
+		LastIPPort:  disp.lastIPPort,
+		CountryCode: disp.countryCode,
+		Exiting:     disp.exiting,
+		Suspended:   disp.auditSuspended || disp.offlineSuspended,
+		Online:      disp.offlineInterval <= onlineWindow,
+	}
+}
+
+func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastIPPort string, offlineInterval time.Duration, disqualified, auditSuspended, offlineSuspended, exiting, exited bool) nodeDisposition {
+	disp := nodeDisposition{
+		id:               testrand.NodeID(),
+		address:          address,
+		lastIPPort:       lastIPPort,
+		offlineInterval:  offlineInterval,
+		countryCode:      location.Poland,
+		disqualified:     disqualified,
+		auditSuspended:   auditSuspended,
+		offlineSuspended: offlineSuspended,
+		exiting:          exiting,
+		exited:           exited,
+		email:            "test@storj.io",
+		wallet:           "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0",
+	}
+
+	checkInInfo := overlay.NodeCheckInInfo{
+		IsUp:        true,
+		NodeID:      disp.id,
+		Address:     &pb.NodeAddress{Address: disp.address},
+		LastIPPort:  disp.lastIPPort,
+		LastNet:     disp.lastIPPort,
+		CountryCode: disp.countryCode,
+		Version:     &pb.NodeVersion{Version: "v0.0.0"},
+		Operator: &pb.NodeOperator{
+			Email:  disp.email,
+			Wallet: disp.wallet,
+		},
+	}
+
+	timestamp := time.Now().UTC().Add(-disp.offlineInterval)
+
+	err := cache.UpdateCheckIn(ctx, checkInInfo, timestamp, overlay.NodeSelectionConfig{})
+	require.NoError(t, err)
+
+	if disqualified {
+		_, err := cache.DisqualifyNode(ctx, disp.id, time.Now(), overlay.DisqualificationReasonAuditFailure)
+		require.NoError(t, err)
+	}
+
+	if auditSuspended {
+		require.NoError(t, cache.TestSuspendNodeUnknownAudit(ctx, disp.id, time.Now()))
+	}
+
+	if offlineSuspended {
+		require.NoError(t, cache.TestSuspendNodeOffline(ctx, disp.id, time.Now()))
+	}
+
+	if exiting {
+		now := time.Now()
+		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:          disp.id,
+			ExitInitiatedAt: now,
+		})
+		require.NoError(t, err)
+	}
+
+	if exited {
+		now := time.Now()
+		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              disp.id,
+			ExitInitiatedAt:     now,
+			ExitLoopCompletedAt: now,
+			ExitFinishedAt:      now,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+	}
+
+	return disp
+}
+
+func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
+	signer := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+
+		cache := db.OverlayCache()
+
+		// GIVEN
+
+		var ids []storj.NodeID
+		for i := 0; i < 10; i++ {
+			address := fmt.Sprintf("127.0.0.%d", i)
+			checkInInfo := overlay.NodeCheckInInfo{
+				IsUp:        true,
+				NodeID:      testidentity.MustPregeneratedIdentity(i+1, storj.LatestIDVersion()).ID,
+				Address:     &pb.NodeAddress{Address: address},
+				LastIPPort:  address + ":1234",
+				LastNet:     "127.0.0.0",
+				CountryCode: location.Romania,
+				Version:     &pb.NodeVersion{Version: "v0.0.0"},
+			}
+
+			ids = append(ids, checkInInfo.NodeID)
+
+			checkin := time.Now().UTC()
+			if i%2 == 0 {
+				checkin = checkin.Add(-50 * time.Hour)
+			}
+			err := cache.UpdateCheckIn(ctx, checkInInfo, checkin, overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
+			tags := nodeselection.NodeTags{}
+
+			if i%2 == 0 {
+				tags = append(tags, nodeselection.NodeTag{
+					SignedAt: time.Now(),
+					Signer:   signer.ID,
+					NodeID:   checkInInfo.NodeID,
+					Name:     "index",
+					Value:    []byte{byte(i)},
+				})
+			}
+			if i%4 == 0 {
+				tags = append(tags, nodeselection.NodeTag{
+					SignedAt: time.Now(),
+					Signer:   signer.ID,
+					NodeID:   checkInInfo.NodeID,
+					Name:     "selected",
+					Value:    []byte("true"),
+				})
+			}
+
+			if len(tags) > 0 {
+				require.NoError(t, err)
+				err = cache.UpdateNodeTags(ctx, tags)
+				require.NoError(t, err)
+			}
+
+		}
+
+		// WHEN
+		nodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+		require.NoError(t, err)
+
+		// THEN
+		require.Len(t, nodes, 10)
+
+		checkTag := func(tags nodeselection.NodeTags, name string, value []byte) {
+			tag1, err := tags.FindBySignerAndName(signer.ID, name)
+			require.NoError(t, err)
+			require.Equal(t, name, tag1.Name)
+			require.Equal(t, value, tag1.Value)
+			require.Equal(t, signer.ID, tag1.Signer)
+			require.True(t, time.Since(tag1.SignedAt) < 1*time.Hour)
+		}
+
+		for _, node := range nodes {
+			ipParts := strings.Split(node.Address.Address, ".")
+			ix, err := strconv.Atoi(ipParts[3])
+			require.NoError(t, err)
+
+			if ix%4 == 0 {
+				require.Len(t, node.Tags, 2)
+				checkTag(node.Tags, "selected", []byte("true"))
+				checkTag(node.Tags, "index", []byte{byte(ix)})
+			} else if ix%2 == 0 {
+				checkTag(node.Tags, "index", []byte{byte(ix)})
+				require.Len(t, node.Tags, 1)
+			} else {
+				require.Len(t, node.Tags, 0)
+			}
+		}
 	})
 }

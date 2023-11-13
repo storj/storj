@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
+	"storj.io/common/storj"
 )
 
 // Cache caches source information about trusted satellites.
@@ -63,6 +64,20 @@ func (cache *Cache) Lookup(key string) (entries []Entry, ok bool) {
 // Set sets the entries in the cache for the provided key.
 func (cache *Cache) Set(key string, entries []Entry) {
 	cache.data.Entries[key] = entries
+}
+
+// DeleteSatelliteEntry searches the cache for the provided satellite ID and removes it if
+// found.
+func (cache *Cache) DeleteSatelliteEntry(satelliteID storj.NodeID) (deleted bool) {
+	for s, entries := range cache.data.Entries {
+		for i, entry := range entries {
+			if entry.SatelliteURL.ID == satelliteID {
+				cache.data.Entries[s] = append(entries[:i], entries[i+1:]...)
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Save persists the cache to disk.

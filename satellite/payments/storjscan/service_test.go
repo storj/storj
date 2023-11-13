@@ -99,7 +99,7 @@ func TestServicePayments(t *testing.T) {
 		err := paymentsDB.InsertBatch(ctx, cachedPayments)
 		require.NoError(t, err)
 
-		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), paymentsDB, nil)
+		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), paymentsDB, nil, 15, 10)
 
 		t.Run("wallet 1", func(t *testing.T) {
 			expected := []payments.WalletPayment{walletPayments[3], walletPayments[1], walletPayments[0]}
@@ -151,7 +151,7 @@ func TestServiceWallets(t *testing.T) {
 		err = db.Wallets().Add(ctx, userID3, walletAddress3)
 		require.NoError(t, err)
 
-		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), db.StorjscanPayments(), nil)
+		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), db.StorjscanPayments(), nil, 15, 10)
 
 		t.Run("get Wallet", func(t *testing.T) {
 			actual, err := service.Get(ctx, userID1)

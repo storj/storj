@@ -4,22 +4,60 @@
 package apigen
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
+)
+
+var (
+	errsEndpoint = errs.Class("Endpoint")
+
+	goNameRegExp         = regexp.MustCompile(`^[A-Z]\w*$`)
+	typeScriptNameRegExp = regexp.MustCompile(`^[a-z][a-zA-Z0-9_$]*$`)
 )
 
 // Endpoint represents endpoint's configuration.
 type Endpoint struct {
-	Name         string
-	Description  string
-	MethodName   string
-	RequestName  string
-	NoCookieAuth bool
-	NoAPIAuth    bool
-	Request      interface{}
-	Response     interface{}
-	QueryParams  []Param
-	PathParams   []Param
+	// Name is a free text used to name the endpoint for documentation purpose.
+	// It cannot be empty.
+	Name string
+	// Description is a free text to describe the endpoint for documentation purpose.
+	Description string
+	// GoName is an identifier used by the Go generator to generate specific server side code for this
+	// endpoint.
+	//
+	// It must start with an uppercase letter and fulfill the Go language specification for method
+	// names (https://go.dev/ref/spec#MethodName).
+	// It cannot be empty.
+	GoName string
+	// TypeScriptName is an identifier used by the TypeScript generator to generate specific client
+	// code for this endpoint
+	//
+	// It must start with a lowercase letter and can only contains letters, digits, _, and $.
+	// It cannot be empty.
+	TypeScriptName string
+	NoCookieAuth   bool
+	NoAPIAuth      bool
+	// Request is the type that defines the format of the request body.
+	Request interface{}
+	// Response is the type that defines the format of the response body.
+	Response interface{}
+	// QueryParams is the list of query parameters that the endpoint accepts.
+	QueryParams []Param
+	// PathParams is the list of path parameters that appear in the path associated with this
+	// endpoint.
+	PathParams []Param
+	// ResponseMock is the data to use as a response for the generated mocks.
+	// It must be of the same type than Response.
+	// If a mock generator is called it must not be nil unless Response is nil.
+	ResponseMock interface{}
 }
 
 // CookieAuth returns endpoint's cookie auth status.
@@ -32,6 +70,65 @@ func (e *Endpoint) APIAuth() bool {
 	return !e.NoAPIAuth
 }
 
+// Validate validates the endpoint fields values are correct according to the documented constraints.
+func (e *Endpoint) Validate() error {
+	if e.Name == "" {
+		return errsEndpoint.New("Name cannot be empty")
+	}
+
+	if e.Description == "" {
+		return errsEndpoint.New("Description cannot be empty")
+	}
+
+	if !goNameRegExp.MatchString(e.GoName) {
+		return errsEndpoint.New("GoName doesn't match the regular expression %q", goNameRegExp)
+	}
+
+	if !typeScriptNameRegExp.MatchString(e.TypeScriptName) {
+		return errsEndpoint.New("TypeScriptName doesn't match the regular expression %q", typeScriptNameRegExp)
+	}
+
+	if e.Request != nil {
+		switch k := reflect.TypeOf(e.Request).Kind(); k {
+		case reflect.Invalid,
+			reflect.Complex64,
+			reflect.Complex128,
+			reflect.Chan,
+			reflect.Func,
+			reflect.Interface,
+			reflect.Map,
+			reflect.Pointer,
+			reflect.UnsafePointer:
+			return errsEndpoint.New("Request cannot be of a type %q", k)
+		}
+	}
+
+	if e.Response != nil {
+		switch k := reflect.TypeOf(e.Response).Kind(); k {
+		case reflect.Invalid,
+			reflect.Complex64,
+			reflect.Complex128,
+			reflect.Chan,
+			reflect.Func,
+			reflect.Interface,
+			reflect.Map,
+			reflect.Pointer,
+			reflect.UnsafePointer:
+			return errsEndpoint.New("Response cannot be of a type %q", k)
+		}
+
+		if e.ResponseMock != nil {
+			if m, r := reflect.TypeOf(e.ResponseMock), reflect.TypeOf(e.Response); m != r {
+				return errsEndpoint.New(
+					"ResponseMock isn't of the same type than Response. Have=%q Want=%q", m, r,
+				)
+			}
+		}
+	}
+
+	return nil
+}
+
 // fullEndpoint represents endpoint with path and method.
 type fullEndpoint struct {
 	Endpoint
@@ -39,40 +136,154 @@ type fullEndpoint struct {
 	Method string
 }
 
+// requestType guarantees to return a named Go type associated to the Endpoint.Request field.
+// g is used to avoid clashes with types defined in different groups that are different, but with
+// the same name. It cannot be nil.
+func (fe fullEndpoint) requestType(g *EndpointGroup) reflect.Type {
+	t := reflect.TypeOf(fe.Request)
+	if t.Name() != "" {
+		return t
+	}
+
+	switch k := t.Kind(); k {
+	case reflect.Array, reflect.Slice:
+		if t.Elem().Name() == "" {
+			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
+		}
+	case reflect.Struct:
+		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
+	default:
+		panic(
+			fmt.Sprintf(
+				"BUG: Unsupported Request type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
+				fe.Method, fe.Path, k,
+			),
+		)
+	}
+
+	return t
+}
+
+// responseType guarantees to return a named Go type associated to the Endpoint.Response field.
+// g is used to avoid clashes with types defined in different groups that are different, but with
+// the same name. It cannot be nil.
+func (fe fullEndpoint) responseType(g *EndpointGroup) reflect.Type {
+	t := reflect.TypeOf(fe.Response)
+	if t.Name() != "" {
+		return t
+	}
+
+	switch k := t.Kind(); k {
+	case reflect.Array, reflect.Slice:
+		if t.Elem().Name() == "" {
+			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
+		}
+	case reflect.Struct:
+		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
+	default:
+		panic(
+			fmt.Sprintf(
+				"BUG: Unsupported Response type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
+				fe.Method, fe.Path, k,
+			),
+		)
+	}
+
+	return t
+}
+
 // EndpointGroup represents endpoints group.
+// You should always create a group using API.Group because it validates the field values to
+// guarantee correct code generation.
 type EndpointGroup struct {
-	Name      string
+	// Name is the group name.
+	//
+	// Go generator uses it as part of type, functions, interfaces names, and in code comments.
+	// The casing is adjusted according where it's used.
+	//
+	// TypeScript generator uses it as part of types names for the API functionality of this group.
+	// The casing is adjusted according where it's used.
+	//
+	// Document generator uses as it is.
+	Name string
+	// Prefix is a prefix used for
+	//
+	// Go generator uses it as part of variables names, error messages, and the URL base path for the group.
+	// The casing is adjusted according where it's used, but for the URL base path, lowercase is used.
+	//
+	// TypeScript generator uses it for composing the URL base path (lowercase).
+	//
+	// Document generator uses as it is.
 	Prefix    string
 	endpoints []*fullEndpoint
 }
 
 // Get adds new GET endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Get(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodGet, endpoint)
 }
 
 // Patch adds new PATCH endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Patch(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPatch, endpoint)
 }
 
 // Post adds new POST endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Post(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPost, endpoint)
 }
 
 // Delete adds new DELETE endpoint to endpoints group.
+// It panics if path doesn't begin with '/'.
 func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodDelete, endpoint)
 }
 
 // addEndpoint adds new endpoint to endpoints list.
+// It panics if:
+//   - path doesn't begin with '/'.
+//   - endpoint.Validate() returns an error.
+//   - An Endpoint with the same path and method already exists.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
+	if !strings.HasPrefix(path, "/") {
+		panic(
+			fmt.Sprintf(
+				"invalid path for method %q of EndpointGroup %q. path must start with slash, got %q",
+				method,
+				eg.Name,
+				path,
+			),
+		)
+	}
+
+	if err := endpoint.Validate(); err != nil {
+		panic(err)
+	}
+
 	ep := &fullEndpoint{*endpoint, path, method}
-	for i, e := range eg.endpoints {
+	for _, e := range eg.endpoints {
 		if e.Path == path && e.Method == method {
-			eg.endpoints[i] = ep
-			return
+			panic(fmt.Sprintf("there is already an endpoint defined with path %q and method %q", path, method))
+		}
+
+		if e.GoName == ep.GoName {
+			panic(
+				fmt.Sprintf("GoName %q is already used by the endpoint with path %q and method %q", e.GoName, e.Path, e.Method),
+			)
+		}
+
+		if e.TypeScriptName == ep.TypeScriptName {
+			panic(
+				fmt.Sprintf(
+					"TypeScriptName %q is already used by the endpoint with path %q and method %q",
+					e.TypeScriptName,
+					e.Path,
+					e.Method,
+				),
+			)
 		}
 	}
 	eg.endpoints = append(eg.endpoints, ep)
@@ -86,8 +297,39 @@ type Param struct {
 
 // NewParam constructor which creates new Param entity by given name and type.
 func NewParam(name string, instance interface{}) Param {
+	switch t := reflect.TypeOf(instance); t {
+	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
+	default:
+		switch k := t.Kind(); k {
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String:
+		default:
+			panic(
+				fmt.Sprintf(
+					`Unsupported parameter, only types: %q, %q, string, and "unsigned numbers" are supported . Found type=%q, Kind=%q`,
+					reflect.TypeOf(uuid.UUID{}),
+					reflect.TypeOf(time.Time{}),
+					t,
+					k,
+				),
+			)
+		}
+	}
+
 	return Param{
 		Name: name,
 		Type: reflect.TypeOf(instance),
 	}
+}
+
+// namedType guarantees to return a named Go type. where defines where the param is  defined (e.g.
+// path, query, etc.).
+func (p Param) namedType(ep Endpoint, where string) reflect.Type {
+	if p.Type.Name() == "" {
+		return typeCustomName{
+			Type: p.Type,
+			name: compoundTypeName(ep.TypeScriptName, where, "param", p.Name),
+		}
+	}
+
+	return p.Type
 }

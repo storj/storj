@@ -46,26 +46,18 @@
                         </ul>
                     </div>
                 </div>
-                <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
+                <p class="forgot-area__content-area__container__message">Enter your email to reset your password. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <VInput
                         label="Email Address"
+                        max-symbols="72"
                         placeholder="user@example.com"
                         :error="emailError"
                         @setData="setEmail"
                     />
                 </div>
-                <VueRecaptcha
-                    v-if="captchaConfig.recaptcha.enabled"
-                    ref="captcha"
-                    :sitekey="captchaConfig.recaptcha.siteKey"
-                    :load-recaptcha-script="true"
-                    size="invisible"
-                    @verify="onCaptchaVerified"
-                    @error="onCaptchaError"
-                />
                 <VueHcaptcha
-                    v-else-if="captchaConfig.hcaptcha.enabled"
+                    v-if="captchaConfig.hcaptcha.enabled"
                     ref="captcha"
                     :sitekey="captchaConfig.hcaptcha.siteKey"
                     :re-captcha-compat="false"
@@ -81,9 +73,7 @@
                     border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onSendConfigurations"
-                >
-                    Reset Password
-                </v-button>
+                />
                 <div class="forgot-area__content-area__container__login-container">
                     <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
                         Back to Login
@@ -95,14 +85,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Validator } from '@/utils/validation';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -117,8 +107,7 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
@@ -130,7 +119,7 @@ const isLoading = ref<boolean>(false);
 const isPasswordResetExpired = ref<boolean>(false);
 const isMessageShowing = ref<boolean>(true);
 const isDropdownShown = ref<boolean>(false);
-const captcha = ref<VueRecaptcha | VueHcaptcha>();
+const captcha = ref<VueHcaptcha>();
 
 /**
  * Name of the current satellite.
@@ -143,7 +132,8 @@ const satelliteName = computed((): string => {
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return configStore.state.config.partneredSatellites;
+    const satellites = configStore.state.config.partneredSatellites;
+    return satellites.filter(s => s.name !== satelliteName.value);
 });
 
 /**
@@ -202,7 +192,7 @@ function onCaptchaError(): void {
  * Sends recovery password email.
  */
 async function onSendConfigurations(): Promise<void> {
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
     if (activeElement && activeElement.id === 'resetDropdown') return;
 
     if (isLoading.value || !validateFields()) {
@@ -225,7 +215,7 @@ async function onSendConfigurations(): Promise<void> {
         await auth.forgotPassword(email.value, captchaResponseToken.value);
         await notify.success('Please look for instructions in your email');
     } catch (error) {
-        await notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     captcha.value?.reset();
@@ -254,7 +244,7 @@ function validateFields(): boolean {
 }
 
 onMounted((): void => {
-    isPasswordResetExpired.value = router.currentRoute.query.expired === 'true';
+    isPasswordResetExpired.value = route.query.expired === 'true';
 });
 </script>
 
@@ -266,21 +256,16 @@ onMounted((): void => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
         &__logo-wrapper {
             text-align: center;
-            margin: 70px 0;
+            margin: 60px 0;
 
             &__logo {
                 cursor: pointer;
-                width: 207px;
-                height: 37px;
             }
         }
 
@@ -293,12 +278,17 @@ onMounted((): void => {
             &__value {
                 font-size: 16px;
                 line-height: 21px;
-                color: #acbace;
+                color: #777;
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
                 background: none;
                 border: none;
+                cursor: pointer;
+
+                &:hover {
+                    color: var(--c-blue-3);
+                }
             }
 
             &__dropdown {
@@ -323,13 +313,14 @@ onMounted((): void => {
                     color: #7e8b9c;
                     cursor: pointer;
                     text-decoration: none;
+                    border-radius: 6px;
 
                     &__name {
                         font-family: 'font_bold', sans-serif;
                         margin-left: 15px;
                         font-size: 14px;
                         line-height: 20px;
-                        color: #7e8b9c;
+                        color: #333;
                     }
 
                     &:hover {
@@ -353,13 +344,15 @@ onMounted((): void => {
             box-sizing: border-box;
 
             &__container {
-                width: 610px;
-                padding: 60px 80px;
+                max-width: 480px;
+                min-width: 360px;
+                padding: 30px 40px 40px;
                 display: flex;
                 flex-direction: column;
                 background-color: #fff;
                 border-radius: 20px;
                 box-sizing: border-box;
+                border: 1px solid #eee;
 
                 &__title-area {
                     display: flex;
@@ -367,7 +360,7 @@ onMounted((): void => {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 21px;
                         margin: 10px 0;
                         letter-spacing: -0.1007px;
                         color: #252525;
@@ -376,12 +369,17 @@ onMounted((): void => {
                     }
                 }
 
+                &__message {
+                    margin-top: 10px;
+                    font-size: 15px;
+                }
+
                 &__input-wrapper {
-                    margin-top: 20px;
+                    margin-top: 10px;
                 }
 
                 &__button {
-                    margin-top: 40px;
+                    margin-top: 30px;
                 }
 
                 &__login-container {
@@ -439,7 +437,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .forgot-area {
 
@@ -459,7 +457,7 @@ onMounted((): void => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .forgot-area {
 
@@ -469,11 +467,6 @@ onMounted((): void => {
 
             &__content-area {
                 padding: 0;
-
-                &__container {
-                    padding: 60px;
-                    border-radius: 0;
-                }
             }
         }
     }

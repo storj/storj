@@ -53,6 +53,10 @@ type Admin struct {
 		Service *checker.Service
 	}
 
+	Analytics struct {
+		Service *analytics.Service
+	}
+
 	Payments struct {
 		Accounts payments.Accounts
 		Service  *stripe.Service
@@ -135,6 +139,16 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		})
 	}
 
+	{ // setup analytics
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup payments
 		pc := config.Payments
 
@@ -163,6 +177,14 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
+			db.Console().AccountFreezeEvents(),
+			db.Console().Users(),
+			db.Console().Projects(),
+			peer.Analytics.Service,
+			config.Console.AccountFreeze,
+		)
+
 		peer.Payments.Service, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -176,7 +198,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			peer.Analytics.Service,
+		)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -184,12 +208,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
-			db.Console().AccountFreezeEvents(),
-			db.Console().Users(),
-			db.Console().Projects(),
-			analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName),
-		)
 	}
 
 	{ // setup admin endpoint
@@ -202,7 +220,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.FreezeAccounts.Service, peer.Payments.Accounts, config.Console, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.FreezeAccounts.Service, peer.Analytics.Service, peer.Payments.Accounts, config.Console, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

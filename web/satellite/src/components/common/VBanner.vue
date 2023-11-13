@@ -10,9 +10,25 @@
     >
         <InfoIcon class="notification-wrap__icon" />
         <div class="notification-wrap__text">
-            <slot name="text" />
+            <p>
+                <span class="notification-wrap__text__title">{{ title }}</span>
+                {{ message }}
+            </p>
+            <template v-if="linkText">
+                <a
+                    v-if="href"
+                    class="notification-wrap__text__link"
+                    :href="href"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    @click.stop="onLinkClick"
+                >
+                    {{ linkText }}
+                </a>
+                <p v-else class="notification-wrap__text__link" @click.stop="onLinkClick">{{ linkText }}</p>
+            </template>
         </div>
-        <CloseIcon class="notification-wrap__close" @click="closeClicked" />
+        <CloseIcon class="notification-wrap__close" @click.stop="closeClicked" />
     </div>
 </template>
 
@@ -24,13 +40,23 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 const props = withDefaults(defineProps<{
     severity?: 'info' | 'warning' | 'critical';
+    title?: string;
+    message?: string;
+    linkText?: string;
+    href?: string;
     onClick?: () => void;
+    onLinkClick?: () => void;
     onClose?: () => void;
     dashboardRef: HTMLElement;
 }>(), {
     severity: 'info',
-    onClick: () => () => {},
-    onClose: () => () => {},
+    title: '',
+    message: '',
+    linkText: '',
+    href: '',
+    onClick: () => {},
+    onLinkClick: () => {},
+    onClose: () => {},
 });
 
 const isShown = ref<boolean>(true);
@@ -39,9 +65,7 @@ const resizeObserver = ref<ResizeObserver>();
 
 function closeClicked(): void {
     isShown.value = false;
-    if (props.onClose) {
-        props.onClose();
-    }
+    props.onClose();
 }
 
 function onBannerResize(): void {
@@ -83,8 +107,11 @@ watch(() => props.dashboardRef, () => {
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-    @media screen and (max-width: 800px) {
-        margin: 0 1.5rem;
+    @media screen and (width <= 450px) {
+        flex-direction: column;
+        align-items: flex-start;
+        row-gap: 10px;
+        position: relative;
     }
 
     &__icon {
@@ -101,7 +128,7 @@ watch(() => props.dashboardRef, () => {
         border: 1px solid var(--c-yellow-2);
 
         :deep(.icon-path) {
-            fill: var(--c-yellow-3) !important;
+            fill: var(--c-yellow-5) !important;
         }
     }
 
@@ -123,6 +150,22 @@ watch(() => props.dashboardRef, () => {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 10px;
+
+        @media screen and (width <= 500px) {
+            flex-direction: column;
+        }
+
+        &__title {
+            font-family: 'font_medium', sans-serif;
+        }
+
+        &__link {
+            color: black;
+            text-decoration: underline !important;
+            white-space: nowrap;
+            cursor: pointer;
+        }
     }
 
     &__close {
@@ -130,27 +173,13 @@ watch(() => props.dashboardRef, () => {
         height: 15px;
         margin-left: 2.375rem;
         cursor: pointer;
-    }
-}
+        flex-shrink: 0;
 
-.bold {
-    font-family: 'font_bold', sans-serif;
-}
-
-.medium {
-    font-family: 'font_medium', sans-serif;
-}
-
-.link {
-    color: black;
-    text-decoration: underline !important;
-    cursor: pointer;
-}
-
-@media screen and (max-width: 500px) {
-
-    .notification-wrap {
-        right: 15px;
+        @media screen and (width <= 450px) {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+        }
     }
 }
 </style>

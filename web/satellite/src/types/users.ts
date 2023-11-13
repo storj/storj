@@ -70,6 +70,18 @@ export interface UsersApi {
      * @throws Error
      */
     generateUserMFARecoveryCodes(): Promise<string[]>;
+    /**
+     * Generate user's MFA recovery codes requiring a code.
+     *
+     * @throws Error
+     */
+    regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
+    /**
+     * Request increase for user's project limit.
+     *
+     * @throws Error
+     */
+    requestProjectLimitIncrease(limit: string): Promise<void>;
 }
 
 /**
@@ -84,6 +96,9 @@ export class User {
         public partner: string = '',
         public password: string = '',
         public projectLimit: number = 0,
+        public projectStorageLimit: number = 0,
+        public projectBandwidthLimit: number = 0,
+        public projectSegmentLimit: number = 0,
         public paidTier: boolean = false,
         public isMFAEnabled: boolean = false,
         public isProfessional: boolean = false,
@@ -95,7 +110,7 @@ export class User {
         public _createdAt: string | null = null,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
-    ) {}
+    ) { }
 
     public get createdAt(): Date | null {
         if (!this._createdAt) {
@@ -120,7 +135,7 @@ export class UpdatedUser {
     public constructor(
         public fullName: string = '',
         public shortName: string = '',
-    ) {}
+    ) { }
 
     public setFullName(value: string): void {
         this.fullName = value.trim();
@@ -142,7 +157,7 @@ export class DisableMFARequest {
     public constructor(
         public passcode: string = '',
         public recoveryCode: string = '',
-    ) {}
+    ) { }
 }
 
 /**
@@ -152,7 +167,7 @@ export class TokenInfo {
     public constructor(
         public token: string,
         public expiresAt: Date,
-    ) {}
+    ) { }
 }
 
 /**
@@ -163,8 +178,9 @@ export class UserSettings {
         private _sessionDuration: number | null = null,
         public onboardingStart = false,
         public onboardingEnd = false,
+        public passphrasePrompt = true,
         public onboardingStep: string | null = null,
-    ) {}
+    ) { }
 
     public get sessionDuration(): Duration | null {
         if (this._sessionDuration) {
@@ -177,6 +193,7 @@ export class UserSettings {
 export interface SetUserSettingsData {
     onboardingStart?: boolean
     onboardingEnd?: boolean;
+    passphrasePrompt?: boolean;
     onboardingStep?: string | null;
     sessionDuration?: number;
 }
@@ -188,5 +205,5 @@ export class FreezeStatus {
     public constructor(
         public frozen = false,
         public warned = false,
-    ) {}
+    ) { }
 }

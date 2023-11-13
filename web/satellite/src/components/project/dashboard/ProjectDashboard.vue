@@ -2,12 +2,20 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-dashboard">
+    <div ref="content" class="project-dashboard">
+        <v-banner
+            v-if="isLowBalance && content && billingEnabled"
+            class="project-dashboard__low-balance"
+            message="Your STORJ Token balance is low. Deposit more STORJ tokens or make sure you have a credit card on file to avoid interruptions in service."
+            link-text="Go to billing"
+            severity="warning"
+            :dashboard-ref="content"
+            :on-link-click="redirectToBillingOverview"
+        />
         <div class="project-dashboard__heading">
             <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
-            <project-ownership-tag :project="selectedProject" />
+            <project-ownership-tag :role="(selectedProject.ownerId === user.id) ? ProjectRole.Owner : ProjectRole.Member" />
         </div>
-
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
@@ -23,7 +31,7 @@
                     :toggle="toggleChartsDatePicker"
                 />
                 <VButton
-                    v-if="!isProAccount"
+                    v-if="!isProAccount && billingEnabled"
                     label="Upgrade Plan"
                     width="114px"
                     height="40px"
@@ -37,7 +45,7 @@
                     width="130px"
                     height="40px"
                     font-size="13px"
-                    :on-press="onCreateProjectClick"
+                    :on-press="handleCreateProjectClick"
                     :is-white="true"
                 >
                     <template #icon>
@@ -53,6 +61,7 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
+                    <h2 class="project-dashboard__charts__container__dimension">{{ getDimension(storageUsage) }}</h2>
                     <StorageChart
                         :width="chartWidth"
                         :height="170"
@@ -64,22 +73,20 @@
             </div>
             <div class="project-dashboard__charts__container">
                 <div class="project-dashboard__charts__container__header">
-                    <h3 class="project-dashboard__charts__container__header__title">Bandwidth</h3>
+                    <h3 class="project-dashboard__charts__container__header__title">Download</h3>
                     <div class="project-dashboard__charts__container__header__right">
                         <span class="project-dashboard__charts__container__header__right__allocated-color" />
-                        <p class="project-dashboard__charts__container__header__right__allocated-label">Allocated</p>
-                        <span class="project-dashboard__charts__container__header__right__settled-color" />
-                        <p class="project-dashboard__charts__container__header__right__settled-label">Settled</p>
+                        <p class="project-dashboard__charts__container__header__right__allocated-label">Download</p>
                         <VInfo class="project-dashboard__charts__container__header__right__info">
                             <template #icon>
                                 <InfoIcon />
                             </template>
                             <template #message>
                                 <p class="project-dashboard__charts__container__header__right__info__message">
-                                    The bandwidth allocated takes few hours to be settled.
+                                    The most recent data points may change as traffic moves from "allocated" to "settled".
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
-                                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
+                                        href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
@@ -92,55 +99,75 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
+                    <h2 class="project-dashboard__charts__container__dimension">
+                        {{ getDimension(allocatedBandwidthUsage) }}
+                    </h2>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
-                        :settled-data="settledBandwidthUsage"
-                        :allocated-data="allocatedBandwidthUsage"
+                        :data="allocatedBandwidthUsage"
                         :since="chartsSinceDate"
                         :before="chartsBeforeDate"
                     />
                 </template>
             </div>
         </div>
+        <LimitsArea v-if="limitsAreaEnabled" :is-loading="isDataFetching" />
         <div class="project-dashboard__info">
             <InfoContainer
-                title="Billing"
-                :subtitle="status"
-                :value="centsToDollars(estimatedCharges)"
-                :is-data-fetching="isDataFetching"
+                :icon="BucketsIcon"
+                title="Buckets"
+                :subtitle="`Last update ${now}`"
+                :value="bucketsCount.toLocaleString()"
+                :is-data-fetching="areBucketsFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label">Will be charged during next billing period</p>
+                    <router-link :to="RouteConfig.Buckets.path" class="project-dashboard__info__link">
+                        Go to buckets →
+                    </router-link>
                 </template>
             </InfoContainer>
             <InfoContainer
-                title="Objects"
-                :subtitle="`Updated ${now}`"
-                :value="limits.objectCount.toString()"
+                :icon="GrantsIcon"
+                title="Access Grants"
+                :subtitle="`Last update ${now}`"
+                :value="accessGrantsCount.toLocaleString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label" aria-roledescription="total-storage">
-                        Total of {{ usedLimitFormatted(limits.storageUsed) }}
+                    <router-link :to="RouteConfig.AccessGrants.path" class="project-dashboard__info__link">
+                        Access management →
+                    </router-link>
+                </template>
+            </InfoContainer>
+            <InfoContainer
+                :icon="TeamIcon"
+                title="Users"
+                :subtitle="`Last update ${now}`"
+                :value="teamSize.toLocaleString()"
+                :is-data-fetching="isDataFetching"
+            >
+                <template #side-value>
+                    <p class="project-dashboard__info__link" @click="onInviteUsersClick">
+                        Invite project users →
                     </p>
                 </template>
             </InfoContainer>
             <InfoContainer
-                title="Segments"
-                :subtitle="`Updated ${now}`"
-                :value="limits.segmentCount.toString()"
+                v-if="billingEnabled"
+                :icon="BillingIcon"
+                title="Billing"
+                :subtitle="status"
+                :value="isProAccount ? centsToDollars(estimatedCharges) : 'Free'"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <a
+                    <router-link
+                        :to="RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview)).path"
                         class="project-dashboard__info__link"
-                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing#segments"
-                        target="_blank"
-                        rel="noopener noreferrer"
                     >
-                        Learn more ->
-                    </a>
+                        Go to billing →
+                    </router-link>
                 </template>
             </InfoContainer>
         </div>
@@ -154,23 +181,32 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { centsToDollars } from '@/utils/strings';
+import { User } from '@/types/users';
+import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
+import { AccessGrantsPage } from '@/types/accessGrants';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
+import { AccountBalance, CreditCard } from '@/types/payments';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -183,27 +219,44 @@ import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
+import LimitsArea from '@/components/project/dashboard/LimitsArea.vue';
+import VBanner from '@/components/common/VBanner.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
+import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import GrantsIcon from '@/../static/images/navigation/accessGrants.svg';
+import TeamIcon from '@/../static/images/navigation/users.svg';
+import BillingIcon from '@/../static/images/navigation/billing.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const pmStore = useProjectMembersStore();
+const agStore = useAccessGrantsStore();
+
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
+const isLowBalance = useLowTokenBalance();
 const notify = useNotify();
 const router = useRouter();
 
 const now = new Date().toLocaleDateString('en-US');
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const content = ref<HTMLElement | null>(null);
 const isDataFetching = ref<boolean>(true);
 const areBucketsFetching = ref<boolean>(true);
 const isServerSideEncryptionBannerHidden = ref<boolean>(true);
 const chartWidth = ref<number>(0);
 const chartContainer = ref<HTMLDivElement>();
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates if charts date picker is shown.
@@ -217,6 +270,13 @@ const isChartsDatePicker = computed((): boolean => {
  */
 const limits = computed((): ProjectLimits => {
     return projectsStore.state.currentLimits;
+});
+
+/**
+ * Returns the whether the limits area is enabled.
+ */
+const limitsAreaEnabled = computed((): boolean => {
+    return configStore.state.config.limitsAreaEnabled;
 });
 
 /**
@@ -247,15 +307,6 @@ const estimatedCharges = computed((): number => {
 const storageUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
         projectsStore.state.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
-    );
-});
-
-/**
- * Returns settled bandwidth chart data from store.
- */
-const settledBandwidthUsage = computed((): DataStamp[] => {
-    return ChartUtils.populateEmptyUsage(
-        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -302,11 +353,46 @@ const bucketWasCreated = computed((): boolean => {
 });
 
 /**
- * get selected project from store
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
+
+/**
+ * Get selected project from store.
  */
 const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
 });
+
+/**
+ * Returns current team size from store.
+ */
+const teamSize = computed((): number => {
+    return pmStore.state.page.totalCount;
+});
+
+/**
+ * Returns access grants count from store.
+ */
+const accessGrantsCount = computed((): number => {
+    return agStore.state.page.totalCount;
+});
+
+/**
+ * Returns access grants count from store.
+ */
+const bucketsCount = computed((): number => {
+    return bucketsStore.state.page.totalCount;
+});
+
+/**
+ * Redirects to Billing Page Overview tab.
+ */
+function redirectToBillingOverview(): void {
+    router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview)).path);
+}
 
 /**
  * Hides server-side encryption banner.
@@ -324,25 +410,27 @@ function recalculateChartWidth(): void {
 }
 
 /**
+ * Returns dimension for given data values.
+ */
+function getDimension(dataStamps: DataStamp[]): Dimensions {
+    const maxValue = Math.max(...dataStamps.map(s => s.value));
+    return new Size(maxValue).label;
+}
+
+/**
  * Holds on upgrade button click logic.
  */
 function onUpgradeClick(): void {
+    if (!billingEnabled.value) return;
+
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
 /**
- * Holds on create project button click logic.
+ * Holds on invite users CTA click logic.
  */
-function onCreateProjectClick(): void {
-    analytics.pageVisit(RouteConfig.CreateProject.path);
-    router.push(RouteConfig.CreateProject.path);
-}
-
-/**
- * Returns formatted amount.
- */
-function usedLimitFormatted(value: number): string {
-    return formattedValue(new Size(value, 2));
+function onInviteUsersClick(): void {
+    appStore.updateActiveModal(MODALS.addTeamMember);
 }
 
 /**
@@ -365,19 +453,7 @@ async function onChartsDateRangePick(dateRange: Date[]): Promise<void> {
     try {
         await projectsStore.getDailyProjectData({ since, before });
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-    }
-}
-
-/**
- * Formats value to needed form and returns it.
- */
-function formattedValue(value: Size): string {
-    switch (value.label) {
-    case Dimensions.Bytes:
-        return '0';
-    default:
-        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
 }
 
@@ -390,20 +466,18 @@ onMounted(async (): Promise<void> => {
 
     const projectID = selectedProject.value.id;
     if (!projectID) {
-        if (configStore.state.config.allProjectsDashboard) {
-            await router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
         const onboardingPath = RouteConfig.OnboardingTour.with(configStore.firstOnboardingStep).path;
 
-        analytics.pageVisit(onboardingPath);
-        router.push(onboardingPath);
+        analyticsStore.pageVisit(onboardingPath);
+        await router.push(onboardingPath);
 
         return;
     }
 
     window.addEventListener('resize', recalculateChartWidth);
     recalculateChartWidth();
+
+    const FIRST_PAGE = 1;
 
     try {
         const now = new Date();
@@ -413,33 +487,56 @@ onMounted(async (): Promise<void> => {
         await projectsStore.getProjectLimits(projectID);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
-                appStore.updateActiveModal(MODALS.enterPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.enterPassphrase);
+                }
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
                 }
             } else {
-                appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                if (usersStore.state.settings.passphrasePrompt) {
+                    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+                }
             }
 
             appStore.toggleHasJustLoggedIn();
         }
 
-        await projectsStore.getDailyProjectData({ since: past, before: now });
-        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
+            projectsStore.getDailyProjectData({ since: past, before: now }),
+            pmStore.getProjectMembers(FIRST_PAGE, projectID),
+            agStore.getAccessGrants(FIRST_PAGE, projectID),
+        ];
+
+        if (billingEnabled.value) {
+            promises = [
+                ...promises,
+                billingStore.getBalance(),
+                billingStore.getCreditCards(),
+                billingStore.getNativePaymentsHistory(),
+                billingStore.getCoupon(),
+            ];
+        }
+
+        await Promise.all(promises);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {
         isDataFetching.value = false;
     }
 
-    const FIRST_PAGE = 1;
+    if (billingEnabled.value) {
+        billingStore.getProjectUsageAndChargesCurrentRollup().catch(error => {
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        });
+    }
 
     try {
         await bucketsStore.getBuckets(FIRST_PAGE, projectID);
 
         areBucketsFetching.value = false;
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
 });
 
@@ -454,12 +551,17 @@ onBeforeUnmount((): void => {
 
 <style scoped lang="scss">
     .project-dashboard {
-        max-width: calc(100vw - 280px - 95px);
+        background-origin: content-box;
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
+        padding-bottom: 55px;
+
+        &__low-balance {
+            margin-bottom: 20px;
+        }
 
         &__heading {
             display: flex;
@@ -471,7 +573,7 @@ onBeforeUnmount((): void => {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 24px;
-                color: #000;
+                color: var(--c-black);
             }
         }
 
@@ -487,7 +589,7 @@ onBeforeUnmount((): void => {
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            margin: 63px -8px 14px;
+            margin: 44px -8px 14px;
 
             > * {
                 margin: 2px 8px;
@@ -498,7 +600,7 @@ onBeforeUnmount((): void => {
                 font-size: 24px;
                 line-height: 31px;
                 letter-spacing: -0.02em;
-                color: #000;
+                color: var(--c-black);
             }
 
             &__buttons {
@@ -518,7 +620,7 @@ onBeforeUnmount((): void => {
 
             &__container {
                 width: calc((100% - 20px) / 2);
-                background-color: #fff;
+                background-color: var(--c-white);
                 box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 border-radius: 10px;
 
@@ -532,7 +634,7 @@ onBeforeUnmount((): void => {
                         font-family: 'font_medium', sans-serif;
                         font-size: 18px;
                         line-height: 27px;
-                        color: #000;
+                        color: var(--c-black);
                     }
 
                     &__right {
@@ -540,34 +642,18 @@ onBeforeUnmount((): void => {
                         align-items: center;
                         margin: 16px 16px 0 0;
 
-                        &__allocated-color,
-                        &__settled-color {
+                        &__allocated-color {
                             width: 10px;
                             height: 10px;
                             border-radius: 2px;
-                        }
-
-                        &__allocated-color {
-                            background: var(--c-purple-2);
-                        }
-
-                        &__settled-color {
-                            background: var(--c-purple-3);
-                        }
-
-                        &__allocated-label,
-                        &__settled-label {
-                            font-size: 14px;
-                            line-height: 17px;
-                            color: #000;
-                            margin-left: 5px;
+                            background: var(--c-grey-5);
                         }
 
                         &__allocated-label {
-                            margin-right: 16px;
-                        }
-
-                        &__settled-label {
+                            font-size: 14px;
+                            line-height: 17px;
+                            color: var(--c-black);
+                            margin-left: 5px;
                             margin-right: 11px;
                         }
 
@@ -579,19 +665,25 @@ onBeforeUnmount((): void => {
                                 font-size: 12px;
                                 line-height: 18px;
                                 text-align: center;
-                                color: #fff;
+                                color: var(--c-white);
 
                                 &__link {
                                     text-decoration: underline !important;
-                                    color: #fff;
+                                    color: var(--c-white);
 
                                     &:visited {
-                                        color: #fff;
+                                        color: var(--c-white);
                                     }
                                 }
                             }
                         }
                     }
+                }
+
+                &__dimension {
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 14px;
+                    margin: 10px 0 0 12px;
                 }
 
                 &__loader {
@@ -603,7 +695,7 @@ onBeforeUnmount((): void => {
                     font-weight: 600;
                     font-size: 14px;
                     line-height: 20px;
-                    color: #000;
+                    color: var(--c-black);
                 }
             }
         }
@@ -611,29 +703,40 @@ onBeforeUnmount((): void => {
         &__info {
             display: flex;
             margin-top: 16px;
-            justify-content: space-between;
-            align-items: stretch;
+            column-gap: 10px;
             flex-wrap: wrap;
 
             .info-container {
-                width: calc((100% - 32px) / 3);
+                width: calc((100% - 32px) / 4);
                 box-sizing: border-box;
             }
 
-            &__label,
+            @media screen and (width <= 1060px) {
+
+                > .info-container {
+                    width: calc((100% - 16px) / 2);
+                    margin-bottom: 16px;
+                }
+            }
+
+            @media screen and (width <= 600px) {
+
+                > .info-container {
+                    width: 100%;
+                }
+            }
+
             &__link {
                 font-weight: 500;
                 font-size: 14px;
                 line-height: 20px;
-                color: #000;
-            }
-
-            &__link {
+                color: var(--c-black);
+                cursor: pointer;
                 text-decoration: underline !important;
                 text-underline-position: under;
 
                 &:visited {
-                    color: #000;
+                    color: var(--c-black);
                 }
             }
         }
@@ -676,21 +779,21 @@ onBeforeUnmount((): void => {
         z-index: 1;
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (width <= 1280px) {
 
         .project-dashboard {
             max-width: calc(100vw - 86px - 95px);
         }
     }
 
-    @media screen and (max-width: 960px) {
+    @media screen and (width <= 960px) {
 
         :deep(.range-selection__popup) {
             right: -148px;
         }
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (width <= 768px) {
 
         .project-dashboard {
 
@@ -710,20 +813,6 @@ onBeforeUnmount((): void => {
                     margin-bottom: 22px;
                 }
             }
-
-            &__info {
-                margin-top: 52px;
-
-                > .info-container {
-                    width: calc((100% - 25px) / 2);
-                    margin-bottom: 24px;
-                }
-
-                > .info-container:last-child {
-                    width: 100%;
-                    margin-bottom: 0;
-                }
-            }
         }
 
         :deep(.range-selection__popup) {
@@ -731,21 +820,12 @@ onBeforeUnmount((): void => {
         }
     }
 
-    @media screen and (max-width: 480px) {
+    @media screen and (width <= 480px) {
 
         .project-dashboard {
 
             &__charts__container:first-child {
                 margin-bottom: 20px;
-            }
-
-            &__info {
-                margin-top: 32px;
-
-                > .info-container {
-                    width: 100%;
-                    margin-bottom: 16px;
-                }
             }
         }
     }

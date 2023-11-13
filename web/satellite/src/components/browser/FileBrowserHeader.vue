@@ -2,95 +2,92 @@
 // See LICENSE for copying information.
 
 <template>
-    <fragment>
-        <th
-            class="align-left"
-            @mouseover="mouseOver('name')"
-            @mouseleave="mouseLeave"
-            @click="sortBy('name')"
-        >
-            <span class="header__item">
-                <span>Name</span>
-                <span :class="{ invisible: nameSortData.isHidden }">
-                    <a v-if="nameSortData.isDesc" class="arrow">
-                        <desc-icon />
-                    </a>
-                    <a v-else class="arrow">
-                        <asc-icon />
-                    </a>
-                </span>
+    <th
+        class="align-left"
+        @mouseover="mouseOver('name')"
+        @mouseleave="mouseLeave"
+        @click="sortBy('name')"
+    >
+        <span class="header__item">
+            <span>Name</span>
+            <span :class="{ invisible: nameSortData.isHidden }">
+                <a v-if="nameSortData.isDesc" class="arrow">
+                    <desc-icon />
+                </a>
+                <a v-else class="arrow">
+                    <asc-icon />
+                </a>
             </span>
-        </th>
-        <th
-            class="align-left"
-            @mouseover="mouseOver('size')"
-            @mouseleave="mouseLeave"
-            @click="sortBy('size')"
-        >
-            <span class="header__item">
-                <span>Size</span>
-                <span :class="{ invisible: sizeSortData.isHidden }">
-                    <a v-if="sizeSortData.isDesc" class="arrow">
-                        <desc-icon />
-                    </a>
-                    <a v-else class="arrow">
-                        <asc-icon />
-                    </a>
-                </span>
+        </span>
+    </th>
+    <th
+        class="align-left"
+        @mouseover="mouseOver('size')"
+        @mouseleave="mouseLeave"
+        @click="sortBy('size')"
+    >
+        <span class="header__item">
+            <span>Size</span>
+            <span :class="{ invisible: sizeSortData.isHidden }">
+                <a v-if="sizeSortData.isDesc" class="arrow">
+                    <desc-icon />
+                </a>
+                <a v-else class="arrow">
+                    <asc-icon />
+                </a>
             </span>
-        </th>
-        <th
-            class="align-left"
-            @mouseover="mouseOver('date')"
-            @mouseleave="mouseLeave"
-            @click="sortBy('date')"
-        >
-            <span class="header__item">
-                <span>Upload Date</span>
-                <span :class="{ invisible: dateSortData.isHidden }">
-                    <a v-if="dateSortData.isDesc" class="arrow">
-                        <desc-icon />
-                    </a>
-                    <a v-else class="arrow">
-                        <asc-icon />
-                    </a>
-                </span>
+        </span>
+    </th>
+    <th
+        class="align-left"
+        @mouseover="mouseOver('date')"
+        @mouseleave="mouseLeave"
+        @click="sortBy('date')"
+    >
+        <span class="header__item">
+            <span>Upload Date</span>
+            <span :class="{ invisible: dateSortData.isHidden }">
+                <a v-if="dateSortData.isDesc" class="arrow">
+                    <desc-icon />
+                </a>
+                <a v-else class="arrow">
+                    <asc-icon />
+                </a>
             </span>
-        </th>
-        <th class="header__functional overflow-visible" @click.stop="deleteSelectedDropdown">
-            <delete-icon v-if="filesToDelete" />
-            <div v-if="isDropdownDisplayed" class="header__functional__dropdown">
-                <div class="header__functional__dropdown__item">
-                    <div class="delete-confirmation">
-                        <p class="delete-confirmation__text">
-                            Are you sure?
-                        </p>
-                        <div class="delete-confirmation__options">
-                            <span
-                                class="delete-confirmation__options__item yes"
-                                @click.stop="confirmDeleteSelection"
-                            >
-                                <span><delete-icon /></span>
-                                <span>Yes</span>
-                            </span>
+        </span>
+    </th>
+    <th class="header__functional overflow-visible" @click.stop="deleteSelectedDropdown">
+        <delete-icon v-if="filesToDelete" />
+        <div v-if="isDropdownDisplayed" class="header__functional__dropdown">
+            <div class="header__functional__dropdown__item">
+                <div class="delete-confirmation">
+                    <p class="delete-confirmation__text">
+                        Are you sure?
+                    </p>
+                    <div class="delete-confirmation__options">
+                        <span
+                            class="delete-confirmation__options__item yes"
+                            @click.stop="confirmDeleteSelection"
+                        >
+                            <span><delete-icon /></span>
+                            <span>Yes</span>
+                        </span>
 
-                            <span
-                                class="delete-confirmation__options__item no"
-                                @click.stop="cancelDeleteSelection"
-                            >
-                                <span><close-icon /></span>
-                                <span>No</span>
-                            </span>
-                        </div>
+                        <span
+                            class="delete-confirmation__options__item no"
+                            @click.stop="cancelDeleteSelection"
+                        >
+                            <span><close-icon /></span>
+                            <span>No</span>
+                        </span>
                     </div>
                 </div>
             </div>
-        </th>
-    </fragment>
+        </div>
+    </th>
 </template>
 
 <script setup lang="ts">
-import { Fragment } from 'vue-fragment';
 import { computed, ref } from 'vue';
 
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -286,5 +283,4 @@ function cancelDeleteSelection(): void {
         }
     }
 }
-
 </style>

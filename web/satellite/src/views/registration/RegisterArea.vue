@@ -35,11 +35,6 @@
                             <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
                         </div>
                     </div>
-                    <RegisterGlobe
-                        v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
-                        class="register-area__intro-area__large-content__globe-image"
-                        :class="{'professional-globe': isProfessional}"
-                    />
                 </div>
             </div>
             <div class="register-area__input-area">
@@ -47,11 +42,11 @@
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
-                    <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
+                    <div class="register-area__input-area__container__title-area">
                         <div class="register-area__input-area__container__title-container">
-                            <h1 class="register-area__input-area__container__title-area__title">Get 25 GB Free</h1>
+                            <h1 class="register-area__input-area__container__title-area__title">Sign up and get 25 GB free</h1>
                         </div>
-                        <div class="register-area__input-area__expand">
+                        <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
                             <div class="register-area__input-area__info-button">
                                 <InfoIcon />
                                 <p class="register-area__input-area__info-button__message">
@@ -89,6 +84,9 @@
                             </ul>
                         </div>
                     </div>
+                    <p v-if="isInvited" class="register-area__input-area__container__invitation-text">
+                        {{ inviterEmail }} has invited you to a project on Storj. Create an account on the {{ satelliteName }} region to join it.
+                    </p>
                     <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
                             <li
@@ -115,7 +113,8 @@
                     <div class="register-area__input-wrapper first-input">
                         <VInput
                             label="Full Name"
-                            placeholder="Enter Full Name"
+                            max-symbols="72"
+                            placeholder="Your Name"
                             :error="fullNameError"
                             role-description="name"
                             @setData="setFullName"
@@ -124,7 +123,10 @@
                     <div class="register-area__input-wrapper">
                         <VInput
                             label="Email Address"
-                            placeholder="user@example.com"
+                            max-symbols="72"
+                            placeholder="email@example.com"
+                            :init-value="email"
+                            :disabled="!!email"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"
@@ -134,6 +136,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Company Name"
+                                max-symbols="72"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
                                 role-description="company-name"
@@ -143,6 +146,7 @@
                         <div class="register-area__input-wrapper">
                             <VInput
                                 label="Position"
+                                max-symbols="72"
                                 placeholder="Position Title"
                                 :error="positionError"
                                 role-description="position"
@@ -205,7 +209,7 @@
                         </div>
                         <p class="register-area__input-area__container__warning__message">
                             This means any data you upload to this satellite can be
-                            deleted at any time and your storage/bandwidth limits
+                            deleted at any time and your storage/egress limits
                             can fluctuate. To use our production service please
                             create an account on one of our production Satellites.
                             <a href="https://storj.io/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/signup/</a>
@@ -236,17 +240,8 @@
                             </p>
                         </label>
                     </div>
-                    <VueRecaptcha
-                        v-if="captchaConfig.recaptcha.enabled"
-                        ref="captcha"
-                        :sitekey="captchaConfig.recaptcha.siteKey"
-                        :load-recaptcha-script="true"
-                        size="invisible"
-                        @verify="onCaptchaVerified"
-                        @error="onCaptchaError"
-                    />
                     <VueHcaptcha
-                        v-else-if="captchaConfig.hcaptcha.enabled"
+                        v-if="captchaConfig.hcaptcha.enabled"
                         ref="captcha"
                         :sitekey="captchaConfig.hcaptcha.siteKey"
                         :re-captcha-compat="false"
@@ -259,12 +254,10 @@
                         width="100%"
                         height="48px"
                         :label="viewConfig.signupButtonLabel"
-                        border-radius="50px"
+                        border-radius="6px"
                         :is-disabled="isLoading"
                         :on-press="onCreateClick"
-                    >
-                        Sign In
-                    </v-button>
+                    />
                     <div class="register-area__input-area__login-container">
                         Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
                     </div>
@@ -286,20 +279,15 @@
 </template>
 
 <script setup lang="ts">
-import VueRecaptcha from 'vue-recaptcha';
-import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onBeforeMount, reactive, ref } from 'vue';
-
-import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
-import LogoIcon from '../../../static/images/logo.svg';
-import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
+import { computed, ComputedRef, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { User } from '@/types/users';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import SelectInput from '@/components/common/SelectInput.vue';
@@ -308,7 +296,10 @@ import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 
-import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
+import LogoWithPartnerIcon from '@/../static/images/partnerStorjLogo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import InfoIcon from '@/../static/images/register/info.svg';
 
 type ViewConfig = {
@@ -331,7 +322,10 @@ const storageNeeds = ref<StorageNeed>();
 const viewConfig = ref<ViewConfig | null>(null);
 
 // DCS logic
-const secret = ref('');
+const secret = queryRef('token');
+
+const email = queryRef('email');
+const inviterEmail = queryRef('inviter_email');
 
 const isTermsAccepted = ref(false);
 const password = ref('');
@@ -351,7 +345,7 @@ const storageNeedsError = ref('');
 const positionError = ref('');
 const isTermsAcceptedError = ref(false);
 const isLoading = ref(false);
-const isProfessional = ref(false);
+const isProfessional = ref(true);
 const haveSalesContact = ref(false);
 
 const captchaError = ref(false);
@@ -367,30 +361,26 @@ const employeeCountOptions = ['1-50', '51-1000', '1001+'];
 
 const loginPath = RouteConfig.Login.path;
 
-const captcha = ref<VueRecaptcha | VueHcaptcha | null>(null);
+const captcha = ref<VueHcaptcha | null>(null);
 
 const auth = new AuthHttpApi();
 
 const configStore = useConfigStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from route params and loads config.
  */
 onBeforeMount(() => {
-    if (router.currentRoute.query.token) {
-        secret.value = router.currentRoute.query.token.toString();
+    if (route.query.partner) {
+        user.value.partner = route.query.partner.toString();
     }
 
-    if (router.currentRoute.query.partner) {
-        user.value.partner = router.currentRoute.query.partner.toString();
-    }
-
-    if (router.currentRoute.query.promo) {
-        user.value.signupPromoCode = router.currentRoute.query.promo.toString();
+    if (route.query.promo) {
+        user.value.signupPromoCode = route.query.promo.toString();
     }
 
     try {
@@ -400,6 +390,17 @@ onBeforeMount(() => {
         notify.error('No configuration file for registration page.', null);
     }
 });
+
+/**
+ * queryRef returns a computed reference to a query parameter.
+ * Nonexistent keys or keys with no value produce an empty string.
+ */
+function queryRef(key: string): ComputedRef<string> {
+    return computed((): string => {
+        const param = route.query[key] || '';
+        return (typeof param === 'string') ? param : (param[0] || '');
+    });
+}
 
 /**
  * Redirects to chosen satellite.
@@ -412,6 +413,7 @@ function clickSatellite(address): void {
  * Toggles satellite selection dropdown visibility (Tardigrade).
  */
 function toggleDropdown(): void {
+    if (isInvited.value) return;
     isDropdownShown.value = !isDropdownShown.value;
 }
 
@@ -444,7 +446,7 @@ async function onCreateClick(): Promise<void> {
         return;
     }
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.id === 'registerDropdown') return;
 
@@ -525,6 +527,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
 
         return s;
     });
+});
+
+/**
+ * Returns whether the current URL's query parameters indicate that the user was
+ * redirected from a project invitation link.
+ */
+const isInvited = computed((): boolean => {
+    return !!inviterEmail.value && !!email.value;
 });
 
 /**
@@ -662,7 +672,7 @@ function validateFields(): boolean {
         isNoErrors = false;
     }
 
-    let config = configStore.state.config;
+    const config = configStore.state.config;
 
     if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid Password';
@@ -749,7 +759,7 @@ function isEmailValid(): boolean {
  */
 async function createUser(): Promise<void> {
 
-    let activeElement = document.activeElement;
+    const activeElement = document.activeElement;
 
     if (activeElement && activeElement.classList.contains('account-tab')) {
         return;
@@ -782,7 +792,7 @@ async function createUser(): Promise<void> {
 
         await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
     } catch (error) {
-        notify.error(error.message, null);
+        notify.notifyError(error, null);
     }
 
     captcha.value?.reset();
@@ -792,13 +802,18 @@ async function createUser(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
+    .text-blue {
+        color: var(--c-blue-3);
+    }
     %subtitle-text {
         max-width: 550px;
-        margin-top: 27px;
+        margin-top: 16px;
+        margin-bottom: 16px;
         font-size: 16px;
         font-family: 'font_regular', sans-serif;
-        line-height: 24px;
+        line-height: 28px;
         text-align: left;
+        color: #233A6B;
     }
 
     .logo-divider {
@@ -815,10 +830,7 @@ async function createUser(): Promise<void> {
         background-color: #f5f6fa;
         box-sizing: border-box;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         overflow-y: scroll;
         padding-top: 80px;
         height: 100vh;
@@ -848,7 +860,7 @@ async function createUser(): Promise<void> {
                     height: 56px;
                     max-width: unset;
 
-                    @media screen and (max-width: 1024px) {
+                    @media screen and (width <= 1024px) {
                         object-fit: contain;
                         max-width: 45%;
                     }
@@ -861,7 +873,7 @@ async function createUser(): Promise<void> {
         }
 
         &__input-wrapper.first-input {
-            margin-top: 10px;
+            margin-top: 20px;
         }
 
         &__container {
@@ -870,12 +882,12 @@ async function createUser(): Promise<void> {
             justify-content: center;
             max-width: 1500px;
 
-            @media screen and (max-width: 1600px) {
+            @media screen and (width <= 1600px) {
                 width: 90%;
             }
 
             &__mobile-content {
-                @media screen and (min-width: 1025px) {
+                @media screen and (width >= 1025px) {
                     display: none;
                 }
 
@@ -928,12 +940,13 @@ async function createUser(): Promise<void> {
 
             &__title {
                 font-family: 'font_bold', sans-serif;
-                font-size: 48px;
+                font-size: 38px;
                 font-style: normal;
                 font-weight: 800;
-                line-height: 59px;
-                letter-spacing: 0;
+                line-height: 51px;
+                letter-spacing: -1px;
                 text-align: left;
+                color: #091C45;
             }
 
             &__sub-title {
@@ -965,25 +978,17 @@ async function createUser(): Promise<void> {
                     }
                 }
 
-                &__globe-image {
-                    position: relative;
-                    top: 140px;
-                    left: 40px;
-                }
-
-                &__globe-image.professional-globe {
-                    top: 110px;
-                    left: 40px;
-                }
             }
         }
 
         &__input-area {
             box-sizing: border-box;
-            padding: 60px 80px;
+            padding: 20px 40px;
             background-color: #fff;
             border-radius: 20px;
             width: 50%;
+            border: 1px solid #eee;
+            margin-bottom: 40px;
 
             &__expand {
                 display: flex;
@@ -996,11 +1001,15 @@ async function createUser(): Promise<void> {
                     font-weight: 700;
                     font-size: 16px;
                     line-height: 21px;
-                    color: #afb7c1;
+                    color: #777;
                     margin-right: 10px;
                     border: none;
                     cursor: pointer;
                     background: transparent;
+
+                    &:hover {
+                        color: var(--c-blue-3);
+                    }
                 }
 
                 &__dropdown {
@@ -1024,13 +1033,14 @@ async function createUser(): Promise<void> {
                         color: #7e8b9c;
                         cursor: pointer;
                         text-decoration: none;
+                        border-radius: 6px;
 
                         &__name {
                             font-family: 'font_bold', sans-serif;
                             margin-left: 15px;
                             font-size: 14px;
                             line-height: 20px;
-                            color: #7e8b9c;
+                            color: #333;
                         }
 
                         &:hover {
@@ -1043,7 +1053,7 @@ async function createUser(): Promise<void> {
             &__info-button {
                 position: relative;
                 cursor: pointer;
-                margin-right: 3px;
+                margin-right: 6px;
                 height: 18px;
 
                 &:hover p {
@@ -1052,6 +1062,11 @@ async function createUser(): Promise<void> {
 
                 &__image {
                     cursor: pointer;
+                }
+
+                & svg {
+                    width: 18px;
+                    height: 18px;
                 }
 
                 &__message {
@@ -1090,20 +1105,20 @@ async function createUser(): Promise<void> {
                 &__wrapper {
                     display: flex;
                     justify-content: space-between;
-                    margin: 20px 0 15px;
+                    margin: 14px 0 22px;
                     list-style: none;
                     padding: 0;
                 }
 
                 &__personal {
-                    border-top-left-radius: 20px;
-                    border-bottom-left-radius: 20px;
+                    border-top-left-radius: 6px;
+                    border-bottom-left-radius: 6px;
                     border-right: none;
                 }
 
                 &__professional {
-                    border-top-right-radius: 20px;
-                    border-bottom-right-radius: 20px;
+                    border-top-right-radius: 6px;
+                    border-bottom-right-radius: 6px;
                     border-left: none;
                     position: relative;
                     right: 1px;
@@ -1111,20 +1126,19 @@ async function createUser(): Promise<void> {
 
                 &__personal,
                 &__professional {
-                    color: #376fff;
+                    color: var(--c-blue-3);
                     display: block;
                     width: 100%;
                     text-align: center;
                     padding: 8px;
-                    border: 1px solid #376fff;
+                    border: 1px solid var(--c-blue-3);
                     cursor: pointer;
                 }
 
                 &__personal.active,
                 &__professional.active {
                     color: #fff;
-                    background: #376fff;
-                    font-weight: bold;
+                    background: var(--c-blue-4);
                 }
             }
 
@@ -1136,11 +1150,10 @@ async function createUser(): Promise<void> {
                     align-items: center;
 
                     &__title {
-                        font-size: 24px;
+                        font-size: 18px;
                         line-height: 49px;
-                        letter-spacing: -0.1007px;
-                        color: #252525;
-                        font-family: 'font_regular', sans-serif;
+                        color: #000;
+                        font-family: 'font_bold', sans-serif;
                         font-weight: 800;
                         white-space: nowrap;
                     }
@@ -1150,6 +1163,11 @@ async function createUser(): Promise<void> {
                         line-height: 21px;
                         color: #848484;
                     }
+                }
+
+                &__invitation-text {
+                    font-size: 16px;
+                    line-height: 24px;
                 }
 
                 &__warning {
@@ -1218,6 +1236,7 @@ async function createUser(): Promise<void> {
                 &__button {
                     margin-top: 30px;
                 }
+
             }
 
             &__footer {
@@ -1238,7 +1257,6 @@ async function createUser(): Promise<void> {
                     font-size: 12px;
                     line-height: 18px;
                     margin-left: 30px;
-                    color: #376fff;
                     text-decoration: none;
                 }
             }
@@ -1254,10 +1272,14 @@ async function createUser(): Promise<void> {
 
                 &__link {
                     font-family: 'font_bold', sans-serif;
+                    color: var(--c-blue-3);
                     text-decoration: none;
                     font-size: 14px;
-                    color: #376fff;
                     margin-left: 5px;
+                }
+
+                &__link:hover {
+                    color: var(--c-blue-5);
                 }
 
                 &__link:focus {
@@ -1278,7 +1300,7 @@ async function createUser(): Promise<void> {
 
     .logo-no-partner {
         cursor: pointer;
-        width: 100%;
+        max-width: 100%;
     }
 
     .register-input {
@@ -1287,7 +1309,7 @@ async function createUser(): Promise<void> {
     }
 
     .input-wrap {
-        margin-top: 10px;
+        margin-top: 20px;
     }
 
     .checkmark-container {
@@ -1312,12 +1334,17 @@ async function createUser(): Promise<void> {
 
     .checkmark {
         position: absolute;
-        top: 0;
+        top: 2px;
         left: 0;
-        height: 21px;
-        width: 21px;
-        border: 2px solid #afb7c1;
+        height: 20px;
+        width: 20px;
+        border: 1px solid #ccc;
         border-radius: 4px;
+        transition: border-color 90ms ease-in-out;
+
+        &:hover {
+            border-color: var(--c-blue-6);
+        }
     }
 
     .checkmark-container:hover input ~ .checkmark {
@@ -1325,7 +1352,7 @@ async function createUser(): Promise<void> {
     }
 
     .checkmark-container input:checked ~ .checkmark {
-        border: 2px solid #afb7c1;
+        border: 1px solid #afb7c1;
         background-color: transparent;
     }
 
@@ -1340,8 +1367,8 @@ async function createUser(): Promise<void> {
     }
 
     .checkmark-container .checkmark:after {
-        left: 7px;
-        top: 3px;
+        left: 6px;
+        top: 2px;
         width: 5px;
         height: 10px;
         border: solid #354049;
@@ -1357,7 +1384,7 @@ async function createUser(): Promise<void> {
         visibility: hidden;
     }
 
-    @media screen and (max-width: 1429px) {
+    @media screen and (width <= 1429px) {
 
         .register-area {
 
@@ -1370,7 +1397,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1200px) {
+    @media screen and (width <= 1200px) {
 
         .register-area {
 
@@ -1383,17 +1410,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1060px) {
-
-        .register-area {
-
-            &__container {
-                width: 70%;
-            }
-        }
-    }
-
-    @media screen and (max-width: 1024px) {
+    @media screen and (width <= 1024px) {
 
         .register-area {
             display: block;
@@ -1436,7 +1453,6 @@ async function createUser(): Promise<void> {
 
                 &__large-content {
 
-                    &__globe-image,
                     &__custom-html-container {
                         display: none;
                     }
@@ -1450,7 +1466,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 700px) {
+    @media screen and (width <= 700px) {
 
         .register-area {
 
@@ -1476,6 +1492,7 @@ async function createUser(): Promise<void> {
 
             &__input-area {
                 width: 100%;
+                min-width: 360px;
                 padding: 0;
 
                 &__container {
@@ -1518,7 +1535,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (width <= 1024px) {
 
         .register-area {
 
@@ -1556,7 +1573,7 @@ async function createUser(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .register-area {
 
@@ -1565,7 +1582,7 @@ async function createUser(): Promise<void> {
             }
 
             &__intro-area__title {
-                font-size: 34px;
+                font-size: 36px;
             }
 
             &__input-area {

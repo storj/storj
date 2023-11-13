@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 )
@@ -17,29 +17,29 @@ import (
 func TestGCBFUseRangedLoop(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GarbageCollectionBF.RunOnce = true
-				config.GarbageCollectionBF.UseRangedLoop = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].GCBF.Run(ctx)
-		require.NoError(t, err)
-	})
-}
+		config := planet.Satellites[0].Config
 
-func TestGCBFUseSegmentsLoop(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GarbageCollectionBF.RunOnce = true
-				config.GarbageCollectionBF.UseRangedLoop = false
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].GCBF.Run(ctx)
+		revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+		require.NoError(t, err)
+		defer ctx.Check(revocationDB.Close)
+
+		config.GarbageCollectionBF.RunOnce = true
+
+		gcbf, err := satellite.NewGarbageCollectionBF(
+			planet.Log().Named("test-gcbf"),
+			// hopefully we can share the databases
+			planet.Satellites[0].GCBF.DB,
+			planet.Satellites[0].Metabase.DB,
+			revocationDB,
+			planet.NewVersionInfo(),
+			&config,
+			nil,
+		)
+		require.NoError(t, err)
+		defer ctx.Check(gcbf.Close)
+
+		err = gcbf.Run(ctx)
 		require.NoError(t, err)
 	})
 }

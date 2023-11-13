@@ -1,9 +1,9 @@
 VERSION 0.6
-FROM golang:1.18
+FROM golang:1.19
 WORKDIR /go/storj
 
 multinode-web:
-    FROM node:18
+    FROM node:18.17
     WORKDIR /build
     COPY web/multinode .
     RUN ./build.sh
@@ -21,7 +21,7 @@ wasm:
    SAVE ARTIFACT release/earthly/wasm wasm AS LOCAL web/satellite/static/wasm
 
 storagenode-web:
-    FROM node:18
+    FROM node:18.17
     WORKDIR /build
     COPY web/storagenode .
     RUN ./build.sh
@@ -29,20 +29,27 @@ storagenode-web:
     SAVE ARTIFACT static AS LOCAL web/storagenode/static
 
 satellite-web:
-    FROM node:18
+    FROM node:18.17
     WORKDIR /build
     COPY web/satellite .
     RUN ./build.sh
     COPY +wasm/wasm static/wasm
     SAVE ARTIFACT dist AS LOCAL web/satellite/dist
+    SAVE ARTIFACT dist_vuetify_poc AS LOCAL web/satellite/dist_vuetify_poc
     SAVE ARTIFACT static AS LOCAL web/satellite/static
+
+satellite-admin:
+    FROM node:18.17
+    WORKDIR /build
+    COPY satellite/admin/ui .
+    RUN ./build.sh
+    SAVE ARTIFACT build AS LOCAL satellite/admin/ui/build
 
 storagenode-bin:
     COPY go.mod go.mod
     COPY go.sum go.sum
     COPY private private
     COPY cmd/storagenode cmd/storagenode
-    COPY storage storage
     COPY storagenode storagenode
     COPY multinode multinode
     COPY web/storagenode web/storagenode
@@ -113,6 +120,8 @@ build-tagged-image:
     FROM img.dev.storj.io/storjup/base:20230208-1
     COPY +multinode-web/dist /var/lib/storj/storj/web/multinode/dist
     COPY +satellite-web/dist /var/lib/storj/storj/web/satellite/dist
+    COPY +satellite-web/dist_vuetify_poc /var/lib/storj/storj/web/satellite/dist_vuetify_poc
+    COPY +satellite-admin/build /app/satellite-admin/
     COPY +satellite-web/static /var/lib/storj/storj/web/satellite/static
     COPY +storagenode-web/dist /var/lib/storj/storj/web/storagenode/dist
     COPY +storagenode-web/static /var/lib/storj/storj/web/storagenode/static

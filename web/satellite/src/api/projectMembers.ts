@@ -1,33 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BaseGql } from '@/api/baseGql';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectInvitationItemModel, ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
+import { HttpClient } from '@/utils/httpClient';
+import { APIError } from '@/utils/error';
 
-export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
-
-    /**
-     * Used for adding team members to project.
-     *
-     * @param projectId
-     * @param emails
-     */
-    public async add(projectId: string, emails: string[]): Promise<void> {
-        const query =
-            `mutation($projectId: String!, $emails:[String!]!) {
-                addProjectMembers(
-                    publicId: $projectId,
-                    email: $emails
-                ) {publicId}
-            }`;
-
-        const variables = {
-            projectId,
-            emails,
-        };
-
-        await this.mutate(query, variables);
-    }
+export class ProjectMembersHttpApi implements ProjectMembersApi {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/projects';
 
     /**
      * Used for deleting team members from project.
@@ -36,74 +16,96 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
      * @param emails
      */
     public async delete(projectId: string, emails: string[]): Promise<void> {
-        const query =
-            `mutation($projectId: String!, $emails:[String!]!) {
-                deleteProjectMembers(
-                    publicId: $projectId,
-                    email: $emails
-                ) {publicId}
-            }`;
+        const path = `${this.ROOT_PATH}/${projectId}/members?emails=${encodeURIComponent(emails.toString())}`;
+        const response = await this.http.delete(path);
+        if (!response.ok) {
+            const result = await response.json();
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Failed to delete project members and invitations',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
 
-        const variables = {
-            projectId,
-            emails,
-        };
-
-        await this.mutate(query, variables);
     }
 
     /**
-     * Used for fetching team members related to project.
+     * Used for fetching team members and invitations related to project.
      *
      * @param projectId
      * @param cursor for pagination
      */
     public async get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
-        const query =
-            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-                project (
-                    publicId: $projectId,
-                ) {
-                    members (
-                        cursor: {
-                            limit: $limit,
-                            search: $search,
-                            page: $page,
-                            order: $order,
-                            orderDirection: $orderDirection
-                        }
-                    ) {
-                        projectMembers {
-                            user {
-                                id,
-                                fullName,
-                                shortName,
-                                email
-                            },
-                            joinedAt
-                        },
-                        search,
-                        limit,
-                        order,
-                        pageCount,
-                        currentPage,
-                        totalCount
-                    }
-                }
-            }`;
+        const path = `${this.ROOT_PATH}/${projectId}/members?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.page}&order-direction=${cursor.orderDirection}&search=${cursor.search}`;
+        const response = await this.http.get(path);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Failed to get project members and invitations',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+        return this.getProjectMembersList(result);
+    }
 
-        const variables = {
-            projectId: projectId,
-            limit: cursor.limit,
-            search: cursor.search,
-            page: cursor.page,
-            order: cursor.order,
-            orderDirection: cursor.orderDirection,
-        };
+    /**
+     * Handles inviting a user to a project.
+     *
+     * @throws Error
+     */
+    public async invite(projectID: string, email: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/invite/${encodeURIComponent(email)}`;
+        const httpResponse = await this.http.post(path, null);
 
-        const response = await this.query(query, variables);
+        if (httpResponse.ok) return;
 
-        return this.getProjectMembersList(response.data.project.members);
+        const result = await httpResponse.json();
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Failed to send project invitations',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Handles resending invitations to project.
+     *
+     * @throws Error
+     */
+    public async reinvite(projectID: string, emails: string[]): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/reinvite`;
+        const body = { emails };
+        const httpResponse = await this.http.post(path, JSON.stringify(body));
+
+        if (httpResponse.ok) return;
+
+        const result = await httpResponse.json();
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Failed to resend project invitations',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Get invite link for the specified project and email.
+     *
+     * @throws Error
+     */
+    public async getInviteLink(projectID: string, email: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/${projectID}/invite-link?email=${encodeURIComponent(email)}`;
+        const httpResponse = await this.http.get(path);
+        const result = await httpResponse.json();
+        if (httpResponse.ok) {
+            return result;
+        }
+
+        throw new APIError({
+            status: httpResponse.status,
+            message: result.error || 'Can not get invite link',
+            requestID: httpResponse.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -123,6 +125,11 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
             key.user.email,
             new Date(key.joinedAt),
             key.user.id,
+        ));
+        projectMembersPage.projectInvitations = projectMembers.projectInvitations.map(key => new ProjectInvitationItemModel(
+            key.email,
+            new Date(key.createdAt),
+            key.expired,
         ));
 
         projectMembersPage.search = projectMembers.search;

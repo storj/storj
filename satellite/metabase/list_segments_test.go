@@ -207,7 +207,6 @@ func TestListSegments(t *testing.T) {
 						ObjectStream: obj,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
@@ -270,7 +269,7 @@ func TestListSegments(t *testing.T) {
 			}
 		})
 
-		t.Run("segments from copy", func(t *testing.T) {
+		t.Run("segments from copy with duplicate metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			for _, numberOfSegments := range []byte{0, 1, 2, 10} {
@@ -304,8 +303,7 @@ func TestListSegments(t *testing.T) {
 
 				metabasetest.ListSegments{
 					Opts: metabase.ListSegments{
-						StreamID:                copyStream.StreamID,
-						UpdateFirstWithAncestor: true,
+						StreamID: copyStream.StreamID,
 					},
 					Result: metabase.ListSegmentsResult{
 						Segments: expectedSegments,
@@ -539,7 +537,6 @@ func TestListStreamPositions(t *testing.T) {
 						ObjectStream: obj,
 						Encryption:   metabasetest.DefaultEncryption,
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
@@ -634,7 +631,6 @@ func TestListStreamPositions(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: obj.Version,
 			}.Check(ctx, t, db)
 
 			for i := 0; i < segmentCount; i++ {

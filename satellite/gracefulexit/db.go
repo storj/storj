@@ -12,6 +12,8 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
+// This whole file can be removed when we are using TimeBased GE everywhere.
+
 // Progress represents the persisted graceful exit progress record.
 type Progress struct {
 	NodeID            storj.NodeID

@@ -12,19 +12,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
-import { RouteConfig } from '@/router';
-import { useRouter } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 /**
  * Returns fill bar width depending on current route name.
  */
 const fill = computed((): string => {
-    switch (router.currentRoute.name) {
+    switch (route.name) {
     case RouteConfig.AGName.name:
         return '9%';
     case RouteConfig.AGPermissions.name:
@@ -81,6 +80,10 @@ const fill = computed((): string => {
             height: 16px;
             background: var(--c-grey-3);
             border-radius: 8px;
+
+            @media screen and (width <= 600px) {
+                width: 100%;
+            }
 
             &__fill {
                 height: 16px;

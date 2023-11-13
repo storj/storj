@@ -6,11 +6,9 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -78,30 +76,9 @@ func Test_PurchasePackage(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				userCtx, err := sat.UserContext(ctx, user.ID)
+				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "payments/purchase-package", strings.NewReader(tt.cardToken))
 				require.NoError(t, err)
-
-				tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-				require.NoError(t, err)
-
-				req, err := http.NewRequestWithContext(userCtx, "POST", "http://"+sat.API.Console.Listener.Addr().String()+"/api/v0/payments/purchase-package", strings.NewReader(tt.cardToken))
-				require.NoError(t, err)
-
-				expire := time.Now().AddDate(0, 0, 1)
-				cookie := http.Cookie{
-					Name:    "_tokenKey",
-					Path:    "/",
-					Value:   tokenInfo.Token.String(),
-					Expires: expire,
-				}
-
-				req.AddCookie(&cookie)
-
-				client := http.Client{}
-				result, err := client.Do(req)
-				require.NoError(t, err)
-				require.Equal(t, tt.expectedStatus, result.StatusCode)
-				require.NoError(t, result.Body.Close())
+				require.Equal(t, tt.expectedStatus, status)
 			})
 		}
 	})
@@ -140,34 +117,13 @@ func Test_PackageAvailable(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				userCtx, err := sat.UserContext(ctx, user.ID)
+				body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "payments/package-available", nil)
 				require.NoError(t, err)
 
-				tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
-				require.NoError(t, err)
-
-				req, err := http.NewRequestWithContext(userCtx, http.MethodGet, "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/payments/package-available", nil)
-				require.NoError(t, err)
-
-				cookie := http.Cookie{
-					Name:    "_tokenKey",
-					Path:    "/",
-					Value:   tokenInfo.Token.String(),
-					Expires: time.Now().AddDate(0, 0, 1),
-				}
-				req.AddCookie(&cookie)
-
-				client := http.Client{}
-				result, err := client.Do(req)
-				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, result.StatusCode)
-
-				responseBody, err := io.ReadAll(result.Body)
-				require.NoError(t, err)
-				require.NoError(t, result.Body.Close())
+				require.Equal(t, http.StatusOK, status)
 
 				var hasPackage bool
-				err = json.Unmarshal(responseBody, &hasPackage)
+				err = json.Unmarshal(body, &hasPackage)
 				require.NoError(t, err)
 				require.Equal(t, tt.shouldHavePkg, hasPackage)
 			})

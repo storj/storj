@@ -105,6 +105,11 @@ model bucket_storage_tally (
 		fields project_id interval_start
 	)
 
+	index (
+		name bucket_storage_tallies_interval_start_index
+		fields interval_start
+	)
+
 	// bucket_name refers to buckets.name table.
 	field bucket_name       blob
 	// project_id is an UUID that refers to projects.id.

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -249,5 +250,100 @@ func TestApiKeysList(t *testing.T) {
 
 		// Check get initial list of API keys.
 		assertGet(ctx, t, link, "[]", authToken)
+	})
+}
+
+func TestAPIKeyManagementGet(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		user, err := planet.Satellites[0].AddUser(ctx, console.CreateUser{
+			FullName: "testuser123",
+			Email:    "test@email.com",
+		}, 1)
+		require.NoError(t, err)
+
+		project, err := planet.Satellites[0].AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		secret, err := macaroon.NewSecret()
+		require.NoError(t, err)
+
+		apiKey, err := macaroon.NewAPIKey(secret)
+		require.NoError(t, err)
+
+		apiKeyInfo, err := planet.Satellites[0].DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
+			Name:      "testkey",
+			ProjectID: project.ID,
+			Secret:    secret,
+		})
+		require.NoError(t, err)
+
+		userCtx, err := planet.Satellites[0].UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		_, err = planet.Satellites[0].API.Console.Service.Payments().AddCreditCard(userCtx, "test")
+		require.NoError(t, err)
+
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		link := fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apiKey.Serialize())
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		resp, err := http.DefaultClient.Do(req) //nolint:bodyclose
+		require.NoError(t, err)
+		defer ctx.Check(resp.Body.Close)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		type apiKeyData struct {
+			ID        uuid.UUID `json:"id"`
+			Name      string    `json:"name"`
+			CreatedAt time.Time `json:"createdAt"`
+		}
+		type projectData struct {
+			ID   uuid.UUID `json:"id"`
+			Name string    `json:"name"`
+		}
+		type ownerData struct {
+			ID       uuid.UUID `json:"id"`
+			FullName string    `json:"fullName"`
+			Email    string    `json:"email"`
+			PaidTier bool      `json:"paidTier"`
+		}
+		type response struct {
+			APIKey  apiKeyData  `json:"api_key"`
+			Project projectData `json:"project"`
+			Owner   ownerData   `json:"owner"`
+		}
+
+		var apiResp response
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&apiResp))
+
+		require.Equal(t, response{
+			APIKey: apiKeyData{
+				ID:        apiKeyInfo.ID,
+				Name:      "testkey",
+				CreatedAt: apiKeyInfo.CreatedAt.UTC(),
+			},
+			Project: projectData{
+				ID:   project.ID,
+				Name: "testproject",
+			},
+			Owner: ownerData{
+				ID:       user.ID,
+				FullName: "testuser123",
+				Email:    "test@email.com",
+				PaidTier: true,
+			},
+		}, apiResp)
 	})
 }

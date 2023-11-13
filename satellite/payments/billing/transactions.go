@@ -29,10 +29,10 @@ var ErrNoTransactions = errs.New("no transactions in the database")
 const (
 	// TransactionStatusPending indicates that status of this transaction is pending.
 	TransactionStatusPending = "pending"
-	// TransactionStatusCancelled indicates that status of this transaction is cancelled.
-	TransactionStatusCancelled = "cancelled"
 	// TransactionStatusCompleted indicates that status of this transaction is complete.
 	TransactionStatusCompleted = "complete"
+	// TransactionStatusFailed indicates that status of this transaction is failed.
+	TransactionStatusFailed = "failed"
 )
 
 // TransactionType indicates transaction type.
@@ -57,14 +57,18 @@ type TransactionsDB interface {
 	// but rather to provide an atomic commit of one or more _related_
 	// transactions.
 	Insert(ctx context.Context, primaryTx Transaction, supplementalTx ...Transaction) (txIDs []int64, err error)
-	// UpdateStatus updates the status of the transaction.
-	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
+	// FailPendingInvoiceTokenPayments marks all specified pending invoice token payments as failed, and refunds the pending charges.
+	FailPendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) error
+	// CompletePendingInvoiceTokenPayments updates the status of the pending invoice token payment to complete.
+	CompletePendingInvoiceTokenPayments(ctx context.Context, txIDs ...int64) error
 	// UpdateMetadata updates the metadata of the transaction.
 	UpdateMetadata(ctx context.Context, txID int64, metadata []byte) error
 	// LastTransaction returns the timestamp and metadata of the last known transaction for given source and type.
 	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, []byte, error)
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
+	// ListSource returns all transactions for the specified user and source.
+	ListSource(ctx context.Context, userID uuid.UUID, txSource string) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
 	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 }
@@ -103,6 +107,12 @@ type Transaction struct {
 	CreatedAt   time.Time
 }
 
+// CalculateBonusAmount calculates bonus for given currency amount and bonus rate.
+func CalculateBonusAmount(amount currency.Amount, bonusRate int64) currency.Amount {
+	bonusUnits := amount.BaseUnits() * bonusRate / 100
+	return currency.AmountFromBaseUnits(bonusUnits, amount.Currency())
+}
+
 func prepareBonusTransaction(bonusRate int64, source string, transaction Transaction) (Transaction, bool) {
 	// Bonus transactions only apply when enabled (i.e. positive rate) and
 	// for StorjScan transactions.
@@ -118,7 +128,7 @@ func prepareBonusTransaction(bonusRate int64, source string, transaction Transac
 
 	return Transaction{
 		UserID:      transaction.UserID,
-		Amount:      calculateBonusAmount(transaction.Amount, bonusRate),
+		Amount:      CalculateBonusAmount(transaction.Amount, bonusRate),
 		Description: fmt.Sprintf("STORJ Token Bonus (%d%%)", bonusRate),
 		Source:      StorjScanBonusSource,
 		Status:      TransactionStatusCompleted,
@@ -126,9 +136,4 @@ func prepareBonusTransaction(bonusRate int64, source string, transaction Transac
 		Timestamp:   transaction.Timestamp,
 		Metadata:    append([]byte(nil), transaction.Metadata...),
 	}, true
-}
-
-func calculateBonusAmount(amount currency.Amount, bonusRate int64) currency.Amount {
-	bonusUnits := amount.BaseUnits() * bonusRate / 100
-	return currency.AmountFromBaseUnits(bonusUnits, amount.Currency())
 }

@@ -85,6 +85,11 @@ func TestBasicBucketOperations(t *testing.T) {
 		_, err = bucketsDB.GetMinimalBucket(ctx, []byte("not-existing-bucket"), project.ID)
 		require.True(t, buckets.ErrBucketNotFound.Has(err), err)
 
+		// GetBucketVersioningState
+		versioningState, err := bucketsDB.GetBucketVersioningState(ctx, []byte("testbucket"), project.ID)
+		require.NoError(t, err)
+		require.Equal(t, buckets.VersioningUnsupported, versioningState)
+
 		// GetBucketPlacement
 		placement, err := bucketsDB.GetBucketPlacement(ctx, []byte("testbucket"), project.ID)
 		require.NoError(t, err)
@@ -289,6 +294,12 @@ func TestBatchBuckets(t *testing.T) {
 				require.False(t, more)
 			}
 		}
+
+		// check if invalid bucket name 'a\' won't throw an error
+		_, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "a\\", 1, func(bucketLocations []metabase.BucketLocation) (err error) {
+			return nil
+		})
+		require.NoError(t, err)
 	})
 }
 

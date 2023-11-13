@@ -2,23 +2,32 @@
 // See LICENSE for copying information.
 
 <template>
+    <GalleryView v-if="isGalleryView" />
     <div v-if="activeModal">
         <component :is="activeModal" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, Component } from 'vue';
 
 import { useAppStore } from '@/store/modules/appStore';
+
+import GalleryView from '@/components/browser/galleryView/GalleryView.vue';
 
 const appStore = useAppStore();
 
 /**
  * Indicates the current active modal.
  */
-const activeModal = computed((): unknown | null => {
-    // modal could be of VueConstructor type or Object (for composition api components).
+const activeModal = computed((): Component | null => {
     return appStore.state.activeModal;
+});
+
+/**
+ * Indicates gallery view is visible.
+ */
+const isGalleryView = computed((): boolean => {
+    return appStore.state.isGalleryView;
 });
 </script>

@@ -78,7 +78,7 @@
                     <CLIIcon />
                 </div>
                 <div class="access-grants__flows-area__title">API Key</div>
-                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
+                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programmatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
@@ -110,12 +110,7 @@
         <div class="access-grants__header-container">
             <h3 class="access-grants__header-container__title">My Accesses</h3>
             <div class="access-grants__header-container__divider" />
-            <VHeader
-                class="access-header-component"
-                placeholder="Accesses"
-                :search="fetch"
-                style-type="access"
-            />
+            <VSearch :search="fetch" />
         </div>
         <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
         <div class="access-grants-items">
@@ -152,33 +147,31 @@
                 </span>
             </div>
         </div>
-        <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-        />
         <router-view />
     </div>
 </template>
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AccessGrant } from '@/types/accessGrants';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAppStore } from '@/store/modules/appStore';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
-import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VHeader from '@/components/common/VHeader.vue';
 import VTable from '@/components/common/VTable.vue';
+import VSearch from '@/components/common/VSearch.vue';
 
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
@@ -186,14 +179,13 @@ import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
 const FIRST_PAGE = 1;
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
+const analyticsStore = useAnalyticsStore();
+const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
 
-const isDeleteClicked = ref<boolean>(false);
 const activeDropdown = ref<number>(-1);
 const areGrantsFetching = ref<boolean>(true);
 
@@ -251,7 +243,8 @@ async function onPageClick(index: number, limit: number): Promise<void> {
     try {
         await agStore.getAccessGrants(index, projectsStore.state.selectedProject.id, limit);
     } catch (error) {
-        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch Access Grants. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -272,16 +265,10 @@ function openDropdown(key: number): void {
  * Holds on button click login for deleting access grant process.
  */
 function onDeleteClick(grant: AccessGrant): void {
+    agStore.setAccessNameToDelete(grant.name);
     agStore.toggleSelection(grant);
-    isDeleteClicked.value = true;
-}
 
-/**
- * Clears access grants selection.
- */
-function onClearSelection(): void {
-    isDeleteClicked.value = false;
-    agStore.clearSelection();
+    appStore.updateActiveModal(MODALS.deleteAccessGrant);
 }
 
 /**
@@ -293,7 +280,8 @@ async function fetch(searchQuery: string): Promise<void> {
     try {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
     } catch (error) {
-        await notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch accesses: ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 
@@ -301,11 +289,11 @@ async function fetch(searchQuery: string): Promise<void> {
  * Access grant button click.
  */
 function accessGrantClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.AccessGrant },
+        query: { accessType: AccessType.AccessGrant },
     });
 }
 
@@ -313,11 +301,11 @@ function accessGrantClick(): void {
  * S3 Access button click..
  */
 function s3Click(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.S3 },
+        query: { accessType: AccessType.S3 },
     });
 }
 
@@ -325,11 +313,11 @@ function s3Click(): void {
  * CLI Access button click.
  */
 function cliClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
         name: RouteConfig.CreateAccessModal.name,
-        params: { accessType: AccessType.APIKey },
+        query: { accessType: AccessType.APIKey },
     });
 }
 
@@ -337,7 +325,7 @@ function cliClick(): void {
  * Sends "trackPageVisit" event to segment and opens link.
  */
 function trackPageVisit(link: string): void {
-    analytics.pageVisit(link);
+    analyticsStore.pageVisit(link);
 }
 
 onMounted(async () => {
@@ -345,12 +333,13 @@ onMounted(async () => {
         await agStore.getAccessGrants(FIRST_PAGE, projectsStore.state.selectedProject.id);
         areGrantsFetching.value = false;
     } catch (error) {
-        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        error.message = `Unable to fetch Access Grants. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 });
 
 onBeforeUnmount(() => {
-    onClearSelection();
+    agStore.clearSelection();
 });
 </script>
 <style scoped lang="scss">
@@ -366,14 +355,13 @@ onBeforeUnmount(() => {
         border-radius: 10px;
         min-width: 175px;
 
-        @media screen and (max-width: 930px) {
+        @media screen and (width <= 930px) {
             width: 100%;
         }
     }
 
     .access-grants {
         position: relative;
-        height: calc(100% - 95px);
         padding: 40px 30px 55px;
         font-family: 'font_regular', sans-serif;
 
@@ -415,7 +403,7 @@ onBeforeUnmount(() => {
             &__cli-credentials {
                 @include grant-flow-card;
 
-                @media screen and (max-width: 370px) {
+                @media screen and (width <= 370px) {
 
                     .access-grants__flows-area__button-container {
                         flex-direction: column;
@@ -471,11 +459,6 @@ onBeforeUnmount(() => {
         }
 
         .access-grants-items {
-            padding-bottom: 55px;
-
-            @media screen and (max-width: 1150px) {
-                margin-top: -45px;
-            }
 
             &__content {
                 margin-top: 20px;
@@ -513,12 +496,7 @@ onBeforeUnmount(() => {
                 height: 1px;
                 width: auto;
                 background-color: #dadfe7;
-                margin-top: 10px;
-            }
-
-            &__access-header-component {
-                height: 55px !important;
-                margin-top: 15px;
+                margin: 13px 0 16px;
             }
         }
     }

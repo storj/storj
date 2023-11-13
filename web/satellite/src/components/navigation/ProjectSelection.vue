@@ -23,52 +23,91 @@
             <div v-if="isLoading" class="project-selection__dropdown__loader-container">
                 <VLoader width="30px" height="30px" />
             </div>
-            <div v-else class="project-selection__dropdown__items">
-                <div tabindex="0" class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
-                    <div class="project-selection__dropdown__items__choice__mark-container">
-                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+
+            <template v-else>
+                <div v-if="ownProjects.length" class="project-selection__dropdown__section-head">
+                    <ProjectIcon />
+                    <span class="project-selection__dropdown__section-head__tag">My Projects</span>
+                </div>
+                <div class="project-selection__dropdown__items">
+                    <div
+                        v-for="project in ownProjects"
+                        :key="project.id"
+                        class="project-selection__dropdown__items__choice"
+                        @click.prevent.stop="onProjectSelected(project.id)"
+                        @keyup.enter="onProjectSelected(project.id)"
+                    >
+                        <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                            <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                        </div>
+                        <p
+                            :class="{
+                                'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                'project-selection__dropdown__items__choice__selected': project.isSelected,
+                            }"
+                        >
+                            {{ project.name }}
+                        </p>
                     </div>
-                    <p class="project-selection__dropdown__items__choice__selected">
-                        {{ selectedProject.name }}
-                    </p>
                 </div>
-                <div
-                    v-for="project in projects"
-                    :key="project.id"
-                    class="project-selection__dropdown__items__choice"
-                    @click.prevent.stop="onProjectSelected(project.id)"
-                    @keyup.enter="onProjectSelected(project.id)"
-                >
-                    <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
+
+                <div v-if="sharedProjects.length" class="project-selection__dropdown__section-head shared">
+                    <ProjectIcon />
+                    <span class="project-selection__dropdown__section-head__tag shared">Shared with me</span>
                 </div>
+                <div class="project-selection__dropdown__items">
+                    <div
+                        v-for="project in sharedProjects"
+                        :key="project.id"
+                        class="project-selection__dropdown__items__choice"
+                        @click.prevent.stop="onProjectSelected(project.id)"
+                        @keyup.enter="onProjectSelected(project.id)"
+                    >
+                        <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                            <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                        </div>
+                        <p
+                            :class="{
+                                'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                'project-selection__dropdown__items__choice__selected': project.isSelected,
+                            }"
+                        >
+                            {{ project.name }}
+                        </p>
+                    </div>
+                </div>
+            </template>
+
+            <div v-if="isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                <SettingsIcon />
+                <p class="project-selection__dropdown__link-container__label">Project Settings</p>
+            </div>
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                <ProjectIcon />
+                <p class="project-selection__dropdown__link-container__label">All projects</p>
             </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
-            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
-                <ManageIcon />
-                <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
-            </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
-                <p class="project-selection__dropdown__link-container__label">Create new</p>
+                <p class="project-selection__dropdown__link-container__label">Create new project</p>
             </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { Project } from '@/types/projects';
-import { User } from '@/types/users';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -76,6 +115,9 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -83,9 +125,10 @@ import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
-import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
+import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -93,12 +136,14 @@ const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 
 const FIRST_PAGE = 1;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const dropdownYPos = ref<number>(0);
 const dropdownXPos = ref<number>(0);
@@ -116,7 +161,14 @@ const style = computed((): Record<string, string> => {
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+    return route.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/*
+ * Whether the user is the owner of the selected project.
+ */
+const isProjectOwner = computed((): boolean => {
+    return userStore.state.user.id === projectsStore.state.selectedProject.ownerId;
 });
 
 /**
@@ -127,10 +179,19 @@ const isDropdownShown = computed((): boolean => {
 });
 
 /**
- * Returns projects list from store.
+ * Returns user's own projects.
  */
-const projects = computed((): Project[] => {
-    return projectsStore.projectsWithoutSelected;
+const ownProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId === userStore.state.user.id);
+    return projects.sort(compareProjects);
+});
+
+/**
+ * Returns projects the user is invited to.
+ */
+const sharedProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId !== userStore.state.user.id);
+    return projects.sort(compareProjects);
 });
 
 /**
@@ -144,11 +205,20 @@ const selectedProject = computed((): Project => {
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.Buckets.path);
+    return route.path.includes(RouteConfig.Buckets.path);
 });
 
 /**
- * Fetches projects related information and than toggles selection popup.
+ * This comparator is used to sort projects by isSelected.
+ */
+function compareProjects(a: Project, b: Project) {
+    if (a.isSelected) return -1;
+    if (b.isSelected) return 1;
+    return 0;
+}
+
+/**
+ * Fetches projects related information and then toggles selection popup.
  */
 async function toggleSelection(): Promise<void> {
     if (isOnboardingTour.value || !projectSelection.value) return;
@@ -171,7 +241,7 @@ async function toggleSelection(): Promise<void> {
         await projectsStore.getProjects();
         await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
     } finally {
         isLoading.value = false;
     }
@@ -189,14 +259,16 @@ function toggleDropdown(): void {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
     closeDropdown();
 
     bucketsStore.clearS3Data();
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+    if (userStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
 
     if (isBucketsView.value) {
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
@@ -204,7 +276,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+    if (route.name === RouteConfig.ProjectDashboard.name) {
         const now = new Date();
         const past = new Date();
         past.setDate(past.getDate() - 30);
@@ -215,29 +287,31 @@ async function onProjectSelected(projectID: string): Promise<void> {
                 billingStore.getProjectUsageAndChargesCurrentRollup(),
                 projectsStore.getProjectLimits(projectID),
                 bucketsStore.getBuckets(FIRST_PAGE, projectID),
+                agStore.getAccessGrants(FIRST_PAGE, projectID),
+                pmStore.getProjectMembers(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
 
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.AccessGrants.name) {
+    if (route.name === RouteConfig.AccessGrants.name) {
         try {
             await agStore.getAccessGrants(FIRST_PAGE, projectID);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
 
         return;
     }
 
-    if (router.currentRoute.name === RouteConfig.Team.name) {
+    if (route.name === RouteConfig.Team.name) {
         try {
             await pmStore.getProjectMembers(FIRST_PAGE, selectedProject.value.id);
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+            notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }
     }
 }
@@ -250,15 +324,20 @@ function closeDropdown(): void {
 }
 
 /**
- * Route to projects list page.
+ * Route to all projects page.
  */
-function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
-        analytics.pageVisit(RouteConfig.ProjectsList.path);
-        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-        router.push(RouteConfig.ProjectsList.path);
-    }
+function onAllProjectsClick(): void {
+    analyticsStore.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
+    closeDropdown();
+}
 
+/**
+ * Route to project details page.
+ */
+function onProjectDetailsClick(): void {
+    analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
+    router.push(RouteConfig.EditProjectDetails.path);
     closeDropdown();
 }
 
@@ -275,20 +354,7 @@ function onManagePassphraseClick(): void {
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
-        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-        const user: User = userStore.state.user;
-        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            appStore.updateActiveModal(MODALS.createProjectPrompt);
-        } else {
-            analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
-        }
-    }
-
+    handleCreateProjectClick();
     closeDropdown();
 }
 </script>
@@ -380,6 +446,36 @@ function onCreateLinkClick(): void {
                 border-radius: 8px 8px 0 0;
             }
 
+            &__section-head {
+                display: flex;
+                align-items: center;
+                gap: 24px;
+                height: 48px;
+                box-sizing: border-box;
+                padding: 8px 16px;
+
+                &.shared {
+                    border-top: 1px solid var(--c-grey-2);
+                }
+
+                &__tag {
+                    border: 1px solid var(--c-purple-2);
+                    border-radius: 24px;
+                    padding: 2px 8px;
+                    text-align: center;
+                    font-size: 12px;
+                    font-weight: 600;
+                    line-height: 18px;
+                    color: var(--c-purple-4);
+                    background: var(--c-white);
+
+                    &.shared {
+                        border: 1px solid var(--c-yellow-2);
+                        color: var(--c-yellow-5);
+                    }
+                }
+            }
+
             &__items {
                 overflow-y: auto;
                 max-height: 250px;
@@ -398,7 +494,7 @@ function onCreateLinkClick(): void {
                     &__unselected {
                         font-size: 14px;
                         line-height: 20px;
-                        color: #1b2533;
+                        color: var(--c-grey-6);
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
@@ -500,7 +596,7 @@ function onCreateLinkClick(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .project-selection__selected {
             padding: 10px 0;

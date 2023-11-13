@@ -5,8 +5,10 @@ package piecestore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"sync"
@@ -358,7 +360,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
+			if errors.Is(err, context.Canceled) {
+				// Context cancellation is common in normal operation, and shouldn't throw a full error.
+				endpoint.log.Info("upload canceled (race lost or node shutdown)", zap.Stringer("Piece ID", limit.PieceId))
+				endpoint.log.Debug("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
+
+			} else {
+				endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
+			}
+
 		} else {
 			mon.Counter("upload_success_count").Inc(1)
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
@@ -399,7 +409,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 	largestOrder := pb.Order{}
-	defer commitOrderToStore(ctx, &largestOrder)
+	defer commitOrderToStore(ctx, &largestOrder, func() int64 {
+		return pieceWriter.Size()
+	})
 
 	// monitor speed of upload client to flag out slow uploads.
 	speedEstimate := speedEstimation{
@@ -583,6 +595,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	maximumChunkSize := 1 * memory.MiB.Int64()
+	if memory.KiB.Int32() < message.MaximumChunkSize && message.MaximumChunkSize < memory.MiB.Int32() {
+		maximumChunkSize = int64(message.MaximumChunkSize)
+	}
+
 	actionSeriesTag := monkit.NewSeriesTag("action", limit.Action.String())
 
 	remoteAddr := getRemoteAddr(ctx)
@@ -628,7 +645,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			mon.IntVal("download_failure_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			if errors.Is(err, context.Canceled) {
+				endpoint.log.Info("download canceled (race lost or node shutdown)", zap.Stringer("Piece ID", limit.PieceId))
+				endpoint.log.Debug("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			} else {
+				endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
+			}
 		} else {
 			mon.Counter("download_success_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_success_byte_meter", actionSeriesTag).Mark64(downloadSize)
@@ -643,13 +665,34 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		close(downloadedBytes)
 	}()
 
+	restoredFromTrash := false
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		if os.IsNotExist(err) {
-			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
-			return rpcstatus.Wrap(rpcstatus.NotFound, err)
+		if !errs.Is(err, fs.ErrNotExist) {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
+
+		// check if the file is in trash, if so, restore it and
+		// continue serving the download request.
+		tryRestoreErr := endpoint.store.TryRestoreTrashPiece(ctx, limit.SatelliteId, limit.PieceId)
+		if tryRestoreErr != nil {
+			if !errs.Is(tryRestoreErr, fs.ErrNotExist) {
+				// file is not in trash, and we don't want to return a file rename error,
+				// so we return the original "file does not exist" error
+				tryRestoreErr = err
+			}
+			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
+			return rpcstatus.Wrap(rpcstatus.NotFound, tryRestoreErr)
+		}
+		restoredFromTrash = true
+		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String()), monkit.NewSeriesTag("piece_id", limit.PieceId.String())).Mark(1)
+		endpoint.log.Warn("file found in trash", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.String("Remote Address", remoteAddr))
+
+		// try to open the file again
+		pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
@@ -672,10 +715,19 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		}
 
 		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
+			return stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit, RestoredFromTrash: restoredFromTrash})
 		})
 		if err != nil {
 			endpoint.log.Error("error sending hash and order limit", zap.Error(err))
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+	} else if restoredFromTrash {
+		// notify that the piece was restored from trash
+		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+			return stream.Send(&pb.PieceDownloadResponse{RestoredFromTrash: restoredFromTrash})
+		})
+		if err != nil {
+			endpoint.log.Error("error sending response", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 	}
@@ -692,8 +744,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() (err error) {
-		var maximumChunkSize = 1 * memory.MiB.Int64()
-
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
 
@@ -727,7 +777,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		if err != nil {
 			return err
 		}
-		defer commitOrderToStore(ctx, &largestOrder)
+		defer func() {
+			order := &largestOrder
+			commitOrderToStore(ctx, order, func() int64 {
+				// for downloads, we store the order amount for the egress graph instead
+				// of the bytes actually downloaded
+				return order.Amount
+			})
+		}()
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -820,7 +877,7 @@ func (endpoint *Endpoint) sendData(ctx context.Context, stream pb.DRPCPiecestore
 }
 
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order), err error) {
+func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
 	defer mon.Task()(nil)(&err)
 
 	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
@@ -829,7 +886,7 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 	}
 
 	done := false
-	return func(ctx context.Context, order *pb.Order) {
+	return func(ctx context.Context, order *pb.Order, amountFunc func() int64) {
 		if done {
 			return
 		}
@@ -848,8 +905,12 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
 		} else {
+			amount := order.Amount
+			if amountFunc != nil {
+				amount = amountFunc()
+			}
 			// We always want to save order to the database to be able to settle.
-			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, order.Amount, time.Now())
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
 			if err != nil {
 				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 			}

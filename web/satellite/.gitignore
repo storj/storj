@@ -1,6 +1,7 @@
 .DS_Store
 node_modules
 dist
+dist_vuetify_poc
 coverage
 temp
 
@@ -9,6 +10,7 @@ wasm_exec.js
 wasm_exec.js.br
 *.wasm
 *.wasm.br
+wasm-manifest.json
 
 # local env files
 .env.local

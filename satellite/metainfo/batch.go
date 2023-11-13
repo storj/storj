@@ -49,6 +49,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketGet: response,
 				},
 			})
+		case *pb.BatchRequestItem_BucketGetLocation:
+			singleRequest.BucketGetLocation.Header = req.Header
+			response, err := endpoint.GetBucketLocation(ctx, singleRequest.BucketGetLocation)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketGetLocation{
+					BucketGetLocation: response,
+				},
+			})
 		case *pb.BatchRequestItem_BucketDelete:
 			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)

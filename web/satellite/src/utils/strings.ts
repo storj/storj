@@ -90,9 +90,82 @@ export function centsToDollars(cents: number) {
 }
 
 /**
+ * microDollarsToCents converts micro dollars to cents.
+ * @param microDollars - the micro dollars value
+ */
+export function microDollarsToCents(microDollars: number): number {
+    return microDollars / 10000;
+}
+
+/**
  * bytesToBase10String Converts bytes to base-10 types.
  * @param amountInBytes
  */
 export function bytesToBase10String(amountInBytes: number) {
     return Size.toBase10String(amountInBytes);
+}
+
+/**
+ * Returns a human-friendly form of an array, inserting commas and "and"s where necessary.
+ * @param arr - the array
+ */
+export function humanizeArray(arr: string[]): string {
+    const len = arr.length;
+    switch (len) {
+    case 0: return '';
+    case 1: return arr[0];
+    case 2: return arr.join(' and ');
+    default: return `${arr.slice(0, len-1).join(', ')}, and ${arr[len-1]}`;
+    }
+}
+
+const b64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+/**
+ * Returns the URL-safe base64 representation of a hexadecimal string.
+ * @param str - the hex string
+ */
+export function hexToBase64(str: string): string {
+    if (!str) return '';
+    if (str.length % 2) {
+        throw new Error(`Invalid length ${str.length} for hex string`);
+    }
+
+    const bytes = new Uint8Array(str.length/2);
+    for (let i = 0; i < str.length; i += 2) {
+        const byteStr = str.substring(i, i+2);
+        const n = parseInt(byteStr, 16);
+        if (isNaN(n)) {
+            throw new Error(`Invalid hex byte '${byteStr}' at position ${i}`);
+        }
+        bytes[i/2] = parseInt(str.substring(i, i+2), 16);
+    }
+
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+        out += b64Chars[(bytes[i] & 0b11111100) >> 2];
+
+        let nextSextet = (bytes[i] & 0b00000011) << 4;
+        if (i + 1 >= bytes.length) {
+            out += b64Chars[nextSextet];
+            break;
+        }
+        nextSextet |= (bytes[i+1] & 0b11110000) >> 4;
+        out += b64Chars[nextSextet];
+
+        nextSextet = (bytes[i+1] & 0b00001111) << 2;
+        if (i + 2 >= bytes.length) {
+            out += b64Chars[nextSextet];
+            break;
+        }
+        nextSextet |= (bytes[i+2] & 0b11000000) >> 6;
+        out += b64Chars[nextSextet];
+
+        out += b64Chars[bytes[i+2] & 0b00111111];
+    }
+
+    if (out.length % 4) {
+        return out.padEnd(out.length + (4 - (out.length % 4)), '=');
+    }
+    return out;
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -54,6 +55,12 @@ type Projects interface {
 
 	// UpdateUsageLimits is a method for updating project's usage limits.
 	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
+
+	// UpdateUserAgent is a method for updating projects user agent.
+	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
+
+	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
+	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -93,29 +100,41 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name                        string       `json:"name"`
-	Description                 string       `json:"description"`
-	UserAgent                   []byte       `json:"userAgent"`
-	OwnerID                     uuid.UUID    `json:"ownerId"`
-	RateLimit                   *int         `json:"rateLimit"`
-	BurstLimit                  *int         `json:"burstLimit"`
-	MaxBuckets                  *int         `json:"maxBuckets"`
-	CreatedAt                   time.Time    `json:"createdAt"`
-	MemberCount                 int          `json:"memberCount"`
-	StorageLimit                *memory.Size `json:"storageLimit"`
-	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
-	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
-	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
-	SegmentLimit                *int64       `json:"segmentLimit"`
+	Name                        string                    `json:"name"`
+	Description                 string                    `json:"description"`
+	UserAgent                   []byte                    `json:"userAgent"`
+	OwnerID                     uuid.UUID                 `json:"ownerId"`
+	RateLimit                   *int                      `json:"rateLimit"`
+	BurstLimit                  *int                      `json:"burstLimit"`
+	MaxBuckets                  *int                      `json:"maxBuckets"`
+	CreatedAt                   time.Time                 `json:"createdAt"`
+	MemberCount                 int                       `json:"memberCount"`
+	StorageLimit                *memory.Size              `json:"storageLimit"`
+	BandwidthLimit              *memory.Size              `json:"bandwidthLimit"`
+	UserSpecifiedStorageLimit   *memory.Size              `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64                    `json:"segmentLimit"`
+	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
 }
 
-// ProjectInfo holds data needed to create/update Project.
-type ProjectInfo struct {
+// UpsertProjectInfo holds data needed to create/update Project.
+type UpsertProjectInfo struct {
 	Name           string      `json:"name"`
 	Description    string      `json:"description"`
 	StorageLimit   memory.Size `json:"storageLimit"`
 	BandwidthLimit memory.Size `json:"bandwidthLimit"`
 	CreatedAt      time.Time   `json:"createdAt"`
+}
+
+// ProjectInfo holds data sent via user facing http endpoints.
+type ProjectInfo struct {
+	ID               uuid.UUID         `json:"id"`
+	Name             string            `json:"name"`
+	OwnerID          uuid.UUID         `json:"ownerId"`
+	Description      string            `json:"description"`
+	MemberCount      int               `json:"memberCount"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
 }
 
 // ProjectsCursor holds info for project
@@ -139,6 +158,26 @@ type ProjectsPage struct {
 	PageCount   int
 	CurrentPage int
 	TotalCount  int64
+}
+
+// ProjectInfoPage is similar to ProjectsPage
+// except the Projects field is ProjectInfo and is sent over HTTP API.
+type ProjectInfoPage struct {
+	Projects []ProjectInfo `json:"projects"`
+
+	Limit  int   `json:"limit"`
+	Offset int64 `json:"offset"`
+
+	PageCount   int   `json:"pageCount"`
+	CurrentPage int   `json:"currentPage"`
+	TotalCount  int64 `json:"totalCount"`
+}
+
+// LimitRequestInfo holds data needed to request limit increase.
+type LimitRequestInfo struct {
+	LimitType    string      `json:"limitType"`
+	CurrentLimit memory.Size `json:"currentLimit"`
+	DesiredLimit memory.Size `json:"desiredLimit"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

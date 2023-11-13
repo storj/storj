@@ -83,7 +83,7 @@ func (customers *customers) List(ctx context.Context, userIDCursor uuid.UUID, li
 
 	rows, err := customers.db.QueryContext(ctx, customers.db.Rebind(`
 		SELECT
-			stripe_customers.user_id, stripe_customers.customer_id
+			stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at
 		FROM
 			stripe_customers
 		WHERE
@@ -103,7 +103,7 @@ func (customers *customers) List(ctx context.Context, userIDCursor uuid.UUID, li
 	results := []stripe.Customer{}
 	for rows.Next() {
 		var customer stripe.Customer
-		err := rows.Scan(&customer.UserID, &customer.ID)
+		err := rows.Scan(&customer.UserID, &customer.ID, &customer.PackagePlan, &customer.PackagePurchasedAt)
 		if err != nil {
 			return stripe.CustomersPage{}, errs.New("unable to get stripe customer: %+v", err)
 		}

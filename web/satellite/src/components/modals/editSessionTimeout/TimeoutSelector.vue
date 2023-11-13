@@ -3,21 +3,27 @@
 
 <template>
     <div class="selector">
-        <div v-click-outside="closeSelector" tabindex="0" class="selector__content" @keyup.enter="toggleSelector" @click="toggleSelector">
+        <div tabindex="0" class="selector__content" @keyup.enter="toggleSelector" @click.stop="toggleSelector">
             <span v-if="selected" class="selector__content__label">{{ selected?.shortString }}</span>
             <span v-else class="selector__content__label">Select duration</span>
             <arrow-down-icon class="selector__content__arrow" :class="{ open: isOpen }" />
         </div>
-        <div v-if="isOpen" class="selector__dropdown">
+        <div
+            v-if="isOpen"
+            v-click-outside="closeSelector"
+            tabindex="0"
+            class="selector__dropdown"
+        >
             <div
                 v-for="(option, index) in options"
-                :key="index" tabindex="0"
+                :key="index"
+                tabindex="0"
                 class="selector__dropdown__item"
                 :class="{ selected: isSelected(option) }"
                 @click.stop="() => select(option)"
                 @keyup.enter="() => select(option)"
             >
-                <span class="selector__dropdown__item__label">{{ option.shortString }}</span>
+                <span>{{ option.shortString }}</span>
             </div>
         </div>
     </div>
@@ -112,13 +118,13 @@ function toggleSelector() {
         justify-content: space-between;
         position: relative;
         padding: 10px 14px;
+        cursor: pointer;
 
         &__label {
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 20px;
             color: var(--c-grey-6);
-            cursor: default;
         }
 
         &__arrow {
@@ -143,10 +149,7 @@ function toggleSelector() {
 
         &__item {
             padding: 10px;
-
-            &__label {
-                cursor: default;
-            }
+            cursor: pointer;
 
             &.selected {
                 background: var(--c-grey-1);

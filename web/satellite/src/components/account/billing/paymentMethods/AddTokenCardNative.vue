@@ -10,7 +10,7 @@
         </div>
 
         <div class="token__content">
-            <div v-if="isLoading" class="token__content__loader-container">
+            <div v-if="isLoading || parentInitLoading" class="token__content__loader-container">
                 <v-loader />
             </div>
             <div v-else-if="!wallet.address" class="token__content__add-funds">
@@ -92,14 +92,16 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Wallet } from '@/types/payments';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -109,14 +111,26 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
+const usersStore = useUsersStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const props = defineProps<{
+    parentInitLoading: boolean
+}>();
 
 const isLoading = ref<boolean>(false);
+
+/**
+ * Indicates if user is in paid tier.
+ */
+const isUserInPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
+});
 
 /**
  * Returns wallet from store.
@@ -124,19 +138,6 @@ const isLoading = ref<boolean>(false);
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
 });
-
-/**
- * getWallet tries to get an existing wallet for this user. this will not claim a wallet.
- */
-async function getWallet(): Promise<void> {
-    if (wallet.value.address) {
-        return;
-    }
-
-    isLoading.value = true;
-    await billingStore.getWallet().catch(_ => {});
-    isLoading.value = false;
-}
 
 /**
  * claimWallet claims a wallet for the current account.
@@ -158,7 +159,7 @@ async function claimWalletClick(): Promise<void> {
         // wallet claimed; open token modal
         onAddTokensClick();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
     }
 
     isLoading.value = false;
@@ -169,15 +170,18 @@ async function claimWalletClick(): Promise<void> {
  * Triggers Add funds popup.
  */
 function onAddTokensClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-    appStore.updateActiveModal(MODALS.addTokenFunds);
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+
+    if (!isUserInPaidTier.value) {
+        appStore.updateActiveModal(MODALS.upgradeAccount);
+    } else {
+        appStore.updateActiveModal(MODALS.addTokenFunds);
+    }
 }
 
 onMounted(async (): Promise<void> => {
-    await getWallet();
-
     // check if user navigated here from Billing overview screen
-    if (router.currentRoute.params.action !== 'add tokens') {
+    if (route.query.action !== 'add tokens') {
         return;
     }
     // user clicked 'Add Funds' on Billing overview screen.
@@ -192,8 +196,6 @@ onMounted(async (): Promise<void> => {
 <style scoped lang="scss">
     .token {
         border-radius: 10px;
-        width: 300px;
-        margin-right: 10px;
         padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         position: relative;

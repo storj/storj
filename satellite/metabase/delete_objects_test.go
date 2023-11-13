@@ -47,7 +47,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the past
@@ -57,7 +56,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ExpiresAt:    &pastTime,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
@@ -67,7 +65,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					ExpiresAt:    &futureTime,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteExpiredObjects{
@@ -201,7 +198,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// zombie object with deadline time in the past
@@ -211,7 +207,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ZombieDeletionDeadline: &pastTime,
 					Encryption:             metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
@@ -221,7 +216,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					ZombieDeletionDeadline: &futureTime,
 					Encryption:             metabasetest.DefaultEncryption,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 
 			metabasetest.DeleteZombieObjects{
@@ -262,7 +256,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					Encryption:             metabasetest.DefaultEncryption,
 					ZombieDeletionDeadline: &now,
 				},
-				Version: 1,
 			}.Check(ctx, t, db)
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
@@ -332,8 +325,9 @@ func TestDeleteZombieObjects(t *testing.T) {
 			// object will be checked if is inactive and will be deleted with segment
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore:   now.Add(1 * time.Hour),
-					InactiveDeadline: now.Add(2 * time.Hour),
+					DeadlineBefore:     now.Add(1 * time.Hour),
+					InactiveDeadline:   now.Add(2 * time.Hour),
+					AsOfSystemInterval: -1 * time.Microsecond,
 				},
 			}.Check(ctx, t, db)
 
@@ -350,7 +344,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 						Encryption:   metabasetest.DefaultEncryption,
 						// use default 24h zombie deletion deadline
 					},
-					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i := byte(0); i < 3; i++ {
@@ -464,7 +457,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 		t.Run("migrated objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: obj1,
 			})
 			require.NoError(t, err)
@@ -486,6 +479,314 @@ func TestDeleteZombieObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestDeleteInactivePendingObjects(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj1 := metabasetest.RandObjectStream()
+		obj1.Version = metabase.NextVersion
+		obj2 := metabasetest.RandObjectStream()
+		obj2.Version = metabase.NextVersion
+		obj3 := metabasetest.RandObjectStream()
+		obj3.Version = metabase.NextVersion
+
+		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
+		pastTime := now.Add(-1 * time.Hour)
+		futureTime := now.Add(1 * time.Hour)
+
+		t.Run("none", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore: now,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("partial objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// zombie object with default deadline
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+
+			// zombie object with deadline time in the past
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj2,
+					ZombieDeletionDeadline: &pastTime,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+
+			// pending object with expiration time in the future
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj3,
+					ZombieDeletionDeadline: &futureTime,
+					Encryption:             metabasetest.DefaultEncryption,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now,
+					InactiveDeadline: now,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{ // the object with zombie deadline time in the past is gone
+				PendingObjects: []metabase.RawPendingObject{
+					{
+						PendingObjectStream: metabasetest.ObjectStreamToPending(obj1),
+						CreatedAt:           now,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+					{
+						PendingObjectStream: metabasetest.ObjectStreamToPending(obj3),
+						CreatedAt:           now,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &futureTime,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("partial object with segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &now,
+					UsePendingObjectsTable: true,
+				},
+				Version: metabase.PendingVersion,
+			}.Check(ctx, t, db)
+			metabasetest.BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj1,
+					RootPieceID:  storj.PieceID{1},
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
+					UsePendingObjectsTable: true,
+				},
+			}.Check(ctx, t, db)
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj1,
+					RootPieceID:  storj.PieceID{1},
+					Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedETag:     []byte{5},
+
+					EncryptedSize:          1024,
+					PlainSize:              512,
+					PlainOffset:            0,
+					Redundancy:             metabasetest.DefaultRedundancy,
+					UsePendingObjectsTable: true,
+				},
+			}.Check(ctx, t, db)
+
+			// object will be checked if is inactive but inactive time is in future
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now.Add(1 * time.Hour),
+					InactiveDeadline: now.Add(-1 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				PendingObjects: []metabase.RawPendingObject{
+					{
+						PendingObjectStream: metabasetest.ObjectStreamToPending(obj1),
+						CreatedAt:           now,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &now,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:    obj1.StreamID,
+						RootPieceID: storj.PieceID{1},
+						Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						CreatedAt:   now,
+
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
+
+						EncryptedSize: 1024,
+						PlainSize:     512,
+						PlainOffset:   0,
+						Redundancy:    metabasetest.DefaultRedundancy,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// object will be checked if is inactive and will be deleted with segment
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:     now.Add(1 * time.Hour),
+					InactiveDeadline:   now.Add(2 * time.Hour),
+					AsOfSystemInterval: -1 * time.Microsecond,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("batch size", func(t *testing.T) {
+			for i := 0; i < 33; i++ {
+				obj := metabasetest.RandObjectStream()
+				obj.Version = metabase.NextVersion
+
+				metabasetest.BeginObjectNextVersion{
+					Opts: metabase.BeginObjectNextVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						// use default 24h zombie deletion deadline
+						UsePendingObjectsTable: true,
+					},
+					Version: metabase.PendingVersion,
+				}.Check(ctx, t, db)
+
+				for i := byte(0); i < 3; i++ {
+					metabasetest.BeginSegment{
+						Opts: metabase.BeginSegment{
+							ObjectStream: obj,
+							Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+							RootPieceID:  storj.PieceID{i + 1},
+							Pieces: []metabase.Piece{{
+								Number:      1,
+								StorageNode: testrand.NodeID(),
+							}},
+							UsePendingObjectsTable: true,
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.CommitSegment{
+						Opts: metabase.CommitSegment{
+							ObjectStream: obj,
+							Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+							RootPieceID:  storj.PieceID{1},
+							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+							EncryptedKey:      []byte{3},
+							EncryptedKeyNonce: []byte{4},
+							EncryptedETag:     []byte{5},
+
+							EncryptedSize:          1024,
+							PlainSize:              512,
+							PlainOffset:            0,
+							Redundancy:             metabasetest.DefaultRedundancy,
+							UsePendingObjectsTable: true,
+						},
+					}.Check(ctx, t, db)
+				}
+			}
+
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now.Add(25 * time.Hour),
+					InactiveDeadline: now.Add(48 * time.Hour),
+					BatchSize:        4,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("committed objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := obj1
+			obj1.Version = metabase.DefaultVersion
+			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+
+			obj2 := obj2
+			obj2.Version = metabase.DefaultVersion
+			object2 := object1
+			object2.ObjectStream = obj2
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream:           object2.ObjectStream,
+					ZombieDeletionDeadline: &pastTime,
+					Encryption:             metabasetest.DefaultEncryption,
+				},
+			}.Run(ctx, t, db, object2.ObjectStream, 1)
+
+			obj3 := obj3
+			obj3.Version = metabase.DefaultVersion
+			object3, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream:           obj3,
+					ZombieDeletionDeadline: &futureTime,
+					Encryption:             metabasetest.DefaultEncryption,
+				},
+			}.Run(ctx, t, db, obj3, 1)
+
+			expectedObj1Segment := metabase.Segment{
+				StreamID:          obj1.StreamID,
+				RootPieceID:       storj.PieceID{1},
+				CreatedAt:         now,
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
+				EncryptedSize:     1060,
+				PlainSize:         512,
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Redundancy:        metabasetest.DefaultRedundancy,
+			}
+
+			expectedObj2Segment := expectedObj1Segment
+			expectedObj2Segment.StreamID = object2.StreamID
+			expectedObj3Segment := expectedObj1Segment
+			expectedObj3Segment.StreamID = object3.StreamID
+
+			metabasetest.DeleteInactivePendingObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now,
+					InactiveDeadline: now.Add(1 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{ // all committed objects should NOT be deleted
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object1),
+					metabase.RawObject(object2),
+					metabase.RawObject(object3),
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedObj1Segment),
+					metabase.RawSegment(expectedObj2Segment),
+					metabase.RawSegment(expectedObj3Segment),
+				},
+			}.Check(ctx, t, db)
 		})
 	})
 }

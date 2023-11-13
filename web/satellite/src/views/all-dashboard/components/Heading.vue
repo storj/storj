@@ -5,10 +5,23 @@
     <div class="header">
         <div class="header__content">
             <LogoIcon class="header__content__logo" @click="goToProjects" />
+            <SmallLogoIcon class="header__content__small-logo" @click="goToProjects" />
             <div class="header__content__actions">
                 <VButton
-                    class="header__content__actions__docs"
+                    v-if="isMyProjectsButtonShown"
+                    class="header__content__actions__button"
+                    icon="project"
+                    border-radius="8px"
+                    font-size="12px"
+                    is-white
+                    :on-press="goToProjects"
+                    label="My Projects"
+                />
+                <VButton
+                    class="header__content__actions__button"
                     icon="resources"
+                    border-radius="8px"
+                    font-size="12px"
                     is-white
                     :link="link"
                     :on-press="sendDocsEvent"
@@ -20,13 +33,22 @@
         <div class="header__mobile-area">
             <div class="header__mobile-area__container">
                 <header class="header__mobile-area__container__header">
-                    <div class="header__mobile-area__container__header__logo" @click.stop="goToProjects">
-                        <LogoIcon />
-                    </div>
+                    <LogoIcon class="header__mobile-area__container__header__logo" @click.stop="goToProjects" />
                     <CrossIcon v-if="isNavOpened" @click="toggleNavigation" />
                     <MenuIcon v-else @click="toggleNavigation" />
                 </header>
                 <div v-if="isNavOpened" class="header__mobile-area__container__wrap">
+                    <div
+                        v-if="isMyProjectsButtonShown"
+                        aria-label="My Projects"
+                        class="header__mobile-area__container__wrap__item-container"
+                        @click="goToProjects"
+                    >
+                        <div class="header__mobile-area__container__wrap__item-container__left">
+                            <project-icon class="header__mobile-area__container__wrap__item-container__left__image" />
+                            <p class="header__mobile-area__container__wrap__item-container__left__label">My Projects</p>
+                        </div>
+                    </div>
                     <a
                         aria-label="Docs"
                         class="header__mobile-area__container__wrap__item-container"
@@ -47,8 +69,10 @@
                                 <AccountIcon class="account-area__wrap__left__icon" />
                                 <p class="account-area__wrap__left__label">My Account</p>
                                 <p class="account-area__wrap__left__label-small">Account</p>
-                                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                                <template v-if="billingEnabled">
+                                    <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
+                                    <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                                </template>
                             </div>
                             <ArrowIcon class="account-area__wrap__arrow" />
                         </div>
@@ -70,7 +94,7 @@
                                     </a>
                                 </div>
                             </div>
-                            <div class="account-area__dropdown__item" @click="navigateToBilling">
+                            <div v-if="billingEnabled" class="account-area__dropdown__item" @click="navigateToBilling">
                                 <BillingIcon />
                                 <p class="account-area__dropdown__item__label">Billing</p>
                             </div>
@@ -92,12 +116,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
-import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
@@ -111,10 +134,13 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
+import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
+import SmallLogoIcon from '@/../static/images/smallLogo.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
@@ -127,10 +153,13 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -143,13 +172,17 @@ const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
-const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
 const link = 'https://docs.storj.io/';
 
 const isAccountDropdownShown = ref(false);
 const isNavOpened = ref(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns satellite name from store.
@@ -163,6 +196,13 @@ const satellite = computed((): string => {
  */
 const user = computed((): User => {
     return usersStore.state.user;
+});
+
+/**
+ * Returns whether the My Projects button should be shown.
+ */
+const isMyProjectsButtonShown = computed((): boolean => {
+    return route.name !== RouteConfig.AllProjectsDashboard.name;
 });
 
 /**
@@ -188,11 +228,11 @@ function goToProjects(): void {
     appStore.closeDropdowns();
 
     const projects = RouteConfig.AllProjectsDashboard.path;
-    if (router.currentRoute.path.includes(projects)) {
+    if (route.path.includes(projects)) {
         return;
     }
 
-    analytics.pageVisit(projects);
+    analyticsStore.pageVisit(projects);
     router.push(projects);
 }
 
@@ -200,13 +240,13 @@ function navigateToBilling(): void {
     toggleNavigation();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
     const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
-    analytics.pageVisit(routeConf);
+    analyticsStore.pageVisit(routeConf);
 }
 
 /**
@@ -216,11 +256,11 @@ function navigateToSettings(): void {
     toggleNavigation();
 
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 
-    analytics.pageVisit(settings);
+    analyticsStore.pageVisit(settings);
     router.push(settings).catch(() => {return;});
 }
 
@@ -228,7 +268,7 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
@@ -246,10 +286,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -257,8 +297,8 @@ async function onLogout(): Promise<void> {
  * Sends "View Docs" event to segment and opens link.
  */
 function sendDocsEvent(): void {
-    analytics.pageVisit(link);
-    analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    analyticsStore.pageVisit(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 </script>
 
@@ -272,18 +312,43 @@ function sendDocsEvent(): void {
 
         &__logo {
             cursor: pointer;
-            min-height: 37px;
-            width: 207px;
-            height: 37px;
+            width: 144px;
+
+            @media screen and (width <= 680px) {
+                display: none;
+            }
+        }
+
+        &__small-logo {
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            display: none;
+
+            @media screen and (width <= 680px) {
+                display: block;
+            }
         }
 
         &__actions {
             display: flex;
             gap: 10px;
 
-            &__docs {
+            &__button {
                 padding: 10px 16px;
-                border-radius: 8px;
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+
+                :deep(.label) {
+
+                    & > svg {
+                        height: 14px;
+                        width: 14px;
+                    }
+
+                    color: var(--c-black) !important;
+                    font-weight: 700;
+                    line-height: 20px;
+                }
             }
         }
     }
@@ -300,48 +365,40 @@ function sendDocsEvent(): void {
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            overflow-x: hidden;
-            overflow-y: auto;
             width: 100%;
 
             &__header {
                 display: flex;
                 width: 100%;
                 box-sizing: border-box;
-                padding: 0 32px;
+                padding: 0 20px;
                 justify-content: space-between;
                 align-items: center;
                 height: 4rem;
 
                 &__logo {
-                    width: 211px;
-                    max-width: 211px;
-                    height: 37px;
-                    max-height: 37px;
-
-                    svg {
-                        width: 211px;
-                        height: 37px;
-                    }
+                    height: 49px;
+                    width: auto;
                 }
             }
 
             &__wrap {
-                position: fixed;
+                position: absolute;
                 top: 4rem;
                 left: 0;
                 display: flex;
                 flex-direction: column;
-                align-items: center;
+                align-items: stretch;
                 width: 100%;
+                padding-bottom: 8px;
                 z-index: 9999;
                 overflow-y: auto;
                 overflow-x: hidden;
                 background: white;
+                border-bottom: 1px solid var(--c-grey-2);
 
                 &__item-container {
                     padding: 14px 32px;
-                    width: 100%;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -365,15 +422,15 @@ function sendDocsEvent(): void {
                 }
 
                 &__border {
-                    margin: 0 32px 16px;
-                    border: 0.5px solid var(--c-grey-2);
-                    width: calc(100% - 48px);
+                    margin: 8px 32px;
+                    height: 1px;
+                    background-color: var(--c-grey-2);
                 }
             }
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         &__content {
             display: none;

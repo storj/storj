@@ -243,16 +243,30 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 	return attributionFromDBX(dbxInfo)
 }
 
+// UpdateUserAgent updates bucket attribution data.
+func (keys *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = keys.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName([]byte(bucketName)),
+		dbx.ValueAttribution_Update_Fields{
+			UserAgent: dbx.ValueAttribution_UserAgent(userAgent),
+		})
+
+	return err
+}
+
 // Insert implements create partner info.
 func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = keys.db.QueryRowContext(ctx, `
-		INSERT INTO value_attributions (project_id, bucket_name, partner_id, user_agent, last_updated) 
-		VALUES ($1, $2, $3, $4, now())
+		INSERT INTO value_attributions (project_id, bucket_name, user_agent, last_updated) 
+		VALUES ($1, $2, $3, now())
 		ON CONFLICT (project_id, bucket_name) DO NOTHING
 		RETURNING last_updated
-	`, info.ProjectID[:], info.BucketName, "", info.UserAgent).Scan(&info.CreatedAt)
+	`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
 	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 	if errors.Is(err, sql.ErrNoRows) {
 		return info, nil

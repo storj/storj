@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
@@ -31,12 +32,18 @@ var (
 
 // DiskSpace consolidates monitored disk space statistics.
 type DiskSpace struct {
-	Allocated     int64
+	// Allocated is the amount of disk space allocated to the storage node, in bytes.
+	Allocated int64
+	// UsedForPieces is the amount of disk space used for pieces, in bytes.
 	UsedForPieces int64
-	UsedForTrash  int64
-	Free          int64
-	Available     int64
-	Overused      int64
+	// UsedForTrash is the amount of disk space used for trash, in bytes.
+	UsedForTrash int64
+	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
+	Free int64
+	// Available is the amount of free space on the allocated disk space, in bytes.
+	Available int64
+	// Overused is the amount of disk space overused by the storage node, in bytes.
+	Overused int64
 }
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
@@ -134,6 +141,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
 			err := service.store.VerifyStorageDirWithTimeout(ctx, service.contact.Local().ID, timeout)
 			if err != nil {
+				if errs2.IsCanceled(err) {
+					return nil
+				}
 				if errs.Is(err, context.DeadlineExceeded) {
 					if service.Config.VerifyDirWarnOnly {
 						service.log.Error("timed out while verifying readability of storage directory", zap.Duration("timeout", timeout))
@@ -155,6 +165,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
 			err := service.store.CheckWritabilityWithTimeout(ctx, timeout)
 			if err != nil {
+				if errs2.IsCanceled(err) {
+					return nil
+				}
 				if errs.Is(err, context.DeadlineExceeded) {
 					if service.Config.VerifyDirWarnOnly {
 						service.log.Error("timed out while verifying writability of storage directory", zap.Duration("timeout", timeout))

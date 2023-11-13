@@ -14,7 +14,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -84,6 +86,71 @@ func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) 
 	}
 
 	return verified, unverified, errors.Err()
+}
+
+func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, cursor console.UserCursor) (page *console.UsersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if cursor.Limit == 0 {
+		return nil, Error.New("limit cannot be 0")
+	}
+
+	if cursor.Page == 0 {
+		return nil, Error.New("page cannot be 0")
+	}
+
+	page = &console.UsersPage{
+		Limit:  cursor.Limit,
+		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	count, err := users.db.Count_User_By_Status(ctx, dbx.User_Status(int(status)))
+	if err != nil {
+		return nil, err
+	}
+	page.TotalCount = uint64(count)
+
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, Error.New("page is out of range")
+	}
+
+	dbxUsers, err := users.db.Limited_User_Id_User_Email_User_FullName_By_Status(ctx,
+		dbx.User_Status(int(status)),
+		int(page.Limit), int64(page.Offset))
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return &console.UsersPage{
+				Users: []console.User{},
+			}, nil
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	for _, usr := range dbxUsers {
+		id, err := uuid.FromBytes(usr.Id)
+		if err != nil {
+			return &console.UsersPage{
+				Users: []console.User{},
+			}, nil
+		}
+		page.Users = append(page.Users, console.User{
+			ID:       id,
+			Email:    usr.Email,
+			FullName: usr.FullName,
+		})
+	}
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, nil
 }
 
 // GetByEmail is a method for querying user by verified email from the database.
@@ -178,6 +245,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.SignupCaptcha = dbx.User_SignupCaptcha(*user.SignupCaptcha)
 	}
 
+	if user.DefaultPlacement > 0 {
+		optional.DefaultPlacement = dbx.User_DefaultPlacement(int(user.DefaultPlacement))
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -194,12 +265,78 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	return userFromDBX(ctx, createdUser)
 }
 
-// Delete is a method for deleting user by Id from the database.
+// Delete is a method for deleting user by ID from the database.
 func (users *users) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = users.db.Delete_User_By_Id(ctx, dbx.User_Id(id[:]))
 
 	return err
+}
+
+// DeleteUnverifiedBefore deletes unverified users created prior to some time from the database.
+func (users *users) DeleteUnverifiedBefore(
+	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if pageSize <= 0 {
+		return Error.New("expected page size to be positive; got %d", pageSize)
+	}
+
+	var pageCursor uuid.UUID
+	selected := make([]uuid.UUID, pageSize)
+	aost := users.db.impl.AsOfSystemInterval(asOfSystemTimeInterval)
+	for {
+		// Select the ID beginning this page of records
+		err = users.db.QueryRowContext(ctx, `
+			SELECT id FROM users
+			`+aost+`
+			WHERE id > $1 AND users.status = $2 AND users.created_at < $3
+			ORDER BY id LIMIT 1
+		`, pageCursor, console.Inactive, before).Scan(&pageCursor)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		// Select page of records
+		rows, err := users.db.QueryContext(ctx, `
+			SELECT id FROM users
+			`+aost+`
+			WHERE id >= $1 ORDER BY id LIMIT $2
+		`, pageCursor, pageSize)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		var i int
+		for i = 0; rows.Next(); i++ {
+			if err = rows.Scan(&selected[i]); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+		if err = errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return Error.Wrap(err)
+		}
+
+		// Delete all old, unverified users in the page
+		_, err = users.db.ExecContext(ctx, `
+			DELETE FROM users
+			WHERE id = ANY($1)
+			AND status = $2 AND created_at < $3
+		`, pgutil.UUIDArray(selected[:i]), console.Inactive, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if i < pageSize {
+			return nil
+		}
+
+		// Advance the cursor to the next page
+		pageCursor = selected[i-1]
+	}
 }
 
 // Update is a method for updating user entity.
@@ -239,6 +376,21 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 	return err
 }
 
+// UpdateUserAgent is a method to update the user's user agent.
+func (users *users) UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			UserAgent: dbx.User_UserAgent(userAgent),
+		},
+	)
+
+	return err
+}
+
 // UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
 func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -250,6 +402,21 @@ func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, l
 			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(limits.Bandwidth),
 			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(limits.Storage),
 			ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(limits.Segment),
+		},
+	)
+
+	return err
+}
+
+// UpdateDefaultPlacement is a method to update the user's default placement for new projects.
+func (users *users) UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			DefaultPlacement: dbx.User_DefaultPlacement(int(placement)),
 		},
 	)
 
@@ -302,6 +469,10 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 	settings.OnboardingStart = row.OnboardingStart
 	settings.OnboardingEnd = row.OnboardingEnd
 	settings.OnboardingStep = row.OnboardingStep
+	settings.PassphrasePrompt = true
+	if row.PassphrasePrompt != nil {
+		settings.PassphrasePrompt = *row.PassphrasePrompt
+	}
 	if row.SessionMinutes != nil {
 		dur := time.Duration(*row.SessionMinutes) * time.Minute
 		settings.SessionDuration = &dur
@@ -332,6 +503,10 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 	if settings.OnboardingEnd != nil {
 		update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(*settings.OnboardingEnd)
+		fieldCount++
+	}
+	if settings.PassphrasePrompt != nil {
+		update.PassphrasePrompt = dbx.UserSettings_PassphrasePrompt(*settings.PassphrasePrompt)
 		fieldCount++
 	}
 	if settings.OnboardingStep != nil {
@@ -435,6 +610,10 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		}
 	}
 
+	if request.DefaultPlacement > 0 {
+		update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
+	}
+
 	return &update, nil
 }
 
@@ -475,6 +654,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
+	}
+
+	if user.DefaultPlacement != nil {
+		result.DefaultPlacement = storj.PlacementConstraint(*user.DefaultPlacement)
 	}
 
 	if user.UserAgent != nil {

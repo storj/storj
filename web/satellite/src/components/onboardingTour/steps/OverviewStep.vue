@@ -3,7 +3,7 @@
 
 <template>
     <div class="overview-area">
-        <h1 class="overview-area__title" aria-roledescription="title">Welcome to Storj {{ titleLabel }}</h1>
+        <h1 class="overview-area__title" aria-roledescription="title">Welcome to Storj</h1>
         <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
@@ -28,19 +28,22 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { PartneredSatellite } from '@/types/config';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { OnboardingOption } from '@/types/common';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -48,9 +51,6 @@ const notify = useNotify();
 const router = useRouter();
 
 const projectDashboardPath = RouteConfig.ProjectDashboard.path;
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-const titleLabel = ref<string>('');
 
 /**
  * Skips onboarding flow.
@@ -59,6 +59,7 @@ async function onSkip(): Promise<void> {
     endOnboarding();
     await router.push(projectDashboardPath);
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.Skip);
 }
 
 /**
@@ -67,8 +68,8 @@ async function onSkip(): Promise<void> {
  */
 function onUplinkCLIClick(): void {
     router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-    analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.CLI);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
 }
 
 /**
@@ -77,13 +78,14 @@ function onUplinkCLIClick(): void {
 async function onUploadInBrowserClick(): Promise<void> {
     endOnboarding();
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    analyticsStore.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, OnboardingOption.Browser);
 }
 
 async function endOnboarding(): Promise<void> {
     try {
         await usersStore.updateSettings({ onboardingEnd: true });
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+        notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 }
 
@@ -97,15 +99,8 @@ onMounted(async (): Promise<void> => {
             await usersStore.updateSettings({ onboardingStart: true });
         }
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+        notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
-
-    const config = configStore.state.config;
-    const isPartnered = config.partneredSatellites.find((el: PartneredSatellite) => {
-        return el.name === config.satelliteName;
-    });
-
-    titleLabel.value = isPartnered ? 'DCS' : 'OSP';
 });
 </script>
 
@@ -155,7 +150,7 @@ onMounted(async (): Promise<void> => {
     }
 }
 
-@media screen and (max-width: 760px) {
+@media screen and (width <= 760px) {
 
     .overview-area {
         width: 250px;

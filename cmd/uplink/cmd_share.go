@@ -104,15 +104,16 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 
 	fmt.Fprintf(clingy.Stdout(ctx), "Sharing access to satellite %s\n", access.SatelliteAddress())
 	fmt.Fprintf(clingy.Stdout(ctx), "=========== ACCESS RESTRICTIONS ==========================================================\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "Download  : %s\n", formatPermission(c.ap.AllowDownload()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Upload    : %s\n", formatPermission(c.ap.AllowUpload()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Lists     : %s\n", formatPermission(c.ap.AllowList()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Deletes   : %s\n", formatPermission(c.ap.AllowDelete()))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore : %s\n", formatTimeRestriction(c.ap.NotBefore()))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter  : %s\n", formatTimeRestriction(c.ap.NotAfter()))
-	fmt.Fprintf(clingy.Stdout(ctx), "Paths     : %s\n", formatPaths(c.ap.prefixes))
+	fmt.Fprintf(clingy.Stdout(ctx), "Download     : %s\n", formatPermission(c.ap.AllowDownload()))
+	fmt.Fprintf(clingy.Stdout(ctx), "Upload       : %s\n", formatPermission(c.ap.AllowUpload()))
+	fmt.Fprintf(clingy.Stdout(ctx), "Lists        : %s\n", formatPermission(c.ap.AllowList()))
+	fmt.Fprintf(clingy.Stdout(ctx), "Deletes      : %s\n", formatPermission(c.ap.AllowDelete()))
+	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore    : %s\n", formatTimeRestriction(c.ap.NotBefore()))
+	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter     : %s\n", formatTimeRestriction(c.ap.NotAfter()))
+	fmt.Fprintf(clingy.Stdout(ctx), "MaxObjectTTL : %s\n", formatDuration(c.ap.maxObjectTTL))
+	fmt.Fprintf(clingy.Stdout(ctx), "Paths        : %s\n", formatPaths(c.ap.prefixes))
 	fmt.Fprintf(clingy.Stdout(ctx), "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
-	fmt.Fprintf(clingy.Stdout(ctx), "Access    : %s\n", newAccessData)
+	fmt.Fprintf(clingy.Stdout(ctx), "Access       : %s\n", newAccessData)
 
 	if c.register {
 		credentials, err := RegisterAccess(ctx, access, c.authService, c.public, c.caCert)
@@ -180,6 +181,13 @@ func formatTimeRestriction(t time.Time) string {
 		return "No restriction"
 	}
 	return formatTime(true, t)
+}
+
+func formatDuration(d *time.Duration) string {
+	if d == nil {
+		return "Not set"
+	}
+	return d.String()
 }
 
 func formatPaths(sharePrefixes []uplink.SharePrefix) string {

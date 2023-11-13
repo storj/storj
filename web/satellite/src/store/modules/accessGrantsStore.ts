@@ -13,11 +13,13 @@ import {
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
-import { AccessGrantsApiGql } from '@/api/accessGrants';
+import { AccessGrantsHttpApi } from '@/api/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 class AccessGrantsState {
+    public allAGNames: string[] = [];
     public cursor: AccessGrantCursor = new AccessGrantCursor();
     public page: AccessGrantsPage = new AccessGrantsPage();
     public selectedAccessGrantsIds: string[] = [];
@@ -31,17 +33,27 @@ class AccessGrantsState {
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
+    public accessNameToDelete = '';
 }
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
-    const api = new AccessGrantsApiGql();
+    const api = new AccessGrantsHttpApi();
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
     const configStore = useConfigStore();
+    const projectsStore = useProjectsStore();
 
     async function startWorker(): Promise<void> {
-        const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
+        // TODO(vitalii): create an issue here https://github.com/vitejs/vite
+        // about worker chunk being auto removed after rebuild in watch mode if using new URL constructor.
+        let worker: Worker;
+        if (import.meta.env.MODE === 'development') {
+            worker = new Worker('/static/src/utils/accessGrant.worker.js');
+        } else {
+            worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
+        }
+
         worker.postMessage({ 'type': 'Setup' });
 
         const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
@@ -65,6 +77,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.accessGrantsWebWorker?.terminate();
         state.accessGrantsWebWorker = null;
         state.isAccessGrantsWebWorkerReady = false;
+    }
+
+    async function getAllAGNames(projectID: string): Promise<void> {
+        state.allAGNames = await api.getAllAPIKeyNames(projectID);
     }
 
     async function getAccessGrants(pageNumber: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<AccessGrantsPage> {
@@ -97,8 +113,9 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         await api.deleteByNameAndProjectID(name, projectID);
     }
 
-    async function getEdgeCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
-        const url = optionalURL || configStore.state.config.gatewayCredentialsRequestURL;
+    async function getEdgeCredentials(accessGrant: string, isPublic?: boolean): Promise<EdgeCredentials> {
+        const url = projectsStore.state.selectedProject.edgeURLOverrides?.authService
+            || configStore.state.config.gatewayCredentialsRequestURL;
         const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, url, isPublic);
 
         state.edgeCredentials = credentials;
@@ -112,6 +129,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     function setSortingBy(order: AccessGrantsOrderBy): void {
         state.cursor.order = order;
+    }
+
+    function setAccessNameToDelete(name: string): void {
+        state.accessNameToDelete = name;
     }
 
     function setDurationPermission(permission: DurationPermission): void {
@@ -192,6 +213,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     function clear(): void {
+        state.allAGNames = [];
         state.cursor = new AccessGrantCursor();
         state.page = new AccessGrantsPage();
         state.selectedAccessGrantsIds = [];
@@ -214,6 +236,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     return {
         state,
         selectedAccessGrants,
+        getAllAGNames,
         startWorker,
         stopWorker,
         getAccessGrants,
@@ -223,6 +246,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         getEdgeCredentials,
         setSearchQuery,
         setSortingBy,
+        setAccessNameToDelete,
         setSortingDirection,
         toggleSortingDirection,
         setDurationPermission,

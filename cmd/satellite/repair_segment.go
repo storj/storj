@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -94,7 +93,12 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	overlay, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+	placement, err := config.Placement.Parse()
+	if err != nil {
+		return err
+	}
+
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 	if err != nil {
 		return err
 	}
@@ -102,8 +106,9 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	orders, err := orders.NewService(
 		log.Named("orders"),
 		signing.SignerFromFullIdentity(identity),
-		overlay,
+		overlayService,
 		orders.NewNoopDB(),
+		placement.CreateFilters,
 		config.Orders,
 	)
 	if err != nil {
@@ -114,6 +119,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		log.Named("ec-repair"),
 		dialer,
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
+		config.Repairer.DialTimeout,
 		config.Repairer.DownloadTimeout,
 		true) // force inmemory download of pieces
 
@@ -121,9 +127,10 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		log.Named("segment-repair"),
 		metabaseDB,
 		orders,
-		overlay,
+		overlayService,
 		nil, // TODO add noop version
 		ecRepairer,
+		placement.CreateFilters,
 		config.Checker.RepairOverrides,
 		config.Repairer,
 	)
@@ -131,7 +138,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	// TODO reorganize to avoid using peer.
 
 	peer := &satellite.Repairer{}
-	peer.Overlay = overlay
+	peer.Overlay = overlayService
 	peer.Orders.Service = orders
 	peer.EcRepairer = ecRepairer
 	peer.SegmentRepairer = segmentRepairer
@@ -273,10 +280,8 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 		return errs.New("not enough new nodes were found for repair: min %v got %v", redundancy.RepairThreshold(), len(newNodes))
 	}
 
-	optimalThresholdMultiplier := float64(1) // is this value fine?
-	numHealthyInExcludedCountries := 0
-	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment,
-		make([]*pb.AddressedOrderLimit, len(newNodes)), make(map[int32]struct{}), newNodes, optimalThresholdMultiplier, numHealthyInExcludedCountries)
+	putLimits, putPrivateKey, err := peer.Orders.Service.CreatePutRepairOrderLimits(ctx, segment, make([]*pb.AddressedOrderLimit, len(newNodes)),
+		make(map[uint16]struct{}), newNodes)
 	if err != nil {
 		return errs.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -375,7 +380,7 @@ func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 			len(pieceReaders), redundancy.RequiredCount())
 	}
 
-	fec, err := infectious.NewFEC(redundancy.RequiredCount(), redundancy.TotalCount())
+	fec, err := eestream.NewFEC(redundancy.RequiredCount(), redundancy.TotalCount())
 	if err != nil {
 		return nil, failedDownloads, err
 	}

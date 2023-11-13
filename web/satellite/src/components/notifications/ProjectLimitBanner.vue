@@ -4,21 +4,14 @@
 <template>
     <v-banner
         severity="warning"
+        :title="bannerTextData.title"
+        :message="bannerTextData.body"
+        :link-text="isPaidTier ? 'Request Limit Increase' : 'Upgrade Now'"
+        :href="isPaidTier ? projectLimitsIncreaseRequestURL : undefined"
         :dashboard-ref="dashboardRef"
         :on-close="onClose"
-    >
-        <template #text>
-            <p><span class="bold">{{ bannerTextData.title }}</span> <span class="medium"> {{ bannerTextData.body }}</span></p>
-            <p v-if="!isPaidTier" class="link" @click.stop.self="onUpgradeClicked">Upgrade Now</p>
-            <a
-                v-else
-                :href="projectLimitsIncreaseRequestURL"
-                class="link"
-                target="_blank"
-                rel="noopener noreferrer"
-            >Request Limit Increase</a>
-        </template>
-    </v-banner>
+        :on-link-click="onUpgradeClicked"
+    />
 </template>
 
 <script setup lang="ts">

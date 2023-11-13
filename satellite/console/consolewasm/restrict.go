@@ -26,7 +26,17 @@ func RestrictGrant(accessGrant string, paths []string, permission Permission) (s
 		prefixes = append(prefixes, prefix)
 	}
 
-	restricted, err := access.Restrict(grant.Permission(permission), prefixes...)
+	restricted, err := access.Restrict(
+		grant.Permission{
+			AllowDownload: permission.AllowDownload,
+			AllowUpload:   permission.AllowUpload,
+			AllowList:     permission.AllowList,
+			AllowDelete:   permission.AllowDelete,
+			NotBefore:     permission.NotBefore,
+			NotAfter:      permission.NotAfter,
+		},
+		prefixes...,
+	)
 	if err != nil {
 		return "", err
 	}

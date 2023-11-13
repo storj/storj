@@ -10,10 +10,11 @@ import {
     CreditCard,
     DateRange,
     NativePaymentHistoryItem,
+    PaymentHistoryPage,
+    PaymentHistoryParam,
     PaymentsApi,
-    PaymentsHistoryItem,
-    PaymentsHistoryItemStatus,
-    PaymentsHistoryItemType,
+    PaymentStatus,
+    PaymentWithConfirmations,
     ProjectCharges,
     ProjectUsagePriceModel,
     Wallet,
@@ -23,7 +24,8 @@ import { PaymentsHttpApi } from '@/api/payments';
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
-    public paymentsHistory: PaymentsHistoryItem[] = [];
+    public paymentsHistory: PaymentHistoryPage = new PaymentHistoryPage([]);
+    public pendingPaymentsWithConfirmations: PaymentWithConfirmations[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public projectCharges: ProjectCharges = new ProjectCharges();
     public usagePriceModel: ProjectUsagePriceModel = new ProjectUsagePriceModel();
@@ -70,6 +72,10 @@ export const useBillingStore = defineStore('billing', () => {
         await api.addCreditCard(token);
     }
 
+    async function addCardByPaymentMethodID(pmID: string): Promise<void> {
+        await api.addCardByPaymentMethodID(pmID);
+    }
+
     function toggleCardSelection(id: string): void {
         state.creditCards = state.creditCards.map(card => {
             if (card.id === id) {
@@ -90,6 +96,10 @@ export const useBillingStore = defineStore('billing', () => {
 
             return card;
         });
+    }
+
+    function clearPendingPayments(): void {
+        state.pendingPaymentsWithConfirmations = [];
     }
 
     async function makeCardDefault(id: string): Promise<void> {
@@ -114,12 +124,31 @@ export const useBillingStore = defineStore('billing', () => {
         state.creditCards = state.creditCards.filter(card => card.id !== cardId);
     }
 
-    async function getPaymentsHistory(): Promise<void> {
-        state.paymentsHistory = await api.paymentsHistory();
+    async function getPaymentsHistory(params: PaymentHistoryParam): Promise<void> {
+        state.paymentsHistory = await api.paymentsHistory(params);
     }
 
     async function getNativePaymentsHistory(): Promise<void> {
         state.nativePaymentsHistory = await api.nativePaymentsHistory();
+    }
+
+    async function getPaymentsWithConfirmations(): Promise<void> {
+        const newPayments = await api.paymentsWithConfirmations();
+        newPayments.forEach(newPayment => {
+            const oldPayment = state.pendingPaymentsWithConfirmations.find(old => old.transaction === newPayment.transaction);
+
+            if (newPayment.status === PaymentStatus.Pending) {
+                if (oldPayment) {
+                    oldPayment.confirmations = newPayment.confirmations;
+                    return;
+                }
+
+                state.pendingPaymentsWithConfirmations.push(newPayment);
+                return;
+            }
+
+            if (oldPayment) oldPayment.status = PaymentStatus.Confirmed;
+        });
     }
 
     async function getProjectUsageAndChargesCurrentRollup(): Promise<void> {
@@ -158,54 +187,33 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = await api.getCoupon();
     }
 
-    async function purchasePricingPackage(token: string): Promise<void> {
-        await api.purchasePricingPackage(token);
+    async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
+        await api.purchasePricingPackage(dataStr, isPMID);
     }
 
     function clear(): void {
         state.balance = new AccountBalance();
         state.creditCards = [];
-        state.paymentsHistory = [];
+        state.paymentsHistory = new PaymentHistoryPage([]);
         state.nativePaymentsHistory = [];
         state.projectCharges = new ProjectCharges();
         state.usagePriceModel = new ProjectUsagePriceModel();
+        state.pendingPaymentsWithConfirmations = [];
         state.startDate = new Date();
         state.endDate = new Date();
         state.coupon = null;
         state.wallet = new Wallet();
     }
 
-    const canUserCreateFirstProject = computed((): boolean => {
-        return state.balance.sum > 0 || state.creditCards.length > 0;
-    });
-
-    const isTransactionProcessing = computed((): boolean => {
-        return state.balance.sum === 0 &&
-            state.paymentsHistory.some((item: PaymentsHistoryItem) => {
-                return item.amount >= 50 && item.type === PaymentsHistoryItemType.Transaction &&
-                    (
-                        item.status === PaymentsHistoryItemStatus.Pending ||
-                        item.status === PaymentsHistoryItemStatus.Paid ||
-                        item.status === PaymentsHistoryItemStatus.Completed
-                    );
-            });
-    });
-
-    const isBalancePositive = computed((): boolean => {
-        return state.balance.sum > 0;
-    });
-
     return {
         state,
-        canUserCreateFirstProject,
-        isTransactionProcessing,
-        isBalancePositive,
         getBalance,
         getWallet,
         claimWallet,
         setupAccount,
         getCreditCards,
         addCreditCard,
+        addCardByPaymentMethodID,
         toggleCardSelection,
         clearCardsSelection,
         makeCardDefault,
@@ -214,6 +222,8 @@ export const useBillingStore = defineStore('billing', () => {
         getNativePaymentsHistory,
         getProjectUsageAndChargesCurrentRollup,
         getProjectUsageAndChargesPreviousRollup,
+        getPaymentsWithConfirmations,
+        clearPendingPayments,
         getProjectUsagePriceModel,
         applyCouponCode,
         getCoupon,

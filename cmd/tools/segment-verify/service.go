@@ -10,10 +10,12 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -21,6 +23,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -46,7 +49,7 @@ type Verifier interface {
 type Overlay interface {
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
-	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*overlay.SelectedNode, error)
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error)
 }
 
 // SegmentWriter allows writing segments to some output.
@@ -69,6 +72,9 @@ type ServiceConfig struct {
 	MaxOffline  int `help:"maximum number of offline in a sequence (if 0, no limit)" default:"2"`
 
 	OfflineStatusCacheTime time.Duration `help:"how long to cache a \"node offline\" status" default:"30m"`
+
+	CreatedBefore DateFlag `help:"verify only segments created before specific date (date format 'YYYY-MM-DD')" default:""`
+	CreatedAfter  DateFlag `help:"verify only segments created after specific date (date format 'YYYY-MM-DD')" default:"1970-01-01"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
@@ -93,8 +99,9 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap        *metabase.NodeAliasMap
+	mu              sync.RWMutex
 	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	aliasMap        *metabase.NodeAliasMap
 	priorityNodes   NodeAliasSet
 	ignoreNodes     NodeAliasSet
 	offlineNodes    *nodeAliasExpiringSet
@@ -118,6 +125,10 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 	problemPieces, err := newPieceCSVWriter(config.ProblemPiecesPath)
 	if err != nil {
 		return nil, errs.Combine(Error.Wrap(err), retry.Close(), notFound.Close())
+	}
+
+	if nodeVerifier, ok := verifier.(*NodeVerifier); ok {
+		nodeVerifier.reportPiece = problemPieces.Write
 	}
 
 	return &Service{
@@ -292,6 +303,9 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 			CursorStreamID: cursorStreamID,
 			CursorPosition: cursorPosition,
 			Limit:          service.config.BatchSize,
+
+			CreatedAfter:  service.config.CreatedAfter.time(),
+			CreatedBefore: service.config.CreatedBefore.time(),
 
 			AsOfSystemInterval: service.config.AsOfSystemInterval,
 		})
@@ -485,6 +499,9 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 			}
 			for n, verifySegment := range verifySegments.Segments {
 				segmentsData[n].VerifySegment = verifySegment
+				segmentsData[n].Status.Found = 0
+				segmentsData[n].Status.Retry = 0
+				segmentsData[n].Status.NotFound = 0
 				segments[n] = &segmentsData[n]
 			}
 
@@ -617,3 +634,42 @@ func uuidBefore(v uuid.UUID) uuid.UUID {
 	}
 	return v
 }
+
+// DateFlag flag implementation for date, format YYYY-MM-DD.
+type DateFlag struct {
+	time.Time
+}
+
+// String implements pflag.Value.
+func (t *DateFlag) String() string {
+	return t.Format(time.DateOnly)
+}
+
+// Set implements pflag.Value.
+func (t *DateFlag) Set(s string) error {
+	if s == "" {
+		t.Time = time.Now()
+		return nil
+	}
+
+	parsedTime, err := time.Parse(time.DateOnly, s)
+	if err != nil {
+		return err
+	}
+	t.Time = parsedTime
+	return nil
+}
+
+func (t *DateFlag) time() *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t.Time
+}
+
+// Type implements pflag.Value.
+func (t *DateFlag) Type() string {
+	return "time-flag"
+}
+
+var _ pflag.Value = &DateFlag{}

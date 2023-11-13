@@ -26,28 +26,28 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AccessGrant } from '@/types/accessGrants';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const name = ref<string>('');
 const errorMessage = ref<string>('');
@@ -74,7 +74,7 @@ function onChangeName(value: string): void {
  * Navigates to previous screen.
  */
 async function onBackClick(): Promise<void> {
-    analytics.pageVisit(RouteConfig.OverviewStep.path);
+    analyticsStore.pageVisit(RouteConfig.OverviewStep.path);
     backRoute.value ?
         await router.push(backRoute.value).catch(() => {return; }) :
         await router.push({ name: RouteConfig.OverviewStep.name });
@@ -88,7 +88,7 @@ async function onNextClick(): Promise<void> {
 
     if (!name.value) {
         errorMessage.value = 'Access Grant name can\'t be empty';
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
 
         return;
     }
@@ -99,9 +99,9 @@ async function onNextClick(): Promise<void> {
     try {
         createdAccessGrant = await agStore.createAccessGrant(name.value, projectsStore.state.selectedProject.id);
 
-        await notify.success('New clean access grant was generated successfully.');
+        notify.success('New clean access grant was generated successfully.');
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
         return;
     } finally {
         isLoading.value = false;
@@ -110,7 +110,7 @@ async function onNextClick(): Promise<void> {
     appStore.setOnboardingCleanAPIKey(createdAccessGrant.secret);
     name.value = '';
 
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);
     await router.push({ name: RouteConfig.AGPermissions.name });
 }
 </script>

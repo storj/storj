@@ -73,7 +73,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			prices,
 			priceOverrides,
 			pc.PackagePlans.Packages,
-			pc.BonusRate)
+			pc.BonusRate,
+			nil,
+		)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -92,6 +94,7 @@ func TestSignupCouponCodes(t *testing.T) {
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
 			nil,
+			"",
 			"",
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)

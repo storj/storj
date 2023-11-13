@@ -15,26 +15,24 @@
 </template>
 
 <script setup lang="ts">
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import NewBillingAddCouponCodeInput from '@/components/common/NewBillingAddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Closes add coupon modal.
  */
 function onCloseClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
-    appStore.updateActiveModal(MODALS.newBillingAddCoupon);
+    analyticsStore.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -44,7 +42,7 @@ function onCloseClick(): void {
         padding: 32px;
         font-family: 'font_regular', sans-serif;
 
-        @media screen and (max-width: 650px) {
+        @media screen and (width <= 650px) {
             width: unset;
             padding: 24px;
         }

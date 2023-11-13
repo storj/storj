@@ -18,14 +18,14 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jackc/pgconn"
-	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/mattn/go-sqlite3"
 
 	"storj.io/private/tagsql"
 )
 
-// Prevent conditional imports from causing build failures
+// Prevent conditional imports from causing build failures.
 var _ = strconv.Itoa
 var _ = strings.LastIndex
 var _ = fmt.Sprint
@@ -68,6 +68,10 @@ type Error struct {
 
 func (e *Error) Error() string {
 	return e.Err.Error()
+}
+
+func (e *Error) Unwrap() error {
+	return e.Err
 }
 
 func wrapErr(e *Error) error {
@@ -157,7 +161,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 	defer func(sql_db *sql.DB) {
 		if err != nil {
-			sql_db.Close()
+			_ = sql_db.Close()
 		}
 	}(sql_db)
 
@@ -196,10 +200,6 @@ func (obj *DB) Open(ctx context.Context) (*Tx, error) {
 		Tx:        tx,
 		txMethods: obj.wrapTx(tx),
 	}, nil
-}
-
-func (obj *DB) NewRx() *Rx {
-	return &Rx{db: obj}
 }
 
 func DeleteAll(ctx context.Context, db *DB) (int64, error) {
@@ -524,6 +524,7 @@ type __sqlbundle_SQL interface {
 }
 
 type __sqlbundle_Dialect interface {
+	// Rebind gives the opportunity to rewrite provided SQL into a SQL dialect.
 	Rebind(sql string) string
 }
 
@@ -610,6 +611,30 @@ func __sqlbundle_flattenSQL(x string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
+type __sqlbundle_cockroach struct{}
+
+func (p __sqlbundle_cockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgx struct{}
+
+func (p __sqlbundle_pgx) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgxcockroach struct{}
+
+func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
 type __sqlbundle_postgres struct{}
 
 func (p __sqlbundle_postgres) Rebind(sql string) string {
@@ -670,174 +695,6 @@ type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
 	return sql
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_cockroach struct{}
-
-func (p __sqlbundle_cockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgx struct{}
-
-func (p __sqlbundle_pgx) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgxcockroach struct{}
-
-func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
 }
 
 type __sqlbundle_Literal string
@@ -1502,132 +1359,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 
 	return count, nil
 
-}
-
-type Rx struct {
-	db *DB
-	tx *Tx
-}
-
-func (rx *Rx) UnsafeTx(ctx context.Context) (unsafe_tx tagsql.Tx, err error) {
-	tx, err := rx.getTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return tx.Tx, nil
-}
-
-func (rx *Rx) getTx(ctx context.Context) (tx *Tx, err error) {
-	if rx.tx == nil {
-		if rx.tx, err = rx.db.Open(ctx); err != nil {
-			return nil, err
-		}
-	}
-	return rx.tx, nil
-}
-
-func (rx *Rx) Rebind(s string) string {
-	return rx.db.Rebind(s)
-}
-
-func (rx *Rx) Commit() (err error) {
-	if rx.tx != nil {
-		err = rx.tx.Commit()
-		rx.tx = nil
-	}
-	return err
-}
-
-func (rx *Rx) Rollback() (err error) {
-	if rx.tx != nil {
-		err = rx.tx.Rollback()
-		rx.tx = nil
-	}
-	return err
-}
-
-func (rx *Rx) All_Node(ctx context.Context) (
-	rows []*Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Node(ctx)
-}
-
-func (rx *Rx) Count_Node(ctx context.Context) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Count_Node(ctx)
-}
-
-func (rx *Rx) Create_Node(ctx context.Context,
-	node_id Node_Id_Field,
-	node_name Node_Name_Field,
-	node_public_address Node_PublicAddress_Field,
-	node_api_secret Node_ApiSecret_Field) (
-	node *Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_Node(ctx, node_id, node_name, node_public_address, node_api_secret)
-
-}
-
-func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Node_By_Id(ctx, node_id)
-}
-
-func (rx *Rx) Get_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field) (
-	node *Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Node_By_Id(ctx, node_id)
-}
-
-func (rx *Rx) Limited_Node(ctx context.Context,
-	limit int, offset int64) (
-	rows []*Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Node(ctx, limit, offset)
-}
-
-func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field,
-	update Node_Update_Fields) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.UpdateNoReturn_Node_By_Id(ctx, node_id, update)
-}
-
-func (rx *Rx) Update_Node_By_Id(ctx context.Context,
-	node_id Node_Id_Field,
-	update Node_Update_Fields) (
-	node *Node, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
 type Methods interface {

@@ -126,12 +126,7 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 		return nil, Error.Wrap(err)
 	}
 
-	var payments []storjscan.CachedPayment
-	for _, dbxPmnt := range dbxPmnts {
-		payments = append(payments, fromDBXPayment(dbxPmnt))
-	}
-
-	return payments, nil
+	return convertSliceNoError(dbxPmnts, fromDBXPayment), nil
 }
 
 // LastBlock returns the highest block known to DB.
@@ -160,6 +155,7 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) (_ []storjscan.CachedPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: use DBX here
 	query := `SELECT block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
               FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?
               ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`

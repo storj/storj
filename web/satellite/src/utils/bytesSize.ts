@@ -9,6 +9,13 @@ export enum Memory {
     TB = 1e12,
     PB = 1e15,
     EB = 1e18,
+
+    KiB = 2 ** 10,
+    MiB = 2 ** 20,
+    GiB = 2 ** 30,
+    TiB = 2 ** 40,
+    PiB = 2 ** 50,
+    EiB = 2 ** 60,
 }
 
 export enum Dimensions {

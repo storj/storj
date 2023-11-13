@@ -27,13 +27,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
-import { useRouter } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { ShareType } from '@/types/browser';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
@@ -42,8 +43,8 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
 
 const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
 const props = defineProps<{
     bucketName: string,
@@ -60,7 +61,7 @@ const filesCount = computed((): number => {
 });
 
 function closeDropdown(): void {
-    if (!isDropdownOpen) return;
+    if (!isDropdownOpen.value) return;
 
     isDropdownOpen.value = false;
 }
@@ -71,9 +72,9 @@ function closeDropdown(): void {
 function onDetailsClick(): void {
     router.push({
         name: RouteConfig.BucketsDetails.name,
-        params: {
+        query: {
             bucketName: props.bucketName,
-            backRoute: router.currentRoute.name || '',
+            backRoute: route.name as string || '',
         },
     });
 
@@ -84,7 +85,8 @@ function onDetailsClick(): void {
  * Toggles share bucket modal.
  */
 function onShareBucketClick(): void {
-    appStore.updateActiveModal(MODALS.shareBucket);
+    appStore.setShareModalType(ShareType.Bucket);
+    appStore.updateActiveModal(MODALS.share);
     isDropdownOpen.value = false;
 }
 </script>

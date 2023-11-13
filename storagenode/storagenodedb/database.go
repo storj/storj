@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -85,6 +86,21 @@ type Config struct {
 	Filestore filestore.Config
 
 	TestingDisableWAL bool
+}
+
+// LazyFilewalkerConfig creates a lazyfilewalker.Config from storagenodedb.Config.
+//
+// TODO: this is a temporary solution to avoid circular dependencies.
+func (config Config) LazyFilewalkerConfig() lazyfilewalker.Config {
+	return lazyfilewalker.Config{
+		Storage:         config.Storage,
+		Info:            config.Info,
+		Info2:           config.Info2,
+		Driver:          config.Driver,
+		Pieces:          config.Pieces,
+		Filestore:       config.Filestore,
+		LowerIOPriority: true,
+	}
 }
 
 // DB contains access to different database tables.
@@ -569,6 +585,11 @@ func (db *DB) RawDatabases() map[string]DBContainer {
 // DBDirectory returns the database directory for testing purposes.
 func (db *DB) DBDirectory() string {
 	return db.dbDirectory
+}
+
+// Config returns the database configuration used to initialize the database.
+func (db *DB) Config() Config {
+	return db.config
 }
 
 // migrateToDB is a helper method that performs the migration from the

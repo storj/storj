@@ -31,9 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { RouteConfig } from '@/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter } from '@/utils/hooks';
+import { useRouter } from 'vue-router';
+
+import { RouteConfig } from '@/types/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
@@ -43,13 +44,13 @@ import Icon from '@/../static/images/onboardingTour/bucketStep.svg';
 
 const router = useRouter();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
 
 /**
  * Holds on back button click logic.
  */
 async function onBackClick(): Promise<void> {
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
 }
 
@@ -57,7 +58,7 @@ async function onBackClick(): Promise<void> {
  * Holds on next button click logic.
  */
 async function onNextClick(): Promise<void> {
-    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
+    analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
     await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
 }
 </script>

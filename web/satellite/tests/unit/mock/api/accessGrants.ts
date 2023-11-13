@@ -36,6 +36,10 @@ export class AccessGrantsMock implements AccessGrantsApi {
         return Promise.resolve();
     }
 
+    getAllAPIKeyNames(_projectID: string): Promise<string[]> {
+        return Promise.resolve([]);
+    }
+
     getGatewayCredentials(_accessGrant: string, _requestURL: string): Promise<EdgeCredentials> {
         return Promise.resolve(new EdgeCredentials('testCredId', new Date(), 'testAccessKeyId', 'testSecret', 'testEndpoint'));
     }

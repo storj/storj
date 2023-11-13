@@ -9,7 +9,7 @@
                     <img
                         v-if="previewAndMapFailed"
                         class="failed-preview"
-                        src="/static/static/images/common/errorNotice.svg"
+                        :src="ErrorNoticeIcon"
                         alt="failed preview"
                     >
                     <template v-else>
@@ -114,24 +114,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { computed, h, onBeforeMount, ref, watch } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useLinksharing } from '@/composables/useLinksharing';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+import ErrorNoticeIcon from '@/../static/images/common/errorNotice.svg?url';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
+
 const notify = useNotify();
+const { generateFileOrFolderShareURL, generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
@@ -233,9 +240,13 @@ const placeHolderDisplayable = computed((): boolean => {
 async function fetchPreviewAndMapUrl(): Promise<void> {
     isLoading.value = true;
 
-    const url: string = await obStore.state.fetchPreviewAndMapUrl(
-        filePath.value,
-    );
+    let url = '';
+    try {
+        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, filePath.value);
+    } catch (error) {
+        error.message = `Unable to get file preview and map URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+    }
 
     if (!url) {
         previewAndMapFailed.value = true;
@@ -261,10 +272,16 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 /**
  * Download the current opened file.
  */
-function download(): void {
+async function download(): Promise<void> {
+    if (!file.value) return;
     try {
-        obStore.download(file.value);
-        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+        await obStore.download(file.value);
+        notify.success(() => [
+            h('p', { class: 'message-title' }, 'Downloading...'),
+            h('p', { class: 'message-info' }, [
+                'Keep this download link private.', h('br'), 'If you want to share, use the Share option.',
+            ]),
+        ]);
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
     }
@@ -274,7 +291,7 @@ function download(): void {
  * Close the current opened file details modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.objectDetails);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -282,7 +299,7 @@ function closeModal(): void {
  */
 async function copy(): Promise<void> {
     await navigator.clipboard.writeText(objectLink.value);
-    await notify.success('Link copied successfully.');
+    notify.success('Link copied successfully.');
 
     copyText.value = 'Copied!';
     setTimeout(() => {
@@ -294,9 +311,14 @@ async function copy(): Promise<void> {
  * Get the share link of the current opened file.
  */
 async function getSharedLink(): Promise<void> {
-    objectLink.value = await obStore.state.fetchSharedLink(
-        filePath.value,
-    );
+    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    try {
+        objectLink.value = await generateFileOrFolderShareURL(
+            bucketsStore.state.fileComponentBucketName, filePath.value);
+    } catch (error) {
+        error.message = `Unable to get sharing URL. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
+    }
 }
 
 /**
@@ -323,24 +345,24 @@ watch(filePath, () => {
         width: 1140px;
         max-width: 1140px;
 
-        @media screen and (max-width: 1200px) {
+        @media screen and (width <= 1200px) {
             width: 800px;
             max-width: 800px;
         }
 
-        @media screen and (max-width: 900px) {
+        @media screen and (width <= 900px) {
             width: 600px;
             max-width: 600px;
         }
 
-        @media screen and (max-width: 660px) {
+        @media screen and (width <= 660px) {
             flex-direction: column-reverse;
             width: calc(100vw - 50px);
             min-width: calc(100vw - 50px);
             max-width: calc(100vw - 50px);
         }
 
-        @media screen and (max-width: 400px) {
+        @media screen and (width <= 400px) {
             width: calc(100vw - 20px);
             min-width: calc(100vw - 20px);
             max-width: calc(100vw - 20px);
@@ -354,12 +376,12 @@ watch(filePath, () => {
             align-items: center;
             justify-content: center;
 
-            @media screen and (max-width: 900px) {
+            @media screen and (width <= 900px) {
                 width: 60%;
                 max-width: 60%;
             }
 
-            @media screen and (max-width: 660px) {
+            @media screen and (width <= 660px) {
                 width: 100%;
                 min-width: 100%;
                 max-width: 100%;
@@ -368,7 +390,7 @@ watch(filePath, () => {
                 border-radius: 0 0 10px 10px;
             }
 
-            @media screen and (max-width: 500px) {
+            @media screen and (width <= 500px) {
                 min-height: 30vh;
             }
         }
@@ -383,19 +405,19 @@ watch(filePath, () => {
             align-items: flex-start;
             align-self: flex-start;
 
-            @media screen and (max-width: 900px) {
+            @media screen and (width <= 900px) {
                 width: 40%;
                 max-width: 40%;
             }
 
-            @media screen and (max-width: 660px) {
+            @media screen and (width <= 660px) {
                 width: 100%;
                 min-width: 100%;
                 max-width: 100%;
                 padding-bottom: 0;
             }
 
-            @media screen and (max-width: 400px) {
+            @media screen and (width <= 400px) {
                 padding: 64px 20px 0;
             }
 
@@ -429,17 +451,17 @@ watch(filePath, () => {
                 align-items: center;
                 width: 100%;
 
-                @media screen and (max-width: 1200px) {
+                @media screen and (width <= 1200px) {
                     flex-direction: column;
                     align-items: flex-start;
                 }
 
-                @media screen and (max-width: 660px) {
+                @media screen and (width <= 660px) {
                     flex-direction: row;
                     align-items: center;
                 }
 
-                @media screen and (max-width: 400px) {
+                @media screen and (width <= 400px) {
                     flex-direction: column;
                     align-items: flex-start;
                 }

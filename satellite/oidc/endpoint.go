@@ -72,9 +72,9 @@ func NewEndpoint(
 		config: ProviderConfig{
 			NodeURL:     nodeURL.String(),
 			Issuer:      externalAddress,
-			AuthURL:     externalAddress + "oauth/v2/authorize",
-			TokenURL:    externalAddress + "oauth/v2/tokens",
-			UserInfoURL: externalAddress + "oauth/v2/userinfo",
+			AuthURL:     externalAddress + "api/v0/oauth/v2/authorize",
+			TokenURL:    externalAddress + "api/v0/oauth/v2/tokens",
+			UserInfoURL: externalAddress + "api/v0/oauth/v2/userinfo",
 		},
 	}
 }

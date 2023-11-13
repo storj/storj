@@ -1,8 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build !linux && !windows && !freebsd
+// +build !linux,!windows,!freebsd
 
 package server
 
@@ -12,4 +12,5 @@ import (
 
 func setTCPFastOpen(fd uintptr, queue int) error { return nil }
 
-func tryInitFastOpen(*zap.Logger) {}
+// tryInitFastOpen returns true if fastopen support is possibly enabled.
+func tryInitFastOpen(*zap.Logger) bool { return false }

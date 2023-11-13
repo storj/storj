@@ -5,7 +5,9 @@ package metainfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -27,7 +29,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -66,7 +67,6 @@ type Endpoint struct {
 	log                    *zap.Logger
 	buckets                *buckets.Service
 	metabase               *metabase.DB
-	deletePieces           *piecedeletion.Service
 	orders                 *orders.Service
 	overlay                *overlay.Service
 	attributions           attribution.DB
@@ -81,17 +81,21 @@ type Endpoint struct {
 	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
 	revocations            revocation.DB
 	defaultRS              *pb.RedundancyScheme
-	config                 Config
+	config                 ExtendedConfig
 	versionCollector       *versionCollector
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
-	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
-	attributions attribution.DB, peerIdentities overlay.PeerIdentities,
+	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projectLimits *accounting.ProjectLimitCache, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
+
+	extendedConfig, err := NewExtendedConfig(config)
+	if err != nil {
+		return nil, err
+	}
 
 	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
 		CipherSuite: storj.EncAESGCM,
@@ -114,7 +118,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		log:                 log,
 		buckets:             buckets,
 		metabase:            metabaseDB,
-		deletePieces:        deletePieces,
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
@@ -136,7 +139,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
 		defaultRS:            defaultRSScheme,
-		config:               config,
+		config:               extendedConfig,
 		versionCollector:     newVersionCollector(log),
 	}, nil
 }
@@ -296,18 +299,30 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 
 // convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
 func (endpoint *Endpoint) convertMetabaseErr(err error) error {
-	if rpcstatus.Code(err) != rpcstatus.Unknown {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, context.Canceled):
+		return rpcstatus.Error(rpcstatus.Canceled, "context canceled")
+	case errors.Is(err, context.DeadlineExceeded):
+		return rpcstatus.Error(rpcstatus.DeadlineExceeded, "context deadline exceeded")
+	case rpcstatus.Code(err) != rpcstatus.Unknown:
 		// it's already RPC error
 		return err
-	}
-
-	switch {
 	case metabase.ErrObjectNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrObjectNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "object not found: "+message)
 	case metabase.ErrSegmentNotFound.Has(err):
-		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		message := strings.TrimPrefix(err.Error(), string(metabase.ErrSegmentNotFound))
+		message = strings.TrimPrefix(message, ": ")
+		// uplink expects a message that starts with the specified prefix
+		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrInvalidRequest.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	case metabase.ErrFailedPrecondition.Has(err):
+		return rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
 		return rpcstatus.Error(rpcstatus.AlreadyExists, err.Error())
 	case metabase.ErrPendingObjectMissing.Has(err):
@@ -316,7 +331,7 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return rpcstatus.Error(rpcstatus.Internal, "internal error")
 	}
 }
 

@@ -4,6 +4,8 @@
 import {
     Project,
     ProjectFields,
+    ProjectInvitation,
+    ProjectInvitationResponse,
     ProjectLimits,
     ProjectsApi,
     ProjectsCursor,
@@ -60,6 +62,14 @@ export class ProjectsApiMock implements ProjectsApi {
     }
 
     getDailyUsage(_projectId: string, _start: Date, _end: Date): Promise<ProjectsStorageBandwidthDaily> {
+        throw new Error('not implemented');
+    }
+
+    getUserInvitations(): Promise<ProjectInvitation[]> {
+        throw new Error('not implemented');
+    }
+
+    respondToInvitation(_projectID: string, _response: ProjectInvitationResponse): Promise<void> {
         throw new Error('not implemented');
     }
 }

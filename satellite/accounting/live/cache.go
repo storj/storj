@@ -26,6 +26,7 @@ type Config struct {
 	StorageBackend     string        `help:"what to use for storing real-time accounting data"`
 	BandwidthCacheTTL  time.Duration `default:"5m" help:"bandwidth cache key time to live"`
 	AsOfSystemInterval time.Duration `default:"-10s" help:"as of system interval"`
+	BatchSize          int           `default:"5000" help:"how much projects usage should be requested from redis cache at once"`
 }
 
 // OpenCache creates a new accounting.Cache instance using the type specified backend in
@@ -49,7 +50,7 @@ func OpenCache(ctx context.Context, log *zap.Logger, config Config) (accounting.
 	backendType = parts[0]
 	switch backendType {
 	case "redis":
-		return openRedisLiveAccounting(ctx, config.StorageBackend)
+		return openRedisLiveAccounting(ctx, config.StorageBackend, config.BatchSize)
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}

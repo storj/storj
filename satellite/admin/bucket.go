@@ -21,7 +21,7 @@ func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID
 		return project, bucket, fmt.Errorf("project-uuid missing")
 	}
 
-	project.UUID, err = uuid.FromString(projectUUIDString)
+	project.UUID, err = uuidFromString(projectUUIDString)
 	if err != nil {
 		return project, bucket, fmt.Errorf("project-uuid is not a valid uuid")
 	}
@@ -46,10 +46,12 @@ func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, err
 		return storj.US, nil
 	case "DE":
 		return storj.DE, nil
+	case "NR":
+		return storj.NR, nil
 	case "":
-		return storj.EveryCountry, fmt.Errorf("missing region parameter")
+		return storj.DefaultPlacement, fmt.Errorf("missing region parameter")
 	default:
-		return storj.EveryCountry, fmt.Errorf("unrecognized region parameter: %s", regionCode)
+		return storj.DefaultPlacement, fmt.Errorf("unrecognized region parameter: %s", regionCode)
 	}
 }
 
@@ -93,7 +95,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
 	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
 	if err != nil {
-		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE", http.StatusBadRequest)
+		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
 		return
 	}
 
@@ -101,7 +103,7 @@ func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Req
 }
 
 func (server *Server) deleteGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
-	server.updateBucket(w, r, storj.EveryCountry)
+	server.updateBucket(w, r, storj.DefaultPlacement)
 }
 
 func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {

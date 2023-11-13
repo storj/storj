@@ -1,7 +1,9 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { decimalShift, formatPrice } from '@/utils/strings';
+import { describe, beforeEach, it, expect, vi } from 'vitest';
+
+import { decimalShift, formatPrice, hexToBase64 } from '@/utils/strings';
 
 describe('decimalShift', (): void => {
     it('handles empty strings', (): void => {
@@ -63,5 +65,25 @@ describe('formatPrice', (): void => {
             expect(formatPrice(sign+'0.0')).toBe('$0');
             expect(formatPrice(sign+'00123.00')).toBe(sign+'$123');
         });
+    });
+});
+
+describe('hexToBase64', () => {
+    it('rejects non-hex strings', () => {
+        expect(() => hexToBase64('foobar')).toThrowError();
+    });
+
+    it('rejects short strings', () => {
+        expect(() => hexToBase64('abc')).toThrowError();
+    });
+
+    it('handles empty strings', () => {
+        expect(hexToBase64('')).toBe('');
+    });
+
+    it('encodes properly', () => {
+        expect(hexToBase64('14fb9c03d97e')).toBe('FPucA9l-');
+        expect(hexToBase64('14fb9c03d9')).toBe('FPucA9k=');
+        expect(hexToBase64('14fb9c03')).toBe('FPucAw==');
     });
 });

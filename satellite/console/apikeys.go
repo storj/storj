@@ -22,6 +22,8 @@ type APIKeys interface {
 	GetByHead(ctx context.Context, head []byte) (*APIKeyInfo, error)
 	// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
 	GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*APIKeyInfo, error)
+	// GetAllNamesByProjectID retrieves all API key names for given projectID
+	GetAllNamesByProjectID(ctx context.Context, projectID uuid.UUID) ([]string, error)
 	// Create creates and stores new APIKeyInfo
 	Create(ctx context.Context, head []byte, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store

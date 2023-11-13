@@ -9,12 +9,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
-// ReliabilityCache caches the reliable nodes for the specified staleness duration
+// ReliabilityCache caches known nodes for the specified staleness duration
 // and updates automatically from overlay.
 //
 // architecture: Service
@@ -27,7 +29,7 @@ type ReliabilityCache struct {
 
 // reliabilityState.
 type reliabilityState struct {
-	reliable map[storj.NodeID]struct{}
+	nodeByID map[storj.NodeID]nodeselection.SelectedNode
 	created  time.Time
 }
 
@@ -57,22 +59,30 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 	if err != nil {
 		return 0, err
 	}
-	return len(state.reliable), nil
+
+	return len(state.nodeByID), nil
 }
 
-// MissingPieces returns piece indices that are unreliable with the given staleness period.
-func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ []metabase.Piece, err error) {
-	state, err := cache.loadFast(ctx, created)
+// GetNodes gets the cached SelectedNode records (valid as of the given time) for each of
+// the requested node IDs, and returns them in order. If a node is not in the reliability
+// cache (that is, it is unknown or disqualified), an empty SelectedNode will be returned
+// for the index corresponding to that node ID.
+// Slice selectedNodes will be filled with results nodes and returned. It's length must be
+// equal to nodeIDs slice.
+func (cache *ReliabilityCache) GetNodes(ctx context.Context, validUpTo time.Time, nodeIDs []storj.NodeID, selectedNodes []nodeselection.SelectedNode) ([]nodeselection.SelectedNode, error) {
+	state, err := cache.loadFast(ctx, validUpTo)
 	if err != nil {
 		return nil, err
 	}
-	var unreliable []metabase.Piece
-	for _, p := range pieces {
-		if _, ok := state.reliable[p.StorageNode]; !ok {
-			unreliable = append(unreliable, p)
-		}
+
+	if len(nodeIDs) != len(selectedNodes) {
+		return nil, errs.New("nodeIDs length must be equal to selectedNodes: want %d have %d", len(nodeIDs), len(selectedNodes))
 	}
-	return unreliable, nil
+
+	for i, nodeID := range nodeIDs {
+		selectedNodes[i] = state.nodeByID[nodeID]
+	}
+	return selectedNodes, nil
 }
 
 func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
@@ -114,17 +124,17 @@ func (cache *ReliabilityCache) Refresh(ctx context.Context) (err error) {
 func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := cache.overlay.Reliable(ctx)
+	selectedNodes, err := cache.overlay.GetParticipatingNodes(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	state := &reliabilityState{
 		created:  time.Now(),
-		reliable: make(map[storj.NodeID]struct{}, len(nodes)),
+		nodeByID: make(map[storj.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
 	}
-	for _, id := range nodes {
-		state.reliable[id] = struct{}{}
+	for _, node := range selectedNodes {
+		state.nodeByID[node.ID] = node
 	}
 
 	cache.state.Store(state)

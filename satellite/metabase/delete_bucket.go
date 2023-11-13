@@ -5,17 +5,8 @@ package metabase
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"fmt"
 
-	"github.com/zeebo/errs"
-
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
-	"storj.io/private/dbutil/txutil"
-	"storj.io/private/tagsql"
 )
 
 const (
@@ -26,47 +17,6 @@ const (
 type DeleteBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
-
-	// DeletePieces is called for every batch of objects.
-	// Slice `segments` will be reused between calls.
-	DeletePieces func(ctx context.Context, segments []DeletedSegmentInfo) error
-}
-
-var deleteObjectsCockroachSubSQL = `
-DELETE FROM objects
-WHERE project_id = $1 AND bucket_name = $2
-LIMIT $3
-`
-
-// postgres does not support LIMIT in DELETE.
-var deleteObjectsPostgresSubSQL = `
-DELETE FROM objects
-WHERE (objects.project_id, objects.bucket_name) IN (
-	SELECT project_id, bucket_name FROM objects
-	WHERE project_id = $1 AND bucket_name = $2
-	LIMIT $3
-)`
-
-var deleteBucketObjectsWithCopyFeaturePostgresSQL = fmt.Sprintf(
-	deleteBucketObjectsWithCopyFeatureSQL,
-	deleteObjectsPostgresSubSQL,
-	"", "",
-)
-var deleteBucketObjectsWithCopyFeatureCockroachSQL = fmt.Sprintf(
-	deleteBucketObjectsWithCopyFeatureSQL,
-	deleteObjectsCockroachSubSQL,
-	"", "",
-)
-
-func getDeleteBucketObjectsSQLWithCopyFeature(impl dbutil.Implementation) (string, error) {
-	switch impl {
-	case dbutil.Cockroach:
-		return deleteBucketObjectsWithCopyFeatureCockroachSQL, nil
-	case dbutil.Postgres:
-		return deleteBucketObjectsWithCopyFeaturePostgresSQL, nil
-	default:
-		return "", Error.New("unhandled database: %v", impl)
-	}
 }
 
 // DeleteBucketObjects deletes all objects in the specified bucket.
@@ -82,135 +32,39 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 
 	deleteBatchSizeLimit.Ensure(&opts.BatchSize)
 
-	if db.config.ServerSideCopy {
-		return db.deleteBucketObjectsWithCopyFeatureEnabled(ctx, opts)
-	}
-
-	return db.deleteBucketObjectsWithCopyFeatureDisabled(ctx, opts)
-}
-
-func (db *DB) deleteBucketObjectsWithCopyFeatureEnabled(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for {
+	// TODO we may think about doing pending and committed objects in parallel
+	deletedBatchCount := int64(opts.BatchSize)
+	for deletedBatchCount > 0 {
 		if err := ctx.Err(); err != nil {
 			return deletedObjectCount, err
 		}
 
-		deletedBatchCount, err := db.deleteBucketObjectBatchWithCopyFeatureEnabled(ctx, opts)
+		deletedBatchCount, err = db.deleteBucketObjects(ctx, opts)
 		deletedObjectCount += deletedBatchCount
 
-		if err != nil || deletedBatchCount == 0 {
+		if err != nil {
 			return deletedObjectCount, err
 		}
 	}
-}
 
-// deleteBucketObjectBatchWithCopyFeatureEnabled deletes a single batch from metabase.
-// This function has been factored out for metric purposes.
-func (db *DB) deleteBucketObjectBatchWithCopyFeatureEnabled(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+	deletedBatchCount = int64(opts.BatchSize)
+	for deletedBatchCount > 0 {
+		if err := ctx.Err(); err != nil {
+			return deletedObjectCount, err
+		}
 
-	query, err := getDeleteBucketObjectsSQLWithCopyFeature(db.impl)
-	if err != nil {
-		return 0, err
-	}
+		deletedBatchCount, err = db.deleteBucketPendingObjects(ctx, opts)
+		deletedObjectCount += deletedBatchCount
 
-	var objects []deletedObjectInfo
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		err = withRows(
-			tx.QueryContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize),
-		)(func(rows tagsql.Rows) error {
-			objects, err = db.scanBucketObjectsDeletionServerSideCopy(ctx, opts.Bucket, rows)
-			return err
-		})
 		if err != nil {
-			return err
-		}
-
-		return db.promoteNewAncestors(ctx, tx, objects)
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	deletedObjectCount = int64(len(objects))
-
-	if opts.DeletePieces == nil {
-		// no callback, this should only be in test path
-		return deletedObjectCount, err
-	}
-
-	for _, object := range objects {
-		if object.PromotedAncestor != nil {
-			// don't remove pieces, they are now linked to the new ancestor
-			continue
-		}
-		for _, segment := range object.Segments {
-			// Is there an advantage to batching this?
-			err := opts.DeletePieces(ctx, []DeletedSegmentInfo{
-				{
-					RootPieceID: segment.RootPieceID,
-					Pieces:      segment.Pieces,
-				},
-			})
-			if err != nil {
-				return deletedObjectCount, err
-			}
+			return deletedObjectCount, err
 		}
 	}
 
-	return deletedObjectCount, err
+	return deletedObjectCount, nil
 }
 
-func (db *DB) scanBucketObjectsDeletionServerSideCopy(ctx context.Context, location BucketLocation, rows tagsql.Rows) (result []deletedObjectInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	result = make([]deletedObjectInfo, 0, 10)
-	var rootPieceID *storj.PieceID
-	var object deletedObjectInfo
-	var segment deletedRemoteSegmentInfo
-	var aliasPieces AliasPieces
-	var segmentPosition *SegmentPosition
-
-	for rows.Next() {
-		object.ProjectID = location.ProjectID
-		object.BucketName = location.BucketName
-
-		err = rows.Scan(
-			&object.StreamID,
-			&segmentPosition,
-			&rootPieceID,
-			&aliasPieces,
-			&object.PromotedAncestor,
-		)
-		if err != nil {
-			return nil, Error.New("unable to delete bucket objects: %w", err)
-		}
-
-		if len(result) == 0 || result[len(result)-1].StreamID != object.StreamID {
-			result = append(result, object)
-		}
-		if rootPieceID != nil {
-			segment.Position = *segmentPosition
-			segment.RootPieceID = *rootPieceID
-			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			if len(segment.Pieces) > 0 {
-				result[len(result)-1].Segments = append(result[len(result)-1].Segments, segment)
-			}
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, Error.New("unable to delete object: %w", err)
-	}
-	return result, nil
-}
-
-func (db *DB) deleteBucketObjectsWithCopyFeatureDisabled(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
+func (db *DB) deleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var query string
@@ -220,12 +74,15 @@ func (db *DB) deleteBucketObjectsWithCopyFeatureDisabled(ctx context.Context, op
 		query = `
 		WITH deleted_objects AS (
 			DELETE FROM objects
-			WHERE project_id = $1 AND bucket_name = $2 LIMIT $3
-			RETURNING objects.stream_id
+			WHERE (project_id, bucket_name) = ($1, $2)
+			LIMIT $3
+			RETURNING objects.stream_id, objects.segment_count
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
 		)
-		DELETE FROM segments
-		WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
+		SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
 	`
 	case dbutil.Postgres:
 		query = `
@@ -233,71 +90,81 @@ func (db *DB) deleteBucketObjectsWithCopyFeatureDisabled(ctx context.Context, op
 			DELETE FROM objects
 			WHERE stream_id IN (
 				SELECT stream_id FROM objects
-				WHERE project_id = $1 AND bucket_name = $2
+				WHERE (project_id, bucket_name) = ($1, $2)
 				LIMIT $3
 			)
-			RETURNING objects.stream_id
+			RETURNING objects.stream_id, objects.segment_count
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
 		)
-		DELETE FROM segments
-		WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
+		SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
 	`
 	default:
 		return 0, Error.New("unhandled database: %v", db.impl)
 	}
 
-	// TODO: fix the count for objects without segments
-	deletedSegments := make([]DeletedSegmentInfo, 0, 100)
-	for {
-		if err := ctx.Err(); err != nil {
-			return 0, err
-		}
-
-		deletedSegments = deletedSegments[:0]
-		deletedObjects := 0
-		err = withRows(db.db.QueryContext(ctx, query,
-			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize))(func(rows tagsql.Rows) error {
-			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
-			for rows.Next() {
-				var streamID uuid.UUID
-				var segment DeletedSegmentInfo
-				var aliasPieces AliasPieces
-				err := rows.Scan(&streamID, &segment.RootPieceID, &aliasPieces)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-
-				ids[streamID] = struct{}{}
-				deletedSegments = append(deletedSegments, segment)
-			}
-			deletedObjects = len(ids)
-			deletedObjectCount += int64(deletedObjects)
-			return nil
-		})
-
-		mon.Meter("object_delete").Mark(deletedObjects)
-		mon.Meter("segment_delete").Mark(len(deletedSegments))
-
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return deletedObjectCount, nil
-			}
-			return deletedObjectCount, Error.Wrap(err)
-		}
-
-		if len(deletedSegments) == 0 {
-			return deletedObjectCount, nil
-		}
-
-		if opts.DeletePieces != nil {
-			err = opts.DeletePieces(ctx, deletedSegments)
-			if err != nil {
-				return deletedObjectCount, Error.Wrap(err)
-			}
-		}
+	var deletedSegmentCount int64
+	err = db.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize).Scan(&deletedObjectCount, &deletedSegmentCount)
+	if err != nil {
+		return 0, Error.Wrap(err)
 	}
+
+	mon.Meter("object_delete").Mark64(deletedObjectCount)
+	mon.Meter("segment_delete").Mark64(deletedSegmentCount)
+
+	return deletedObjectCount, nil
+}
+
+func (db *DB) deleteBucketPendingObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+
+	// TODO handle number of deleted segments
+	switch db.impl {
+	case dbutil.Cockroach:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM pending_objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+			LIMIT $3
+			RETURNING pending_objects.stream_id
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT COUNT(1) FROM deleted_objects
+	`
+	case dbutil.Postgres:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM pending_objects
+			WHERE stream_id IN (
+				SELECT stream_id FROM pending_objects
+				WHERE (project_id, bucket_name) = ($1, $2)
+				LIMIT $3
+			)
+			RETURNING pending_objects.stream_id
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)
+		SELECT COUNT(1) FROM deleted_objects
+	`
+	default:
+		return 0, Error.New("unhandled database: %v", db.impl)
+	}
+
+	err = db.db.QueryRowContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize).Scan(&deletedObjectCount)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	mon.Meter("object_delete").Mark64(deletedObjectCount)
+
+	return deletedObjectCount, nil
 }

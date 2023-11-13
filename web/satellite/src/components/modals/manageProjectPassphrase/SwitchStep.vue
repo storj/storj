@@ -9,10 +9,11 @@
         </p>
         <VInput
             label="Encryption Passphrase"
-            :is-password="true"
+            is-password
             width="100%"
             height="56px"
             placeholder="Enter Encryption Passphrase"
+            :autocomplete="autocompleteValue"
             :error="enterError"
             @setData="setPassphrase"
         />
@@ -40,13 +41,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { useNotify } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -59,10 +60,25 @@ const props = withDefaults(defineProps<{
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const passphrase = ref<string>('');
 const enterError = ref<string>('');
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${selectedProjectID.value.toLowerCase()} new-password`;
+});
+
+/**
+ * Returns selected project ID from store.
+ */
+const selectedProjectID = computed((): string => {
+    return projectsStore.state.selectedProject.id;
+});
 
 /**
  * Sets passphrase input value to local variable.
@@ -92,7 +108,7 @@ async function onSwitch(): Promise<void> {
     bucketsStore.setPromptForPassphrase(false);
 
     notify.success('Passphrase was switched successfully');
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -124,7 +140,7 @@ async function onSwitch(): Promise<void> {
         border-top: 1px solid var(--c-grey-2);
         width: 100%;
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             column-gap: unset;
             flex-direction: column-reverse;
             row-gap: 15px;

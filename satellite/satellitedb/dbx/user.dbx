@@ -25,12 +25,8 @@ model user (
 
     // status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
     field status                   int       ( updatable, autoinsert )
-    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
-    // deprecated: use user_agent instead.
-    // note: this field is duplicated in value_attribution.project_id.
-    field partner_id               blob      ( nullable )
     // user_agent contains the partner parameter from registration.
-    field user_agent               blob      ( nullable )
+    field user_agent               blob      ( updatable, nullable )
     // created_at indicates when the user was created.
     field created_at               timestamp ( autoinsert )
 
@@ -80,6 +76,9 @@ model user (
 
     // signup_captcha is the captcha score recorded during sign-up.
     field signup_captcha     float64    ( nullable )
+
+    // placement to be used for every new project as default for the buckets.
+    field default_placement int (nullable, updatable)
 )
 
 create user ( )
@@ -111,6 +110,16 @@ read one (
 read one (
     select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
     where user.id = ?
+)
+
+read count (
+	select user
+	where user.status = ?
+)
+
+read limitoffset (
+	select user.id user.email user.full_name
+	where user.status = ?
 )
 
 model webapp_session (
@@ -197,10 +206,13 @@ model account_freeze_event (
 
     // user_id refers to user.id column.
     field user_id blob
-    // event indicates the console.AccountFreezeEventType. Freeze=0, Warning=1.
+    // event indicates the console.AccountFreezeEventType. BillingFreeze=0, BillingWarning=1, ViolationFreeze=2.
     field event int
     // limits are the limits before the freeze begun.
     field limits json ( nullable, updatable )
+    // days_till_escalation is the number of days till this event is escalated.
+    // e.g. if the user is warned for 15 days, the escalation is billing freeze.
+    field days_till_escalation int ( nullable, updatable )
     // created_at indicates when the freeze was created.
     field created_at timestamp ( default current_timestamp )
 )

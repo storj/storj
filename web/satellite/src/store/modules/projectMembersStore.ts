@@ -7,11 +7,12 @@ import { defineStore } from 'pinia';
 import {
     ProjectMember,
     ProjectMemberCursor,
+    ProjectMemberItemModel,
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
 } from '@/types/projectMembers';
-import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
@@ -19,18 +20,32 @@ export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
     public selectedProjectMembersEmails: string[] = [];
+    public lastProjectID = '';
 }
 
 export const useProjectMembersStore = defineStore('projectMembers', () => {
     const state = reactive<ProjectMembersState>(new ProjectMembersState());
 
-    const api: ProjectMembersApi = new ProjectMembersApiGql();
+    const api: ProjectMembersApi = new ProjectMembersHttpApi();
 
-    async function addProjectMembers(emails: string[], projectID: string): Promise<void> {
-        await api.add(projectID, emails);
+    async function inviteMember(email: string, projectID: string): Promise<void> {
+        await api.invite(projectID, email);
     }
 
-    async function deleteProjectMembers(projectID: string): Promise<void> {
+    async function reinviteMembers(emails: string[], projectID: string): Promise<void> {
+        await api.reinvite(projectID, emails);
+    }
+
+    async function getInviteLink(email: string, projectID: string): Promise<string> {
+        return await api.getInviteLink(projectID, email);
+    }
+
+    async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
+        if (customSelected && customSelected.length) {
+            await api.delete(projectID, customSelected);
+            return;
+        }
+
         await api.delete(projectID, state.selectedProjectMembersEmails);
 
         clearProjectMemberSelection();
@@ -39,16 +54,13 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     async function getProjectMembers(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<ProjectMembersPage> {
         state.cursor.page = page;
         state.cursor.limit = limit;
+        state.lastProjectID = projectID;
 
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
         state.page = projectMembersPage;
-        state.page.projectMembers = state.page.projectMembers.map(member => {
-            if (state.selectedProjectMembersEmails.includes(member.user.email)) {
-                member.isSelected = true;
-            }
-
-            return member;
+        state.page.getAllItems().forEach(item => {
+            item.setSelected(state.selectedProjectMembersEmails.includes(item.getEmail()));
         });
 
         return projectMembersPage;
@@ -66,6 +78,10 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.search = search;
     }
 
+    function getSearchQuery() {
+        return state.cursor.search;
+    }
+
     function setSortingBy(order: ProjectMemberOrderBy) {
         state.cursor.order = order;
     }
@@ -74,27 +90,30 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.orderDirection = direction;
     }
 
-    function toggleProjectMemberSelection(projectMember: ProjectMember) {
-        if (!state.selectedProjectMembersEmails.includes(projectMember.user.email)) {
-            projectMember.isSelected = true;
-            state.selectedProjectMembersEmails.push(projectMember.user.email);
+    function toggleProjectMemberSelection(projectMember: ProjectMemberItemModel) {
+        const email = projectMember.getEmail();
+
+        if (!state.selectedProjectMembersEmails.includes(email)) {
+            projectMember.setSelected(true);
+            state.selectedProjectMembersEmails.push(email);
 
             return;
         }
 
-        projectMember.isSelected = false;
+        projectMember.setSelected(false);
         state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
-            return projectMemberEmail !== projectMember.user.email;
+            return projectMemberEmail !== email;
         });
     }
 
     function clearProjectMemberSelection() {
         state.selectedProjectMembersEmails = [];
-        state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
-            projectMember.isSelected = false;
+        state.page.getAllItems().forEach(member => member.setSelected(false));
+    }
 
-            return projectMember;
-        });
+    async function refresh(): Promise<void> {
+        clearProjectMemberSelection();
+        await getProjectMembers(state.cursor.page, state.lastProjectID, state.cursor.limit);
     }
 
     function clear() {
@@ -105,16 +124,20 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     return {
         state,
-        addProjectMembers,
+        inviteMember,
+        reinviteMembers,
+        getInviteLink,
         deleteProjectMembers,
         getProjectMembers,
         setSearchQuery,
+        getSearchQuery,
         setSortingBy,
         setSortingDirection,
         setPage,
         setPageNumber,
         toggleProjectMemberSelection,
         clearProjectMemberSelection,
+        refresh,
         clear,
     };
 });

@@ -10,15 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/charge"
-	"github.com/stripe/stripe-go/v72/customer"
-	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v72/form"
-	"github.com/stripe/stripe-go/v72/invoice"
-	"github.com/stripe/stripe-go/v72/invoiceitem"
-	"github.com/stripe/stripe-go/v72/paymentmethod"
-	"github.com/stripe/stripe-go/v72/promotioncode"
+	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v75/charge"
+	"github.com/stripe/stripe-go/v75/customer"
+	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v75/form"
+	"github.com/stripe/stripe-go/v75/invoice"
+	"github.com/stripe/stripe-go/v75/invoiceitem"
+	"github.com/stripe/stripe-go/v75/paymentmethod"
+	"github.com/stripe/stripe-go/v75/promotioncode"
 
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -40,6 +40,10 @@ const (
 	// MockInvoicesPayFailure can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
 	// an error.
 	MockInvoicesPayFailure = "mock_invoices_pay_failure"
+
+	// MockInvoicesPaySuccess can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
+	// a paid invoice.
+	MockInvoicesPaySuccess = "mock_invoices_pay_success"
 
 	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
 	// mockPaymentMethods.New to return an error.
@@ -137,6 +141,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
+	state.creditNotes = newMockCreditNotes(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -351,6 +356,15 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 	if params.Balance != nil {
 		customer.Balance = *params.Balance
 	}
+	if params.InvoiceSettings != nil {
+		if params.InvoiceSettings.DefaultPaymentMethod != nil {
+			customer.InvoiceSettings = &stripe.CustomerInvoiceSettings{
+				DefaultPaymentMethod: &stripe.PaymentMethod{
+					ID: *params.InvoiceSettings.DefaultPaymentMethod,
+				},
+			}
+		}
+	}
 	// TODO update customer with more params as necessary
 
 	return customer, nil
@@ -410,6 +424,27 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 	return &paymentmethod.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
+func (m *mockPaymentMethods) Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	for _, method := range m.unattached {
+		if method.ID == id {
+			return method, nil
+		}
+	}
+
+	for _, methods := range m.attached {
+		for _, method := range methods {
+			if method.ID == id {
+				return method, nil
+			}
+		}
+	}
+
+	return nil, errors.New("payment method not found")
+}
+
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
 	id := fmt.Sprintf("pm_card_%s", randID)
@@ -432,6 +467,7 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 			Brand:       "Mastercard",
 			Last4:       "4444",
 			Description: randID,
+			Fingerprint: "fingerprint" + *params.Card.Token,
 		},
 		Type: stripe.PaymentMethodTypeCard,
 	}
@@ -492,6 +528,32 @@ type mockInvoices struct {
 	invoiceItems *mockInvoiceItems
 }
 
+func (m *mockInvoices) MarkUncollectible(id string, params *stripe.InvoiceMarkUncollectibleParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == id {
+				invoice.Status = stripe.InvoiceStatusUncollectible
+				return invoice, nil
+			}
+		}
+	}
+
+	return nil, errors.New("invoice not found")
+}
+
+func (m *mockInvoices) VoidInvoice(id string, params *stripe.InvoiceVoidInvoiceParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == id {
+				invoice.Status = stripe.InvoiceStatusVoid
+				return invoice, nil
+			}
+		}
+	}
+
+	return nil, errors.New("invoice not found")
+}
+
 func newMockInvoices(root *mockStripeState, invoiceItems *mockInvoiceItems) *mockInvoices {
 	return &mockInvoices{
 		root:         root,
@@ -504,10 +566,19 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
 
-	items, ok := m.invoiceItems.items[*params.Customer]
-	if !ok || len(items) == 0 {
-		if params.PendingInvoiceItemsBehavior == nil || *params.PendingInvoiceItemsBehavior != "exclude" {
-			return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+	var invoiceItems []*stripe.InvoiceItem
+	if params.PendingInvoiceItemsBehavior != nil {
+		switch *params.PendingInvoiceItemsBehavior {
+		case "include":
+			for _, item := range m.invoiceItems.items[*params.Customer] {
+				if item.Invoice == nil {
+					invoiceItems = append(invoiceItems, item)
+				}
+			}
+		case "exclude":
+			break
+		default:
+			return nil, &stripe.Error{}
 		}
 	}
 
@@ -516,12 +587,14 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
-	lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
-	for _, item := range params.InvoiceItems {
-		lineData = append(lineData, &stripe.InvoiceLine{
-			InvoiceItem: *item.InvoiceItem,
-			Amount:      *item.Amount,
+	amountDue := int64(0)
+	lineData := make([]*stripe.InvoiceLineItem, 0, len(invoiceItems))
+	for _, item := range invoiceItems {
+		lineData = append(lineData, &stripe.InvoiceLineItem{
+			InvoiceItem: item,
+			Amount:      item.Amount,
 		})
+		amountDue += item.Amount
 	}
 
 	var desc string
@@ -538,16 +611,21 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		DueDate:     due,
 		Status:      stripe.InvoiceStatusDraft,
 		Description: desc,
-		Lines: &stripe.InvoiceLineList{
+		Metadata:    params.Metadata,
+		Lines: &stripe.InvoiceLineItemList{
 			Data: lineData,
 		},
+		AmountDue:       amountDue,
+		AmountRemaining: amountDue,
+		Total:           amountDue,
+	}
+	if params.DefaultPaymentMethod != nil {
+		invoice.DefaultPaymentMethod = &stripe.PaymentMethod{ID: *params.DefaultPaymentMethod}
 	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
-	for _, item := range items {
-		if item.Invoice == nil {
-			item.Invoice = invoice
-		}
+	for _, item := range invoiceItems {
+		item.Invoice = invoice
 	}
 
 	return invoice, nil
@@ -569,6 +647,15 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 			for _, invoices := range m.invoices {
 				for _, inv := range invoices {
 					if inv.Status == stripe.InvoiceStatus(*listParams.Status) {
+						ret = append(ret, inv)
+					}
+				}
+			}
+		} else if listParams.Customer != nil && listParams.Status != nil {
+			// filter by status and customer
+			for _, invoices := range m.invoices {
+				for _, inv := range invoices {
+					if inv.Status == stripe.InvoiceStatus(*listParams.Status) && inv.Customer.ID == *listParams.Customer {
 						ret = append(ret, inv)
 					}
 				}
@@ -603,12 +690,11 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 }
 
 // FinalizeInvoice forwards the invoice's status from draft to open.
-func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
+func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeInvoiceParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
-		for i, invoice := range invoices {
+		for _, invoice := range invoices {
 			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
 				invoice.Status = stripe.InvoiceStatusOpen
-				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusOpen
 				return invoice, nil
 			}
 		}
@@ -618,15 +704,32 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
-		for i, invoice := range invoices {
+		for _, invoice := range invoices {
 			if invoice.ID == id {
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen
 						return invoice, &stripe.Error{}
 					}
+					if *params.PaymentMethod == MockInvoicesPaySuccess {
+						invoice.Status = stripe.InvoiceStatusPaid
+						invoice.AmountRemaining = 0
+						return invoice, nil
+					}
+				} else if invoice.DefaultPaymentMethod != nil {
+					if invoice.DefaultPaymentMethod.ID == MockInvoicesPaySuccess {
+						invoice.Status = stripe.InvoiceStatusPaid
+						invoice.AmountRemaining = 0
+						return invoice, nil
+					}
+					if invoice.DefaultPaymentMethod.ID == MockInvoicesNewFailure {
+						invoice.Status = stripe.InvoiceStatusOpen
+						return invoice, &stripe.Error{}
+					}
+				} else if invoice.AmountRemaining == 0 || (params.PaidOutOfBand != nil && *params.PaidOutOfBand) {
+					invoice.Status = stripe.InvoiceStatusPaid
+					invoice.AmountRemaining = 0
 				}
-				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
 				return invoice, nil
 			}
 		}
@@ -640,6 +743,17 @@ func (m *mockInvoices) Del(id string, params *stripe.InvoiceParams) (*stripe.Inv
 			if invoice.ID == id {
 				m.invoices[invoice.Customer.ID] = append(m.invoices[invoice.Customer.ID][:i], m.invoices[invoice.Customer.ID][i+1:]...)
 				return invoice, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockInvoices) Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for _, inv := range invoices {
+			if inv.ID == id {
+				return inv, nil
 			}
 		}
 	}
@@ -670,20 +784,69 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
 
+	if params.Customer == nil {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
 	item := &stripe.InvoiceItem{
+		ID:       "ii_" + string(testrand.RandAlphaNumeric(25)),
 		Metadata: params.Metadata,
 	}
+
 	if params.Description != nil {
 		item.Description = *params.Description
 	}
-	if params.UnitAmountDecimal != nil {
-		item.UnitAmountDecimal = *params.UnitAmountDecimal
-	}
-	if params.UnitAmount != nil {
-		item.UnitAmount = *params.UnitAmount
-	}
-	if params.Amount != nil {
+
+	if params.Quantity != nil {
+		item.Quantity = *params.Quantity
+		if params.UnitAmount != nil {
+			if params.UnitAmountDecimal != nil {
+				return nil, &stripe.Error{}
+			}
+			item.UnitAmount = *params.UnitAmount
+			item.Amount = item.UnitAmount * item.Quantity
+		} else if params.UnitAmountDecimal != nil {
+			item.UnitAmountDecimal = *params.UnitAmountDecimal
+			item.Amount = int64(*params.UnitAmountDecimal * float64(item.Quantity))
+		} else {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+		}
+	} else if params.Amount != nil {
+		if params.UnitAmount != nil || params.UnitAmountDecimal != nil {
+			return nil, &stripe.Error{}
+		}
 		item.Amount = *params.Amount
+	} else {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
+	if params.Invoice != nil {
+		for _, invoices := range m.root.invoices.invoices {
+			if item.Invoice != nil {
+				break
+			}
+			for _, inv := range invoices {
+				if inv.ID == *params.Invoice {
+					if inv.Status != stripe.InvoiceStatusDraft {
+						return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNotEditable}
+					}
+					item.Invoice = inv
+
+					inv.AmountDue += item.Amount
+					inv.AmountRemaining += item.Amount
+					inv.Total += item.Amount
+					inv.Lines.Data = append(inv.Lines.Data, &stripe.InvoiceLineItem{
+						InvoiceItem: item,
+						Amount:      item.Amount,
+					})
+
+					break
+				}
+			}
+		}
+		if item.Invoice == nil {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeResourceMissing}
+		}
 	}
 	m.items[*params.Customer] = append(m.items[*params.Customer], item)
 
@@ -694,23 +857,20 @@ func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoi
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
 
+	var ret []interface{}
+	for _, item := range m.items[*listParams.Customer] {
+		if listParams.Pending == nil || (*listParams.Pending && item.Invoice == nil) || (!*listParams.Pending && item.Invoice != nil) {
+			ret = append(ret, item)
+		}
+	}
+
 	listMeta := &stripe.ListMeta{
 		HasMore:    false,
-		TotalCount: uint32(len(m.items)),
+		TotalCount: uint32(len(ret)),
 	}
 	lc := newListContainer(listMeta)
 
 	query := stripe.Query(func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListContainer, error) {
-		list, ok := m.items[*listParams.Customer]
-		if !ok {
-			list = []*stripe.InvoiceItem{}
-		}
-		ret := make([]interface{}, len(list))
-
-		for i, v := range list {
-			ret[i] = v
-		}
-
 		return ret, lc, nil
 	})
 	return &invoiceitem.Iter{Iter: stripe.GetIter(nil, query)}
@@ -765,7 +925,8 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 		ret := make([]interface{}, len(txs))
 
 		for i, v := range txs {
-			ret[i] = v
+			// stripe returns list of transactions ordered by most recent, so reverse the array.
+			ret[len(txs)-1-i] = v
 		}
 
 		listMeta := &stripe.ListMeta{
@@ -825,8 +986,98 @@ func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotion
 }
 
 type mockCreditNotes struct {
+	root *mockStripeState
+}
+
+func newMockCreditNotes(root *mockStripeState) *mockCreditNotes {
+	return &mockCreditNotes{
+		root: root,
+	}
 }
 
 func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error) {
-	return nil, nil
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	if params.Invoice == nil || len(params.Lines) == 0 {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
+	var invoice *stripe.Invoice
+	for _, invoices := range m.root.invoices.invoices {
+		if invoice != nil {
+			break
+		}
+		for _, inv := range invoices {
+			if inv.ID == *params.Invoice {
+				if inv.Status != stripe.InvoiceStatusOpen {
+					// The Stripe API supports adding credit notes to paid invoices,
+					// but we don't need to support that in the mock right now
+					return nil, &stripe.Error{}
+				}
+				if inv.Metadata["mock"] == MockInvoicesPayFailure {
+					return nil, errors.New("mock - failed to pay invoice")
+				}
+				invoice = inv
+				break
+			}
+		}
+	}
+	if invoice == nil {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeResourceMissing}
+	}
+
+	totalAmount := invoice.AmountDue
+	totalDiscount := int64(0)
+	lines := make([]*stripe.CreditNoteLineItem, 0, len(params.Lines))
+	for _, paramLine := range params.Lines {
+		if paramLine.Type == nil || paramLine.Quantity == nil || paramLine.UnitAmount == nil || paramLine.Description == nil {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+		}
+		if *paramLine.Type != string(stripe.CreditNoteLineItemTypeCustomLineItem) {
+			// Other types are unsupported in the mock at this time
+			return nil, &stripe.Error{}
+		}
+		if *paramLine.Quantity < 1 || *paramLine.UnitAmount < 1 {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeParameterInvalidInteger}
+		}
+
+		discount := *paramLine.Quantity * *paramLine.UnitAmount
+		totalDiscount += discount
+		if totalDiscount > totalAmount {
+			return nil, &stripe.Error{}
+		}
+
+		line := &stripe.CreditNoteLineItem{
+			ID:          "crli_" + string(testrand.RandAlphaNumeric(25)),
+			Type:        stripe.CreditNoteLineItemTypeCustomLineItem,
+			Quantity:    *paramLine.Quantity,
+			UnitAmount:  *paramLine.UnitAmount,
+			Description: *paramLine.Description,
+			Amount:      discount,
+		}
+
+		lines = append(lines, line)
+	}
+
+	invoice.AmountDue -= totalDiscount
+	invoice.AmountRemaining = invoice.AmountDue
+	if invoice.AmountRemaining == 0 {
+		invoice.Status = stripe.InvoiceStatusPaid
+	}
+
+	item := &stripe.CreditNote{
+		ID:      "cr_" + string(testrand.RandAlphaNumeric(25)),
+		Invoice: invoice,
+		Amount:  totalDiscount,
+		Lines: &stripe.CreditNoteLineItemList{
+			Data: lines,
+		},
+	}
+
+	if params.Memo != nil {
+		item.Memo = *params.Memo
+	}
+
+	return item, nil
 }

@@ -31,7 +31,6 @@
 
 <script setup lang="ts">
 import { useNotify } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
@@ -52,7 +51,7 @@ const notify = useNotify();
  */
 function onClear(): void {
     bucketsStore.clearS3Data();
-    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
+    appStore.removeActiveModal();
     notify.success('Passphrase was cleared successfully');
 }
 </script>
@@ -81,7 +80,7 @@ function onClear(): void {
         column-gap: 16px;
         width: 100%;
 
-        @media screen and (max-width: 530px) {
+        @media screen and (width <= 530px) {
             column-gap: unset;
             flex-direction: column-reverse;
             row-gap: 15px;

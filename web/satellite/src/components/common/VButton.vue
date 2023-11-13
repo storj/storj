@@ -41,6 +41,7 @@
         <span class="label" :class="{uppercase: isUppercase}">
             <component :is="iconComponent" v-if="iconComponent" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            <slot />
             {{ label }}
         </span>
         <div class="icon-wrapper-right">
@@ -50,10 +51,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, VueConstructor } from 'vue';
+import { computed } from 'vue';
 
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
@@ -61,6 +64,9 @@ import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
+import UploadIcon from '@/../static/images/common/upload.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
+import BackIcon from '@/../static/images/common/arrowLeft.svg';
 
 const props = withDefaults(defineProps<{
     link?: string;
@@ -84,7 +90,7 @@ const props = withDefaults(defineProps<{
     onPress?: () => void;
 }>(), {
     link: undefined,
-    label: 'Default',
+    label: '',
     width: 'inherit',
     height: 'inherit',
     fontSize: '16px',
@@ -104,8 +110,9 @@ const props = withDefaults(defineProps<{
     onPress: () => {},
 });
 
-const icons = new Map<string, VueConstructor>([
+const icons = new Map<string, string>([
     ['copy', CopyIcon],
+    ['check', CheckIcon],
     ['download', DownloadIcon],
     ['lock', LockIcon],
     ['credit-card', CreditCardIcon],
@@ -114,9 +121,13 @@ const icons = new Map<string, VueConstructor>([
     ['folder', FolderIcon],
     ['resources', ResourcesIcon],
     ['addcircle', AddCircleIcon],
+    ['add', WhitePlusIcon],
+    ['upload', UploadIcon],
+    ['project', ProjectIcon],
+    ['back', BackIcon],
 ]);
 
-const iconComponent = computed((): VueConstructor | undefined => icons.get(props.icon.toLowerCase()));
+const iconComponent = computed((): string | undefined => icons.get(props.icon.toLowerCase()));
 
 const containerClassName = computed((): string => {
     if (props.isDisabled) return 'disabled';
@@ -177,16 +188,16 @@ function handleClick(): void {
     }
 
     .solid-red {
-        background-color: var(--c-red-3) !important;
-        border: 1px solid var(--c-red-3) !important;
+        background-color: var(--c-red-2) !important;
+        border: 1px solid var(--c-red-2) !important;
 
         .label {
             color: #fff !important;
         }
 
         &:hover {
-            background-color: #790000 !important;
-            border: 1px solid #790000 !important;
+            background-color: var(--c-red-3) !important;
+            border: 1px solid var(--c-red-3) !important;
         }
     }
 
@@ -219,6 +230,11 @@ function handleClick(): void {
 
         .label {
             color: var(--c-green-5) !important;
+        }
+
+        :deep(path),
+        :deep(rect) {
+            fill: var(--c-green-5) !important;
         }
     }
 
@@ -266,6 +282,7 @@ function handleClick(): void {
         background-color: var(--c-blue-3);
         cursor: pointer;
         box-sizing: border-box;
+        transition: background-color 100ms ease-in-out;
 
         :deep(path),
         :deep(rect) {
@@ -294,30 +311,41 @@ function handleClick(): void {
 
         .label {
             font-family: 'font_medium', sans-serif;
-            line-height: 23px;
             color: #fff;
             margin: 0;
             white-space: nowrap;
         }
 
         &:hover {
-            background-color: #0059d0;
+            background-color: var(--c-blue-5);
 
             &.transparent,
-            &.blue-white,
-            &.white {
+            &.blue-white {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
 
                 :deep(path),
                 :deep(rect) {
-                    stroke: white;
-                    fill: white;
+                    fill: white !important;
                 }
 
                 .label {
                     color: white !important;
+                }
+            }
+
+            &.white {
+                box-shadow: none !important;
+                border: 1px solid var(--c-blue-3) !important;
+
+                :deep(path),
+                :deep(rect) {
+                    fill: var(--c-blue-3) !important;
+                }
+
+                .label {
+                    color: var(--c-blue-3) !important;
                 }
             }
 

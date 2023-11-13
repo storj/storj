@@ -32,7 +32,7 @@
                     </a>
                 </div>
             </div>
-            <div tabindex="0" class="account-button__dropdown__item" @click.stop="navigateToBilling" @keyup.enter="navigateToBilling">
+            <div v-if="billingEnabled" tabindex="0" class="account-button__dropdown__item" @click.stop="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-button__dropdown__item__label">Billing</p>
             </div>
@@ -50,14 +50,14 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
+import { useNotify } from '@/utils/hooks';
 import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
@@ -71,6 +71,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -81,11 +82,12 @@ import BillingIcon from '@/../static/images/navigation/billing.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
-const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
@@ -99,6 +101,11 @@ const notificationsStore = useNotificationsStore();
 const obStore = useObjectBrowserStore();
 
 const isHoveredOver = ref(false);
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Indicates if account dropdown is open.
@@ -129,13 +136,13 @@ function navigateToBilling(): void {
     closeDropdown();
 
     const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
-    if (router.currentRoute.path.includes(billing.path)) {
+    if (route.path.includes(billing.path)) {
         return;
     }
 
     const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
-    analytics.pageVisit(routeConf);
+    analyticsStore.pageVisit(routeConf);
 }
 
 /**
@@ -144,11 +151,11 @@ function navigateToBilling(): void {
 function navigateToSettings(): void {
     closeDropdown();
     const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
-    if (router.currentRoute.path.includes(settings)) {
+    if (route.path.includes(settings)) {
         return;
     }
 
-    analytics.pageVisit(settings);
+    analyticsStore.pageVisit(settings);
     router.push(settings).catch(() => {return;});
 }
 
@@ -156,7 +163,7 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
@@ -174,10 +181,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 </script>
@@ -187,14 +194,15 @@ async function onLogout(): Promise<void> {
     position: relative;
     display: flex;
     align-items: center;
-    padding: 14px 18px;
+    padding: 10px 16px;
     box-sizing: border-box;
-    color: var(--c-grey-6);
     cursor: pointer;
     background: var(--c-white);
     border: 1px solid var(--c-grey-3);
     border-radius: 8px;
     height: 44px;
+    color: var(--c-black);
+    box-shadow: 0 0 20px rgb(0 0 0 / 4%);
 
     &:hover,
     &:active,
@@ -211,13 +219,20 @@ async function onLogout(): Promise<void> {
         &__icon {
             transition-duration: 0.5s;
             margin-right: 10px;
+            height: 16px;
+            width: 16px;
+
+            :deep(path) {
+                fill: var(--c-black);
+            }
         }
 
         &__label {
             font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: var(--c-grey-6);
+            line-height: 20px;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--c-black);
             margin-right: 10px;
             white-space: nowrap;
         }

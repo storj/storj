@@ -98,7 +98,14 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			collector := tally.NewBucketTallyCollector(planet.Satellites[0].Log.Named("bucket tally"), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].DB.Buckets(), planet.Satellites[0].Config.Tally)
+			collector := tally.NewBucketTallyCollector(
+				planet.Satellites[0].Log.Named("bucket tally"),
+				time.Now(),
+				planet.Satellites[0].Metabase.DB,
+				planet.Satellites[0].DB.Buckets(),
+				planet.Satellites[0].DB.ProjectAccounting(),
+				planet.Satellites[0].Config.Tally,
+			)
 			err := collector.Run(ctx)
 			require.NoError(t, err)
 
@@ -173,7 +180,14 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		}
 		require.Len(t, expectedTotal, 3)
 
-		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), time.Now(), satellite.Metabase.DB, planet.Satellites[0].DB.Buckets(), planet.Satellites[0].Config.Tally)
+		collector := tally.NewBucketTallyCollector(
+			satellite.Log.Named("bucket tally"),
+			time.Now(),
+			satellite.Metabase.DB,
+			planet.Satellites[0].DB.Buckets(),
+			planet.Satellites[0].DB.ProjectAccounting(),
+			planet.Satellites[0].Config.Tally,
+		)
 		err = collector.Run(ctx)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, collector.Bucket)
@@ -186,72 +200,37 @@ func TestIgnoresExpiredPointers(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
+		const bucketName = "bucket"
+
 		now := time.Now()
 		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour))
 		require.NoError(t, err)
 
-		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), now.Add(24*time.Hour), satellite.Metabase.DB, planet.Satellites[0].DB.Buckets(), planet.Satellites[0].Config.Tally)
+		collector := tally.NewBucketTallyCollector(
+			satellite.Log.Named("bucket tally"),
+			now.Add(24*time.Hour),
+			satellite.Metabase.DB,
+			planet.Satellites[0].DB.Buckets(),
+			planet.Satellites[0].DB.ProjectAccounting(),
+			planet.Satellites[0].Config.Tally,
+		)
 		err = collector.Run(ctx)
 		require.NoError(t, err)
 
-		// there should be no observed buckets because all of the objects are expired
-		require.Equal(t, collector.Bucket, map[metabase.BucketLocation]*accounting.BucketTally{})
-	})
-}
-
-func TestLiveAccountingWithObjectsLoop(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tally := planet.Satellites[0].Accounting.Tally
-		projectID := planet.Uplinks[0].Projects[0].ID
-		tally.Loop.Pause()
-
-		expectedData := testrand.Bytes(19 * memory.KiB)
-
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-		require.Len(t, segments, 1)
-
-		segmentSize := int64(segments[0].EncryptedSize)
-
-		tally.Loop.TriggerWait()
-
-		expectedSize := segmentSize
-
-		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
-		require.NoError(t, err)
-		require.Equal(t, expectedSize, total)
-
-		for i := 0; i < 3; i++ {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/path/%d", i), expectedData)
-			require.NoError(t, err)
-
-			tally.Loop.TriggerWait()
-
-			expectedSize += segmentSize
-
-			total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
-			require.NoError(t, err)
-			require.Equal(t, expectedSize, total)
+		// there should be a single empty tally because all of the objects are expired
+		loc := metabase.BucketLocation{
+			ProjectID:  planet.Uplinks[0].Projects[0].ID,
+			BucketName: bucketName,
 		}
+		require.Equal(t, map[metabase.BucketLocation]*accounting.BucketTally{
+			loc: {BucketLocation: loc},
+		}, collector.Bucket)
 	})
 }
 
 func TestLiveAccountingWithCustomSQLQuery(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.UseObjectsLoop = false
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -367,7 +346,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 			},
 		}
 
-		findTally := func(bucket string, tallies []accounting.BucketTally) accounting.BucketTally {
+		findTally := func(t *testing.T, bucket string, tallies []accounting.BucketTally) accounting.BucketTally {
 			for _, v := range tallies {
 				if v.BucketName == bucket {
 					return v
@@ -399,7 +378,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 				tallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
-				lastTally := findTally(tc.name, tallies)
+				lastTally := findTally(t, tc.name, tallies)
 				require.Equal(t, tc.name, lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterCopy.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterCopy.TotalBytes, lastTally.TotalBytes)
@@ -413,7 +392,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 				tallies, err = planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
-				lastTally = findTally(tc.name, tallies)
+				lastTally = findTally(t, tc.name, tallies)
 				require.Equal(t, tc.name, lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterDelete.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalBytes, lastTally.TotalBytes)
@@ -423,7 +402,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 	})
 }
 
-func TestTallyBatchSize(t *testing.T) {
+func TestBucketTallyCollectorListLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -448,12 +427,18 @@ func TestTallyBatchSize(t *testing.T) {
 		require.Len(t, objects, numberOfBuckets)
 
 		for _, batchSize := range []int{1, 2, 3, numberOfBuckets, 14, planet.Satellites[0].Config.Tally.ListLimit} {
-			collector := tally.NewBucketTallyCollector(zaptest.NewLogger(t), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].DB.Buckets(), tally.Config{
-				Interval:           1 * time.Hour,
-				UseObjectsLoop:     false,
-				ListLimit:          batchSize,
-				AsOfSystemInterval: 1 * time.Microsecond,
-			})
+			collector := tally.NewBucketTallyCollector(
+				zaptest.NewLogger(t),
+				time.Now(),
+				planet.Satellites[0].Metabase.DB,
+				planet.Satellites[0].DB.Buckets(),
+				planet.Satellites[0].DB.ProjectAccounting(),
+				tally.Config{
+					Interval:           1 * time.Hour,
+					ListLimit:          batchSize,
+					AsOfSystemInterval: 1 * time.Microsecond,
+				},
+			)
 			err := collector.Run(ctx)
 			require.NoError(t, err)
 
@@ -466,6 +451,61 @@ func TestTallyBatchSize(t *testing.T) {
 				require.Equal(t, object.TotalEncryptedSize, bucket.TotalBytes)
 				require.EqualValues(t, 1, bucket.ObjectCount)
 			}
+		}
+	})
+}
+
+func TestTallySaveTalliesBatchSize(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.MaxBuckets = 23
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		numberOfBuckets := 23
+		expectedBucketLocations := []metabase.BucketLocation{}
+		for i := 0; i < numberOfBuckets; i++ {
+			data := testrand.Bytes(1*memory.KiB + memory.Size(i))
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket"+strconv.Itoa(i), "test", data)
+			require.NoError(t, err)
+
+			expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket" + strconv.Itoa(i),
+			})
+		}
+
+		satellite := planet.Satellites[0]
+		for _, batchSize := range []int{1, 2, 3, numberOfBuckets, 29, planet.Satellites[0].Config.Tally.SaveTalliesBatchSize} {
+			config := satellite.Config.Tally
+			config.SaveTalliesBatchSize = batchSize
+
+			tally := tally.New(zaptest.NewLogger(t), satellite.DB.StoragenodeAccounting(), satellite.DB.ProjectAccounting(),
+				satellite.LiveAccounting.Cache, satellite.Metabase.DB, satellite.DB.Buckets(), config)
+
+			// collect and store tallies in DB
+			err := tally.Tally(ctx)
+			require.NoError(t, err)
+
+			// verify we have in DB expected list of tallies
+			tallies, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
+			require.NoError(t, err)
+
+			_, err = satellite.DB.Testing().RawDB().ExecContext(ctx, "DELETE FROM bucket_storage_tallies")
+			require.NoError(t, err)
+
+			bucketLocations := []metabase.BucketLocation{}
+			for _, tally := range tallies {
+				bucketLocations = append(bucketLocations, tally.BucketLocation)
+			}
+
+			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
 	})
 }

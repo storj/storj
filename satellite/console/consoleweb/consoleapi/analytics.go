@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -36,9 +37,11 @@ func NewAnalytics(log *zap.Logger, service *console.Service, a *analytics.Servic
 }
 
 type eventTriggeredBody struct {
-	EventName        string `json:"eventName"`
-	Link             string `json:"link"`
-	ErrorEventSource string `json:"errorEventSource"`
+	EventName        string            `json:"eventName"`
+	Link             string            `json:"link"`
+	ErrorEventSource string            `json:"errorEventSource"`
+	UIType           string            `json:"uiType"`
+	Props            map[string]string `json:"props"`
 }
 
 type pageVisitBody struct {
@@ -53,26 +56,26 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 	var et eventTriggeredBody
 	err = json.Unmarshal(body, &et)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
 	user, err := console.GetUser(ctx)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		return
 	}
 
 	if et.ErrorEventSource != "" {
-		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource)
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, et.UIType)
 	} else if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
+		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link, et.UIType)
 	} else {
-		a.analytics.TrackEvent(et.EventName, user.ID, user.Email)
+		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.UIType, et.Props)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -85,17 +88,17 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 	var pv pageVisitBody
 	err = json.Unmarshal(body, &pv)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
 	user, err := console.GetUser(ctx)
 	if err != nil {
-		a.serveJSONError(w, http.StatusUnauthorized, err)
+		a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -105,6 +108,6 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveJSONError writes JSON error to response output stream.
-func (a *Analytics) serveJSONError(w http.ResponseWriter, status int, err error) {
-	web.ServeJSONError(a.log, w, status, err)
+func (a *Analytics) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	web.ServeJSONError(ctx, a.log, w, status, err)
 }

@@ -13,24 +13,22 @@
 </template>
 
 <script setup lang="ts">
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { RouteConfig } from '@/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/types/router';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Closes add coupon modal.
  */
 function onCloseClick(): void {
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
-    appStore.updateActiveModal(MODALS.addCoupon);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+    appStore.removeActiveModal();
 }
 </script>
 
@@ -39,7 +37,7 @@ function onCloseClick(): void {
         width: 500px;
         padding: 32px;
 
-        @media screen and (max-width: 650px) {
+        @media screen and (width <= 650px) {
             width: unset;
             padding: 24px;
         }

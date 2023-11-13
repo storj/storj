@@ -19,7 +19,7 @@
                     <div class="disk-stat-area__info-area__item__labels-area__circle free" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.free | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ freeSpace | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
@@ -61,7 +61,7 @@ export default class DiskStatChart extends Vue {
                 '',
                 ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
                 [
-                    this.diskSpace.free,
+                    this.freeSpace,
                     this.diskSpace.usedPieces,
                     this.diskSpace.usedTrash,
                     this.diskSpace.overused,
@@ -75,6 +75,13 @@ export default class DiskStatChart extends Vue {
      */
     public get diskSpace(): DiskSpace {
         return this.$store.state.storage.diskSpace;
+    }
+
+    /**
+     * Returns free space in allocated disk space.
+     */
+    public get freeSpace(): number {
+        return this.diskSpace.available;
     }
 }
 </script>

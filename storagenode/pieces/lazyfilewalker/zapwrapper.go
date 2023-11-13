@@ -6,8 +6,10 @@ package lazyfilewalker
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,6 +18,8 @@ import (
 type zapWrapper struct {
 	Log *zap.Logger
 }
+
+var _ io.Writer = (*zapWrapper)(nil)
 
 // Write writes the provided bytes to the underlying logger
 // returns the length of the bytes.
@@ -40,6 +44,7 @@ type zapLogger struct {
 	Message string        `json:"M"`
 	Stack   string        `json:"S"`
 	Name    string        `json:"N"`
+	Time    time.Time     `json:"T"`
 
 	LogMap map[string]interface{} `json:"-"`
 }
@@ -72,6 +77,7 @@ func (w *zapWrapper) log(b []byte) error {
 	delete(logger.LogMap, "M")
 	delete(logger.LogMap, "S")
 	delete(logger.LogMap, "N")
+	delete(logger.LogMap, "T")
 
 	log := w.Log.Named(logger.Name)
 	if ce := log.Check(logger.Level, logger.Message); ce != nil {
@@ -80,6 +86,10 @@ func (w *zapWrapper) log(b []byte) error {
 		}
 		if caller := newEntryCaller(logger.Caller); caller != nil {
 			ce.Caller = *caller
+		}
+
+		if !logger.Time.IsZero() {
+			ce.Time = logger.Time
 		}
 
 		var fields []zapcore.Field

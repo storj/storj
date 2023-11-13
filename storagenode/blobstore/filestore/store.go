@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/leak"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
@@ -54,11 +55,13 @@ type blobStore struct {
 	log    *zap.Logger
 	dir    *Dir
 	config Config
+
+	track leak.Ref
 }
 
 // New creates a new disk blob store in the specified directory.
 func New(log *zap.Logger, dir *Dir, config Config) blobstore.Blobs {
-	return &blobStore{dir: dir, log: log, config: config}
+	return &blobStore{dir: dir, log: log, config: config, track: leak.Root(1)}
 }
 
 // NewAt creates a new disk blob store in the specified directory.
@@ -67,11 +70,11 @@ func NewAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return &blobStore{dir: dir, log: log, config: config}, nil
+	return &blobStore{dir: dir, log: log, config: config, track: leak.Root(1)}, nil
 }
 
 // Close closes the store.
-func (store *blobStore) Close() error { return nil }
+func (store *blobStore) Close() error { return store.track.Close() }
 
 // Open loads blob with the specified hash.
 func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobReader, err error) {
@@ -83,7 +86,7 @@ func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blob
 		}
 		return nil, Error.Wrap(err)
 	}
-	return newBlobReader(file, formatVer), nil
+	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
 // OpenWithStorageFormat loads the already-located blob, avoiding the potential need to check multiple
@@ -97,7 +100,7 @@ func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef blobs
 		}
 		return nil, Error.Wrap(err)
 	}
-	return newBlobReader(file, formatVer), nil
+	return newBlobReader(store.track.Child("blobReader", 1), file, formatVer), nil
 }
 
 // Stat looks up disk metadata on the blob file.
@@ -138,6 +141,13 @@ func (store *blobStore) DeleteNamespace(ctx context.Context, ref []byte) (err er
 	return Error.Wrap(err)
 }
 
+// DeleteTrashNamespace deletes trash folder of specific satellite.
+func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.DeleteTrashNamespace(ctx, namespace)
+	return Error.Wrap(err)
+}
+
 // Trash moves the ref to a trash directory.
 func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -151,7 +161,15 @@ func (store *blobStore) RestoreTrash(ctx context.Context, namespace []byte) (key
 	return keysRestored, Error.Wrap(err)
 }
 
-// // EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
+// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
+// It returns nil if the piece was restored, or an error if the piece was not
+// in the trash or could not be restored.
+func (store *blobStore) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.dir.TryRestoreTrashPiece(ctx, ref))
+}
+
+// EmptyTrash removes all files in trash that have been there longer than trashExpiryDur.
 func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytesEmptied, keys, err = store.dir.EmptyTrash(ctx, namespace, trashedBefore)
@@ -173,7 +191,7 @@ func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef, size 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
 }
 
 // SpaceUsedForBlobs adds up the space used in all namespaces for blob storage.
@@ -296,7 +314,7 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.

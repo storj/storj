@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/calebcase/tmpfile"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -46,6 +45,7 @@ type ECRepairer struct {
 	log             *zap.Logger
 	dialer          rpc.Dialer
 	satelliteSignee signing.Signee
+	dialTimeout     time.Duration
 	downloadTimeout time.Duration
 	inmemory        bool
 
@@ -54,11 +54,12 @@ type ECRepairer struct {
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, downloadTimeout time.Duration, inmemory bool) *ECRepairer {
+func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration, inmemory bool) *ECRepairer {
 	return &ECRepairer{
 		log:             log,
 		dialer:          dialer,
 		satelliteSignee: satelliteSignee,
+		dialTimeout:     dialTimeout,
 		downloadTimeout: downloadTimeout,
 		inmemory:        inmemory,
 	}
@@ -247,7 +248,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, pieces, Error.New("expected %d failures, but only observed %d", ec.minFailures, errorCount)
 	}
 
-	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
+	fec, err := eestream.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
 		return nil, pieces, Error.Wrap(err)
 	}
@@ -293,10 +294,10 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	defer mon.Task()(&ctx)(&err)
 
 	// contact node
-	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
-	defer cancel()
+	dialCtx, dialCancel := context.WithTimeout(ctx, ec.dialTimeout)
+	defer dialCancel()
 
-	ps, err := ec.dialPiecestore(downloadCtx, storj.NodeURL{
+	ps, err := ec.dialPiecestore(dialCtx, storj.NodeURL{
 		ID:      limit.GetLimit().StorageNodeId,
 		Address: address,
 	})
@@ -304,6 +305,9 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
+
+	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
+	defer cancel()
 
 	downloader, err := ps.Download(downloadCtx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {
@@ -492,6 +496,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		successfulCount++
 
 		if successfulCount >= int32(successfulNeeded) {
+			// if this is logged more than once for a given repair operation, it is because
+			// an upload succeeded right after we called cancel(), before that upload could
+			// actually be canceled. So, successfulCount should increase by one with each
+			// repeated logging.
 			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
@@ -544,7 +552,11 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	ps, err := ec.dialPiecestore(ctx, storj.NodeURL{
+
+	dialCtx, dialCancel := context.WithTimeout(ctx, ec.dialTimeout)
+	defer dialCancel()
+
+	ps, err := ec.dialPiecestore(dialCtx, storj.NodeURL{
 		ID:      storageNodeID,
 		Address: limit.GetStorageNodeAddress().Address,
 	})
@@ -565,10 +577,12 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 			// to slow connection. No error logging for this case.
 			if errors.Is(parent.Err(), context.Canceled) {
 				ec.log.Debug("Upload to node canceled by user",
-					zap.Stringer("Node ID", storageNodeID))
+					zap.Stringer("Node ID", storageNodeID),
+					zap.Stringer("Piece ID", pieceID))
 			} else {
 				ec.log.Debug("Node cut from upload due to slow connection",
-					zap.Stringer("Node ID", storageNodeID))
+					zap.Stringer("Node ID", storageNodeID),
+					zap.Stringer("Piece ID", pieceID))
 			}
 
 			// make sure context.Canceled is the primary error in the error chain

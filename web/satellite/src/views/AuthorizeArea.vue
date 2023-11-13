@@ -26,7 +26,7 @@
                         <p>Access and view your account info.</p>
                     </div>
                     <div class="authorize-area__permissions-area__container">
-                        <p class="authorize-area__permissions-area__header">Sync data to Storj DCS</p>
+                        <p class="authorize-area__permissions-area__header">Sync data to Storj</p>
                         <p>Automatically send updates to:</p>
 
                         <div class="authorize-area__input-wrapper">
@@ -61,6 +61,7 @@
                                 role-description="passphrase"
                                 placeholder="Passphrase"
                                 :error="passphraseErr"
+                                :autocomplete="autocompleteValue"
                                 is-password
                                 @setData="setPassphrase"
                             />
@@ -88,27 +89,27 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Validator } from '@/utils/validation';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const oauthClientsAPI = new OAuthClientsAPI();
 const validPerms = {
     'list': true,
@@ -117,6 +118,7 @@ const validPerms = {
     'delete': true,
 };
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -124,6 +126,7 @@ const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
 const worker = ref<Worker | null>(null);
 const valid = ref<boolean>(false);
@@ -153,6 +156,13 @@ const oauthData = ref<{
     response_type?: string;
     scope?: string;
 }>({});
+
+/**
+ * Returns formatted autocomplete value.
+ */
+const autocompleteValue = computed((): string => {
+    return `section-${selectedProjectID.value.toLowerCase()} new-password`;
+});
 
 function slugify(name: string): string {
     name = name.toLowerCase();
@@ -192,13 +202,13 @@ async function ensureLogin(): Promise<void> {
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
             appStore.changeState(FetchState.ERROR);
-            await notify.error(error.message, null);
+            notify.notifyError(error, null);
         }
 
         const query = new URLSearchParams(oauthData.value).toString();
         const path = `${RouteConfig.Authorize.path}?${query}#${clientKey.value}`;
 
-        analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
+        analyticsStore.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
         await router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
     }
 }
@@ -208,7 +218,7 @@ async function ensureWorker(): Promise<void> {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        await notify.error(`Unable to set access grants wizard. ${error.message}`, null);
+        notify.error(`Unable to set access grants wizard. ${error.message}`, null);
         return;
     }
 
@@ -326,7 +336,7 @@ async function setScope(): Promise<void> {
     });
 
     if (event.data.error) {
-        await notify.error(event.data.error, null);
+        notify.error(event.data.error, null);
         return;
     }
 
@@ -373,8 +383,8 @@ function validate(): boolean {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(async () => {
-    oauthData.value = { ...router.currentRoute.query };
-    clientKey.value = router.currentRoute.hash ? router.currentRoute.hash.substring(1) : '';
+    oauthData.value = { ...route.query };
+    clientKey.value = route.hash ? route.hash.substring(1) : '';
 
     await ensureLogin();
     await ensureWorker();
@@ -395,10 +405,7 @@ onMounted(async () => {
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         min-height: 100%;
         overflow-y: scroll;
 
@@ -648,8 +655,6 @@ onMounted(async () => {
 
     .logo {
         cursor: pointer;
-        width: 207px;
-        height: 37px;
     }
 
     .disabled,
@@ -663,7 +668,7 @@ onMounted(async () => {
         border-color: #dadde5;
     }
 
-    @media screen and (max-width: 750px) {
+    @media screen and (width <= 750px) {
 
         .authorize-area {
 
@@ -684,7 +689,7 @@ onMounted(async () => {
         }
     }
 
-    @media screen and (max-width: 414px) {
+    @media screen and (width <= 414px) {
 
         .authorize-area {
 

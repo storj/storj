@@ -7,7 +7,7 @@ import { defineStore } from 'pinia';
 import { FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { NavigationLink } from '@/types/navigation';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();

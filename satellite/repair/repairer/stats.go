@@ -5,6 +5,7 @@ package repairer
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/spacemonkeygo/monkit/v3"
 )
@@ -13,6 +14,7 @@ import (
 // seen by the repairer. These are chained into the monkit scope for
 // monitoring as they are initialized.
 type statsCollector struct {
+	lock  sync.Mutex
 	stats map[string]*stats
 }
 
@@ -23,6 +25,9 @@ func newStatsCollector() *statsCollector {
 }
 
 func (collector *statsCollector) getStatsByRS(rs string) *stats {
+	collector.lock.Lock()
+	defer collector.lock.Unlock()
+
 	stats, ok := collector.stats[rs]
 	if !ok {
 		stats = newStats(rs)

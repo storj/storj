@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 type in struct {
@@ -113,7 +112,7 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 	nBatches := 0
 	nSegments := 0
 	for _, r := range ranges {
-		err = r.Iterate(ctx, func(segments []segmentloop.Segment) error {
+		err = r.Iterate(ctx, func(segments []rangedloop.Segment) error {
 			nBatches++
 			nSegments += len(segments)
 			return nil
@@ -139,7 +138,6 @@ func createSegment(ctx *testcontext.Context, t testing.TB, db *metabase.DB, stre
 			ObjectStream: obj,
 			Encryption:   metabasetest.DefaultEncryption,
 		},
-		Version: 1,
 	}.Check(ctx, t, db)
 
 	metabasetest.CommitInlineSegment{

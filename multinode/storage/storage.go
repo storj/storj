@@ -10,14 +10,16 @@ import (
 
 // Usage holds storage usage stamps and summary for a particular period.
 type Usage struct {
-	Stamps  []UsageStamp `json:"stamps"`
-	Summary float64      `json:"summary"`
+	Stamps       []UsageStamp `json:"stamps"`
+	Summary      float64      `json:"summary"`
+	SummaryBytes float64      `json:"summaryBytes"`
 }
 
 // UsageStamp holds data at rest total for an interval beginning at interval start.
 type UsageStamp struct {
-	AtRestTotal   float64   `json:"atRestTotal"`
-	IntervalStart time.Time `json:"intervalStart"`
+	AtRestTotal      float64   `json:"atRestTotal"`
+	AtRestTotalBytes float64   `json:"atRestTotalBytes"`
+	IntervalStart    time.Time `json:"intervalStart"`
 }
 
 // UsageStampDailyCache caches storage usage stamps by interval date.
@@ -33,13 +35,15 @@ func (cache *UsageStampDailyCache) Add(stamp UsageStamp) {
 	cacheStamp, ok := cached[intervalStart]
 	if ok {
 		cached[intervalStart] = UsageStamp{
-			AtRestTotal:   cacheStamp.AtRestTotal + stamp.AtRestTotal,
-			IntervalStart: intervalStart,
+			AtRestTotal:      cacheStamp.AtRestTotal + stamp.AtRestTotal,
+			AtRestTotalBytes: cacheStamp.AtRestTotalBytes + stamp.AtRestTotalBytes,
+			IntervalStart:    intervalStart,
 		}
 	} else {
 		cached[intervalStart] = UsageStamp{
-			AtRestTotal:   stamp.AtRestTotal,
-			IntervalStart: intervalStart,
+			AtRestTotal:      stamp.AtRestTotal,
+			AtRestTotalBytes: stamp.AtRestTotalBytes,
+			IntervalStart:    intervalStart,
 		}
 	}
 
@@ -65,7 +69,9 @@ type DiskSpace struct {
 	Allocated int64 `json:"allocated"`
 	Used      int64 `json:"usedPieces"`
 	Trash     int64 `json:"usedTrash"`
-	Free      int64 `json:"free"`
+	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
+	Free int64 `json:"free"`
+	// Available is the amount of free space on the allocated disk space, in bytes.
 	Available int64 `json:"available"`
 	Overused  int64 `json:"overused"`
 }

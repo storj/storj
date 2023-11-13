@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -470,6 +471,35 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 	return keysRestored, errorsEncountered.Err()
 }
 
+// TryRestoreTrashPiece attempts to restore a piece from the trash if it exists.
+// It returns nil if the piece was restored, or an error if the piece was not
+// in the trash or could not be restored.
+func (dir *Dir) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	blobsBasePath, err := dir.blobToBasePath(ref)
+	if err != nil {
+		return err
+	}
+
+	trashBasePath, err := dir.refToDirPath(ref, dir.trashdir())
+	if err != nil {
+		return err
+	}
+
+	// ensure the dirs exist for blobs path
+	blobsVerPath := blobPathForFormatVersion(blobsBasePath, MaxFormatVersionSupported)
+	err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return err
+	}
+
+	trashVerPath := blobPathForFormatVersion(trashBasePath, MaxFormatVersionSupported)
+
+	// move back to blobsdir
+	return rename(trashVerPath, blobsVerPath)
+}
+
 // EmptyTrash walks the trash files for the given namespace and deletes any
 // file whose mtime is older than trashedBefore. The mtime is modified when
 // Trash is called.
@@ -509,6 +539,12 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 	})
 	errorsEncountered.Add(err)
 	return bytesEmptied, deletedKeys, errorsEncountered.Err()
+}
+
+// DeleteTrashNamespace deletes the entire trash namespace.
+func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error) {
+	mon.Task()(&ctx)(&err)
+	return dir.deleteNamespace(ctx, dir.trashdir(), namespace)
 }
 
 // iterateStorageFormatVersions executes f for all storage format versions,
@@ -717,6 +753,7 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 	openDir, err := os.Open(nsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
+			dir.log.Debug("directory not found", zap.String("dir", nsDir))
 			// job accomplished: there are no blobs in this namespace!
 			return nil
 		}

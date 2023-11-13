@@ -84,21 +84,27 @@ onBeforeMount(() => {
         font-family: 'font_regular', sans-serif;
 
         .select-input {
-            font-size: 16px;
-            line-height: 21px;
+            font-size: 15px;
             resize: none;
-            height: 46px;
+            height: 48px;
             padding: 0 30px 0 0;
-            text-indent: 20px;
-            border: 1px solid rgb(56 75 101 / 40%);
+            text-indent: 18px;
+            border: 1px solid #ccc;
             border-radius: 6px;
             box-sizing: border-box;
             appearance: none;
+            cursor: pointer;
+            transition: border-color 90ms ease-in-out;
+
+            &:hover {
+                border-color: var(--c-blue-6);
+            }
 
             &__caret {
                 position: absolute;
-                right: 28px;
-                bottom: 18px;
+                right: 26px;
+                bottom: 20px;
+                cursor: pointer;
             }
         }
     }
@@ -111,8 +117,7 @@ onBeforeMount(() => {
         flex-direction: row;
 
         &__label {
-            font-size: 16px;
-            line-height: 21px;
+            font-size: 15px;
             color: #354049;
             margin-bottom: 0;
         }

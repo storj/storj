@@ -23,7 +23,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 
 import { LocalData } from '@/utils/localData';
 import { BucketPage } from '@/types/buckets';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
@@ -40,8 +39,6 @@ const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const isLoading = ref<boolean>(true);
 const isServerSideEncryptionBannerHidden = ref<boolean>(true);
@@ -86,7 +83,7 @@ async function setBucketsView(): Promise<void> {
             appStore.updateActiveModal(MODALS.createBucket);
         }
     } catch (error) {
-        await notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
+        notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
     } finally {
         isLoading.value = false;
     }
@@ -99,7 +96,7 @@ async function fetchBuckets(page = 1): Promise<void> {
     try {
         await bucketsStore.getBuckets(page, selectedProjectID.value);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
+        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
     }
 }
 
@@ -128,6 +125,8 @@ onMounted(async (): Promise<void> => {
 });
 
 watch(selectedProjectID, async () => {
+    if (!selectedProjectID.value) return;
+
     isLoading.value = true;
 
     bucketsStore.clear();

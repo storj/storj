@@ -28,22 +28,21 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Returns leave attempt's route path from store.
@@ -56,7 +55,7 @@ const leaveRoute = computed((): string => {
  * Holds on leave click logic.
  */
 function onLeaveClick(): void {
-    analytics.pageVisit(leaveRoute.value);
+    analyticsStore.pageVisit(leaveRoute.value);
     router.push(leaveRoute.value);
     closePopup();
 }
@@ -72,10 +71,7 @@ function closePopup(): void {
 <style scoped lang="scss">
     .uc-area {
         position: fixed;
-        top: 0;
-        bottom: 0;
-        right: 0;
-        left: 0;
+        inset: 0;
         z-index: 100;
         background: rgb(27 37 51 / 75%);
         display: flex;

@@ -128,6 +128,12 @@ export default class SatelliteSelectionDropdown extends Vue {
         }
 
         try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, id);
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
         } catch (error) {
             console.error(error);

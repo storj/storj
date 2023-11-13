@@ -26,8 +26,8 @@ func TestZombieDeletion(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.ZombieDeletion.Enabled = true
 				config.ZombieDeletion.Interval = 500 * time.Millisecond
+				config.ZombieDeletion.AsOfSystemInterval = -1 * time.Microsecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -53,6 +53,7 @@ func TestZombieDeletion(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
+		// upload pending object with multipart upload but without segment
 		_, err = project.BeginUpload(ctx, "testbucket2", "zombie_object_multipart_no_segment", nil)
 		require.NoError(t, err)
 
@@ -82,7 +83,7 @@ func TestZombieDeletion(t *testing.T) {
 		objects, err = planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
-		require.Equal(t, metabase.Committed, objects[0].Status)
+		require.Equal(t, metabase.CommittedUnversioned, objects[0].Status)
 	})
 }
 

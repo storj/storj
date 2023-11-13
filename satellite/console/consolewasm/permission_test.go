@@ -250,8 +250,10 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.NoError(t, err)
 			err = upload.Commit()
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
-			_, err = project.DownloadObject(ctx, testbucket1, testfilename1, nil)
+
+			download, err := project.DownloadObject(ctx, testbucket1, testfilename1, nil)
 			require.NoError(t, err)
+			require.NoError(t, download.Close())
 
 			// Only one bucket should be visible
 			buckets := getAllBuckets(ctx, project)
@@ -357,8 +359,9 @@ func TestSetPermission_Uplink(t *testing.T) {
 			objects := getAllObjects(ctx, project, testbucket3)
 			require.Equal(t, 1, len(objects))
 
-			_, err = project.DownloadObject(ctx, testbucket3, testfilename2, nil)
+			download, err := project.DownloadObject(ctx, testbucket3, testfilename2, nil)
 			require.NoError(t, err)
+			require.NoError(t, download.Close())
 
 			_, err = project.DeleteBucketWithObjects(ctx, testbucket3)
 			require.NoError(t, err)

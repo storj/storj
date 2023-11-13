@@ -64,13 +64,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
-import { RouteConfig } from '@/router';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/types/router';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -78,9 +78,9 @@ import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
+const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const route = useRoute();
 
 const showValidationMessage = ref<boolean>(false);
 const isCodeValid = ref<boolean>(false);
@@ -88,13 +88,11 @@ const showConfirmMessage = ref<boolean>(false);
 const errorMessage = ref<string>('');
 const couponCode = ref<string>('');
 
-const analytics = new AnalyticsHttpApi();
-
 /**
  * Signup view requires some unique styling and element text.
  */
 const isSignupView = computed((): boolean => {
-    return router.currentRoute.name === RouteConfig.Register.name;
+    return route.name === RouteConfig.Register.name;
 });
 
 /**
@@ -129,7 +127,7 @@ async function applyCouponCode(): Promise<void> {
         errorMessage.value = error.message;
         isCodeValid.value = false;
         showValidationMessage.value = true;
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
 
         return;
     } finally {
@@ -198,7 +196,7 @@ async function couponCheck(): Promise<void> {
             margin-top: 30px;
             column-gap: 20px;
 
-            @media screen and (max-width: 650px) {
+            @media screen and (width <= 650px) {
                 flex-direction: column;
                 column-gap: unset;
                 row-gap: 20px;

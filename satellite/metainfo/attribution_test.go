@@ -381,3 +381,146 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 		require.Equal(t, []byte(config.UserAgent), attributionInfo.UserAgent)
 	})
 }
+
+func TestAttributionDeletedBucketRecreated(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		proj := upl.Projects[0].ID
+		bucket := "testbucket"
+		ua1 := []byte("minio")
+		ua2 := []byte("not minio")
+
+		require.NoError(t, satellite.DB.Console().Projects().UpdateUserAgent(ctx, proj, ua1))
+
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		b, err := satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
+		require.NoError(t, err)
+		require.Equal(t, ua1, b.UserAgent)
+
+		// test recreate with same user agent
+		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		b, err = satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
+		require.NoError(t, err)
+		require.Equal(t, ua1, b.UserAgent)
+
+		// test recreate with different user agent
+		// should still have original user agent
+		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
+		upl.Config.UserAgent = string(ua2)
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		require.NoError(t, err)
+		require.Equal(t, ua1, b.UserAgent)
+	})
+}
+
+func TestAttributionBeginObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		proj := upl.Projects[0].ID
+		ua := []byte("minio")
+
+		tests := []struct {
+			name                                      string
+			vaAttrBefore, bktAttrBefore, bktAttrAfter bool
+		}{
+			// test for existence of user_agent in buckets table given the different possibilities of preconditions of user_agent
+			// in value_attributions and bucket_metainfos to make sure nothing breaks and outcome is expected.
+			{
+				name:          "attribution exists in VA and bucket",
+				vaAttrBefore:  true,
+				bktAttrBefore: true,
+				bktAttrAfter:  true,
+			},
+			{
+				name:          "attribution exists in VA and NOT bucket",
+				vaAttrBefore:  true,
+				bktAttrBefore: false,
+				bktAttrAfter:  false,
+			},
+			{
+				name:          "attribution exists in bucket and NOT VA",
+				vaAttrBefore:  false,
+				bktAttrBefore: true,
+				bktAttrAfter:  true,
+			},
+			{
+				name:          "attribution exists in neither VA nor buckets",
+				vaAttrBefore:  false,
+				bktAttrBefore: false,
+				bktAttrAfter:  true,
+			},
+		}
+
+		for i, tt := range tests {
+			t.Run(tt.name, func(*testing.T) {
+				bucketName := fmt.Sprintf("bucket-%d", i)
+				var expectedBktUA []byte
+				var config uplink.Config
+				if tt.bktAttrBefore || tt.vaAttrBefore {
+					config.UserAgent = string(ua)
+				}
+				if tt.bktAttrAfter {
+					expectedBktUA = ua
+				}
+
+				p, err := config.OpenProject(ctx, upl.Access[satellite.ID()])
+				require.NoError(t, err)
+
+				_, err = p.CreateBucket(ctx, bucketName)
+				require.NoError(t, err)
+
+				require.NoError(t, p.Close())
+
+				if !tt.bktAttrBefore && tt.vaAttrBefore {
+					// remove user agent from bucket
+					err = satellite.API.DB.Buckets().UpdateUserAgent(ctx, proj, bucketName, nil)
+					require.NoError(t, err)
+				}
+
+				_, err = satellite.API.DB.Attribution().Get(ctx, proj, []byte(bucketName))
+				if !tt.bktAttrBefore && !tt.vaAttrBefore {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+
+				b, err := satellite.API.DB.Buckets().GetBucket(ctx, []byte(bucketName), proj)
+				require.NoError(t, err)
+				if !tt.bktAttrBefore {
+					require.Nil(t, b.UserAgent)
+				} else {
+					require.Equal(t, expectedBktUA, b.UserAgent)
+				}
+
+				config.UserAgent = string(ua)
+
+				p, err = config.OpenProject(ctx, upl.Access[satellite.ID()])
+				require.NoError(t, err)
+
+				upload, err := p.UploadObject(ctx, bucketName, fmt.Sprintf("foobar-%d", i), nil)
+				require.NoError(t, err)
+
+				_, err = upload.Write([]byte("content"))
+				require.NoError(t, err)
+
+				err = upload.Commit()
+				require.NoError(t, err)
+
+				attr, err := satellite.API.DB.Attribution().Get(ctx, proj, []byte(bucketName))
+				require.NoError(t, err)
+				require.Equal(t, ua, attr.UserAgent)
+
+				b, err = satellite.API.DB.Buckets().GetBucket(ctx, []byte(bucketName), proj)
+				require.NoError(t, err)
+				require.Equal(t, expectedBktUA, b.UserAgent)
+			})
+		}
+	})
+}

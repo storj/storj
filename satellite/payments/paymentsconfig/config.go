@@ -27,17 +27,13 @@ type Config struct {
 	Provider     string        `help:"payments provider to use" default:""`
 	MockProvider stripe.Client `internal:"true"`
 
-	BillingConfig            billing.Config
-	StripeCoinPayments       stripe.Config
-	Storjscan                storjscan.Config
-	UsagePrice               ProjectUsagePrice
-	BonusRate                int64                      `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
-	NodeEgressBandwidthPrice int64                      `help:"price node receive for storing TB of egress in cents" default:"2000"`
-	NodeRepairBandwidthPrice int64                      `help:"price node receive for storing TB of repair in cents" default:"1000"`
-	NodeAuditBandwidthPrice  int64                      `help:"price node receive for storing TB of audit in cents" default:"1000"`
-	NodeDiskSpacePrice       int64                      `help:"price node receive for storing disk space in cents/TB" default:"150"`
-	UsagePriceOverrides      ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
-	PackagePlans             PackagePlans               `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
+	BillingConfig       billing.Config
+	StripeCoinPayments  stripe.Config
+	Storjscan           storjscan.Config
+	UsagePrice          ProjectUsagePrice
+	BonusRate           int64                      `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
+	UsagePriceOverrides ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	PackagePlans        PackagePlans               `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.

@@ -3,28 +3,25 @@
 
 <template>
     <div v-if="isBannerShowing" class="notification-wrap">
-        <div class="notification-wrap__left">
-            <SunnyIcon class="notification-wrap__left__icon" />
+        <SunnyIcon class="notification-wrap__icon" />
+        <div class="notification-wrap__text">
             <p>
-                Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum.
-                {{ bytesToBase10String(limits.bandwidthLimit) }} free included.
+                Ready to upgrade? Increase your limits and only pay for what you use - no minimum.
+                {{ formattedStorageLimit }} free still included.
             </p>
-        </div>
-        <div class="notification-wrap__right">
             <a @click="openBanner">Upgrade Now</a>
-            <CloseIcon class="notification-wrap__right__close" @click="onCloseClick" />
         </div>
+        <CloseIcon class="notification-wrap__close" @click="onCloseClick" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { bytesToBase10String } from '@/utils/strings';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { ProjectLimits } from '@/types/projects';
-import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { Size } from '@/utils/bytesSize';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -33,8 +30,8 @@ const props = defineProps<{
     openAddPMModal: () => void,
 }>();
 
-const projectsStore = useProjectsStore();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analyticsStore = useAnalyticsStore();
+const usersStore = useUsersStore();
 
 const isBannerShowing = ref<boolean>(true);
 
@@ -46,10 +43,10 @@ function onCloseClick(): void {
 }
 
 /**
- * Returns current limits from store.
+ * Returns the user's project storage limit from the store formatted as a size string.
  */
-const limits = computed((): ProjectLimits => {
-    return projectsStore.state.currentLimits;
+const formattedStorageLimit = computed((): string => {
+    return Size.toBase10String(usersStore.state.user.projectStorageLimit);
 });
 
 /**
@@ -57,7 +54,7 @@ const limits = computed((): ProjectLimits => {
  */
 async function openBanner(): Promise<void> {
     props.openAddPMModal();
-    await analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
 }
 </script>
 
@@ -66,7 +63,8 @@ async function openBanner(): Promise<void> {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.375rem;
+    gap: 16px;
+    padding: 16px;
     font-family: 'font_regular', sans-serif;
     font-size: 1rem;
     background-color: var(--c-white);
@@ -74,31 +72,35 @@ async function openBanner(): Promise<void> {
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-    &__left {
-        display: flex;
-        align-items: center;
-
-        &__icon {
-            flex-shrink: 0;
-            margin-right: 1.375rem;
-        }
+    &__icon {
+        flex-shrink: 0;
     }
 
-    &__right {
+    &__text {
         display: flex;
         align-items: center;
-        flex-shrink: 0;
-        margin-left: 16px;
+        gap: 6px;
+        flex-grow: 1;
 
         & a {
             color: var(--c-black);
             text-decoration: underline !important;
+            white-space: nowrap;
         }
 
-        &__close {
-            margin-left: 16px;
-            cursor: pointer;
+        @media screen and (width <= 500px) {
+            flex-direction: column;
+            align-items: flex-start;
         }
+    }
+
+    &__close {
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    @media screen and (width <= 500px) {
+        align-items: flex-start;
     }
 }
 </style>

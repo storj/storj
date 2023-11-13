@@ -229,3 +229,11 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 
 	return statsList, rows.Err()
 }
+
+// Delete removes stats for specific satellite.
+func (db *reputationDB) Delete(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx, "DELETE FROM reputation WHERE satellite_id = ?", satelliteID)
+	return ErrReputation.Wrap(err)
+}

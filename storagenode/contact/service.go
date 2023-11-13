@@ -5,11 +5,15 @@ package contact
 
 import (
 	"context"
+	"encoding/base64"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -38,7 +42,55 @@ type Config struct {
 
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+
+	Tags SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
 }
+
+// SignedTags represents base64 encoded signed tags.
+type SignedTags pb.SignedNodeTagSets
+
+// Type implements pflag.Value interface.
+func (u *SignedTags) Type() string {
+	return "signedtags"
+}
+
+// String implements pflag.Value interface.
+func (u *SignedTags) String() string {
+	if u == nil {
+		return ""
+	}
+	p := pb.SignedNodeTagSets(*u)
+	raw, err := proto.Marshal(&p)
+	if err != nil {
+		return err.Error()
+	}
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
+// Set implements flag.Value interface.
+func (u *SignedTags) Set(s string) error {
+	p := pb.SignedNodeTagSets{}
+	for i, part := range strings.Split(s, ",") {
+		if s == "" {
+			return nil
+		}
+		if u == nil {
+			return nil
+		}
+		raw, err := base64.StdEncoding.DecodeString(part)
+		if err != nil {
+			return errs.New("signed tag configuration #%d is not base64 encoded: %s", i+1, s)
+		}
+		err = proto.Unmarshal(raw, &p)
+		if err != nil {
+			return errs.New("signed tag configuration #%d is not a pb.SignedNodeTagSets{}: %s", i+1, s)
+		}
+		u.Tags = append(u.Tags, p.Tags...)
+	}
+	return nil
+}
+
+var _ pflag.Value = &SignedTags{}
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
@@ -49,6 +101,7 @@ type NodeInfo struct {
 	Operator            pb.NodeOperator
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
 	DebounceLimit       int
+	FastOpen            bool
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -64,10 +117,12 @@ type Service struct {
 	quicStats *QUICStats
 
 	initialized sync2.Fence
+
+	tags *pb.SignedNodeTagSets
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
 	return &Service{
 		log:       log,
 		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
@@ -75,6 +130,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.
 		trust:     trust,
 		self:      self,
 		quicStats: quicStats,
+		tags:      tags,
 	}
 }
 
@@ -96,7 +152,6 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	interval := initialBackOff
 	attempts := 0
 	for {
-
 		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
 
 		err := service.pingSatelliteOnce(ctx, satellite)
@@ -117,7 +172,6 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 			return nil
 		}
 	}
-
 }
 
 func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
@@ -130,6 +184,10 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	self := service.Local()
+	var features uint64
+	if self.FastOpen {
+		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
+	}
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:             self.Address,
 		Version:             &self.Version,
@@ -137,6 +195,8 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		Operator:            &self.Operator,
 		NoiseKeyAttestation: self.NoiseKeyAttestation,
 		DebounceLimit:       int32(self.DebounceLimit),
+		Features:            features,
+		SignedTags:          service.tags,
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {
@@ -167,7 +227,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 	}
 
 	// Shuffle the satellites
-	// All the Storagenodes get a default list of trusted satellites (The Storj DCS ones) and
+	// All the Storagenodes get a default list of trusted satellites (The Storj ones) and
 	// most of the SN operators don't change the list, hence if it always starts with
 	// the same satellite we are going to put always more pressure on the first trusted
 	// satellite on the list. So we iterate over the list of trusted satellites in a

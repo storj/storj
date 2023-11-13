@@ -8,7 +8,13 @@
                 By saving your card information, you allow Storj to charge your card for future payments in accordance with
                 the terms.
             </p>
+            <StripeCardElement
+                v-if="paymentElementEnabled"
+                ref="stripeCardInput"
+                @pm-created="addCardToDB"
+            />
             <StripeCardInput
+                v-else
                 ref="stripeCardInput"
                 :on-stripe-response-callback="addCardToDB"
             />
@@ -30,38 +36,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
+const route = useRoute();
 
 const props = defineProps<{
     setSuccess: () => void;
 }>();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
 const loading = ref<boolean>(false);
-const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
+const stripeCardInput = ref<StripeForm | null>(null);
+
+/**
+ * Indicates whether stripe payment element is enabled.
+ */
+const paymentElementEnabled = computed(() => {
+    return configStore.state.config.stripePaymentElementEnabled;
+});
 
 /**
  * Provides card information to Stripe.
@@ -74,7 +91,7 @@ async function onSaveCardClick(): Promise<void> {
     try {
         await stripeCardInput.value.onSubmit();
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         loading.value = false;
     }
 }
@@ -82,29 +99,31 @@ async function onSaveCardClick(): Promise<void> {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param token from Stripe
+ * @param res - the response from stripe. Could be a token or a payment method id.
+ * depending on the paymentElementEnabled flag.
  */
-async function addCardToDB(token: string): Promise<void> {
+async function addCardToDB(res: string): Promise<void> {
     try {
-        await billingStore.addCreditCard(token);
+        const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
+        await action(res);
         notify.success('Card successfully added');
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
 
-        if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+        if (route.name === RouteConfig.ProjectDashboard.name) {
             await projectsStore.getProjectLimits(projectsStore.state.selectedProject.id);
         }
 
-        if (router.currentRoute.path.includes(RouteConfig.Billing.path) || router.currentRoute.path.includes(RouteConfig.Billing2.path)) {
+        if (route.path.includes(RouteConfig.Billing.path) || route.path.includes(RouteConfig.Billing2.path)) {
             await billingStore.getCreditCards();
         }
 
-        analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+        analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
 
         loading.value = false;
         props.setSuccess();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         loading.value = false;
     }
 }

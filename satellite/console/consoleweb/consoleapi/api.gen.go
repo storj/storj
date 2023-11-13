@@ -28,8 +28,8 @@ var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
-	GenCreateProject(ctx context.Context, request console.ProjectInfo) (*console.Project, api.HTTPError)
-	GenUpdateProject(ctx context.Context, id uuid.UUID, request console.ProjectInfo) (*console.Project, api.HTTPError)
+	GenCreateProject(ctx context.Context, request console.UpsertProjectInfo) (*console.Project, api.HTTPError)
+	GenUpdateProject(ctx context.Context, id uuid.UUID, request console.UpsertProjectInfo) (*console.Project, api.HTTPError)
 	GenDeleteProject(ctx context.Context, id uuid.UUID) api.HTTPError
 	GenGetUsersProjects(ctx context.Context) ([]console.Project, api.HTTPError)
 	GenGetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
@@ -46,7 +46,7 @@ type UserManagementService interface {
 	GenGetUser(ctx context.Context) (*console.ResponseUser, api.HTTPError)
 }
 
-// ProjectManagementHandler is an api handler that exposes all projects related functionality.
+// ProjectManagementHandler is an api handler that implements all ProjectManagement API endpoints functionality.
 type ProjectManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
@@ -54,7 +54,7 @@ type ProjectManagementHandler struct {
 	auth    api.Auth
 }
 
-// APIKeyManagementHandler is an api handler that exposes all apikeys related functionality.
+// APIKeyManagementHandler is an api handler that implements all APIKeyManagement API endpoints functionality.
 type APIKeyManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
@@ -62,7 +62,7 @@ type APIKeyManagementHandler struct {
 	auth    api.Auth
 }
 
-// UserManagementHandler is an api handler that exposes all users related functionality.
+// UserManagementHandler is an api handler that implements all UserManagement API endpoints functionality.
 type UserManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
@@ -126,7 +126,7 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
-	payload := console.ProjectInfo{}
+	payload := console.UpsertProjectInfo{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -170,7 +170,7 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 		return
 	}
 
-	payload := console.ProjectInfo{}
+	payload := console.UpsertProjectInfo{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return

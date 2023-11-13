@@ -52,7 +52,7 @@ function selectClicked(event: Event): void {
         position: absolute;
         height: 20px;
         width: 20px;
-        border: 2px solid rgb(56 75 101 / 40%);
+        border: 1px solid var(--c-grey-4);
         border-radius: 4px;
         box-sizing: border-box;
     }

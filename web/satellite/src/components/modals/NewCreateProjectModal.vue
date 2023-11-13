@@ -76,20 +76,21 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -98,6 +99,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -113,8 +115,6 @@ const hasDescription = ref(false);
 const isLoading = ref(false);
 const projectName = ref('');
 const nameError = ref('');
-
-const analytics = new AnalyticsHttpApi();
 
 /**
  * Sets project name from input value.
@@ -153,13 +153,14 @@ async function onCreateProjectClick(): Promise<void> {
     } catch (error) {
         isLoading.value = false;
         nameError.value = error.message;
-        analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
+        analyticsStore.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
 
         return;
     }
 
     try {
-        createdProjectId.value = await projectsStore.createProject(project);
+        const newProj = await projectsStore.createProject(project);
+        createdProjectId.value = newProj.id;
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
         isLoading.value = false;
@@ -176,13 +177,18 @@ async function onCreateProjectClick(): Promise<void> {
 
     bucketsStore.clearS3Data();
 
-    if (usersStore.shouldOnboard && configStore.state.config.allProjectsDashboard) {
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+    if (usersStore.shouldOnboard) {
+        analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;
     }
 
-    appStore.updateActiveModal(MODALS.enterPassphrase);
+    analyticsStore.pageVisit(RouteConfig.ProjectDashboard.path);
+    await router.push(RouteConfig.ProjectDashboard.path);
+
+    if (usersStore.state.settings.passphrasePrompt) {
+        appStore.updateActiveModal(MODALS.enterPassphrase);
+    }
 }
 
 /**
@@ -249,7 +255,7 @@ function closeModal(): void {
         }
     }
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
         width: calc(100% - 48px);
         padding: 54px 24px 32px;
     }
@@ -269,7 +275,7 @@ function closeModal(): void {
         justify-content: space-between;
         column-gap: 20px;
 
-        @media screen and (max-width: 550px) {
+        @media screen and (width <= 550px) {
             column-gap: unset;
             row-gap: 8px;
             flex-direction: column-reverse;
@@ -300,7 +306,7 @@ function closeModal(): void {
     margin-top: 20px;
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     :deep(.add-label) {
         display: none;

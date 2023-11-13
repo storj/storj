@@ -18,6 +18,8 @@ import (
 )
 
 // CommitObjectWithSegments contains arguments necessary for committing an object.
+//
+// TODO: not ready for production.
 type CommitObjectWithSegments struct {
 	ObjectStream
 
@@ -27,9 +29,18 @@ type CommitObjectWithSegments struct {
 
 	// TODO: this probably should use segment ranges rather than individual items
 	Segments []SegmentPosition
+
+	// DisallowDelete indicates whether the user is allowed to overwrite
+	// the previous unversioned object.
+	DisallowDelete bool
+
+	// Versioned indicates whether an object is allowed to have multiple versions.
+	Versioned bool
 }
 
 // CommitObjectWithSegments commits pending object to the database.
+//
+// TODO: not ready for production.
 func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWithSegments) (object Object, deletedSegments []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -40,9 +51,19 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, nil, err
 	}
 
+	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
+
+		precommit, err = db.precommitConstraint(ctx, precommitConstraint{
+			Location:       opts.Location(),
+			Versioned:      opts.Versioned,
+			DisallowDelete: opts.DisallowDelete,
+		}, tx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
 		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
 		if err != nil {
@@ -86,35 +107,38 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
+		nextStatus := committedWhereVersioned(opts.Versioned)
+		nextVersion := opts.Version
+		if nextVersion < precommit.HighestVersion {
+			nextVersion = precommit.HighestVersion + 1
+		}
+
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
-				status =`+committedStatus+`,
-				segment_count = $6,
+				version = $14,
+				status = $6,
+				segment_count = $7,
 
-				encrypted_metadata_nonce         = $7,
-				encrypted_metadata               = $8,
-				encrypted_metadata_encrypted_key = $9,
+				encrypted_metadata_nonce         = $8,
+				encrypted_metadata               = $9,
+				encrypted_metadata_encrypted_key = $10,
 
-				total_plain_size     = $10,
-				total_encrypted_size = $11,
-				fixed_segment_size   = $12,
+				total_plain_size     = $11,
+				total_encrypted_size = $12,
+				fixed_segment_size   = $13,
 				zombie_deletion_deadline = NULL
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+pendingStatus+`
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+				status = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
 			len(finalSegments),
 			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
+			nextVersion,
 		).
 			Scan(
 				&object.CreatedAt, &object.ExpiresAt,
@@ -131,8 +155,8 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		object.ProjectID = opts.ProjectID
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
-		object.Version = opts.Version
-		object.Status = Committed
+		object.Version = nextVersion
+		object.Status = nextStatus
 		object.SegmentCount = int32(len(finalSegments))
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.EncryptedMetadata = opts.EncryptedMetadata
@@ -145,6 +169,8 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	if err != nil {
 		return Object{}, nil, err
 	}
+
+	precommit.submitMetrics()
 
 	mon.Meter("object_commit").Mark(1)
 	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
@@ -264,8 +290,9 @@ func convertToFinalSegments(segmentsInDatabase []segmentInfoForCommit) (commit [
 // updateSegmentOffsets updates segment offsets that didn't match the database state.
 func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, updates []segmentToCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(updates) == 0 {
-		return
+		return nil
 	}
 
 	// We may be able to skip this, if the database state have been already submitted

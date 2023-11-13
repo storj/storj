@@ -45,7 +45,7 @@ func newGracefulExitInitCmd(f *Factory) *cobra.Command {
 		Annotations: map[string]string{"type": "helper"},
 	}
 
-	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir))
+	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir), cfgstruct.IdentityDir(f.IdentityDir))
 
 	return cmd
 }
@@ -61,7 +61,7 @@ func newGracefulExitStatusCmd(f *Factory) *cobra.Command {
 		Annotations: map[string]string{"type": "helper"},
 	}
 
-	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir))
+	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir), cfgstruct.IdentityDir(f.IdentityDir))
 
 	return cmd
 }

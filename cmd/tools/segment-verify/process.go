@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"go.uber.org/zap"
@@ -82,24 +83,29 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 	limiter := sync2.NewLimiter(service.config.Concurrency)
 	for _, batch := range batches {
 		batch := batch
+		log := service.log.With(zap.Int("num pieces", batch.Len()))
 
 		info, err := service.GetNodeInfo(ctx, batch.Alias)
 		if err != nil {
 			if ErrNoSuchNode.Has(err) {
-				service.log.Error("will not verify batch; consider pieces lost",
-					zap.Int("alias", int(batch.Alias)),
-					zap.Error(err))
+				log.Info("node has left the cluster; considering pieces lost",
+					zap.Int("alias", int(batch.Alias)))
+				for _, seg := range batch.Items {
+					seg.Status.MarkNotFound()
+				}
 				continue
 			}
 			return Error.Wrap(err)
 		}
+		log = log.With(zap.Stringer("node ID", info.NodeURL.ID))
 
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
 			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, info.NodeURL, info.Version, batch.Items, ignoreThrottle)
 			if err != nil {
-				if ErrNodeOffline.Has(err) {
+				switch {
+				case ErrNodeOffline.Has(err):
 					mu.Lock()
 					if verifiedCount == 0 {
 						service.offlineNodes.Add(batch.Alias)
@@ -110,8 +116,14 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 						}
 					}
 					mu.Unlock()
+					log.Info("node is offline; marking pieces as retryable")
+					return
+				case errors.Is(err, context.DeadlineExceeded):
+					log.Info("request to node timed out; marking pieces as retryable")
+					return
+				default:
+					log.Error("verifying a batch failed", zap.Error(err))
 				}
-				service.log.Error("verifying a batch failed", zap.Error(err))
 			} else {
 				mu.Lock()
 				if service.offlineCount[batch.Alias] > 0 {
@@ -128,8 +140,12 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 
 // convertAliasToNodeURL converts a node alias to node url, using a cache if needed.
 func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
+	service.mu.RLock()
 	nodeURL, ok := service.aliasToNodeURL[alias]
+	service.mu.RUnlock()
 	if !ok {
+		service.mu.Lock()
+		defer service.mu.Unlock()
 		nodeID, ok := service.aliasMap.Node(alias)
 		if !ok {
 			latest, err := service.metabase.LatestNodesAliasMap(ctx)

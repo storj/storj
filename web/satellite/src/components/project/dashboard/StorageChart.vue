@@ -50,14 +50,16 @@ const chartData = computed((): ChartData => {
         datasets: [{
             data,
             fill: true,
-            backgroundColor: '#E6EDF7',
-            borderColor: '#D7E8FF',
+            backgroundColor: '#c3c3c310',
+            borderColor: '#c3c3c3',
             pointHoverBackgroundColor: '#FFFFFF',
-            pointBorderColor: '#003DC1',
-            pointHoverBorderWidth: 4,
-            radius: xAxisDateLabels.length === 1 ? 10 : 0,
-            hoverRadius: 10,
-            hitRadius: 8,
+            pointBorderColor: '#c3c3c3',
+            pointHoverBorderWidth: 3,
+            hoverRadius: 8,
+            hitRadius: 3,
+            pointRadius: 2,
+            pointBorderWidth: 1,
+            pointBackgroundColor: '#FFFFFF',
         }],
     };
 });
@@ -98,7 +100,6 @@ watch(() => props.width, () => {
     .tooltip {
         margin: 8px;
         position: relative;
-        box-shadow: 0 5px 14px rgb(9 87 203 / 26%);
         border-radius: 100px;
         padding-top: 8px;
         width: 145px;
@@ -106,13 +107,14 @@ watch(() => props.width, () => {
         display: flex;
         flex-direction: column;
         align-items: center;
-        background-color: var(--c-blue-4);
+        background-color: #e4e4e4;
+        box-shadow: rgb(0 0 0 / 3%) 0 1px 10px 10px !important;
 
         &__value {
             font-size: 14px;
             line-height: 26px;
             text-align: center;
-            color: #fff;
+            color: #444;
             white-space: nowrap;
 
             &__bold {
@@ -126,7 +128,7 @@ watch(() => props.width, () => {
             border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
-            background-color: var(--c-blue-4);
+            background-color: #e4e4e4;
         }
     }
 </style>

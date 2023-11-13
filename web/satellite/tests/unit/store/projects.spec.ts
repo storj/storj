@@ -1,17 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
-import { ProjectsApiGql } from '@/api/projects';
+import { ProjectsHttpApi } from '@/api/projects';
 import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { randomUUID } from '@/utils/idGenerator';
 
 const limits = new ProjectLimits(15, 12, 14, 13);
-const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
+const project = new Project(randomUUID(), 'name', 'descr', '23', 'testOwnerId');
 const projects = [
     new Project(
-        '11',
+        randomUUID(),
         'name',
         'descr',
         '23',
@@ -19,7 +21,7 @@ const projects = [
         false,
     ),
     new Project(
-        '1',
+        randomUUID(),
         'name2',
         'descr2',
         '24',
@@ -31,35 +33,35 @@ const projects = [
 describe('actions', () => {
     beforeEach(() => {
         setActivePinia(createPinia());
-        jest.resetAllMocks();
+        vi.resetAllMocks();
     });
 
     it('select project', () => {
         const store = useProjectsStore();
 
         store.state.projects = projects;
-        store.selectProject('11');
+        store.selectProject(projects[0].id);
 
-        expect(store.state.selectedProject.id).toBe('11');
+        expect(store.state.selectedProject.id).toBe(projects[0].id);
         expect(store.state.currentLimits.bandwidthLimit).toBe(0);
     });
 
     it('success fetch projects', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'get').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'get').mockReturnValue(
             Promise.resolve(projects),
         );
 
         await store.getProjects();
 
-        expect(store.state.projects).toBe(projects);
+        expect(store.state.projects).toStrictEqual(projects);
     });
 
     it('fetch throws an error when api call fails', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'get').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsHttpApi.prototype, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.getProjects();
@@ -72,7 +74,7 @@ describe('actions', () => {
     it('success create project', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'create').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'create').mockReturnValue(
             Promise.resolve(project),
         );
 
@@ -85,7 +87,7 @@ describe('actions', () => {
     it('create throws an error when create api call fails', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'create').mockImplementation(() => { throw new Error(); });
+        vi.spyOn(ProjectsHttpApi.prototype, 'create').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.createProject(new ProjectFields());
@@ -99,7 +101,7 @@ describe('actions', () => {
     it('success update project name', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -115,7 +117,7 @@ describe('actions', () => {
     it('success update project description', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'update').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -131,7 +133,7 @@ describe('actions', () => {
     it('success get project limits', async () => {
         const store = useProjectsStore();
 
-        jest.spyOn(ProjectsApiGql.prototype, 'getLimits').mockReturnValue(
+        vi.spyOn(ProjectsHttpApi.prototype, 'getLimits').mockReturnValue(
             Promise.resolve(limits),
         );
 

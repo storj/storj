@@ -9,7 +9,7 @@
                     Add STORJ Tokens
                 </h1>
                 <p class="modal__info">
-                    Send STORJ Tokens to the following deposit address to credit your Storj DCS account:
+                    Send STORJ Tokens to the following deposit address to credit your Storj account:
                 </p>
                 <div class="modal__qr">
                     <canvas ref="canvas" class="modal__qr__canvas" />
@@ -77,7 +77,6 @@ import QRCode from 'qrcode';
 
 import { Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -105,7 +104,7 @@ const wallet = computed((): Wallet => {
  * Closes create project prompt modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.addTokenFunds);
+    appStore.removeActiveModal();
 }
 
 /**

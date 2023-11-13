@@ -13,17 +13,21 @@ import (
 // Status refers to the state of the relationship with a satellites.
 type Status = int
 
+// It is important that the values/order of these Status constants are not changed
+// because they are stored in the database.
 const (
 	// Unexpected status should not be used for sanity checking.
 	Unexpected Status = 0
 	// Normal status reflects a lack of graceful exit.
-	Normal = 1
+	Normal Status = 1
 	// Exiting reflects an active graceful exit.
-	Exiting = 2
+	Exiting Status = 2
 	// ExitSucceeded reflects a graceful exit that succeeded.
-	ExitSucceeded = 3
+	ExitSucceeded Status = 3
 	// ExitFailed reflects a graceful exit that failed.
-	ExitFailed = 4
+	ExitFailed Status = 4
+	// Untrusted reflects a satellite that is not trusted.
+	Untrusted Status = 5
 )
 
 // ExitProgress contains the status of a graceful exit.
@@ -34,14 +38,14 @@ type ExitProgress struct {
 	StartingDiskUsage int64
 	BytesDeleted      int64
 	CompletionReceipt []byte
-	Status            int32
+	Status            Status
 }
 
 // Satellite contains the satellite and status.
 type Satellite struct {
 	SatelliteID storj.NodeID
 	AddedAt     time.Time
-	Status      int32
+	Status      Status
 }
 
 // DB works with satellite database.
@@ -50,8 +54,16 @@ type Satellite struct {
 type DB interface {
 	// SetAddress inserts into satellite's db id, address.
 	SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) error
+	// SetAddressAndStatus inserts into satellite's db id, address and status.
+	SetAddressAndStatus(ctx context.Context, satelliteID storj.NodeID, address string, status Status) error
 	// GetSatellite retrieves that satellite by ID
 	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
+	// GetSatellites retrieves all satellites, including untrusted ones.
+	GetSatellites(ctx context.Context) (sats []Satellite, err error)
+	// DeleteSatellite removes that satellite by ID.
+	DeleteSatellite(ctx context.Context, satelliteID storj.NodeID) error
+	// UpdateSatelliteStatus updates the status of the satellite.
+	UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status Status) error
 	// GetSatellitesUrls retrieves all satellite's id and urls.
 	GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit

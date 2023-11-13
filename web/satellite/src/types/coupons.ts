@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 export enum CouponType {
-	NoCoupon = 'noCoupon',
-	FreeTierCoupon = 'freeTierCoupon',
-	SignupCoupon = 'signupCoupon'
+    NoCoupon = 'noCoupon',
+    FreeTierCoupon = 'freeTierCoupon',
+    SignupCoupon = 'signupCoupon'
 }

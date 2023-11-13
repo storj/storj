@@ -8,8 +8,10 @@
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
                 <p class="account-area__wrap__left__label-small">Account</p>
-                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                <template v-if="billingEnabled">
+                    <TierBadgePro v-if="isPaidTier" class="account-area__wrap__left__tier-badge" />
+                    <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                </template>
             </div>
             <ArrowImage class="account-area__wrap__arrow" />
         </div>
@@ -31,11 +33,11 @@
                     </a>
                 </div>
             </div>
-            <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+            <div v-if="!isPaidTier && billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
                 <UpgradeIcon />
                 <p class="account-area__dropdown__item__label">Upgrade</p>
             </div>
-            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
+            <div v-if="billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
             </div>
@@ -53,14 +55,13 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-import { User } from '@/types/users';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -72,6 +73,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -85,6 +87,7 @@ import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
 
 const configStore = useConfigStore();
@@ -98,13 +101,18 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const pmStore = useProjectMembersStore();
 const notificationsStore = useNotificationsStore();
+const analyticsStore = useAnalyticsStore();
 
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const dropdownYPos = ref<number>(0);
 const dropdownXPos = ref<number>(0);
 const accountArea = ref<HTMLDivElement>();
+
+/**
+ * Indicates if billing features are enabled.
+ */
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
  * Returns bottom and left position of dropdown.
@@ -128,10 +136,10 @@ const satellite = computed((): string => {
 });
 
 /**
- * Returns user entity from store.
+ * Indicates if user is in paid tier.
  */
-const user = computed((): User => {
-    return usersStore.state.user;
+const isPaidTier = computed((): boolean => {
+    return usersStore.state.user.paidTier;
 });
 
 /**
@@ -139,6 +147,8 @@ const user = computed((): User => {
  */
 function onUpgrade(): void {
     closeDropdown();
+
+    if (!billingEnabled.value) return;
 
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
@@ -149,10 +159,10 @@ function onUpgrade(): void {
 function navigateToBilling(): void {
     closeDropdown();
 
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
     router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
 }
 
 /**
@@ -160,7 +170,7 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     closeDropdown();
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
     router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
 }
 
@@ -168,8 +178,8 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
-    router.push(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
 
     await Promise.all([
         pmStore.clear(),
@@ -186,10 +196,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
     }
 }
 
@@ -202,12 +212,15 @@ function toggleDropdown(): void {
     }
 
     const DROPDOWN_HEIGHT = 224; // pixels
-    const SIXTEEN_PIXELS = 16;
+    const FIFTY_THREE_PIXELS = 53; // height of a single child element.
     const TWENTY_PIXELS = 20;
-    const SEVENTY_PIXELS = 70;
     const accountContainer = accountArea.value.getBoundingClientRect();
 
-    dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (usersStore.state.user.paidTier ? SIXTEEN_PIXELS : SEVENTY_PIXELS);
+    if (billingEnabled.value) {
+        dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - (isPaidTier.value ? 0 : FIFTY_THREE_PIXELS);
+    } else {
+        dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT + FIFTY_THREE_PIXELS;
+    }
     dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
     appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);
@@ -408,7 +421,7 @@ function closeDropdown(): void {
         }
     }
 
-    @media screen and (max-width: 1280px) and (min-width: 500px) {
+    @media screen and (width <= 1280px) and (width >= 500px) {
 
         .account-area__wrap {
             padding: 10px 0;

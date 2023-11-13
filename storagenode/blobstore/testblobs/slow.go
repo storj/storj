@@ -139,6 +139,14 @@ func (slow *SlowBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err err
 	return slow.blobs.DeleteNamespace(ctx, ref)
 }
 
+// DeleteTrashNamespace deletes the trash folder for the specified namespace.
+func (slow *SlowBlobs) DeleteTrashNamespace(ctx context.Context, namespace []byte) error {
+	if err := slow.sleep(ctx); err != nil {
+		return err
+	}
+	return slow.blobs.DeleteTrashNamespace(ctx, namespace)
+}
+
 // Stat looks up disk metadata on the blob file.
 func (slow *SlowBlobs) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	if err := slow.sleep(ctx); err != nil {
@@ -155,6 +163,14 @@ func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref blobstore.
 		return nil, errs.Wrap(err)
 	}
 	return slow.blobs.StatWithStorageFormat(ctx, ref, formatVer)
+}
+
+// TryRestoreTrashPiece attempts to restore a piece from trash.
+func (slow *SlowBlobs) TryRestoreTrashPiece(ctx context.Context, ref blobstore.BlobRef) error {
+	if err := slow.sleep(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+	return slow.blobs.TryRestoreTrashPiece(ctx, ref)
 }
 
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.

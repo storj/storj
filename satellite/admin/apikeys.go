@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -28,10 +29,15 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -59,7 +65,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.db.Console().APIKeys().GetByNameAndProjectID(ctx, input.Name, projectUUID)
+	_, err = server.db.Console().APIKeys().GetByNameAndProjectID(ctx, input.Name, project.ID)
 	if err == nil {
 		sendJSONError(w, "api-key with given name already exists",
 			"", http.StatusConflict)
@@ -82,7 +88,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	apikey := console.APIKeyInfo{
 		Name:      input.Name,
-		ProjectID: projectUUID,
+		ProjectID: project.ID,
 		Secret:    secret,
 	}
 
@@ -99,6 +105,96 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	output.APIKey = key.Serialize()
 	data, err := json.Marshal(output)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
+func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	apikeyString, ok := vars["apikey"]
+	if !ok {
+		sendJSONError(w, "apikey missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	apikey, err := macaroon.ParseAPIKey(apikeyString)
+	if err != nil {
+		sendJSONError(w, "invalid apikey format",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	apiKeyInfo, err := server.db.Console().APIKeys().GetByHead(ctx, apikey.Head())
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "API key does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "could not get apikey id",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, apiKeyInfo.ProjectID)
+	if err != nil {
+		sendJSONError(w, "unable to fetch project details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	user, err := server.db.Console().Users().Get(ctx, project.OwnerID)
+	if err != nil {
+		sendJSONError(w, "unable to fetch user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type apiKeyData struct {
+		ID        uuid.UUID `json:"id"`
+		Name      string    `json:"name"`
+		CreatedAt time.Time `json:"createdAt"`
+	}
+	type projectData struct {
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
+	}
+	type ownerData struct {
+		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"fullName"`
+		Email    string    `json:"email"`
+		PaidTier bool      `json:"paidTier"`
+	}
+
+	data, err := json.Marshal(struct {
+		APIKey  apiKeyData  `json:"api_key"`
+		Project projectData `json:"project"`
+		Owner   ownerData   `json:"owner"`
+	}{
+		APIKey: apiKeyData{
+			ID:        apiKeyInfo.ID,
+			Name:      apiKeyInfo.Name,
+			CreatedAt: apiKeyInfo.CreatedAt.UTC(),
+		},
+		Project: projectData{
+			ID:   project.ID,
+			Name: project.Name,
+		},
+		Owner: ownerData{
+			ID:       user.ID,
+			FullName: user.FullName,
+			Email:    user.Email,
+			PaidTier: user.PaidTier,
+		},
+	})
 	if err != nil {
 		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
@@ -157,10 +253,15 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -171,7 +272,7 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, projectUUID)
+	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, project.ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "API key with specified name does not exist",
 			"", http.StatusNotFound)
@@ -202,10 +303,15 @@ func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.FromString(projectUUIDString)
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		sendJSONError(w, "invalid project-uuid",
-			err.Error(), http.StatusBadRequest)
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -213,7 +319,7 @@ func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 	var apiKeys []console.APIKeyInfo
 	for i := uint(1); true; i++ {
 		page, err := server.db.Console().APIKeys().GetPagedByProjectID(
-			ctx, projectUUID, console.APIKeyCursor{
+			ctx, project.ID, console.APIKeyCursor{
 				Limit:          apiKeysPerPage,
 				Page:           i,
 				Order:          console.KeyName,

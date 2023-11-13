@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -16,7 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
@@ -41,7 +43,7 @@ func TestOrderDBSettle(t *testing.T) {
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
 			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: bucketname},
-			[]*overlay.SelectedNode{
+			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
 			time.Now().Add(2*time.Hour),
@@ -124,6 +126,63 @@ func TestOrderFileStoreSettle(t *testing.T) {
 	})
 }
 
+func TestOrderFileStoreSettle_UntrustedSatellite(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		satellite2 := planet.Satellites[1]
+		uplinkPeer := planet.Uplinks[0]
+		satellite.Audit.Worker.Loop.Pause()
+		node := planet.StorageNodes[0]
+		service := node.Storage2.Orders
+		service.Sender.Pause()
+		service.Cleanup.Pause()
+		tomorrow := time.Now().Add(24 * time.Hour)
+
+		// upload a file to generate an order on the storagenode
+		testData := testrand.Bytes(8 * memory.KiB)
+		require.NoError(t, uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData))
+		testData2 := testrand.Bytes(8 * memory.KiB)
+		require.NoError(t, uplinkPeer.Upload(ctx, satellite2, "testbucket", "test/path", testData2))
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		// mark satellite2 as untrusted
+		require.NoError(t, node.Storage2.Trust.DeleteSatellite(ctx, satellite2.ID()))
+
+		toSend, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
+		require.NoError(t, err)
+		require.Len(t, toSend, 2)
+		ordersForSat := toSend[satellite.ID()]
+		require.Len(t, ordersForSat.InfoList, 1)
+		ordersForSat2 := toSend[satellite2.ID()]
+		require.Len(t, ordersForSat2.InfoList, 1)
+
+		// create new observed logger
+		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
+		observedLogger := zap.New(observedZapCore).Named("orders")
+		service.TestSetLogger(observedLogger)
+		// trigger order send
+		service.SendOrders(ctx, tomorrow)
+
+		// check that the untrusted satellite was skipped
+		require.NotZero(t, observedLogs.All())
+		skipLogs := observedLogs.FilterMessage("skipping order settlement for untrusted satellite. Order will be archived").All()
+		require.Len(t, skipLogs, 1)
+		logFields := observedLogs.FilterField(zap.String("satellite ID", satellite2.ID().String())).All()
+		require.Len(t, logFields, 1)
+
+		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
+		require.NoError(t, err)
+		require.Len(t, toSend, 0)
+
+		archived, err := node.OrdersStore.ListArchived()
+		require.NoError(t, err)
+		require.Len(t, archived, 2)
+	})
+}
+
 // TODO remove when db is removed.
 // TestOrderFileStoreAndDBSettle ensures that if orders exist in both DB and filestore, that the DB orders and filestore are both settled.
 func TestOrderFileStoreAndDBSettle(t *testing.T) {
@@ -147,7 +206,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
 			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: bucketname},
-			[]*overlay.SelectedNode{
+			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
 			time.Now().Add(2*time.Hour),

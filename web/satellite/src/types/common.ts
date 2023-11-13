@@ -4,12 +4,20 @@
 export enum SortDirection {
     ASCENDING = 1,
     DESCENDING,
+    asc = 1,
+    desc = 2,
 }
 
 export enum OnboardingOS {
     WINDOWS = 'windows',
     MAC = 'macos',
     LINUX = 'linux',
+}
+
+export enum OnboardingOption {
+    Browser = 'Continue in Browser',
+    CLI = 'CLI',
+    Skip = 'Skip',
 }
 
 export class PricingPlanInfo {
@@ -40,3 +48,16 @@ export enum PricingPlanType {
 export type UUID = string
 export type MemorySize = string
 export type Time = string
+
+export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {title: string, value: number}[] {
+    const opts = [
+        { title: '10', value: 10 },
+        { title: '25', value: 25 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
+    ];
+    if (itemCount < 1000 && !isObjectBrowser) {
+        return [{ title: 'All', value: itemCount }, ...opts];
+    }
+    return opts;
+}

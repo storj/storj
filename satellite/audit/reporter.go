@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
@@ -22,6 +23,7 @@ type reporter struct {
 	log              *zap.Logger
 	reputations      *reputation.Service
 	overlay          *overlay.Service
+	metabase         *metabase.DB
 	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
@@ -40,8 +42,10 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
+	Segment *metabase.Segment
+
 	Successes       storj.NodeIDList
-	Fails           storj.NodeIDList
+	Fails           metabase.Pieces
 	Offlines        storj.NodeIDList
 	PendingAudits   []*ReverificationJob
 	Unknown         storj.NodeIDList
@@ -49,11 +53,12 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, metabase *metabase.DB, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
 	return &reporter{
 		log:              log,
 		reputations:      reputations,
 		overlay:          overlay,
+		metabase:         metabase,
 		containment:      containment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount,
@@ -72,7 +77,11 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
-	reporter.log.Debug("Reporting audits",
+	logger := reporter.log
+	if req.Segment != nil {
+		logger = logger.With(zap.Stringer("stream ID", req.Segment.StreamID), zap.Uint64("position", req.Segment.Position.Encode()))
+	}
+	logger.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
 		zap.Int("failures", len(fails)),
 		zap.Int("unknowns", len(unknowns)),
@@ -102,8 +111,8 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 
 		successes, err = reporter.recordAuditStatus(ctx, successes, nodesReputation, reputation.AuditSuccess)
 		reportFailures(tries, "successful", err, successes, nil)
-		fails, err = reporter.recordAuditStatus(ctx, fails, nodesReputation, reputation.AuditFailure)
-		reportFailures(tries, "failed", err, fails, nil)
+		fails, err = reporter.recordFailedAudits(ctx, req.Segment, fails, nodesReputation)
+		reportFailures(tries, "failed", err, nil, nil)
 		unknowns, err = reporter.recordAuditStatus(ctx, unknowns, nodesReputation, reputation.AuditUnknown)
 		reportFailures(tries, "unknown", err, unknowns, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
@@ -124,7 +133,7 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 		err = reporter.reputations.ApplyAudit(ctx, nodeID, nodesReputation[nodeID], auditOutcome)
 		if err != nil {
 			failed = append(failed, nodeID)
-			errors.Add(Error.New("failed to record audit status %s in overlay for node %s: %w", auditOutcome.String(), nodeID.String(), err))
+			errors.Add(Error.New("failed to record audit status %s in overlay for node %s: %w", auditOutcome.String(), nodeID, err))
 		}
 	}
 	return failed, errors.Err()
@@ -182,6 +191,50 @@ func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits
 	return nil, nil
 }
 
+const maxPiecesToRemoveAtOnce = 6
+
+// recordFailedAudits performs reporting and response to hard-failed audits. Failed audits generally
+// mean the piece is gone. Remove the pieces from the relevant pointers so that the segment can be
+// repaired if appropriate, and so that we don't continually dock reputation for the same missing
+// piece(s).
+func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metabase.Segment, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failedToRecord []metabase.Piece, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	piecesToRemove := make(metabase.Pieces, 0, len(failures))
+	var errors errs.Group
+	for _, f := range failures {
+		err = reporter.reputations.ApplyAudit(ctx, f.StorageNode, nodesReputation[f.StorageNode], reputation.AuditFailure)
+		if err != nil {
+			failedToRecord = append(failedToRecord, f)
+			errors.Add(Error.New("failed to record audit failure in overlay for node %s: %w", f.StorageNode, err))
+		}
+		piecesToRemove = append(piecesToRemove, f)
+	}
+	if segment != nil {
+		// Safety check. If, say, 30 pieces all started having audit failures at the same time, the
+		// problem is more likely with the audit system itself and not with the pieces.
+		if len(piecesToRemove) > maxPiecesToRemoveAtOnce {
+			reporter.log.Error("cowardly refusing to remove large number of pieces for failed audit",
+				zap.Int("piecesToRemove", len(piecesToRemove)),
+				zap.Int("threshold", maxPiecesToRemoveAtOnce))
+			return failedToRecord, errors.Err()
+		}
+		pieces, err := segment.Pieces.Remove(piecesToRemove)
+		if err != nil {
+			errors.Add(err)
+			return failedToRecord, errors.Err()
+		}
+		errors.Add(reporter.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			StreamID:      segment.StreamID,
+			Position:      segment.Position,
+			OldPieces:     segment.Pieces,
+			NewRedundancy: segment.Redundancy,
+			NewPieces:     pieces,
+		}))
+	}
+	return failedToRecord, errors.Err()
+}
+
 func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -214,7 +267,26 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 		report.Successes = append(report.Successes, pendingJob.Locator.NodeID)
 		keepInQueue = false
 	case OutcomeFailure:
-		report.Fails = append(report.Fails, pendingJob.Locator.NodeID)
+		// We have to look up the segment metainfo and pass it on to RecordAudits so that
+		// the segment can be modified (removing this piece). We don't persist this
+		// information through the reverification queue.
+		segmentInfo, err := reporter.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: pendingJob.Locator.StreamID,
+			Position: pendingJob.Locator.Position,
+		})
+		if err != nil {
+			reporter.log.Error("could not look up segment after audit reverification",
+				zap.Stringer("stream ID", pendingJob.Locator.StreamID),
+				zap.Uint64("position", pendingJob.Locator.Position.Encode()),
+				zap.Error(err),
+			)
+		} else {
+			report.Segment = &segmentInfo
+		}
+		report.Fails = append(report.Fails, metabase.Piece{
+			StorageNode: pendingJob.Locator.NodeID,
+			Number:      uint16(pendingJob.Locator.PieceNum),
+		})
 		keepInQueue = false
 	case OutcomeTimedOut:
 		// This will get re-added to the reverification queue, but that is idempotent

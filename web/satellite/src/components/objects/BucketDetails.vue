@@ -15,39 +15,50 @@
                 <p>{{ bucket.name }} created at {{ creationDate }}</p>
             </div>
         </div>
-        <bucket-details-overview class="bucket-details__table" :bucket="bucket" />
+        <VButton
+            class="bucket-details__button"
+            width="unset"
+            border-radius="8px"
+            font-size="12px"
+            icon="back"
+            label="Back"
+            is-white
+            :on-press="openBucket"
+        />
+        <bucket-details-overview :bucket="bucket" />
         <VOverallLoader v-if="isLoading" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, reactive, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Bucket } from '@/types/buckets';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const router = useRouter();
+const route = useRoute();
 
 const isLoading = ref<boolean>(false);
 
@@ -69,8 +80,10 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Bucket from store found by router prop.
  */
 const bucket = computed((): Bucket => {
+    if (!projectsStore.state.selectedProject.id) return new Bucket();
+
     const data = bucketsStore.state.page.buckets.find(
-        (bucket: Bucket) => bucket.name === router.currentRoute.params.bucketName,
+        (bucket: Bucket) => bucket.name === route.query.bucketName,
     );
 
     if (!data) {
@@ -96,7 +109,7 @@ function redirectToBucketsPage(): void {
 async function openBucket(): Promise<void> {
     bucketsStore.setFileComponentBucketName(bucket.value.name);
 
-    if (router.currentRoute.params.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
+    if (route.query.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
         if (!edgeCredentials.value.accessKeyId) {
             isLoading.value = true;
 
@@ -104,19 +117,19 @@ async function openBucket(): Promise<void> {
                 await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
                 isLoading.value = false;
             } catch (error) {
-                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
+                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
                 isLoading.value = false;
                 return;
             }
         }
 
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
         return;
     }
 
-    appStore.updateActiveModal(MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.enterBucketPassphrase);
 }
 
 /**
@@ -124,7 +137,7 @@ async function openBucket(): Promise<void> {
  * Checks if bucket name was passed as route param.
  */
 onBeforeMount((): void => {
-    if (!router.currentRoute.params.bucketName) {
+    if (!route.query.bucketName) {
         redirectToBucketsPage();
     }
 });
@@ -133,6 +146,9 @@ onBeforeMount((): void => {
 <style lang="scss" scoped>
 .bucket-details {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 
     &__header {
         display: flex;
@@ -171,8 +187,15 @@ onBeforeMount((): void => {
         }
     }
 
-    &__table {
-        margin-top: 40px;
+    &__button {
+        padding: 6px 16px;
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+        align-self: flex-start;
+
+        :deep(.label) {
+            color: var(--c-black) !important;
+            line-height: 20px;
+        }
     }
 }
 </style>

@@ -12,16 +12,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/charge"
-	"github.com/stripe/stripe-go/v72/client"
-	"github.com/stripe/stripe-go/v72/customer"
-	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v72/form"
-	"github.com/stripe/stripe-go/v72/invoice"
-	"github.com/stripe/stripe-go/v72/invoiceitem"
-	"github.com/stripe/stripe-go/v72/paymentmethod"
-	"github.com/stripe/stripe-go/v72/promotioncode"
+	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v75/charge"
+	"github.com/stripe/stripe-go/v75/client"
+	"github.com/stripe/stripe-go/v75/customer"
+	"github.com/stripe/stripe-go/v75/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v75/form"
+	"github.com/stripe/stripe-go/v75/invoice"
+	"github.com/stripe/stripe-go/v75/invoiceitem"
+	"github.com/stripe/stripe-go/v75/paymentmethod"
+	"github.com/stripe/stripe-go/v75/promotioncode"
 	"go.uber.org/zap"
 
 	"storj.io/common/time2"
@@ -51,6 +51,7 @@ type Customers interface {
 type PaymentMethods interface {
 	List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter
 	New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
+	Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error)
 	Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error)
 }
@@ -60,9 +61,12 @@ type Invoices interface {
 	New(params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	List(listParams *stripe.InvoiceListParams) *invoice.Iter
 	Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
-	FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error)
+	FinalizeInvoice(id string, params *stripe.InvoiceFinalizeInvoiceParams) (*stripe.Invoice, error)
 	Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error)
 	Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
+	Get(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
+	MarkUncollectible(id string, params *stripe.InvoiceMarkUncollectibleParams) (*stripe.Invoice, error)
+	VoidInvoice(id string, params *stripe.InvoiceVoidInvoiceParams) (*stripe.Invoice, error)
 }
 
 // InvoiceItems Stripe InvoiceItems interface.

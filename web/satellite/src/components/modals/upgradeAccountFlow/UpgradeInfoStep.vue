@@ -17,10 +17,10 @@
                         :on-press="() => {}"
                     />
                     <div class="info-step__column__bullets">
-                        <InfoBullet class="info-step__column__bullets__item" title="Projects" info="1 project" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Storage" info="25 GB limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Download" info="10,000 segments limit" />
-                        <InfoBullet class="info-step__column__bullets__item" title="Segments" info="1 project" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Projects" :info="freeProjects" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Storage" :info="`${freeUsageValue(storageLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Egress" :info="`${freeUsageValue(bandwidthLimit)} limit`" />
+                        <InfoBullet class="info-step__column__bullets__item" title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                         <InfoBullet class="info-step__column__bullets__item" title="Link Sharing" info="Link sharing with Storj domain" />
                     </div>
                 </div>
@@ -34,11 +34,12 @@
                         height="48px"
                         :is-green="true"
                         :on-press="onUpgrade"
+                        :is-disabled="loading"
                     />
                     <div class="info-step__column__bullets">
                         <InfoBullet class="info-step__column__bullets__item" is-pro title="Projects" info="3 projects + more on request" />
                         <InfoBullet class="info-step__column__bullets__item" is-pro :title="storagePrice" info="25 GB free included" />
-                        <InfoBullet class="info-step__column__bullets__item" is-pro title="Download $0.007 GB" :info="downloadInfo">
+                        <InfoBullet class="info-step__column__bullets__item" is-pro title="Egress $0.007 GB" :info="downloadInfo">
                             <template v-if="downloadMoreInfo" #moreInfo>
                                 <p class="info-step__column__bullets__message">{{ downloadMoreInfo }}</p>
                             </template>
@@ -47,7 +48,7 @@
                             <template #moreInfo>
                                 <a
                                     class="info-step__column__bullets__link"
-                                    href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment"
+                                    href="https://docs.storj.io/dcs/pricing#per-segment-fee"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
@@ -64,25 +65,66 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 
+import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
+import { User } from '@/types/users';
+import { Size } from '@/utils/bytesSize';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import VButton from '@/components/common/VButton.vue';
 import InfoBullet from '@/components/modals/upgradeAccountFlow/InfoBullet.vue';
 
+const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 
 const props = defineProps<{
+    loading: boolean;
     onUpgrade: () => void;
 }>();
 
 const storagePrice = ref<string>('Storage $0.004 GB / month');
 const downloadInfo = ref<string>('25 GB free every month');
 const downloadMoreInfo = ref<string>('');
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return usersStore.state.user;
+});
+
+/**
+ * Returns project storage limit.
+ */
+const storageLimit = computed((): number => {
+    return projectsStore.state.currentLimits.storageLimit;
+});
+
+/**
+ * Returns project bandwidth limit.
+ */
+const bandwidthLimit = computed((): number => {
+    return projectsStore.state.currentLimits.bandwidthLimit;
+});
+
+/**
+ * Returns formatted free projects count.
+ */
+const freeProjects = computed((): string => {
+    return `${user.value.projectLimit} project${user.value.projectLimit > 1 ? 's' : ''}`;
+});
+
+/**
+ * Returns formatted free usage value.
+ */
+function freeUsageValue(value: number): string {
+    const size = new Size(value);
+    return `${size.formattedBytes} ${size.label}`;
+}
 
 /**
  * Lifecycle hook before initial render.
@@ -121,7 +163,7 @@ onBeforeMount(() => {
     &__column {
 
         &:first-of-type {
-            @media screen and (max-width: 690px) {
+            @media screen and (width <= 690px) {
                 display: none;
             }
         }

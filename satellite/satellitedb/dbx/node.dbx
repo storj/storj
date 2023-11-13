@@ -15,8 +15,8 @@ model node (
     index (
         // N.B. the index doesn't have a name which clarifies its purpose because
         // it was created in the production DBs as it's before being added here
-        name nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
-        fields type last_contact_success free_disk  major minor patch vetted_at
+        name nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+        fields last_contact_success free_disk  major minor patch vetted_at
         where node.disqualified = null
         where node.unknown_audit_suspended = null
         where node.exit_initiated_at = null
@@ -27,8 +27,8 @@ model node (
     index (
         // N.B. the index doesn't have a name which clarifies its purpose because
         // it was created in the production DBs as it's before being added here
-        name nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index
-        fields disqualified  unknown_audit_suspended  exit_initiated_at  release  type  last_contact_success
+        name nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index
+        fields disqualified  unknown_audit_suspended  exit_initiated_at  release last_contact_success
         where node.disqualified = null
         where node.unknown_audit_suspended = null
         where node.exit_initiated_at = null
@@ -135,6 +135,9 @@ model node (
     // node can defend against. this is not the limit of messages, just the
     // limit of how many of the same message can be debounced.
     field debounce_limit int ( updatable, default 0 )
+
+    // features is a bitmask of pb.NodeAddress_Feature values.
+    field features int ( updatable, default 0 )
 )
 
 update node ( where node.id = ? )
@@ -244,3 +247,34 @@ read first (
 )
 
 delete node_event ( where node_event.created_at < ? )
+
+model node_tags (
+
+    key node_id name signer
+
+    // node_id is the storagenode storj.NodeID who reported the tag
+    field node_id            blob
+
+    // name is the identififer of the k=v pair
+    field name               text
+
+    // value structure depends on the name
+    field value              blob
+
+    // timestamp represents the time of the issue (also signed).
+    field signed_at          timestamp
+
+    // signer is the node_id of the signer
+    field signer             blob
+)
+
+create node_tags ( noreturn, replace )
+
+read all (
+	select node_tags
+	where node_tags.node_id = ?
+)
+
+read all (
+        select node_tags
+)

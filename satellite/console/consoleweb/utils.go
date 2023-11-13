@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/zeebo/errs"
 
@@ -21,16 +22,20 @@ import (
 // ContentLengthLimit describes 4KB limit.
 const ContentLengthLimit = 4 * memory.KB
 
-func init() {
-	err := mime.AddExtensionType(".ttf", "font/ttf")
-	if err != nil {
-		panic(err.Error())
-	}
+var _initAdditionalMimeTypes sync.Once
 
-	err = mime.AddExtensionType(".txt", "text/plain")
-	if err != nil {
-		panic(err.Error())
-	}
+// initAdditionalMimeTypes initializes additional mime types,
+// however we do it lazily to avoid needing to load OS mime types in tests.
+func initAdditionalMimeTypes() {
+	_initAdditionalMimeTypes.Do(func() {
+		_ = mime.AddExtensionType(".ttf", "font/ttf")
+		_ = mime.AddExtensionType(".txt", "text/plain")
+	})
+}
+
+func typeByExtension(ext string) string {
+	initAdditionalMimeTypes()
+	return mime.TypeByExtension(ext)
 }
 
 // JSON request from graphql clients.

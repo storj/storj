@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package checker
+package checker_test
 
 import (
 	"context"
@@ -15,16 +15,17 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
 )
 
 func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, "", "", overlay.Config{
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, overlay.NewPlacementDefinitions().CreateFilters, "", "", overlay.Config{
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},
@@ -35,13 +36,13 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := NewReliabilityCache(overlayCache, time.Millisecond)
+	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond)
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
 			for i := 0; i < 10000; i++ {
-				pieces := []metabase.Piece{{StorageNode: testrand.NodeID()}}
-				_, err := cache.MissingPieces(ctx, time.Now(), pieces)
+				nodeIDs := []storj.NodeID{testrand.NodeID()}
+				_, err := cache.GetNodes(ctx, time.Now(), nodeIDs, make([]nodeselection.SelectedNode, len(nodeIDs)))
 				if err != nil {
 					return err
 				}
@@ -55,11 +56,11 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) Reliable(context.Context, *overlay.NodeCriteria) (storj.NodeIDList, error) {
-	return storj.NodeIDList{
-		testrand.NodeID(),
-		testrand.NodeID(),
-		testrand.NodeID(),
-		testrand.NodeID(),
+func (fakeOverlayDB) GetParticipatingNodes(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, error) {
+	return []nodeselection.SelectedNode{
+		{ID: testrand.NodeID(), Online: true},
+		{ID: testrand.NodeID(), Online: true},
+		{ID: testrand.NodeID(), Online: true},
+		{ID: testrand.NodeID(), Online: true},
 	}, nil
 }

@@ -33,15 +33,16 @@ func TestShare(t *testing.T) {
 		state.Succeed(t, "share", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 		`)
 	})
 
@@ -51,15 +52,16 @@ func TestShare(t *testing.T) {
 		state.Succeed(t, "share", "--readonly", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 		`)
 	})
 
@@ -69,15 +71,16 @@ func TestShare(t *testing.T) {
 		state.Succeed(t, "share", "--disallow-lists", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Disallowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Disallowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 		`)
 	})
 
@@ -87,15 +90,16 @@ func TestShare(t *testing.T) {
 		state.Succeed(t, "share", "--disallow-reads", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Disallowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Disallowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 		`)
 	})
 
@@ -116,33 +120,54 @@ func TestShare(t *testing.T) {
 		state.Succeed(t, "share", "--public", "--not-after=none", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 		`)
 	})
 
-	t.Run("share access with --not-after time restriction parameter", func(t *testing.T) {
+	t.Run("share access with --not-after", func(t *testing.T) {
 		state := ultest.Setup(commands)
 
 		state.Succeed(t, "share", "--not-after", "2022-01-01T15:01:01-01:00", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : 2022-01-01 16:01:01
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : 2022-01-01 16:01:01
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
+		`)
+	})
+
+	t.Run("share access with --max-object-ttl", func(t *testing.T) {
+		state := ultest.Setup(commands)
+
+		state.Succeed(t, "share", "--max-object-ttl", "720h", "--readonly=false", "sj://some/prefix").RequireStdoutGlob(t, `
+			Sharing access to satellite *
+			=========== ACCESS RESTRICTIONS ==========================================================
+			Download     : Allowed
+			Upload       : Allowed
+			Lists        : Allowed
+			Deletes      : Allowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : 720h0m0s
+			Paths        : sj://some/prefix
+			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
+			Access       : *
 		`)
 	})
 
@@ -184,15 +209,16 @@ func TestShare(t *testing.T) {
 		expected := `
 			Sharing access to satellite *
 			=========== ACCESS RESTRICTIONS ==========================================================
-			Download  : Allowed
-			Upload    : Disallowed
-			Lists     : Allowed
-			Deletes   : Disallowed
-			NotBefore : No restriction
-			NotAfter  : No restriction
-			Paths     : sj://some/prefix
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
 			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
-			Access    : *
+			Access       : *
 			========== GATEWAY CREDENTIALS ===========================================================
 			Access Key ID: accesskeyid
 			Secret Key   : secretkey

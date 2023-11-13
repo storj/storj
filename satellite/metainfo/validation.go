@@ -247,9 +247,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (endpoint *Endpoint) validateBucketNameLength(bucket []byte) (err error) {
 	if len(bucket) == 0 {
 		return Error.Wrap(buckets.ErrNoBucket.New(""))
 	}
@@ -258,11 +256,19 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 		return Error.New("bucket name must be at least 3 and no more than 63 characters long")
 	}
 
+	return nil
+}
+
+func (endpoint *Endpoint) validateBucketName(bucket []byte) error {
+	if err := endpoint.validateBucketNameLength(bucket); err != nil {
+		return err
+	}
+
 	// Regexp not used because benchmark shows it will be slower for valid bucket names
 	// https://gist.github.com/mniewrzal/49de3af95f36e63e88fac24f565e444c
 	labels := bytes.Split(bucket, []byte("."))
 	for _, label := range labels {
-		err = validateBucketLabel(label)
+		err := validateBucketLabel(label)
 		if err != nil {
 			return err
 		}
@@ -284,8 +290,8 @@ func validateBucketLabel(label []byte) error {
 		return Error.New("bucket label must start with a lowercase letter or number")
 	}
 
-	if label[0] == '-' || label[len(label)-1] == '-' {
-		return Error.New("bucket label cannot start or end with a hyphen")
+	if !isLowerLetter(label[len(label)-1]) && !isDigit(label[len(label)-1]) {
+		return Error.New("bucket label must end with a lowercase letter or number")
 	}
 
 	for i := 1; i < len(label)-1; i++ {
@@ -294,6 +300,13 @@ func validateBucketLabel(label []byte) error {
 		}
 	}
 
+	return nil
+}
+
+func validateObjectVersion(version []byte) error {
+	if len(version) != 0 && len(version) != 16 {
+		return Error.New("invalid object version length")
+	}
 	return nil
 }
 

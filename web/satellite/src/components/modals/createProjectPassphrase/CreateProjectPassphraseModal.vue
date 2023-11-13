@@ -37,16 +37,17 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
-import { generateMnemonic } from 'bip39';
+import { ref } from 'vue';
+import { generateMnemonic } from 'bip39-english';
+import { useRoute, useRouter } from 'vue-router';
 
-import { useNotify, useRouter } from '@/utils/hooks';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { RouteConfig } from '@/router';
+import { useNotify } from '@/utils/hooks';
+import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import SelectPassphraseModeStep from '@/components/modals/createProjectPassphrase/SelectPassphraseModeStep.vue';
@@ -66,13 +67,14 @@ enum CreatePassphraseOption {
     Enter = 'Enter',
 }
 
+const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const notify = useNotify();
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const router = useRouter();
+const route = useRoute();
 
-const generatedPassphrase = generateMnemonic();
+const generatedPassphrase: string = generateMnemonic();
 
 const selectedOption = ref<CreatePassphraseOption>(CreatePassphraseOption.Generate);
 const activeStep = ref<CreateProjectPassphraseStep>(CreateProjectPassphraseStep.SelectMode);
@@ -99,7 +101,7 @@ function setOption(option: CreatePassphraseOption): void {
  * Closes modal.
  */
 function closeModal(): void {
-    appStore.updateActiveModal(MODALS.createProjectPassphrase);
+    appStore.removeActiveModal();
 }
 
 /**
@@ -136,6 +138,10 @@ async function onContinue(): Promise<void> {
             return;
         }
 
+        analyticsStore.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
+            method: selectedOption.value === CreatePassphraseOption.Enter ? 'enter' : 'generate',
+        });
+
         bucketsStore.setEdgeCredentials(new EdgeCredentials());
         bucketsStore.setPassphrase(passphrase.value);
         bucketsStore.setPromptForPassphrase(false);
@@ -146,8 +152,8 @@ async function onContinue(): Promise<void> {
     }
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
-        if (router.currentRoute.name === RouteConfig.OverviewStep.name) {
-            router.push(RouteConfig.ProjectDashboard.path);
+        if (route.name === RouteConfig.OverviewStep.name) {
+            await router.push(RouteConfig.ProjectDashboard.path);
         }
 
         closeModal();
@@ -179,7 +185,7 @@ function onCancelOrBack(): void {
     padding: 32px;
     font-family: 'font_regular', sans-serif;
 
-    @media screen and (max-width: 615px) {
+    @media screen and (width <= 615px) {
         padding: 30px 20px;
     }
 }

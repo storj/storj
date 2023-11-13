@@ -25,7 +25,8 @@ import (
 
 // Error is the default error class.
 var (
-	Error = errs.Class("trust")
+	Error        = errs.Class("trust")
+	ErrUntrusted = Error.New("satellite is untrusted")
 
 	mon = monkit.Package()
 )
@@ -120,12 +121,6 @@ func (pool *Pool) Run(ctx context.Context) error {
 			pool.log.Error("Failed to refresh", zap.Error(err))
 			return err
 		}
-
-		for _, trustedSatellite := range pool.satellites {
-			if err := pool.satellitesDB.SetAddress(ctx, trustedSatellite.url.ID, trustedSatellite.url.Address); err != nil {
-				return err
-			}
-		}
 	}
 }
 
@@ -182,6 +177,14 @@ func (pool *Pool) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.Node
 	return info.url, nil
 }
 
+// IsTrusted returns true if the satellite is trusted.
+func (pool *Pool) IsTrusted(ctx context.Context, id storj.NodeID) bool {
+	defer mon.Task()(&ctx)(nil)
+
+	_, err := pool.getInfo(id)
+	return err == nil
+}
+
 // Refresh refreshes the set of trusted satellites in the pool. Concurrent
 // callers will be synchronized so only one proceeds at a time.
 func (pool *Pool) Refresh(ctx context.Context) error {
@@ -220,14 +223,46 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 	}
 
 	// remove trusted IDs that are no longer in the URL list
-	for id := range pool.satellites {
+	for id, info := range pool.satellites {
 		if _, ok := trustedIDs[id]; !ok {
 			pool.log.Debug("Satellite is no longer trusted", zap.String("id", id.String()))
 			delete(pool.satellites, id)
+			err := pool.satellitesDB.UpdateSatelliteStatus(ctx, id, satellites.Untrusted)
+			if err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		// for cases where a satellite was previously marked as untrusted, but is now trusted
+		// we reset the status back to normal
+		status := satellites.Normal
+		dbSatellite, err := pool.satellitesDB.GetSatellite(ctx, info.url.ID)
+		if err == nil && !dbSatellite.SatelliteID.IsZero() {
+			if dbSatellite.Status != satellites.Untrusted {
+				status = dbSatellite.Status
+			}
+		}
+		if err := pool.satellitesDB.SetAddressAndStatus(ctx, info.url.ID, info.url.Address, status); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+// DeleteSatellite deletes a satellite from the pool.
+func (pool *Pool) DeleteSatellite(ctx context.Context, id storj.NodeID) error {
+	pool.satellitesMu.Lock()
+	defer pool.satellitesMu.Unlock()
+
+	if _, ok := pool.satellites[id]; !ok {
+		return ErrUntrusted
+	}
+
+	delete(pool.satellites, id)
+	return pool.satellitesDB.UpdateSatelliteStatus(ctx, id, satellites.Untrusted)
 }
 
 func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {
@@ -236,7 +271,7 @@ func (pool *Pool) getInfo(id storj.NodeID) (*satelliteInfoCache, error) {
 
 	info, ok := pool.satellites[id]
 	if !ok {
-		return nil, Error.New("satellite %q is untrusted", id)
+		return nil, ErrUntrusted
 	}
 	return info, nil
 }

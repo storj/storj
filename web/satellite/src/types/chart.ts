@@ -37,7 +37,7 @@ class Styling {
         public element: HTMLElement,
         public topPosition: number,
         public leftPosition: number,
-        public chartPosition: ClientRect,
+        public chartPosition: DOMRect,
     ) {}
 }
 
@@ -94,7 +94,7 @@ export class Tooltip {
         elemStyling.element.style.opacity = StylingConstants.tooltipOpacity;
         elemStyling.element.style.position = StylingConstants.tooltipPosition;
         elemStyling.element.style.left = `${elemStyling.chartPosition.left + elemStyling.tooltipModel.caretX - elemStyling.leftPosition}px`;
-        elemStyling.element.style.top = `${elemStyling.chartPosition.top + window.pageYOffset + elemStyling.tooltipModel.caretY - elemStyling.topPosition}px`;
+        elemStyling.element.style.top = `${elemStyling.chartPosition.top + window.scrollY + elemStyling.tooltipModel.caretY - elemStyling.topPosition}px`;
     }
 }
 

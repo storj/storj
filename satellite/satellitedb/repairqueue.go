@@ -7,10 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
@@ -40,14 +43,14 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 		query = `
 			INSERT INTO repair_queue
 			(
-				stream_id, position, segment_health
+				stream_id, position, segment_health, placement
 			)
 			VALUES (
-				$1, $2, $3
+				$1, $2, $3, $4
 			)
 			ON CONFLICT (stream_id, position)
 			DO UPDATE
-			SET segment_health=$3, updated_at=current_timestamp
+			SET segment_health=$3, updated_at=current_timestamp, placement=$4
 			RETURNING (xmax != 0) AS alreadyInserted
 		`
 	case dbutil.Cockroach:
@@ -59,18 +62,18 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 			)
 			INSERT INTO repair_queue
 			(
-				stream_id, position, segment_health
+				stream_id, position, segment_health, placement
 			)
 			VALUES (
-				$1, $2, $3
+				$1, $2, $3, $4
 			)
 			ON CONFLICT (stream_id, position)
 			DO UPDATE
-			SET segment_health=$3, updated_at=current_timestamp
+			SET segment_health=$3, updated_at=current_timestamp, placement=$4
 			RETURNING (SELECT alreadyInserted FROM inserted)
 		`
 	}
-	rows, err := r.db.QueryContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth)
+	rows, err := r.db.QueryContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth, seg.Placement)
 	if err != nil {
 		return false, err
 	}
@@ -108,12 +111,13 @@ func (r *repairQueue) InsertBatch(
 		query = `
 			INSERT INTO repair_queue
 			(
-				stream_id, position, segment_health
+				stream_id, position, segment_health, placement
 			)
 			VALUES (
 				UNNEST($1::BYTEA[]),
 				UNNEST($2::INT8[]),
-				UNNEST($3::double precision[])
+				UNNEST($3::double precision[]),
+				UNNEST($4::INT2[])
 			)
 			ON CONFLICT (stream_id, position)
 			DO UPDATE
@@ -127,19 +131,21 @@ func (r *repairQueue) InsertBatch(
 				SELECT
 					UNNEST($1::BYTEA[]) AS stream_id,
 					UNNEST($2::INT8[]) AS position,
-					UNNEST($3::double precision[]) AS segment_health
+					UNNEST($3::double precision[]) AS segment_health,
+					UNNEST($4::INT2[]) AS placement
 			),
 			do_insert AS (
 				INSERT INTO repair_queue (
-					stream_id, position, segment_health
+					stream_id, position, segment_health, placement
 				)
-				SELECT stream_id, position, segment_health
+				SELECT stream_id, position, segment_health, placement
 				FROM to_insert
 				ON CONFLICT (stream_id, position)
 				DO UPDATE
 				SET
 					segment_health=EXCLUDED.segment_health,
-					updated_at=current_timestamp
+					updated_at=current_timestamp,
+					placement=EXCLUDED.placement
 				RETURNING false
 			)
 			SELECT
@@ -155,12 +161,14 @@ func (r *repairQueue) InsertBatch(
 		StreamIDs      []uuid.UUID
 		Positions      []int64
 		SegmentHealths []float64
+		placements     []int16
 	}
 
 	for _, segment := range segments {
 		insertData.StreamIDs = append(insertData.StreamIDs, segment.StreamID)
 		insertData.Positions = append(insertData.Positions, int64(segment.Position.Encode()))
 		insertData.SegmentHealths = append(insertData.SegmentHealths, segment.SegmentHealth)
+		insertData.placements = append(insertData.placements, int16(segment.Placement))
 	}
 
 	rows, err := r.db.QueryContext(
@@ -168,6 +176,7 @@ func (r *repairQueue) InsertBatch(
 		pgutil.UUIDArray(insertData.StreamIDs),
 		pgutil.Int8Array(insertData.Positions),
 		pgutil.Float8Array(insertData.SegmentHealths),
+		pgutil.Int2Array(insertData.placements),
 	)
 
 	if err != nil {
@@ -193,29 +202,45 @@ func (r *repairQueue) InsertBatch(
 	return newlyInsertedSegments, rows.Err()
 }
 
-func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) (seg *queue.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
+	restriction := ""
+
+	placementsToString := func(placements []storj.PlacementConstraint) string {
+		var ps []string
+		for _, p := range placements {
+			ps = append(ps, fmt.Sprintf("%d", p))
+		}
+		return strings.Join(ps, ",")
+	}
+	if len(includedPlacements) > 0 {
+		restriction += fmt.Sprintf(" AND placement IN (%s)", placementsToString(includedPlacements))
+	}
+
+	if len(excludedPlacements) > 0 {
+		restriction += fmt.Sprintf(" AND placement NOT IN (%s)", placementsToString(excludedPlacements))
+	}
 
 	segment := queue.InjuredSegment{}
 	switch r.db.impl {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE repair_queue SET attempted_at = now()
-				WHERE attempted_at IS NULL OR attempted_at < now() - interval '6 hours'
+				WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 				ORDER BY segment_health ASC, attempted_at NULLS FIRST
 				LIMIT 1
-				RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health
+				RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 		`).Scan(&segment.StreamID, &segment.Position, &segment.AttemptedAt,
-			&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth)
+			&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth, &segment.Placement)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE repair_queue SET attempted_at = now() WHERE (stream_id, position) = (
 					SELECT stream_id, position FROM repair_queue
-					WHERE attempted_at IS NULL OR attempted_at < now() - interval '6 hours'
+					WHERE (attempted_at IS NULL OR attempted_at < now() - interval '6 hours') `+restriction+`
 					ORDER BY segment_health ASC, attempted_at NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
-				) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health
+				) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 		`).Scan(&segment.StreamID, &segment.Position, &segment.AttemptedAt,
-			&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth)
+			&segment.UpdatedAt, &segment.InsertedAt, &segment.SegmentHealth, &segment.Placement)
 	default:
 		return seg, errs.New("unhandled database: %v", r.db.impl)
 	}
@@ -247,7 +272,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []queue.Inju
 	}
 	// TODO: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx,
-		r.db.Rebind(`SELECT stream_id, position, attempted_at, updated_at, segment_health
+		r.db.Rebind(`SELECT stream_id, position, attempted_at, updated_at, segment_health, placement
 					FROM repair_queue LIMIT ?`), limit,
 	)
 	if err != nil {
@@ -258,7 +283,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []queue.Inju
 	for rows.Next() {
 		var seg queue.InjuredSegment
 		err = rows.Scan(&seg.StreamID, &seg.Position, &seg.AttemptedAt,
-			&seg.UpdatedAt, &seg.SegmentHealth)
+			&seg.UpdatedAt, &seg.SegmentHealth, &seg.Placement)
 		if err != nil {
 			return segs, Error.Wrap(err)
 		}

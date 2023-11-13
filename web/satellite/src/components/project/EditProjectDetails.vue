@@ -128,7 +128,7 @@
                             />
                         </div>
                     </div>
-                    <p class="project-details__wrapper__container__label">Bandwidth Limit</p>
+                    <p class="project-details__wrapper__container__label">Download Limit</p>
                     <div v-if="!isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-area">
                         <p class="project-details__wrapper__container__limits__bandwidthlimit-area__bandwidthlimit">{{ bandwidthLimitFormatted }}</p>
                         <VButton
@@ -200,6 +200,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Dimensions, Memory, Size } from '@/utils/bytesSize';
 import {
@@ -209,21 +210,21 @@ import {
     ProjectFields, ProjectLimits,
 } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { RouteConfig } from '@/types/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
 const router = useRouter();
-
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const activeStorageMeasurement = ref<string>(Dimensions.TB);
 const activeBandwidthMeasurement = ref<string>(Dimensions.TB);
@@ -492,8 +493,8 @@ async function onSaveNameButtonClick(): Promise<void> {
     }
 
     toggleNameEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_NAME_UPDATED);
-    await notify.success('Project name updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_NAME_UPDATED);
+    notify.success('Project name updated successfully!');
 }
 
 /**
@@ -509,8 +510,8 @@ async function onSaveDescriptionButtonClick(): Promise<void> {
     }
 
     toggleDescriptionEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED);
-    await notify.success('Project description updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED);
+    notify.success('Project description updated successfully!');
 }
 
 /**
@@ -534,8 +535,8 @@ async function onSaveStorageLimitButtonClick(): Promise<void> {
     }
 
     toggleStorageLimitEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
-    await notify.success('Project storage limit updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
+    notify.success('Project storage limit updated successfully!');
 }
 
 /**
@@ -559,8 +560,8 @@ async function onSaveBandwidthLimitButtonClick(): Promise<void> {
     }
 
     toggleBandwidthLimitEditing();
-    analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
-    await notify.success('Project bandwidth limit updated successfully!');
+    analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
+    notify.success('Project download limit updated successfully!');
 }
 
 /**
@@ -635,6 +636,21 @@ onMounted(async (): Promise<void> => {
     const projectID = projectsStore.state.selectedProject.id;
     if (!projectID) return;
 
+    if (projectsStore.state.selectedProject.ownerId !== usersStore.state.user.id) {
+        await router.replace(RouteConfig.AllProjectsDashboard.path);
+        return;
+    }
+
+    projectsStore.$onAction(({ name, after }) => {
+        if (name === 'selectProject') {
+            after((_) => {
+                if (projectsStore.state.selectedProject.ownerId !== usersStore.state.user.id) {
+                    router.replace(RouteConfig.ProjectDashboard.path);
+                }
+            });
+        }
+    });
+
     if (usersStore.state.user.paidTier) {
         isPaidTier.value = true;
     }
@@ -642,7 +658,7 @@ onMounted(async (): Promise<void> => {
     try {
         await projectsStore.getProjectLimits(projectID);
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
+        notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
     }
 });
 </script>

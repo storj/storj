@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -64,7 +64,7 @@
                             width="208px"
                             label="Regenerate Recovery Codes"
                             is-white
-                            :on-press="generateNewMFARecoveryCodes"
+                            :on-press="toggleMFACodesModal"
                             :is-disabled="isLoading"
                         />
                         <VButton
@@ -109,11 +109,13 @@ import { useLoading } from '@/composables/useLoading';
 import { Duration } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const projectsStore = useProjectsStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -182,21 +184,7 @@ async function enableMFA(): Promise<void> {
             await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
         } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
-        }
-    });
-}
-
-/**
- * Toggles generate new MFA recovery codes popup visibility.
- */
-async function generateNewMFARecoveryCodes(): Promise<void> {
-    await withLoading(async () => {
-        try {
-            await usersStore.generateUserMFARecoveryCodes();
-            toggleMFACodesModal();
-        } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
     });
 }
@@ -211,6 +199,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .settings {
+    padding-bottom: 35px;
 
     &__title {
         font-family: 'font_bold', sans-serif;
@@ -240,7 +229,7 @@ onMounted(() => {
                 grid-template-columns: 1fr 1fr 1fr;
                 align-items: center;
 
-                @media screen and (max-width: 500px) {
+                @media screen and (width <= 500px) {
                     display: flex;
                     flex-direction: column;
                     align-items: flex-start;
@@ -260,6 +249,12 @@ onMounted(() => {
                     font-size: 14px;
                     line-height: 20px;
                     color: var(--c-grey-6);
+                    word-wrap: break-word;
+                    overflow: hidden;
+
+                    @media screen and (width <= 500px) {
+                        width: 100%;
+                    }
                 }
 
                 &__actions {
@@ -268,7 +263,7 @@ onMounted(() => {
                     justify-content: flex-end;
                     gap: 5px;
 
-                    @media screen and (max-width: 500px) {
+                    @media screen and (width <= 500px) {
                         width: 100%;
                         justify-content: flex-start;
                     }

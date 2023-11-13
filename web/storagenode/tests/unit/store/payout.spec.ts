@@ -63,7 +63,6 @@ describe('mutations', (): void => {
         paystub.distributed = 500000;
 
         const totalPayments = new TotalPayments([paystub]);
-        totalPayments.setCurrentMonthEarnings(22);
 
         store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
 
@@ -71,7 +70,6 @@ describe('mutations', (): void => {
         expect(state.payoutModule.totalPayments.paid).toBe(100);
         expect(state.payoutModule.totalPayments.disposed).toBe(10);
         expect(state.payoutModule.totalPayments.balance).toBe(50);
-        expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
     it('sets period range', (): void => {
@@ -277,7 +275,6 @@ describe('actions', () => {
         expect(state.payoutModule.totalPayments.paid).toBe(200);
         expect(state.payoutModule.totalPayments.disposed).toBe(5);
         expect(state.payoutModule.totalPayments.balance).toBe(150);
-        expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
     it('get total throws an error when api call fails', async (): Promise<void> => {
@@ -290,7 +287,6 @@ describe('actions', () => {
             expect(state.payoutModule.totalPayments.held).toBe(5);
             expect(state.payoutModule.totalPayments.paid).toBe(200);
             expect(state.payoutModule.totalPayments.balance).toBe(150);
-            expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
     });
 

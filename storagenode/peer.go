@@ -75,6 +75,9 @@ var (
 //
 // architecture: Master Database
 type DB interface {
+	// Config returns the configuration used to initialize the database.
+	Config() storagenodedb.Config
+
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
 
@@ -438,10 +441,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Version:             *pbVersion,
 			NoiseKeyAttestation: noiseKeyAttestation,
 			DebounceLimit:       peer.Server.DebounceLimit(),
+			FastOpen:            peer.Server.FastOpen(),
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats)
+
+		tags := pb.SignedNodeTagSets(config.Contact.Tags)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, &tags)
 
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
@@ -466,16 +472,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			dbCfg := config.DatabaseConfig()
-			lazyfilewalkerCfg := lazyfilewalker.Config{
-				Storage:   dbCfg.Storage,
-				Info:      dbCfg.Info,
-				Info2:     dbCfg.Info2,
-				Pieces:    dbCfg.Pieces,
-				Filestore: dbCfg.Filestore,
-				Driver:    dbCfg.Driver,
-			}
-			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(peer.Log.Named("lazyfilewalker"), executable, lazyfilewalkerCfg.Args())
+			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(peer.Log.Named("lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
 		}
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),

@@ -6,7 +6,6 @@ package overlay_test
 import (
 	"context"
 	"fmt"
-	"sort"
 	"testing"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -73,7 +73,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, overlay.NewPlacementDefinitions().CreateFilters, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -204,7 +204,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.SelectedNode
+			var nodes []*nodeselection.SelectedNode
 			var err error
 
 			if i%2 == 0 {
@@ -276,7 +276,6 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
-		expectedNewCount := int(float64(totalNodes) * satellite.Config.Overlay.Node.NewNodeFraction)
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -318,14 +317,10 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 		err := uploadSelectionCache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new, err := uploadSelectionCache.Size(ctx)
-		require.NoError(t, err)
-		require.Equal(t, totalNodes-expectedNewCount, reputable)
-		require.Equal(t, expectedNewCount, new)
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.SelectedNode
+			var nodes []*nodeselection.SelectedNode
 			var err error
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: numNodesToSelect,
@@ -376,7 +371,6 @@ func TestNodeInfo(t *testing.T) {
 
 		dossier := planet.StorageNodes[0].Contact.Service.Local()
 
-		assert.Equal(t, pb.NodeType_STORAGE, node.Type)
 		assert.NotEmpty(t, node.Operator.Email)
 		assert.NotEmpty(t, node.Operator.Wallet)
 		assert.Equal(t, dossier.Operator, node.Operator)
@@ -387,49 +381,7 @@ func TestNodeInfo(t *testing.T) {
 	})
 }
 
-func TestGetOnlineNodesForGetDelete(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// pause chores that might update node data
-		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Stop()
-		planet.Satellites[0].Repair.Checker.Loop.Pause()
-		planet.Satellites[0].Repair.Repairer.Loop.Pause()
-		for _, node := range planet.StorageNodes {
-			node.Contact.Chore.Pause(ctx)
-		}
-
-		// should not return anything if nodeIDs aren't in the nodes table
-		actualNodes, err := planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{})
-		require.NoError(t, err)
-		require.Equal(t, 0, len(actualNodes))
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{testrand.NodeID()})
-		require.NoError(t, err)
-		require.Equal(t, 0, len(actualNodes))
-
-		expectedNodes := make(map[storj.NodeID]*overlay.SelectedNode, len(planet.StorageNodes))
-		nodeIDs := make([]storj.NodeID, len(planet.StorageNodes)+1)
-		for i, node := range planet.StorageNodes {
-			nodeIDs[i] = node.ID()
-			dossier, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
-			require.NoError(t, err)
-			expectedNodes[dossier.Id] = &overlay.SelectedNode{
-				ID:         dossier.Id,
-				Address:    dossier.Address,
-				LastNet:    dossier.LastNet,
-				LastIPPort: dossier.LastIPPort,
-			}
-		}
-		// add a fake node ID to make sure GetOnlineNodesForGetDelete doesn't error and still returns the expected nodes.
-		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
-
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, nodeIDs)
-		require.NoError(t, err)
-		require.Equal(t, expectedNodes, actualNodes)
-	})
-}
-
-func TestKnownReliable(t *testing.T) {
+func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -474,8 +426,8 @@ func TestKnownReliable(t *testing.T) {
 		err = oc.TestSuspendNodeOffline(ctx, planet.StorageNodes[3].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that only storage nodes #4 and #5 are reliable
-		result, err := service.KnownReliable(ctx, []storj.NodeID{
+		// Check that the results of GetNodes match expectations.
+		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -484,20 +436,26 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[5].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 2)
+		require.Len(t, selectedNodes, 6)
+		require.False(t, selectedNodes[0].Online)
+		require.Zero(t, selectedNodes[0]) // node was disqualified
+		require.False(t, selectedNodes[1].Online)
+		require.False(t, selectedNodes[1].Suspended)
+		require.True(t, selectedNodes[2].Online)
+		require.True(t, selectedNodes[2].Suspended)
+		require.True(t, selectedNodes[3].Online)
+		require.True(t, selectedNodes[3].Suspended)
+		require.True(t, selectedNodes[4].Online)
+		require.False(t, selectedNodes[4].Suspended)
+		require.True(t, selectedNodes[5].Online)
+		require.False(t, selectedNodes[5].Suspended)
 
-		// Sort the storage nodes for predictable checks
-		expectedReliable := []storj.NodeURL{
-			planet.StorageNodes[4].NodeURL(),
-			planet.StorageNodes[5].NodeURL(),
-		}
-		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })
-		sort.Slice(result, func(i, j int) bool { return result[i].Id.Less(result[j].Id) })
-
-		// Assert the reliable nodes are the expected ones
-		for i, node := range result {
-			assert.Equal(t, expectedReliable[i].ID, node.Id)
-			assert.Equal(t, expectedReliable[i].Address, node.Address.Address)
+		// Assert the returned nodes are the expected ones
+		for i, node := range selectedNodes {
+			if i == 0 {
+				continue
+			}
+			assert.Equal(t, planet.StorageNodes[i].ID(), node.ID)
 		}
 	})
 }
@@ -537,7 +495,6 @@ func TestUpdateCheckIn(t *testing.T) {
 					Address: info.Address.GetAddress(),
 				},
 			},
-			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
 				Email:          info.Operator.GetEmail(),
 				Wallet:         info.Operator.GetWallet(),
@@ -711,7 +668,7 @@ func TestSuspendedSelection(t *testing.T) {
 			}
 		}
 
-		var nodes []*overlay.SelectedNode
+		var nodes []*nodeselection.SelectedNode
 		var err error
 
 		numNodesToSelect := 10
@@ -854,50 +811,6 @@ func TestVetAndUnvetNode(t *testing.T) {
 		dossier, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Nil(t, dossier.Reputation.Status.VettedAt)
-	})
-}
-
-func TestReliable(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-		node := planet.StorageNodes[0]
-
-		nodes, err := service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 2)
-
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
-		require.NoError(t, err)
-
-		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 1)
-		require.NotEqual(t, node.ID(), nodes[0])
-	})
-}
-
-func TestKnownReliableInExcludedCountries(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		service := planet.Satellites[0].Overlay.Service
-		node := planet.StorageNodes[0]
-
-		nodes, err := service.Reliable(ctx)
-		require.NoError(t, err)
-		require.Len(t, nodes, 2)
-
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "FR")
-		require.NoError(t, err)
-
-		// first node should be excluded from Reliable result because of country code
-		nodes, err = service.KnownReliableInExcludedCountries(ctx, nodes)
-		require.NoError(t, err)
-		require.Len(t, nodes, 1)
-		require.Equal(t, node.ID(), nodes[0])
 	})
 }
 

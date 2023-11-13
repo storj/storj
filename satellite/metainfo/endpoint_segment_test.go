@@ -594,7 +594,7 @@ func TestRetryBeginSegmentPieces(t *testing.T) {
 			SegmentID:         beginSegmentResp.SegmentID,
 			RetryPieceNumbers: []int{0, 1, 2, 3, 4, 5, 6},
 		})
-		rpctest.RequireStatus(t, err, rpcstatus.Internal, "metaclient: not enough nodes: not enough nodes: requested from cache 7, found 2")
+		rpctest.RequireStatus(t, err, rpcstatus.FailedPrecondition, "metaclient: not enough nodes: not enough nodes: requested from cache 7, found 2")
 
 		// This exchange should succeed.
 		exchangeSegmentPieceOrdersResp, err := metainfoClient.RetryBeginSegmentPieces(ctx, metaclient.RetryBeginSegmentPiecesParams{
@@ -833,6 +833,50 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 			}
 		}
 		require.Equal(t, 1, piece2Count)
+	})
+}
+
+func TestSegmentPlacementConstraints(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		expectedBucketName := "some-bucket"
+		err := uplink.Upload(ctx, satellite, expectedBucketName, "file-object", testrand.Bytes(50*memory.KiB))
+		require.NoError(t, err)
+
+		metainfoClient, err := uplink.DialMetainfo(ctx, satellite, apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		items, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
+			Bucket: []byte(expectedBucketName),
+		})
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+
+		{ // download should succeed because placement allows any node
+			_, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedObjectKey,
+			})
+			require.NoError(t, err)
+		}
+
+		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
+			`UPDATE segments SET placement = 1`).Err()
+		require.NoError(t, err)
+
+		{ // download should fail because non-zero placement and nodes have no country codes
+			_, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedObjectKey,
+			})
+			require.Error(t, err)
+		}
 	})
 }
 

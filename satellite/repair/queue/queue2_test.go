@@ -42,7 +42,7 @@ func TestUntilEmpty(t *testing.T) {
 
 		// select segments until no more are returned, and we should get each one exactly once
 		for {
-			injuredSeg, err := repairQueue.Select(ctx)
+			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 			if err != nil {
 				require.True(t, queue.ErrEmpty.Has(err))
 				break
@@ -91,22 +91,22 @@ func TestOrder(t *testing.T) {
 		}
 
 		// segment with attempted = null should be selected first
-		injuredSeg, err := repairQueue.Select(ctx)
+		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, nullID, injuredSeg.StreamID)
 
 		// segment with attempted = 8 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx)
+		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, olderID, injuredSeg.StreamID)
 
 		// segment with attempted = 7 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx)
+		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, oldID, injuredSeg.StreamID)
 
 		// segment should be considered "empty" now
-		injuredSeg, err = repairQueue.Select(ctx)
+		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
 		assert.Nil(t, injuredSeg)
 	})
@@ -197,13 +197,13 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 		{'g'},
 		{'h'},
 	} {
-		injuredSeg, err := repairQueue.Select(ctx)
+		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, nextID, injuredSeg.StreamID)
 	}
 
 	// queue should be considered "empty" now
-	injuredSeg, err := repairQueue.Select(ctx)
+	injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 	assert.True(t, queue.ErrEmpty.Has(err))
 	assert.Nil(t, injuredSeg)
 }
@@ -247,13 +247,13 @@ func TestOrderOverwrite(t *testing.T) {
 			segmentA,
 			segmentB,
 		} {
-			injuredSeg, err := repairQueue.Select(ctx)
+			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 			require.NoError(t, err)
 			assert.Equal(t, nextStreamID, injuredSeg.StreamID)
 		}
 
 		// queue should be considered "empty" now
-		injuredSeg, err := repairQueue.Select(ctx)
+		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
 		assert.Nil(t, injuredSeg)
 	})

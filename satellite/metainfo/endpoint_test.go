@@ -217,6 +217,13 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 					_, err = client.GetBucket(ctx, metaclient.GetBucketParams{})
 					assertInvalidArgument(t, err, false)
 
+					_, err = planet.Satellites[0].Metainfo.Endpoint.GetBucketLocation(ctx, &pb.GetBucketLocationRequest{
+						Header: &pb.RequestHeader{
+							ApiKey: []byte(invalidAPIKey),
+						},
+					})
+					assertInvalidArgument(t, err, false)
+
 					_, err = client.GetObject(ctx, metaclient.GetObjectParams{})
 					assertInvalidArgument(t, err, false)
 

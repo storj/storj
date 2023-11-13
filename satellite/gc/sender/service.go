@@ -33,11 +33,11 @@ var (
 
 // Config contains configurable values for garbage collection.
 type Config struct {
-	Interval time.Duration `help:"the time between each attempt to download and send garbage collection retain filters to storage nodes" releaseDefault:"48h" devDefault:"5m" testDefault:"$TESTINTERVAL"`
-	Enabled  bool          `help:"set if loop to send garbage collection retain filters is enabled" default:"false" devDefault:"false"`
+	Interval time.Duration `help:"the time between each attempt to download and send garbage collection retain filters to storage nodes" default:"1h" devDefault:"5m" testDefault:"$TESTINTERVAL"`
+	Enabled  bool          `help:"set if loop to send garbage collection retain filters is enabled" default:"true" devDefault:"false"`
 
 	// We suspect this currently not to be the critical path w.r.t. garbage collection, so no paralellism is implemented.
-	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection retain filters to" releaseDefault:"1" devDefault:"1"`
+	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection retain filters to" default:"100" devDefault:"1"`
 	RetainSendTimeout time.Duration `help:"the amount of time to allow a node to handle a retain request" default:"1m"`
 
 	AccessGrant string        `help:"Access to download the bloom filters. Needs read and write permission."`
@@ -88,8 +88,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 // RunOnce opens the bucket and sends out all the retain filters located in it to the storage nodes.
 func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	loopStartTime := time.Now()
 
 	switch {
 	case service.Config.AccessGrant == "":
@@ -150,10 +148,10 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 
 		if err != nil {
 			// We store the error in the bucket and then continue with the next zip file.
-			return service.moveToErrorPrefix(ctx, project, objectKey, err, loopStartTime)
+			return service.moveToErrorPrefix(ctx, project, objectKey, err)
 		}
 
-		return service.moveToSentPrefix(ctx, project, objectKey, loopStartTime)
+		return service.moveToSentPrefix(ctx, project, objectKey)
 	})
 }
 
@@ -198,7 +196,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 
 // moveToErrorPrefix moves an object to prefix "error" and attaches the error to the metadata.
 func (service *Service) moveToErrorPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, previousErr error, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string, previousErr error,
 ) error {
 	newObjectKey := "error-" + objectKey
 
@@ -235,9 +233,9 @@ func (service *Service) uploadError(
 	return upload.Commit()
 }
 
-// moveToErrorPrefix moves an object to prefix "sent-[timestamp]".
+// moveToSentPrefix moves an object to prefix "sent".
 func (service *Service) moveToSentPrefix(
-	ctx context.Context, project *uplink.Project, objectKey string, timeStamp time.Time,
+	ctx context.Context, project *uplink.Project, objectKey string,
 ) error {
 	newObjectKey := "sent-" + objectKey
 

@@ -31,7 +31,7 @@ const props = withDefaults(defineProps<{
     onNextClick: () => unknown;
     onBackClick: () => unknown;
     title: string;
-    isLoading: boolean;
+    isLoading?: boolean;
 }>(), {
     onNextClick: () => {},
     onBackClick: () => {},
@@ -52,6 +52,10 @@ const props = withDefaults(defineProps<{
         flex-direction: column;
         align-items: center;
 
+        @media screen and (width <= 600px) {
+            padding: 24px;
+        }
+
         &__title {
             margin: 20px 0;
             font-family: 'font_Bold', sans-serif;
@@ -67,6 +71,12 @@ const props = withDefaults(defineProps<{
             width: 100%;
             margin-top: 34px;
             column-gap: 24px;
+
+            @media screen and (width <= 450px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 24px;
+            }
         }
     }
 </style>

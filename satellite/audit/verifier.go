@@ -14,7 +14,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -43,12 +43,25 @@ var (
 	ErrSegmentModified = errs.Class("segment has been modified")
 )
 
+// FailurePhase indicates during which phase a GET_SHARE operation failed.
+type FailurePhase int
+
+const (
+	// NoFailure indicates there was no failure during a GET_SHARE operation.
+	NoFailure FailurePhase = 0
+	// DialFailure indicates a GET_SHARE operation failed during Dial.
+	DialFailure FailurePhase = 1
+	// RequestFailure indicates a GET_SHARE operation failed to make its RPC request, or the request failed.
+	RequestFailure FailurePhase = 2
+)
+
 // Share represents required information about an audited share.
 type Share struct {
-	Error    error
-	PieceNum int
-	NodeID   storj.NodeID
-	Data     []byte
+	Error        error
+	FailurePhase FailurePhase
+	PieceNum     int
+	NodeID       storj.NodeID
+	Data         []byte
 }
 
 // Verifier helps verify the correctness of a given stripe.
@@ -117,7 +130,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	var offlineNodes storj.NodeIDList
-	var failedNodes storj.NodeIDList
+	var failedNodes metabase.Pieces
 	var unknownNodes storj.NodeIDList
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
@@ -175,72 +188,44 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			continue
 		}
 
-		// TODO: just because an error came from the common/rpc package
-		// does not decisively mean that the problem is something to do
-		// with dialing. instead of trying to guess what different
-		// error classes mean, we should make GetShare inside
-		// DownloadShares return more direct information about when
-		// the failure happened.
-		if rpc.Error.Has(share.Error) {
-			if errors.Is(share.Error, context.DeadlineExceeded) || errs.Is(share.Error, context.DeadlineExceeded) {
-				// dial timeout
-				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial timeout (offline)",
-					zap.Stringer("Node ID", share.NodeID),
-					zap.String("Segment", segmentInfoString(segment)),
-					zap.Error(share.Error))
-				continue
-			}
-			if errs2.IsRPC(share.Error, rpcstatus.Unknown) {
-				// dial failed -- offline node
-				// TODO: we should never assume what an unknown
-				// error means. This should be looking for an explicit
-				// indication that dialing failed, not assuming dialing
-				// failed because the rpc status is unknown
-				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial failed (offline)",
-					zap.Stringer("Node ID", share.NodeID),
-					zap.String("Segment", segmentInfoString(segment)),
-					zap.Error(share.Error))
-				continue
-			}
-			// unknown transport error
-			unknownNodes = append(unknownNodes, share.NodeID)
-			verifier.log.Info("Verify: unknown transport error (skipped)",
-				zap.Stringer("Node ID", share.NodeID),
-				zap.String("Segment", segmentInfoString(segment)),
-				zap.Error(share.Error),
-				zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
-			continue
-		}
-
-		if errs2.IsRPC(share.Error, rpcstatus.NotFound) {
-			// missing share
-			failedNodes = append(failedNodes, share.NodeID)
-			verifier.log.Info("Verify: piece not found (audit failed)",
-				zap.Stringer("Node ID", share.NodeID),
-				zap.String("Segment", segmentInfoString(segment)),
-				zap.Error(share.Error))
-			continue
-		}
-
-		if errs2.IsRPC(share.Error, rpcstatus.DeadlineExceeded) {
-			// dial successful, but download timed out
-			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Info("Verify: download timeout (contained)",
-				zap.Stringer("Node ID", share.NodeID),
-				zap.String("Segment", segmentInfoString(segment)),
-				zap.Error(share.Error))
-			continue
-		}
-
-		// unknown error
-		unknownNodes = append(unknownNodes, share.NodeID)
-		verifier.log.Info("Verify: unknown error (skipped)",
+		pieceID := orderLimits[pieceNum].Limit.PieceId
+		errLogger := verifier.log.With(
 			zap.Stringer("Node ID", share.NodeID),
 			zap.String("Segment", segmentInfoString(segment)),
+			zap.Stringer("Piece ID", pieceID),
 			zap.Error(share.Error),
-			zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
+		)
+
+		switch share.FailurePhase {
+		case DialFailure:
+			// dial failed -- offline node
+			offlineNodes = append(offlineNodes, share.NodeID)
+			errLogger.Debug("Verify: dial failed (offline)")
+			continue
+
+		case RequestFailure:
+			if errs2.IsRPC(share.Error, rpcstatus.NotFound) {
+				// missing share
+				failedNodes = append(failedNodes, metabase.Piece{
+					Number:      uint16(share.PieceNum),
+					StorageNode: share.NodeID,
+				})
+				errLogger.Info("Verify: piece not found (audit failed)")
+				continue
+			}
+
+			if errs2.IsRPC(share.Error, rpcstatus.DeadlineExceeded) {
+				// dial successful, but download timed out
+				containedNodes[pieceNum] = share.NodeID
+				errLogger.Info("Verify: download timeout (contained)")
+				continue
+			}
+
+			// unknown error
+			unknownNodes = append(unknownNodes, share.NodeID)
+			errLogger.Info("Verify: unknown error (skipped)",
+				zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
+		}
 	}
 	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //mon:locked
 
@@ -276,6 +261,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
 		verifier.log.Error("could not verify shares", zap.String("Segment", segmentInfoString(segment)), zap.Error(err))
 		return Report{
+			Segment:  &segmentInfo,
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
@@ -286,7 +272,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		verifier.log.Info("Verify: share data altered (audit failed)",
 			zap.Stringer("Node ID", shares[pieceNum].NodeID),
 			zap.String("Segment", segmentInfoString(segment)))
-		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
+		failedNodes = append(failedNodes, metabase.Piece{
+			StorageNode: shares[pieceNum].NodeID,
+			Number:      uint16(pieceNum),
+		})
 	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
@@ -294,6 +283,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	pendingAudits, err := createPendingAudits(ctx, containedNodes, segment)
 	if err != nil {
 		return Report{
+			Segment:   &segmentInfo,
 			Successes: successNodes,
 			Fails:     failedNodes,
 			Offlines:  offlineNodes,
@@ -302,6 +292,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	return Report{
+		Segment:       &segmentInfo,
 		Successes:     successNodes,
 		Fails:         failedNodes,
 		Offlines:      offlineNodes,
@@ -337,15 +328,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 		}
 
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, ipPort, stripeIndex, shareSize, i)
-			if err != nil {
-				share = Share{
-					Error:    err,
-					PieceNum: i,
-					NodeID:   limit.GetLimit().StorageNodeId,
-					Data:     nil,
-				}
-			}
+			share := verifier.GetShare(ctx, limit, piecePrivateKey, ipPort, stripeIndex, shareSize, i)
 			ch <- &share
 		}(i, limit)
 	}
@@ -387,8 +370,12 @@ func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Se
 }
 
 // GetShare use piece store client to download shares from nodes.
-func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, stripeIndex, shareSize int32, pieceNum int) (share Share, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, stripeIndex, shareSize int32, pieceNum int) (share Share) {
+	defer mon.Task()(&ctx)(&share.Error)
+
+	share.PieceNum = pieceNum
+	share.NodeID = limit.GetLimit().StorageNodeId
+	share.FailurePhase = DialFailure
 
 	bandwidthMsgSize := shareSize
 
@@ -407,6 +394,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	targetNodeID := limit.GetLimit().StorageNodeId
 	log := verifier.log.Named(targetNodeID.String())
 	var ps *piecestore.Client
+	var err error
 
 	// if cached IP is given, try connecting there first
 	if cachedIPAndPort != "" {
@@ -428,10 +416,12 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		}
 		ps, err = piecestore.Dial(rpcpool.WithForceDial(timedCtx), verifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
-			return Share{}, Error.Wrap(err)
+			share.Error = Error.Wrap(err)
+			return share
 		}
 	}
 
+	share.FailurePhase = RequestFailure
 	defer func() {
 		err := ps.Close()
 		if err != nil {
@@ -443,22 +433,30 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 
 	downloader, err := ps.Download(timedCtx, limit.GetLimit(), piecePrivateKey, offset, int64(shareSize))
 	if err != nil {
-		return Share{}, err
+		share.Error = err
+		return share
 	}
-	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(downloader, buf)
-	if err != nil {
-		return Share{}, err
+	closeErr := downloader.Close()
+	if err != nil || closeErr != nil {
+		if errors.Is(err, io.ErrClosedPipe) {
+			// in some circumstances, this can be returned from the piecestore
+			// when the peer returned a different error. The downloader gets
+			// marked as being closed, even though we haven't closed it from
+			// this side, and ErrClosedPipe gets returned on the next Read
+			// instead of the actual error. We'll get the real error from
+			// downloader.Close().
+			err = nil
+		}
+		share.Error = errs.Combine(err, closeErr)
+		return share
 	}
+	share.Data = buf
+	share.FailurePhase = NoFailure
 
-	return Share{
-		Error:    nil,
-		PieceNum: pieceNum,
-		NodeID:   targetNodeID,
-		Data:     buf,
-	}, nil
+	return share
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
@@ -494,9 +492,9 @@ func (verifier *Verifier) SetNow(nowFn func() time.Time) {
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares,
 // and a slice of the corrected shares.
-func auditShares(ctx context.Context, required, total int16, originals map[int]Share) (pieceNums []int, corrected []infectious.Share, err error) {
+func auditShares(ctx context.Context, required, total int16, originals map[int]Share) (pieceNums []int, corrected []eestream.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	f, err := infectious.NewFEC(int(required), int(total))
+	f, err := eestream.NewFEC(int(required), int(total))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -519,12 +517,12 @@ func auditShares(ctx context.Context, required, total int16, originals map[int]S
 	return pieceNums, copies, nil
 }
 
-// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares.
-func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
+// makeCopies takes in a map of audit Shares and deep copies their data to a slice of eestream Shares.
+func makeCopies(ctx context.Context, originals map[int]Share) (copies []eestream.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	copies = make([]infectious.Share, 0, len(originals))
+	copies = make([]eestream.Share, 0, len(originals))
 	for _, original := range originals {
-		copies = append(copies, infectious.Share{
+		copies = append(copies, eestream.Share{
 			Data:   append([]byte{}, original.Data...),
 			Number: original.PieceNum})
 	}
@@ -553,11 +551,11 @@ func getOfflineNodes(segment metabase.Segment, limits []*pb.AddressedOrderLimit,
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit.
-func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes metabase.Pieces, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
-		fails[fail] = true
+		fails[fail.StorageNode] = true
 	}
 	for _, offline := range offlineNodes {
 		fails[offline] = true

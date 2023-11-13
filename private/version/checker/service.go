@@ -98,11 +98,13 @@ func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, all
 		service.checked.Release()
 	}()
 
-	allowedVersions, err := service.client.All(ctx)
+	process, err := service.client.Process(ctx, service.service)
 	if err != nil {
+		service.log.Error("failed to get process version info", zap.Error(err))
 		return service.acceptedVersion, true
 	}
-	suggestedVersion, err := allowedVersions.Processes.Storagenode.Suggested.SemVer()
+
+	suggestedVersion, err := process.Suggested.SemVer()
 	if err != nil {
 		return service.acceptedVersion, true
 	}
@@ -121,28 +123,40 @@ func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, all
 		return suggestedVersion, true
 	}
 
-	minimumOld, err := service.client.OldMinimum(ctx, service.service)
+	minimum, err = process.Minimum.SemVer()
 	if err != nil {
-		// Log about the error, but dont crash the Service and allow further operation
-		service.log.Error("Failed to do periodic version check.", zap.Error(err))
 		return suggestedVersion, true
 	}
 
-	minimum, err = version.NewSemVer(minimumOld.String())
-	if err != nil {
-		service.log.Error("Failed to convert old sem version to sem version.")
-		return suggestedVersion, true
+	if minimum.IsZero() {
+		// if the minimum version is not set, we check if the old minimum version is set
+		// TODO: I'm not sure if we should remove this check and stop supporting the old format,
+		//  but it seems like it's no longer needed, assuming there are no known community
+		//  satellites (or SNOs personally) running an old version control server, which (I think)
+		//  is very obviously 100% true currently.
+		minimumOld, err := service.client.OldMinimum(ctx, service.service)
+		if err != nil {
+			return suggestedVersion, true
+		}
+
+		minOld, err := version.NewSemVer(minimumOld.String())
+		if err != nil {
+			service.log.Error("failed to convert old sem version to new sem version", zap.Error(err))
+			return suggestedVersion, true
+		}
+
+		minimum = minOld
 	}
 
 	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("Minimum Version", minimum.Version))
 
-	if isAcceptedVersion(service.Info.Version, minimumOld) {
+	if service.Info.Version.Compare(minimum) >= 0 {
 		service.log.Debug("Running on allowed version.", zap.Stringer("Version", service.Info.Version.Version))
 		return suggestedVersion, true
 	}
 	service.log.Warn("version not allowed/outdated",
 		zap.Stringer("current version", service.Info.Version.Version),
-		zap.Stringer("minimum allowed version", minimumOld),
+		zap.String("minimum allowed version", minimum.String()),
 	)
 	return suggestedVersion, false
 }
@@ -167,9 +181,4 @@ func (service *Service) SetAcceptedVersion(version version.SemVer) {
 // Checked returns whether the version has been updated.
 func (service *Service) Checked() bool {
 	return service.checked.Released()
-}
-
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version.
-func isAcceptedVersion(test version.SemVer, target version.OldSemVer) bool {
-	return test.Major > uint64(target.Major) || (test.Major == uint64(target.Major) && (test.Minor > uint64(target.Minor) || (test.Minor == uint64(target.Minor) && test.Patch >= uint64(target.Patch))))
 }

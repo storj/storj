@@ -5,9 +5,7 @@
     <div class="navigation-area">
         <div class="navigation-area__container">
             <header class="navigation-area__container__header">
-                <div class="navigation-area__container__header__logo" @click.stop="onLogoClick">
-                    <LogoIcon />
-                </div>
+                <LogoIcon class="navigation-area__container__header__logo" @click.stop="onLogoClick" />
                 <CrossIcon v-if="isOpened" @click="toggleNavigation" />
                 <MenuIcon v-else @click="toggleNavigation" />
             </header>
@@ -29,31 +27,70 @@
                         <div v-if="isLoading" class="project-selection__dropdown__loader-container">
                             <VLoader width="30px" height="30px" />
                         </div>
-                        <div v-else class="project-selection__dropdown__items">
-                            <div class="project-selection__dropdown__items__choice" @click.prevent.stop="toggleProjectDropdown">
-                                <div class="project-selection__dropdown__items__choice__mark-container">
-                                    <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                        <template v-else>
+                            <div v-if="ownProjects.length" class="project-selection__dropdown__section-head">
+                                <ProjectIcon />
+                                <span class="project-selection__dropdown__section-head__tag">My Projects</span>
+                            </div>
+                            <div class="project-selection__dropdown__items">
+                                <div
+                                    v-for="project in ownProjects"
+                                    :key="project.id"
+                                    class="project-selection__dropdown__items__choice"
+                                    @click.prevent.stop="onProjectSelected(project.id)"
+                                    @keyup.enter="onProjectSelected(project.id)"
+                                >
+                                    <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                                    </div>
+                                    <p
+                                        :class="{
+                                            'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                            'project-selection__dropdown__items__choice__selected': project.isSelected,
+                                        }"
+                                    >
+                                        {{ project.name }}
+                                    </p>
                                 </div>
-                                <p class="project-selection__dropdown__items__choice__selected">
-                                    {{ selectedProject.name }}
-                                </p>
                             </div>
-                            <div
-                                v-for="project in projects"
-                                :key="project.id"
-                                class="project-selection__dropdown__items__choice"
-                                @click.prevent.stop="onProjectSelected(project.id)"
-                            >
-                                <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
+
+                            <div v-if="sharedProjects.length" class="project-selection__dropdown__section-head shared">
+                                <ProjectIcon />
+                                <span class="project-selection__dropdown__section-head__tag shared">Shared with me</span>
                             </div>
+                            <div class="project-selection__dropdown__items">
+                                <div
+                                    v-for="project in sharedProjects"
+                                    :key="project.id"
+                                    class="project-selection__dropdown__items__choice"
+                                    @click.prevent.stop="onProjectSelected(project.id)"
+                                    @keyup.enter="onProjectSelected(project.id)"
+                                >
+                                    <div v-if="project.isSelected" class="project-selection__dropdown__items__choice__mark-container">
+                                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                                    </div>
+                                    <p
+                                        :class="{
+                                            'project-selection__dropdown__items__choice__unselected': !project.isSelected,
+                                            'project-selection__dropdown__items__choice__selected': project.isSelected,
+                                        }"
+                                    >
+                                        {{ project.name }}
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
+                        <div v-if="isProjectOwner" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectDetailsClick" @keyup.enter="onProjectDetailsClick">
+                            <SettingsIcon />
+                            <p class="project-selection__dropdown__link-container__label">Project Settings</p>
+                        </div>
+                        <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onAllProjectsClick" @keyup.enter="onAllProjectsClick">
+                            <ProjectIcon />
+                            <p class="project-selection__dropdown__link-container__label">All projects</p>
                         </div>
                         <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                             <PassphraseIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
-                        </div>
-                        <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
-                            <ManageIcon />
-                            <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
                         </div>
                         <div class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick">
                             <CreateProjectIcon />
@@ -116,8 +153,10 @@
                             <AccountIcon class="account-area__wrap__left__icon" />
                             <p class="account-area__wrap__left__label">My Account</p>
                             <p class="account-area__wrap__left__label-small">Account</p>
-                            <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
-                            <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                            <template v-if="billingEnabled">
+                                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
+                                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
+                            </template>
                         </div>
                         <ArrowIcon class="account-area__wrap__arrow" />
                     </div>
@@ -139,11 +178,11 @@
                                 </a>
                             </div>
                         </div>
-                        <div v-if="!user.paidTier" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
+                        <div v-if="!user.paidTier && billingEnabled" tabindex="0" class="account-area__dropdown__item" @click="onUpgrade" @keyup.enter="onUpgrade">
                             <UpgradeIcon />
                             <p class="account-area__dropdown__item__label">Upgrade</p>
                         </div>
-                        <div class="account-area__dropdown__item" @click="navigateToBilling">
+                        <div v-if="billingEnabled" class="account-area__dropdown__item" @click="navigateToBilling">
                             <BillingIcon />
                             <p class="account-area__dropdown__item__label">Billing</p>
                         </div>
@@ -164,17 +203,17 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { AuthHttpApi } from '@/api/auth';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
+import { RouteConfig } from '@/types/router';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -186,6 +225,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useCreateProjectClickHandler } from '@/composables/useCreateProjectClickHandler';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -203,7 +244,6 @@ import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
-import ManageIcon from '@/../static/images/navigation/manage.svg';
 import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
@@ -224,6 +264,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Team.withIcon(UsersIcon),
 ];
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
@@ -237,9 +278,10 @@ const projectsStore = useProjectsStore();
 const obStore = useObjectBrowserStore();
 
 const router = useRouter();
+const route = useRoute();
 const notify = useNotify();
+const { handleCreateProjectClick } = useCreateProjectClickHandler();
 
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const isResourcesDropdownShown = ref<boolean>(false);
@@ -250,24 +292,38 @@ const isOpened = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
 
 /**
- * Indicates if all projects dashboard should be used.
+ * Indicates if billing features are enabled.
  */
-const isAllProjectsDashboard = computed((): boolean => {
-    return configStore.state.config.allProjectsDashboard;
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+
+/**
+ * Whether the user is the owner of the selected project.
+ */
+const isProjectOwner = computed((): boolean => {
+    return usersStore.state.user.id === projectsStore.state.selectedProject.ownerId;
 });
 
 /**
- * Returns projects list from store.
+ * Returns user's own projects.
  */
-const projects = computed((): Project[] => {
-    return projectsStore.projectsWithoutSelected;
+const ownProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
+    return projects.sort(compareProjects);
+});
+
+/**
+ * Returns projects the user is invited to.
+ */
+const sharedProjects = computed((): Project[] => {
+    const projects = projectsStore.projects.filter((p) => p.ownerId !== usersStore.state.user.id);
+    return projects.sort(compareProjects);
 });
 
 /**
  * Indicates if current route is objects view.
  */
 const isBucketsView = computed((): boolean => {
-    return router.currentRoute.path.includes(RouteConfig.BucketsManagement.path);
+    return route.path.includes(RouteConfig.BucketsManagement.path);
 });
 
 /**
@@ -292,19 +348,19 @@ const user = computed((): User => {
 });
 
 /**
+ * This comparator is used to sort projects by isSelected.
+ */
+function compareProjects(a: Project, b: Project) {
+    if (a.isSelected) return -1;
+    if (b.isSelected) return 1;
+    return 0;
+}
+
+/**
  * Redirects to project dashboard.
  */
 function onLogoClick(): void {
-    if (isAllProjectsDashboard.value) {
-        router.push(RouteConfig.AllProjectsDashboard.path);
-        return;
-    }
-
-    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
-        return;
-    }
-
-    router.push(RouteConfig.ProjectDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
 }
 
 function onNavClick(path: string): void {
@@ -352,7 +408,25 @@ function toggleAccountDropdown(): void {
  * Sends new path click event to segment.
  */
 function trackClickEvent(path: string): void {
-    analytics.pageVisit(path);
+    analyticsStore.pageVisit(path);
+}
+
+/**
+ * Route to all projects page.
+ */
+function onAllProjectsClick(): void {
+    analyticsStore.pageVisit(RouteConfig.AllProjectsDashboard.path);
+    router.push(RouteConfig.AllProjectsDashboard.path);
+    toggleProjectDropdown();
+}
+
+/**
+ * Route to project details page.
+ */
+function onProjectDetailsClick(): void {
+    analyticsStore.pageVisit(RouteConfig.EditProjectDetails.path);
+    router.push(RouteConfig.EditProjectDetails.path);
+    toggleProjectDropdown();
 }
 
 /**
@@ -373,7 +447,7 @@ async function onProjectClick(): Promise<void> {
         await projectsStore.getProjects();
         await projectsStore.getProjectLimits(selectedProject.value.id);
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     } finally {
         isLoading.value = false;
     }
@@ -384,7 +458,7 @@ async function onProjectClick(): Promise<void> {
  * @param projectID
  */
 async function onProjectSelected(projectID: string): Promise<void> {
-    analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     projectsStore.selectProject(projectID);
     LocalData.setSelectedProjectId(projectID);
     pmStore.setSearchQuery('');
@@ -393,7 +467,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     if (isBucketsView.value) {
         bucketsStore.clear();
-        analytics.pageVisit(RouteConfig.Buckets.path);
+        analyticsStore.pageVisit(RouteConfig.Buckets.path);
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
     }
 
@@ -406,41 +480,16 @@ async function onProjectSelected(projectID: string): Promise<void> {
             projectsStore.getProjectLimits(projectID),
         ]);
     } catch (error) {
-        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        error.message = `Unable to select project. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
-}
-
-/**
- * Route to projects list page.
- */
-function onProjectsLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
-        analytics.pageVisit(RouteConfig.ProjectsList.path);
-        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-        router.push(RouteConfig.ProjectsList.path);
-    }
-
-    isProjectDropdownShown.value = false;
 }
 
 /**
  * Route to create project page.
  */
 function onCreateLinkClick(): void {
-    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
-        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-        const user: User = usersStore.state.user;
-        const ownProjectsCount: number = projectsStore.projectsCount(user.id);
-
-        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            appStore.updateActiveModal(MODALS.createProjectPrompt);
-        } else {
-            analytics.pageVisit(RouteConfig.CreateProject.path);
-            appStore.updateActiveModal(MODALS.createProject);
-        }
-    }
-
+    handleCreateProjectClick();
     isProjectDropdownShown.value = false;
 }
 
@@ -449,6 +498,9 @@ function onCreateLinkClick(): void {
  */
 function onUpgrade(): void {
     isOpened.value = false;
+
+    if (!billingEnabled.value) return;
+
     appStore.updateActiveModal(MODALS.upgradeAccount);
 }
 
@@ -457,14 +509,11 @@ function onUpgrade(): void {
  */
 function navigateToBilling(): void {
     isOpened.value = false;
-    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+    if (route.path.includes(RouteConfig.Billing.path)) return;
 
-    let link = RouteConfig.Account.with(RouteConfig.Billing);
-    if (configStore.state.config.newBillingScreen) {
-        link = link.with(RouteConfig.BillingOverview);
-    }
+    const link = RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview));
     router.push(link.path);
-    analytics.pageVisit(link.path);
+    analyticsStore.pageVisit(link.path);
 }
 
 /**
@@ -472,7 +521,7 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     isOpened.value = false;
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    analyticsStore.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
     router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
 }
 
@@ -480,7 +529,7 @@ function navigateToSettings(): void {
  * Logouts user and navigates to login page.
  */
 async function onLogout(): Promise<void> {
-    analytics.pageVisit(RouteConfig.Login.path);
+    analyticsStore.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
@@ -498,10 +547,10 @@ async function onLogout(): Promise<void> {
     ]);
 
     try {
-        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
         await auth.logout();
     } catch (error) {
-        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        notify.notifyError(error, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 </script>
@@ -535,21 +584,14 @@ async function onLogout(): Promise<void> {
             display: flex;
             width: 100%;
             box-sizing: border-box;
-            padding: 0 32px;
+            padding: 0 24px;
             justify-content: space-between;
             align-items: center;
             height: 4rem;
 
             &__logo {
-                width: 211px;
-                max-width: 211px;
-                height: 37px;
-                max-height: 37px;
-
-                svg {
-                    width: 211px;
-                    height: 37px;
-                }
+                height: 49px;
+                width: auto;
             }
         }
 
@@ -728,6 +770,36 @@ async function onLogout(): Promise<void> {
             border-radius: 8px 8px 0 0;
         }
 
+        &__section-head {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            height: 48px;
+            box-sizing: border-box;
+            padding: 8px 32px;
+
+            &.shared {
+                border-top: 1px solid var(--c-grey-2);
+            }
+
+            &__tag {
+                border: 1px solid var(--c-purple-2);
+                border-radius: 24px;
+                padding: 2px 8px;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 600;
+                line-height: 18px;
+                color: var(--c-purple-4);
+                background: var(--c-white);
+
+                &.shared {
+                    border: 1px solid var(--c-yellow-2);
+                    color: var(--c-yellow-5);
+                }
+            }
+        }
+
         &__items {
             overflow-y: auto;
             background-color: #fff;
@@ -797,7 +869,7 @@ async function onLogout(): Promise<void> {
 
     &__wrap {
         box-sizing: border-box;
-        padding: 16px 32px;
+        padding: 16px 32px 16px 36px;
         height: 48px;
         width: 100%;
         display: flex;
@@ -834,7 +906,7 @@ async function onLogout(): Promise<void> {
 
         &__header {
             background: var(--c-grey-1);
-            padding: 16px 32px;
+            padding: 16px 32px 16px 36px;
             border: 1px solid var(--c-grey-2);
             display: flex;
             align-items: center;
@@ -868,7 +940,7 @@ async function onLogout(): Promise<void> {
         &__item {
             display: flex;
             align-items: center;
-            padding: 16px 32px;
+            padding: 16px 32px 16px 36px;
             background: var(--c-grey-1);
 
             &__label {

@@ -5,7 +5,7 @@
     <UpgradeAccountWrapper title="Upgrade to Pro">
         <template #content>
             <p class="options-info">
-                Add a credit card to activate your Pro Account, or deposit more than $10 in STORJ tokens to upgrade
+                Add a credit card to activate your Pro Account, or deposit more than {{ amountForUpgrade }} in STORJ tokens to upgrade
                 and get 10% bonus on your STORJ tokens deposit.
             </p>
             <div class="options-buttons">
@@ -36,13 +36,19 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
+import { centsToDollars, microDollarsToCents } from '@/utils/strings';
 
 import UpgradeAccountWrapper from '@/components/modals/upgradeAccountFlow/UpgradeAccountWrapper.vue';
 import VButton from '@/components/common/VButton.vue';
 
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
 
 const props = defineProps<{
@@ -50,6 +56,12 @@ const props = defineProps<{
     onAddCard: () => void;
     onAddTokens: () => Promise<void>;
 }>();
+
+const amountForUpgrade = computed<string>(() => {
+    const balanceForUpgrade = configStore.state.config.userBalanceForUpgrade;
+
+    return centsToDollars(microDollarsToCents(balanceForUpgrade));
+});
 </script>
 
 <style scoped lang="scss">
@@ -70,7 +82,7 @@ const props = defineProps<{
     align-items: center;
     column-gap: 16px;
 
-    @media screen and (max-width: 520px) {
+    @media screen and (width <= 520px) {
         flex-direction: column;
         column-gap: unset;
         row-gap: 16px;

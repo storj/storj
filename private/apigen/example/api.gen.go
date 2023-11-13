@@ -16,44 +16,229 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/apigen/example/myapi"
 )
 
 const dateLayout = "2006-01-02T15:04:05.999Z"
 
-var ErrTestapiAPI = errs.Class("example testapi api")
+var ErrDocsAPI = errs.Class("example docs api")
+var ErrUsersAPI = errs.Class("example users api")
 
-type TestAPIService interface {
-	GenTestAPI(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct{ Content string }) (*struct {
-		ID        uuid.UUID
-		Date      time.Time
-		PathParam string
-		Body      string
+type DocumentsService interface {
+	Get(ctx context.Context) ([]struct {
+		ID             uuid.UUID      "json:\"id\""
+		Path           string         "json:\"path\""
+		Date           time.Time      "json:\"date\""
+		Metadata       myapi.Metadata "json:\"metadata\""
+		LastRetrievals []struct {
+			User string    "json:\"user\""
+			When time.Time "json:\"when\""
+		} "json:\"last_retrievals\""
+	}, api.HTTPError)
+	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
+	GetTag(ctx context.Context, path, tagName string) (*[2]string, api.HTTPError)
+	GetVersions(ctx context.Context, path string) ([]myapi.Version, api.HTTPError)
+	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
+		Content string "json:\"content\""
+	}) (*struct {
+		ID        uuid.UUID "json:\"id\""
+		Date      time.Time "json:\"date\""
+		PathParam string    "json:\"pathParam\""
+		Body      string    "json:\"body\""
 	}, api.HTTPError)
 }
 
-// TestAPIHandler is an api handler that exposes all testapi related functionality.
-type TestAPIHandler struct {
+type UsersService interface {
+	Get(ctx context.Context) ([]struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}, api.HTTPError)
+	Create(ctx context.Context, request []struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}) api.HTTPError
+}
+
+// DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
+type DocumentsHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
-	service TestAPIService
+	service DocumentsService
 	auth    api.Auth
 }
 
-func NewTestAPI(log *zap.Logger, mon *monkit.Scope, service TestAPIService, router *mux.Router, auth api.Auth) *TestAPIHandler {
-	handler := &TestAPIHandler{
+// UsersHandler is an api handler that implements all Users API endpoints functionality.
+type UsersHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service UsersService
+	auth    api.Auth
+}
+
+func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, router *mux.Router, auth api.Auth) *DocumentsHandler {
+	handler := &DocumentsHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
 
-	testapiRouter := router.PathPrefix("/api/v0/testapi").Subrouter()
-	testapiRouter.HandleFunc("/{path}", handler.handleGenTestAPI).Methods("POST")
+	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
+	docsRouter.HandleFunc("/", handler.handleGet).Methods("GET")
+	docsRouter.HandleFunc("/{path}", handler.handleGetOne).Methods("GET")
+	docsRouter.HandleFunc("/{path}/tag/{tagName}", handler.handleGetTag).Methods("GET")
+	docsRouter.HandleFunc("/{path}/versions", handler.handleGetVersions).Methods("GET")
+	docsRouter.HandleFunc("/{path}", handler.handleUpdateContent).Methods("POST")
 
 	return handler
 }
 
-func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request) {
+func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router, auth api.Auth) *UsersHandler {
+	handler := &UsersHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
+	usersRouter.HandleFunc("/", handler.handleGet).Methods("GET")
+	usersRouter.HandleFunc("/", handler.handleCreate).Methods("POST")
+
+	return handler
+}
+
+func (h *DocumentsHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.Get(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetOne(ctx, path)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetOne response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleGetTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	tagName, ok := mux.Vars(r)["tagName"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tagName route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetTag(ctx, path, tagName)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetTag response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleGetVersions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	path, ok := mux.Vars(r)["path"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GetVersions(ctx, path)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetVersions response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -90,7 +275,9 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	payload := struct{ Content string }{}
+	payload := struct {
+		Content string "json:\"content\""
+	}{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -103,7 +290,7 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	retVal, httpErr := h.service.GenTestAPI(ctx, path, id, date, payload)
+	retVal, httpErr := h.service.UpdateContent(ctx, path, id, date, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -111,6 +298,62 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GenTestAPI response", zap.Error(ErrTestapiAPI.Wrap(err)))
+		h.log.Debug("failed to write json UpdateContent response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.Get(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json Get response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := []struct {
+		Name    string "json:\"name\""
+		Surname string "json:\"surname\""
+		Email   string "json:\"email\""
+	}{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	httpErr := h.service.Create(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }

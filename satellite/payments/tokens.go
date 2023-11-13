@@ -34,6 +34,8 @@ type DepositWallets interface {
 	Get(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
 	// Payments returns payments for a particular wallet.
 	Payments(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]WalletPayment, error)
+	// PaymentsWithConfirmations returns payments with confirmations count for a particular wallet.
+	PaymentsWithConfirmations(ctx context.Context, wallet blockchain.Address) ([]WalletPaymentWithConfirmations, error)
 }
 
 // TransactionStatus defines allowed statuses
@@ -120,4 +122,20 @@ type WalletPayment struct {
 	Transaction blockchain.Hash    `json:"transaction"`
 	LogIndex    int                `json:"logIndex"`
 	Timestamp   time.Time          `json:"timestamp"`
+}
+
+// WalletPaymentWithConfirmations holds storj token payment data with confirmations count.
+type WalletPaymentWithConfirmations struct {
+	From          string          `json:"from"`
+	To            string          `json:"to"`
+	TokenValue    decimal.Decimal `json:"tokenValue"`
+	USDValue      decimal.Decimal `json:"usdValue"`
+	Status        PaymentStatus   `json:"status"`
+	BlockHash     string          `json:"blockHash"`
+	BlockNumber   int64           `json:"blockNumber"`
+	Transaction   string          `json:"transaction"`
+	LogIndex      int             `json:"logIndex"`
+	Timestamp     time.Time       `json:"timestamp"`
+	Confirmations int64           `json:"confirmations"`
+	BonusTokens   decimal.Decimal `json:"bonusTokens"`
 }

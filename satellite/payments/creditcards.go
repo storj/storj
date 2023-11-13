@@ -19,6 +19,11 @@ type CreditCards interface {
 	// Add is used to save new credit card and attach it to payment account.
 	Add(ctx context.Context, userID uuid.UUID, cardToken string) (CreditCard, error)
 
+	// AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
+	// using the payment method id instead of the token. In this case, the payment method should already be
+	// created by the frontend using stripe elements for example.
+	AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string) (CreditCard, error)
+
 	// Remove is used to detach a credit card from payment account.
 	Remove(ctx context.Context, userID uuid.UUID, cardID string) error
 

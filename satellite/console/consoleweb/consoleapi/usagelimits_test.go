@@ -4,11 +4,12 @@
 package consoleapi_test
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 )
 
 func Test_TotalUsageLimits(t *testing.T) {
@@ -71,36 +73,9 @@ func Test_TotalUsageLimits(t *testing.T) {
 		err = sat.DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project2.ID, expectedLimit)
 		require.NoError(t, err)
 
-		// we are using full name as a password
-		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects/usage-limits", nil)
 		require.NoError(t, err)
-
-		client := http.Client{}
-
-		req, err := http.NewRequestWithContext(
-			ctx,
-			"GET",
-			"http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/projects/usage-limits",
-			nil,
-		)
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		req.AddCookie(&cookie)
-
-		result, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
 
 		var output console.ProjectUsageLimits
 
@@ -111,11 +86,6 @@ func Test_TotalUsageLimits(t *testing.T) {
 		require.Equal(t, int64(0), output.StorageUsed)
 		require.Equal(t, int64(expectedLimit*3), output.BandwidthLimit)
 		require.Equal(t, int64(expectedLimit*3), output.StorageLimit)
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
 	})
 }
 
@@ -185,36 +155,10 @@ func Test_DailyUsage(t *testing.T) {
 		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
-		// we are using full name as a password
-		tokenInfo, err := satelliteSys.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		endpoint := fmt.Sprintf("projects/%s/daily-usage?from=%s&to=%s", projectID.String(), since, before)
+		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
-
-		client := http.DefaultClient
-
-		req, err := http.NewRequestWithContext(
-			ctx,
-			"GET",
-			fmt.Sprintf("http://%s/api/v0/projects/%s/daily-usage?from=%s&to=%s", planet.Satellites[0].API.Console.Listener.Addr().String(), projectID.String(), since, before),
-			nil,
-		)
-		require.NoError(t, err)
-
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   tokenInfo.Token.String(),
-			Expires: expire,
-		}
-
-		req.AddCookie(&cookie)
-
-		result, err := client.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := io.ReadAll(result.Body)
-		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
 
 		var output accounting.ProjectDailyUsage
 
@@ -224,10 +168,115 @@ func Test_DailyUsage(t *testing.T) {
 		require.GreaterOrEqual(t, output.StorageUsage[0].Value, 15*memory.KiB)
 		require.GreaterOrEqual(t, output.AllocatedBandwidthUsage[0].Value, 5*memory.KiB)
 		require.GreaterOrEqual(t, output.SettledBandwidthUsage[0].Value, 5*memory.KiB)
+	})
+}
 
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
+func Test_TotalUsageReport(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var (
+			satelliteSys     = planet.Satellites[0]
+			uplink           = planet.Uplinks[0]
+			now              = time.Now()
+			inFiveMinutes    = now.Add(5 * time.Minute)
+			inAnHour         = now.Add(1 * time.Hour)
+			since            = fmt.Sprintf("%d", now.Unix())
+			before           = fmt.Sprintf("%d", inAnHour.Unix())
+			expectedCSVValue = fmt.Sprintf("%f", float64(0))
+		)
+
+		newUser := console.CreateUser{
+			FullName:  "Total Usage Report Test",
+			ShortName: "",
+			Email:     "ur@test.test",
+		}
+
+		user, err := satelliteSys.AddUser(ctx, newUser, 3)
+		require.NoError(t, err)
+
+		project1, err := satelliteSys.AddProject(ctx, user.ID, "testProject1")
+		require.NoError(t, err)
+
+		project2, err := satelliteSys.AddProject(ctx, user.ID, "testProject2")
+		require.NoError(t, err)
+
+		bucketName := "bucket"
+		err = uplink.CreateBucket(ctx, satelliteSys, bucketName)
+		require.NoError(t, err)
+
+		bucketLoc1 := metabase.BucketLocation{
+			ProjectID:  project1.ID,
+			BucketName: bucketName,
+		}
+		tally1 := &accounting.BucketTally{
+			BucketLocation: bucketLoc1,
+		}
+
+		bucketLoc2 := metabase.BucketLocation{
+			ProjectID:  project2.ID,
+			BucketName: bucketName,
+		}
+		tally2 := &accounting.BucketTally{
+			BucketLocation: bucketLoc2,
+		}
+
+		bucketTallies := map[metabase.BucketLocation]*accounting.BucketTally{
+			bucketLoc1: tally1,
+			bucketLoc2: tally2,
+		}
+
+		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
+		require.NoError(t, err)
+
+		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
+		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		reader := csv.NewReader(strings.NewReader(string(body)))
+		records, err := reader.ReadAll()
+		require.NoError(t, err)
+		require.Len(t, records, 3)
+
+		expectedHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+		for i, header := range expectedHeaders {
+			require.Equal(t, header, records[0][i])
+		}
+
+		require.Equal(t, project1.Name, records[1][0])
+		require.Equal(t, project2.Name, records[2][0])
+		require.Equal(t, project1.PublicID.String(), records[1][1])
+		require.Equal(t, project2.PublicID.String(), records[2][1])
+		require.Equal(t, bucketName, records[1][2])
+		require.Equal(t, bucketName, records[2][2])
+		for i := 3; i < 10; i++ {
+			require.Equal(t, expectedCSVValue, records[1][i])
+			require.Equal(t, expectedCSVValue, records[2][i])
+		}
+
+		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=%s", since, before, project1.PublicID)
+		body, status, err = doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		reader = csv.NewReader(strings.NewReader(string(body)))
+		records, err = reader.ReadAll()
+		require.NoError(t, err)
+		require.Len(t, records, 2)
+
+		require.Equal(t, project1.Name, records[1][0])
+		require.Equal(t, project1.PublicID.String(), records[1][1])
+		require.Equal(t, bucketName, records[1][2])
+
+		for i := 3; i < 10; i++ {
+			require.Equal(t, expectedCSVValue, records[1][i])
+		}
 	})
 }

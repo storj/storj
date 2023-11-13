@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { computed, reactive, readonly } from 'vue';
 
 import {
     DisableMFARequest,
@@ -15,9 +15,11 @@ import {
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
 
+export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
+
 export class UsersState {
     public user: User = new User();
-    public settings: UserSettings = new UserSettings();
+    public settings: Readonly<UserSettings> = DEFAULT_USER_SETTINGS;
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }
@@ -46,13 +48,10 @@ export const useUsersStore = defineStore('users', () => {
         const configStore = useConfigStore();
 
         const user = await api.get();
+        user.freezeStatus = await api.getFrozenStatus();
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         setUser(user);
-    }
-
-    async function getFrozenStatus(): Promise<void> {
-        state.user.freezeStatus = await api.getFrozenStatus();
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
@@ -74,6 +73,13 @@ export const useUsersStore = defineStore('users', () => {
         state.user.mfaRecoveryCodeCount = codes.length;
     }
 
+    async function regenerateUserMFARecoveryCodes(code: { recoveryCode?: string, passcode?: string }): Promise<void> {
+        const codes = await api.regenerateUserMFARecoveryCodes(code.passcode, code.recoveryCode);
+
+        state.userMFARecoveryCodes = codes;
+        state.user.mfaRecoveryCodeCount = codes.length;
+    }
+
     async function getSettings(): Promise<UserSettings> {
         const settings = await api.getUserSettings();
 
@@ -90,12 +96,16 @@ export const useUsersStore = defineStore('users', () => {
         state.user = user;
     }
 
+    async function requestProjectLimitIncrease(limit: string): Promise<void> {
+        await api.requestProjectLimitIncrease(limit);
+    }
+
     // Does nothing. It is called on login screen, and we just subscribe to this action in dashboard wrappers.
-    function login(): void {}
+    function login(): void { }
 
     function clear() {
         state.user = new User();
-        state.settings = new UserSettings();
+        state.settings = DEFAULT_USER_SETTINGS;
         state.userMFASecret = '';
         state.userMFARecoveryCodes = [];
     }
@@ -110,11 +120,12 @@ export const useUsersStore = defineStore('users', () => {
         enableUserMFA,
         generateUserMFASecret,
         generateUserMFARecoveryCodes,
+        regenerateUserMFARecoveryCodes,
         clear,
         login,
-        getFrozenStatus,
         setUser,
         updateSettings,
         getSettings,
+        requestProjectLimitIncrease,
     };
 });

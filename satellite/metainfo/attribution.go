@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"sync"
 
@@ -24,9 +25,11 @@ import (
 const MaxUserAgentLength = 500
 
 // ensureAttribution ensures that the bucketName has the partner information specified by project-level user agent, or header user agent.
+// If `forceBucketUpdate` is true, then the buckets table will be updated if necessary (needed for bucket creation). Otherwise, it is sufficient
+// to only ensure the attribution exists in the value attributions db.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte) (err error) {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
@@ -36,13 +39,15 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		return nil
 	}
 
-	if conncache := drpccache.FromContext(ctx); conncache != nil {
-		cache := conncache.LoadOrCreate(attributionCheckCacheKey{},
-			func() interface{} {
-				return &attributionCheckCache{}
-			}).(*attributionCheckCache)
-		if !cache.needsCheck(string(bucketName)) {
-			return nil
+	if !forceBucketUpdate {
+		if conncache := drpccache.FromContext(ctx); conncache != nil {
+			cache := conncache.LoadOrCreate(attributionCheckCacheKey{},
+				func() interface{} {
+					return &attributionCheckCache{}
+				}).(*attributionCheckCache)
+			if !cache.needsCheck(string(bucketName)) {
+				return nil
+			}
 		}
 	}
 
@@ -62,7 +67,7 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		return err
 	}
 
-	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent)
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent, forceBucketUpdate)
 	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
 		return nil
 	}
@@ -110,7 +115,7 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	return userAgent, nil
 }
 
-func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte) (err error) {
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
@@ -118,24 +123,15 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	}
 
 	// check if attribution is set for given bucket
-	_, err = endpoint.attributions.Get(ctx, projectID, bucketName)
+	attrInfo, err := endpoint.attributions.Get(ctx, projectID, bucketName)
 	if err == nil {
-		// bucket has already an attribution, no need to update
-		return nil
-	}
-	if !attribution.ErrBucketNotAttributed.Has(err) {
-		// try only to set the attribution, when it's missing
+		if !forceBucketUpdate {
+			// bucket has already an attribution, no need to update
+			return nil
+		}
+	} else if !attribution.ErrBucketNotAttributed.Has(err) {
 		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
-	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
-	}
-	if !empty {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, Partner %q cannot be attributed", bucketName, userAgent)
+		return rpcstatus.Error(rpcstatus.Internal, "unable to get bucket attribution")
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -147,8 +143,36 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 	}
-	if bucket.UserAgent != nil {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q already has attribution, Partner %q cannot be attributed", bucketName, userAgent)
+
+	if attrInfo != nil {
+		// bucket user agent and value attributions user agent already set
+		if bytes.Equal(bucket.UserAgent, attrInfo.UserAgent) {
+			return nil
+		}
+		// make sure bucket user_agent matches value_attribution
+		userAgent = attrInfo.UserAgent
+	}
+
+	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	}
+	if !empty {
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, Partner %q cannot be attributed", bucketName, userAgent)
+	}
+
+	if attrInfo == nil {
+		// update attribution table
+		_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+			UserAgent:  userAgent,
+		})
+		if err != nil {
+			endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+		}
 	}
 
 	// update bucket information
@@ -157,17 +181,6 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	if err != nil {
 		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
-	}
-
-	// update attribution table
-	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
-		ProjectID:  projectID,
-		BucketName: bucketName,
-		UserAgent:  userAgent,
-	})
-	if err != nil {
-		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return nil

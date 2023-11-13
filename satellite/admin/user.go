@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,13 +12,18 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -156,10 +162,11 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type User struct {
-		ID           uuid.UUID `json:"id"`
-		FullName     string    `json:"fullName"`
-		Email        string    `json:"email"`
-		ProjectLimit int       `json:"projectLimit"`
+		ID           uuid.UUID                 `json:"id"`
+		FullName     string                    `json:"fullName"`
+		Email        string                    `json:"email"`
+		ProjectLimit int                       `json:"projectLimit"`
+		Placement    storj.PlacementConstraint `json:"placement"`
 	}
 	type Project struct {
 		ID          uuid.UUID `json:"id"`
@@ -178,6 +185,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		FullName:     user.FullName,
 		Email:        user.Email,
 		ProjectLimit: user.ProjectLimit,
+		Placement:    user.DefaultPlacement,
 	}
 	for _, p := range projects {
 		output.Projects = append(output.Projects, Project{
@@ -189,6 +197,96 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data, err := json.Marshal(output)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
+func (server *Server) usersPendingDeletion(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	type User struct {
+		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"fullName"`
+		Email    string    `json:"email"`
+	}
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		sendJSONError(w, "Bad request", "parameter 'limit' can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		sendJSONError(w, "Bad request", "parameter 'page' can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var sendingPage struct {
+		Users       []User `json:"users"`
+		PageCount   uint   `json:"pageCount"`
+		CurrentPage uint   `json:"currentPage"`
+		TotalCount  uint64 `json:"totalCount"`
+		HasMore     bool   `json:"hasMore"`
+	}
+	usersPage, err := server.db.Console().Users().GetByStatus(
+		ctx, console.PendingDeletion, console.UserCursor{
+			Limit: uint(limit),
+			Page:  uint(page),
+		},
+	)
+	if err != nil {
+		sendJSONError(w, "failed retrieving a usersPage of users", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendingPage.PageCount = usersPage.PageCount
+	sendingPage.CurrentPage = usersPage.CurrentPage
+	sendingPage.TotalCount = usersPage.TotalCount
+	sendingPage.Users = make([]User, 0, len(usersPage.Users))
+
+	if sendingPage.PageCount > sendingPage.CurrentPage {
+		sendingPage.HasMore = true
+	}
+
+	for _, user := range usersPage.Users {
+		invoices, err := server.payments.Invoices().ListFailed(ctx, &user.ID)
+		if err != nil {
+			sendJSONError(w, "getting invoices failed",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(invoices) != 0 {
+			sendingPage.TotalCount--
+			continue
+		}
+		sendingPage.Users = append(sendingPage.Users, User{
+			ID:       user.ID,
+			FullName: user.FullName,
+			Email:    user.Email,
+		})
+	}
+
+	data, err := json.Marshal(sendingPage)
 	if err != nil {
 		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
@@ -296,6 +394,17 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		updateRequest.ShortName = &shortNamePtr
 	}
 	if input.Email != "" {
+		existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
+		if err != nil && !errors.Is(sql.ErrNoRows, err) {
+			sendJSONError(w, "failed to check for user email",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if existingUser != nil {
+			sendJSONError(w, fmt.Sprintf("user with email already exists %s", input.Email),
+				"", http.StatusConflict)
+			return
+		}
 		updateRequest.Email = &input.Email
 	}
 	if len(input.PasswordHash) > 0 {
@@ -329,6 +438,101 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "failed to update user",
 			err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func (server *Server) updateUsersUserAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	creationDatePlusMonth := user.CreatedAt.AddDate(0, 1, 0)
+	if time.Now().After(creationDatePlusMonth) {
+		sendJSONError(w, "this user was created more than a month ago",
+			"we should update user agent only for recently created users", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		UserAgent string `json:"userAgent"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if input.UserAgent == "" {
+		sendJSONError(w, "UserAgent was not provided",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	newUserAgent := []byte(input.UserAgent)
+
+	if bytes.Equal(user.UserAgent, newUserAgent) {
+		sendJSONError(w, "new UserAgent is equal to existing users UserAgent",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.Console().Users().UpdateUserAgent(ctx, user.ID, newUserAgent)
+	if err != nil {
+		sendJSONError(w, "failed to update user's user agent",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get users projects",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var errList errs.Group
+	for _, project := range projects {
+		if bytes.Equal(project.UserAgent, newUserAgent) {
+			errList.Add(errs.New("projectID: %s. New UserAgent is equal to existing users UserAgent", project.ID))
+			continue
+		}
+
+		err = server._updateProjectsUserAgent(ctx, project.ID, newUserAgent)
+		if err != nil {
+			errList.Add(errs.New("projectID: %s. Failed to update projects user agent: %s", project.ID, err))
+		}
+	}
+
+	if errList.Err() != nil {
+		sendJSONError(w, "failed to update projects user agent",
+			errList.Err().Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -463,7 +667,7 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
+func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -485,14 +689,14 @@ func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = server.freezeAccounts.FreezeUser(ctx, u.ID)
+	err = server.freezeAccounts.BillingFreezeUser(ctx, u.ID)
 	if err != nil {
-		sendJSONError(w, "failed to freeze user",
+		sendJSONError(w, "failed to billing freeze user",
 			err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
+func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -514,9 +718,129 @@ func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = server.freezeAccounts.UnfreezeUser(ctx, u.ID); err != nil {
-		sendJSONError(w, "failed to unfreeze user",
+	err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation unfreeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+}
+
+func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
 			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = server.freezeAccounts.BillingUnWarnUser(ctx, u.ID); err != nil {
+		sendJSONError(w, "failed to billing unwarn user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.ViolationFreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User frozen but failed to change user status to Pending Deletion. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation freeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	invoices, err := server.payments.Invoices().List(ctx, u.ID)
+	if err != nil {
+		server.log.Error("failed to get invoices for violation frozen user", zap.Error(err))
+		return
+	}
+
+	for _, invoice := range invoices {
+		if invoice.Status == payments.InvoiceStatusOpen {
+			server.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, u.ID, u.Email)
+		}
+	}
+}
+
+func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.ViolationUnfreezeUser(ctx, u.ID)
+	if err != nil {
+		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
+			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
+				"Run the command again, but if the error persists, intervene manually.",
+				err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSONError(w, "failed to violation unfreeze user",
+				err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 }
@@ -624,5 +948,78 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendJSONError(w, "unable to delete credit card(s) from stripe account",
 			err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		Region string `json:"region"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if input.Region == "" {
+		sendJSONError(w, "region was not provided",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	placement, err := parsePlacementConstraint(input.Region)
+	if err != nil {
+		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
+		return
+	}
+
+	server.setGeofenceForUser(w, r, placement)
+}
+
+func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
+	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
+}
+
+func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user.DefaultPlacement == placement {
+		sendJSONError(w, "new placement is equal to user's current placement",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	if err = server.db.Console().Users().UpdateDefaultPlacement(ctx, user.ID, placement); err != nil {
+		sendJSONError(w, "unable to set geofence for user",
+			err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
