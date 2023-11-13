@@ -45,7 +45,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		billingFreezeGracePeriod := int(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod.Hours() / 24)
 
@@ -116,7 +116,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -168,7 +168,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -250,7 +250,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -330,9 +330,7 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		usersDB := sat.DB.Console().Users()
-		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		billingWarnGracePeriod := int(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod.Hours() / 24)
 
@@ -399,7 +397,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -496,10 +494,8 @@ func TestFreezeEffects(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		usersDB := sat.DB.Console().Users()
-		projectsDB := sat.DB.Console().Projects()
 		consoleService := sat.API.Console.Service
-		freezeService := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+		freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		uplink1 := planet.Uplinks[0]
 		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)

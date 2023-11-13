@@ -178,9 +178,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		}
 
 		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
-			db.Console().AccountFreezeEvents(),
-			db.Console().Users(),
-			db.Console().Projects(),
+			db.Console(),
 			peer.Analytics.Service,
 			config.Console.AccountFreeze,
 		)

@@ -597,9 +597,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		accountFreezeService := console.NewAccountFreezeService(
-			db.Console().AccountFreezeEvents(),
-			db.Console().Users(),
-			db.Console().Projects(),
+			db.Console(),
 			peer.Analytics.Service,
 			consoleConfig.AccountFreeze,
 		)
