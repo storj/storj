@@ -2,18 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="pb-4">
+    <p class="pt-2 pb-4">
         Add a credit card to activate your Pro Account, or deposit more than $10 in STORJ tokens to upgrade
         and get 10% bonus on your STORJ tokens deposit.
     </p>
-
-    <v-divider />
 
     <v-row justify="center" class="mx-0 pb-5 pt-4">
         <v-col class="pl-0">
             <v-btn
                 variant="flat"
-                color="success"
+                color="primary"
                 block
                 :loading="loading"
                 @click="emit('addCard')"

@@ -10,7 +10,7 @@
             </v-card-title>
         </template>
         <v-card-item>
-            <v-progress-linear color="green" :model-value="progress" rounded height="6" />
+            <v-progress-linear color="default" :model-value="progress" rounded height="6" />
         </v-card-item>
         <v-card-item>
             <v-row>

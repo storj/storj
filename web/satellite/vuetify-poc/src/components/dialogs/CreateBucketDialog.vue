@@ -11,7 +11,7 @@
     >
         <v-card ref="innerContent" rounded="xlg">
             <v-sheet>
-                <v-card-item class="pl-7 py-4">
+                <v-card-item class="pa-5 pl-7">
                     <template #prepend>
                         <v-card-title class="font-weight-bold">
                             <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
@@ -33,21 +33,21 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-8 pb-3" @submit.prevent="onCreate">
-                <v-row class="ma-0">
-                    <p>Buckets are used to store and organize your files.</p>
-                    <v-col class="px-0 flex-1-1-100">
+            <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="onCreate">
+                <v-row>
+                    <v-col>
+                        <p>Buckets are used to store and organize your files.</p>
                         <v-text-field
                             v-model="bucketName"
                             variant="outlined"
                             :rules="bucketNameRules"
-                            label="Enter bucket name"
-                            placeholder="demo-bucket"
-                            hint="Lowercase letters, numbers, hyphens (-), and periods (.)"
+                            label="Bucket name"
+                            placeholder="my-bucket"
+                            hint="Allowed characters [a-z] [0-9] [-.]"
                             :hide-details="false"
                             required
                             autofocus
-                            class="mt-8 mb-3"
+                            class="mt-7 mb-3"
                             minlength="3"
                             maxlength="63"
                         />

@@ -4,13 +4,14 @@
 <template>
     <v-dialog
         v-model="model"
-        width="400px"
+        min-width="320px"
+        max-width="420px"
         transition="fade-transition"
         scrollable
         :persistent="isCreating"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4 pos-relative">
+            <v-card-item class="pa-5 pl-7 pos-relative">
                 <template #prepend>
                     <img class="d-block" :src="STEP_ICON_AND_TITLE[step].icon">
                 </template>

@@ -13,7 +13,7 @@
         @update:model-value="v => model = v"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/../static/images/modals/limit.svg" alt="Speedometer">
                     <img v-else class="d-block" src="@/../static/images/common/blueBox.svg" alt="Box">

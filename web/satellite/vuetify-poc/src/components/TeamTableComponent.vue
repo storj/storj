@@ -2,26 +2,21 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card min-height="24" :border="0" class="mb-2 elevation-0">
-        <v-row v-if="selectedMembers.length > 0" class="justify-end align-center ma-0">
-            <p>{{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }} selected</p>
-        </v-row>
-    </v-card>
     <v-card variant="flat" :border="true" rounded="xlg">
         <v-row align="center" class="ma-0">
-            <v-col v-if="selectedMembers.length" class="px-0 mr-0 ml-2 mt-2" cols="auto">
+            <v-col v-if="selectedMembers.length" class="pa-0" cols="auto">
                 <v-btn
-                    class=" text-caption"
+                    class="text-caption ml-2 mt-2"
                     prepend-icon="mdi-trash-can-outline"
                     variant="outlined"
+                    size="large"
                     color="default"
                     @click="showDeleteDialog"
                 >
-                    Remove
+                    Remove {{ selectedMembers.length }} user{{ selectedMembers.length !== 1 ? 's' : '' }}
                 </v-btn>
             </v-col>
-
-            <v-col class="px-0 mx-2 mt-2">
+            <v-col class="pa-0">
                 <v-text-field
                     v-model="search"
                     label="Search"
@@ -33,6 +28,7 @@
                     clearable
                     density="comfortable"
                     rounded="lg"
+                    class="mx-2 mt-2"
                 />
             </v-col>
         </v-row>
@@ -46,7 +42,6 @@
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No results found"
-            class="elevation-1"
             item-value="email"
             select-strategy="all"
             item-selectable="selectable"

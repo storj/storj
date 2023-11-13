@@ -1,6 +1,6 @@
 ---
 name: "\U0001F41B Bug report"
-about: Bugs encountered while using Storj DCS or running a storage node.
+about: Bugs encountered while using Storj or running a storage node.
 title: ''
 labels: Bug
 assignees: ''

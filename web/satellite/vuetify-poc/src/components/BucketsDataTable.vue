@@ -25,8 +25,7 @@
             :loading="areBucketsFetching"
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
-            no-data-text="No results found"
-            class="elevation-1"
+            no-data-text="No buckets found"
             hover
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
@@ -85,8 +84,8 @@
                             v-bind="activatorProps"
                         />
                     </template>
-                    <v-list class="pa-0">
-                        <v-list-item rounded-lg class="ma-1" link @click="() => showBucketDetailsModal(item.raw.name)">
+                    <v-list class="pa-1">
+                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.raw.name)">
                             <template #prepend>
                                 <icon-bucket size="18" />
                             </template>
@@ -94,7 +93,7 @@
                                 View Bucket Details
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg class="ma-1" link @click="() => showShareBucketDialog(item.raw.name)">
+                        <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-share size="18" />
                             </template>
@@ -102,8 +101,8 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-divider />
-                        <v-list-item rounded-lg class="ma-1 text-error text-body-2" link @click="() => showDeleteBucketDialog(item.raw.name)">
+                        <v-divider class="my-1" />
+                        <v-list-item rounded-lg class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.raw.name)">
                             <template #prepend>
                                 <icon-trash />
                             </template>
