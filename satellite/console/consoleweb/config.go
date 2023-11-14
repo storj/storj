@@ -56,6 +56,7 @@ type FrontendConfig struct {
 	FreeTierInvitesEnabled          bool                  `json:"freeTierInvitesEnabled"`
 	UserBalanceForUpgrade           int64                 `json:"userBalanceForUpgrade"`
 	LimitIncreaseRequestEnabled     bool                  `json:"limitIncreaseRequestEnabled"`
+	SignupActivationCodeEnabled     bool                  `json:"signupActivationCodeEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
