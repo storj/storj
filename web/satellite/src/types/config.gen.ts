@@ -53,6 +53,7 @@ export class FrontendConfig {
     freeTierInvitesEnabled: boolean;
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
+    signupActivationCodeEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
