@@ -126,8 +126,8 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freezes *console.UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// dbxEvents will have a max length of 3.
-	// because there's at most 1 instance each of 3 types of events for a user.
+	// dbxEvents will have a max length of 4.
+	// because there's at most 1 instance each of 4 types of events for a user.
 	dbxEvents, err := events.db.All_AccountFreezeEvent_By_UserId(ctx,
 		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
 	)
@@ -146,6 +146,13 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 		}
 		if console.AccountFreezeEventType(event.Event) == console.ViolationFreeze {
 			freezes.ViolationFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if console.AccountFreezeEventType(event.Event) == console.LegalFreeze {
+			freezes.LegalFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}
