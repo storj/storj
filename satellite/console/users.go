@@ -113,6 +113,8 @@ type CreateUser struct {
 	CaptchaResponse  string `json:"captchaResponse"`
 	IP               string `json:"ip"`
 	SignupPromoCode  string `json:"signupPromoCode"`
+	ActivationCode   string `json:"-"`
+	SignupId         string `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -215,6 +217,9 @@ type User struct {
 	SignupCaptcha          *float64  `json:"-"`
 
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+
+	ActivationCode string `json:"-"`
+	SignupId       string `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -282,6 +287,9 @@ type UpdateUserRequest struct {
 	LoginLockoutExpiration **time.Time
 
 	DefaultPlacement storj.PlacementConstraint
+
+	ActivationCode *string
+	SignupId       *string
 }
 
 // UserSettings contains configurations for a user.
