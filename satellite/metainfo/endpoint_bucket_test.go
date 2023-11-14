@@ -514,7 +514,8 @@ func TestDefaultBucketVersioning(t *testing.T) {
 			err := satellite.API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
 			return err
 		}
-
+		// unversioned is tested first here because it should be the default and not require
+		// an update to the test planet project's default versioning state.
 		t.Run("default versioning - unversioned", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 			_, err := satellite.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
@@ -533,6 +534,29 @@ func TestDefaultBucketVersioning(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Equal(t, buckets.Unversioned, buckets.Versioning(getResponse.Versioning))
+		})
+
+		t.Run("default versioning - unsupported", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+			err := satellite.DB.Console().Projects().UpdateDefaultVersioning(ctx, projectID, console.VersioningUnsupported)
+			require.NoError(t, err)
+
+			_, err = satellite.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			require.NoError(t, err)
+
+			getResponse, err := satellite.API.Metainfo.Endpoint.GetBucketVersioning(ctx, &pb.GetBucketVersioningRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningUnsupported, buckets.Versioning(getResponse.Versioning))
 		})
 
 		t.Run("default versioning - enabled", func(t *testing.T) {

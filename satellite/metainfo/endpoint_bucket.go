@@ -214,10 +214,13 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if err != nil {
 			return nil, err
 		}
-		if defaultVersioning == console.VersioningEnabled || endpoint.config.TestEnableBucketVersioning {
-			bucketReq.Versioning = buckets.VersioningEnabled
-		} else {
+		switch defaultVersioning {
+		case console.VersioningUnsupported:
+			bucketReq.Versioning = buckets.VersioningUnsupported
+		case console.Unversioned:
 			bucketReq.Versioning = buckets.Unversioned
+		case console.VersioningEnabled:
+			bucketReq.Versioning = buckets.VersioningEnabled
 		}
 	}
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
