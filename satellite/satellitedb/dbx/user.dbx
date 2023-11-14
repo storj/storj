@@ -206,7 +206,7 @@ model account_freeze_event (
 
     // user_id refers to user.id column.
     field user_id blob
-    // event indicates the console.AccountFreezeEventType. BillingFreeze=0, BillingWarning=1, ViolationFreeze=2.
+    // event indicates the console.AccountFreezeEventType. BillingFreeze=0, BillingWarning=1, ViolationFreeze=2, LegalFreeze=3.
     field event int
     // limits are the limits before the freeze begun.
     field limits json ( nullable, updatable )

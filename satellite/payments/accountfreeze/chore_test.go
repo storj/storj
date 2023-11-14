@@ -58,6 +58,91 @@ func TestAutoFreezeChore(t *testing.T) {
 		amount := int64(100)
 		curr := string(stripe.CurrencyUSD)
 
+		t.Run("No billing event for legal frozen user", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+
+			violatingUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Violating User",
+				Email:    "legalhold@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus2, err := customerDB.GetCustomerID(ctx, violatingUser.ID)
+			require.NoError(t, err)
+
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:   stripe.Params{Context: ctx},
+				Customer: &cus2,
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus2,
+				Invoice:  &inv.ID,
+			})
+			require.NoError(t, err)
+
+			paymentMethod := stripe1.MockInvoicesPayFailure
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: &paymentMethod,
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			failed, err := invoicesDB.ListFailed(ctx, nil)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(failed))
+
+			require.NoError(t, service.LegalFreezeUser(ctx, violatingUser.ID))
+
+			chore.Loop.TriggerWait()
+
+			// user should not be billing warned or frozen.
+			freezes, err := service.GetAll(ctx, violatingUser.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes)
+			require.Nil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+			require.NotNil(t, freezes.LegalFreeze)
+
+			// forward date to after the grace period
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+			})
+			chore.Loop.TriggerWait()
+
+			// user should still not be billing warned or frozen.
+			freezes, err = service.GetAll(ctx, violatingUser.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes)
+			require.Nil(t, freezes.BillingFreeze)
+			require.Nil(t, freezes.BillingWarning)
+			require.NotNil(t, freezes.LegalFreeze)
+
+			paymentMethod = stripe1.MockInvoicesPaySuccess
+			_, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: &paymentMethod,
+			})
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
+
+			chore.Loop.TriggerWait()
+
+			// paying for the invoice does not remove the legal freeze
+			freezes, err = service.GetAll(ctx, violatingUser.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes)
+			require.Nil(t, freezes.BillingFreeze)
+			require.Nil(t, freezes.BillingWarning)
+			require.NotNil(t, freezes.LegalFreeze)
+		})
+
 		t.Run("No billing event for violation frozen user", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
