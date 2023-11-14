@@ -13,7 +13,12 @@ import (
 )
 
 func main() {
-	api := &apigen.API{PackageName: "admin", Version: "v1", BasePath: "/api"}
+	api := &apigen.API{
+		PackageName: "admin",
+		PackagePath: "storj.io/storj/satellite/admin/back-office",
+		Version:     "v1",
+		BasePath:    "/api",
+	}
 
 	// This is an example and must be deleted when we define the first real endpoint.
 	group := api.Group("Example", "example")

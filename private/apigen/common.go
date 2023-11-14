@@ -30,7 +30,11 @@ type API struct {
 	Version     string
 	Description string
 	// The package name to use for the Go generated code.
+	// If omitted, the last segment of the PackagePath will be used as the package name.
 	PackageName string
+	// The path of the package that will use the generated Go code.
+	// This is used to prevent the code from importing its own package.
+	PackagePath string
 	// BasePath is the  base path for the API endpoints. E.g. "/api".
 	// It doesn't require to begin with "/". When empty, "/" is used.
 	BasePath       string

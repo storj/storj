@@ -16,7 +16,11 @@ import (
 )
 
 func main() {
-	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
+	a := &apigen.API{
+		PackagePath: "storj.io/storj/private/apigen/example",
+		Version:     "v0",
+		BasePath:    "/api",
+	}
 
 	g := a.Group("Documents", "docs")
 
