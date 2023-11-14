@@ -26,7 +26,7 @@
                         <p>Access and view your account info.</p>
                     </div>
                     <div class="authorize-area__permissions-area__container">
-                        <p class="authorize-area__permissions-area__header">Sync data to Storj DCS</p>
+                        <p class="authorize-area__permissions-area__header">Sync data to Storj</p>
                         <p>Automatically send updates to:</p>
 
                         <div class="authorize-area__input-wrapper">

@@ -10,9 +10,16 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="py-4 pl-7">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@/../static/images/buckets/createBucket.svg" alt="bucket">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <icon-bucket />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -103,9 +110,10 @@ import {
     VRow,
     VCol,
     VBtn,
-    VForm,
-    VTextField,
+    VSheet,
 } from 'vuetify/components';
+
+import IconBucket from '../icons/IconBucket.vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { Bucket } from '@/types/buckets';

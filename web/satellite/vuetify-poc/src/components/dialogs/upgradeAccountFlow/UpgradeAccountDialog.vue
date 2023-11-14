@@ -4,16 +4,15 @@
 <template>
     <v-dialog
         v-model="model"
-        width="auto"
         scrollable
         min-width="460px"
-        :max-width="step === UpgradeAccountStep.Info || step === UpgradeAccountStep.PricingPlanSelection ? '700px' : '460px'"
+        :max-width="step === UpgradeAccountStep.Info || step === UpgradeAccountStep.PricingPlanSelection ? '720px' : '460px'"
         transition="fade-transition"
         :persistent="loading"
         :scrim="scrim"
     >
         <v-card ref="content" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template v-if="step === UpgradeAccountStep.Success" #prepend>
                     <img class="d-block" src="@/../static/images/modals/upgradeFlow/success.svg" alt="success">
                 </template>
@@ -29,7 +28,7 @@
                 </template>
             </v-card-item>
 
-            <v-divider class="mx-8" />
+            <v-divider />
 
             <v-card-item class="px-8 py-4">
                 <v-window v-model="step">
@@ -142,7 +141,7 @@ const model = computed<boolean>({
 
 const stepTitles = computed(() => {
     return {
-        [UpgradeAccountStep.Info]: 'Your account',
+        [UpgradeAccountStep.Info]: 'Upgrade',
         [UpgradeAccountStep.Options]: 'Upgrade to Pro',
         [UpgradeAccountStep.AddCC]: 'Add Credit Card',
         [UpgradeAccountStep.AddTokens]: 'Add tokens',

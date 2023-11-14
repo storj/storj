@@ -2,25 +2,139 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card v-if="!allFiles.length" title="No objects uploaded" cols="12" sm="6" md="4" lg="3" variant="flat" :border="true" rounded="xlg">
-        <v-card-text>
-            <v-divider class="mt-1 mb-4" />
-            <v-btn color="primary" size="small" class="mr-2" @click="emit('uploadClick')">Upload</v-btn>
-            <v-btn size="small" class="mr-2" @click="emit('newFolderClick')">New Folder</v-btn>
-        </v-card-text>
-    </v-card>
-    <v-row v-else>
-        <v-col v-for="item in allFiles" :key="item.browserObject.Key" cols="12" sm="6" md="4" lg="3">
-            <file-card
-                :item="item"
-                class="h-100"
-                @preview-click="onFileClick(item.browserObject)"
-                @delete-file-click="onDeleteFileClick(item.browserObject)"
-                @share-click="onShareClick(item.browserObject)"
+    <v-row align="center" class="mb-3">
+        <v-col>
+            <v-text-field
+                v-model="search"
+                label="Search"
+                prepend-inner-icon="mdi-magnify"
+                single-line
+                variant="solo-filled"
+                flat
+                hide-details
+                clearable
+                density="comfortable"
+                rounded="lg"
             />
+        </v-col>
+        <v-col cols="auto">
+            <v-menu>
+                <template #activator="{ props: sortProps }">
+                    <v-btn
+                        variant="tonal"
+                        color="primary"
+                        append-icon="mdi-chevron-down"
+                        v-bind="sortProps"
+                    >
+                        Sort by {{ sortKey }}
+                    </v-btn>
+                </template>
+                <v-list>
+                    <v-list-item
+                        v-for="(key, index) in sortKeys"
+                        :key="index"
+                        :title="key"
+                        @click="() => sortKey = key.toLowerCase()"
+                    />
+                </v-list>
+            </v-menu>
+        </v-col>
+
+        <v-col cols="auto">
+            <v-btn-toggle
+                v-model="sortOrder"
+                density="comfortable"
+                variant="outlined"
+                color="primary"
+                rounded="lg"
+                mandatory
+            >
+                <v-btn value="asc">
+                    <v-icon>mdi-arrow-up</v-icon>
+                </v-btn>
+                <v-btn value="desc">
+                    <v-icon>mdi-arrow-down</v-icon>
+                </v-btn>
+            </v-btn-toggle>
         </v-col>
     </v-row>
 
+    <v-data-iterator
+        :page="cursor.page"
+        :items-per-page="cursor.limit"
+        :items="browserFiles"
+        :search="search"
+        :sort-by="sortBy"
+        :loading="isFetching"
+    >
+        <template #no-data>
+            <div class="d-flex justify-center">No results found</div>
+        </template>
+
+        <template #default="fileProps">
+            <v-row>
+                <v-col v-for="item in fileProps.items" :key="item.raw.browserObject.Key" cols="12" sm="6" md="4" lg="3" xl="2">
+                    <file-card
+                        :item="item.raw"
+                        class="h-100"
+                        @preview-click="onFileClick(item.raw.browserObject)"
+                        @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                        @share-click="onShareClick(item.raw.browserObject)"
+                    />
+                </v-col>
+            </v-row>
+        </template>
+
+        <template #footer>
+            <div class="d-flex align-center py-5">
+                <v-menu>
+                    <template #activator="{ props: limitProps }">
+                        <v-btn
+                            variant="tonal"
+                            color="primary"
+                            append-icon="mdi-chevron-down"
+                            v-bind="limitProps"
+                        >
+                            {{ cursor.limit }} files per page
+                        </v-btn>
+                    </template>
+                    <v-list>
+                        <v-list-item
+                            v-for="(number, index) in tableSizeOptions(totalObjectCount, true)"
+                            :key="index"
+                            :title="number.title"
+                            @click="() => onLimitChange(number.value)"
+                        />
+                    </v-list>
+                </v-menu>
+
+                <v-spacer />
+
+                <span class="mr-4">
+                    Page {{ cursor.page }} of {{ lastPage }}
+                </span>
+                <v-btn
+                    icon
+                    size="small"
+                    variant="tonal"
+                    :disabled="cursor.page === 1"
+                    @click="() => onPageChange(cursor.page - 1)"
+                >
+                    <v-icon>mdi-chevron-left</v-icon>
+                </v-btn>
+                <v-btn
+                    icon
+                    size="small"
+                    variant="tonal"
+                    class="ml-2"
+                    :disabled="cursor.page === lastPage"
+                    @click="() => onPageChange(cursor.page + 1)"
+                >
+                    <v-icon>mdi-chevron-right</v-icon>
+                </v-btn>
+            </div>
+        </template>
+    </v-data-iterator>
     <file-preview-dialog v-model="previewDialog" />
 
     <delete-file-dialog
@@ -41,9 +155,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VBtn, VCard, VCardText, VCol, VDivider, VRow } from 'vuetify/components';
+import { VBtn, VBtnToggle, VCol, VIcon, VList, VListItem, VMenu, VRow, VSpacer, VTextField } from 'vuetify/components';
+import { VDataIterator } from 'vuetify/labs/components';
 
-import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    MAX_KEY_COUNT,
+    ObjectBrowserCursor,
+    PreviewCache,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -53,12 +174,15 @@ import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
+import { tableSizeOptions } from '@/types/common';
 
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 import FileCard from '@poc/components/FileCard.vue';
+
+type SortKey = 'name' | 'type' | 'size' | 'date';
 
 const props = defineProps<{
     forceEmpty?: boolean;
@@ -88,7 +212,12 @@ const fileToDelete = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
-const isFileGuideShown = ref<boolean>(false);
+const routePageCache = new Map<string, number>();
+
+const sortKey = ref<string>('name');
+const sortOrder = ref<string>('asc');
+const sortKeys = ['Name', 'Type', 'Size', 'Date'];
+const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 /**
  * Returns object preview URLs cache from store.
@@ -113,6 +242,29 @@ const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingModal);
 
 /**
+ * Returns total object count from store.
+ */
+const isPaginationEnabled = computed<boolean>(() => config.state.config.objectBrowserPaginationEnabled);
+
+/**
+ * Returns total object count from store.
+ */
+const totalObjectCount = computed<number>(() => isPaginationEnabled.value ? obStore.state.totalObjectCount : allFiles.value.length);
+
+/**
+ * Returns browser cursor from store.
+ */
+const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
+
+/**
+ * Returns the last page of the file list.
+ */
+const lastPage = computed<number>(() => {
+    const page = Math.ceil(totalObjectCount.value / cursor.value.limit);
+    return page === 0 ? page + 1 : page;
+});
+
+/**
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
@@ -131,6 +283,98 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
         };
     });
 });
+
+/**
+ * Returns every file under the current path that matchs the search query.
+ */
+const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
+    if (!search.value) return allFiles.value;
+    const searchLower = search.value.toLowerCase();
+    return allFiles.value.filter(file => file.lowerName.includes(searchLower));
+});
+
+/**
+ * The sorting criteria to be used for the file list.
+ */
+const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
+
+/**
+ * Returns the files to be displayed in the browser.
+ */
+const browserFiles = computed<BrowserObjectWrapper[]>(() => {
+    const files = [...filteredFiles.value];
+
+    if (sortBy.value.length) {
+        const sort = sortBy.value[0];
+
+    type CompareFunc = (a: BrowserObjectWrapper, b: BrowserObjectWrapper) => number;
+    const compareFuncs: Record<SortKey, CompareFunc> = {
+        name: (a, b) => collator.compare(a.browserObject.Key, b.browserObject.Key),
+        type: (a, b) => collator.compare(a.typeInfo.title, b.typeInfo.title) || collator.compare(a.ext, b.ext),
+        size: (a, b) => a.browserObject.Size - b.browserObject.Size,
+        date: (a, b) => a.browserObject.LastModified.getTime() - b.browserObject.LastModified.getTime(),
+    };
+
+    files.sort((a, b) => {
+        const objA = a.browserObject, objB = b.browserObject;
+        if (sort.key !== 'type') {
+            if (objA.type === 'folder') {
+                if (objB.type !== 'folder') return -1;
+                if (sort.key === 'size' || sort.key === 'date') return 0;
+            } else if (objB.type === 'folder') {
+                return 1;
+            }
+        }
+
+        const cmp = compareFuncs[sort.key](a, b);
+        return sort.order === 'asc' ? cmp : -cmp;
+    });
+    }
+
+    if (cursor.value.limit === -1 || isPaginationEnabled.value) return files;
+
+    return files.slice((cursor.value.page - 1) * cursor.value.limit, cursor.value.page * cursor.value.limit);
+});
+
+/**
+ * Handles page change event.
+ */
+function onPageChange(page: number): void {
+    if (page < 1) return;
+    if (page > lastPage.value) return;
+    const path = filePath.value ? filePath.value + '/' : '';
+    routePageCache.set(path, page);
+    obStore.setCursor({ page, limit: cursor.value?.limit ?? 10 });
+
+    const lastObjectOnPage = page * cursor.value.limit;
+    const activeRange = obStore.state.activeObjectsRange;
+
+    if (lastObjectOnPage > activeRange.start && lastObjectOnPage <= activeRange.end) {
+        return;
+    }
+
+    const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
+
+    const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
+    if (!tokenToBeFetched) {
+        obStore.initList(path);
+        return;
+    }
+
+    obStore.listByToken(path, tokenKey, tokenToBeFetched);
+}
+
+/**
+ * Handles items per page change event.
+ */
+function onLimitChange(newLimit: number): void {
+    // if the new limit is large enough to cause the page index to be out of range
+    // we calculate an appropriate new page index.
+    const oldPage = cursor.value.page ?? 1;
+    const maxPage = Math.ceil(totalObjectCount.value / newLimit);
+    const page = oldPage > maxPage ? maxPage : oldPage;
+    obStore.setCursor({ page, limit: newLimit });
+}
 
 /**
  * Returns the title and icon representing a file's type.
@@ -164,7 +408,6 @@ function onFileClick(file: BrowserObject): void {
 
     obStore.setObjectPathForModal(file.path + file.Key);
     previewDialog.value = true;
-    isFileGuideShown.value = false;
     LocalData.setFileGuideHidden();
 }
 
@@ -178,9 +421,22 @@ async function fetchFiles(): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        await obStore.list(path);
+        if (isPaginationEnabled.value) {
+            await obStore.initList(path);
+        } else {
+            await obStore.list(path);
+        }
 
         selected.value = [];
+
+        if (isPaginationEnabled.value) {
+            const cachedPage = routePageCache.get(path);
+            if (cachedPage !== undefined) {
+                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
+            } else {
+                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
+            }
+        }
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;
         notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
@@ -208,7 +464,7 @@ function onShareClick(file: BrowserObject): void {
 /**
  * Get the object preview url.
  */
-async function fetchPreviewUrl(file : BrowserObject) {
+async function fetchPreviewUrl(file: BrowserObject) {
     let url = '';
     try {
         url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, file.path + file.Key);
@@ -242,7 +498,8 @@ function findCachedURL(file: BrowserObject): string | undefined {
 }
 
 /**
- * Loads object URL from cache or generates new URL.
+ * Loads object URL from cache or generates new URL for previewing
+ * images on card items.
  */
 async function processFilePath(file: BrowserObjectWrapper) {
     if (file.browserObject.type === 'folder') return;

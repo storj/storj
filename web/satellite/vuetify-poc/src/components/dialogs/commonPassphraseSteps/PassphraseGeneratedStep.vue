@@ -2,30 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8">
+    <v-form ref="form" class="pa-7">
         <v-row>
             <v-col v-if="$slots.default" cols="12">
                 <slot />
             </v-col>
             <save-buttons :name="name" :items="[ passphrase ]" type="passphrase" />
-            <v-divider class="my-3" />
-
             <v-col cols="12">
                 <text-output-area
                     label="Encryption Passphrase"
                     :value="passphrase"
-                    center-text
                     :tooltip-disabled="isTooltipDisabled"
                     show-copy
                 />
-            </v-col>
-            <v-col cols="12">
                 <v-checkbox
                     density="compact"
                     color="primary"
-                    label="Yes, I saved my encryption passphrase."
+                    label="I saved my encryption passphrase."
                     :hide-details="false"
                     :rules="[ RequiredRule ]"
+                    class="mt-4 mb-n7"
                 />
             </v-col>
         </v-row>

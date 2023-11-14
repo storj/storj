@@ -8,7 +8,7 @@
         transition="fade-transition"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="py-4 pl-7">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg">
                 </template>
@@ -31,13 +31,12 @@
 
             <v-divider />
 
-            <v-card-item class="py-4">
-                <v-form v-model="formValid">
+            <v-card-item class="pa-7 pb-3">
+                <v-form v-model="formValid" @submit.prevent="onContinue">
                     <v-row>
                         <v-col cols="12">
                             <p>
-                                Enter your encryption passphrase to view and manage your data in the browser.
-                                This passphrase will be used to unlock all buckets in this project.
+                                Enter your encryption passphrase to view and manage the data in this project.
                             </p>
                         </v-col>
 
@@ -46,11 +45,12 @@
                                 v-model="passphrase"
                                 :base-color="isWarningState ? 'warning' : ''"
                                 label="Encryption Passphrase"
-                                :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
+                                :append-inner-icon="isPassphraseVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                                 :type="isPassphraseVisible ? 'text' : 'password'"
                                 variant="outlined"
                                 :hide-details="false"
                                 :rules="[ RequiredRule ]"
+                                autofocus
                                 @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
                             />
                         </v-col>
@@ -62,13 +62,13 @@
                     class="mt-3"
                     density="compact"
                     type="warning"
-                    text="This bucket includes files that are uploaded using a different encryption passphrase from the one you entered."
+                    text="Object count mismatch: files may be uploaded with a different passphrase, or files have been recently deleted and are not reflected yet."
                 />
             </v-card-item>
 
             <v-divider />
 
-            <v-card-actions>
+            <v-card-actions class="pa-4">
                 <v-col>
                     <v-btn
                         variant="outlined"

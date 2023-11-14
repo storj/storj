@@ -2,25 +2,39 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row class="pa-0 flex-nowrap">
-        <v-col class="pa-2" cols="1">
-            <img v-if="!isPro" src="@/../static/images/modals/upgradeFlow/greyCheckmark.svg" alt="checkmark">
-            <img v-else src="@/../static/images/modals/upgradeFlow/greenCheckmark.svg" alt="checkmark">
-        </v-col>
-        <v-col class="pa-2" cols="11">
-            <p class="font-weight-bold">
+    <v-list>
+        <v-list-item>
+            <template #prepend>
+                <v-icon
+                    v-if="!isPro"
+                    color="default"
+                    icon="mdi-check-circle-outline"
+                    size="small"
+                    class="mr-3 text-disabled"
+                />
+                <v-icon
+                    v-else
+                    color="primary"
+                    icon="mdi-check-circle-outline"
+                    size="small"
+                    class="mr-3 opacity-100"
+                />
+            </template>
+            <v-list-item-title>
                 {{ title }}
                 <v-tooltip v-if="$slots.moreInfo" max-width="200px" location="top" activator="parent">
                     <slot name="moreInfo" />
                 </v-tooltip>
-            </p>
-            <p>{{ info }}</p>
-        </v-col>
-    </v-row>
+            </v-list-item-title>
+            <v-list-item-subtitle>
+                {{ info }}
+            </v-list-item-subtitle>
+        </v-list-item>
+    </v-list>
 </template>
 
 <script setup lang="ts">
-import { VCol, VRow, VTooltip } from 'vuetify/components';
+import { VList, VListItem, VListItemTitle, VListItemSubtitle, VIcon, VTooltip } from 'vuetify/components';
 
 const props = withDefaults(defineProps<{
     isPro?: boolean;

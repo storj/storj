@@ -227,7 +227,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 	}
 
 	// Shuffle the satellites
-	// All the Storagenodes get a default list of trusted satellites (The Storj DCS ones) and
+	// All the Storagenodes get a default list of trusted satellites (The Storj ones) and
 	// most of the SN operators don't change the list, hence if it always starts with
 	// the same satellite we are going to put always more pressure on the first trusted
 	// satellite on the list. So we iterate over the list of trusted satellites in a

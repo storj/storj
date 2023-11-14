@@ -200,7 +200,7 @@ function sizeChanged(size: number) {
         }
         // if the new size is large enough to cause the page index to be out of range
         // we calculate an appropriate new page index.
-        const maxPage = Math.ceil(Math.ceil(props.totalItemsCount / size));
+        const maxPage = Math.ceil(props.totalItemsCount / size);
         const page = currentPageNumber.value > maxPage ? maxPage : currentPageNumber.value;
         if (!props.onPageChange) {
             return;
