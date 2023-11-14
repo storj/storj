@@ -28,6 +28,7 @@ type Config struct {
 	BlockExplorerURL                string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
+	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig
