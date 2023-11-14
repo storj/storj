@@ -34,6 +34,19 @@ func main() {
 		Response:       []backoffice.PlacementInfo{},
 	})
 
+	group = api.Group("UserManagement", "users")
+
+	group.Get("/{email}", &apigen.Endpoint{
+		Name:           "Get user",
+		Description:    "Gets user by email address",
+		GoName:         "GetUserByEmail",
+		TypeScriptName: "getUserByEmail",
+		PathParams: []apigen.Param{
+			apigen.NewParam("email", ""),
+		},
+		Response: backoffice.User{},
+	})
+
 	modroot := findModuleRootDir()
 	api.MustWriteGo(filepath.Join(modroot, "satellite", "admin", "back-office", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))

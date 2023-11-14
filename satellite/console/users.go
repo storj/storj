@@ -174,6 +174,24 @@ const (
 	LegalHold UserStatus = 4
 )
 
+// String returns a string representation of the user status.
+func (s UserStatus) String() string {
+	switch s {
+	case Inactive:
+		return "Inactive"
+	case Active:
+		return "Active"
+	case Deleted:
+		return "Deleted"
+	case PendingDeletion:
+		return "Pending Deletion"
+	case LegalHold:
+		return "Legal Hold"
+	default:
+		return ""
+	}
+}
+
 // User is a database object that describes User entity.
 type User struct {
 	ID uuid.UUID `json:"id"`

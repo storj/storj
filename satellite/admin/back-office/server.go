@@ -17,7 +17,6 @@ import (
 
 	"storj.io/common/errs2"
 	ui "storj.io/storj/satellite/admin/back-office/ui"
-	"storj.io/storj/satellite/overlay"
 )
 
 // PathPrefix is the path that will be prefixed to the router passed to the NewServer constructor.
@@ -44,9 +43,8 @@ type Config struct {
 // Server serves the API endpoints and the web application to allow preforming satellite
 // administration tasks.
 type Server struct {
-	log       *zap.Logger
-	listener  net.Listener
-	placement *overlay.PlacementDefinitions
+	log      *zap.Logger
+	listener net.Listener
 
 	config Config
 
@@ -60,15 +58,14 @@ type Server struct {
 func NewServer(
 	log *zap.Logger,
 	listener net.Listener,
-	placement *overlay.PlacementDefinitions,
+	service *Service,
 	root *mux.Router,
 	config Config,
 ) *Server {
 	server := &Server{
-		log:       log,
-		listener:  listener,
-		placement: placement,
-		config:    config,
+		log:      log,
+		listener: listener,
+		config:   config,
 	}
 
 	if root == nil {
@@ -77,7 +74,8 @@ func NewServer(
 
 	// API endpoints.
 	// API generator already add the PathPrefix.
-	NewPlacementManagement(log, mon, server, root)
+	NewPlacementManagement(log, mon, service, root)
+	NewUserManagement(log, mon, service, root)
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
