@@ -88,6 +88,7 @@ const (
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 	eventUnpaidStorjscanInvoice       = "Storjscan Invoice Unpaid"
 	eventPendingDeletionUnpaidInvoice = "Pending Deletion Invoice Open"
+	eventLegalHoldUnpaidInvoice       = "Legal Hold Invoice Open"
 	eventExpiredCreditNeedsRemoval    = "Expired Credit Needs Removal"
 	eventExpiredCreditRemoved         = "Expired Credit Removed"
 	eventProjectInvitationAccepted    = "Project Invitation Accepted"
@@ -454,7 +455,7 @@ func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, 
 	})
 }
 
-// TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
+// TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a violation frozen user has not paid an invoice.
 func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string) {
 	if !service.config.Enabled {
 		return
@@ -467,6 +468,24 @@ func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID u
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventPendingDeletionUnpaidInvoice,
+		Properties: props,
+	})
+}
+
+// TrackLegalHoldUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice
+// but is in legal hold.
+func (service *Service) TrackLegalHoldUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("invoice", invID)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventLegalHoldUnpaidInvoice,
 		Properties: props,
 	})
 }

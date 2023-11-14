@@ -192,6 +192,12 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			continue
 		}
 
+		if freezes.LegalFreeze != nil {
+			infoLog("Ignoring invoice; account already frozen for legal review")
+			chore.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, userID, user.Email)
+			continue
+		}
+
 		shouldEscalate := func(event *console.AccountFreezeEvent) bool {
 			if event == nil || event.DaysTillEscalation == nil {
 				return false
@@ -349,6 +355,11 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 
 			if event.Type == console.ViolationFreeze {
 				infoLog("Skipping violation freeze event")
+				continue
+			}
+
+			if event.Type == console.LegalFreeze {
+				infoLog("Skipping legal freeze event")
 				continue
 			}
 
