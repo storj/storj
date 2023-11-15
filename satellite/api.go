@@ -590,6 +590,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service,
 			externalAddress,
 			consoleConfig.SatelliteName,
+			config.Metainfo.ProjectLimits.MaxBuckets,
 			consoleConfig.Config,
 		)
 		if err != nil {

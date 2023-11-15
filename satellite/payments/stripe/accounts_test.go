@@ -96,6 +96,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			"",
 			"",
+			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 
