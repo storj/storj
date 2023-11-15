@@ -167,7 +167,6 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 }
 
 // ExtendedConfig extended config keeps additional helper fields and methods around Config.
-// TODO potentially can be removed when UsePendingObjectsTableProjects won't be used anymore.
 type ExtendedConfig struct {
 	Config
 
