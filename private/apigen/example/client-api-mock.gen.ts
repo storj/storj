@@ -91,7 +91,7 @@ export class DocumentsHttpApiV0 {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('[{"id":"00000000-0000-0000-0000-000000000000","path":"/workspace/notes.md","date":"0001-01-01T00:00:00Z","metadata":{"owner":"Storj","tags":[["category","general"]]},"last_retrievals":[{"user":"Storj","when":"2023-11-03T15:41:14.288101181+01:00"}]}]') as DocsGetResponse;
+        return JSON.parse('[{"id":"00000000-0000-0000-0000-000000000000","path":"/workspace/notes.md","date":"0001-01-01T00:00:00Z","metadata":{"owner":"Storj","tags":[["category","general"]]},"last_retrievals":[{"user":"Storj","when":"2001-02-03T03:05:06.000000007Z"}]}]') as DocsGetResponse;
     }
 
     public async getOne(path: string): Promise<Document> {
@@ -99,7 +99,7 @@ export class DocumentsHttpApiV0 {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2023-11-02T16:41:14.288104016+01:00","pathParam":"ID","body":"## Notes","version":{"date":"2023-11-03T16:11:14.288104112+01:00","number":1}}') as Document;
+        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2001-02-02T04:05:06.000000007Z","pathParam":"ID","body":"## Notes","version":{"date":"2001-02-03T03:35:06.000000007Z","number":1}}') as Document;
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
@@ -115,7 +115,7 @@ export class DocumentsHttpApiV0 {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('[{"date":"2023-10-19T17:41:14.288106868+02:00","number":1},{"date":"2023-11-03T11:41:14.288106932+01:00","number":2}]') as Version[];
+        return JSON.parse('[{"date":"2001-01-19T04:05:06.000000007Z","number":1},{"date":"2001-02-02T23:05:06.000000007Z","number":2}]') as Version[];
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
@@ -123,7 +123,7 @@ export class DocumentsHttpApiV0 {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2023-11-03T16:41:14.288108437+01:00","pathParam":"ID","body":"## Notes\n### General"}') as DocsUpdateContentResponse;
+        return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2001-02-03T04:05:06.000000007Z","pathParam":"ID","body":"## Notes\n### General"}') as DocsUpdateContentResponse;
     }
 }
 
