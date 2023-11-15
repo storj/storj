@@ -7,9 +7,11 @@ package main
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 
 	"storj.io/storj/private/apigen"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 )
 
 func main() {
@@ -17,7 +19,7 @@ func main() {
 		PackageName: "admin",
 		PackagePath: "storj.io/storj/satellite/admin/back-office",
 		Version:     "v1",
-		BasePath:    "/api",
+		BasePath:    path.Join(backoffice.PathPrefix, "/api"),
 	}
 
 	// This is an example and must be deleted when we define the first real endpoint.

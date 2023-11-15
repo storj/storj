@@ -24,6 +24,10 @@ import (
 	ui "storj.io/storj/satellite/admin/back-office/ui"
 )
 
+// PathPrefix is the path that will be prefixed to the router passed to the NewServer constructor.
+// This is temporary until this server will replace the storj.io/storj/satellite/admin/server.go.
+const PathPrefix = "/back-office/"
+
 // Error is the error class that wraps all the errors returned by this package.
 var Error = errs.Class("satellite-admin")
 
@@ -43,55 +47,34 @@ type Server struct {
 	config Config
 }
 
-// ParentRouter is mux.Router with its full path prefix.
-type ParentRouter struct {
-	Router *mux.Router
-	// PathPrefix is the full path prefix of Router.
-	PathPrefix string
-}
-
 // NewServer creates a satellite administration server instance with the provided dependencies and
 // configurations.
 //
 // When listener is nil, Server.Run is a noop.
-//
-// When parentRouter is nil it creates a new Router to attach the server endpoints, otherwise , it
-// attaches them  to the provided one, allowing to expose its functionality through another server.
-func NewServer(log *zap.Logger, listener net.Listener, parentRouter *ParentRouter, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, root *mux.Router, config Config) *Server {
 	server := &Server{
 		log:      log,
 		listener: listener,
 		config:   config,
 	}
 
-	if parentRouter == nil {
-		parentRouter = &ParentRouter{}
-	}
-
-	root := parentRouter.Router
 	if root == nil {
 		root = mux.NewRouter()
 	}
 
 	// API endpoints.
-	// api := root.PathPrefix("/api/").Subrouter()
+	// API generator already add the PathPrefix.
+	// _ := NewExample(log, mon, nil, root, nil)
 
+	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
 	// This handler must be the last one because it uses the root as prefix, otherwise, it will serve
 	// all the paths defined by the handlers set after this one.
 	var staticHandler http.Handler
 	if config.StaticDir == "" {
-		if parentRouter.PathPrefix != "" {
-			staticHandler = http.StripPrefix(parentRouter.PathPrefix, http.FileServer(http.FS(ui.Assets)))
-		} else {
-			staticHandler = http.FileServer(http.FS(ui.Assets))
-		}
+		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.FS(ui.Assets)))
 	} else {
-		if parentRouter.PathPrefix != "" {
-			staticHandler = http.StripPrefix(parentRouter.PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
-		} else {
-			staticHandler = http.FileServer(http.Dir(config.StaticDir))
-		}
+		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
 	}
 
 	root.PathPrefix("/").Handler(staticHandler).Methods("GET")
