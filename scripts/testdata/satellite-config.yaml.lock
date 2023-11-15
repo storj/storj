@@ -757,9 +757,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
 
-# enable new flow for upload which is using pending_objects table
-# metainfo.use-pending-objects-table: false
-
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
