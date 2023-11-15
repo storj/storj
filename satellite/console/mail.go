@@ -19,6 +19,17 @@ func (*AccountActivationEmail) Template() string { return "Welcome" }
 // Subject gets email subject.
 func (*AccountActivationEmail) Subject() string { return "Activate your email" }
 
+// AccountActivationCodeEmail is mailservice template with activation code.
+type AccountActivationCodeEmail struct {
+	ActivationCode string
+}
+
+// Template returns email template name.
+func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" }
+
+// Subject gets email subject.
+func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
+
 // ForgotPasswordEmail is mailservice template with reset password data.
 type ForgotPasswordEmail struct {
 	Origin                     string
