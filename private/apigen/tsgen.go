@@ -114,7 +114,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.TypeScriptName, funcArgs, returnType)
 		if len(method.QueryParams) > 0 {
-			f.pf("\t\tconst u = new URL(`%s`);", path)
+			f.pf("\t\tconst u = new URL(`%s`, window.location.href);", path)
 			for _, p := range method.QueryParams {
 				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
 			}
