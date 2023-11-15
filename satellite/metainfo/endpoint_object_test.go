@@ -83,6 +83,18 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("get objects", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
+			// check version validation
+			_, err := satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte("test-bucket"),
+				EncryptedObjectKey: []byte("test-object"),
+				ObjectVersion:      []byte("broken-version"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
 			files := make([]string, 10)
 			data := testrand.Bytes(1 * memory.KiB)
 			for i := 0; i < len(files); i++ {
@@ -3110,4 +3122,79 @@ func TestNodeTagPlacement(t *testing.T) {
 
 		},
 	)
+}
+
+func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+				config.Metainfo.TestEnableBucketVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satelliteSys := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		bucketName := "versioned-bucket"
+		objectKey := "versioned-object"
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, satelliteSys)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		createBucket := func(name string) error {
+			_, err := satelliteSys.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey},
+				Name:   []byte(name),
+			})
+			return err
+		}
+
+		deleteBucket := func(name string) func() error {
+			return func() error {
+				_, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.DeleteBucketRequest{
+					Header:    &pb.RequestHeader{ApiKey: apiKey},
+					Name:      []byte(name),
+					DeleteAll: true,
+				})
+				return err
+			}
+		}
+
+		t.Run("object with 2 versions", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+
+			state, err := planet.Satellites[0].API.Buckets.Service.GetBucketVersioningState(ctx, []byte(bucketName), projectID)
+			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningEnabled, state)
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, objectKey, testrand.Bytes(100))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, objectKey, testrand.Bytes(100))
+			require.NoError(t, err)
+
+			objects, err := satelliteSys.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 2)
+
+			response, err := satelliteSys.API.Metainfo.Endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			})
+
+			require.NoError(t, err)
+			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, response.Object.Status)
+
+			objects, err = satelliteSys.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 3)
+		})
+	})
 }

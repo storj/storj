@@ -27,7 +27,7 @@ export type ProjectItemRole = Exclude<ProjectRole, ProjectRole.InviteExpired>;
  */
 export const PROJECT_ROLE_COLORS: Record<ProjectRole, string> = {
     [ProjectRole.Member]: 'green',
-    [ProjectRole.Owner]: 'purple2',
+    [ProjectRole.Owner]: 'secondary',
     [ProjectRole.Invited]: 'warning',
     [ProjectRole.InviteExpired]: 'error',
 };

@@ -45,7 +45,8 @@ type Server struct {
 
 // ParentRouter is mux.Router with its full path prefix.
 type ParentRouter struct {
-	Router     *mux.Router
+	Router *mux.Router
+	// PathPrefix is the full path prefix of Router.
 	PathPrefix string
 }
 
@@ -81,13 +82,13 @@ func NewServer(log *zap.Logger, listener net.Listener, parentRouter *ParentRoute
 	var staticHandler http.Handler
 	if config.StaticDir == "" {
 		if parentRouter.PathPrefix != "" {
-			staticHandler = http.StripPrefix("/back-office/", http.FileServer(http.FS(ui.Assets)))
+			staticHandler = http.StripPrefix(parentRouter.PathPrefix, http.FileServer(http.FS(ui.Assets)))
 		} else {
 			staticHandler = http.FileServer(http.FS(ui.Assets))
 		}
 	} else {
 		if parentRouter.PathPrefix != "" {
-			staticHandler = http.StripPrefix("/back-office/", http.FileServer(http.Dir(config.StaticDir)))
+			staticHandler = http.StripPrefix(parentRouter.PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
 		} else {
 			staticHandler = http.FileServer(http.Dir(config.StaticDir))
 		}

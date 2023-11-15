@@ -3,7 +3,13 @@
 
 <template>
     <v-container>
-        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="mt-10 mb-15">
+        <low-token-balance-banner
+            v-if="isLowBalance && billingEnabled"
+            cta-label="Go to billing"
+            @click="redirectToBilling"
+        />
+        <limit-warning-banners v-if="billingEnabled" />
+        <v-row v-if="promptForPassphrase && !bucketWasCreated" class="my-0">
             <v-col cols="12">
                 <p class="text-h5 font-weight-bold">Set an encryption passphrase<br>to start uploading files.</p>
             </v-col>
@@ -13,7 +19,7 @@
                 </v-btn>
             </v-col>
         </v-row>
-        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="mt-10 mb-15">
+        <v-row v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsCount" class="my-0">
             <v-col cols="12">
                 <p class="text-h5 font-weight-bold">Create a bucket to start<br>uploading data in your project.</p>
             </v-col>
@@ -191,7 +197,18 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { VBtn, VCard, VCardTitle, VCardText, VCol, VContainer, VRow, VBadge, VIcon, VTooltip } from 'vuetify/components';
+import {
+    VBtn,
+    VCard,
+    VCardTitle,
+    VCardText,
+    VCol,
+    VContainer,
+    VRow,
+    VBadge,
+    VIcon,
+    VTooltip,
+} from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
 
@@ -211,6 +228,9 @@ import { LocalData } from '@/utils/localData';
 import { ProjectMembersPage } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
+import { RouteName } from '@poc/router';
+import { AccountBalance, CreditCard } from '@/types/payments';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -224,6 +244,8 @@ import CreateBucketDialog from '@poc/components/dialogs/CreateBucketDialog.vue';
 import ManagePassphraseDialog from '@poc/components/dialogs/ManagePassphraseDialog.vue';
 import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
+import LimitWarningBanners from '@poc/components/LimitWarningBanners.vue';
+import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -236,6 +258,7 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
+const isLowBalance = useLowTokenBalance();
 
 const bucketWasCreated = !!LocalData.getBucketWasCreatedStatus();
 
@@ -492,7 +515,14 @@ function onCouponCTAClicked(): void {
         return;
     }
 
-    router.push('/account/billing');
+    redirectToBilling();
+}
+
+/**
+ * Redirects to Billing Page tab.
+ */
+function redirectToBilling(): void {
+    router.push({ name: RouteName.Billing });
 }
 
 /**
@@ -510,7 +540,7 @@ onMounted(async (): Promise<void> => {
     const past = new Date();
     past.setDate(past.getDate() - 30);
 
-    let promises: Promise<void | ProjectMembersPage | AccessGrantsPage>[] = [
+    let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: past, before: now }),
         projectsStore.getProjectLimits(projectID),
         pmStore.getProjectMembers(FIRST_PAGE, projectID),
@@ -522,8 +552,14 @@ onMounted(async (): Promise<void> => {
         promises = [
             ...promises,
             billingStore.getProjectUsageAndChargesCurrentRollup(),
+            billingStore.getBalance(),
+            billingStore.getCreditCards(),
             billingStore.getCoupon(),
         ];
+    }
+
+    if (configStore.state.config.nativeTokenPaymentsEnabled) {
+        promises.push(billingStore.getNativePaymentsHistory());
     }
 
     try {

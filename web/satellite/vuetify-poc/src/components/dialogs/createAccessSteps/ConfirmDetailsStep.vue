@@ -2,21 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-7">
         <v-row>
             <v-col cols="12">
-                Confirm that the access details are correct before creating.
-            </v-col>
-            <v-divider class="my-1" />
-            <v-col class="pa-1" cols="12">
-                <div
-                    v-for="item in items"
-                    :key="item.title"
-                    class="d-flex justify-space-between ma-2"
-                >
-                    <p class="flex-shrink-0 mr-4">{{ item.title }}</p>
-                    <p class="text-body-2 text-medium-emphasis text-right">{{ item.value }}</p>
-                </div>
+                <p>Confirm that the access details are correct before creating.</p>
+                <v-list lines="one">
+                    <v-list-item
+                        v-for="item in items"
+                        :key="item.title"
+                        :title="item.title"
+                        :subtitle="item.value"
+                        class="pl-0"
+                    />
+                </v-list>
             </v-col>
         </v-row>
     </div>
@@ -24,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VRow, VCol, VDivider } from 'vuetify/components';
+import { VRow, VCol, VList, VListItem } from 'vuetify/components';
 
 import { Permission, AccessType } from '@/types/createAccessGrant';
 import { AccessGrantEndDate } from '@poc/types/createAccessGrant';

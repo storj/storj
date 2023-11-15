@@ -9,10 +9,10 @@
         :persistent="isLoading"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <v-sheet
-                        class="bg-on-surface-variant d-flex justify-center align-center"
+                        class="border-sm d-flex justify-center align-center"
                         width="40"
                         height="40"
                         rounded="lg"
@@ -40,37 +40,35 @@
             <div class="pa-7 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
                 <v-row>
                     <v-col cols="12">
-                        <v-alert class="mt-3" density="compact" type="warning">
+                        <v-alert type="info">
                             Sharing a {{ shareText.toLowerCase() }} will create a publicly shareable URL.
                             Anyone with this link will be able to access your shared {{ shareText.toLowerCase() }}.
                         </v-alert>
                     </v-col>
                     <v-col cols="12">
                         <p class="text-subtitle-2 font-weight-bold mb-4">Share via</p>
-                        <div class="ma-n2">
+                        <v-chip-group class="ma-n2">
                             <v-chip
                                 v-for="opt in ShareOptions"
                                 :key="opt"
                                 :color="SHARE_BUTTON_CONFIGS[opt].color"
                                 :href="SHARE_BUTTON_CONFIGS[opt].getLink(link)"
                                 link
-                                class="ma-2"
+                                class="ma-2 font-weight-medium"
                             >
                                 <component
                                     :is="SHARE_BUTTON_CONFIGS[opt].icon"
                                     class="share-dialog__content__icon"
-                                    size="21"
+                                    size="16"
                                 />
                                 {{ opt }}
                             </v-chip>
-                        </div>
+                        </v-chip-group>
                     </v-col>
-
-                    <v-divider class="my-2" />
 
                     <v-col cols="12">
                         <p class="text-subtitle-2 font-weight-bold mb-2">Copy link</p>
-                        <v-textarea :model-value="link" variant="solo-filled" rows="1" auto-grow no-resize flat readonly>
+                        <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-body-2">
                             <template #append-inner>
                                 <input-copy-button :value="link" />
                             </template>
@@ -122,6 +120,7 @@ import {
     VChip,
     VTextarea,
     VAlert,
+    VChipGroup,
 } from 'vuetify/components';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

@@ -25,16 +25,8 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 </script>
 
 <style scoped lang="scss">
-    .token-loader {
-        width: 100% !important;
-        padding: 0 !important;
-        margin: 40px 0;
-    }
-
     .token {
         border-radius: 10px;
-        width: 348px;
-        height: 203px;
         box-sizing: border-box;
         padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);

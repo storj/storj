@@ -11,6 +11,7 @@
         variant="solo-filled"
         :label="label"
         :model-value="value"
+        rounded="xlg"
         rows="1"
         auto-grow
         no-resize
@@ -25,7 +26,6 @@
                         class="bg-background"
                         variant="outlined"
                         color="default"
-                        size="small"
                         prepend-icon="mdi-lock-outline"
                         @click="isBlurred = false"
                     >
@@ -73,10 +73,17 @@ const isBlurred = ref<boolean>(true);
 
     :deep(textarea) {
         font-family: monospace;
+        font-size: 14px;
+        margin-bottom: 8px;
+        margin-top: 8px;
     }
 
     :deep(.v-field__field), :deep(.v-field__append-inner) {
-        filter: blur(10px);
+        filter: blur(50px);
+    }
+
+    :deep(.v-field-label--floating) {
+        top: 10px !important;
     }
 
     &--unblur {

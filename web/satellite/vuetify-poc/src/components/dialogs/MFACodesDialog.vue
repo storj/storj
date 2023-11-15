@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-mfa.svg" alt="MFA">
                 </template>
@@ -25,13 +25,13 @@
                     />
                 </template>
             </v-card-item>
-            <v-divider class="mx-8" />
+            <v-divider />
 
             <template v-if="isConfirmCode">
                 <v-card-item class="px-8 py-4">
                     <p>Enter the authentication code generated in your two-factor application to regenerate recovery codes.</p>
                 </v-card-item>
-                <v-divider class="mx-8" />
+                <v-divider />
                 <v-card-item class="px-8 pt-4 pb-0">
                     <v-form v-model="formValid" class="pt-2" @submit.prevent="regenerate">
                         <v-text-field
@@ -54,13 +54,13 @@
                     </a>
                 </v-card-item>
 
-                <v-divider class="mx-8 my-4" />
+                <v-divider class="my-4" />
             </template>
             <template v-else>
                 <v-card-item class="px-8 py-4">
                     <p>Please save these codes somewhere to be able to recover access to your account.</p>
                 </v-card-item>
-                <v-divider class="mx-8" />
+                <v-divider />
                 <v-card-item class="px-8 py-4">
                     <p
                         v-for="(code, index) in userMFARecoveryCodes"
@@ -69,7 +69,7 @@
                         {{ code }}
                     </p>
                 </v-card-item>
-                <v-divider class="mx-8 mb-4" />
+                <v-divider class="mb-4" />
             </template>
 
             <v-card-actions dense class="px-7 pb-5 pt-0">

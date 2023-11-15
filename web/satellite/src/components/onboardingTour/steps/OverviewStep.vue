@@ -3,7 +3,7 @@
 
 <template>
     <div class="overview-area">
-        <h1 class="overview-area__title" aria-roledescription="title">Welcome to Storj {{ titleLabel }}</h1>
+        <h1 class="overview-area__title" aria-roledescription="title">Welcome to Storj</h1>
         <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
@@ -51,8 +51,6 @@ const notify = useNotify();
 const router = useRouter();
 
 const projectDashboardPath = RouteConfig.ProjectDashboard.path;
-
-const titleLabel = ref<string>('');
 
 /**
  * Skips onboarding flow.
@@ -103,13 +101,6 @@ onMounted(async (): Promise<void> => {
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
-
-    const config = configStore.state.config;
-    const isPartnered = config.partneredSatellites.find((el: PartneredSatellite) => {
-        return el.name === config.satelliteName;
-    });
-
-    titleLabel.value = isPartnered ? 'DCS' : 'OSP';
 });
 </script>
 

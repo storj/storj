@@ -50,10 +50,10 @@ const chartData = computed((): ChartData => {
         datasets: [{
             data,
             fill: true,
-            backgroundColor: '#929fb110',
-            borderColor: '#929fb1',
+            backgroundColor: '#c3c3c310',
+            borderColor: '#c3c3c3',
             pointHoverBackgroundColor: '#FFFFFF',
-            pointBorderColor: '#929fb1',
+            pointBorderColor: '#c3c3c3',
             pointHoverBorderWidth: 3,
             hoverRadius: 8,
             hitRadius: 3,
@@ -108,13 +108,14 @@ watch(() => props.width, () => {
         display: flex;
         flex-direction: column;
         align-items: center;
-        background-color: #929fb1;
+        background-color: #e4e4e4;
+        box-shadow: rgb(0 0 0 / 3%) 0 1px 10px 10px !important;
 
         &__value {
             font-size: 14px;
             line-height: 26px;
             text-align: center;
-            color: var(--c-white);
+            color: #444;
             white-space: nowrap;
 
             &__bold {
@@ -128,7 +129,7 @@ watch(() => props.width, () => {
             border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
-            background-color: #929fb1;
+            background-color: #e4e4e4;
         }
     }
 </style>

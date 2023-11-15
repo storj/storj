@@ -23,7 +23,6 @@
             :items="items"
             :search="search"
             no-data-text="No results found"
-            class="elevation-1"
             item-key="path"
         >
             <template #item.name="{ item }">
@@ -79,7 +78,7 @@
                         :loading="decliningIds.has(item.raw.id)"
                     >
                         <v-icon icon="mdi-dots-horizontal" size="18" />
-                        <v-menu activator="parent" location="bottom end" transition="scale-transition">
+                        <v-menu activator="parent" location="bottom" transition="scale-transition">
                             <v-list class="pa-1">
                                 <template v-if="item.raw.role === ProjectRole.Owner">
                                     <v-list-item link @click="() => onSettingsClick(item.raw)">
@@ -90,6 +89,7 @@
                                             Project Settings
                                         </v-list-item-title>
                                     </v-list-item>
+                                    <v-divider class="my-1" />
                                     <v-list-item link>
                                         <template #prepend>
                                             <icon-team size="18" />

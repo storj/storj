@@ -5,7 +5,6 @@
     <v-col cols="6">
         <v-btn
             variant="outlined"
-            size="small"
             block
             :color="justCopied ? 'success' : 'default'"
             :prepend-icon="justCopied ? 'mdi-check' : 'mdi-content-copy'"
@@ -17,7 +16,6 @@
     <v-col cols="6">
         <v-btn
             variant="outlined"
-            size="small"
             block
             :color="justDownloaded ? 'success' : 'default'"
             :prepend-icon="justDownloaded ? 'mdi-check' : 'mdi-tray-arrow-down'"

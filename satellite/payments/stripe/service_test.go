@@ -357,6 +357,7 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 		// Deactivate the users and give them balances
 		statusPending := console.PendingDeletion
 		statusDeleted := console.Deleted
+		statusLegalHold := console.LegalHold
 		for i, user := range users {
 			cusID, err = satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
 			require.NoError(t, err)
@@ -371,8 +372,10 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 			var status *console.UserStatus
 			if i%2 == 0 {
 				status = &statusDeleted
-			} else {
+			} else if i%3 == 0 {
 				status = &statusPending
+			} else {
+				status = &statusLegalHold
 			}
 			err := satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
 				Status: status,
@@ -409,7 +412,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 
 		numberOfProjects := 19
 		numberOfInactiveUsers := 5
-		pendingDeletionStatus := console.PendingDeletion
+		status := console.PendingDeletion
 		// user to be deactivated later
 		var activeUser console.User
 		// generate test data, each user has one project and some credits
@@ -431,8 +434,15 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 				activeUser = *user
 				continue
 			}
+			if i%2 == 0 {
+				status = console.Deleted
+			} else if i%3 == 0 {
+				status = console.PendingDeletion
+			} else {
+				status = console.LegalHold
+			}
 			err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-				Status: &pendingDeletionStatus,
+				Status: &status,
 			})
 			require.NoError(t, err)
 		}
@@ -453,7 +463,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 
 		// deactivate user
 		err = satellite.DB.Console().Users().Update(ctx, activeUser.ID, console.UpdateUserRequest{
-			Status: &pendingDeletionStatus,
+			Status: &status,
 		})
 		require.NoError(t, err)
 
