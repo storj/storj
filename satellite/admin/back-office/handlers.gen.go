@@ -27,15 +27,13 @@ type PlacementManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service PlacementManagementService
-	auth    api.Auth
 }
 
-func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router, auth api.Auth) *PlacementManagementHandler {
+func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router) *PlacementManagementHandler {
 	handler := &PlacementManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
-		auth:    auth,
 	}
 
 	placementsRouter := router.PathPrefix("/back-office/api/v1/placements").Subrouter()

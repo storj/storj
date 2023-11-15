@@ -139,7 +139,7 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 	f.pf("}")
 }
 
-func (f *tsGenFile) getArgsAndPath(method *fullEndpoint, group *EndpointGroup) (funcArgs, path string) {
+func (f *tsGenFile) getArgsAndPath(method *FullEndpoint, group *EndpointGroup) (funcArgs, path string) {
 	// remove path parameter placeholders
 	path = method.Path
 	i := strings.Index(path, "{")

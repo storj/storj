@@ -32,8 +32,6 @@ func main() {
 		GoName:         "GetPlacements",
 		TypeScriptName: "getPlacements",
 		Response:       []backoffice.PlacementInfo{},
-		NoCookieAuth:   true,
-		NoAPIAuth:      true,
 	})
 
 	modroot := findModuleRootDir()

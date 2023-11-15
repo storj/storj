@@ -111,13 +111,18 @@ func (a *API) generateGo() ([]byte, error) {
 			packageName,
 			strings.ToLower(group.Prefix),
 		)
+
+		for _, m := range group.Middleware {
+			i(middlewareImports(m)...)
+		}
 	}
 
 	pf("")
 
-	params := make(map[*fullEndpoint][]Param)
+	params := make(map[*FullEndpoint][]Param)
 
 	for _, group := range a.EndpointGroups {
+		// Define the service interface
 		pf("type %sService interface {", capitalize(group.Name))
 		for _, e := range group.endpoints {
 			params[e] = append(e.PathParams, e.QueryParams...)
@@ -162,7 +167,30 @@ func (a *API) generateGo() ([]byte, error) {
 		pf("log *zap.Logger")
 		pf("mon *monkit.Scope")
 		pf("service %sService", cname)
-		pf("auth api.Auth")
+
+		autodefinedFields := map[string]string{"log": "*zap.Logger", "mon": "*monkit.Scope", "service": cname + "Service"}
+		for _, m := range group.Middleware {
+			for _, f := range middlewareFields(m) {
+				if t, ok := autodefinedFields[f.Name]; ok {
+					if t != f.Type {
+						panic(
+							fmt.Sprintf(
+								"middleware %q has a field with name %q and type %q which clashes with another defined field with the same but with type %q",
+								reflect.TypeOf(m).Name(),
+								f.Name,
+								f.Type,
+								t,
+							),
+						)
+					}
+
+					continue
+				}
+				autodefinedFields[f.Name] = f.Type
+				pf("%s %s", f.Name, f.Type)
+			}
+		}
+
 		pf("}")
 		pf("")
 	}
@@ -170,17 +198,45 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		cname := capitalize(group.Name)
 		i("github.com/gorilla/mux")
-		pf(
-			"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
-			cname,
-			cname,
-			cname,
-		)
+
+		autodedefined := map[string]struct{}{"log": {}, "mon": {}, "service": {}}
+		middlewareArgs := make([]string, 0, len(group.Middleware))
+		middlewareFieldsList := make([]string, 0, len(group.Middleware))
+		for _, m := range group.Middleware {
+			for _, f := range middlewareFields(m) {
+				if _, ok := autodedefined[f.Name]; !ok {
+					middlewareArgs = append(middlewareArgs, fmt.Sprintf("%s %s", f.Name, f.Type))
+					middlewareFieldsList = append(middlewareFieldsList, fmt.Sprintf("%[1]s: %[1]s", f.Name))
+				}
+			}
+		}
+
+		if len(middlewareArgs) > 0 {
+			pf(
+				"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router, %s) *%sHandler {",
+				cname,
+				cname,
+				strings.Join(middlewareArgs, ", "),
+				cname,
+			)
+		} else {
+			pf(
+				"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router) *%sHandler {",
+				cname,
+				cname,
+				cname,
+			)
+		}
+
 		pf("handler := &%sHandler{", cname)
 		pf("log: log,")
 		pf("mon: mon,")
 		pf("service: service,")
-		pf("auth: auth,")
+
+		if len(middlewareFieldsList) > 0 {
+			pf(strings.Join(middlewareFieldsList, ",") + ",")
+		}
+
 		pf("}")
 		pf("")
 		pf(
@@ -216,6 +272,11 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("defer h.mon.Task()(&ctx)(&err)")
 			pf("")
 
+			for _, m := range group.Middleware {
+				pf(m.Generate(a, group, endpoint))
+			}
+
+			pf("")
 			pf("w.Header().Set(\"Content-Type\", \"application/json\")")
 			pf("")
 
@@ -225,18 +286,6 @@ func (a *API) generateGo() ([]byte, error) {
 
 			if endpoint.Request != nil {
 				handleBody(pf, endpoint.Request)
-			}
-
-			if !endpoint.NoCookieAuth || !endpoint.NoAPIAuth {
-				pf("ctx, err = h.auth.IsAuthenticated(ctx, r, %v, %v)", !endpoint.NoCookieAuth, !endpoint.NoAPIAuth)
-				pf("if err != nil {")
-				if !endpoint.NoCookieAuth {
-					pf("h.auth.RemoveAuthCookie(w)")
-				}
-				pf("api.ServeError(h.log, w, http.StatusUnauthorized, err)")
-				pf("return")
-				pf("}")
-				pf("")
 			}
 
 			var methodFormat string

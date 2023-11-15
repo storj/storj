@@ -57,7 +57,13 @@ type Server struct {
 // configurations.
 //
 // When listener is nil, Server.Run is a noop.
-func NewServer(log *zap.Logger, listener net.Listener, placement *overlay.PlacementDefinitions, root *mux.Router, config Config) *Server {
+func NewServer(
+	log *zap.Logger,
+	listener net.Listener,
+	placement *overlay.PlacementDefinitions,
+	root *mux.Router,
+	config Config,
+) *Server {
 	server := &Server{
 		log:       log,
 		listener:  listener,
@@ -71,8 +77,7 @@ func NewServer(log *zap.Logger, listener net.Listener, placement *overlay.Placem
 
 	// API endpoints.
 	// API generator already add the PathPrefix.
-	auth := &apiAuth{server}
-	NewPlacementManagement(log, mon, server, root, auth)
+	NewPlacementManagement(log, mon, server, root)
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
@@ -117,18 +122,3 @@ func (server *Server) Run(ctx context.Context) error {
 func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
-
-// apiAuth exposes methods to control the authentication process for each generated API endpoint.
-type apiAuth struct {
-	server *Server
-}
-
-// IsAuthenticated checks if request is performed with all needed authorization credentials.
-// This method is inert because the satellite admin back office uses neither cookies nor API keys to authenticate.
-func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (_ context.Context, err error) {
-	return ctx, nil
-}
-
-// RemoveAuthCookie indicates to the client that the authentication cookie should be removed.
-// This method is inert because the satellite admin back office doesn't use authentication cookies.
-func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {}
