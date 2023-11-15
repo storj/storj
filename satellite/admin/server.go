@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -38,6 +39,9 @@ const (
 	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
 	// AuthorizationNotEnabled - message for when authorization is disabled.
 	AuthorizationNotEnabled = "Authorization not enabled."
+
+	// BackOfficePathPrefix is the path prefix used for the back office router.
+	BackOfficePathPrefix = "/back-office"
 )
 
 // Config defines configuration for debug server.
@@ -102,6 +106,7 @@ func NewServer(
 	freezeAccounts *console.AccountFreezeService,
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
+	placement *overlay.PlacementDefinitions,
 	console consoleweb.Config,
 	config Config,
 ) *Server {
@@ -178,7 +183,7 @@ func NewServer(
 
 	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
 	// generator already add the PathPrefix to router when the API handlers are hooked.
-	_ = backoffice.NewServer(log.Named("back-office"), nil, root, config.BackOffice)
+	_ = backoffice.NewServer(log.Named("back-office"), nil, placement, root, config.BackOffice)
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
