@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -138,8 +137,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
-	usePendingObjectsTable := endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID)
-
 	opts := metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -153,8 +150,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonce,
-
-		UsePendingObjectsTable: usePendingObjectsTable,
 	}
 	if !expiresAt.IsZero() {
 		opts.ExpiresAt = &expiresAt
@@ -176,8 +171,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(bucket.Placement),
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
-
-		UsePendingObjectsTable: usePendingObjectsTable,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -295,8 +288,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		DisallowDelete: !allowDelete,
 
-		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
-
 		Versioned: streamID.Versioned,
 	}
 	// uplink can send empty metadata with not empty key/nonce
@@ -401,9 +392,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	if mbObject.Status.IsDeleteMarker() {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "object not found")
-	}
+	// TODO(ver): initially we returned 'object not found' error if delete marker is returned but
+	// S3 HeadObject request in such case requires 'Method Not Allowed' error so libuplink needs
+	// to know that delete marker was retured. We can remove this comment when we will know that
+	// there is no better aproach.
 
 	{
 		tags := []eventkit.Tag{
@@ -944,7 +936,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	cursorKey := metabase.ObjectKey(req.EncryptedCursor)
 	cursorVersion := metabase.Version(0)
-	cursorStreamID := uuid.UUID{}
 	if len(cursorKey) != 0 {
 		cursorKey = prefix + cursorKey
 
@@ -956,8 +947,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		//
 		// it should be set in case of pending and committed objects
 		cursorVersion = metabase.MaxVersion
-		// for the same reasons as above we need to set maximum UUID as a cursor stream id
-		cursorStreamID = uuid.Max()
 	}
 
 	includeCustomMetadata := true
@@ -1000,140 +989,36 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 		resp.More = result.More
 	} else {
-		if status == metabase.Pending && endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID) {
-			type ObjectListItem struct {
-				Item     *pb.ObjectListItem
-				StreamID uuid.UUID
-			}
-
-			pendingObjectsEntries := make([]ObjectListItem, 0, limit)
-			// TODO when objects table will be free from pending objects only this listing method will remain
-			err = endpoint.metabase.IteratePendingObjects(ctx, metabase.IteratePendingObjects{
+		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
+			metabase.IterateObjectsWithStatus{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				Prefix:     prefix,
-				Cursor: metabase.PendingObjectsCursor{
-					Key:      cursorKey,
-					StreamID: cursorStreamID,
+				Cursor: metabase.IterateCursor{
+					Key:     cursorKey,
+					Version: cursorVersion,
 				},
 				Recursive:             req.Recursive,
 				BatchSize:             limit + 1,
+				Pending:               status == metabase.Pending,
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
-			}, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
-				entry := metabase.PendingObjectEntry{}
-				for it.Next(ctx, &entry) {
-					item, err := endpoint.pendingObjectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+				entry := metabase.ObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
 					if err != nil {
 						return err
 					}
-					pendingObjectsEntries = append(pendingObjectsEntries, ObjectListItem{
-						Item:     item,
-						StreamID: entry.StreamID,
-					})
+					resp.Items = append(resp.Items, item)
 				}
+
+				resp.More = it.Next(ctx, &entry)
 				return nil
-			})
-			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
-			}
-
-			// we always need results from both tables for now
-			objectsEntries := make([]ObjectListItem, 0, limit)
-			err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
-				metabase.IterateObjectsWithStatus{
-					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
-					Prefix:     prefix,
-					Cursor: metabase.IterateCursor{
-						Key:     cursorKey,
-						Version: cursorVersion,
-					},
-					Recursive:             req.Recursive,
-					BatchSize:             limit + 1,
-					Pending:               true,
-					IncludeCustomMetadata: includeCustomMetadata,
-					IncludeSystemMetadata: includeSystemMetadata,
-				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-					entry := metabase.ObjectEntry{}
-					for it.Next(ctx, &entry) {
-						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
-						if err != nil {
-							return err
-						}
-						objectsEntries = append(objectsEntries, ObjectListItem{
-							Item:     item,
-							StreamID: entry.StreamID,
-						})
-					}
-					return nil
-				},
-			)
-			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
-			}
-
-			// combine results from both tables and sort them by object key to be able to cut results to the limit
-			allResults := make([]ObjectListItem, 0, len(pendingObjectsEntries)+len(objectsEntries))
-			allResults = append(allResults, pendingObjectsEntries...)
-			allResults = append(allResults, objectsEntries...)
-			sort.Slice(allResults, func(i, j int) bool {
-				keyCompare := bytes.Compare(allResults[i].Item.EncryptedObjectKey, allResults[j].Item.EncryptedObjectKey)
-				switch {
-				case keyCompare == -1:
-					return true
-				case keyCompare == 1:
-					return false
-				case allResults[i].Item.Version < allResults[j].Item.Version:
-					return true
-				case allResults[i].Item.Version > allResults[j].Item.Version:
-					return false
-				default:
-					return allResults[i].StreamID.Less(allResults[j].StreamID)
-				}
-			})
-			if len(allResults) >= limit {
-				resp.More = len(allResults) > limit
-				allResults = allResults[:limit]
-			}
-			resp.Items = make([]*pb.ObjectListItem, len(allResults))
-			for i, objectListItem := range allResults {
-				resp.Items[i] = objectListItem.Item
-			}
-		} else {
-			// we always need results from both tables for now
-			err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
-				metabase.IterateObjectsWithStatus{
-					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
-					Prefix:     prefix,
-					Cursor: metabase.IterateCursor{
-						Key:     cursorKey,
-						Version: cursorVersion,
-					},
-					Recursive:             req.Recursive,
-					BatchSize:             limit + 1,
-					Pending:               status == metabase.Pending,
-					IncludeCustomMetadata: includeCustomMetadata,
-					IncludeSystemMetadata: includeSystemMetadata,
-				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-					entry := metabase.ObjectEntry{}
-					for len(resp.Items) < limit && it.Next(ctx, &entry) {
-						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
-						if err != nil {
-							return err
-						}
-						resp.Items = append(resp.Items, item)
-					}
-
-					// we need to take into account also potential results from IteratePendingObjects
-					resp.More = resp.More || it.Next(ctx, &entry)
-					return nil
-				},
-			)
-			if err != nil {
-				return nil, endpoint.convertMetabaseErr(err)
-			}
+			},
+		)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
 		}
 	}
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1192,9 +1077,6 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	}
 	metabase.ListLimit.Ensure(&limit)
 
-	resp = &pb.ObjectListPendingStreamsResponse{}
-	resp.Items = []*pb.ObjectListItem{}
-
 	options := metabase.IteratePendingObjectsByKey{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
@@ -1203,24 +1085,6 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		},
 		BatchSize: limit + 1,
 		Cursor:    cursor,
-	}
-	if endpoint.config.UsePendingObjectsTableByProject(keyInfo.ProjectID) {
-		err = endpoint.metabase.IteratePendingObjectsByKeyNew(ctx,
-			options, func(ctx context.Context, it metabase.PendingObjectsIterator) error {
-				entry := metabase.PendingObjectEntry{}
-				for it.Next(ctx, &entry) {
-					item, err := endpoint.pendingObjectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, true, placement)
-					if err != nil {
-						return err
-					}
-					resp.Items = append(resp.Items, item)
-				}
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
-		}
 	}
 
 	objectsEntries := make([]*pb.ObjectListItem, 0, limit)
@@ -1240,6 +1104,9 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+
+	resp = &pb.ObjectListPendingStreamsResponse{}
+	resp.Items = []*pb.ObjectListItem{}
 
 	// TODO currently this request have a bug if we would like to list all pending objects
 	// with the same name if we have more than single page of them (1000) because protobuf
@@ -1331,7 +1198,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
-					}, pbStreamID.UsePendingObjectsTable)
+					})
 			}
 		}
 	} else {
@@ -1715,87 +1582,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	return item, nil
 }
 
-func (endpoint *Endpoint) pendingObjectEntryToProtoListItem(ctx context.Context, bucket []byte,
-	entry metabase.PendingObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
-	includeSystem, includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
-
-	item = &pb.ObjectListItem{
-		EncryptedObjectKey: []byte(entry.ObjectKey),
-		Status:             pb.Object_UPLOADING,
-	}
-
-	expiresAt := time.Time{}
-	if entry.ExpiresAt != nil {
-		expiresAt = *entry.ExpiresAt
-	}
-
-	if includeSystem {
-		item.ExpiresAt = expiresAt
-		item.CreatedAt = entry.CreatedAt
-	}
-
-	if includeMetadata {
-		var nonce storj.Nonce
-		if len(entry.EncryptedMetadataNonce) > 0 {
-			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		streamMeta := &pb.StreamMeta{}
-		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
-		if err != nil {
-			return nil, err
-		}
-
-		if entry.Encryption != (storj.EncryptionParameters{}) {
-			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
-			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
-		}
-
-		if entry.EncryptedMetadataEncryptedKey != nil {
-			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
-				KeyNonce:     entry.EncryptedMetadataNonce,
-			}
-		}
-
-		metadataBytes, err := pb.Marshal(streamMeta)
-		if err != nil {
-			return nil, err
-		}
-
-		item.EncryptedMetadata = metadataBytes
-		item.EncryptedMetadataNonce = nonce
-		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
-	}
-
-	// Add Stream ID to list items if listing is for pending objects.
-	// The client requires the Stream ID to use in the MultipartInfo.
-	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:             bucket,
-		EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), []byte(entry.ObjectKey)...),
-		Version:            int64(metabase.PendingVersion),
-		CreationDate:       entry.CreatedAt,
-		ExpirationDate:     expiresAt,
-		StreamId:           entry.StreamID[:],
-		MultipartObject:    true,
-		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
-			BlockSize:   int64(entry.Encryption.BlockSize),
-		},
-		Placement:              int32(placement),
-		UsePendingObjectsTable: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-	item.StreamId = &satStreamID
-
-	return item, nil
-}
-
 // DeleteCommittedObject deletes all the pieces of the storage nodes that belongs
 // to the specified object.
 //
@@ -1867,17 +1653,12 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream, usePendingObjectTable bool) (deletedObjects []*pb.Object, err error) {
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,
 	}
 
-	var result metabase.DeleteObjectResult
-	if usePendingObjectTable {
-		result, err = endpoint.metabase.DeletePendingObjectNew(ctx, req)
-	} else {
-		result, err = endpoint.metabase.DeletePendingObject(ctx, req)
-	}
+	result, err := endpoint.metabase.DeletePendingObject(ctx, req)
 	if err != nil {
 		return nil, err
 	}

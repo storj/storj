@@ -92,5 +92,5 @@ func (chore *Chore) deleteZombieObjects(ctx context.Context) (err error) {
 		return err
 	}
 
-	return chore.metabase.DeleteInactivePendingObjects(ctx, opts)
+	return nil
 }

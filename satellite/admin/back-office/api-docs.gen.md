@@ -13,7 +13,7 @@
 
 Get a list with the names of the all available examples
 
-`GET /api/v1/example/examples`
+`GET /back-office/api/v1/example/examples`
 
 **Response body:**
 

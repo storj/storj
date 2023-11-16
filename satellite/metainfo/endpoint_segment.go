@@ -123,8 +123,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		},
 		RootPieceID: rootPieceID,
 		Pieces:      pieces,
-
-		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -379,8 +377,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Redundancy:  rs,
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
-
-		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -496,8 +492,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		EncryptedETag: req.EncryptedETag,
 
 		InlineData: req.EncryptedInlineData,
-
-		UsePendingObjectsTable: streamID.UsePendingObjectsTable,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

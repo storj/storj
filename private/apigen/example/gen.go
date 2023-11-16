@@ -16,9 +16,15 @@ import (
 )
 
 func main() {
-	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
+	a := &apigen.API{
+		PackagePath: "storj.io/storj/private/apigen/example",
+		Version:     "v0",
+		BasePath:    "/api",
+	}
 
 	g := a.Group("Documents", "docs")
+
+	now := time.Date(2001, 02, 03, 04, 05, 06, 07, time.UTC)
 
 	g.Get("/", &apigen.Endpoint{
 		Name:           "Get Documents",
@@ -56,7 +62,7 @@ func main() {
 				When time.Time `json:"when"`
 			}{{
 				User: "Storj",
-				When: time.Now().Add(-time.Hour),
+				When: now.Add(-time.Hour),
 			}},
 		}},
 	})
@@ -72,11 +78,11 @@ func main() {
 		},
 		ResponseMock: myapi.Document{
 			ID:        uuid.UUID{},
-			Date:      time.Now().Add(-24 * time.Hour),
+			Date:      now.Add(-24 * time.Hour),
 			PathParam: "ID",
 			Body:      "## Notes",
 			Version: myapi.Version{
-				Date:   time.Now().Add(-30 * time.Minute),
+				Date:   now.Add(-30 * time.Minute),
 				Number: 1,
 			},
 		},
@@ -105,8 +111,8 @@ func main() {
 			apigen.NewParam("path", ""),
 		},
 		ResponseMock: []myapi.Version{
-			{Date: time.Now().Add(-360 * time.Hour), Number: 1},
-			{Date: time.Now().Add(-5 * time.Hour), Number: 2},
+			{Date: now.Add(-360 * time.Hour), Number: 1},
+			{Date: now.Add(-5 * time.Hour), Number: 2},
 		},
 	})
 
@@ -138,7 +144,7 @@ func main() {
 			Body      string    `json:"body"`
 		}{
 			ID:        uuid.UUID{},
-			Date:      time.Now(),
+			Date:      now,
 			PathParam: "ID",
 			Body:      "## Notes\n### General",
 		},

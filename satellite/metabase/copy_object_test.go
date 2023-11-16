@@ -1335,5 +1335,123 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("unversioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: sourceObject.Location(),
+					Suspended:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{sourceObject},
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  sourceObject.ProjectID,
+								BucketName: sourceObject.BucketName,
+								ObjectKey:  sourceObject.ObjectKey,
+								StreamID:   sourceStream.StreamID,
+								Version:    12346,
+							},
+							Status:    metabase.DeleteMarkerUnversioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// copy of delete marker should fail
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:          deletionResult.Markers[0].ObjectStream,
+					NewBucket:             obj.BucketName,
+					NewStreamID:           testrand.UUID(),
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: false,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "source object not found",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(deletionResult.Markers[0]),
+					metabase.RawObject(unversionedObject),
+					metabase.RawObject(versionedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("versioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceStream.Version = 13001
+			sourceObject := metabasetest.CreateObjectVersioned(ctx, t, db, sourceStream, 0)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: sourceObject.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  sourceObject.ProjectID,
+								BucketName: sourceObject.BucketName,
+								ObjectKey:  sourceObject.ObjectKey,
+								StreamID:   sourceStream.StreamID,
+								Version:    13002,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// copy of delete marker should fail
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:          deletionResult.Markers[0].ObjectStream,
+					NewBucket:             obj.BucketName,
+					NewStreamID:           testrand.UUID(),
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: true,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "source object not found",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(deletionResult.Markers[0]),
+					metabase.RawObject(sourceObject),
+					metabase.RawObject(unversionedObject),
+					metabase.RawObject(versionedObject),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }

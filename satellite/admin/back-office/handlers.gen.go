@@ -38,7 +38,7 @@ func NewExample(log *zap.Logger, mon *monkit.Scope, service ExampleService, rout
 		auth:    auth,
 	}
 
-	exampleRouter := router.PathPrefix("/api/v1/example").Subrouter()
+	exampleRouter := router.PathPrefix("/back-office/api/v1/example").Subrouter()
 	exampleRouter.HandleFunc("/examples", handler.handleGetExamples).Methods("GET")
 
 	return handler
