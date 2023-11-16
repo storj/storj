@@ -639,5 +639,209 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("versioned targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			movedObject := sourceObject
+			movedObject.ObjectStream.ProjectID = obj.ProjectID
+			movedObject.ObjectStream.BucketName = obj.BucketName
+			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			movedObject.ObjectStream.Version = 13001
+			movedObject.Status = metabase.CommittedVersioned
+
+			// versioned copy should leave everything else as is
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          sourceStream,
+					NewBucket:             obj.BucketName,
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(movedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("unversioned targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			movedObject := sourceObject
+			movedObject.ObjectStream.ProjectID = obj.ProjectID
+			movedObject.ObjectStream.BucketName = obj.BucketName
+			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			movedObject.ObjectStream.Version = 13001
+			movedObject.Status = metabase.CommittedUnversioned
+
+			// unversioned copy should only delete the unversioned object
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          sourceStream,
+					NewBucket:             obj.BucketName,
+					NewEncryptedObjectKey: obj.ObjectKey,
+					NewVersioned:          false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(movedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("unversioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			_ = metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceObject := metabasetest.CreateObject(ctx, t, db, sourceStream, 0)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: sourceObject.Location(),
+					Suspended:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{sourceObject},
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  sourceObject.ProjectID,
+								BucketName: sourceObject.BucketName,
+								ObjectKey:  sourceObject.ObjectKey,
+								StreamID:   sourceStream.StreamID,
+								Version:    12346,
+							},
+							Status:    metabase.DeleteMarkerUnversioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := deletionResult.Markers[0]
+			movedObject.ObjectStream.ProjectID = obj.ProjectID
+			movedObject.ObjectStream.BucketName = obj.BucketName
+			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			movedObject.ObjectStream.Version = 13001
+			movedObject.Status = metabase.CommittedUnversioned
+
+			// move of delete marker should fail
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          deletionResult.Markers[0].ObjectStream,
+					NewBucket:             obj.BucketName,
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: false,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(movedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("versioned delete marker targets unversioned and versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+			obj.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			sourceStream.Version = 13001
+			sourceObject := metabasetest.CreateObjectVersioned(ctx, t, db, sourceStream, 0)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: sourceObject.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  sourceObject.ProjectID,
+								BucketName: sourceObject.BucketName,
+								ObjectKey:  sourceObject.ObjectKey,
+								StreamID:   sourceStream.StreamID,
+								Version:    13002,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := deletionResult.Markers[0]
+			movedObject.ObjectStream.ProjectID = obj.ProjectID
+			movedObject.ObjectStream.BucketName = obj.BucketName
+			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
+			movedObject.ObjectStream.Version = 13001
+			movedObject.Status = metabase.CommittedVersioned
+
+			// copy of delete marker should fail
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          deletionResult.Markers[0].ObjectStream,
+					NewBucket:             obj.BucketName,
+					NewEncryptedObjectKey: obj.ObjectKey,
+
+					NewVersioned: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
+					metabase.RawObject(sourceObject),
+					metabase.RawObject(unversionedObject),
+					metabase.RawObject(versionedObject),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }

@@ -176,15 +176,9 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
-	_ = backoffice.NewServer(
-		log.Named("back-office"),
-		nil,
-		&backoffice.ParentRouter{
-			Router:     root.PathPrefix("/back-office/").Subrouter(),
-			PathPrefix: "/back-office",
-		},
-		config.BackOffice,
-	)
+	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
+	// generator already add the PathPrefix to router when the API handlers are hooked.
+	_ = backoffice.NewServer(log.Named("back-office"), nil, root, config.BackOffice)
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.

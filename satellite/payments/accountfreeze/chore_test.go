@@ -39,8 +39,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		invoicesDB := sat.Core.Payments.Accounts.Invoices()
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
-		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
 
 		chore.Loop.Pause()
@@ -544,9 +543,7 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 		stripeClient := sat.API.Payments.StripeClient
 		invoicesDB := sat.Core.Payments.Accounts.Invoices()
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
-		usersDB := sat.DB.Console().Users()
-		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
+		service := console.NewAccountFreezeService(sat.DB.Console(), newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
 
 		chore.Loop.Pause()

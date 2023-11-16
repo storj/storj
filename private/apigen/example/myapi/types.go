@@ -16,6 +16,7 @@ type Document struct {
 	PathParam string    `json:"pathParam"`
 	Body      string    `json:"body"`
 	Version   Version   `json:"version"`
+	Metadata  Metadata  `json:"metadata"`
 }
 
 // Version is document version.
@@ -28,4 +29,16 @@ type Version struct {
 type Metadata struct {
 	Owner string      `json:"owner"`
 	Tags  [][2]string `json:"tags"`
+}
+
+// NewDocument contains the content the data to create a new document.
+type NewDocument struct {
+	Content string `json:"content"`
+}
+
+// User contains information of a user.
+type User struct {
+	Name    string `json:"name"`
+	Surname string `json:"surname"`
+	Email   string `json:"email"`
 }

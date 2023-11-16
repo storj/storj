@@ -14,7 +14,7 @@ class APIError extends Error {
 
 export class ExampleHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/api/v1/example';
+    private readonly ROOT_PATH: string = '/back-office/api/v1/example';
 
     public async getExamples(): Promise<string[]> {
         const fullPath = `${this.ROOT_PATH}/examples`;

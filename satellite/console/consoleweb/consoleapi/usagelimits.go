@@ -156,7 +156,7 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 
 	wr := csv.NewWriter(w)
 
-	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB", "ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before"}
 
 	err = wr.Write(csvHeaders)
 	if err != nil {
