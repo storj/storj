@@ -121,7 +121,7 @@ func (r *repairQueue) InsertBatch(
 			)
 			ON CONFLICT (stream_id, position)
 			DO UPDATE
-			SET segment_health=EXCLUDED.segment_health, updated_at=current_timestamp
+			SET segment_health=EXCLUDED.segment_health, updated_at=current_timestamp, placement=EXCLUDED.placement
 			RETURNING NOT(xmax != 0) AS newlyInserted
 		`
 	case dbutil.Cockroach:
