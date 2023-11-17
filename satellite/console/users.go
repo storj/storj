@@ -29,7 +29,7 @@ type Users interface {
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
-	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
+	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetByEmail is a method for querying user by verified email from the database.
