@@ -720,14 +720,8 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 
 	err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID)
 	if err != nil {
-		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
-			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
-				"Run the command again, but if the error persists, intervene manually.",
-				err.Error(), http.StatusInternalServerError)
-		} else {
-			sendJSONError(w, "failed to violation unfreeze user",
-				err.Error(), http.StatusInternalServerError)
-		}
+		sendJSONError(w, "failed to billing unfreeze user",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -785,14 +779,8 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 
 	err = server.freezeAccounts.ViolationFreezeUser(ctx, u.ID)
 	if err != nil {
-		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
-			sendJSONError(w, "User frozen but failed to change user status to Pending Deletion. "+
-				"Run the command again, but if the error persists, intervene manually.",
-				err.Error(), http.StatusInternalServerError)
-		} else {
-			sendJSONError(w, "failed to violation freeze user",
-				err.Error(), http.StatusInternalServerError)
-		}
+		sendJSONError(w, "failed to violation freeze user",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -833,14 +821,8 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 
 	err = server.freezeAccounts.ViolationUnfreezeUser(ctx, u.ID)
 	if err != nil {
-		if errors.Is(err, console.ErrFreezeUserStatusUpdate) {
-			sendJSONError(w, "User unfrozen but failed to change user status to active. "+
-				"Run the command again, but if the error persists, intervene manually.",
-				err.Error(), http.StatusInternalServerError)
-		} else {
-			sendJSONError(w, "failed to violation unfreeze user",
-				err.Error(), http.StatusInternalServerError)
-		}
+		sendJSONError(w, "failed to violation unfreeze user",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 }

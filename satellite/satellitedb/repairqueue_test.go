@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -97,20 +98,20 @@ func TestRepairQueue(t *testing.T) {
 }
 
 func TestRepairQueue_PlacementRestrictions(t *testing.T) {
-	testSegments := make([]*queue.InjuredSegment, 40)
-	for i := 0; i < len(testSegments); i++ {
-		testSegments[i] = &queue.InjuredSegment{
-			StreamID: testrand.UUID(),
-			Position: metabase.SegmentPosition{
-				Part:  uint32(i),
-				Index: 2,
-			},
-			SegmentHealth: 10,
-			Placement:     storj.PlacementConstraint(i % 10),
-		}
-	}
-
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testSegments := make([]*queue.InjuredSegment, 40)
+		for i := 0; i < len(testSegments); i++ {
+			testSegments[i] = &queue.InjuredSegment{
+				StreamID: testrand.UUID(),
+				Position: metabase.SegmentPosition{
+					Part:  uint32(i),
+					Index: 2,
+				},
+				SegmentHealth: 10,
+				Placement:     storj.PlacementConstraint(i % 10),
+			}
+		}
+
 		rq := db.RepairQueue()
 
 		for i := 0; i < len(testSegments); i++ {
@@ -143,6 +144,58 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 
 			_, err = rq.Select(ctx, []storj.PlacementConstraint{11}, nil)
 			require.Error(t, err)
+		}
+
+	})
+}
+
+func TestRepairQueue_BatchInsert(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testSegments := make([]*queue.InjuredSegment, 5)
+		for i := 0; i < len(testSegments); i++ {
+
+			placement := storj.PlacementConstraint(i % 10)
+			uuid := testrand.UUID()
+			uuid[0] = byte(placement)
+
+			testSegments[i] = &queue.InjuredSegment{
+				StreamID: uuid,
+				Position: metabase.SegmentPosition{
+					Part:  uint32(i),
+					Index: 2,
+				},
+				SegmentHealth: 10,
+				Placement:     placement,
+			}
+		}
+
+		// fresh inserts
+		rq := db.RepairQueue()
+		_, err := rq.InsertBatch(ctx, testSegments)
+		require.NoError(t, err)
+
+		for i := 0; i < len(testSegments); i++ {
+			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			require.NoError(t, err)
+			assert.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement)
+		}
+
+		// fresh inserts again
+		_, err = rq.InsertBatch(ctx, testSegments)
+		require.NoError(t, err)
+
+		for _, ts := range testSegments {
+			ts.StreamID[0] = byte(ts.Placement + 1)
+		}
+
+		// this time placement is changed between inserts.
+		_, err = rq.InsertBatch(ctx, testSegments)
+		require.NoError(t, err)
+
+		for i := 0; i < len(testSegments); i++ {
+			segment, err := rq.Select(ctx, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
+			require.NoError(t, err)
+			require.Equal(t, storj.PlacementConstraint(segment.StreamID[0]), segment.Placement+1)
 		}
 
 	})

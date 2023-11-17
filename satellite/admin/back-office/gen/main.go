@@ -5,34 +5,40 @@
 // source code of the API server handlers and clients and the documentation markdown document.
 package main
 
+//go:generate go run $GOFILE
+
 import (
 	"os"
+	"path"
 	"path/filepath"
 
 	"storj.io/storj/private/apigen"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 )
 
 func main() {
-	api := &apigen.API{PackageName: "admin", Version: "v1", BasePath: "/api"}
+	api := &apigen.API{
+		PackageName: "admin",
+		PackagePath: "storj.io/storj/satellite/admin/back-office",
+		Version:     "v1",
+		BasePath:    path.Join(backoffice.PathPrefix, "/api"),
+	}
 
-	// This is an example and must be deleted when we define the first real endpoint.
-	group := api.Group("Example", "example")
+	group := api.Group("PlacementManagement", "placements")
 
-	group.Get("/examples", &apigen.Endpoint{
-		Name:           "Get examples",
-		Description:    "Get a list with the names of the all available examples",
-		GoName:         "GetExamples",
-		TypeScriptName: "getExamples",
-		Response:       []string{},
-		ResponseMock:   []string{"example-1", "example-2", "example-3"},
-		NoCookieAuth:   false,
-		NoAPIAuth:      false,
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Get placements",
+		Description:    "Gets placement rule IDs and their locations",
+		GoName:         "GetPlacements",
+		TypeScriptName: "getPlacements",
+		Response:       []backoffice.PlacementInfo{},
+		NoCookieAuth:   true,
+		NoAPIAuth:      true,
 	})
 
 	modroot := findModuleRootDir()
 	api.MustWriteGo(filepath.Join(modroot, "satellite", "admin", "back-office", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
-	api.MustWriteTSMock(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client-mock.gen.ts"))
 	api.MustWriteDocs(filepath.Join(modroot, "satellite", "admin", "back-office", "api-docs.gen.md"))
 }
 

@@ -38,21 +38,26 @@ const isLoading = ref<boolean>(true);
 const isError = ref<boolean>(false);
 
 onMounted(() => {
-    Papa.parse(props.src, {
-        download: true,
-        worker: true,
-        header: false,
-        skipEmptyLines: true,
-        complete: (results: ParseResult<string[]>) => {
-            if (results) items.value = results.data;
-            isLoading.value = false;
-        },
-        error: (error: Error) => {
-            if (isError.value) return;
-            notify.error(`Error parsing object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
-            isError.value = true;
-        },
-    });
+    try {
+        Papa.parse(props.src, {
+            download: true,
+            worker: true,
+            header: false,
+            skipEmptyLines: true,
+            complete: (results: ParseResult<string[]>) => {
+                if (results) items.value = results.data;
+                isLoading.value = false;
+            },
+            error: (error: Error) => {
+                if (isError.value) return;
+                notify.error(`Error parsing object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+                isError.value = true;
+            },
+        });
+    } catch (error) {
+        notify.error(`Error parsing object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+        isError.value = true;
+    }
 });
 </script>
 

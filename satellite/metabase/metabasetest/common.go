@@ -36,8 +36,6 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 
 	sortRawObjects(state.Objects)
 	sortRawObjects(step.Objects)
-	sortRawPendingObjects(state.PendingObjects)
-	sortRawPendingObjects(step.PendingObjects)
 	sortRawSegments(state.Segments)
 	sortRawSegments(step.Segments)
 
@@ -65,12 +63,6 @@ func sortBucketTallies(tallies []metabase.BucketTally) {
 func sortRawObjects(objects []metabase.RawObject) {
 	sort.Slice(objects, func(i, j int) bool {
 		return objects[i].ObjectStream.Less(objects[j].ObjectStream)
-	})
-}
-
-func sortRawPendingObjects(objects []metabase.RawPendingObject) {
-	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].StreamID.Less(objects[j].StreamID)
 	})
 }
 

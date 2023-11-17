@@ -245,7 +245,7 @@ func Test_TotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, records, 3)
 
-		expectedHeaders := []string{"ProjectName", "ProjectID", "BucketName", "TotalStoredData GB-hour", "TotalSegments GB-hour", "ObjectCount GB-hour", "MetadataSize GB-hour", "RepairEgress GB", "GetEgress GB", "AuditEgress GB", "Since", "Before"}
+		expectedHeaders := []string{"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB", "ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before"}
 		for i, header := range expectedHeaders {
 			require.Equal(t, header, records[0][i])
 		}
@@ -256,7 +256,7 @@ func Test_TotalUsageReport(t *testing.T) {
 		require.Equal(t, project2.PublicID.String(), records[2][1])
 		require.Equal(t, bucketName, records[1][2])
 		require.Equal(t, bucketName, records[2][2])
-		for i := 3; i < 10; i++ {
+		for i := 3; i < 7; i++ {
 			require.Equal(t, expectedCSVValue, records[1][i])
 			require.Equal(t, expectedCSVValue, records[2][i])
 		}
@@ -275,7 +275,7 @@ func Test_TotalUsageReport(t *testing.T) {
 		require.Equal(t, project1.PublicID.String(), records[1][1])
 		require.Equal(t, bucketName, records[1][2])
 
-		for i := 3; i < 10; i++ {
+		for i := 3; i < 7; i++ {
 			require.Equal(t, expectedCSVValue, records[1][i])
 		}
 	})

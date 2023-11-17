@@ -397,6 +397,7 @@ func TestService(t *testing.T) {
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free
+				bucketsLimit := int64(sat.Config.Metainfo.ProjectLimits.MaxBuckets)
 
 				limits1, err := service.GetProjectUsageLimits(userCtx2, up2Proj.ID)
 				require.NoError(t, err)
@@ -410,8 +411,12 @@ func TestService(t *testing.T) {
 				// limits gotten by ID and publicID should be the same
 				require.Equal(t, storageLimit.Int64(), limits1.StorageLimit)
 				require.Equal(t, bandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Equal(t, int64(1), limits1.BucketsUsed)
+				require.Equal(t, bucketsLimit, limits1.BucketsLimit)
 				require.Equal(t, storageLimit.Int64(), limits2.StorageLimit)
 				require.Equal(t, bandwidthLimit.Int64(), limits2.BandwidthLimit)
+				require.Equal(t, int64(1), limits2.BucketsUsed)
+				require.Equal(t, bucketsLimit, limits2.BucketsLimit)
 
 				// update project's limits
 				updatedStorageLimit := memory.Size(100) + memory.TB
@@ -421,6 +426,10 @@ func TestService(t *testing.T) {
 				up2Proj.BandwidthLimit = new(memory.Size)
 				*up2Proj.BandwidthLimit = updatedBandwidthLimit
 				err = sat.DB.Console().Projects().Update(ctx, up2Proj)
+				require.NoError(t, err)
+
+				updatedBucketsLimit := 20
+				err = sat.DB.Console().Projects().UpdateBucketLimit(ctx, up2Proj.ID, updatedBucketsLimit)
 				require.NoError(t, err)
 
 				limits1, err = service.GetProjectUsageLimits(userCtx2, up2Proj.ID)
@@ -435,8 +444,10 @@ func TestService(t *testing.T) {
 				// limits gotten by ID and publicID should be the same
 				require.Equal(t, updatedStorageLimit.Int64(), limits1.StorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Equal(t, int64(updatedBucketsLimit), limits1.BucketsLimit)
 				require.Equal(t, updatedStorageLimit.Int64(), limits2.StorageLimit)
 				require.Equal(t, updatedBandwidthLimit.Int64(), limits2.BandwidthLimit)
+				require.Equal(t, int64(updatedBucketsLimit), limits2.BucketsLimit)
 
 				bucket := "testbucket1"
 				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucket)
@@ -465,6 +476,7 @@ func TestService(t *testing.T) {
 				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Proj.PublicID)
 				require.NoError(t, err)
 				require.NotNil(t, limits2)
+				require.Equal(t, int64(2), limits2.BucketsUsed)
 				require.Equal(t, allocatedAmount, limits2.BandwidthUsed)
 
 				// set now as fourth day of the month.

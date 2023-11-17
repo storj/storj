@@ -24,7 +24,7 @@ func main() {
 		Version:     "v0",
 		BasePath:    "/api",
 		Description: "Interacts with projects",
-		PackageName: "consoleapi",
+		PackagePath: "storj.io/storj/satellite/console/consoleweb/consoleapi",
 	}
 
 	{

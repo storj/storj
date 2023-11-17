@@ -178,9 +178,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		}
 
 		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
-			db.Console().AccountFreezeEvents(),
-			db.Console().Users(),
-			db.Console().Projects(),
+			db.Console(),
 			peer.Analytics.Service,
 			config.Console.AccountFreeze,
 		)
@@ -217,10 +215,28 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
+		placement, err := config.Placement.Parse()
+		if err != nil {
+			return nil, err
+		}
+
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.FreezeAccounts.Service, peer.Analytics.Service, peer.Payments.Accounts, config.Console, adminConfig)
+		peer.Admin.Server = admin.NewServer(
+			log.Named("admin"),
+			peer.Admin.Listener,
+			peer.DB,
+			peer.Buckets.Service,
+			peer.REST.Keys,
+			peer.FreezeAccounts.Service,
+			peer.Analytics.Service,
+			peer.Payments.Accounts,
+			placement,
+			config.Console,
+			adminConfig,
+		)
+
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

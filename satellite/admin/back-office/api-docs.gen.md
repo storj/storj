@@ -6,20 +6,24 @@
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>
 
-* Example
-  * [Get examples](#example-get-examples)
+* PlacementManagement
+  * [Get placements](#placementmanagement-get-placements)
 
-<h3 id='example-get-examples'>Get examples (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='placementmanagement-get-placements'>Get placements (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Get a list with the names of the all available examples
+Gets placement rule IDs and their locations
 
-`GET /api/v1/example/examples`
+`GET /back-office/api/v1/placements/`
 
 **Response body:**
 
 ```typescript
 [
-string
+	{
+		id: number
+		location: string
+	}
+
 ]
 
 ```

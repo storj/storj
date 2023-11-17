@@ -16,49 +16,42 @@ import (
 	"storj.io/storj/private/api"
 )
 
-var ErrExampleAPI = errs.Class("admin example api")
+var ErrPlacementsAPI = errs.Class("admin placements api")
 
-type ExampleService interface {
-	GetExamples(ctx context.Context) ([]string, api.HTTPError)
+type PlacementManagementService interface {
+	GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError)
 }
 
-// ExampleHandler is an api handler that implements all Example API endpoints functionality.
-type ExampleHandler struct {
+// PlacementManagementHandler is an api handler that implements all PlacementManagement API endpoints functionality.
+type PlacementManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
-	service ExampleService
+	service PlacementManagementService
 	auth    api.Auth
 }
 
-func NewExample(log *zap.Logger, mon *monkit.Scope, service ExampleService, router *mux.Router, auth api.Auth) *ExampleHandler {
-	handler := &ExampleHandler{
+func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router, auth api.Auth) *PlacementManagementHandler {
+	handler := &PlacementManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
 
-	exampleRouter := router.PathPrefix("/api/v1/example").Subrouter()
-	exampleRouter.HandleFunc("/examples", handler.handleGetExamples).Methods("GET")
+	placementsRouter := router.PathPrefix("/back-office/api/v1/placements").Subrouter()
+	placementsRouter.HandleFunc("/", handler.handleGetPlacements).Methods("GET")
 
 	return handler
 }
 
-func (h *ExampleHandler) handleGetExamples(w http.ResponseWriter, r *http.Request) {
+func (h *PlacementManagementHandler) handleGetPlacements(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GetExamples(ctx)
+	retVal, httpErr := h.service.GetPlacements(ctx)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -66,6 +59,6 @@ func (h *ExampleHandler) handleGetExamples(w http.ResponseWriter, r *http.Reques
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json GetExamples response", zap.Error(ErrExampleAPI.Wrap(err)))
+		h.log.Debug("failed to write json GetPlacements response", zap.Error(ErrPlacementsAPI.Wrap(err)))
 	}
 }

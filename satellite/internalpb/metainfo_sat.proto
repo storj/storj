@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 
 message StreamID {
+    reserved 14;
     bytes  bucket = 1;
     bytes  encrypted_object_key = 2;
     int64  version = 3;
@@ -28,10 +29,6 @@ message StreamID {
     bytes stream_id = 10;
 
     int32 placement = 13;
-
-    // temporary field to determine if we should go with new pending_objects table or
-    // fallback to pending object in objects table.
-    bool use_pending_objects_table = 14;
 
     bool versioned = 15;
 }

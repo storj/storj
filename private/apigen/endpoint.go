@@ -24,6 +24,11 @@ var (
 )
 
 // Endpoint represents endpoint's configuration.
+//
+// Passing an anonymous type to the fields that define the request or response will make the API
+// generator to panic. Anonymous types aren't allowed such as named structs that have fields with
+// direct or indirect of anonymous types, slices or arrays whose direct or indirect elements are of
+// anonymous types.
 type Endpoint struct {
 	// Name is a free text used to name the endpoint for documentation purpose.
 	// It cannot be empty.
@@ -72,24 +77,30 @@ func (e *Endpoint) APIAuth() bool {
 
 // Validate validates the endpoint fields values are correct according to the documented constraints.
 func (e *Endpoint) Validate() error {
+	newErr := func(m string, a ...any) error {
+		e := fmt.Sprintf(". Endpoint: %s", e.Name)
+		m += e
+		return errsEndpoint.New(m, a...)
+	}
+
 	if e.Name == "" {
-		return errsEndpoint.New("Name cannot be empty")
+		return newErr("Name cannot be empty")
 	}
 
 	if e.Description == "" {
-		return errsEndpoint.New("Description cannot be empty")
+		return newErr("Description cannot be empty")
 	}
 
 	if !goNameRegExp.MatchString(e.GoName) {
-		return errsEndpoint.New("GoName doesn't match the regular expression %q", goNameRegExp)
+		return newErr("GoName doesn't match the regular expression %q", goNameRegExp)
 	}
 
 	if !typeScriptNameRegExp.MatchString(e.TypeScriptName) {
-		return errsEndpoint.New("TypeScriptName doesn't match the regular expression %q", typeScriptNameRegExp)
+		return newErr("TypeScriptName doesn't match the regular expression %q", typeScriptNameRegExp)
 	}
 
 	if e.Request != nil {
-		switch k := reflect.TypeOf(e.Request).Kind(); k {
+		switch t := reflect.TypeOf(e.Request); t.Kind() {
 		case reflect.Invalid,
 			reflect.Complex64,
 			reflect.Complex128,
@@ -99,12 +110,20 @@ func (e *Endpoint) Validate() error {
 			reflect.Map,
 			reflect.Pointer,
 			reflect.UnsafePointer:
-			return errsEndpoint.New("Request cannot be of a type %q", k)
+			return newErr("Request cannot be of a type %q", t.Kind())
+		case reflect.Array, reflect.Slice:
+			if t.Elem().Name() == "" {
+				return newErr("Request cannot be of %q of anonymous struct elements", t.Kind())
+			}
+		case reflect.Struct:
+			if t.Name() == "" {
+				return newErr("Request cannot be of an anonymous struct")
+			}
 		}
 	}
 
 	if e.Response != nil {
-		switch k := reflect.TypeOf(e.Response).Kind(); k {
+		switch t := reflect.TypeOf(e.Response); t.Kind() {
 		case reflect.Invalid,
 			reflect.Complex64,
 			reflect.Complex128,
@@ -114,12 +133,20 @@ func (e *Endpoint) Validate() error {
 			reflect.Map,
 			reflect.Pointer,
 			reflect.UnsafePointer:
-			return errsEndpoint.New("Response cannot be of a type %q", k)
+			return newErr("Response cannot be of a type %q", t.Kind())
+		case reflect.Array, reflect.Slice:
+			if t.Elem().Name() == "" {
+				return newErr("Response cannot be of %q of anonymous struct elements", t.Kind())
+			}
+		case reflect.Struct:
+			if t.Name() == "" {
+				return newErr("Response cannot be of an anonymous struct")
+			}
 		}
 
 		if e.ResponseMock != nil {
 			if m, r := reflect.TypeOf(e.ResponseMock), reflect.TypeOf(e.Response); m != r {
-				return errsEndpoint.New(
+				return newErr(
 					"ResponseMock isn't of the same type than Response. Have=%q Want=%q", m, r,
 				)
 			}
@@ -134,62 +161,6 @@ type fullEndpoint struct {
 	Endpoint
 	Path   string
 	Method string
-}
-
-// requestType guarantees to return a named Go type associated to the Endpoint.Request field.
-// g is used to avoid clashes with types defined in different groups that are different, but with
-// the same name. It cannot be nil.
-func (fe fullEndpoint) requestType(g *EndpointGroup) reflect.Type {
-	t := reflect.TypeOf(fe.Request)
-	if t.Name() != "" {
-		return t
-	}
-
-	switch k := t.Kind(); k {
-	case reflect.Array, reflect.Slice:
-		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
-		}
-	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Request")}
-	default:
-		panic(
-			fmt.Sprintf(
-				"BUG: Unsupported Request type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
-				fe.Method, fe.Path, k,
-			),
-		)
-	}
-
-	return t
-}
-
-// responseType guarantees to return a named Go type associated to the Endpoint.Response field.
-// g is used to avoid clashes with types defined in different groups that are different, but with
-// the same name. It cannot be nil.
-func (fe fullEndpoint) responseType(g *EndpointGroup) reflect.Type {
-	t := reflect.TypeOf(fe.Response)
-	if t.Name() != "" {
-		return t
-	}
-
-	switch k := t.Kind(); k {
-	case reflect.Array, reflect.Slice:
-		if t.Elem().Name() == "" {
-			t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
-		}
-	case reflect.Struct:
-		t = typeCustomName{Type: t, name: compoundTypeName(capitalize(g.Prefix), fe.TypeScriptName, "Response")}
-	default:
-		panic(
-			fmt.Sprintf(
-				"BUG: Unsupported Response type. Endpoint.Method=%q, Endpoint.Path=%q, found type=%q",
-				fe.Method, fe.Path, k,
-			),
-		)
-	}
-
-	return t
 }
 
 // EndpointGroup represents endpoints group.
@@ -295,7 +266,10 @@ type Param struct {
 	Type reflect.Type
 }
 
-// NewParam constructor which creates new Param entity by given name and type.
+// NewParam constructor which creates new Param entity by given name and type through instance.
+//
+// instance can only be a unsigned integer (of any size), string, uuid.UUID or time.Time, otherwise
+// it panics.
 func NewParam(name string, instance interface{}) Param {
 	switch t := reflect.TypeOf(instance); t {
 	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
@@ -319,17 +293,4 @@ func NewParam(name string, instance interface{}) Param {
 		Name: name,
 		Type: reflect.TypeOf(instance),
 	}
-}
-
-// namedType guarantees to return a named Go type. where defines where the param is  defined (e.g.
-// path, query, etc.).
-func (p Param) namedType(ep Endpoint, where string) reflect.Type {
-	if p.Type.Name() == "" {
-		return typeCustomName{
-			Type: p.Type,
-			name: compoundTypeName(ep.TypeScriptName, where, "param", p.Name),
-		}
-	}
-
-	return p.Type
 }

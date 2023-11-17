@@ -16,48 +16,29 @@ import (
 )
 
 func main() {
-	a := &apigen.API{PackageName: "example", Version: "v0", BasePath: "/api"}
+	a := &apigen.API{
+		PackagePath: "storj.io/storj/private/apigen/example",
+		Version:     "v0",
+		BasePath:    "/api",
+	}
 
 	g := a.Group("Documents", "docs")
+
+	now := time.Date(2001, 02, 03, 04, 05, 06, 07, time.UTC)
 
 	g.Get("/", &apigen.Endpoint{
 		Name:           "Get Documents",
 		Description:    "Get the paths to all the documents under the specified paths",
 		GoName:         "Get",
 		TypeScriptName: "get",
-		Response: []struct {
-			ID             uuid.UUID      `json:"id"`
-			Path           string         `json:"path"`
-			Date           time.Time      `json:"date"`
-			Metadata       myapi.Metadata `json:"metadata"`
-			LastRetrievals []struct {
-				User string    `json:"user"`
-				When time.Time `json:"when"`
-			} `json:"last_retrievals"`
-		}{},
-		ResponseMock: []struct {
-			ID             uuid.UUID      `json:"id"`
-			Path           string         `json:"path"`
-			Date           time.Time      `json:"date"`
-			Metadata       myapi.Metadata `json:"metadata"`
-			LastRetrievals []struct {
-				User string    `json:"user"`
-				When time.Time `json:"when"`
-			} `json:"last_retrievals"`
-		}{{
-			ID:   uuid.UUID{},
-			Path: "/workspace/notes.md",
+		Response:       []myapi.Document{},
+		ResponseMock: []myapi.Document{{
+			ID:        uuid.UUID{},
+			PathParam: "/workspace/notes.md",
 			Metadata: myapi.Metadata{
 				Owner: "Storj",
 				Tags:  [][2]string{{"category", "general"}},
 			},
-			LastRetrievals: []struct {
-				User string    `json:"user"`
-				When time.Time `json:"when"`
-			}{{
-				User: "Storj",
-				When: time.Now().Add(-time.Hour),
-			}},
 		}},
 	})
 
@@ -72,11 +53,11 @@ func main() {
 		},
 		ResponseMock: myapi.Document{
 			ID:        uuid.UUID{},
-			Date:      time.Now().Add(-24 * time.Hour),
+			Date:      now.Add(-24 * time.Hour),
 			PathParam: "ID",
 			Body:      "## Notes",
 			Version: myapi.Version{
-				Date:   time.Now().Add(-30 * time.Minute),
+				Date:   now.Add(-30 * time.Minute),
 				Number: 1,
 			},
 		},
@@ -105,8 +86,8 @@ func main() {
 			apigen.NewParam("path", ""),
 		},
 		ResponseMock: []myapi.Version{
-			{Date: time.Now().Add(-360 * time.Hour), Number: 1},
-			{Date: time.Now().Add(-5 * time.Hour), Number: 2},
+			{Date: now.Add(-360 * time.Hour), Number: 1},
+			{Date: now.Add(-5 * time.Hour), Number: 2},
 		},
 	})
 
@@ -115,15 +96,8 @@ func main() {
 		Description:    "Update the content of the document with the specified path and ID if the last update is before the indicated date",
 		GoName:         "UpdateContent",
 		TypeScriptName: "updateContent",
-		Response: struct {
-			ID        uuid.UUID `json:"id"`
-			Date      time.Time `json:"date"`
-			PathParam string    `json:"pathParam"`
-			Body      string    `json:"body"`
-		}{},
-		Request: struct {
-			Content string `json:"content"`
-		}{},
+		Response:       myapi.Document{},
+		Request:        myapi.NewDocument{},
 		QueryParams: []apigen.Param{
 			apigen.NewParam("id", uuid.UUID{}),
 			apigen.NewParam("date", time.Time{}),
@@ -131,14 +105,9 @@ func main() {
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 		},
-		ResponseMock: struct {
-			ID        uuid.UUID `json:"id"`
-			Date      time.Time `json:"date"`
-			PathParam string    `json:"pathParam"`
-			Body      string    `json:"body"`
-		}{
+		ResponseMock: myapi.Document{
 			ID:        uuid.UUID{},
-			Date:      time.Now(),
+			Date:      now,
 			PathParam: "ID",
 			Body:      "## Notes\n### General",
 		},
@@ -151,16 +120,8 @@ func main() {
 		Description:    "Get the list of registered users",
 		GoName:         "Get",
 		TypeScriptName: "get",
-		Response: []struct {
-			Name    string `json:"name"`
-			Surname string `json:"surname"`
-			Email   string `json:"email"`
-		}{},
-		ResponseMock: []struct {
-			Name    string `json:"name"`
-			Surname string `json:"surname"`
-			Email   string `json:"email"`
-		}{
+		Response:       []myapi.User{},
+		ResponseMock: []myapi.User{
 			{Name: "Storj", Surname: "Labs", Email: "storj@storj.test"},
 			{Name: "Test1", Surname: "Testing", Email: "test1@example.test"},
 			{Name: "Test2", Surname: "Testing", Email: "test2@example.test"},
@@ -172,11 +133,7 @@ func main() {
 		Description:    "Create a user",
 		GoName:         "Create",
 		TypeScriptName: "create",
-		Request: []struct {
-			Name    string `json:"name"`
-			Surname string `json:"surname"`
-			Email   string `json:"email"`
-		}{},
+		Request:        []myapi.User{},
 	})
 
 	a.MustWriteGo("api.gen.go")

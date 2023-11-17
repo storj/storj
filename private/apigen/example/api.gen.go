@@ -25,40 +25,16 @@ var ErrDocsAPI = errs.Class("example docs api")
 var ErrUsersAPI = errs.Class("example users api")
 
 type DocumentsService interface {
-	Get(ctx context.Context) ([]struct {
-		ID             uuid.UUID      "json:\"id\""
-		Path           string         "json:\"path\""
-		Date           time.Time      "json:\"date\""
-		Metadata       myapi.Metadata "json:\"metadata\""
-		LastRetrievals []struct {
-			User string    "json:\"user\""
-			When time.Time "json:\"when\""
-		} "json:\"last_retrievals\""
-	}, api.HTTPError)
+	Get(ctx context.Context) ([]myapi.Document, api.HTTPError)
 	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
 	GetTag(ctx context.Context, path, tagName string) (*[2]string, api.HTTPError)
 	GetVersions(ctx context.Context, path string) ([]myapi.Version, api.HTTPError)
-	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct {
-		Content string "json:\"content\""
-	}) (*struct {
-		ID        uuid.UUID "json:\"id\""
-		Date      time.Time "json:\"date\""
-		PathParam string    "json:\"pathParam\""
-		Body      string    "json:\"body\""
-	}, api.HTTPError)
+	UpdateContent(ctx context.Context, path string, id uuid.UUID, date time.Time, request myapi.NewDocument) (*myapi.Document, api.HTTPError)
 }
 
 type UsersService interface {
-	Get(ctx context.Context) ([]struct {
-		Name    string "json:\"name\""
-		Surname string "json:\"surname\""
-		Email   string "json:\"email\""
-	}, api.HTTPError)
-	Create(ctx context.Context, request []struct {
-		Name    string "json:\"name\""
-		Surname string "json:\"surname\""
-		Email   string "json:\"email\""
-	}) api.HTTPError
+	Get(ctx context.Context) ([]myapi.User, api.HTTPError)
+	Create(ctx context.Context, request []myapi.User) api.HTTPError
 }
 
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
@@ -275,9 +251,7 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	payload := struct {
-		Content string "json:\"content\""
-	}{}
+	payload := myapi.NewDocument{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -335,11 +309,7 @@ func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	payload := []struct {
-		Name    string "json:\"name\""
-		Surname string "json:\"surname\""
-		Email   string "json:\"email\""
-	}{}
+	payload := []myapi.User{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
