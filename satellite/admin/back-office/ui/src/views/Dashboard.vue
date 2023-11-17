@@ -48,15 +48,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { VContainer, VRow, VCol, VCard, VDivider } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import DashboardLimitsTableComponent from '@/components/DashboardLimitsTableComponent.vue';
-
-onMounted(() => {
-    document.title = 'Storj Admin - Dashboard';
-});
 </script>

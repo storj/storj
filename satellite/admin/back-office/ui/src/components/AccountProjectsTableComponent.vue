@@ -9,10 +9,16 @@
         />
 
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="files" :search="search"
-            class="elevation-1" item-key="path" density="comfortable" hover @item-click="handleItemClick"
+            v-model="selected"
+            v-model:sort-by="sortBy"
+            :headers="headers"
+            :items="projects"
+            :search="search"
+            class="elevation-1"
+            density="comfortable"
+            hover
         >
-            <template #item.projectid="{ item }">
+            <template #item.name="{ item }: ProjectTableSlotProps">
                 <div class="text-no-wrap">
                     <v-btn
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
@@ -34,44 +40,84 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.columns.projectid }}
+                        {{ item.raw.name }}
                     </v-chip>
                 </div>
             </template>
 
-            <template #item.storagepercent="{ item }">
+            <template #item.storage.percent="{ item }: ProjectTableSlotProps">
                 <v-chip
-                    variant="tonal" :color="getPercentColor(item.raw.storagepercent)" size="small" rounded="lg"
+                    v-if="item.raw.storage.percent !== null"
+                    variant="tonal"
+                    :color="getPercentColor(item.raw.storage.percent)"
+                    size="small"
+                    rounded="lg"
                     class="font-weight-bold"
                 >
-                    {{ item.raw.storagepercent }}&percnt;
+                    {{ item.raw.storage.percent }}&percnt;
+                </v-chip>
+                <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
+            </template>
+
+            <template #item.storage.used="{ item }: ProjectTableSlotProps">
+                <template v-if="item.raw.storage.used !== null">
+                    {{ sizeToBase10String(item.raw.storage.used) }}
+                </template>
+                <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
+            </template>
+
+            <template #item.storage.limit="{ item }: ProjectTableSlotProps">
+                {{ sizeToBase10String(item.raw.storage.limit) }}
+            </template>
+
+            <template #item.download.percent="{ item }: ProjectTableSlotProps">
+                <v-chip
+                    variant="tonal"
+                    :color="getPercentColor(item.raw.download.percent)"
+                    size="small"
+                    rounded="lg"
+                    class="font-weight-bold"
+                >
+                    {{ item.raw.download.percent }}&percnt;
                 </v-chip>
             </template>
 
-            <template #item.downloadpercent="{ item }">
-                <v-chip
-                    variant="tonal" :color="getPercentColor(item.raw.downloadpercent)" size="small" rounded="lg"
-                    class="font-weight-bold"
-                >
-                    {{ item.raw.downloadpercent }}&percnt;
-                </v-chip>
+            <template #item.download.used="{ item }: ProjectTableSlotProps">
+                {{ sizeToBase10String(item.raw.download.used) }}
             </template>
 
-            <template #item.segmentpercent="{ item }">
-                <v-tooltip text="430,000 / 1,000,000">
+            <template #item.download.limit="{ item }: ProjectTableSlotProps">
+                {{ sizeToBase10String(item.raw.download.limit) }}
+            </template>
+
+            <template #item.segment.percent="{ item }: ProjectTableSlotProps">
+                <v-tooltip>
+                    {{ item.raw.segment.used !== null ? item.raw.segment.used.toLocaleString() + '/' : 'Limit:' }}
+                    {{ item.raw.segment.limit.toLocaleString() }}
                     <template #activator="{ props }">
                         <v-chip
-                            v-bind="props" variant="tonal" :color="getPercentColor(item.raw.segmentpercent)" size="small"
-                            rounded="lg" class="font-weight-bold"
+                            v-if="item.raw.segment.percent !== null"
+                            v-bind="props"
+                            variant="tonal"
+                            :color="getPercentColor(item.raw.segment.percent)"
+                            size="small"
+                            rounded="lg"
+                            class="font-weight-bold"
                         >
-                            {{ item.raw.segmentpercent }}&percnt;
+                            {{ item.raw.segment.percent }}&percnt;
                         </v-chip>
+                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" v-bind="props" />
                     </template>
                 </v-tooltip>
             </template>
 
+            <template #item.id="{ item }: ProjectTableSlotProps">
+                <div class="text-caption text-no-wrap text-uppercase">{{ item.raw.id }}</div>
+            </template>
+
+            <!--
             <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.raw.agent)">
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="search = item.raw.agent">
                     {{ item.raw.agent }}
                 </v-chip>
             </template>
@@ -81,79 +127,88 @@
                     {{ item.raw.date }}
                 </span>
             </template>
+            -->
         </v-data-table>
     </v-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { VCard, VTextField, VBtn, VIcon, VTooltip, VChip } from 'vuetify/components';
 import { VDataTable } from 'vuetify/labs/components';
 
+import { useAppStore } from '@/store/app';
+import { sizeToBase10String } from '@/utils/memory';
+
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
+
+type UsageStats = {
+    used: number | null;
+    limit: number;
+    percent: number | null;
+};
+
+type RequiredUsageStats = {
+    [K in keyof UsageStats]: NonNullable<UsageStats[K]>;
+};
+
+type ProjectTableItem = {
+    id: string;
+    name: string;
+    storage: UsageStats;
+    download: RequiredUsageStats;
+    segment: UsageStats;
+};
+
+type ProjectTableSlotProps = { item: { raw: ProjectTableItem } };
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
 const sortBy = ref([{ key: 'name', order: 'asc' }]);
 
 const headers = [
-    { title: 'Project ID', key: 'projectid', align: 'start' },
-    // { title: 'Name', key: 'name'},
-    { title: 'Storage Used', key: 'storagepercent' },
-    { title: 'Storage Used', key: 'storageused' },
-    { title: 'Storage Limit', key: 'storagelimit' },
-    { title: 'Download Used', key: 'downloadpercent' },
-    { title: 'Download Used', key: 'downloadused' },
-    { title: 'Download Limit', key: 'downloadlimit' },
-    { title: 'Segments Used', key: 'segmentpercent' },
+    { title: 'Name', key: 'name' },
+    { title: 'Storage Used', key: 'storage.percent' },
+    { title: 'Storage Used', key: 'storage.used' },
+    { title: 'Storage Limit', key: 'storage.limit' },
+    { title: 'Download Used', key: 'download.percent' },
+    { title: 'Download Used', key: 'download.used' },
+    { title: 'Download Limit', key: 'download.limit' },
+    { title: 'Segments Used', key: 'segment.percent' },
+    { title: 'Project ID', key: 'id', align: 'start' },
     // { title: 'Value Attribution', key: 'agent' },
     // { title: 'Date Created', key: 'date' },
 ];
-const files = [
-    {
-        name: 'My First Project',
-        projectid: 'F82SR21Q284JF',
-        storageused: '150 TB',
-        storagelimit: '300 TB',
-        storagepercent: '50',
-        downloadused: '100 TB',
-        downloadlimit: '100 TB',
-        downloadpercent: '100',
-        segmentpercent: '43',
-        agent: 'Test Agent',
-        date: '02 Mar 2023',
-    },
-    {
-        name: 'Personal Project',
-        projectid: '284JFF82SR21Q',
-        storageused: '24 TB',
-        storagelimit: '30 TB',
-        storagepercent: '80',
-        downloadused: '7 TB',
-        downloadlimit: '100 TB',
-        segmentpercent: '20',
-        downloadpercent: '7',
-        agent: 'Agent',
-        date: '21 Apr 2023',
-    },
-    {
-        name: 'Test Project',
-        projectid: '82SR21Q284JFF',
-        storageused: '99 TB',
-        storagelimit: '100 TB',
-        storagepercent: '99',
-        downloadused: '85 TB',
-        downloadlimit: '100 TB',
-        segmentpercent: '83',
-        downloadpercent: '85',
-        agent: 'Company',
-        date: '21 Apr 2023',
-    },
-];
 
-function setSearch(searchText: string) {
-    search.value = searchText;
-}
+const appStore = useAppStore();
+
+/**
+ * Returns the user's project usage data.
+ */
+const projects = computed<ProjectTableItem[]>(() => {
+    function makeUsageStats(used: number, limit: number): RequiredUsageStats;
+    function makeUsageStats(used: number | null, limit: number): UsageStats;
+    function makeUsageStats(used: number | null, limit: number) {
+        return {
+            used,
+            limit,
+            percent: used !== null ? Math.round(used * 100 / limit) : null,
+        };
+    }
+
+    const usageLimits = appStore.state.user?.projectUsageLimits;
+    if (!usageLimits || !usageLimits.length) {
+        return [];
+    }
+
+    return usageLimits.map<ProjectTableItem>(usage => ({
+        id: usage.id,
+        name: usage.name,
+        storage: makeUsageStats(usage.storageUsed, usage.storageLimit),
+        download: makeUsageStats(usage.bandwidthUsed, usage.bandwidthLimit),
+        segment: makeUsageStats(usage.segmentUsed, usage.segmentLimit),
+    }));
+});
 
 function getPercentColor(percent: number) {
     if (percent >= 99) {

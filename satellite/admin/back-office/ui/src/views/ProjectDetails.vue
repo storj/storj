@@ -169,7 +169,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -193,8 +192,4 @@ import ProjectGeofenceDialog from '@/components/ProjectGeofenceDialog.vue';
 import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
-
-onMounted(() => {
-    document.title = 'Storj Admin - Project Details';
-});
 </script>

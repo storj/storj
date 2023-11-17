@@ -2,8 +2,12 @@
   "compilerOptions": {
     "target": "es5",
     "module": "esnext",
+    "strict": true,
+    "noImplicitAny": false,
     "baseUrl": "./",
     "moduleResolution": "node",
+    "strictPropertyInitialization": false,
+    "useUnknownInCatchVariables": false,
     "paths": {
       "@/*": [
         "src/*"

@@ -34,13 +34,16 @@ module.exports = {
         '@typescript-eslint/no-empty-function': 'off',
         '@typescript-eslint/no-var-requires': 'off',
 
+        '@typescript-eslint/no-redeclare': 'error',
+        'no-redeclare': 'off',
+
         'no-multiple-empty-lines': ['error', { 'max': 1 }],
 
         'import/order': ['error', {
             'pathGroups': [
                 {
                     'group': 'internal',
-                    'pattern': '@/{components,views}/**',
+                    'pattern': '@/{components,views,layouts}/**',
                     'position': 'after',
                 },
                 {

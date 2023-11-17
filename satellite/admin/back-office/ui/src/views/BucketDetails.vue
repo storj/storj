@@ -131,7 +131,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import {
     VContainer,
     VRow,
@@ -151,8 +150,4 @@ import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
 import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
-
-onMounted(() => {
-    document.title = 'Storj Admin - Bucket Details';
-});
 </script>

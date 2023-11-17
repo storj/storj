@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Composables
+import { watch } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const routes = [
@@ -64,5 +64,10 @@ const router = createRouter({
     history: createWebHistory(process.env.NODE_ENV === 'production' ? '/back-office/' : process.env.BASE_URL),
     routes,
 });
+
+watch(
+    () => router.currentRoute.value.name as string,
+    routeName => document.title = 'Storj Admin' + (routeName ? ' - ' + routeName : ''),
+);
 
 export default router;

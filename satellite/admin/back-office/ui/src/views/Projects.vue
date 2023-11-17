@@ -28,15 +28,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { VContainer, VRow, VCol, VBtn } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import NewProjectDialog from '@/components/NewProjectDialog.vue';
-
-onMounted(() => {
-    document.title = 'Storj Admin - Projects';
-});
 </script>

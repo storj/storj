@@ -18,13 +18,14 @@
                             />
                         </svg>
                     </template>
-                    itacker@gmail.com
+                    {{ user.email }}
                 </v-chip>
 
                 <v-chip class="mr-2 mb-2 mb-md-0" variant="text">
-                    Customer for 17 days
+                    Customer for {{ Math.floor((Date.now() - createdAt.getTime()) / MS_PER_DAY).toLocaleString() }} days
                     <v-tooltip activator="parent" location="top">
-                        Account created: 24 Apr 2020
+                        Account created:
+                        {{ createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
                     </v-tooltip>
                 </v-chip>
             </v-col>
@@ -39,15 +40,24 @@
             </v-col>
         </v-row>
 
+        <v-row v-if="usageCacheError">
+            <v-col>
+                <v-alert variant="tonal" color="error" rounded="lg" density="comfortable" border>
+                    <div class="d-flex align-center">
+                        <v-icon icon="mdi-alert-circle" color="error" class="mr-3" />
+                        An error occurred when retrieving project usage data.
+                        Please retry after a few minutes and report the issue if it persists.
+                    </div>
+                </v-alert>
+            </v-col>
+        </v-row>
+
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <v-card title="Account" subtitle="Irving Tacker" variant="flat" :border="true" rounded="xlg">
+                <v-card title="Account" :subtitle="user.fullName" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
-                        <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
-                            Pro
-                            <v-tooltip activator="parent" location="top">
-                                Pro account since: 2 May 2022
-                            </v-tooltip>
+                        <v-chip :color="user.paidTier ? 'success' : 'default'" variant="tonal" class="mr-2 font-weight-bold">
+                            {{ user.paidTier ? 'Pro' : 'Free' }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -62,7 +72,7 @@
                 <v-card title="Status" subtitle="Account" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
-                            Active
+                            {{ user.status }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -77,7 +87,9 @@
                 <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <v-card-text>
                         <!-- <p class="mb-3">Attribution</p> -->
-                        <v-chip variant="tonal" class="mr-2">Company</v-chip>
+                        <v-chip :variant="user.userAgent ? 'tonal' : 'text'" class="mr-2">
+                            {{ user.userAgent || 'None' }}
+                        </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
                             Set Value Attribution
@@ -92,7 +104,7 @@
                     <v-card-text>
                         <!-- <p class="mb-3">Region</p> -->
                         <v-chip variant="tonal" class="mr-2">
-                            Global
+                            {{ placementText }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -106,16 +118,33 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <CardStatsComponent title="Projects" subtitle="Total" data="3" />
+                <card-stats-component title="Projects" subtitle="Total" :data="user.projectUsageLimits?.length.toString() || '0'" />
             </v-col>
+
             <v-col cols="12" sm="6" md="3">
-                <CardStatsComponent title="Storage" subtitle="Total" data="273 TB" />
+                <card-stats-component title="Storage" subtitle="Total">
+                    <template #data>
+                        <v-chip v-if="totalUsage.storage !== null" class="font-weight-bold">
+                            {{ sizeToBase10String(totalUsage.storage) }}
+                        </v-chip>
+                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" size="x-large" />
+                    </template>
+                </card-stats-component>
             </v-col>
+
             <v-col cols="12" sm="6" md="3">
-                <CardStatsComponent title="Download" subtitle="This month" data="192 TB" />
+                <card-stats-component title="Download" subtitle="This month" :data="sizeToBase10String(totalUsage.download)" />
             </v-col>
+
             <v-col cols="12" sm="6" md="3">
-                <CardStatsComponent title="Segments" subtitle="Total" data="430,721" />
+                <card-stats-component title="Segments" subtitle="Total">
+                    <template #data>
+                        <v-chip v-if="totalUsage.segments !== null" class="font-weight-bold">
+                            {{ totalUsage.segments.toLocaleString() }}
+                        </v-chip>
+                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" size="x-large" />
+                    </template>
+                </card-stats-component>
             </v-col>
         </v-row>
 
@@ -136,7 +165,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, onBeforeMount, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
     VContainer,
     VRow,
@@ -148,7 +178,12 @@ import {
     VCardText,
     VDivider,
     VBtn,
+    VAlert,
 } from 'vuetify/components';
+
+import { useAppStore } from '@/store/app';
+import { User } from '@/api/client.gen';
+import { sizeToBase10String } from '@/utils/memory';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
@@ -160,7 +195,80 @@ import AccountInformationDialog from '@/components/AccountInformationDialog.vue'
 import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 
-onMounted(() => {
-    document.title = 'Storj Admin - Account Details';
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const appStore = useAppStore();
+const router = useRouter();
+
+/**
+ * Returns user info from store.
+ */
+const user = computed<User>(() => appStore.state.user as User);
+
+/**
+ * Returns the date that the user was created.
+ */
+const createdAt = computed<Date>(() => new Date(user.value.createdAt));
+
+/**
+ * Returns the string representation of the user's default placement.
+ */
+const placementText = computed<string>(() => {
+    for (const placement of appStore.state.placements) {
+        if (placement.id === user.value.defaultPlacement) {
+            if (placement.location) {
+                return placement.location;
+            }
+            break;
+        }
+    }
+    return `Unknown (${user.value.defaultPlacement})`;
 });
+
+type Usage = {
+    storage: number | null;
+    download: number;
+    segments: number | null;
+};
+
+/**
+ * Returns the user's total project usage.
+ */
+const totalUsage = computed<Usage>(() => {
+    const total: Usage = {
+        storage: 0,
+        download: 0,
+        segments: 0,
+    };
+
+    if (!user.value.projectUsageLimits?.length) {
+        return total;
+    }
+
+    for (const usageLimit of user.value.projectUsageLimits) {
+        if (total.storage !== null) {
+            total.storage = usageLimit.storageUsed !== null ? total.storage + usageLimit.storageUsed : null;
+        }
+        if (total.segments !== null) {
+            total.segments = usageLimit.segmentUsed !== null ? total.segments + usageLimit.segmentUsed : null;
+        }
+        total.download += usageLimit.bandwidthUsed;
+    }
+
+    return total;
+});
+
+/**
+ * Returns whether an error occurred retrieving usage data from the Redis live accounting cache.
+ */
+const usageCacheError = computed<boolean>(() => {
+    return !!user.value.projectUsageLimits?.some(usageLimit =>
+        usageLimit.storageUsed === null ||
+        usageLimit.bandwidthUsed === null ||
+        usageLimit.segmentUsed === null,
+    );
+});
+
+onBeforeMount(() => !user.value && router.push('/accounts'));
+onUnmounted(appStore.clearUser);
 </script>
