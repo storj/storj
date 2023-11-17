@@ -35,7 +35,7 @@ func (api *API) generateDocumentation() string {
 	wf := func(format string, args ...any) { _, _ = fmt.Fprintf(&doc, format, args...) }
 
 	wf("# API Docs\n\n")
-	wf("**Description:** %s\n\n", api.Description)
+	wf("**Description:**%s\n\n", api.Description)
 	wf("**Version:** `%s`\n\n", api.Version)
 
 	wf("<h2 id='list-of-endpoints'>List of Endpoints</h2>\n\n")
