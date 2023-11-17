@@ -6,6 +6,7 @@ package apigen
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -79,14 +80,14 @@ func (f *tsGenFile) registerTypes() {
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
 			if method.Request != nil {
-				f.types.Register(method.requestType(group))
+				f.types.Register(reflect.TypeOf(method.Request))
 			}
 			if method.Response != nil {
-				f.types.Register(method.responseType(group))
+				f.types.Register(reflect.TypeOf(method.Response))
 			}
 			if len(method.QueryParams) > 0 {
 				for _, p := range method.QueryParams {
-					t := getElementaryType(p.namedType(method.Endpoint, "query"))
+					t := getElementaryType(p.Type)
 					f.types.Register(t)
 				}
 			}
@@ -106,15 +107,14 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		returnStmt := "return"
 		returnType := "void"
 		if method.Response != nil {
-			respType := method.responseType(group)
-			returnType = TypescriptTypeName(respType)
+			returnType = TypescriptTypeName(reflect.TypeOf(method.Response))
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
 		}
 		returnStmt += ";"
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.TypeScriptName, funcArgs, returnType)
 		if len(method.QueryParams) > 0 {
-			f.pf("\t\tconst u = new URL(`%s`);", path)
+			f.pf("\t\tconst u = new URL(`%s`, window.location.href);", path)
 			for _, p := range method.QueryParams {
 				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
 			}
@@ -149,16 +149,16 @@ func (f *tsGenFile) getArgsAndPath(method *fullEndpoint, group *EndpointGroup) (
 	path = "${this.ROOT_PATH}" + path
 
 	if method.Request != nil {
-		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(method.requestType(group)))
+		funcArgs += fmt.Sprintf("request: %s, ", TypescriptTypeName(reflect.TypeOf(method.Request)))
 	}
 
 	for _, p := range method.PathParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.namedType(method.Endpoint, "path")))
+		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
 		path += fmt.Sprintf("/${%s}", p.Name)
 	}
 
 	for _, p := range method.QueryParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.namedType(method.Endpoint, "query")))
+		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
 	}
 
 	path = strings.ReplaceAll(path, "//", "/")

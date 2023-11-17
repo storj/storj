@@ -8,6 +8,7 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { defineConfig } from 'vite';
 
 import vuetifyThemeCSS from './vitePlugins/vuetifyThemeCSS';
+import papaParseWorker from './vitePlugins/papaParseWorker';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -24,6 +25,7 @@ export default defineConfig({
             },
         }),
         vuetifyThemeCSS(),
+        papaParseWorker(),
     ],
     define: {
         'process.env': {},

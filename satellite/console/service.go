@@ -181,7 +181,8 @@ type Service struct {
 	satelliteAddress string
 	satelliteName    string
 
-	config Config
+	config            Config
+	maxProjectBuckets int
 
 	nowFn func() time.Time
 }
@@ -204,7 +205,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -250,6 +251,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		mailService:                mailService,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
+		maxProjectBuckets:          maxProjectBuckets,
 		config:                     config,
 		nowFn:                      time.Now,
 	}, nil
@@ -2724,7 +2726,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 }
 
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
-func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectBucketUsageRollup, error) {
+func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectReportItem, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -2751,7 +2753,7 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 		projects = append(projects, *pr)
 	}
 
-	usage := make([]accounting.ProjectBucketUsageRollup, 0)
+	usage := make([]accounting.ProjectReportItem, 0)
 
 	for _, p := range projects {
 		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, since, before)
@@ -2760,21 +2762,16 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 		}
 
 		for _, r := range rollups {
-			usage = append(usage, accounting.ProjectBucketUsageRollup{
-				ProjectName: p.Name,
-				BucketUsageRollup: accounting.BucketUsageRollup{
-					ProjectID:       p.PublicID,
-					BucketName:      r.BucketName,
-					TotalStoredData: r.TotalStoredData,
-					TotalSegments:   r.TotalSegments,
-					ObjectCount:     r.ObjectCount,
-					MetadataSize:    r.MetadataSize,
-					RepairEgress:    r.RepairEgress,
-					GetEgress:       r.GetEgress,
-					AuditEgress:     r.AuditEgress,
-					Since:           r.Since,
-					Before:          r.Before,
-				},
+			usage = append(usage, accounting.ProjectReportItem{
+				ProjectName:  p.Name,
+				ProjectID:    p.PublicID,
+				BucketName:   r.BucketName,
+				Storage:      r.TotalStoredData,
+				Egress:       r.GetEgress,
+				ObjectCount:  r.ObjectCount,
+				SegmentCount: r.TotalSegments,
+				Since:        r.Since,
+				Before:       r.Before,
 			})
 		}
 	}
@@ -2919,6 +2916,8 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		SegmentCount:   prObjectsSegments.SegmentCount,
 		SegmentLimit:   prUsageLimits.SegmentLimit,
 		SegmentUsed:    prUsageLimits.SegmentUsed,
+		BucketsUsed:    prUsageLimits.BucketsUsed,
+		BucketsLimit:   prUsageLimits.BucketsLimit,
 	}, nil
 }
 
@@ -2998,6 +2997,20 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, err
 	}
 
+	bucketsUsed, err := s.buckets.CountBuckets(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	bucketsLimit, err := s.store.Projects().GetMaxBuckets(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if bucketsLimit == nil {
+		bucketsLimit = &s.maxProjectBuckets
+	}
+
 	return &ProjectUsageLimits{
 		StorageLimit:   storageLimit.Int64(),
 		BandwidthLimit: bandwidthLimit.Int64(),
@@ -3005,6 +3018,8 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BandwidthUsed:  bandwidthUsed,
 		SegmentLimit:   segmentLimit.Int64(),
 		SegmentUsed:    segmentUsed,
+		BucketsUsed:    int64(bucketsUsed),
+		BucketsLimit:   int64(*bucketsLimit),
 	}, nil
 }
 

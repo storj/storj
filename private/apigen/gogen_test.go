@@ -29,24 +29,8 @@ import (
 )
 
 type (
-	auth        struct{}
-	service     struct{}
-	responseGet = struct {
-		ID             uuid.UUID      `json:"id"`
-		Path           string         `json:"path"`
-		Date           time.Time      `json:"date"`
-		Metadata       myapi.Metadata `json:"metadata"`
-		LastRetrievals []struct {
-			User string    `json:"user"`
-			When time.Time `json:"when"`
-		} `json:"last_retrievals"`
-	}
-	responseUpdateContent = struct {
-		ID        uuid.UUID `json:"id"`
-		Date      time.Time `json:"date"`
-		PathParam string    `json:"pathParam"`
-		Body      string    `json:"body"`
-	}
+	auth    struct{}
+	service struct{}
 )
 
 func (a auth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (context.Context, error) {
@@ -57,8 +41,8 @@ func (a auth) RemoveAuthCookie(w http.ResponseWriter) {}
 
 func (s service) Get(
 	ctx context.Context,
-) ([]responseGet, api.HTTPError) {
-	return []responseGet{}, api.HTTPError{}
+) ([]myapi.Document, api.HTTPError) {
+	return []myapi.Document{}, api.HTTPError{}
 }
 
 func (s service) GetOne(
@@ -88,11 +72,9 @@ func (s service) UpdateContent(
 	pathParam string,
 	id uuid.UUID,
 	date time.Time,
-	body struct {
-		Content string `json:"content"`
-	},
-) (*responseUpdateContent, api.HTTPError) {
-	return &responseUpdateContent{
+	body myapi.NewDocument,
+) (*myapi.Document, api.HTTPError) {
+	return &myapi.Document{
 		ID:        id,
 		Date:      date,
 		PathParam: pathParam,
@@ -100,7 +82,9 @@ func (s service) UpdateContent(
 	}, api.HTTPError{}
 }
 
-func send(ctx context.Context, method string, url string, body interface{}) ([]byte, error) {
+func send(ctx context.Context, t *testing.T, method string, url string, body interface{}) ([]byte, error) {
+	t.Helper()
+
 	var bodyReader io.Reader = http.NoBody
 	if body != nil {
 		bodyJSON, err := json.Marshal(body)
@@ -118,6 +102,10 @@ func send(ctx context.Context, method string, url string, body interface{}) ([]b
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
+	}
+
+	if c := resp.StatusCode; c != http.StatusOK {
+		t.Fatalf("unexpected status code. Want=%d, Got=%d", http.StatusOK, c)
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -145,14 +133,14 @@ func TestAPIServer(t *testing.T) {
 	id, err := uuid.New()
 	require.NoError(t, err)
 
-	expected := responseUpdateContent{
+	expected := myapi.Document{
 		ID:        id,
 		Date:      time.Now(),
 		PathParam: "foo",
 		Body:      "bar",
 	}
 
-	resp, err := send(ctx, http.MethodPost,
+	resp, err := send(ctx, t, http.MethodPost,
 		fmt.Sprintf("%s/api/v0/docs/%s?id=%s&date=%s",
 			server.URL,
 			expected.PathParam,
@@ -162,14 +150,16 @@ func TestAPIServer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var actual map[string]string
+	fmt.Println(string(resp))
+
+	var actual map[string]any
 	require.NoError(t, json.Unmarshal(resp, &actual))
 
 	for _, key := range []string{"id", "date", "pathParam", "body"} {
 		require.Contains(t, actual, key)
 	}
-	require.Equal(t, expected.ID.String(), actual["id"])
-	require.Equal(t, expected.Date.Format(apigen.DateFormat), actual["date"])
-	require.Equal(t, expected.PathParam, actual["pathParam"])
-	require.Equal(t, expected.Body, actual["body"])
+	require.Equal(t, expected.ID.String(), actual["id"].(string))
+	require.Equal(t, expected.Date.Format(apigen.DateFormat), actual["date"].(string))
+	require.Equal(t, expected.PathParam, actual["pathParam"].(string))
+	require.Equal(t, expected.Body, actual["body"].(string))
 }

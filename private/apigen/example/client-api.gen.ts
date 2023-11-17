@@ -114,7 +114,7 @@ export class DocumentsHttpApiV0 {
     }
 
     public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
-        const u = new URL(`${this.ROOT_PATH}/${path}`);
+        const u = new URL(`${this.ROOT_PATH}/${path}`, window.location.href);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
         const fullPath = u.toString();

@@ -13,7 +13,7 @@ export default function vuetifyThemeCSS(): Plugin {
     const resolvedVirtualModuleId = '\0' + virtualModuleId;
 
     const theme = createVuetify({ theme: THEME_OPTIONS }).theme;
-    const themeURLs: Record<string, string> = {};
+    const refIds: Record<string, string> = {};
 
     return {
         name,
@@ -36,7 +36,7 @@ export default function vuetifyThemeCSS(): Plugin {
                     name: `theme-${name}.css`,
                     source: result.outputFiles[0].text,
                 });
-                themeURLs[name] = `__VITE_ASSET__${refId}__`;
+                refIds[name] = refId;
             }
         },
 
@@ -46,9 +46,9 @@ export default function vuetifyThemeCSS(): Plugin {
 
         load(id: string) {
             if (id === resolvedVirtualModuleId) {
-                return `export const themeURLs = {${
-                    Object.entries(themeURLs)
-                        .map(([name, url]) => `'${name}':'${url}'`)
+                return `export default {${
+                    Object.entries(refIds)
+                        .map(([name, refId]) => `'${name}':'__VITE_ASSET__${refId}__'`)
                         .join(',')
                 }};`;
             }

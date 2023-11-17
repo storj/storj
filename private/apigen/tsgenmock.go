@@ -6,6 +6,7 @@ package apigen
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -98,8 +99,7 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 					))
 			}
 
-			respType := method.responseType(group)
-			returnType = TypescriptTypeName(respType)
+			returnType = TypescriptTypeName(reflect.TypeOf(method.Response))
 		}
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.TypeScriptName, funcArgs, returnType)

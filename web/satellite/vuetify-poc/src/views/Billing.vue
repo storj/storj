@@ -3,6 +3,12 @@
 
 <template>
     <v-container>
+        <low-token-balance-banner
+            v-if="isLowBalance"
+            :cta-label="tab !== 1 ? 'Deposit' : ''"
+            @click="tab = 1"
+        />
+
         <v-row>
             <v-col>
                 <PageTitleComponent title="Account Billing" />
@@ -228,13 +234,15 @@ import {
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { Coupon, CouponDuration, CreditCard } from '@/types/payments';
+import { AccountBalance, Coupon, CouponDuration, CreditCard } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { Download } from '@/utils/download';
+import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
+import { Project } from '@/types/projects';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
@@ -244,6 +252,7 @@ import UsageAndChargesComponent from '@poc/components/billing/UsageAndChargesCom
 import StorjTokenCardComponent from '@poc/components/StorjTokenCardComponent.vue';
 import TokenTransactionsTableComponent from '@poc/components/TokenTransactionsTableComponent.vue';
 import ApplyCouponCodeDialog from '@poc/components/dialogs/ApplyCouponCodeDialog.vue';
+import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 
 const tab = ref(0);
 const billingStore = useBillingStore();
@@ -252,6 +261,7 @@ const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const isLowBalance = useLowTokenBalance();
 
 const isRollupLoading = ref(true);
 const isAddCouponDialogShown = ref<boolean>(false);
@@ -341,14 +351,20 @@ function goToTransactionsTab() {
 
 onMounted(async () => {
     withLoading(async () => {
+        const promises: Promise<void | Project[] | AccountBalance | CreditCard[]>[] = [
+            billingStore.getBalance(),
+            billingStore.getCoupon(),
+            billingStore.getCreditCards(),
+            projectsStore.getProjects(),
+            billingStore.getProjectUsagePriceModel(),
+        ];
+
+        if (configStore.state.config.nativeTokenPaymentsEnabled) {
+            promises.push(billingStore.getNativePaymentsHistory());
+        }
+
         try {
-            await Promise.all([
-                billingStore.getBalance(),
-                billingStore.getCoupon(),
-                billingStore.getCreditCards(),
-                projectsStore.getProjects(),
-                billingStore.getProjectUsagePriceModel(),
-            ]);
+            await Promise.all(promises);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
         }

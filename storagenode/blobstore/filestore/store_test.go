@@ -783,9 +783,13 @@ func TestTrashAndRestore(t *testing.T) {
 			expKeysRestored = append(expKeysRestored, ref.key)
 		}
 	}
-	sort.Slice(expKeysRestored, func(i int, j int) bool { return expKeysRestored[i][0] < expKeysRestored[j][0] })
+	sort.Slice(expKeysRestored, func(i int, j int) bool {
+		return bytes.Compare(expKeysRestored[i], expKeysRestored[j]) < 0
+	})
 	restoredKeys, err := store.RestoreTrash(ctx, namespaces[0].namespace)
-	sort.Slice(restoredKeys, func(i int, j int) bool { return restoredKeys[i][0] < restoredKeys[j][0] })
+	sort.Slice(restoredKeys, func(i int, j int) bool {
+		return bytes.Compare(restoredKeys[i], restoredKeys[j]) < 0
+	})
 	require.NoError(t, err)
 	assert.Equal(t, expKeysRestored, restoredKeys)
 
