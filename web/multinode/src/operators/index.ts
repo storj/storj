@@ -35,7 +35,7 @@ export class Operator {
      */
     public get etherscanLink(): string {
         // TODO: place this to config.
-        return `https://etherscan.io/address/${this.wallet}`;
+        return `https://etherscan.io/address/${this.wallet}#tokentxns`;
     }
 
     /**
