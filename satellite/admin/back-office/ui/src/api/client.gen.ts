@@ -3,6 +3,11 @@
 
 import { HttpClient } from '@/utils/httpClient';
 
+export class PlacementInfo {
+    id: number;
+    location: string;
+}
+
 class APIError extends Error {
     constructor(
         public readonly msg: string,
@@ -12,15 +17,15 @@ class APIError extends Error {
     }
 }
 
-export class ExampleHttpApiV1 {
+export class PlacementManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/back-office/api/v1/example';
+    private readonly ROOT_PATH: string = '/back-office/api/v1/placements';
 
-    public async getExamples(): Promise<string[]> {
-        const fullPath = `${this.ROOT_PATH}/examples`;
+    public async getPlacements(): Promise<PlacementInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as string[]);
+            return response.json().then((body) => body as PlacementInfo[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
