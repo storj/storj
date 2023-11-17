@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-7">
         <v-row>
             <v-col cols="12">
                 Copy or save the S3 credentials as they will only appear once.
@@ -48,7 +48,7 @@ const saveItems = computed<SaveButtonsItem[]>(() => [
 ]);
 
 defineExpose({
-    title: 'Credentials Generated',
+    title: 'S3 Credentials Generated',
     onEnter: () => isTooltipDisabled.value = false,
     onExit: () => isTooltipDisabled.value = true,
 });

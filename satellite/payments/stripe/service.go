@@ -662,21 +662,21 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 		nextCursor = customersPage.Cursor
 
 		for _, c := range customersPage.Customers {
-			cusID := c.ID
+			c := c
 			limiter.Go(ctx, func() {
 				if inactive, err := service.isUserInactive(ctx, c.UserID); err != nil {
 					mu.Lock()
-					failedUsers = append(failedUsers, cusID)
+					failedUsers = append(failedUsers, c.ID)
 					mu.Unlock()
 					return
 				} else if inactive {
 					return
 				}
 
-				applied, err := service.applyFreeTierCoupon(ctx, cusID)
+				applied, err := service.applyFreeTierCoupon(ctx, c.ID)
 				if err != nil {
 					mu.Lock()
-					failedUsers = append(failedUsers, cusID)
+					failedUsers = append(failedUsers, c.ID)
 					mu.Unlock()
 					return
 				}
@@ -798,7 +798,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 		return nil, nil
 	}
 
-	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
+	description := fmt.Sprintf("Storj Cloud Storage for %s %d", period.Month(), period.Year())
 	stripeInvoice, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
 			Params:                      stripe.Params{Context: ctx},
@@ -837,7 +837,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	var mu sync.Mutex
 
 	for _, cus := range customers {
-		cusID := cus.ID
+		cus := cus
 		limiter.Go(ctx, func() {
 			if inactive, err := service.isUserInactive(ctx, cus.UserID); err != nil {
 				mu.Lock()
@@ -848,7 +848,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 				return
 			}
 
-			inv, err := service.createInvoice(ctx, cusID, period)
+			inv, err := service.createInvoice(ctx, cus.ID, period)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
@@ -1294,13 +1294,13 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 	return errGrp.Err()
 }
 
-// isUserInactive checks whether a user has a status of console.Deleted or console.PendingDeletion.
+// isUserInactive checks whether a user does not have a status of console.Active.
 func (service *Service) isUserInactive(ctx context.Context, userID uuid.UUID) (bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	return user.Status == console.Deleted || user.Status == console.PendingDeletion, nil
+	return user.Status != console.Active, nil
 }
 
 // projectUsagePrice represents pricing for project usage.

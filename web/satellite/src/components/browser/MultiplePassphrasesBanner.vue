@@ -7,15 +7,17 @@
             <LockedIcon class="banner__left__icon" />
             <div class="banner__left__labels">
                 <h2 class="banner__left__labels__title">
-                    You have at least {{ lockedFilesCount }} object{{ lockedFilesCount > 1 ? 's' : '' }} locked with a
-                    different passphrase.
+                    Object count mismatch.
                 </h2>
-                <p class="banner__left__labels__subtitle">Enter your other passphrase to access these files.</p>
+                <p class="banner__left__labels__subtitle">
+                    Files may be uploaded with a different passphrase, or files have been
+                    recently deleted and are not reflected yet.
+                </p>
             </div>
         </div>
         <div class="banner__right">
             <p class="banner__right__unlock" @click="openManageModal">
-                Unlock now
+                Try unlock
             </p>
             <CloseIcon class="banner__right__close" @click="onClose" />
         </div>
@@ -31,7 +33,6 @@ import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
 
 const props = defineProps<{
-    lockedFilesCount: number
     onClose: () => void
 }>();
 

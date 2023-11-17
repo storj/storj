@@ -28,8 +28,14 @@ Get the paths to all the documents under the specified paths
 [
 	{
 		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
-		path: string
 		date: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		pathParam: string
+		body: string
+		version: 		{
+			date: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			number: number
+		}
+
 		metadata: 		{
 			owner: string
 			tags: 			[
@@ -37,14 +43,6 @@ unknown
 			]
 
 		}
-
-		last_retrievals: 		[
-			{
-				user: string
-				when: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-			}
-
-		]
 
 	}
 
@@ -75,6 +73,14 @@ Get the document in the specified path
 	version: 	{
 		date: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		number: number
+	}
+
+	metadata: 	{
+		owner: string
+		tags: 		[
+unknown
+		]
+
 	}
 
 }
@@ -161,6 +167,19 @@ Update the content of the document with the specified path and ID if the last up
 	date: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	pathParam: string
 	body: string
+	version: 	{
+		date: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		number: number
+	}
+
+	metadata: 	{
+		owner: string
+		tags: 		[
+unknown
+		]
+
+	}
+
 }
 
 ```

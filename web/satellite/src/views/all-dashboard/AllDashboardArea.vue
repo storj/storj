@@ -105,6 +105,16 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 });
 
 /**
+ * Indicates if user should be redirected to onboarding pricing plan step.
+ */
+const shouldShowPricingPlan = computed<boolean>(() => {
+    return usersStore.shouldOnboard &&
+        usersStore.state.user.partner !== '' &&
+        configStore.state.config.pricingPackagesEnabled &&
+        !appStore.state.hasShownPricingPlan;
+});
+
+/**
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
@@ -171,7 +181,7 @@ onMounted(async () => {
 
     appStore.changeState(FetchState.LOADED);
 
-    if (usersStore.shouldOnboard && configStore.state.config.pricingPackagesEnabled && !appStore.state.hasShownPricingPlan) {
+    if (shouldShowPricingPlan.value) {
         appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.

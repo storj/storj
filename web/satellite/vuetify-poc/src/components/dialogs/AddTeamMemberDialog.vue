@@ -14,7 +14,7 @@
         @update:model-value="v => model = v"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@/../static/images/team/teamMembers.svg" alt="Team members">
                 </template>
@@ -40,7 +40,7 @@
             <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onPrimaryClick">
                 <v-row>
                     <v-col v-if="needsUpgrade">
-                        Upgrade now to unlock collaboration and bring your team together in this project.
+                        <p class="mb-4">Upgrade now to unlock collaboration and bring your team together in this project.</p>
                     </v-col>
                     <template v-else>
                         <v-col cols="12">
@@ -87,7 +87,7 @@
                             :append-icon="needsUpgrade ? 'mdi-arrow-right' : undefined"
                             @click="onPrimaryClick"
                         >
-                            {{ needsUpgrade ? 'Upgrade' : 'Send Invite' }}
+                            {{ needsUpgrade ? 'Continue' : 'Send Invite' }}
                         </v-btn>
                     </v-col>
                 </v-row>

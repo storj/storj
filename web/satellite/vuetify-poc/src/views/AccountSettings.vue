@@ -3,14 +3,16 @@
 
 <template>
     <v-container>
-        <!-- <v-breadcrumbs :items="['My Account', 'Settings']" class="pl-0"></v-breadcrumbs> -->
-
-        <h1 class="text-h5 font-weight-bold mb-2">Settings</h1>
+        <v-row>
+            <v-col>
+                <PageTitleComponent title="Account Settings" />
+            </v-col>
+        </v-row>
 
         <v-card
             variant="flat"
             :border="true"
-            class="mx-auto my-6"
+            class="mx-auto mt-2 my-6"
         >
             <v-list lines="three">
                 <v-list-subheader class="mb-2">Profile</v-list-subheader>
@@ -155,6 +157,8 @@ import {
     VListItemSubtitle,
     VListItemAction,
     VBtn,
+    VRow,
+    VCol,
 } from 'vuetify/components';
 
 import { User, UserSettings } from '@/types/users';
@@ -163,6 +167,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 
+import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import ChangePasswordDialog from '@poc/components/dialogs/ChangePasswordDialog.vue';
 import ChangeNameDialog from '@poc/components/dialogs/ChangeNameDialog.vue';
 import EnableMFADialog from '@poc/components/dialogs/EnableMFADialog.vue';

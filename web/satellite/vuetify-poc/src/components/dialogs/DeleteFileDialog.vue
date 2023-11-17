@@ -9,10 +9,10 @@
         :persistent="isLoading"
     >
         <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pl-7 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <v-sheet
-                        class="bg-on-surface-variant d-flex justify-center align-center"
+                        class="border-sm d-flex justify-center align-center"
                         width="40"
                         height="40"
                         rounded="lg"

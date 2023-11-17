@@ -187,8 +187,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = await api.getCoupon();
     }
 
-    async function purchasePricingPackage(pmID: string): Promise<void> {
-        await api.purchasePricingPackage(pmID);
+    async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
+        await api.purchasePricingPackage(dataStr, isPMID);
     }
 
     function clear(): void {

@@ -121,6 +121,12 @@ func (endpoint *Endpoint) SetNowFunc(timeFunc func() time.Time) {
 	endpoint.nowFunc = timeFunc
 }
 
+// TestSetTimeBased changes the setting of config.TimeBased at runtime. To be used for testing
+// purposes only.
+func (endpoint *Endpoint) TestSetTimeBased(enabled bool) {
+	endpoint.config.TimeBased = enabled
+}
+
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
 func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStream) (err error) {
 	ctx := stream.Context()
@@ -970,6 +976,7 @@ func (endpoint *Endpoint) checkExitStatusTimeBased(ctx context.Context, nodeInfo
 				ExitFinishedAt: endpoint.nowFunc(),
 				ExitSuccess:    true,
 			}
+			var reason pb.ExitFailed_Reason
 
 			// We don't check the online score constantly over the course of the graceful exit,
 			// because we want to give the node a chance to get the score back up if it's
@@ -978,9 +985,19 @@ func (endpoint *Endpoint) checkExitStatusTimeBased(ctx context.Context, nodeInfo
 			// Instead, we check the overall score at the end of the GE period.
 			if reputationInfo.OnlineScore < endpoint.config.MinimumOnlineScore {
 				request.ExitSuccess = false
+				reason = pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED
+			}
+			// If a node has lost all of its data, it could still initiate graceful exit and return
+			// unknown errors to audits, getting suspended but not disqualified. Since such nodes
+			// should not receive their held amount back, any nodes that are suspended at the end
+			// of the graceful exit period will be treated as having failed graceful exit.
+			if reputationInfo.UnknownAuditSuspended != nil {
+				request.ExitSuccess = false
+				reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			}
 			endpoint.log.Info("node completed graceful exit",
 				zap.Float64("online score", reputationInfo.OnlineScore),
+				zap.Bool("suspended", reputationInfo.UnknownAuditSuspended != nil),
 				zap.Bool("success", request.ExitSuccess),
 				zap.Stringer("node ID", nodeInfo.Id))
 			updatedNode, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
@@ -992,7 +1009,7 @@ func (endpoint *Endpoint) checkExitStatusTimeBased(ctx context.Context, nodeInfo
 				return endpoint.getFinishedSuccessMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt)
 			}
 			mon.Meter("graceful_exit_failure").Mark(1)
-			return endpoint.getFinishedFailureMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt, pb.ExitFailed_INACTIVE_TIMEFRAME_EXCEEDED)
+			return endpoint.getFinishedFailureMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt, reason)
 		}
 	}
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-7">
         <v-row>
             <v-col cols="12">
                 Copy or save the satellite address and API key as they will only appear once.

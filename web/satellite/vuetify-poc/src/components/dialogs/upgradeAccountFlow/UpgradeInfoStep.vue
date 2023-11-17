@@ -4,34 +4,34 @@
 <template>
     <v-row>
         <v-col v-if="!smAndDown" cols="6">
-            <h4 class="font-weight-bold mb-2">Free</h4>
+            <h4 class="font-weight-bold my-2">Free Account</h4>
             <v-btn
                 block
                 disabled
-                color="grey"
+                color="default"
             >
                 Current
             </v-btn>
-            <div class="border-sm rounded-lg pa-4 mt-3 mb-3">
+            <v-card class="my-4">
                 <InfoBullet title="Projects" :info="freeProjects" />
                 <InfoBullet title="Storage" :info="`${freeUsageValue(user.projectStorageLimit)} limit`" />
-                <InfoBullet title="Egress" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
+                <InfoBullet title="Download" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
                 <InfoBullet title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                 <InfoBullet title="Link Sharing" info="Link sharing with Storj domain" />
-            </div>
+            </v-card>
         </v-col>
         <v-col :cols="smAndDown ? 12 : '6'">
-            <h4 class="font-weight-bold mb-2">Pro Account</h4>
+            <h4 class="font-weight-bold my-2">Pro Account</h4>
             <v-btn
                 class="mb-1"
                 block
-                color="success"
                 :loading="loading"
+                append-icon="mdi-arrow-right"
                 @click="emit('upgrade')"
             >
-                Upgrade to Pro
+                Upgrade
             </v-btn>
-            <div class="border-sm rounded-lg pa-4 mt-3 mb-3">
+            <v-card class="my-4">
                 <InfoBullet is-pro title="Projects" :info="projectsInfo" />
                 <InfoBullet is-pro :title="storagePrice" :info="storagePriceInfo" />
                 <InfoBullet is-pro :title="downloadPrice" :info="downloadInfo">
@@ -42,7 +42,7 @@
                 <InfoBullet is-pro title="Segments" :info="segmentInfo">
                     <template #moreInfo>
                         <a
-                            class="text-surface"
+                            class="link"
                             href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -52,14 +52,15 @@
                     </template>
                 </InfoBullet>
                 <InfoBullet is-pro title="Secure Custom Domains (HTTPS)" info="Link sharing with your domain" />
-            </div>
+                <InfoBullet is-pro title="Team" info="Share projects and collaborate" />
+            </v-card>
         </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
-import { VBtn, VCol, VRow } from 'vuetify/components';
+import { VBtn, VCol, VRow, VCard } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -85,7 +86,7 @@ const storagePrice = ref<string>('Storage $0.004 GB / month');
 const storagePriceInfo = ref<string>('25 GB free included');
 const segmentInfo = ref<string>('$0.0000088 segment per month');
 const projectsInfo = ref<string>('3 projects + more on request');
-const downloadPrice = ref<string>('Egress $0.007 GB');
+const downloadPrice = ref<string>('Download $0.007 GB');
 const downloadInfo = ref<string>('25 GB free every month');
 const downloadMoreInfo = ref<string>('');
 

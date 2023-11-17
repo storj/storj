@@ -148,7 +148,7 @@ export class ProjectManagementHttpApiV0 {
     }
 
     public async getBucketRollup(projectID: UUID, bucket: string, since: Time, before: Time): Promise<BucketUsageRollup> {
-        const u = new URL(`${this.ROOT_PATH}/bucket-rollup`);
+        const u = new URL(`${this.ROOT_PATH}/bucket-rollup`, window.location.href);
         u.searchParams.set('projectID', projectID);
         u.searchParams.set('bucket', bucket);
         u.searchParams.set('since', since);
@@ -163,7 +163,7 @@ export class ProjectManagementHttpApiV0 {
     }
 
     public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<BucketUsageRollup[]> {
-        const u = new URL(`${this.ROOT_PATH}/bucket-rollups`);
+        const u = new URL(`${this.ROOT_PATH}/bucket-rollups`, window.location.href);
         u.searchParams.set('projectID', projectID);
         u.searchParams.set('since', since);
         u.searchParams.set('before', before);
@@ -177,7 +177,7 @@ export class ProjectManagementHttpApiV0 {
     }
 
     public async getAPIKeys(projectID: UUID, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
-        const u = new URL(`${this.ROOT_PATH}/apikeys/${projectID}`);
+        const u = new URL(`${this.ROOT_PATH}/apikeys/${projectID}`, window.location.href);
         u.searchParams.set('search', search);
         u.searchParams.set('limit', limit);
         u.searchParams.set('page', page);

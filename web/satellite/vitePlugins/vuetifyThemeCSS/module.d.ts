@@ -2,5 +2,6 @@
 // See LICENSE for copying information.
 
 declare module 'virtual:vuetify-theme-css' {
-    export const themeURLs: Record<string, string>;
+    const themeURLs: Record<string, string>;
+    export default themeURLs;
 }

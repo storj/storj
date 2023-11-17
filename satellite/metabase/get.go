@@ -30,9 +30,6 @@ func (obj *Object) IsMigrated() bool {
 	return obj.TotalPlainSize <= 0
 }
 
-// PendingObject pending object metadata.
-type PendingObject RawPendingObject
-
 // Segment segment metadata.
 // TODO define separated struct.
 type Segment RawSegment
@@ -320,9 +317,7 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 
 	var value bool
 	err = db.db.QueryRowContext(ctx, `
-		SELECT
-			(SELECT EXISTS (SELECT 1 FROM objects         WHERE (project_id, bucket_name) = ($1, $2))) OR
-			(SELECT EXISTS (SELECT 1 FROM pending_objects WHERE (project_id, bucket_name) = ($1, $2)))
+		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
 	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
 	if err != nil {
 		return false, Error.New("unable to query objects: %w", err)
@@ -399,23 +394,6 @@ func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err erro
 
 	for _, o := range rawObjects {
 		objects = append(objects, Object(o))
-	}
-
-	return objects, nil
-}
-
-// TestingAllPendingObjects gets all pending objects.
-// Use only for testing purposes.
-func (db *DB) TestingAllPendingObjects(ctx context.Context) (objects []PendingObject, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rawObjects, err := db.testingGetAllPendingObjects(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, o := range rawObjects {
-		objects = append(objects, PendingObject(o))
 	}
 
 	return objects, nil

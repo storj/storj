@@ -99,88 +99,28 @@ func TestRSConfigValidation(t *testing.T) {
 	}
 }
 
-func TestExtendedConfig_UsePendingObjectsTable(t *testing.T) {
+func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
 	projectA := testrand.UUID()
 	projectB := testrand.UUID()
 	projectC := testrand.UUID()
 	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable: false,
-		UsePendingObjectsTableProjects: []string{
+		UseBucketLevelObjectVersioningProjects: []string{
 			projectA.String(),
 			projectB.String(),
 		},
 	})
 	require.NoError(t, err)
 
-	require.True(t, config.UsePendingObjectsTableByProject(projectA))
-	require.True(t, config.UsePendingObjectsTableByProject(projectB))
-	require.False(t, config.UsePendingObjectsTableByProject(projectC))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectC))
 
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable: true,
-		UsePendingObjectsTableProjects: []string{
-			projectA.String(),
-		},
-	})
-	require.NoError(t, err)
-
-	require.True(t, config.UsePendingObjectsTableByProject(projectA))
-	require.True(t, config.UsePendingObjectsTableByProject(projectB))
-	require.True(t, config.UsePendingObjectsTableByProject(projectC))
-
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable: false,
-		UsePendingObjectsTableProjects: []string{
+		UseBucketLevelObjectVersioning: false,
+		UseBucketLevelObjectVersioningProjects: []string{
 			"01000000-0000-0000-0000-000000000000",
 		},
 	})
 	require.NoError(t, err)
-	require.True(t, config.UsePendingObjectsTableByProject(uuid.UUID{1}))
-}
-
-func TestExtendedConfig_UsePendingObjectsTableRollout(t *testing.T) {
-	uuidA := testrand.UUID()
-	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable:        false,
-		UsePendingObjectsTableRollout: 0,
-	})
-	require.NoError(t, err)
-
-	require.False(t, config.UsePendingObjectsTableByProject(uuidA))
-	require.False(t, config.UsePendingObjectsTableByProject(makeUUID("00000001-0000-0000-0000-000000000000")))
-	require.False(t, config.UsePendingObjectsTableByProject(makeUUID("FFFFFFFF-0000-0000-0000-000000000000")))
-
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable:        false,
-		UsePendingObjectsTableRollout: 50,
-	})
-	require.NoError(t, err)
-
-	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("00000001-0000-0000-0000-000000000000")))
-	require.False(t, config.UsePendingObjectsTableByProject(makeUUID("FFFFFFFF-0000-0000-0000-000000000000")))
-
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable:        false,
-		UsePendingObjectsTableRollout: 25,
-	})
-	require.NoError(t, err)
-
-	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("00000001-0000-0000-0000-000000000000")))
-	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("3FFFFFFF-0000-0000-0000-000000000000")))
-	require.False(t, config.UsePendingObjectsTableByProject(makeUUID("40000000-0000-0000-0000-000000000000")))
-	require.False(t, config.UsePendingObjectsTableByProject(makeUUID("FFFFFFFF-0000-0000-0000-000000000000")))
-
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UsePendingObjectsTable:        false,
-		UsePendingObjectsTableRollout: 100,
-	})
-	require.NoError(t, err)
-
-	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("00000001-0000-0000-0000-000000000000")))
-	require.True(t, config.UsePendingObjectsTableByProject(makeUUID("FFFFFFFF-0000-0000-0000-000000000000")))
-}
-
-func makeUUID(uuidString string) uuid.UUID {
-	value, _ := uuid.FromString(uuidString)
-	return value
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(uuid.UUID{1}))
 }

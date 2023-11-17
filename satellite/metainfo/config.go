@@ -4,7 +4,6 @@
 package metainfo
 
 import (
-	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -146,13 +145,15 @@ type Config struct {
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 
-	UsePendingObjectsTable bool `help:"enable new flow for upload which is using pending_objects table" default:"false"`
-	// flags to simplify testing by enabling feature only for specific projects or for for specific percentage of projects
-	UsePendingObjectsTableProjects []string `help:"list of projects which will have UsePendingObjectsTable feature flag enabled" default:"" hidden:"true"`
-	UsePendingObjectsTableRollout  int      `help:"percentage (0-100) of projects which should have this feature enabled" default:"0" hidden:"true"`
+	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
+	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
+	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+
+	// flag will be effective only if UseBucketLevelObjectVersioning or UseBucketLevelObjectVersioningProjects are enabled
+	TestEnableBucketVersioning bool `default:"false" help:"if enabled all new created buckets will have versioning enabled (use only for testing)" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -166,63 +167,37 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 }
 
 // ExtendedConfig extended config keeps additional helper fields and methods around Config.
-// TODO potentially can be removed when UsePendingObjectsTableProjects won't be used anymore.
 type ExtendedConfig struct {
 	Config
 
-	usePendingObjectsTableProjects      []uuid.UUID
-	usePendingObjectsTableRolloutCursor uuid.UUID
+	useBucketLevelObjectVersioningProjects []uuid.UUID
 }
 
 // NewExtendedConfig creates new instance of extended config.
 func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 	extendedConfig := ExtendedConfig{Config: config}
-	for _, projectIDString := range config.UsePendingObjectsTableProjects {
+	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
 		if err != nil {
 			return ExtendedConfig{}, err
 		}
-		extendedConfig.usePendingObjectsTableProjects = append(extendedConfig.usePendingObjectsTableProjects, projectID)
-	}
-
-	extendedConfig.usePendingObjectsTableRolloutCursor, err = createRolloutCursor(config.UsePendingObjectsTableRollout)
-	if err != nil {
-		return ExtendedConfig{}, err
+		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
 	}
 
 	return extendedConfig, nil
 }
 
-// UsePendingObjectsTableByProject checks if UsePendingObjectsTable should be enabled for specific project.
-func (ec ExtendedConfig) UsePendingObjectsTableByProject(projectID uuid.UUID) bool {
+// UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
+func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(projectID uuid.UUID) bool {
 	// if its globally enabled don't look at projects
-	if ec.UsePendingObjectsTable {
+	if ec.UseBucketLevelObjectVersioning {
 		return true
 	}
-	for _, p := range ec.usePendingObjectsTableProjects {
+	for _, p := range ec.useBucketLevelObjectVersioningProjects {
 		if p == projectID {
 			return true
 		}
 	}
 
-	if !ec.usePendingObjectsTableRolloutCursor.IsZero() {
-		if projectID.Less(ec.usePendingObjectsTableRolloutCursor) {
-			return true
-		}
-	}
-
 	return false
-}
-
-func createRolloutCursor(percentage int) (uuid.UUID, error) {
-	if percentage <= 0 {
-		return uuid.UUID{}, nil
-	} else if percentage >= 100 {
-		return uuid.Max(), nil
-	}
-
-	cursorValue := uint32(1 << 32 * (float32(percentage) / 100))
-	bytes := make([]byte, 16)
-	binary.BigEndian.PutUint32(bytes, cursorValue)
-	return uuid.FromBytes(bytes)
 }

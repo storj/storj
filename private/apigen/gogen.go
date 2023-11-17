@@ -4,6 +4,7 @@
 package apigen
 
 import (
+	"fmt"
 	"go/format"
 	"os"
 	"reflect"
@@ -38,14 +39,14 @@ func (a *API) generateGo() ([]byte, error) {
 	result := &StringBuilder{}
 	pf := result.Writelnf
 
-	getPackageName := func(path string) string {
-		pathPackages := strings.Split(path, "/")
-		name := pathPackages[len(pathPackages)-1]
-		if name == "main" {
-			panic(errs.New(`invalid package name. Your types cannot be defined in a package named "main"`))
-		}
+	if a.PackagePath == "" {
+		return nil, errs.New("Package path must be defined")
+	}
 
-		return name
+	packageName := a.PackageName
+	if packageName == "" {
+		parts := strings.Split(a.PackagePath, "/")
+		packageName = parts[len(parts)-1]
 	}
 
 	imports := struct {
@@ -59,7 +60,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 	i := func(paths ...string) {
 		for _, path := range paths {
-			if path == "" || getPackageName(path) == a.PackageName {
+			if path == "" || path == a.PackagePath {
 				continue
 			}
 
@@ -107,7 +108,7 @@ func (a *API) generateGo() ([]byte, error) {
 		pf(
 			"var Err%sAPI = errs.Class(\"%s %s api\")",
 			capitalize(group.Prefix),
-			a.PackageName,
+			packageName,
 			strings.ToLower(group.Prefix),
 		)
 	}
@@ -286,7 +287,7 @@ func (a *API) generateGo() ([]byte, error) {
 	pf("// DO NOT EDIT.")
 	pf("")
 
-	pf("package %s", a.PackageName)
+	pf("package %s", packageName)
 	pf("")
 
 	pf("import (")
@@ -322,8 +323,17 @@ func (a *API) generateGo() ([]byte, error) {
 // If type is from the same package then we use only type's name.
 // If type is from external package then we use type along with its appropriate package name.
 func (a *API) handleTypesPackage(t reflect.Type) string {
-	if strings.HasPrefix(t.String(), a.PackageName) {
-		return t.Elem().Name()
+	switch t.Kind() {
+	case reflect.Array:
+		return fmt.Sprintf("[%d]%s", t.Len(), a.handleTypesPackage(t.Elem()))
+	case reflect.Slice:
+		return "[]" + a.handleTypesPackage(t.Elem())
+	case reflect.Pointer:
+		return "*" + a.handleTypesPackage(t.Elem())
+	}
+
+	if t.PkgPath() == a.PackagePath {
+		return t.Name()
 	}
 
 	return t.String()

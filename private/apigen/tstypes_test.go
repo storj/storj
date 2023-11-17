@@ -51,80 +51,29 @@ func TestTypes(t *testing.T) {
 		require.Subset(t, allTypes, typesList, "all types contains at least the registered ones")
 	})
 
-	t.Run("All nested structs and slices", func(t *testing.T) {
-		type Item struct{}
-		types := NewTypes()
-		types.Register(
-			typeCustomName{
-				Type: reflect.TypeOf(struct {
-					Name      string
-					Addresses []struct {
-						Address string
-						PO      string
-					}
-					Job struct {
-						Company      string
-						Position     string
-						StartingYear uint
-					}
-					Documents []struct {
-						Path       string
-						Content    string
-						Valoration testTypesValoration
-					}
-					Items []Item
-				}{}),
-				name: "Response",
-			})
-
-		allTypes := types.All()
-		require.Len(t, allTypes, 10, "total number of types")
-
-		typesNames := []string{}
-		for _, name := range allTypes {
-			typesNames = append(typesNames, name)
+	t.Run("Anonymous types panics", func(t *testing.T) {
+		type Address struct {
+			Address string
+			PO      string
+		}
+		type Job struct {
+			Company         string
+			Position        string
+			StartingYear    uint
+			ContractClauses []struct { // This is what it makes Types.All to panic
+				ClauseID  uint
+				CauseDesc string
+			}
 		}
 
-		require.ElementsMatch(t, []string{
-			"string", "uint",
-			"Response",
-			"ResponseAddresses", "ResponseAddressesItem",
-			"ResponseJob",
-			"ResponseDocuments", "ResponseDocumentsItem", "testTypesValoration",
-			"Item",
-		}, typesNames)
-	})
+		type Citizen struct {
+			Name      string
+			Addresses []Address
+			Job       Job
+		}
 
-	t.Run("All panic types without unique names", func(t *testing.T) {
 		types := NewTypes()
-		types.Register(typeCustomName{
-			Type: reflect.TypeOf(struct {
-				Name      string
-				Addresses []struct {
-					Address string
-					PO      string
-				}
-				Job struct {
-					Company      string
-					Position     string
-					StartingYear uint
-				}
-				Documents []struct {
-					Path       string
-					Content    string
-					Valoration testTypesValoration
-				}
-			}{}),
-			name: "Response",
-		})
-
-		types.Register(typeCustomName{
-			Type: reflect.TypeOf(struct {
-				Reference string
-			}{}),
-			name: "Response",
-		})
-
+		types.Register(reflect.TypeOf(Citizen{}))
 		require.Panics(t, func() {
 			types.All()
 		})

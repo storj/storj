@@ -39,6 +39,8 @@ const (
 	maxStoragenodeCount = 200
 
 	folderPermissions = 0744
+
+	gatewayGracePeriod = 10 * time.Second
 )
 
 var defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
@@ -536,11 +538,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					return fmt.Errorf("failed to read config string: %w", err)
 				}
 
-				// try with 100ms delays until we hit 3s
+				// try with 100ms delays until we exceed the grace period
 				apiKey, start := "", time.Now()
 				for apiKey == "" {
 					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey(context.Background())
-					if err != nil && time.Since(start) > 3*time.Second {
+					if err != nil && time.Since(start) > gatewayGracePeriod {
 						return fmt.Errorf("failed to create account: %w", err)
 					}
 					time.Sleep(100 * time.Millisecond)

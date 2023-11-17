@@ -2,36 +2,36 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8 pb-4">
+    <v-form ref="form" class="pa-7 pb-4">
         <v-row>
             <v-col cols="12">
-                <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p>
+                <!-- <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p> -->
                 <v-radio-group v-model="passphraseOption" hide-details="auto">
                     <template v-if="isPromptForPassphrase">
-                        <v-radio v-if="isPromptForPassphrase" label="Enter your project passphrase" :value="PassphraseOption.SetMyProjectPassphrase">
+                        <v-radio v-if="isPromptForPassphrase" label="Enter your project passphrase" :value="PassphraseOption.SetMyProjectPassphrase" density="compact">
                             <template #label>
                                 Enter my project passphrase
                                 <info-tooltip>
-                                    You will enter your encryption passphrase on the next step.
-                                    Make sure it's the same one you use for this project.
-                                    This will allow you to manage existing data you have uploaded with the same passphrase.
+                                    Make sure it's the same passphrase you use for this project.
+                                    This will allow you to manage existing data you have uploaded.
                                 </info-tooltip>
                             </template>
                         </v-radio>
                         <v-text-field
                             v-model="passphrase"
-                            class="mt-3"
+                            class="mt-6"
                             variant="outlined"
-                            label="Enter Encryption Passphrase"
-                            :append-inner-icon="isPassphraseVisible ? 'mdi-eye-off' : 'mdi-eye'"
+                            label="Encryption Passphrase"
+                            :append-inner-icon="isPassphraseVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                             :type="isPassphraseVisible ? 'text' : 'password'"
                             :rules="passphraseRules"
                             :hide-details="false"
+                            autofocus
                             @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
                         />
-                        <v-divider class="my-4" />
+                        <!-- <v-divider class="my-4" /> -->
                     </template>
-                    <v-radio v-else :value="PassphraseOption.UseExistingPassphrase">
+                    <v-radio v-else :value="PassphraseOption.UseExistingPassphrase" density="compact" class="pb-4">
                         <template #label>
                             Use the current passphrase
                             <info-tooltip>
@@ -41,14 +41,14 @@
                         </template>
                     </v-radio>
                     <v-btn
-                        class="align-self-start"
-                        variant="text"
+                        class="align-self-start mt-2 mb-4"
+                        variant="outlined"
                         color="default"
                         :append-icon="areAdvancedOptionsShown ? '$collapse' : '$expand'"
                         :disabled="isAdvancedOptionSelected"
                         @click="areAdvancedOptionsShown = !areAdvancedOptionsShown"
                     >
-                        Advanced
+                        Advanced Options
                     </v-btn>
                     <v-expand-transition>
                         <div v-show="areAdvancedOptionsShown">
@@ -76,7 +76,7 @@
             </v-col>
             <v-expand-transition>
                 <v-col v-show="areAdvancedOptionsShown" cols="12">
-                    <v-alert class="mb-4" type="warning" variant="tonal" rounded="xlg">
+                    <v-alert class="mb-4" type="info" variant="tonal" rounded="xlg">
                         Creating a new passphrase for this access will prevent it from accessing any data
                         that has been uploaded with the current passphrase.
                     </v-alert>

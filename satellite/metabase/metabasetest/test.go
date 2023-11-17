@@ -468,21 +468,6 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	compareDeleteObjectResult(t, result, step.Result)
 }
 
-// DeletePendingObjectNew is for testing metabase.DeletePendingObjectNew.
-type DeletePendingObjectNew struct {
-	Opts     metabase.DeletePendingObject
-	Result   metabase.DeleteObjectResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeletePendingObjectNew) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.DeletePendingObjectNew(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-	compareDeleteObjectResult(t, result, step.Result)
-}
-
 // DeleteObjectsAllVersions is for testing metabase.DeleteObjectsAllVersions.
 type DeleteObjectsAllVersions struct {
 	Opts     metabase.DeleteObjectsAllVersions
@@ -523,20 +508,6 @@ type DeleteZombieObjects struct {
 // Check runs the test.
 func (step DeleteZombieObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.DeleteZombieObjects(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-}
-
-// DeleteInactivePendingObjects is for testing metabase.DeleteInactivePendingObjects.
-type DeleteInactivePendingObjects struct {
-	Opts metabase.DeleteZombieObjects
-
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeleteInactivePendingObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	err := db.DeleteInactivePendingObjects(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
@@ -601,28 +572,6 @@ func (step IteratePendingObjectsByKey) Check(ctx *testcontext.Context, t *testin
 	require.Zero(t, diff)
 }
 
-// IteratePendingObjectsByKeyNew is for testing metabase.IteratePendingObjectsByKeyNew.
-type IteratePendingObjectsByKeyNew struct {
-	Opts metabase.IteratePendingObjectsByKey
-
-	Result   []metabase.PendingObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IteratePendingObjectsByKeyNew) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-	var collector PendingObjectsCollector
-
-	err := db.IteratePendingObjectsByKeyNew(ctx, step.Opts, collector.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	result := []metabase.PendingObjectEntry(collector)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
 // IterateObjectsWithStatus is for testing metabase.IterateObjectsWithStatus.
 type IterateObjectsWithStatus struct {
 	Opts metabase.IterateObjectsWithStatus
@@ -640,26 +589,6 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
-// IteratePendingObjects is for testing metabase.IteratePendingObjects.
-type IteratePendingObjects struct {
-	Opts metabase.IteratePendingObjects
-
-	Result   []metabase.PendingObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IteratePendingObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var result PendingObjectsCollector
-
-	err := db.IteratePendingObjects(ctx, step.Opts, result.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, []metabase.PendingObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 

@@ -165,26 +165,31 @@ type BucketUsageRollup struct {
 	Before time.Time `json:"before"`
 }
 
-// ProjectBucketUsageRollup is total bucket usage info with project details for certain period.
-type ProjectBucketUsageRollup struct {
-	ProjectName string `json:"projectName"`
+// ProjectReportItem is total bucket usage info with project details for certain period.
+type ProjectReportItem struct {
+	ProjectID   uuid.UUID
+	ProjectName string
 
-	BucketUsageRollup
+	BucketName   string
+	Storage      float64
+	Egress       float64
+	SegmentCount float64
+	ObjectCount  float64
+
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
 }
 
-// ToStringSlice converts rollup values to a slice of strings.
-func (b *ProjectBucketUsageRollup) ToStringSlice() []string {
+// ToStringSlice converts report item values to a slice of strings.
+func (b *ProjectReportItem) ToStringSlice() []string {
 	return []string{
 		b.ProjectName,
 		b.ProjectID.String(),
 		b.BucketName,
-		fmt.Sprintf("%f", b.TotalStoredData),
-		fmt.Sprintf("%f", b.TotalSegments),
+		fmt.Sprintf("%f", b.Storage),
+		fmt.Sprintf("%f", b.Egress),
 		fmt.Sprintf("%f", b.ObjectCount),
-		fmt.Sprintf("%f", b.MetadataSize),
-		fmt.Sprintf("%f", b.RepairEgress),
-		fmt.Sprintf("%f", b.GetEgress),
-		fmt.Sprintf("%f", b.AuditEgress),
+		fmt.Sprintf("%f", b.SegmentCount),
 		b.Since.String(),
 		b.Before.String(),
 	}

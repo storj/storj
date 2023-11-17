@@ -9,7 +9,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="pl-7 pa-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <v-card-title class="font-weight-bold">Join Project</v-card-title>
                 </template>

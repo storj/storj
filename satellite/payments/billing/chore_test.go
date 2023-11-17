@@ -272,7 +272,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		err = sat.DB.Wallets().Add(ctx, userID, address)
 		require.NoError(t, err)
 
-		freezeService := console.NewAccountFreezeService(consoleDB.AccountFreezeEvents(), consoleDB.Users(), consoleDB.Projects(), sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
+		freezeService := console.NewAccountFreezeService(consoleDB, sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		choreObservers := billing.ChoreObservers{
 			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),

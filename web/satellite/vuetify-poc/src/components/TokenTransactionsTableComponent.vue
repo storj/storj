@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card :border="true" rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
@@ -26,7 +26,6 @@
             :search="search"
             :custom-key-sort="customSortFns"
             no-data-text="No results found"
-            class="elevation-1"
         >
             <template #item.timestamp="{ item }">
                 <p class="font-weight-bold">

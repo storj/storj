@@ -135,10 +135,11 @@ export interface PaymentsApi {
     /**
      * Purchases the pricing package associated with the user's partner.
      *
-     * @param pmID - the Stripe payment method id of the credit card
+     * @param dataStr - the Stripe payment method id or token of the credit card
+     * @param isPMID - whether the dataStr is a payment method id or token
      * @throws Error
      */
-    purchasePricingPackage(pmID: string): Promise<void>;
+    purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.
@@ -151,7 +152,7 @@ export interface PaymentsApi {
 export class AccountBalance {
     constructor(
         public freeCredits: number = 0,
-        // STORJ token balance from storjscan.
+        // STORJ token balance (in dollars) from storjscan.
         private _coins: string = '0',
         // STORJ balance (in cents) from stripe. This may include the following.
         // 1. legacy Coinpayments deposit.
@@ -177,8 +178,9 @@ export class AccountBalance {
         return formatPrice(this._coins);
     }
 
+    // Returns sum of storjscan and legacy (stripe) balances in cents.
     public get sum(): number {
-        return this.credits + this.coins;
+        return this.credits + (this.coins * 100);
     }
 
     public hasCredits(): boolean {

@@ -28,7 +28,7 @@ func TestBasic(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.StaticDir = "ui"
-				config.Admin.StaticDirBackOffice = "back-office/ui"
+				config.Admin.BackOffice.StaticDir = "back-office/ui"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -77,7 +77,7 @@ func TestBasic(t *testing.T) {
 			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
-			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
+			require.Equal(t, `{"error":"Forbidden","detail":"required a valid authorization token"}`, string(body))
 		})
 
 		t.Run("WrongAccess", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestBasic(t *testing.T) {
 			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
-			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
+			require.Equal(t, `{"error":"Forbidden","detail":"required a valid authorization token"}`, string(body))
 		})
 
 		t.Run("WithAccess", func(t *testing.T) {
@@ -148,7 +148,6 @@ func TestWithOAuth(t *testing.T) {
 				nil,
 			)
 			require.NoError(t, err)
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 			response, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
@@ -159,7 +158,9 @@ func TestWithOAuth(t *testing.T) {
 			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
-			require.Contains(t, string(body), admin.UnauthorizedThroughOauth)
+			require.Contains(t, string(body), fmt.Sprintf(admin.UnauthorizedNotInGroup,
+				[]string{planet.Satellites[0].Config.Admin.Groups.LimitUpdate}),
+			)
 		})
 
 		//
@@ -189,6 +190,62 @@ func TestWithOAuth(t *testing.T) {
 
 			// adding the header should allow this request.
 			req.Header.Set("X-Forwarded-Groups", "LimitUpdate")
+
+			response, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
+
+			require.Equal(t, http.StatusOK, response.StatusCode)
+		})
+
+		// Requests of an operation through Oauth that requires the authorization token.
+		t.Run("AuthorizedThroughOauthWithToken", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodGet,
+				fmt.Sprintf("%s/api/projects/%s/apikeys", baseURL, projectID.String()),
+				nil,
+			)
+			require.NoError(t, err)
+
+			// adding the header should allow this request.
+			req.Header.Set("X-Forwarded-Groups", "LimitUpdate")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
+			body, err := io.ReadAll(response.Body)
+			require.NoError(t, response.Body.Close())
+			require.NoError(t, err)
+			require.Contains(
+				t,
+				string(body),
+				"you are part of one of the authorized groups, but this operation requires a valid authorization token",
+			)
+
+			// with an invalid authorization token should happen the same than not providing it.
+			req.Header.Set("Authorization", "invalid-token")
+
+			response, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
+			body, err = io.ReadAll(response.Body)
+			require.NoError(t, response.Body.Close())
+			require.NoError(t, err)
+			require.Contains(
+				t,
+				string(body),
+				"you are part of one of the authorized groups, but this operation requires a valid authorization token",
+			)
+
+			// adding the authorization token should allow this request.
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 			response, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)

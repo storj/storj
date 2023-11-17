@@ -27,9 +27,15 @@
                     <div v-if="!isFree" class="content__bottom__card-area">
                         <p class="content__bottom__card-area__label">Add Card Info</p>
                         <StripeCardElement
+                            v-if="paymentElementEnabled"
                             ref="stripeCardInput"
                             class="content__bottom__card-area__input"
                             @pm-created="onCardAdded"
+                        />
+                        <StripeCardInput
+                            v-else
+                            ref="stripeCardInput"
+                            :on-stripe-response-callback="onCardAdded"
                         />
                     </div>
                     <VButton
@@ -92,6 +98,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 import CheckIcon from '@/../static/images/common/check.svg';
 import CircleCheck from '@/../static/images/onboardingTour/circleCheck.svg';
@@ -118,6 +125,13 @@ const stripeCardInput = ref<StripeForm | null>(null);
  */
 const plan = computed((): PricingPlanInfo | null => {
     return appStore.state.selectedPricingPlan;
+});
+
+/**
+ * Indicates whether stripe payment element is enabled.
+ */
+const paymentElementEnabled = computed(() => {
+    return configStore.state.config.stripePaymentElementEnabled;
 });
 
 watch(plan, () => {
@@ -164,17 +178,18 @@ function onActivateClick(): void {
 
 /**
  * Adds card after Stripe confirmation.
+ * @param res - the response from stripe. Could be a token or a payment method id.
+ * depending on the paymentElementEnabled flag.
  */
-async function onCardAdded(pmID: string): Promise<void> {
+async function onCardAdded(res: string): Promise<void> {
     if (!plan.value) return;
 
-    let action = billingStore.addCardByPaymentMethodID;
-    if (plan.value.type === PricingPlanType.PARTNER) {
-        action = billingStore.purchasePricingPackage;
-    }
-
     try {
-        await action(pmID);
+        if (plan.value.type === PricingPlanType.PARTNER) {
+            await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
+        } else {
+            paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
+        }
         isSuccess.value = true;
 
         // Fetch user to update paid tier status

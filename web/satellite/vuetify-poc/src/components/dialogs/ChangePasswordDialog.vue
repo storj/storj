@@ -10,7 +10,7 @@
         transition="fade-transition"
     >
         <v-card rounded="xlg">
-            <v-card-item class="px-6 py-4">
+            <v-card-item class="pa-5 pl-7">
                 <template #prepend>
                     <img class="d-block" src="@poc/assets/icon-change-password.svg" alt="Change password">
                 </template>
