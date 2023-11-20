@@ -2845,18 +2845,25 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 
-			// with version set we should get object delete marker
-			getResponse, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+			// with version set we should get MethodNotAllowed error
+			_, err = satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 				ObjectVersion:      response.Object.ObjectVersion,
 			})
-			require.NoError(t, err)
-			require.Zero(t, getResponse.Object.PlainSize)
-			require.Zero(t, getResponse.Object.TotalSize)
-			require.Nil(t, getResponse.Object.RedundancyScheme)
-			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, getResponse.Object.Status)
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.MethodNotAllowed))
+
+			// with version set we should get MethodNotAllowed error
+			_, err = satelliteSys.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      response.Object.ObjectVersion,
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.MethodNotAllowed))
 		})
 
 		t.Run("listing objects, different versioning state", func(t *testing.T) {
