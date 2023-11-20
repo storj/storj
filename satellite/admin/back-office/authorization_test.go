@@ -155,7 +155,7 @@ func TestAuthorizer(t *testing.T) {
 				require.Equal(t, c.hasAccess, auth.HasPermissions(c.group, c.permissions...))
 			})
 
-			t.Run("Middleware", func(t *testing.T) {
+			t.Run("isRejected", func(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 				require.NoError(t, err)
 				req.Header.Add("X-Forwarded-Groups", c.group)
@@ -163,19 +163,17 @@ func TestAuthorizer(t *testing.T) {
 				wbuff := &bytes.Buffer{}
 				w.Body = wbuff
 
-				nextCalled := false
-				next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					nextCalled = true
+				handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if auth.IsRejected(w, r, c.permissions...) {
+						return
+					}
 					w.WriteHeader(http.StatusOK)
 				})
-				handler := auth.Middleware(next, c.permissions...)
 				handler.ServeHTTP(w, req)
 
 				if c.hasAccess {
-					assert.True(t, nextCalled, "Next handler is called")
 					assert.Equal(t, http.StatusOK, w.Code, "HTTP Status Code")
 				} else {
-					assert.False(t, nextCalled, "Next handler is called")
 					assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
 					assert.Contains(t, wbuff.String(), fmt.Sprintf(`Not enough permissions (your groups: %s)`, c.group))
 				}
@@ -183,7 +181,7 @@ func TestAuthorizer(t *testing.T) {
 		})
 	}
 
-	t.Run("Middleware request with multiple groups one has the permissions", func(t *testing.T) {
+	t.Run("IsRejected request with multiple groups one has the permissions", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "everyone-else,super")
@@ -191,18 +189,18 @@ func TestAuthorizer(t *testing.T) {
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
 
-		nextCalled := false
-		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			nextCalled = true
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 		})
-		handler := auth.Middleware(next, admin.PermAccountDeleteWithData)
 		handler.ServeHTTP(w, req)
-		assert.True(t, nextCalled, "Next handler is called")
+
 		assert.Equal(t, http.StatusOK, w.Code, "HTTP Status Code")
 	})
 
-	t.Run("Middleware request with multiple groups none has all the permissions", func(t *testing.T) {
+	t.Run("IsRejected request with multiple groups none has all the permissions", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "customers-troubleshooter,everyone-else")
@@ -210,19 +208,19 @@ func TestAuthorizer(t *testing.T) {
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
 
-		nextCalled := false
-		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			nextCalled = true
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 		})
-		handler := auth.Middleware(next, admin.PermAccountDeleteWithData)
 		handler.ServeHTTP(w, req)
-		assert.False(t, nextCalled, "Next handler is called")
+
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
 		assert.Contains(t, wbuff.String(), `Not enough permissions (your groups: customers-troubleshooter,everyone-else)`)
 	})
 
-	t.Run("Middleware request with a unauthorized group", func(t *testing.T) {
+	t.Run("IsRejected request with a unauthorized group", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "engineering")
@@ -230,33 +228,33 @@ func TestAuthorizer(t *testing.T) {
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
 
-		nextCalled := false
-		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			nextCalled = true
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 		})
-		handler := auth.Middleware(next, admin.PermAccountDeleteWithData)
 		handler.ServeHTTP(w, req)
-		assert.False(t, nextCalled, "Next handler is called")
+
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
 		assert.Contains(t, wbuff.String(), `Not enough permissions (your groups: engineering)`)
 	})
 
-	t.Run("Middleware request with no groups", func(t *testing.T) {
+	t.Run("IsRejected request with no groups", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
 
-		nextCalled := false
-		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			nextCalled = true
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
 			w.WriteHeader(http.StatusOK)
 		})
-		handler := auth.Middleware(next, admin.PermAccountDeleteWithData)
 		handler.ServeHTTP(w, req)
-		assert.False(t, nextCalled, "Next handler is called")
+
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
 		assert.Contains(t, wbuff.String(), "You do not belong to any group")
 	})
