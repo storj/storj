@@ -37,7 +37,7 @@ type Chore struct {
 
 // NewChore creates a Version Check Client with default configuration for storagenode.
 func NewChore(log *zap.Logger, service *checker.Service, notifications *notifications.Service, nodeID storj.NodeID, checkInterval time.Duration) *Chore {
-	return &Chore{
+	chore := &Chore{
 		log:           log,
 		service:       service,
 		nodeID:        nodeID,
@@ -45,6 +45,9 @@ func NewChore(log *zap.Logger, service *checker.Service, notifications *notifica
 		Loop:          sync2.NewCycle(checkInterval),
 		nowFn:         time.Now().UTC,
 	}
+
+	chore.version.init(service.Info.Version)
+	return chore
 }
 
 // Run logs the current version information and detects if software outdated, if so - sends notifications.
@@ -58,49 +61,51 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 	}
 
-	currentVer := chore.service.Info.Version
-	chore.version.init(currentVer)
+	return chore.Loop.Run(ctx, chore.RunOnce)
+}
 
-	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		suggested, err := chore.checkVersion(ctx)
-		if err != nil {
-			return err
-		}
+// RunOnce is like Run but only runs once.
+func (chore *Chore) RunOnce(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-		err = chore.checkRelevance(ctx, suggested, currentVer)
-		if err != nil {
-			return err
-		}
+	suggested, err := chore.checkVersion(ctx)
+	if err != nil {
+		return err
+	}
 
-		if !chore.version.IsOutdated {
-			return nil
-		}
+	err = chore.checkRelevance(ctx, suggested, chore.service.Info.Version)
+	if err != nil {
+		return err
+	}
 
-		var notification notifications.NewNotification
-		now := chore.nowFn()
-		switch {
-		case chore.version.FirstTimeSpotted.Add(time.Hour*336).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedSecond:
-			notification = NewVersionNotification(notifications.TimesNotifiedSecond, suggested, chore.nodeID)
-			chore.version.TimesNotified = notifications.TimesNotifiedLast
-
-		case chore.version.FirstTimeSpotted.Add(time.Hour*144).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedFirst:
-			notification = NewVersionNotification(notifications.TimesNotifiedFirst, suggested, chore.nodeID)
-			chore.version.TimesNotified = notifications.TimesNotifiedSecond
-
-		case chore.version.FirstTimeSpotted.Add(time.Hour*96).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedZero:
-			notification = NewVersionNotification(notifications.TimesNotifiedZero, suggested, chore.nodeID)
-			chore.version.TimesNotified = notifications.TimesNotifiedFirst
-		default:
-			return nil
-		}
-
-		_, err = chore.notifications.Receive(ctx, notification)
-		if err != nil {
-			chore.log.Sugar().Errorf("Failed to receive notification", err.Error())
-		}
-
+	if !chore.version.IsOutdated {
 		return nil
-	})
+	}
+
+	var notification notifications.NewNotification
+	now := chore.nowFn()
+	switch {
+	case chore.version.FirstTimeSpotted.Add(time.Hour*336).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedSecond:
+		notification = NewVersionNotification(notifications.TimesNotifiedSecond, suggested, chore.nodeID)
+		chore.version.TimesNotified = notifications.TimesNotifiedLast
+
+	case chore.version.FirstTimeSpotted.Add(time.Hour*144).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedFirst:
+		notification = NewVersionNotification(notifications.TimesNotifiedFirst, suggested, chore.nodeID)
+		chore.version.TimesNotified = notifications.TimesNotifiedSecond
+
+	case chore.version.FirstTimeSpotted.Add(time.Hour*96).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedZero:
+		notification = NewVersionNotification(notifications.TimesNotifiedZero, suggested, chore.nodeID)
+		chore.version.TimesNotified = notifications.TimesNotifiedFirst
+	default:
+		return nil
+	}
+
+	_, err = chore.notifications.Receive(ctx, notification)
+	if err != nil {
+		chore.log.Sugar().Errorf("Failed to receive notification", err.Error())
+	}
+
+	return nil
 }
 
 // checkVersion checks to make sure the node version is still relevant and returns the suggested

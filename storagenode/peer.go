@@ -64,7 +64,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	version2 "storj.io/storj/storagenode/version"
+	snVersion "storj.io/storj/storagenode/version"
 )
 
 var (
@@ -133,7 +133,7 @@ type Config struct {
 
 	Healthcheck healthcheck.Config
 
-	Version checker.Config
+	Version snVersion.Config
 
 	Bandwidth bandwidth.Config
 
@@ -216,7 +216,7 @@ type Peer struct {
 	Server *server.Server
 
 	Version struct {
-		Chore   *version2.Chore
+		Chore   *snVersion.Chore
 		Service *checker.Service
 	}
 
@@ -360,13 +360,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			)
 		}
 
-		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
-		versionCheckInterval := 12 * time.Hour
-		peer.Version.Chore = version2.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
-		peer.Services.Add(lifecycle.Item{
-			Name: "version",
-			Run:  peer.Version.Chore.Run,
-		})
+		if !config.Version.RunMode.Disabled() {
+			peer.Version.Service = checker.NewService(log.Named("version"), config.Version.Config, versionInfo, "Storagenode")
+			versionCheckInterval := 12 * time.Hour
+			peer.Version.Chore = snVersion.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
+			versionChore := lifecycle.Item{
+				Name: "version:chore",
+				Run:  peer.Version.Chore.Run,
+			}
+
+			if config.Version.RunMode.Once() {
+				versionChore.Run = peer.Version.Chore.RunOnce
+			}
+			peer.Services.Add(versionChore)
+		}
 	}
 
 	{

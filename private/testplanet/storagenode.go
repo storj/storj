@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/storagenode/version"
 )
 
 // StorageNode contains all the processes needed to run a full StorageNode setup.
@@ -202,7 +203,9 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			Status:      retain.Enabled,
 			Concurrency: 5,
 		},
-		Version: planet.NewVersionConfig(),
+		Version: version.Config{
+			Config: planet.NewVersionConfig(),
+		},
 		Bandwidth: bandwidth.Config{
 			Interval: defaultInterval,
 		},
