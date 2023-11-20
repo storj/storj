@@ -103,6 +103,18 @@ func TestDurability(t *testing.T) {
 	require.Equal(t, segment1.StreamID.String()+"/0", c.healthStat["net:127.0.0.0"].Exemplar)
 	require.Equal(t, 2, c.healthStat["net:127.0.1.0"].Min())
 	require.Equal(t, 3, c.healthStat["net:127.0.2.0"].Min())
+
+	// usually called with c.Start()
+	c.resetStat()
+
+	fork, err = c.Fork(ctx)
+	require.NoError(t, err)
+	err = c.Join(ctx, fork)
+	require.NoError(t, err)
+
+	// second run supposed to have zero stat.
+	require.Nil(t, c.healthStat["net:127.0.0.0"])
+
 }
 
 func TestDurabilityUnknownNode(t *testing.T) {
