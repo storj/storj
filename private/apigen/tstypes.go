@@ -135,12 +135,14 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 					continue
 				}
 
-				isOptional := ""
-				if isNillableType(field.Type) || jsonInfo.OmitEmpty {
+				var isOptional, isNullable string
+				if jsonInfo.OmitEmpty {
 					isOptional = "?"
+				} else if isNillableType(field.Type) {
+					isNullable = " | null"
 				}
 
-				pf("\t%s%s: %s;", jsonInfo.FieldName, isOptional, TypescriptTypeName(field.Type))
+				pf("\t%s%s: %s%s;", jsonInfo.FieldName, isOptional, TypescriptTypeName(field.Type), isNullable)
 			}
 		}()
 	}
