@@ -130,7 +130,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return err
 		}
 		if sourceObject.StreamID != opts.StreamID {
-			// TODO(versioning): should we report it as "not found" instead?
 			return ErrObjectNotFound.New("object was changed during copy")
 		}
 		if sourceObject.Status.IsDeleteMarker() {

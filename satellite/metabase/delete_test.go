@@ -616,6 +616,94 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("delete last committed unversioned with suspended", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			obj := metabasetest.RandObjectStream()
+			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			marker := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Version:    obj.Version + 1,
+				},
+				Status:    metabase.DeleteMarkerUnversioned,
+				CreatedAt: now,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+					Versioned: false,
+					Suspended: true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+					Removed: []metabase.Object{
+						object,
+					},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(marker),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("delete last committed versioned with suspended", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			obj := metabasetest.RandObjectStream()
+			initial := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
+
+			marker := metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Version:    obj.Version + 1,
+				},
+				Status:    metabase.DeleteMarkerUnversioned,
+				CreatedAt: now,
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+					Versioned: false,
+					Suspended: true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{marker},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(initial),
+					metabase.RawObject(marker),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -891,95 +979,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		// TODO(ver): these tests look like they are in the wrong location
-		t.Run("delete last committed unversioned with suspended", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-
-			obj := metabasetest.RandObjectStream()
-			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
-
-			marker := metabase.Object{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					ObjectKey:  obj.ObjectKey,
-					Version:    obj.Version + 1,
-				},
-				Status:    metabase.DeleteMarkerUnversioned,
-				CreatedAt: now,
-			}
-
-			metabasetest.DeleteObjectLastCommitted{
-				Opts: metabase.DeleteObjectLastCommitted{
-					ObjectLocation: metabase.ObjectLocation{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-					},
-					Versioned: false,
-					Suspended: true,
-				},
-				Result: metabase.DeleteObjectResult{
-					Markers: []metabase.Object{marker},
-					Removed: []metabase.Object{
-						object,
-					},
-				},
-				OutputMarkerStreamID: &marker.StreamID,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(marker),
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("delete last committed versioned with suspended", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-
-			obj := metabasetest.RandObjectStream()
-			initial := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
-
-			marker := metabase.Object{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					ObjectKey:  obj.ObjectKey,
-					Version:    obj.Version + 1,
-				},
-				Status:    metabase.DeleteMarkerUnversioned,
-				CreatedAt: now,
-			}
-
-			metabasetest.DeleteObjectLastCommitted{
-				Opts: metabase.DeleteObjectLastCommitted{
-					ObjectLocation: metabase.ObjectLocation{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-					},
-					Versioned: false,
-					Suspended: true,
-				},
-				Result: metabase.DeleteObjectResult{
-					Markers: []metabase.Object{marker},
-				},
-				OutputMarkerStreamID: &marker.StreamID,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(initial),
-					metabase.RawObject(marker),
-				},
-			}.Check(ctx, t, db)
 		})
 	})
 }
