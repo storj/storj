@@ -63,7 +63,7 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 	obs.log.Debug("collecting bloom filters started")
 
 	// load last piece counts from overlay db
-	lastPieceCounts, err := obs.overlay.AllPieceCounts(ctx)
+	lastPieceCounts, err := obs.overlay.ActiveNodesPieceCounts(ctx)
 	if err != nil {
 		obs.log.Error("error getting last piece counts", zap.Error(err))
 		err = nil
@@ -147,8 +147,14 @@ func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := obs.config.InitialPieces
-		if pieceCounts := obs.lastPieceCounts[nodeID]; pieceCounts > 0 {
-			numPieces = pieceCounts
+		if pieceCounts, found := obs.lastPieceCounts[nodeID]; found {
+			if pieceCounts > 0 {
+				numPieces = pieceCounts
+			}
+		} else {
+			// node was not in lastPieceCounts which means it was disqalified
+			// and we won't generate bloom filter for it
+			return
 		}
 
 		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, obs.config.FalsePositiveRate, 2*memory.MiB)
