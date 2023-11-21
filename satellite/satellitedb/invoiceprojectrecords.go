@@ -28,6 +28,8 @@ const (
 	invoiceProjectRecordStateUnapplied invoiceProjectRecordState = 0
 	// invoice project record has been used during creating customer invoice.
 	invoiceProjectRecordStateConsumed invoiceProjectRecordState = 1
+	// invoice project record is not yet applied to customer invoice and has to be aggregated with other items.
+	invoiceProjectRecordStateToBeAggregated invoiceProjectRecordState = 2
 )
 
 // Int returns intent state as int.
@@ -46,6 +48,17 @@ type invoiceProjectRecords struct {
 func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripe.CreateProjectRecord, start, end time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return db.createWithState(ctx, records, invoiceProjectRecordStateUnapplied, start, end)
+}
+
+// CreateToBeAggregated creates new to be aggregated invoice project record in the DB.
+func (db *invoiceProjectRecords) CreateToBeAggregated(ctx context.Context, records []stripe.CreateProjectRecord, start, end time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.createWithState(ctx, records, invoiceProjectRecordStateToBeAggregated, start, end)
+}
+
+func (db *invoiceProjectRecords) createWithState(ctx context.Context, records []stripe.CreateProjectRecord, state invoiceProjectRecordState, start, end time.Time) error {
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, record := range records {
 			id, err := uuid.New()
@@ -60,7 +73,7 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripe.Cr
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Egress(record.Egress),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
-				dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
+				dbx.StripecoinpaymentsInvoiceProjectRecord_State(state.Int()),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Create_Fields{
 					Segments: dbx.StripecoinpaymentsInvoiceProjectRecord_Segments(int64(record.Segments)),
 				},
@@ -129,11 +142,23 @@ func (db *invoiceProjectRecords) Consume(ctx context.Context, id uuid.UUID) (err
 	return err
 }
 
+// ListToBeAggregated returns to be aggregated project records page with unapplied project records.
+// Cursor is not included into listing results.
+func (db *invoiceProjectRecords) ListToBeAggregated(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.list(ctx, cursor, limit, invoiceProjectRecordStateToBeAggregated.Int(), start, end)
+}
+
 // ListUnapplied returns project records page with unapplied project records.
 // Cursor is not included into listing results.
 func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return db.list(ctx, cursor, limit, invoiceProjectRecordStateUnapplied.Int(), start, end)
+}
+
+func (db *invoiceProjectRecords) list(ctx context.Context, cursor uuid.UUID, limit, state int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
 	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
 		SELECT 
 			id, project_id, storage, egress, segments, period_start, period_end, state
@@ -143,7 +168,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, cursor uuid.
 			id > ? AND period_start = ? AND period_end = ? AND state = ?
 		ORDER BY id
 		LIMIT ?
-	`), cursor, start, end, invoiceProjectRecordStateUnapplied.Int(), limit+1))(func(rows tagsql.Rows) error {
+	`), cursor, start, end, state, limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var record stripe.ProjectRecord
 			err := rows.Scan(&record.ID, &record.ProjectID, &record.Storage, &record.Egress, &record.Segments, &record.PeriodStart, &record.PeriodEnd, &record.State)
