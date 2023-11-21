@@ -244,7 +244,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			DisallowDelete: opts.NewDisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)

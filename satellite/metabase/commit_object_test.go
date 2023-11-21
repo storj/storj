@@ -271,8 +271,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 					DisallowDelete:                true,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "permission denied: no permissions to delete existing object",
+				ErrClass: &metabase.ErrPermissionDenied,
+				ErrText:  "no permissions to delete existing object",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
