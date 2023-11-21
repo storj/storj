@@ -26,6 +26,18 @@ type InjuredSegment struct {
 	Placement storj.PlacementConstraint
 }
 
+// Stat contains information about a segment of repair queue.
+type Stat struct {
+	Count            int
+	Placement        storj.PlacementConstraint
+	MaxInsertedAt    time.Time
+	MinInsertedAt    time.Time
+	MaxAttemptedAt   *time.Time
+	MinAttemptedAt   *time.Time
+	MinSegmentHealth float64
+	MaxSegmentHealth float64
+}
+
 // RepairQueue implements queueing for segments that need repairing.
 // Implementation can be found at satellite/satellitedb/repairqueue.go.
 //
@@ -45,6 +57,9 @@ type RepairQueue interface {
 	SelectN(ctx context.Context, limit int) ([]InjuredSegment, error)
 	// Count counts the number of segments in the repair queue.
 	Count(ctx context.Context) (count int, err error)
+
+	// Stat returns stat of the current queue state.
+	Stat(ctx context.Context) ([]Stat, error)
 
 	// TestingSetAttemptedTime sets attempted time for a segment.
 	TestingSetAttemptedTime(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)

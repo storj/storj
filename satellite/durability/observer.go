@@ -126,8 +126,14 @@ func (c *Report) Start(ctx context.Context, startTime time.Time) error {
 		return errs.Wrap(err)
 	}
 	c.aliasMap = aliasMap
+	c.resetStat()
 	c.classifyNodeAliases()
 	return nil
+}
+
+func (c *Report) resetStat() {
+	c.healthStat = make(map[string]*HealthStat)
+	c.busFactor = HealthStat{}
 }
 
 func (c *Report) classifyNodeAliases() {

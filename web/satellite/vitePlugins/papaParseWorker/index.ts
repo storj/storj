@@ -10,47 +10,53 @@ export default function papaParseWorker(): Plugin {
     const resolvedVirtualModuleId = '\0' + virtualModuleId;
 
     let refId = '';
+    let workerCode = '';
 
     return {
         name,
 
         async buildStart() {
-            // Trick Papa Parse into thinking it's being imported by RequireJS
-            // so we can capture the AMD callback.
-            let factory: (() => unknown) | undefined;
-            global.define = (_: unknown, callback: () => void) => {
-                factory = callback;
-            };
-            global.define.amd = true;
-            await import('papaparse');
-            delete global.define;
+            if (!workerCode) {
+                // Trick Papa Parse into thinking it's being imported by RequireJS
+                // so we can capture the AMD callback.
+                let factory: (() => unknown) | undefined;
+                global.define = (_: unknown, callback: () => void) => {
+                    factory = callback;
+                };
+                global.define.amd = true;
+                await import('papaparse');
+                delete global.define;
 
-            if (!factory) {
-                throw new Error('Failed to capture Papa Parse AMD callback');
+                if (!factory) {
+                    throw new Error('Failed to capture Papa Parse AMD callback');
+                }
+
+                workerCode = `
+                    var global = (function() {
+                        if (typeof self !== 'undefined') { return self; }
+                        if (typeof window !== 'undefined') { return window; }
+                        if (typeof global !== 'undefined') { return global; }
+                        return {};
+                    })();
+                    global.IS_PAPA_WORKER = true;
+                    (${factory.toString()})();
+                `;
+
+                const result = await build({
+                    stdin: {
+                        contents: workerCode,
+                    },
+                    write: false,
+                    minify: true,
+                });
+
+                workerCode = result.outputFiles[0].text;
             }
-
-            const workerCode = `
-                var global = (function() {
-                    if (typeof self !== 'undefined') { return self; }
-                    if (typeof window !== 'undefined') { return window; }
-                    if (typeof global !== 'undefined') { return global; }
-                    return {};
-                })();
-                global.IS_PAPA_WORKER = true;
-                (${factory.toString()})();`;
-
-            const result = await build({
-                stdin: {
-                    contents: workerCode,
-                },
-                write: false,
-                minify: true,
-            });
 
             refId = this.emitFile({
                 type: 'asset',
-                name: `papaparse-worker.js`,
-                source: result.outputFiles[0].text,
+                name: 'papaparse-worker.js',
+                source: workerCode,
             });
         },
 

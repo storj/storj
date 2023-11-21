@@ -720,8 +720,12 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 
 	err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID)
 	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusNotFound
+		}
 		sendJSONError(w, "failed to billing unfreeze user",
-			err.Error(), http.StatusInternalServerError)
+			err.Error(), status)
 		return
 	}
 }
@@ -749,8 +753,12 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err = server.freezeAccounts.BillingUnWarnUser(ctx, u.ID); err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusNotFound
+		}
 		sendJSONError(w, "failed to billing unwarn user",
-			err.Error(), http.StatusInternalServerError)
+			err.Error(), status)
 		return
 	}
 }
@@ -821,8 +829,88 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 
 	err = server.freezeAccounts.ViolationUnfreezeUser(ctx, u.ID)
 	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusNotFound
+		}
 		sendJSONError(w, "failed to violation unfreeze user",
+			err.Error(), status)
+		return
+	}
+}
+
+func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
 			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.LegalFreezeUser(ctx, u.ID)
+	if err != nil {
+		sendJSONError(w, "failed to legal freeze user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	invoices, err := server.payments.Invoices().List(ctx, u.ID)
+	if err != nil {
+		server.log.Error("failed to get invoices for legal frozen user", zap.Error(err))
+		return
+	}
+
+	for _, invoice := range invoices {
+		if invoice.Status == payments.InvoiceStatusOpen {
+			server.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, u.ID, u.Email)
+		}
+	}
+}
+
+func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.LegalUnfreezeUser(ctx, u.ID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusNotFound
+		}
+		sendJSONError(w, "failed to legal unfreeze user",
+			err.Error(), status)
 		return
 	}
 }

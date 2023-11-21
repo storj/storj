@@ -171,7 +171,7 @@
             </v-col>
             <v-col cols="12" md="6">
                 <UsageProgressComponent
-                    v-if="billingStore.state.coupon && billingEnabled"
+                    v-if="isCouponCard"
                     icon="check"
                     :title="isFreeTierCoupon ? 'Free Usage' : 'Coupon'"
                     :progress="couponProgress"
@@ -180,6 +180,17 @@
                     :available="`${couponRemainingPercent}% Available`"
                     :cta="isFreeTierCoupon ? 'Learn more' : 'View Coupons'"
                     @cta-click="onCouponCTAClicked"
+                />
+                <UsageProgressComponent
+                    v-else
+                    icon="bucket"
+                    title="Buckets"
+                    :progress="bucketsUsedPercent"
+                    :used="`${limits.bucketsUsed.toLocaleString()} Used`"
+                    :limit="`Limit: ${limits.bucketsLimit.toLocaleString()}`"
+                    :available="`${availableBuckets.toLocaleString()} Available`"
+                    cta="Need more?"
+                    @cta-click="onBucketsCTAClicked"
                 />
             </v-col>
         </v-row>
@@ -270,6 +281,16 @@ const isCreateBucketDialogShown = ref<boolean>(false);
 const isSetPassphraseDialogShown = ref<boolean>(false);
 
 /**
+ * Indicates if billing coupon card should be shown.
+ */
+const isCouponCard = computed<boolean>(() => {
+    return billingStore.state.coupon !== null &&
+        billingEnabled.value &&
+        !isPaidTier.value &&
+        selectedProject.value.ownerId === usersStore.state.user.id;
+});
+
+/**
  * Indicates if billing features are enabled.
  */
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
@@ -341,42 +362,56 @@ const limits = computed((): ProjectLimits => {
  * Returns remaining segments available.
  */
 const availableSegment = computed((): number => {
-    return projectsStore.state.currentLimits.segmentLimit - projectsStore.state.currentLimits.segmentUsed;
+    return limits.value.segmentLimit - limits.value.segmentUsed;
 });
 
 /**
  * Returns percentage of segment limit used.
  */
 const segmentUsedPercent = computed((): number => {
-    return projectsStore.state.currentLimits.segmentUsed/projectsStore.state.currentLimits.segmentLimit * 100;
+    return limits.value.segmentUsed / limits.value.segmentLimit * 100;
 });
 
 /**
  * Returns remaining egress available.
  */
 const availableEgress = computed((): number => {
-    return projectsStore.state.currentLimits.bandwidthLimit - projectsStore.state.currentLimits.bandwidthUsed;
+    return limits.value.bandwidthLimit - limits.value.bandwidthUsed;
 });
 
 /**
  * Returns percentage of egress limit used.
  */
 const egressUsedPercent = computed((): number => {
-    return projectsStore.state.currentLimits.bandwidthUsed/projectsStore.state.currentLimits.bandwidthLimit * 100;
+    return limits.value.bandwidthUsed / limits.value.bandwidthLimit * 100;
 });
 
 /**
  * Returns remaining storage available.
  */
 const availableStorage = computed((): number => {
-    return projectsStore.state.currentLimits.storageLimit - projectsStore.state.currentLimits.storageUsed;
+    return limits.value.storageLimit - limits.value.storageUsed;
 });
 
 /**
  * Returns percentage of storage limit used.
  */
 const storageUsedPercent = computed((): number => {
-    return projectsStore.state.currentLimits.storageUsed/projectsStore.state.currentLimits.storageLimit * 100;
+    return limits.value.storageUsed / limits.value.storageLimit * 100;
+});
+
+/**
+ * Returns percentage of buckets limit used.
+ */
+const bucketsUsedPercent = computed((): number => {
+    return limits.value.bucketsUsed / limits.value.bucketsLimit * 100;
+});
+
+/**
+ * Returns remaining buckets available.
+ */
+const availableBuckets = computed((): number => {
+    return limits.value.bucketsLimit - limits.value.bucketsUsed;
 });
 
 /**
@@ -516,6 +551,18 @@ function onCouponCTAClicked(): void {
     }
 
     redirectToBilling();
+}
+
+/**
+ * Opens limit increase request link in a new tab.
+ */
+function onBucketsCTAClicked(): void {
+    if (!isPaidTier.value && billingEnabled.value) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
+    window.open(configStore.state.config.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
 }
 
 /**

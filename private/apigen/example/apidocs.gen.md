@@ -1,6 +1,6 @@
 # API Docs
 
-**Description:** 
+**Description:**
 
 **Version:** `v0`
 

@@ -124,7 +124,6 @@ CREATE TABLE nodes (
 	last_ip_port text,
 	country_code text,
 	protocol integer NOT NULL DEFAULT 0,
-	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
 	wallet_features text NOT NULL DEFAULT '',

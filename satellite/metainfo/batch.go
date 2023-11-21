@@ -60,6 +60,28 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketGetLocation: response,
 				},
 			})
+		case *pb.BatchRequestItem_BucketGetVersioning:
+			singleRequest.BucketGetVersioning.Header = req.Header
+			response, err := endpoint.GetBucketVersioning(ctx, singleRequest.BucketGetVersioning)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketGetVersioning{
+					BucketGetVersioning: response,
+				},
+			})
+		case *pb.BatchRequestItem_BucketSetVersioning:
+			singleRequest.BucketSetVersioning.Header = req.Header
+			response, err := endpoint.SetBucketVersioning(ctx, singleRequest.BucketSetVersioning)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketSetVersioning{
+					BucketSetVersioning: response,
+				},
+			})
 		case *pb.BatchRequestItem_BucketDelete:
 			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)

@@ -2770,7 +2770,6 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.TestEnableBucketVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2808,6 +2807,8 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
 			require.NoError(t, createBucket(bucketName))
+
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			state, err := planet.Satellites[0].API.Buckets.Service.GetBucketVersioningState(ctx, []byte(bucketName), projectID)
 			require.NoError(t, err)
@@ -2856,6 +2857,44 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Zero(t, getResponse.Object.TotalSize)
 			require.Nil(t, getResponse.Object.RedundancyScheme)
 			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, getResponse.Object.Status)
+		})
+
+		t.Run("listing objects, different versioning state", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectB", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			checkListing := func(expectedItems int, includeAllVersions bool) {
+				response, err := satelliteSys.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey},
+					Bucket:             []byte(bucketName),
+					IncludeAllVersions: includeAllVersions,
+				})
+				require.NoError(t, err)
+				require.Len(t, response.Items, expectedItems)
+			}
+
+			checkListing(2, false)
+
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			// upload second version of objectA
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			checkListing(2, false)
+			checkListing(3, true)
+
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.SuspendBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			checkListing(2, false)
+			checkListing(3, true)
 		})
 	})
 }

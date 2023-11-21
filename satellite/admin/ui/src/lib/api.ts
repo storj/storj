@@ -493,6 +493,22 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
+				name: 'legal freeze user',
+				desc: 'freeze a user for legal review, set limits to zero and status to legal hold',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/legal-freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'legal unfreeze user',
+				desc: "remove a user's legal freeze, reinstating their limits and status (Active)",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/legal-freeze`) as Promise<null>;
+				}
+			},
+			{
 				name: 'unwarn user',
 				desc: "Remove a user's warning status",
 				params: [['email', new InputText('email', true)]],
