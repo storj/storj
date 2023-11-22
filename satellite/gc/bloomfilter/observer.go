@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
 )
 
 var mon = monkit.Package()
@@ -26,6 +25,10 @@ type RetainInfo struct {
 	Count  int
 }
 
+type Overlay interface {
+	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
+}
+
 // Observer implements a rangedloop observer to collect bloom filters for the garbage collection.
 //
 // architecture: Observer
@@ -33,7 +36,7 @@ type Observer struct {
 	log     *zap.Logger
 	config  Config
 	upload  *Upload
-	overlay overlay.DB
+	overlay Overlay
 
 	// The following fields are reset for each loop.
 	startTime          time.Time
@@ -47,7 +50,7 @@ var _ (rangedloop.Observer) = (*Observer)(nil)
 var _ (rangedloop.Partial) = (*observerFork)(nil)
 
 // NewObserver creates a new instance of the gc rangedloop observer.
-func NewObserver(log *zap.Logger, config Config, overlay overlay.DB) *Observer {
+func NewObserver(log *zap.Logger, config Config, overlay Overlay) *Observer {
 	return &Observer{
 		log:     log,
 		overlay: overlay,

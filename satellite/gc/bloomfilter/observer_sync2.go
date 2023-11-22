@@ -6,6 +6,7 @@ package bloomfilter
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -17,8 +18,17 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
+// SyncRetainInfo contains info needed for a storage node to retain important data and delete garbage data.
+type SyncRetainInfo struct {
+	mu     sync.Mutex
+	Filter *bloomfilter.Filter
+	Count  int
+}
+
+type SyncRetainInfos = map[storj.NodeID]*SyncRetainInfo
+
 // SyncObserver implements a rangedloop observer to collect bloom filters for the garbage collection.
-type SyncObserver struct {
+type SyncObserver2 struct {
 	log     *zap.Logger
 	config  Config
 	overlay Overlay
@@ -29,19 +39,21 @@ type SyncObserver struct {
 	lastPieceCounts map[storj.NodeID]int64
 	seed            byte
 
-	mu          sync.Mutex
-	retainInfos map[storj.NodeID]*RetainInfo
+	mu sync.Mutex
 	// LatestCreationTime will be used to set bloom filter CreationDate.
 	// Because bloom filter service needs to be run against immutable database snapshot
 	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
 	latestCreationTime time.Time
+
+	muRetainInfos sync.Mutex
+	retainInfos   atomic.Pointer[SyncRetainInfos]
 }
 
 var _ (rangedloop.Observer) = (*Observer)(nil)
 
 // NewSyncObserver creates a new instance of the gc rangedloop observer.
-func NewSyncObserver(log *zap.Logger, config Config, overlay Overlay) *SyncObserver {
-	return &SyncObserver{
+func NewSyncObserver2(log *zap.Logger, config Config, overlay Overlay) *SyncObserver2 {
+	return &SyncObserver2{
 		log:     log,
 		overlay: overlay,
 		upload:  NewUpload(log, config),
@@ -50,7 +62,7 @@ func NewSyncObserver(log *zap.Logger, config Config, overlay Overlay) *SyncObser
 }
 
 // Start is called at the beginning of each segment loop.
-func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err error) {
+func (obs *SyncObserver2) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	switch {
 	case obs.config.AccessGrant == "":
@@ -73,27 +85,37 @@ func (obs *SyncObserver) Start(ctx context.Context, startTime time.Time) (err er
 
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
-	obs.retainInfos = make(map[storj.NodeID]*RetainInfo, len(lastPieceCounts))
+	infos := make(map[storj.NodeID]*SyncRetainInfo, len(lastPieceCounts))
+	obs.retainInfos.Store(&infos)
 	obs.latestCreationTime = time.Time{}
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
 }
 
 // Fork creates a Partial to build bloom filters over a chunk of all the segments.
-func (obs *SyncObserver) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+func (obs *SyncObserver2) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	return obs, nil
 }
 
 // Join merges the bloom filters gathered by each Partial.
-func (obs *SyncObserver) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+func (obs *SyncObserver2) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
 	return nil
 }
 
 // Finish uploads the bloom filters.
-func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
+func (obs *SyncObserver2) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, obs.retainInfos); err != nil {
+	retainInfos := *obs.retainInfos.Load()
+	xs := make(map[storj.NodeID]*RetainInfo, len(retainInfos))
+	for k, v := range retainInfos {
+		xs[k] = &RetainInfo{
+			Filter: v.Filter,
+			Count:  v.Count,
+		}
+	}
+
+	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, xs); err != nil {
 		return err
 	}
 	obs.log.Debug("collecting bloom filters finished")
@@ -101,7 +123,7 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 }
 
 // Process adds pieces to the bloom filter from remote segments.
-func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segment) error {
+func (obs *SyncObserver2) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	latestCreationTime := time.Time{}
 	for _, segment := range segments {
 		if segment.Inline() {
@@ -138,33 +160,68 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.
-func (obs *SyncObserver) add(nodeID storj.NodeID, pieceID storj.PieceID) {
-	obs.mu.Lock()
-	defer obs.mu.Unlock()
-
-	info, ok := obs.retainInfos[nodeID]
+func (obs *SyncObserver2) add(nodeID storj.NodeID, pieceID storj.PieceID) {
+	retainInfos := obs.retainInfos.Load()
+	info, ok := (*retainInfos)[nodeID]
 	if !ok {
-		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
-		numPieces := obs.config.InitialPieces
-		if pieceCounts, found := obs.lastPieceCounts[nodeID]; found {
-			if pieceCounts > 0 {
-				numPieces = pieceCounts
-			}
-		} else {
-			// node was not in lastPieceCounts which means it was disqalified
-			// and we won't generate bloom filter for it
+		info, ok = obs.recreateRetainInfos(nodeID)
+		if !ok {
 			return
 		}
-
-		hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, obs.config.FalsePositiveRate, 2*memory.MiB)
-		// limit size of bloom filter to ensure we are under the limit for RPC
-		filter := bloomfilter.NewExplicit(obs.seed, hashCount, tableSize)
-		info = &RetainInfo{
-			Filter: filter,
-		}
-		obs.retainInfos[nodeID] = info
 	}
+
+	info.add(pieceID)
+}
+
+func (info *SyncRetainInfo) add(pieceID storj.PieceID) {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 
 	info.Filter.Add(pieceID)
 	info.Count++
+}
+
+func (obs *SyncObserver2) recreateRetainInfos(nodeID storj.NodeID) (*SyncRetainInfo, bool) {
+	// If we know how many pieces a node should be storing, use that number. Otherwise use default.
+	numPieces := obs.config.InitialPieces
+	pieceCounts, found := obs.lastPieceCounts[nodeID]
+	if !found {
+		// node was not in lastPieceCounts which means it was disqalified
+		// and we won't generate bloom filter for it
+		return nil, false
+	}
+	if pieceCounts > 0 {
+		numPieces = pieceCounts
+	}
+
+	obs.muRetainInfos.Lock()
+	defer obs.muRetainInfos.Unlock()
+
+	retainInfos := obs.retainInfos.Load()
+
+	// check whether some other goroutine already created the bloomfilter
+	info, ok := (*retainInfos)[nodeID]
+	if ok {
+		// somebody beat the race
+		return info, true
+	}
+
+	// clone the latest retainInfos
+	xs := make(SyncRetainInfos, len(*retainInfos)+1)
+	for k, v := range *retainInfos {
+		xs[k] = v
+	}
+
+	hashCount, tableSize := bloomfilter.OptimalParameters(numPieces, obs.config.FalsePositiveRate, 2*memory.MiB)
+
+	// limit size of bloom filter to ensure we are under the limit for RPC
+	filter := bloomfilter.NewExplicit(obs.seed, hashCount, tableSize)
+	info = &SyncRetainInfo{
+		Filter: filter,
+	}
+	xs[nodeID] = info
+
+	obs.retainInfos.Store(&xs)
+
+	return info, true
 }

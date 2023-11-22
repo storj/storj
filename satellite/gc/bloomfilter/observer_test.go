@@ -6,16 +6,19 @@ package bloomfilter_test
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"slices"
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -26,6 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/overlay"
@@ -316,4 +320,92 @@ func TestObserverGarbageCollection_MultipleRanges(t *testing.T) {
 			})
 		}
 	})
+}
+
+func BenchmarkProcess(b *testing.B) {
+	ctx := context.Background()
+
+	nodes := make([]storj.NodeID, 10)
+	pieceCount := make(map[storj.NodeID]int64, len(nodes))
+	for i := range nodes {
+		nodes[i] = testrand.NodeID()
+		pieceCount[nodes[i]] = 0
+	}
+
+	numberOfSegments := 1000
+	segments := make([]rangedloop.Segment, numberOfSegments)
+	for i := range segments {
+		segments[i].RootPieceID = testrand.PieceID()
+
+		// part := i % 10
+		// for j := 0; j < 10; j++ {
+		// 	segments[i].Pieces = append(segments[i].Pieces, metabase.Piece{
+		// 		Number:      uint16(j),
+		// 		StorageNode: nodes[part+j],
+		// 	})
+		// }
+
+		for j, node := range nodes {
+			segments[i].Pieces = append(segments[i].Pieces, metabase.Piece{
+				Number:      uint16(j),
+				StorageNode: node,
+			})
+		}
+	}
+
+	overlay := Overlay{
+		piecesCount: pieceCount,
+	}
+
+	log := zap.NewNop()
+	config := bloomfilter.Config{
+		InitialPieces:     400000,
+		FalsePositiveRate: 0.1,
+		AccessGrant:       "test",
+		Bucket:            "test",
+	}
+
+	observer := bloomfilter.NewObserver(log, config, &overlay)
+	syncObserver := bloomfilter.NewSyncObserver(log, config, &overlay)
+	syncObserver2 := bloomfilter.NewSyncObserver2(log, config, &overlay)
+
+	benchmarks := map[string]rangedloop.Observer{
+		"non sync": observer,
+		"sync":     syncObserver,
+		"sync2":    syncObserver2,
+	}
+
+	for name, observer := range benchmarks {
+		require.NoError(b, observer.Start(ctx, time.Now()))
+
+		forks := make([]rangedloop.Partial, 5)
+		for i := range forks {
+			var err error
+			forks[i], err = observer.Fork(ctx)
+			require.NoError(b, err)
+		}
+
+		b.Run(name, func(b *testing.B) {
+			segmentsRangeSize := len(segments) / len(forks)
+			group := errgroup.Group{}
+			for i := 0; i < b.N; i++ {
+				for i, fork := range forks {
+					fork := fork
+					r := segments[i*segmentsRangeSize : i*segmentsRangeSize+segmentsRangeSize]
+					group.Go(func() error {
+						return fork.Process(ctx, r)
+					})
+				}
+				require.NoError(b, group.Wait())
+			}
+		})
+	}
+}
+
+type Overlay struct {
+	piecesCount map[storj.NodeID]int64
+}
+
+func (o *Overlay) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+	return o.piecesCount, nil
 }
