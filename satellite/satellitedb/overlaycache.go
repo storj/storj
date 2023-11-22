@@ -757,14 +757,15 @@ func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, no
 	return nil
 }
 
-// AllPieceCounts returns a map of node IDs to piece counts from the db.
+// ActiveNodesPieceCounts returns a map of node IDs to piece counts from the db. Returns only pieces for
+// nodes that are not disqualified.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
-func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
+func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// NB: `All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number` selects node
-	// ID and piece count from the nodes table where piece count is not zero.
-	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+	// NB: `All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null` selects node
+	// ID and piece count from the nodes which are not disqualified.
+	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

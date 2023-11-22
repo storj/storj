@@ -2236,7 +2236,131 @@ func TestCommitObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		// TODO(ver): tests for DisallowDelete = false/true and ErrPermissionDenied
+		t.Run("disallow delete but nothing to delete", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			now := time.Now()
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					DisallowDelete:                true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    5,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.CommittedUnversioned,
+
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("disallow delete when committing unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			unversionedStream := obj
+			unversionedStream.Version = 3
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, unversionedStream, 0)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					DisallowDelete:                true,
+				},
+				ErrClass: &metabase.ErrPermissionDenied,
+				ErrText:  "no permissions to delete existing object",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    5,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 
 		t.Run("assign plain_offset", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)

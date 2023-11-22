@@ -121,6 +121,20 @@ func isNillableType(t reflect.Type) bool {
 	return false
 }
 
+// isJSONOmittableType returns whether the "omitempty" JSON tag option works with struct fields of this type.
+func isJSONOmittableType(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String,
+		reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.Interface, reflect.Pointer:
+		return true
+	}
+	return false
+}
+
 func capitalize(s string) string {
 	r, size := utf8.DecodeRuneInString(s)
 	if size <= 0 {
@@ -166,4 +180,40 @@ func filter(types []typeAndName, keep func(typeAndName) bool) []typeAndName {
 		}
 	}
 	return filtered
+}
+
+type jsonTagInfo struct {
+	FieldName string
+	OmitEmpty bool
+	Skip      bool
+}
+
+func parseJSONTag(structType reflect.Type, field reflect.StructField) jsonTagInfo {
+	tag, ok := field.Tag.Lookup("json")
+	if !ok {
+		panic(fmt.Sprintf("(%s).%s missing json tag", structType.String(), field.Name))
+	}
+
+	options := strings.Split(tag, ",")
+	for i, opt := range options {
+		options[i] = strings.TrimSpace(opt)
+	}
+
+	fieldName := options[0]
+	if fieldName == "" {
+		panic(fmt.Sprintf("(%s).%s missing json field name", structType.String(), field.Name))
+	}
+	if fieldName == "-" && len(options) == 1 {
+		return jsonTagInfo{Skip: true}
+	}
+
+	info := jsonTagInfo{FieldName: fieldName}
+	for _, opt := range options[1:] {
+		if opt == "omitempty" {
+			info.OmitEmpty = isJSONOmittableType(field.Type)
+			break
+		}
+	}
+
+	return info
 }

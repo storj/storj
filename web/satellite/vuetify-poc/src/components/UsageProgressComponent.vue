@@ -34,6 +34,7 @@ import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
 import IconGlobe from '@poc/components/icons/IconGlobe.vue';
 import IconCircleCheck from '@poc/components/icons/IconCircleCheck.vue';
+import IconBucket from '@poc/components/icons/IconBucket.vue';
 
 const props = defineProps<{
     title: string;
@@ -54,5 +55,6 @@ const iconComponents = {
     'arrow-down': IconArrowDown,
     globe: IconGlobe,
     check: IconCircleCheck,
+    bucket: IconBucket,
 };
 </script>

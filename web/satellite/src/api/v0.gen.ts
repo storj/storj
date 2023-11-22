@@ -8,13 +8,13 @@ export class APIKeyInfo {
     id: UUID;
     projectId: UUID;
     projectPublicId: UUID;
-    userAgent?: string;
+    userAgent: string | null;
     name: string;
     createdAt: Time;
 }
 
 export class APIKeyPage {
-    apiKeys?: APIKeyInfo[];
+    apiKeys: APIKeyInfo[] | null;
     search: string;
     limit: number;
     order: number;
@@ -46,7 +46,7 @@ export class CreateAPIKeyRequest {
 
 export class CreateAPIKeyResponse {
     key: string;
-    keyInfo?: APIKeyInfo;
+    keyInfo: APIKeyInfo | null;
 }
 
 export class Project {
@@ -54,18 +54,18 @@ export class Project {
     publicId: UUID;
     name: string;
     description: string;
-    userAgent?: string;
+    userAgent: string | null;
     ownerId: UUID;
-    rateLimit?: number;
-    burstLimit?: number;
-    maxBuckets?: number;
+    rateLimit: number | null;
+    burstLimit: number | null;
+    maxBuckets: number | null;
     createdAt: Time;
     memberCount: number;
-    storageLimit?: MemorySize;
-    bandwidthLimit?: MemorySize;
-    userSpecifiedStorageLimit?: MemorySize;
-    userSpecifiedBandwidthLimit?: MemorySize;
-    segmentLimit?: number;
+    storageLimit: MemorySize | null;
+    bandwidthLimit: MemorySize | null;
+    userSpecifiedStorageLimit: MemorySize | null;
+    userSpecifiedBandwidthLimit: MemorySize | null;
+    segmentLimit: number | null;
     defaultPlacement: number;
 }
 
@@ -74,7 +74,7 @@ export class ResponseUser {
     fullName: string;
     shortName: string;
     email: string;
-    userAgent?: string;
+    userAgent: string | null;
     projectLimit: number;
     isProfessional: boolean;
     position: string;

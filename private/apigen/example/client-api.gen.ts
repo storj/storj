@@ -4,44 +4,25 @@
 import { HttpClient } from '@/utils/httpClient';
 import { Time, UUID } from '@/types/common';
 
-export class DocsGetResponseItem {
-    id: UUID;
-    path: string;
-    date: Time;
-    metadata: Metadata;
-    last_retrievals?: DocsGetResponseItemLastRetrievals;
-}
-
-export class DocsGetResponseItemLastRetrievalsItem {
-    user: string;
-    when: Time;
-}
-
-export class DocsUpdateContentRequest {
-    content: string;
-}
-
-export class DocsUpdateContentResponse {
-    id: UUID;
-    date: Time;
-    pathParam: string;
-    body: string;
-}
-
 export class Document {
     id: UUID;
     date: Time;
     pathParam: string;
     body: string;
     version: Version;
+    metadata: Metadata;
 }
 
 export class Metadata {
-    owner: string;
-    tags?: string[][];
+    owner?: string;
+    tags: string[][] | null;
 }
 
-export class UsersCreateRequestItem {
+export class NewDocument {
+    content: string;
+}
+
+export class User {
     name: string;
     surname: string;
     email: string;
@@ -51,14 +32,6 @@ export class Version {
     date: Time;
     number: number;
 }
-
-export type DocsGetResponse = Array<DocsGetResponseItem>
-
-export type DocsGetResponseItemLastRetrievals = Array<DocsGetResponseItemLastRetrievalsItem>
-
-export type UsersCreateRequest = Array<UsersCreateRequestItem>
-
-export type UsersGetResponse = Array<UsersCreateRequestItem>
 
 class APIError extends Error {
     constructor(
@@ -73,11 +46,11 @@ export class DocumentsHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/docs';
 
-    public async get(): Promise<DocsGetResponse> {
+    public async get(): Promise<Document[]> {
         const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as DocsGetResponse);
+            return response.json().then((body) => body as Document[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
@@ -113,14 +86,14 @@ export class DocumentsHttpApiV0 {
         throw new APIError(err.error, response.status);
     }
 
-    public async updateContent(request: DocsUpdateContentRequest, path: string, id: UUID, date: Time): Promise<DocsUpdateContentResponse> {
+    public async updateContent(request: NewDocument, path: string, id: UUID, date: Time): Promise<Document> {
         const u = new URL(`${this.ROOT_PATH}/${path}`, window.location.href);
         u.searchParams.set('id', id);
         u.searchParams.set('date', date);
         const fullPath = u.toString();
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
-            return response.json().then((body) => body as DocsUpdateContentResponse);
+            return response.json().then((body) => body as Document);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
@@ -131,17 +104,17 @@ export class UsersHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/users';
 
-    public async get(): Promise<UsersGetResponse> {
+    public async get(): Promise<User[]> {
         const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as UsersGetResponse);
+            return response.json().then((body) => body as User[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
     }
 
-    public async create(request: UsersCreateRequest): Promise<void> {
+    public async create(request: User[]): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/`;
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {

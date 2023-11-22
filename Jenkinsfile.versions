@@ -1,0 +1,64 @@
+def lastStage = ''
+node('node') {
+  properties([disableConcurrentBuilds()])
+  try {
+    currentBuild.result = "SUCCESS"
+
+    stage('Checkout') {
+      lastStage = env.STAGE_NAME
+      checkout scm
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+        stage('Run Versions Test') {
+            lastStage = env.STAGE_NAME
+            try {
+              echo "Running Versions test"
+
+              env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
+              env.STORJ_SIM_REDIS = 'redis:6379'
+
+              echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
+              echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
+              sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:12.3'
+              sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
+
+              sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+                    do printf '.'
+                    sleep 5
+                    done
+                '''
+              sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
+              // fetch the remote main branch
+              sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
+              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres storjlabs/golang:1.21.3'
+            }
+            catch(err){
+                throw err
+            }
+            finally {
+              sh 'docker stop postgres-$BUILD_NUMBER || true'
+              sh 'docker rm postgres-$BUILD_NUMBER || true'
+              sh 'docker stop redis-$BUILD_NUMBER || true'
+              sh 'docker rm redis-$BUILD_NUMBER || true'
+            }
+        }
+  }
+  catch (err) {
+    echo "Caught errors! ${err}"
+    echo "Setting build result to FAILURE"
+    currentBuild.result = "FAILURE"
+
+    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+
+    throw err
+
+  }
+  finally {
+    stage('Cleanup') {
+      deleteDir()
+    }
+
+  }
+}

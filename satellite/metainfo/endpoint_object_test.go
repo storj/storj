@@ -2770,7 +2770,6 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.TestEnableBucketVersioning = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2809,6 +2808,8 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 
 			require.NoError(t, createBucket(bucketName))
 
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
 			state, err := planet.Satellites[0].API.Buckets.Service.GetBucketVersioningState(ctx, []byte(bucketName), projectID)
 			require.NoError(t, err)
 			require.Equal(t, buckets.VersioningEnabled, state)
@@ -2844,18 +2845,63 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 
-			// with version set we should get object delete marker
-			getResponse, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+			// with version set we should get MethodNotAllowed error
+			_, err = satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 				ObjectVersion:      response.Object.ObjectVersion,
 			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.MethodNotAllowed))
+
+			// with version set we should get MethodNotAllowed error
+			_, err = satelliteSys.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				ObjectVersion:      response.Object.ObjectVersion,
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.MethodNotAllowed))
+		})
+
+		t.Run("listing objects, different versioning state", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100))
 			require.NoError(t, err)
-			require.Zero(t, getResponse.Object.PlainSize)
-			require.Zero(t, getResponse.Object.TotalSize)
-			require.Nil(t, getResponse.Object.RedundancyScheme)
-			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, getResponse.Object.Status)
+
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectB", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			checkListing := func(expectedItems int, includeAllVersions bool) {
+				response, err := satelliteSys.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey},
+					Bucket:             []byte(bucketName),
+					IncludeAllVersions: includeAllVersions,
+				})
+				require.NoError(t, err)
+				require.Len(t, response.Items, expectedItems)
+			}
+
+			checkListing(2, false)
+
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			// upload second version of objectA
+			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			checkListing(2, false)
+			checkListing(3, true)
+
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.SuspendBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			checkListing(2, false)
+			checkListing(3, true)
 		})
 	})
 }

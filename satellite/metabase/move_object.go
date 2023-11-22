@@ -174,9 +174,10 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			DisallowDelete: opts.NewDisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
+		var oldStatus ObjectStatus
 		var segmentsCount int
 		var hasMetadata bool
 		var streamID uuid.UUID
@@ -202,13 +203,18 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
 			RETURNING
+				(
+					SELECT status
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
+				),
 				segment_count,
 				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
 				stream_id
 		`, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
 			opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName),
 			opts.ObjectKey, opts.Version, newStatus, precommit.HighestVersion+1).
-			Scan(&segmentsCount, &hasMetadata, &streamID)
+			Scan(&oldStatus, &segmentsCount, &hasMetadata, &streamID)
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -221,6 +227,9 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
 			return ErrInvalidRequest.New("wrong number of segments keys received")
+		}
+		if oldStatus.IsDeleteMarker() {
+			return ErrMethodNotAllowed.New("moving delete marker is not allowed")
 		}
 		if hasMetadata {
 			switch {

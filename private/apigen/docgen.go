@@ -156,9 +156,9 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 		var fields []string
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				fields = append(fields, prefix+"\t"+jsonTag+": "+getTypeNameRecursively(field.Type, level+1))
+			jsonInfo := parseJSONTag(t, field)
+			if !jsonInfo.Skip {
+				fields = append(fields, prefix+"\t"+jsonInfo.FieldName+": "+getTypeNameRecursively(field.Type, level+1))
 			}
 		}
 		return fmt.Sprintf("%s{\n%s\n%s}\n", prefix, strings.Join(fields, "\n"), prefix)

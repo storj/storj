@@ -26,6 +26,8 @@ var (
 	ErrPendingObjectMissing = errs.Class("pending object missing")
 	// ErrPermissionDenied general error for denying permission.
 	ErrPermissionDenied = errs.Class("permission denied")
+	// ErrMethodNotAllowed general error when operation is not allowed.
+	ErrMethodNotAllowed = errs.Class("method not allowed")
 )
 
 // Common constants for segment keys.

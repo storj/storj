@@ -124,7 +124,6 @@ CREATE TABLE nodes (
 	last_ip_port text,
 	country_code text,
 	protocol integer NOT NULL DEFAULT 0,
-	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
 	wallet_features text NOT NULL DEFAULT '',
@@ -471,6 +470,8 @@ CREATE TABLE users (
 	login_lockout_expiration timestamp with time zone,
 	signup_captcha double precision,
 	default_placement integer,
+	activation_code text,
+	signup_id text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

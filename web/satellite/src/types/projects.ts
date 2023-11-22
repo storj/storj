@@ -192,6 +192,8 @@ export class ProjectLimits {
         public segmentCount: number = 0,
         public segmentLimit: number = 0,
         public segmentUsed: number = 0,
+        public bucketsLimit: number = 0,
+        public bucketsUsed: number = 0,
     ) {}
 }
 

@@ -51,8 +51,6 @@ model node (
     // protocol refers to pb.NodeTransport. TCP+TLS = 0, QUIC+RPC = 1, TCP+NOISE+RPC = 2.
     // This field seems unused at the moment.
     field protocol        int   ( updatable, default 0 )
-    // type refers to pb.NodeType. It is deprecated, because the table only contains storage nodes.
-    field type            int   ( updatable, default 0 )
     // email is the storage node operators contact email.
     field email           text  ( updatable )
     // wallet is the text version of the Ethereum (or other) wallet address.
@@ -169,7 +167,7 @@ read paged (
 
 read all (
     select node.id node.piece_count
-    where node.piece_count != 0
+    where node.disqualified = null
 )
 
 // node_api_version is a table for storing the supported API.

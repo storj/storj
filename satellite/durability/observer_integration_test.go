@@ -64,17 +64,19 @@ func TestDurabilityIntegration(t *testing.T) {
 		}
 
 		result := make(map[string]*durability.HealthStat)
-		planet.Satellites[0].RangedLoop.DurabilityReport.Observer.TestChangeReporter(func(n time.Time, name string, stat *durability.HealthStat) {
-			result[name] = stat
-		})
+		for _, observer := range planet.Satellites[0].RangedLoop.DurabilityReport.Observer {
+			observer.TestChangeReporter(func(n time.Time, class string, value string, stat *durability.HealthStat) {
+				result[value] = stat
+			})
+		}
 
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 		_, err := rangedLoopService.RunOnce(ctx)
 
 		require.Len(t, result, 15)
 		// one or two pieces are controlled out of the 5-6 --> 3 or 4 pieces are available without HU nodes
-		require.True(t, result["c:HU"].Min() > 2)
-		require.True(t, result["c:HU"].Min() < 5)
+		require.True(t, result["HU"].Min() > 2)
+		require.True(t, result["HU"].Min() < 5)
 		require.NoError(t, err)
 	})
 }

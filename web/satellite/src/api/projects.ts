@@ -146,6 +146,8 @@ export class ProjectsHttpApi implements ProjectsApi {
             limits.segmentCount,
             limits.segmentLimit,
             limits.segmentUsed,
+            limits.bucketsLimit,
+            limits.bucketsUsed,
         );
 
     }

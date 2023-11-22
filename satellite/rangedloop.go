@@ -73,7 +73,7 @@ type RangedLoop struct {
 	}
 
 	DurabilityReport struct {
-		Observer *durability.Report
+		Observer []*durability.Report
 	}
 
 	RangedLoop struct {
@@ -147,20 +147,23 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup
-		peer.DurabilityReport.Observer = durability.NewDurability(db.OverlayCache(), metabaseDB, []durability.NodeClassifier{
-			func(node *nodeselection.SelectedNode) string {
-				return "e:" + node.Email
+		classes := map[string]func(node *nodeselection.SelectedNode) string{
+			"email": func(node *nodeselection.SelectedNode) string {
+				return node.Email
 			},
-			func(node *nodeselection.SelectedNode) string {
-				return "w:" + node.Wallet
+			"wallet": func(node *nodeselection.SelectedNode) string {
+				return node.Wallet
 			},
-			func(node *nodeselection.SelectedNode) string {
-				return "n:" + node.LastNet
+			"net": func(node *nodeselection.SelectedNode) string {
+				return node.LastNet
 			},
-			func(node *nodeselection.SelectedNode) string {
-				return "c:" + node.CountryCode.String()
+			"country": func(node *nodeselection.SelectedNode) string {
+				return node.CountryCode.String()
 			},
-		}, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval)
+		}
+		for class, f := range classes {
+			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
+		}
 	}
 
 	{ // setup overlay
@@ -226,7 +229,9 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		}
 
 		if config.DurabilityReport.Enabled {
-			observers = append(observers, peer.DurabilityReport.Observer)
+			for _, observer := range peer.DurabilityReport.Observer {
+				observers = append(observers, observer)
+			}
 		}
 
 		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)

@@ -249,6 +249,14 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.DefaultPlacement = dbx.User_DefaultPlacement(int(user.DefaultPlacement))
 	}
 
+	if user.ActivationCode != "" {
+		optional.ActivationCode = dbx.User_ActivationCode(user.ActivationCode)
+	}
+
+	if user.SignupId != "" {
+		optional.SignupId = dbx.User_SignupId(user.SignupId)
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -614,6 +622,14 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
 	}
 
+	if request.ActivationCode != nil {
+		update.ActivationCode = dbx.User_ActivationCode(*request.ActivationCode)
+	}
+
+	if request.SignupId != nil {
+		update.SignupId = dbx.User_SignupId(*request.SignupId)
+	}
+
 	return &update, nil
 }
 
@@ -702,6 +718,14 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.LoginLockoutExpiration != nil {
 		result.LoginLockoutExpiration = *user.LoginLockoutExpiration
+	}
+
+	if user.ActivationCode != nil {
+		result.ActivationCode = *user.ActivationCode
+	}
+
+	if user.SignupId != nil {
+		result.SignupId = *user.SignupId
 	}
 
 	return &result, nil

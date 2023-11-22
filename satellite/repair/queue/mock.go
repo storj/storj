@@ -72,4 +72,9 @@ func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, streamID 
 	panic("implement me")
 }
 
+// Stat implements RepairQueue.
+func (m *MockRepairQueue) Stat(ctx context.Context) ([]Stat, error) {
+	panic("implement me")
+}
+
 var _ RepairQueue = &MockRepairQueue{}

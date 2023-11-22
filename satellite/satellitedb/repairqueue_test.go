@@ -200,3 +200,40 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 
 	})
 }
+
+func TestRepairQueue_Stat(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testSegments := make([]*queue.InjuredSegment, 20)
+		for i := 0; i < len(testSegments); i++ {
+
+			placement := storj.PlacementConstraint(i % 5)
+			uuid := testrand.UUID()
+			uuid[0] = byte(placement)
+
+			is := &queue.InjuredSegment{
+				StreamID: uuid,
+				Position: metabase.SegmentPosition{
+					Part:  uint32(i),
+					Index: 2,
+				},
+				SegmentHealth: 10,
+				Placement:     placement,
+			}
+			testSegments[i] = is
+		}
+		rq := db.RepairQueue()
+
+		_, err := rq.InsertBatch(ctx, testSegments)
+		require.NoError(t, err)
+
+		_, err = rq.Select(ctx, nil, nil)
+		require.NoError(t, err)
+
+		stat, err := rq.Stat(ctx)
+		require.NoError(t, err)
+
+		// we have 5 placement, but one has both attempted and non-attempted entries
+		require.Len(t, stat, 6)
+
+	})
+}
