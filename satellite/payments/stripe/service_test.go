@@ -773,7 +773,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 			},
 		}
 
-		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage)
+		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
 		require.Len(t, items, len(usage)*3)
 
 		for i, tt := range []struct {
