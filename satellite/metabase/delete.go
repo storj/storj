@@ -364,14 +364,13 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
-		var precommit precommitConstraintResult
+		var precommit precommitConstraintWithNonPendingResult
 		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			precommit, err = db.precommitDeleteUnversioned(ctx, opts.ObjectLocation, tx)
+			precommit, err = db.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation, tx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			// TODO(ver): currently it allows adding delete markers when pending objects are present.
-			if precommit.HighestVersion == 0 {
+			if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
 				// an object didn't exist in the first place
 				return ErrObjectNotFound.New("unable to delete object")
 			}
