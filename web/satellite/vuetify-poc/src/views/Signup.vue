@@ -138,7 +138,7 @@
                                 block
                                 @click="onSignupClick"
                             >
-                                Create your account
+                                {{ viewConfig?.signupButtonLabel ?? 'Create your account' }}
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -154,6 +154,32 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
+            </v-col>
+            <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5">
+                <v-card variant="flat" class="pa-2 pa-sm-7 h-100">
+                    <v-card-item>
+                        <v-card-title class="text-wrap">
+                            {{ viewConfig.title }}
+                        </v-card-title>
+                        <v-card-subtitle class="text-wrap">
+                            {{ viewConfig.description }}
+                        </v-card-subtitle>
+                    </v-card-item>
+                    <v-card-text>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
+                        <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
+                            <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
+                        </a>
+                        <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
+                            <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
+                        </a>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
+        <v-row justify="center">
+            <v-col>
                 <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link" to="/login">Login</router-link></p>
             </v-col>
         </v-row>
@@ -167,6 +193,8 @@ import {
     VCard,
     VCardItem,
     VCardText,
+    VCardTitle,
+    VCardSubtitle,
     VCheckbox,
     VCol,
     VContainer,
@@ -189,6 +217,17 @@ import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
+
+type ViewConfig = {
+  title: string;
+  partnerUrl: string;
+  partnerLogoTopUrl: string;
+  partnerLogoBottomUrl: string;
+  description: string;
+  customHtmlDescription: string;
+  signupButtonLabel: string;
+  tooltip: string;
+}
 
 const auth = new AuthHttpApi();
 
@@ -221,6 +260,7 @@ const queryEmail = queryRef('email');
 const inviterEmail = queryRef('inviter_email');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const viewConfig = ref<ViewConfig | null>(null);
 
 const satellitesHints = [
     { satellite: 'US1', hint: 'Recommended for North and South America' },
@@ -394,13 +434,20 @@ async function detectBraveBrowser(): Promise<boolean> {
     return (navigator['brave'] && await navigator['brave'].isBrave() || false);
 }
 
-onBeforeMount(() => {
+onBeforeMount(async () => {
     if (route.query.partner) {
         partner.value = route.query.partner.toString();
     }
 
     if (route.query.promo) {
         signupPromoCode.value = route.query.promo.toString();
+    }
+
+    try {
+        const config = (await import('@/views/registration/registrationViewConfig.json')).default;
+        viewConfig.value = partner.value && config[partner.value] ? config[partner.value] : config['default'];
+    } catch (e) {
+        notify.error('No configuration file for registration page.');
     }
 });
 </script>
