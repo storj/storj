@@ -6,10 +6,12 @@ package console
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -108,6 +110,9 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrActivationCode is error class for failed signup code activation.
+	ErrActivationCode = errs.Class("activation code")
 
 	// ErrChangePassword occurs when provided old password is incorrect.
 	ErrChangePassword = errs.Class("change password")
@@ -837,6 +842,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			HaveSalesContact: user.HaveSalesContact,
 			SignupPromoCode:  user.SignupPromoCode,
 			SignupCaptcha:    captchaScore,
+			ActivationCode:   user.ActivationCode,
+			SignupId:         user.SignupId,
 		}
 
 		if user.UserAgent != nil {
@@ -1026,16 +1033,56 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, Error.Wrap(err)
 	}
 
+	err = s.SetAccountActive(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// SetAccountActive - is a method for setting user account status to Active and sending
+// event to hubspot.
+func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	status := Active
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		Status: &status,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
-	s.auditLog(ctx, "activate account", &user.ID, user.Email)
 
+	s.auditLog(ctx, "activate account", &user.ID, user.Email)
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
+
+	return nil
+}
+
+// SetActivationCodeAndSignupID - generates and updates a new code for user's signup verification.
+// It updates the request ID associated with the signup as well.
+func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (_ User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return User{}, Error.Wrap(err)
+	}
+	randNum = randNum.Add(randNum, big.NewInt(100000))
+	code := randNum.String()
+
+	requestID := requestid.FromContext(ctx)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		ActivationCode: &code,
+		SignupId:       &requestID,
+	})
+	if err != nil {
+		return User{}, Error.Wrap(err)
+	}
+
+	user.SignupId = requestID
+	user.ActivationCode = code
 
 	return user, nil
 }

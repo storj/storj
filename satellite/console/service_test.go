@@ -1366,6 +1366,27 @@ func TestUserSettings(t *testing.T) {
 	})
 }
 
+func TestSetActivationCodeAndSignupID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.Empty(t, existingUser.ActivationCode)
+
+		updatedUser, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
+		require.NoError(t, err)
+		require.NotEmpty(t, updatedUser.ActivationCode)
+
+		updatedUser2, err := srv.SetActivationCodeAndSignupID(ctx, *existingUser)
+		require.NoError(t, err)
+		require.NotEqual(t, updatedUser.ActivationCode, updatedUser2.ActivationCode)
+	})
+}
+
 func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

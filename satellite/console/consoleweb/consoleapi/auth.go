@@ -5,9 +5,11 @@ package consoleapi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
@@ -46,6 +49,7 @@ type Auth struct {
 	PasswordRecoveryURL       string
 	CancelPasswordRecoveryURL string
 	ActivateAccountURL        string
+	ActivationCodeEnabled     bool
 	SatelliteName             string
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
@@ -55,7 +59,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -67,6 +71,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		PasswordRecoveryURL:       externalAddress + "password-recovery",
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery",
 		ActivateAccountURL:        externalAddress + "activation",
+		ActivationCodeEnabled:     activationCodeEnabled,
 		service:                   service,
 		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
@@ -295,6 +300,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		var code string
+		var requestID string
+		if a.ActivationCodeEnabled {
+			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+			if err != nil {
+				a.serveJSONError(ctx, w, console.Error.Wrap(err))
+				return
+			}
+			randNum = randNum.Add(randNum, big.NewInt(100000))
+			code = randNum.String()
+
+			requestID = requestid.FromContext(ctx)
+		}
+
 		user, err = a.service.CreateUser(ctx,
 			console.CreateUser{
 				FullName:         registerData.FullName,
@@ -310,6 +329,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				CaptchaResponse:  registerData.CaptchaResponse,
 				IP:               ip,
 				SignupPromoCode:  registerData.SignupPromoCode,
+				ActivationCode:   code,
+				SignupId:         requestID,
 			},
 			secret,
 		)
@@ -374,6 +395,17 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
+	if a.ActivationCodeEnabled {
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.AccountActivationCodeEmail{
+				ActivationCode: user.ActivationCode,
+			},
+		)
+
+		return
+	}
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -390,6 +422,93 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			Origin:         a.ExternalAddress,
 		},
 	)
+}
+
+// ActivateAccount verifies a signup activation code.
+func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var activateData struct {
+		Email    string `json:"email"`
+		Code     string `json:"code"`
+		SignupId string `json:"signupId"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&activateData)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, activateData.Email)
+	if err != nil && !console.ErrEmailNotFound.Has(err) {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if verified != nil {
+		satelliteAddress := a.ExternalAddress
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
+			},
+		)
+		// return error since verified user already exists.
+		a.serveJSONError(ctx, w, console.ErrUnauthorized.New("user already verified"))
+		return
+	}
+
+	var user *console.User
+	if len(unverified) == 0 {
+		a.serveJSONError(ctx, w, console.ErrEmailNotFound.New("no unverified user found"))
+		return
+	}
+	user = &unverified[0]
+
+	if user.ActivationCode != activateData.Code || user.SignupId != activateData.SignupId {
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code"))
+		return
+	}
+
+	err = a.service.SetAccountActive(ctx, user)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
+	if err != nil {
+		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
 }
 
 // loadSession looks for a cookie for the session id.
@@ -716,6 +835,24 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := unverified[0]
+
+	if a.ActivationCodeEnabled {
+		user, err = a.service.SetActivationCodeAndSignupID(ctx, user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&console.AccountActivationCodeEmail{
+				ActivationCode: user.ActivationCode,
+			},
+		)
+
+		return
+	}
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
@@ -1108,7 +1245,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrActivationCode.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -1155,6 +1292,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The server is incapable of fulfilling the request"
 	case errors.As(err, &maxBytesError):
 		return "Request body is too large"
+	case console.ErrActivationCode.Has(err):
+		return "The activation code is invalid"
 	default:
 		return "There was an error processing your request"
 	}

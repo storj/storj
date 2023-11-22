@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -315,7 +316,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
 		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "")
+		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "", false)
 		authController.DeleteAccount(rr, r)
 
 		result := rr.Result()
@@ -731,6 +732,45 @@ func TestRegistrationEmail(t *testing.T) {
 	})
 }
 
+func TestRegistrationEmail_CodeEnabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SignupActivationCodeEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		email := "test@mail.test"
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+
+		jsonBody, err := json.Marshal(map[string]interface{}{
+			"fullName":  "Test User",
+			"shortName": "Test",
+			"email":     email,
+			"password":  "123a123",
+		})
+		require.NoError(t, err)
+
+		signupURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, signupURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "code")
+	})
+}
+
 func TestIncreaseLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -836,6 +876,67 @@ func TestResendActivationEmail(t *testing.T) {
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
+	})
+}
+
+func TestResendActivationEmail_CodeEnabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SignupActivationCodeEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersRepo := sat.DB.Console().Users()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		// Expect activation e-mail to be sent when using unverified e-mail address.
+		user.Status = console.Inactive
+		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+
+		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(user.Email))
+		require.NoError(t, err)
+
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, result.Body.Close())
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "code")
+
+		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		code = strings.TrimSpace(code)
+		require.Contains(t, body, code)
+
+		// resending should send a new code.
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, result.Body.Close())
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		body, err = sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "code")
+
+		newCode := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		newCode = strings.TrimSpace(newCode)
+		require.NotEqual(t, code, newCode)
 	})
 }
 
@@ -959,5 +1060,108 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 				require.Equal(t, status, result.StatusCode)
 			})
 		}
+	})
+}
+
+func TestAccountActivationWithCode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SignupActivationCodeEnabled = true
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		email := "test@mail.test"
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+
+		jsonBody, err := json.Marshal(map[string]interface{}{
+			"fullName":  "Test User",
+			"shortName": "Test",
+			"email":     email,
+			"password":  "123a123",
+		})
+		require.NoError(t, err)
+
+		signupURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, signupURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "code")
+
+		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		code = strings.TrimSpace(code)
+		require.Contains(t, body, code)
+
+		signupID := result.Header.Get("x-request-id")
+
+		activateURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/code-activation"
+		jsonBody, err = json.Marshal(map[string]interface{}{
+			"email":    email,
+			"code":     code,
+			"signupId": "wrong id",
+		})
+		require.NoError(t, err)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		jsonBody, err = json.Marshal(map[string]interface{}{
+			"email":    email,
+			"code":     code,
+			"signupId": signupID,
+		})
+		require.NoError(t, err)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		cookies := result.Cookies()
+		require.NoError(t, err)
+		require.Len(t, cookies, 1)
+		require.Equal(t, "_tokenKey", cookies[0].Name)
+		require.NotEmpty(t, cookies[0].Value)
+
+		// trying to activate an activated account should send account already exists email
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		body, err = sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/login")
+		require.Contains(t, body, "/forgot-password")
+		require.Contains(t, body, "/signup")
 	})
 }
