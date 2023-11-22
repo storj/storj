@@ -174,7 +174,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			DisallowDelete: opts.NewDisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		var oldStatus ObjectStatus

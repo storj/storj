@@ -572,7 +572,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			DisallowDelete: opts.DisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		nextVersion := opts.Version

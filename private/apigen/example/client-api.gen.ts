@@ -15,7 +15,7 @@ export class Document {
 
 export class Metadata {
     owner?: string;
-    tags?: string[][];
+    tags: string[][] | null;
 }
 
 export class NewDocument {

@@ -15096,11 +15096,11 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx context.Context) (
 	rows []*Id_PieceCount_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
 
 	var __values []interface{}
 
@@ -23469,11 +23469,11 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx context.Context) (
 	rows []*Id_PieceCount_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.disqualified is NULL")
 
 	var __values []interface{}
 
@@ -28896,7 +28896,7 @@ type Methods interface {
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
-	All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)
 
 	All_Project(ctx context.Context) (

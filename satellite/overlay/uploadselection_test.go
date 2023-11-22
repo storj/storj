@@ -814,7 +814,7 @@ func (m *mockdb) SetAllContainedNodes(ctx context.Context, containedNodes []stor
 }
 
 // AllPieceCounts satisfies nodeevents.DB interface.
-func (m *mockdb) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+func (m *mockdb) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
 	panic("implement me")
 }
 

@@ -80,8 +80,9 @@ type DB interface {
 	// SetAllContainedNodes updates the contained field for all nodes, as necessary.
 	SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error)
 
-	// AllPieceCounts returns a map of node IDs to piece counts from the db.
-	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
+	// ActiveNodesPieceCounts returns a map of node IDs to piece counts from the db.
+	// Returns only pieces for nodes that are not disqualified.
+	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
 

@@ -24,56 +24,64 @@ func TestDB_PieceCounts(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		overlaydb := db.OverlayCache()
 
-		type TestNode struct {
-			ID         storj.NodeID
-			PieceCount int64
+		expectedNodePieces := make(map[storj.NodeID]int64, 100)
+
+		for i := 0; i < 100; i++ {
+			expectedNodePieces[testrand.NodeID()] = int64(math.Pow10(i + 1))
 		}
 
-		nodes := make([]TestNode, 100)
-		for i := range nodes {
-			nodes[i].ID = testrand.NodeID()
-			nodes[i].PieceCount = int64(math.Pow10(i + 1))
-		}
+		var nodeToDisqualify storj.NodeID
 
-		for i, node := range nodes {
+		i := 0
+		for nodeID := range expectedNodePieces {
 			addr := fmt.Sprintf("127.0.%d.0:8080", i)
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
-				NodeID:     node.ID,
+				NodeID:     nodeID,
 				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				IsUp:       true,
 			}
 			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
+			i++
+
+			nodeToDisqualify = nodeID
 		}
 
 		// check that they are initialized to zero
-		initialCounts, err := overlaydb.AllPieceCounts(ctx)
+		initialCounts, err := overlaydb.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
-		require.Empty(t, initialCounts)
-		// TODO: make AllPieceCounts return results for all nodes,
-		// since it will keep the logic slightly clearer.
-
-		// update counts
-		counts := make(map[storj.NodeID]int64)
-		for _, node := range nodes {
-			counts[node.ID] = node.PieceCount
+		require.Equal(t, len(expectedNodePieces), len(initialCounts))
+		for nodeID := range expectedNodePieces {
+			pieceCount, found := initialCounts[nodeID]
+			require.True(t, found)
+			require.Zero(t, pieceCount)
 		}
-		err = overlaydb.UpdatePieceCounts(ctx, counts)
+
+		err = overlaydb.UpdatePieceCounts(ctx, expectedNodePieces)
 		require.NoError(t, err)
 
 		// fetch new counts
-		updatedCounts, err := overlaydb.AllPieceCounts(ctx)
+		updatedCounts, err := overlaydb.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
 
 		// verify values
-		for _, node := range nodes {
-			count, ok := updatedCounts[node.ID]
+		for nodeID, pieceCount := range expectedNodePieces {
+			count, ok := updatedCounts[nodeID]
 			require.True(t, ok)
-			require.Equal(t, count, node.PieceCount)
+			require.Equal(t, pieceCount, count)
 		}
+
+		// disqualify one node so it won't be returned by ActiveNodesPieceCounts
+		_, err = overlaydb.DisqualifyNode(ctx, nodeToDisqualify, time.Now(), overlay.DisqualificationReasonAuditFailure)
+		require.NoError(t, err)
+
+		pieceCounts, err := overlaydb.ActiveNodesPieceCounts(ctx)
+		require.NoError(t, err)
+		require.NotContains(t, pieceCounts, nodeToDisqualify)
 	})
 }
 
@@ -121,7 +129,7 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 
 		b.Run("All", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err := overlaydb.AllPieceCounts(ctx)
+				_, err := overlaydb.ActiveNodesPieceCounts(ctx)
 				if err != nil {
 					b.Fatal(err)
 				}
