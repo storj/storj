@@ -379,6 +379,32 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 			return err
 		}
 
+		_, err := satellite.API.Metainfo.Endpoint.GetBucketVersioning(ctx, &pb.GetBucketVersioningRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: planet.Uplinks[0].APIKey[satellite.ID()].SerializeRaw(),
+			},
+			Name: []byte("non-existing-bucket"),
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+
+		_, err = satellite.API.Metainfo.Endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: planet.Uplinks[0].APIKey[satellite.ID()].SerializeRaw(),
+			},
+			Name:       []byte("non-existing-bucket"),
+			Versioning: true,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+
+		_, err = satellite.API.Metainfo.Endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: planet.Uplinks[0].APIKey[satellite.ID()].SerializeRaw(),
+			},
+			Name:       []byte("non-existing-bucket"),
+			Versioning: false,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+
 		for _, tt := range []struct {
 			name                     string
 			initialVersioningState   buckets.Versioning

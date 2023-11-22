@@ -135,7 +135,10 @@ func (db *bucketsDB) EnableBucketVersioning(ctx context.Context, bucketName []by
 	if err != nil {
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil || buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningEnabled {
+	if dbxBucket == nil {
+		return buckets.ErrBucketNotFound.New("%s", bucketName)
+	}
+	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningEnabled {
 		return buckets.ErrBucket.New("cannot transition bucket versioning state to enabled")
 	}
 	return nil
@@ -155,7 +158,10 @@ func (db *bucketsDB) SuspendBucketVersioning(ctx context.Context, bucketName []b
 	if err != nil {
 		return buckets.ErrBucket.Wrap(err)
 	}
-	if dbxBucket == nil || buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningSuspended {
+	if dbxBucket == nil {
+		return buckets.ErrBucketNotFound.New("%s", bucketName)
+	}
+	if buckets.Versioning(dbxBucket.Versioning) != buckets.VersioningSuspended {
 		return buckets.ErrBucket.New("cannot transition bucket versioning state to suspended")
 	}
 	return nil
