@@ -470,6 +470,8 @@ CREATE TABLE users (
 	login_lockout_expiration timestamp with time zone,
 	signup_captcha double precision,
 	default_placement integer,
+	activation_code text,
+	signup_id text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE user_settings (

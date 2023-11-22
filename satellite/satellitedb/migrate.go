@@ -2562,6 +2562,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN versioning INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add activation_code column to users table",
+				Version:     251,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN activation_code TEXT;`,
+					`ALTER TABLE users ADD COLUMN signup_id TEXT;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
