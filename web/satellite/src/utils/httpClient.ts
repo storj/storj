@@ -82,25 +82,27 @@ export class HttpClient {
      * Call logout and redirect to login.
      */
     private async handleUnauthorized(): Promise<void> {
-        try {
-            const logoutPath = '/api/v0/auth/logout';
-            const request: RequestInit = {
-                method: 'POST',
-                body: null,
-            };
+        const path = window.location.href;
+        if (!path.includes('/login') && !path.includes('/signup')) {
+            try {
+                const logoutPath = '/api/v0/auth/logout';
+                const request: RequestInit = {
+                    method: 'POST',
+                    body: null,
+                };
 
-            request.headers = {
-                'Content-Type': 'application/json',
-            };
+                request.headers = {
+                    'Content-Type': 'application/json',
+                };
 
-            await fetch(logoutPath, request);
-            // eslint-disable-next-line no-empty
-        } catch (error) {}
-
-        setTimeout(() => {
-            if (!window.location.href.includes('/login')) {
-                window.location.href = window.location.origin + '/login';
+                await fetch(logoutPath, request);
+                // eslint-disable-next-line no-empty
+            } catch (error) {
             }
-        }, 2000);
+
+            setTimeout(() => {
+                window.location.href = window.location.origin + '/login';
+            }, 2000);
+        }
     }
 }

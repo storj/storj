@@ -8,28 +8,50 @@
         </div>
         <div class="register-success-area__container">
             <MailIcon />
-            <h2 class="register-success-area__container__title" aria-roledescription="title">You're almost there!</h2>
-            <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title fill">
-                If an account with the email address
-                <p class="register-success-area__container__sub-title__email">{{ userEmail }}</p>
-                exists, a verification email has been sent.
-            </div>
-            <p class="register-success-area__container__sub-title">
-                Check your inbox to activate your account and get started.
-            </p>
-            <p class="register-success-area__container__text">
-                Didn't receive a verification email?
-                <b class="register-success-area__container__verification-cooldown__bold-text">
-                    {{ timeToEnableResendEmailButton }}
-                </b>
-            </p>
+            <template v-if="codeActivationEnabled">
+                <h2 class="register-success-area__container__title" aria-roledescription="title">Check your inbox</h2>
+                <p class="register-success-area__container__sub-title">
+                    Enter the 6 digit confirmation code you received in your email to verify your account:
+                </p>
+                <div class="register-success-area__container__code-input">
+                    <ConfirmMFAInput label="Activation code" :on-input="onConfirmInput" :is-error="isError" />
+                </div>
+                <div v-if="codeActivationEnabled" class="register-success-area__container__button-container">
+                    <VButton
+                        label="Verify"
+                        width="450px"
+                        height="50px"
+                        :on-press="onVerifyClicked"
+                        :is-disabled="code.length !== 6 || isLoading"
+                    />
+                </div>
+            </template>
+            <template v-else>
+                <h2 class="register-success-area__container__title" aria-roledescription="title">You're almost there!</h2>
+                <div v-if="showManualActivationMsg" class="register-success-area__container__sub-title fill">
+                    If an account with the email address
+                    <p class="register-success-area__container__sub-title__email">{{ userEmail }}</p>
+                    exists, a verification email has been sent.
+                </div>
+                <p class="register-success-area__container__sub-title">
+                    Check your inbox to activate your account and get started.
+                </p>
+                <p class="register-success-area__container__text">
+                    Didn't receive a verification email?
+                    <b class="register-success-area__container__verification-cooldown__bold-text">
+                        {{ timeToEnableResendEmailButton }}
+                    </b>
+                </p>
+            </template>
+
             <div class="register-success-area__container__button-container">
                 <VButton
-                    label="Resend Email"
+                    :label="resendMailLabel"
                     width="450px"
                     height="50px"
+                    :is-white="codeActivationEnabled"
                     :on-press="onResendEmailButtonClick"
-                    :is-disabled="secondsToWait !== 0"
+                    :is-disabled="secondsToWait !== 0 || isLoading"
                 />
             </div>
             <p class="register-success-area__container__contact">
@@ -55,29 +77,47 @@ import { useRoute, useRouter } from 'vue-router';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
+import { LocalData } from '@/utils/localData';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 
 const props = withDefaults(defineProps<{
     email?: string;
+    signupReqId?: string;
     showManualActivationMsg?: boolean;
 }>(), {
     email: '',
+    signupReqId: '',
     showManualActivationMsg: true,
 });
+
+const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
+
+const { isLoading, withLoading } = useLoading();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const loginPath: string = RouteConfig.Login.path;
 
 const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
+const isError = ref<boolean>(false);
+const code = ref<string>('');
+const signupId = ref<string>(props.signupReqId || '');
 
 const userEmail = computed((): string => {
     return props.email || route.query.email?.toString() || '';
@@ -88,6 +128,21 @@ const userEmail = computed((): string => {
  */
 const timeToEnableResendEmailButton = computed((): string => {
     return `${Math.floor(secondsToWait.value / 60).toString().padStart(2, '0')}:${(secondsToWait.value % 60).toString().padStart(2, '0')}`;
+});
+
+/**
+ * Returns true if signup activation code is enabled.
+ */
+const codeActivationEnabled = computed((): boolean => {
+    // code activation is not available if this page was arrived at via a link.
+    return  configStore.state.config.signupActivationCodeEnabled && !!props.email;
+});
+
+/**
+ * Returns the text for the resend email button.
+ */
+const resendMailLabel = computed((): string => {
+    return  !codeActivationEnabled.value ? 'Resend Email' : `Resend Email${secondsToWait.value !== 0 ? ' in ' + timeToEnableResendEmailButton.value : ''}`;
 });
 
 /**
@@ -120,12 +175,44 @@ async function onResendEmailButtonClick(): Promise<void> {
     }
 
     try {
-        await auth.resendEmail(email);
+        signupId.value = await auth.resendEmail(email);
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
     }
 
     startResendEmailCountdown();
+}
+
+/**
+ * Handles code verification.
+ */
+function onVerifyClicked(): void {
+    withLoading(async () => {
+        try {
+            const tokenInfo = await auth.verifySignupCode(props.email, code.value, signupId.value);
+            LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
+        } catch (error) {
+            if (error instanceof ErrorUnauthorized) {
+                notify.notifyError(new Error('Invalid code'));
+                return;
+            }
+            notify.notifyError(error);
+            isError.value = true;
+            return;
+        }
+
+        usersStore.login();
+        analyticsStore.pageVisit(RouteConfig.AllProjectsDashboard.path);
+        await router.push(RouteConfig.AllProjectsDashboard.path);
+    });
+}
+
+/**
+ * Sets confirmation passcode value from input.
+ */
+function onConfirmInput(value: string): void {
+    isError.value = false;
+    code.value = value;
 }
 
 /**
@@ -226,6 +313,15 @@ onBeforeUnmount(() => {
                 justify-content: center;
                 align-items: center;
                 margin-top: 15px;
+            }
+
+            &__code-input {
+                width: 450px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin-top: 10px;
+                margin-bottom: 10px;
             }
 
             &__contact {

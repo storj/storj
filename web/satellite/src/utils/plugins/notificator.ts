@@ -33,7 +33,7 @@ export class Notificator {
         notificationsStore.notifyError(msg, source);
     }
 
-    public error(message: NotificationMessage, source?: AnalyticsErrorEventSource): void {
+    public error(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null): void {
         const notificationsStore = useNotificationsStore();
         notificationsStore.notifyError(message, source);
     }

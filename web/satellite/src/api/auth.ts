@@ -29,13 +29,14 @@ export class AuthHttpApi implements UsersApi {
      * Used to resend an registration confirmation email.
      *
      * @param email - email of newly created user
+     * @returns requestID to be used for code activation.
      * @throws Error
      */
-    public async resendEmail(email: string): Promise<void> {
+    public async resendEmail(email: string): Promise<string> {
         const path = `${this.ROOT_PATH}/resend-email/${email}`;
         const response = await this.http.post(path, email);
         if (response.ok) {
-            return;
+            return response.headers.get('x-request-id') ?? '';
         }
 
         const result = await response.json();
@@ -84,6 +85,41 @@ export class AuthHttpApi implements UsersApi {
 
         const result = await response.json();
         const errMsg = result.error || 'Failed to receive authentication token';
+        switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+    }
+
+    /**
+     * Used to verify signup code.
+     * @param email
+     * @param code - the code to verify
+     * @param signupId - the request ID of the signup request or resend email request
+     */
+    public async verifySignupCode(email: string, code: string, signupId: string): Promise<TokenInfo> {
+        const path = `${this.ROOT_PATH}/code-activation`;
+        const body = {
+            email,
+            code,
+            signupId,
+        };
+
+        const response = await this.http.patch(path, JSON.stringify(body));
+        const result = await response.json();
+        if (response.ok) {
+            return new TokenInfo(result.token, new Date(result.expiresAt));
+        }
+
+        const errMsg = result.error || 'Failed to activate account';
         switch (response.status) {
         case 400:
             throw new ErrorBadRequest(errMsg);
@@ -351,10 +387,10 @@ export class AuthHttpApi implements UsersApi {
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
      * @param captchaResponse - captcha response
-     * @returns id of created user
+     * @returns requestID to be used for code activation.
      * @throws Error
      */
-    public async register(user: Partial<User & { storageNeeds: string }>, secret: string, captchaResponse: string): Promise<void> {
+    public async register(user: Partial<User & { storageNeeds: string }>, secret: string, captchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -374,21 +410,22 @@ export class AuthHttpApi implements UsersApi {
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
-        if (!response.ok) {
-            const result = await response.json();
-            const errMsg = result.error || 'Cannot register user';
-            switch (response.status) {
-            case 400:
-                throw new ErrorBadRequest(errMsg);
-            case 429:
-                throw new ErrorTooManyRequests(errMsg);
-            default:
-                throw new APIError({
-                    status: response.status,
-                    message: errMsg,
-                    requestID: response.headers.get('x-request-id'),
-                });
-            }
+        if (response.ok) {
+            return response.headers.get('x-request-id') ?? '';
+        }
+        const result = await response.json();
+        const errMsg = result.error || 'Cannot register user';
+        switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: response.headers.get('x-request-id'),
+            });
         }
     }
 

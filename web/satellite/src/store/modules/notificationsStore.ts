@@ -78,7 +78,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         addNotification(notification);
     }
 
-    function notifyError(message: NotificationMessage, source?: AnalyticsErrorEventSource): void {
+    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null): void {
         if (source) {
             state.analytics.errorEventTriggered(source);
         }

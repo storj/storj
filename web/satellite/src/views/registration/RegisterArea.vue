@@ -2,7 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register-area" @keyup.enter="onCreateClick">
+    <registration-success v-if="codeActivationEnabled && confirmCode" :email="user.email" :signup-req-id="signupID" />
+    <div v-else class="register-area" @keyup.enter="onCreateClick">
         <div
             class="register-area__container"
             :class="{'professional-container': isProfessional}"
@@ -295,6 +296,7 @@ import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import LogoWithPartnerIcon from '@/../static/images/partnerStorjLogo.svg';
 import LogoIcon from '@/../static/images/logo.svg';
@@ -347,6 +349,9 @@ const isTermsAcceptedError = ref(false);
 const isLoading = ref(false);
 const isProfessional = ref(true);
 const haveSalesContact = ref(false);
+const confirmCode = ref(false);
+
+const signupID = ref('');
 
 const captchaError = ref(false);
 const captchaResponseToken = ref('');
@@ -535,6 +540,13 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
  */
 const isInvited = computed((): boolean => {
     return !!inviterEmail.value && !!email.value;
+});
+
+/**
+ * Returns true if signup activation code is enabled.
+ */
+const codeActivationEnabled = computed((): boolean => {
+    return  configStore.state.config.signupActivationCodeEnabled;
 });
 
 /**
@@ -779,20 +791,24 @@ async function createUser(): Promise<void> {
     user.value.haveSalesContact = haveSalesContact.value;
 
     try {
-        await auth.register({ ...user.value, storageNeeds: storageNeeds.value }, secret.value, captchaResponseToken.value);
+        signupID.value = await auth.register({ ...user.value, storageNeeds: storageNeeds.value }, secret.value, captchaResponseToken.value);
 
-        // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
-        // signups outside of the brave browser may use a configured URL to track conversions
-        // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
-        const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
-        const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
+        if (!codeActivationEnabled.value) {
+            // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
+            // signups outside of the brave browser may use a configured URL to track conversions
+            // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
+            const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
+            const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
 
-        const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
-        const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
+            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
+            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
 
-        await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
+            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
+        } else {
+            confirmCode.value = true;
+        }
     } catch (error) {
-        notify.notifyError(error, null);
+        notify.notifyError(error);
     }
 
     captcha.value?.reset();
