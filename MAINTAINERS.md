@@ -33,7 +33,7 @@ Here we need to post changes for each topic(storj-sim, Uplink, Sattelite, Storag
 
 Then its time to cut the release branch:
 `git checkout -b v1.3` - will create and checkout branch v1.3
-`git push origin v1.3`- will push release branch to the repo
+`git push origin v1.3`- will push release branch to the repo\
 Also we need to cut same release branch on tardigrade-satellite-theme repo
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo
@@ -42,15 +42,22 @@ The next step is to create tag for `storj` repo using `tag-release.sh` which is 
 Example:
 `./scripts/tag-release.sh v1.3.0-rc`
 `git push origin v1.3.0-rc`
-Then verify that the Jenkins job of the build Storj V3 for such tag and branch has finished successfully.
+Then verify that the Jenkins job of the build Storj V3 for such tag and branch has finished successfully.\
+Pay attention to tardigrade-satellite-theme job - it should be successfully finished as well.
 
 
 ## How to cherry pick
 
 If you need to cherry-pick something after the release branch has been created then you need to create point release.
 Make sure that you have the latest changes, checkout the release branch and execute cherry-pick:
-`git cherry-pick <your commit hash>`
-You need to create pull request to the release branch with that commit. After the pull request will be approved and merged you should create new release tag:
+```
+git fetch
+git checkout -b <xxx>/cherry-pick-v1.xx
+git cherry-pick <your commit hash>
+```
+You need push and create pull request to the release branch with that commit.
+`git push origin <xxx>/cherry-pick-v1.xx`
+After the pull request will be approved, pass all tests and merged you should create new release tag:
 `./scripts/tag-release.sh v1.3.1`
 and push the tag to the repo:
 `git push origin v1.3.1`
@@ -64,10 +71,25 @@ git push origin release-v1.3
 ```
 Update Jenkins job.
 
+## Revert from release
+
+If revert needed we proceed with next flow: 
+Ask developer to fix problem and push commit to main branch. After that cherry-pick fix to the release branch.
+Why we do use this flow but not revert from the release branch? It's to prevent situation to fix bug in the main.
+
+
 ## Where to find the release binaries
 
 After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
-Update this tag with changelog that you previosly created.
+Update this tag with changelog that you previously created.\
+For now changelog is generated automatically, but binaries for darwin not. Darwin binaries should be generated manually and added to tag.\
+Add New Contributors list to the release. To generate it: 
+`git shortlog -sn release-v1.2 | cut -f 2 > ../old.txt && git shortlog -sn  release-v1.3 | cut -f 2 > ../new.txt && grep -Fxv -f ../old.txt ../new.txt` 
+Note, to run this command current and previous release should be on your local machine.
+
+## Setting the 'Latest' release version
+
+After 100% storagenodes rollout is finished -> new release should be set as 'Latest'.
 
 ## Which tests do we want to execute
 Everything that could break production.
