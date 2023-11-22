@@ -135,7 +135,7 @@ func (service *Service) Accounts() payments.Accounts {
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if none exist.
-func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
+func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time, shouldAggregate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := service.nowFn().UTC()
@@ -164,7 +164,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		}
 		numberOfCustomers += len(customersPage.Customers)
 
-		records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
+		records, err := service.processCustomers(ctx, customersPage.Customers, shouldAggregate, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -175,7 +175,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	return nil
 }
 
-func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, error) {
+func (service *Service) processCustomers(ctx context.Context, customers []Customer, shouldAggregate bool, start, end time.Time) (int, error) {
 	var regularRecords []CreateProjectRecord
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
@@ -197,7 +197,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 		// We generate 3 invoice items for each user project which means,
 		// we can support only 83 projects in a single invoice (249 invoice items).
-		if len(projects) > 83 {
+		if shouldAggregate && len(projects) > 83 {
 			recordsToAggregate = append(recordsToAggregate, records...)
 		} else {
 			regularRecords = append(regularRecords, records...)
@@ -209,12 +209,18 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 		return 0, err
 	}
 
-	err = service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
-	if err != nil {
-		return 0, err
+	recordsCount := len(regularRecords)
+
+	if shouldAggregate {
+		err = service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
+		if err != nil {
+			return 0, err
+		}
+
+		recordsCount += len(recordsToAggregate)
 	}
 
-	return len(recordsToAggregate) + len(regularRecords), nil
+	return recordsCount, nil
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -1253,22 +1259,33 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 // GenerateInvoices performs tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
 // and CreateInvoices in order.
-func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) (err error) {
+func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for _, subFn := range []struct {
-		Description string
-		Exec        func(context.Context, time.Time) error
-	}{
-		{"Preparing invoice project records", service.PrepareInvoiceProjectRecords},
-		{"Applying invoice project records", service.InvoiceApplyProjectRecords},
-		{"Applying to be aggregated invoice project records", service.InvoiceApplyToBeAggregatedProjectRecords},
-		{"Creating invoices", service.CreateInvoices},
-	} {
-		service.log.Info(subFn.Description)
-		if err := subFn.Exec(ctx, period); err != nil {
+	service.log.Info("Preparing invoice project records")
+	err = service.PrepareInvoiceProjectRecords(ctx, period, shouldAggregate)
+	if err != nil {
+		return err
+	}
+
+	service.log.Info("Applying invoice project records")
+	err = service.InvoiceApplyProjectRecords(ctx, period)
+	if err != nil {
+		return err
+	}
+
+	if shouldAggregate {
+		service.log.Info("Applying to be aggregated invoice project records")
+		err = service.InvoiceApplyToBeAggregatedProjectRecords(ctx, period)
+		if err != nil {
 			return err
 		}
+	}
+
+	service.log.Info("Creating invoices")
+	err = service.CreateInvoices(ctx, period)
+	if err != nil {
+		return err
 	}
 
 	return nil
