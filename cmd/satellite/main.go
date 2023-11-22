@@ -226,6 +226,9 @@ var (
 		Long:  "Creates stripe invoice line items for stripe customer balances obtained from past invoices and other miscellaneous charges.",
 		RunE:  cmdCreateCustomerBalanceInvoiceItems,
 	}
+
+	aggregate = false
+
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
 		Use:   "prepare-invoice-records [period]",
 		Short: "Prepares invoice project records",
@@ -239,6 +242,13 @@ var (
 		Long:  "Creates stripe invoice line items for not consumed project records.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerProjectInvoiceItems,
+	}
+	createCustomerAggregatedProjectInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-aggregated-project-invoice-items [period]",
+		Short: "Creates aggregated stripe invoice line items for project charges",
+		Long:  "Creates aggregated stripe invoice line items for not consumed project records.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateAggregatedCustomerProjectInvoiceItems,
 	}
 	createCustomerInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices [period]",
@@ -422,9 +432,12 @@ func init() {
 	billingCmd.AddCommand(setInvoiceStatusCmd)
 	billingCmd.AddCommand(createCustomerBalanceInvoiceItemsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
+	prepareCustomerInvoiceRecordsCmd.Flags().BoolVar(&aggregate, "aggregate", false, "Used to enable creation of to be aggregated project records in case users have many projects (more than 83).")
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerAggregatedProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(generateCustomerInvoicesCmd)
+	generateCustomerInvoicesCmd.Flags().BoolVar(&aggregate, "aggregate", false, "Used to enable invoice items aggregation in case users have many projects (more than 83).")
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(payInvoicesWithTokenCmd)
 	billingCmd.AddCommand(payAllInvoicesCmd)
@@ -843,7 +856,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
-		return payments.PrepareInvoiceProjectRecords(ctx, periodStart)
+		return payments.PrepareInvoiceProjectRecords(ctx, periodStart, aggregate)
 	})
 }
 
@@ -857,6 +870,19 @@ func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (er
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, periodStart)
+	})
+}
+
+func cmdCreateAggregatedCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	periodStart, err := parseYearMonth(args[0])
+	if err != nil {
+		return err
+	}
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.InvoiceApplyToBeAggregatedProjectRecords(ctx, periodStart)
 	})
 }
 
@@ -882,7 +908,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
-		return payments.GenerateInvoices(ctx, periodStart)
+		return payments.GenerateInvoices(ctx, periodStart, aggregate)
 	})
 }
 
