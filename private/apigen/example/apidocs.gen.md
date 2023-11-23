@@ -1,7 +1,5 @@
 # API Docs
 
-**Description:**
-
 **Version:** `v0`
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>

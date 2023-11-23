@@ -1,6 +1,6 @@
 # API Docs
 
-**Description:** Interacts with projects
+**Description: **Interacts with projects
 
 **Version:** `v0`
 
