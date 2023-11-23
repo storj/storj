@@ -271,12 +271,6 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("var err error")
 			pf("defer h.mon.Task()(&ctx)(&err)")
 			pf("")
-
-			for _, m := range group.Middleware {
-				pf(m.Generate(a, group, endpoint))
-			}
-
-			pf("")
 			pf("w.Header().Set(\"Content-Type\", \"application/json\")")
 			pf("")
 
@@ -287,6 +281,11 @@ func (a *API) generateGo() ([]byte, error) {
 			if endpoint.Request != nil {
 				handleBody(pf, endpoint.Request)
 			}
+
+			for _, m := range group.Middleware {
+				pf(m.Generate(a, group, endpoint))
+			}
+			pf("")
 
 			var methodFormat string
 			if endpoint.Response != nil {

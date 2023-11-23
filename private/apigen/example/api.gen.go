@@ -108,18 +108,18 @@ func (h *DocumentsHandler) handleGetOne(w http.ResponseWriter, r *http.Request) 
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	path, ok := mux.Vars(r)["path"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -140,13 +140,6 @@ func (h *DocumentsHandler) handleGetTag(w http.ResponseWriter, r *http.Request) 
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	path, ok := mux.Vars(r)["path"]
@@ -158,6 +151,13 @@ func (h *DocumentsHandler) handleGetTag(w http.ResponseWriter, r *http.Request) 
 	tagName, ok := mux.Vars(r)["tagName"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tagName route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -178,18 +178,18 @@ func (h *DocumentsHandler) handleGetVersions(w http.ResponseWriter, r *http.Requ
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	path, ok := mux.Vars(r)["path"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing path route param"))
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -209,13 +209,6 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -252,6 +245,13 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 	payload := myapi.NewDocument{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
