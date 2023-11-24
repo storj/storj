@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"go/format"
 	"os"
+	"path/filepath"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,12 +51,12 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	imports := struct {
-		All      map[string]bool
-		Standard []string
-		External []string
-		Internal []string
+		All      map[importPath]bool
+		Standard []importPath
+		External []importPath
+		Internal []importPath
 	}{
-		All: make(map[string]bool),
+		All: make(map[importPath]bool),
 	}
 
 	i := func(paths ...string) {
@@ -64,12 +65,13 @@ func (a *API) generateGo() ([]byte, error) {
 				continue
 			}
 
-			if _, ok := imports.All[path]; ok {
+			ipath := importPath(path)
+			if _, ok := imports.All[ipath]; ok {
 				continue
 			}
-			imports.All[path] = true
+			imports.All[ipath] = true
 
-			var slice *[]string
+			var slice *[]importPath
 			switch {
 			case !strings.Contains(path, "."):
 				slice = &imports.Standard
@@ -78,7 +80,7 @@ func (a *API) generateGo() ([]byte, error) {
 			default:
 				slice = &imports.External
 			}
-			*slice = append(*slice, path)
+			*slice = append(*slice, ipath)
 		}
 	}
 
@@ -170,12 +172,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 		autodefinedFields := map[string]string{"log": "*zap.Logger", "mon": "*monkit.Scope", "service": cname + "Service"}
 		for _, m := range group.Middleware {
-			for _, f := range middlewareFields(m) {
+			for _, f := range middlewareFields(a, m) {
 				if t, ok := autodefinedFields[f.Name]; ok {
 					if t != f.Type {
 						panic(
 							fmt.Sprintf(
-								"middleware %q has a field with name %q and type %q which clashes with another defined field with the same but with type %q",
+								"middleware %q has a field with name %q and type %q which clashes with another defined field with the same name but with type %q",
 								reflect.TypeOf(m).Name(),
 								f.Name,
 								f.Type,
@@ -203,7 +205,7 @@ func (a *API) generateGo() ([]byte, error) {
 		middlewareArgs := make([]string, 0, len(group.Middleware))
 		middlewareFieldsList := make([]string, 0, len(group.Middleware))
 		for _, m := range group.Middleware {
-			for _, f := range middlewareFields(m) {
+			for _, f := range middlewareFields(a, m) {
 				if _, ok := autodedefined[f.Name]; !ok {
 					middlewareArgs = append(middlewareArgs, fmt.Sprintf("%s %s", f.Name, f.Type))
 					middlewareFieldsList = append(middlewareFieldsList, fmt.Sprintf("%[1]s: %[1]s", f.Name))
@@ -339,12 +341,17 @@ func (a *API) generateGo() ([]byte, error) {
 	pf("")
 
 	pf("import (")
-	slices := [][]string{imports.Standard, imports.External, imports.Internal}
-	for sn, slice := range slices {
-		sort.Strings(slice)
+	all := [][]importPath{imports.Standard, imports.External, imports.Internal}
+	for sn, slice := range all {
+		slices.Sort(slice)
 		for pn, path := range slice {
-			pf(`"%s"`, path)
-			if pn == len(slice)-1 && sn < len(slices)-1 {
+			if r, ok := path.PkgName(); ok {
+				pf(`%s "%s"`, r, path)
+			} else {
+				pf(`"%s"`, path)
+			}
+
+			if pn == len(slice)-1 && sn < len(all)-1 {
 				pf("")
 			}
 		}
@@ -468,4 +475,21 @@ func handleBody(pf func(format string, a ...interface{}), body interface{}) {
 	pf("return")
 	pf("}")
 	pf("")
+}
+
+type importPath string
+
+// PkgName returns the name of the package based of the last part of the import
+// path and false if the name isn't a rename, otherwise it returns true.
+//
+// The package name is renamed when the last part of the path contains hyphen
+// (-) or dot (.) and the rename is this part with the hyphens and dots
+// stripped.
+func (i importPath) PkgName() (rename string, ok bool) {
+	b := filepath.Base(string(i))
+	if strings.Contains(b, "-") || strings.Contains(b, ".") {
+		return strings.ReplaceAll(strings.ReplaceAll(b, "-", ""), ".", ""), true
+	}
+
+	return b, false
 }

@@ -6,7 +6,6 @@ package apigen
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -348,7 +347,7 @@ func middlewareImports(m any) []string {
 
 // middlewareFields returns the list of fields of a middleware implementation. It panics if m isn't
 // a struct type, it has embedded fields, or it has unexported fields.
-func middlewareFields(m any) []middlewareField {
+func middlewareFields(api *API, m any) []middlewareField {
 	fields := []middlewareField{}
 	middlewareWalkFields(m, func(f reflect.StructField) {
 		if f.Name == "_" {
@@ -362,9 +361,10 @@ func middlewareFields(m any) []middlewareField {
 			t = f.Type.Elem()
 		}
 
-		typeref := t.Name()
-		if p := t.PkgPath(); p != "" {
-			typeref = fmt.Sprintf("%s%s.%s", psymbol, filepath.Base(p), typeref)
+		typeref := psymbol + t.Name()
+		if p := t.PkgPath(); p != "" && p != api.PackagePath {
+			pn, _ := importPath(p).PkgName()
+			typeref = fmt.Sprintf("%s%s.%s", psymbol, pn, t.Name())
 		}
 		fields = append(fields, middlewareField{Name: f.Name, Type: typeref})
 	})

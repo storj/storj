@@ -8,9 +8,11 @@ package main
 //go:generate go run $GOFILE
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"storj.io/storj/private/apigen"
 	backoffice "storj.io/storj/satellite/admin/back-office"
@@ -35,6 +37,7 @@ func main() {
 	})
 
 	group = api.Group("UserManagement", "users")
+	group.Middleware = append(group.Middleware, authMiddleware{})
 
 	group.Get("/{email}", &apigen.Endpoint{
 		Name:           "Get user",
@@ -45,6 +48,9 @@ func main() {
 			apigen.NewParam("email", ""),
 		},
 		Response: backoffice.User{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
 	})
 
 	modroot := findModuleRootDir()
@@ -52,6 +58,37 @@ func main() {
 	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))
 	api.MustWriteDocs(filepath.Join(modroot, "satellite", "admin", "back-office", "api-docs.gen.md"))
 }
+
+type authMiddleware struct {
+	//lint:ignore U1000 this field is used by the API generator to expose in the handler.
+	auth *backoffice.Authorizer
+}
+
+func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+	perms := apigen.LoadSetting(authPermsKey, ep, []backoffice.Permission{})
+	if len(perms) == 0 {
+		return ""
+	}
+
+	verbs := make([]string, 0, len(perms))
+	values := make([]any, 0, len(perms))
+	for _, p := range perms {
+		verbs = append(verbs, "%d")
+		values = append(values, p)
+	}
+
+	format := fmt.Sprintf(`if h.auth.IsRejected(w, r, %s) {
+		return
+	}`, strings.Join(verbs, ", "))
+
+	return fmt.Sprintf(format, values...)
+}
+
+var _ apigen.Middleware = authMiddleware{}
+
+type tagAuthPerms struct{}
+
+var authPermsKey = tagAuthPerms{}
 
 func findModuleRootDir() string {
 	dir, err := os.Getwd()

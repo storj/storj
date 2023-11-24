@@ -39,6 +39,7 @@ type UserManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service UserManagementService
+	auth    *Authorizer
 }
 
 func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router) *PlacementManagementHandler {
@@ -54,11 +55,12 @@ func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service Placemen
 	return handler
 }
 
-func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagementService, router *mux.Router) *UserManagementHandler {
+func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagementService, router *mux.Router, auth *Authorizer) *UserManagementHandler {
 	handler := &UserManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
+		auth:    auth,
 	}
 
 	usersRouter := router.PathPrefix("/back-office/api/v1/users").Subrouter()
@@ -96,6 +98,10 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 	email, ok := mux.Vars(r)["email"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing email route param"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
 		return
 	}
 
