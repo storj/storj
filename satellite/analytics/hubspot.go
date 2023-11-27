@@ -235,14 +235,19 @@ func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) 
 	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		var data struct {
+		type hsError struct {
 			Message string `json:"message"`
+			In      string `json:"in"`
+		}
+		var data struct {
+			Message string    `json:"message"`
+			Errors  []hsError `json:"errors"`
 		}
 		err = json.NewDecoder(resp.Body).Decode(&data)
 		if err != nil {
 			return Error.New("decoding response failed: %w", err)
 		}
-		return Error.New("sending event failed: %s", data.Message)
+		return Error.New("sending event failed: %s - %v", data.Message, data.Errors)
 	}
 	return err
 }
