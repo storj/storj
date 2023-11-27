@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -146,6 +147,10 @@ type Core struct {
 
 	GarbageCollection struct {
 		Sender *sender.Service
+	}
+
+	RepairQueueStat struct {
+		Chore *repairer.QueueStat
 	}
 }
 
@@ -247,12 +252,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup overlay
+	placement, err := config.Placement.Parse()
+	if err != nil {
+		return nil, err
+	}
 
-		placement, err := config.Placement.Parse()
-		if err != nil {
-			return nil, err
-		}
+	{ // setup overlay
 
 		peer.Overlay.DB = peer.DB.OverlayCache()
 		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
@@ -585,6 +590,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.ConsoleDBCleanup.Chore.Run,
 			Close: peer.ConsoleDBCleanup.Chore.Close,
 		})
+	}
+
+	{
+		if config.RepairQueueCheck.Interval.Seconds() > 0 {
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, placement.SupportedPlacements(), db.RepairQueue(), config.RepairQueueCheck.Interval)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "queue-stat",
+				Run:  peer.RepairQueueStat.Chore.Run,
+			})
+		}
 	}
 
 	{ // setup garbage collection

@@ -187,6 +187,8 @@ type Config struct {
 	GarbageCollection   sender.Config
 	GarbageCollectionBF bloomfilter.Config
 
+	RepairQueueCheck repairer.QueueStatConfig
+
 	RangedLoop rangedloop.Config
 
 	ExpiredDeletion expireddeletion.Config

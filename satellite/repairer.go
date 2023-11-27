@@ -248,6 +248,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Repair Worker", peer.Repairer.Loop))
+
 	}
 
 	return peer, nil

@@ -1012,6 +1012,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
 
+# how frequently core should check the size of the repair queue
+# repair-queue-check.interval: 1h0m0s
+
 # time limit for dialing storage node
 # repairer.dial-timeout: 5s
 
