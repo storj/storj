@@ -50,6 +50,10 @@ type Projects interface {
 
 	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
+	// GetDefaultVersioning is a method to get the default versioning state of a new bucket in the project.
+	GetDefaultVersioning(ctx context.Context, id uuid.UUID) (DefaultVersioning, error)
+	// UpdateDefaultVersioning is a method to update the default versioning state of a new bucket in the project.
+	UpdateDefaultVersioning(ctx context.Context, id uuid.UUID, versioning DefaultVersioning) error
 	// UpdateBucketLimit is a method for updating projects bucket limit.
 	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 
@@ -115,6 +119,7 @@ type Project struct {
 	UserSpecifiedBandwidthLimit *memory.Size              `json:"userSpecifiedBandwidthLimit"`
 	SegmentLimit                *int64                    `json:"segmentLimit"`
 	DefaultPlacement            storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning           DefaultVersioning         `json:"defaultVersioning"`
 }
 
 // UpsertProjectInfo holds data needed to create/update Project.
@@ -136,6 +141,19 @@ type ProjectInfo struct {
 	CreatedAt        time.Time         `json:"createdAt"`
 	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
 }
+
+// DefaultVersioning represents the default versioning state of a new bucket in the project.
+type DefaultVersioning int
+
+const (
+	// Unsupported - versioning for created buckets is not supported.
+	Unsupported DefaultVersioning = 0
+	// Unversioned - versioning for created buckets is supported but not enabled.
+	Unversioned DefaultVersioning = 1
+	// VersioningEnabled - versioning for created buckets is supported and enabled.
+	VersioningEnabled DefaultVersioning = 2
+	// Note: suspended is not a valid state for new buckets.
+)
 
 // ProjectsCursor holds info for project
 // cursor pagination.

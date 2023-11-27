@@ -16,6 +16,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -209,7 +210,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	bucketReq.Placement = project.DefaultPlacement
 
 	if endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) {
-		if endpoint.config.TestEnableBucketVersioning {
+		defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		if defaultVersioning == console.VersioningEnabled || endpoint.config.TestEnableBucketVersioning {
 			bucketReq.Versioning = buckets.VersioningEnabled
 		} else {
 			bucketReq.Versioning = buckets.Unversioned

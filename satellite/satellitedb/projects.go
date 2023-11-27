@@ -203,6 +203,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
 	createFields.Salt = dbx.Project_Salt(salt[:])
 	createFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
+	createFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -256,6 +257,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 
 	if project.DefaultPlacement > 0 {
 		updateFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
+	}
+	if project.DefaultVersioning > 0 {
+		updateFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
 	}
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
@@ -338,6 +342,21 @@ func (projects *projects) UpdateDefaultPlacement(ctx context.Context, id uuid.UU
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
 			DefaultPlacement: dbx.Project_DefaultPlacement(int(placement)),
+		},
+	)
+
+	return err
+}
+
+// UpdateDefaultVersioning is a method to update the project's default versioning state for new buckets.
+func (projects *projects) UpdateDefaultVersioning(ctx context.Context, id uuid.UUID, defaultVersioning console.DefaultVersioning) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(
+		ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			DefaultVersioning: dbx.Project_DefaultVersioning(int(defaultVersioning)),
 		},
 	)
 
@@ -507,20 +526,21 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 	}
 
 	return &console.Project{
-		ID:               id,
-		PublicID:         publicID,
-		Name:             project.Name,
-		Description:      project.Description,
-		UserAgent:        userAgent,
-		OwnerID:          ownerID,
-		RateLimit:        project.RateLimit,
-		BurstLimit:       project.BurstLimit,
-		MaxBuckets:       project.MaxBuckets,
-		CreatedAt:        project.CreatedAt,
-		StorageLimit:     (*memory.Size)(project.UsageLimit),
-		BandwidthLimit:   (*memory.Size)(project.BandwidthLimit),
-		SegmentLimit:     project.SegmentLimit,
-		DefaultPlacement: placement,
+		ID:                id,
+		PublicID:          publicID,
+		Name:              project.Name,
+		Description:       project.Description,
+		UserAgent:         userAgent,
+		OwnerID:           ownerID,
+		RateLimit:         project.RateLimit,
+		BurstLimit:        project.BurstLimit,
+		MaxBuckets:        project.MaxBuckets,
+		CreatedAt:         project.CreatedAt,
+		StorageLimit:      (*memory.Size)(project.UsageLimit),
+		BandwidthLimit:    (*memory.Size)(project.BandwidthLimit),
+		SegmentLimit:      project.SegmentLimit,
+		DefaultPlacement:  placement,
+		DefaultVersioning: console.DefaultVersioning(project.DefaultVersioning),
 	}, nil
 }
 
@@ -548,6 +568,17 @@ func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxB
 		return nil, err
 	}
 	return dbxRow.MaxBuckets, nil
+}
+
+// GetDefaultVersioning is a method to get the default versioning state for new buckets.
+func (projects *projects) GetDefaultVersioning(ctx context.Context, id uuid.UUID) (defaultVersioning console.DefaultVersioning, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxRow, err := projects.db.Get_Project_DefaultVersioning_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return 0, err
+	}
+	return console.DefaultVersioning(dbxRow.DefaultVersioning), nil
 }
 
 // UpdateUsageLimits is a method for updating project's bandwidth, storage, and segment limits.
