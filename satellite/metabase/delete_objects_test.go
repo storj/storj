@@ -413,6 +413,30 @@ func TestDeleteZombieObjects(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj3, 1)
 
+			obj3.Version = object3.Version + 1
+			object4 := metabasetest.CreateObjectVersioned(ctx, t, db, obj3, 0)
+
+			deletionResult := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: obj3.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  obj3.ProjectID,
+								BucketName: obj3.BucketName,
+								ObjectKey:  obj3.ObjectKey,
+								Version:    object4.Version + 1,
+							},
+							Status:    metabase.DeleteMarkerVersioned,
+							CreatedAt: time.Now(),
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
 			expectedObj1Segment := metabase.Segment{
 				StreamID:          obj1.StreamID,
 				RootPieceID:       storj.PieceID{1},
@@ -443,6 +467,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 					metabase.RawObject(object1),
 					metabase.RawObject(object2),
 					metabase.RawObject(object3),
+					metabase.RawObject(object4),
+					metabase.RawObject(deletionResult.Markers[0]),
 				},
 				Segments: []metabase.RawSegment{
 					metabase.RawSegment(expectedObj1Segment),
