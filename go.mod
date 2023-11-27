@@ -61,11 +61,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20231121103209-30983e2956c6
+	storj.io/common v0.0.0-20231122072641-db87695ccc58
 	storj.io/drpc v0.0.33
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
-	storj.io/private v0.0.0-20231012141933-ae62725d6691
-	storj.io/uplink v1.12.2-0.20231101155507-0de4b39f3dc5
+	storj.io/private v0.0.0-20231127092015-c439a594bc1d
+	storj.io/uplink v1.12.3-0.20231122160004-e620b33019eb
 )
 
 require (
@@ -101,8 +101,12 @@ require (
 	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/jtolio/crawlspace v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
+	github.com/jtolio/crawlspace/tools v0.0.0-20231115161146-57d90b78ce62 // indirect
 	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
@@ -115,6 +119,7 @@ require (
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
@@ -125,8 +130,10 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/goof v0.0.0-20230830143729-8a73f2ee257d // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
+	github.com/zeebo/sudo v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
@@ -140,6 +147,6 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	storj.io/infectious v0.0.1 // indirect
+	storj.io/infectious v0.0.2 // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
 )

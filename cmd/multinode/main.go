@@ -134,8 +134,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	runCfg.Debug.Address = *process.DebugAddrFlag
-
 	identity, err := getIdentity(ctx, &runCfg)
 	if err != nil {
 		log.Error("failed to load identity", zap.Error(err))

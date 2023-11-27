@@ -411,6 +411,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	// cfgstruct devDefaults. we need to make sure it's safe to remove
 	// these lines and then remove them.
 	config.Debug.Control = false
+	config.Debug.Addr = ""
 	config.Reputation.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
 	config.Orders.OrdersSemaphoreSize = 0

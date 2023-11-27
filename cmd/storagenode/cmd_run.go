@@ -44,8 +44,6 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	cfg.Debug.Address = *process.DebugAddrFlag
-
 	mapDeprecatedConfigs(log, &cfg.StorageNodeFlags)
 
 	identity, err := cfg.Identity.Load()

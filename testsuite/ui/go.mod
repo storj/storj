@@ -10,9 +10,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20231121103209-30983e2956c6
+	storj.io/common v0.0.0-20231122072641-db87695ccc58
 	storj.io/gateway-mt v1.51.1-0.20230417204402-7d9bb25bc297
-	storj.io/private v0.0.0-20231012141933-ae62725d6691
+	storj.io/private v0.0.0-20231127092015-c439a594bc1d
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
 )
 
@@ -95,6 +95,8 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/jtolio/crawlspace v0.0.0-20231116162947-3ec5cc6b36c5 // indirect
+	github.com/jtolio/crawlspace/tools v0.0.0-20231115161146-57d90b78ce62 // indirect
 	github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d // indirect
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b // indirect
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6 // indirect
@@ -104,6 +106,8 @@ require (
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/klauspost/readahead v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.11 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/libdns/googleclouddns v1.1.0 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
@@ -157,6 +161,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/rs/xid v1.2.1 // indirect
 	github.com/secure-io/sio-go v0.3.1 // indirect
@@ -194,9 +199,11 @@ require (
 	github.com/zeebo/errs v1.3.0 // indirect
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/goof v0.0.0-20230830143729-8a73f2ee257d // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
+	github.com/zeebo/sudo v1.0.2 // indirect
 	github.com/zyedidia/generic v1.2.1 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -229,9 +236,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.33 // indirect
 	storj.io/gateway v1.8.4-0.20230411184137-387420cf640f // indirect
-	storj.io/infectious v0.0.1 // indirect
+	storj.io/infectious v0.0.2 // indirect
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
-	storj.io/uplink v1.12.2-0.20231101155507-0de4b39f3dc5 // indirect
+	storj.io/uplink v1.12.3-0.20231122160004-e620b33019eb // indirect
 )

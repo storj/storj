@@ -62,8 +62,6 @@ func RunCommand(runCfg *Config) *cobra.Command {
 		ctx, _ := process.Ctx(cmd)
 		log := zap.L()
 
-		runCfg.Debug.Address = *process.DebugAddrFlag
-
 		identity, err := runCfg.Identity.Load()
 		if err != nil {
 			log.Error("failed to load identity.", zap.Error(err))

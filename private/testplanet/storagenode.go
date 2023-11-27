@@ -134,7 +134,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			},
 		},
 		Debug: debug.Config{
-			Address: "",
+			Addr: "",
 		},
 		Preflight: preflight.Config{
 			LocalTimeCheck: false,

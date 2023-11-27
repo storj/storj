@@ -20,8 +20,6 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	runCfg.Debug.Address = *process.DebugAddrFlag
-
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-gc-bloomfilter"})
 	if err != nil {
 		return errs.New("Error starting master database on satellite GC: %+v", err)

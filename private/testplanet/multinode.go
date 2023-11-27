@@ -91,7 +91,7 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 
 	config := multinode.Config{
 		Debug: debug.Config{
-			Address: "",
+			Addr: "",
 		},
 		Console: server.Config{
 			Address:   "127.0.0.1:0",
