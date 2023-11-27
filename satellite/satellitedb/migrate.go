@@ -2571,6 +2571,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN signup_id TEXT;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add default versioning to project",
+				Version:     252,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN default_versioning INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

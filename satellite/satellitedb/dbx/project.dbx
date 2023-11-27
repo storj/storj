@@ -51,6 +51,11 @@ model project (
 
     // placement to be used for every new bucket.
     field default_placement int (nullable, updatable)
+
+    // versioning state to be used for every new bucket.
+    //0 - unversioned (versioning for new buckets is supported but not enabled)
+    //1 - VersioningEnabled (versioning for new buckets is supported and enabled)
+    field default_versioning int (updatable, default 0)
 )
 
 create project ( )
@@ -96,6 +101,10 @@ read one (
 read one (
     select project.bandwidth_limit project.usage_limit project.segment_limit project.rate_limit project.burst_limit
     where  project.id = ?
+)
+read one (
+    select project.default_versioning
+    where project.id = ?
 )
 
 read all (
