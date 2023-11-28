@@ -37,8 +37,10 @@ type Config struct {
 
 // CaptchaConfig contains configurations for login/registration captcha system.
 type CaptchaConfig struct {
-	Login        MultiCaptchaConfig `json:"login"`
-	Registration MultiCaptchaConfig `json:"registration"`
+	FlagBotsEnabled      bool               `help:"indicates if flagging bot accounts is enabled" default:"false"`
+	ScoreCutoffThreshold float64            `help:"bad captcha score threshold which is used to prevent bot user activity" default:"0.8"`
+	Login                MultiCaptchaConfig `json:"login"`
+	Registration         MultiCaptchaConfig `json:"registration"`
 }
 
 // MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.

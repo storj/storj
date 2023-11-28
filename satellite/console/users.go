@@ -87,7 +87,7 @@ type UsersPage struct {
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
-// The returned error has the class ErrValiation.
+// The returned error has the class ErrValidation.
 func (user *UserInfo) IsValid() error {
 	// validate fullName
 	if err := ValidateFullName(user.FullName); err != nil {
@@ -168,16 +168,18 @@ type TokenInfo struct {
 type UserStatus int
 
 const (
-	// Inactive is a user status that he receives after registration.
+	// Inactive is a status that user receives after registration.
 	Inactive UserStatus = 0
-	// Active is a user status that he receives after account activation.
+	// Active is a status that user receives after account activation.
 	Active UserStatus = 1
-	// Deleted is a user status that he receives after deleting account.
+	// Deleted is a status that user receives after deleting account.
 	Deleted UserStatus = 2
-	// PendingDeletion is a user status that he receives before deleting account.
+	// PendingDeletion is a status that user receives before deleting account.
 	PendingDeletion UserStatus = 3
-	// LegalHold is a user status that he receives for legal reasons.
+	// LegalHold is a status that user receives for legal reasons.
 	LegalHold UserStatus = 4
+	// PendingBotVerification is a status that user receives after account activation but with high captcha score.
+	PendingBotVerification UserStatus = 5
 )
 
 // String returns a string representation of the user status.
@@ -193,6 +195,8 @@ func (s UserStatus) String() string {
 		return "Pending Deletion"
 	case LegalHold:
 		return "Legal Hold"
+	case PendingBotVerification:
+		return "Pending Bot Verification"
 	default:
 		return ""
 	}

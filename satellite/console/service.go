@@ -84,6 +84,7 @@ const (
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	newInviteLimitErrMsg                 = "Only one new invitation can be sent at a time"
 	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
+	contactSupportErrMsg                 = "Please contact support"
 )
 
 var (
@@ -162,6 +163,9 @@ var (
 
 	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
 	ErrNotPaidTier = errs.Class("user is not paid tier")
+
+	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
+	ErrBotUser = errs.Class("user has to be verified by admin first")
 )
 
 // Service is handling accounts related logic.
@@ -1047,6 +1051,10 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	status := Active
+	if s.config.Captcha.FlagBotsEnabled && user.SignupCaptcha != nil && *user.SignupCaptcha >= s.config.Captcha.ScoreCutoffThreshold {
+		status = PendingBotVerification
+	}
+
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		Status: &status,
 	})
@@ -1203,16 +1211,28 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
-	user, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
+	user, nonActiveUsers, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
 	if user == nil {
-		if len(unverified) > 0 {
-			mon.Counter("login_email_unverified").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
-		} else {
-			mon.Counter("login_email_invalid").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
+		isBotAccount := false
+		for _, usr := range nonActiveUsers {
+			if usr.Status == PendingBotVerification {
+				isBotAccount = true
+				botAccount := usr
+				user = &botAccount
+				break
+			}
 		}
-		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+
+		if !isBotAccount {
+			if len(nonActiveUsers) > 0 {
+				mon.Counter("login_email_unverified").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
+			} else {
+				mon.Counter("login_email_invalid").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
+			}
+			return nil, ErrLoginCredentials.New(credentialsErrMsg)
+		}
 	}
 
 	now := time.Now()
@@ -1761,6 +1781,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	user, err := s.getUserAndAuditLog(ctx, "create project")
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if user.Status == PendingBotVerification {
+		return nil, ErrBotUser.New(contactSupportErrMsg)
 	}
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
@@ -3268,7 +3292,7 @@ func (s *Service) authorize(ctx context.Context, userID uuid.UUID, expiration ti
 		return nil, Error.New("authorization failed. no user with id: %s", userID.String())
 	}
 
-	if user.Status != Active {
+	if user.Status != Active && user.Status != PendingBotVerification {
 		return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
 	}
 	return WithUser(ctx, user), nil
@@ -3810,6 +3834,10 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 
 	if response != ProjectInvitationAccept && response != ProjectInvitationDecline {
 		return ErrValidation.New(projInviteResponseInvalidErrMsg)
+	}
+
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
 	}
 
 	proj, err := s.GetProjectNoAuth(ctx, projectID)

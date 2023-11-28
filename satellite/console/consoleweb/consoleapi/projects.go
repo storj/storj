@@ -277,6 +277,11 @@ func (p *Projects) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	project, err := p.service.CreateProject(ctx, payload)
 	if err != nil {
+		if console.ErrBotUser.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
@@ -663,6 +668,8 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusNotFound
 		case console.ErrValidation.Has(err):
 			status = http.StatusBadRequest
+		case console.ErrBotUser.Has(err):
+			status = http.StatusForbidden
 		}
 		p.serveJSONError(ctx, w, status, err)
 	}

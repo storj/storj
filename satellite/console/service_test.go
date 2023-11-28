@@ -158,6 +158,31 @@ func TestService(t *testing.T) {
 				require.Nil(t, createdProject)
 			})
 
+			t.Run("CreateProject when bot account", func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Bot User",
+					Email:    "mfauser@mail.test",
+				}, 1)
+				require.NoError(t, err)
+
+				botStatus := console.PendingBotVerification
+				err = sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+					Status: &botStatus,
+				})
+				require.NoError(t, err)
+
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				// Creating a project by bot account must fail.
+				createdProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
+					Name: "test name",
+				})
+				require.Error(t, err)
+				require.True(t, console.ErrBotUser.Has(err))
+				require.Nil(t, createdProject)
+			})
+
 			t.Run("CreateProject with placement", func(t *testing.T) {
 				uid := planet.Uplinks[2].Projects[0].Owner.ID
 				err := sat.API.DB.Console().Users().Update(ctx, uid, console.UpdateUserRequest{
@@ -2513,6 +2538,25 @@ func TestProjectInvitations(t *testing.T) {
 			// Ensure that an error is returned if you try to accept an invitation that you have already declined or doesn't exist.
 			err = service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+		})
+
+		t.Run("respond by bot account", func(t *testing.T) {
+			user := addUser(t, ctx)
+			botStatus := console.PendingBotVerification
+			err := sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &botStatus,
+			})
+			require.NoError(t, err)
+
+			proj := addProject(t, ctx)
+			_ = addInvite(t, ctx, proj, user.Email)
+
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			err = service.RespondToProjectInvitation(userCtx, proj.ID, console.ProjectInvitationDecline)
+			require.Error(t, err)
+			require.True(t, console.ErrBotUser.Has(err))
 		})
 	})
 }

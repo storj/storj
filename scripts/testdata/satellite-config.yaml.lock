@@ -223,6 +223,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # The maximum body size allowed to be received by the API
 # console.body-size-limit: 100.00 KB
 
+# indicates if flagging bot accounts is enabled
+# console.captcha.flag-bots-enabled: false
+
 # whether or not captcha is enabled
 # console.captcha.login.hcaptcha.enabled: false
 
@@ -258,6 +261,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # captcha site key
 # console.captcha.registration.recaptcha.site-key: ""
+
+# bad captcha score threshold which is used to prevent bot user activity
+# console.captcha.score-cutoff-threshold: 0.8
 
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
