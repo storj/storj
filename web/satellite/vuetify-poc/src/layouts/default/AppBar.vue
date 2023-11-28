@@ -90,9 +90,6 @@
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg">
                     <v-list-item v-if="billingEnabled" class="py-2 rounded-lg">
-                        <!-- <template #prepend>
-                            <icon-team size="18"></icon-team>
-                        </template> -->
                         <v-list-item-title class="text-body-2">
                             <v-chip
                                 class="font-weight-bold"
@@ -201,12 +198,10 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import IconCard from '@poc/components/icons/IconCard.vue';
-import IconGlobe from '@poc/components/icons/IconGlobe.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconLogout from '@poc/components/icons/IconLogout.vue';
 import IconRegion from '@poc/components/icons/IconRegion.vue';
-import IconTeam from '@poc/components/icons/IconTeam.vue';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();

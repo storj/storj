@@ -13,7 +13,7 @@
         <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pa-5 pl-7 pos-relative">
                 <template #prepend>
-                    <img class="d-block" :src="STEP_ICON_AND_TITLE[step].icon">
+                    <img class="d-block" :src="STEP_ICON_AND_TITLE[step].icon" alt="icon">
                 </template>
 
                 <v-card-title class="font-weight-bold">

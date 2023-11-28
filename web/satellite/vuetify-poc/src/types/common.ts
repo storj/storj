@@ -24,3 +24,5 @@ export type SaveButtonsItem = string | {
     name: string;
     value: string;
 };
+
+export const MAX_SEARCH_VALUE_LENGTH = 200;

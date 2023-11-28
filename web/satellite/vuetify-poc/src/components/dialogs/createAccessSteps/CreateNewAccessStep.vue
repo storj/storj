@@ -13,6 +13,7 @@
                     autofocus
                     :hide-details="false"
                     :rules="nameRules"
+                    maxlength="100"
                     class="mb-n2"
                 />
             </v-col>

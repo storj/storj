@@ -15,7 +15,6 @@
                 label="I understand, don't show this again."
                 color="default"
                 :hide-details="false"
-                :rules="[ RequiredRule ]"
                 @update:model-value="value => LocalData.setServerSideEncryptionModalHidden(value)"
             />
         </v-col>

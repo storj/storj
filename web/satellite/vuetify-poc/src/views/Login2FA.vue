@@ -12,6 +12,7 @@
                     :loading="loading"
                     autofocus
                     class="my-2"
+                    maxlength="6"
                     @update:modelValue="value => onValueChange(value)"
                 />
             </v-card>
@@ -45,6 +46,7 @@
                     label="Recovery Code"
                     class="mt-5"
                     required
+                    maxlength="50"
                     @update:modelValue="value => onValueChange(value)"
                 />
                 <v-btn

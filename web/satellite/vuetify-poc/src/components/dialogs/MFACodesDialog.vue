@@ -43,6 +43,7 @@
                             :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
                             :label="useRecoveryCode ? 'Recovery code' : '2FA Code'"
                             :hide-details="false"
+                            :maxlength="useRecoveryCode ? 50 : 6"
                             required
                             autofocus
                         />

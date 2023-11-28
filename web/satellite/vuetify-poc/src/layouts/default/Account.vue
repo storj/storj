@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount } from 'vue';
+import { onBeforeMount } from 'vue';
 import { VApp } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';

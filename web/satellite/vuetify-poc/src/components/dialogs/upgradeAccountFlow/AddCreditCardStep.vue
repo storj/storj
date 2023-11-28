@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VDivider, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
+import { VBtn, VIcon, VCol, VRow } from 'vuetify/components';
 import { useTheme } from 'vuetify';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

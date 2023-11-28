@@ -326,7 +326,7 @@ const selectedProject = computed((): Project => {
     return projectsStore.state.selectedProject;
 });
 
-/*
+/**
  * Returns user's own projects.
  */
 const ownProjects = computed((): Project[] => {

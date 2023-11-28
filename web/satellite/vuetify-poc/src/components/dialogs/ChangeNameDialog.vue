@@ -37,6 +37,7 @@
                             label="Full name"
                             placeholder="Enter your name"
                             :hide-details="false"
+                            maxlength="72"
                             required
                             autofocus
                             class="mt-2"

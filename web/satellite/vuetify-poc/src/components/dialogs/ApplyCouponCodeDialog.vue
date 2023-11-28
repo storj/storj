@@ -40,6 +40,7 @@
                                     :rules="[RequiredRule]"
                                     label="Coupon Code"
                                     :hide-details="false"
+                                    maxlength="50"
                                     autofocus
                                 />
                             </v-form>

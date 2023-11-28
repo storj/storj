@@ -14,6 +14,7 @@
             clearable
             density="comfortable"
             rounded="lg"
+            :maxlength="MAX_SEARCH_VALUE_LENGTH"
             class="mx-2 mt-2"
         />
 
@@ -137,6 +138,7 @@ import { tableSizeOptions } from '@/types/common';
 import { RouteConfig } from '@/types/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { MAX_SEARCH_VALUE_LENGTH } from '@poc/types/common';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconShare from '@poc/components/icons/IconShare.vue';

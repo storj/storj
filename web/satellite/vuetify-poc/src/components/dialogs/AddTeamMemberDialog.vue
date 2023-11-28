@@ -60,6 +60,7 @@
                                 v-model="email"
                                 variant="outlined"
                                 :rules="emailRules"
+                                maxlength="72"
                                 label="Enter e-mail"
                                 hint="Members will have read & write permissions."
                                 required

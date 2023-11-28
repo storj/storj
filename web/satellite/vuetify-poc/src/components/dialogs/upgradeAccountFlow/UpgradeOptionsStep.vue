@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCol, VDivider, VIcon, VRow } from 'vuetify/components';
+import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';

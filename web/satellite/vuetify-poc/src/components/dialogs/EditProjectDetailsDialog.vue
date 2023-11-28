@@ -36,6 +36,7 @@
                     :rules="rules"
                     :label="`Project ${field}`"
                     :counter="maxLength"
+                    :maxlength="maxLength"
                     persistent-counter
                     :hide-details="false"
                     autofocus

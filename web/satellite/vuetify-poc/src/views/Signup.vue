@@ -25,16 +25,11 @@
                                 name="email"
                                 type="email"
                                 placeholder="Enter your email"
+                                maxlength="72"
                                 flat
                                 clearable
                                 required
-                            >
-                                <!-- <template v-slot:prepend-inner>
-                  <v-icon
-                    icon="mdi-email-outline"
-                  />
-                </template> -->
-                            </v-text-field>
+                            />
 
                             <v-text-field
                                 v-model="password"
@@ -44,13 +39,7 @@
                                 :type="showPassword ? 'text' : 'password'"
                                 :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                                 @click:append-inner="showPassword = !showPassword"
-                            >
-                                <!-- <template v-slot:prepend-inner>
-                  <v-icon
-                    icon="mdi-key-outline"
-                  />
-                </template> -->
-                            </v-text-field>
+                            />
 
                             <v-checkbox density="compact" hide-details="true" required>
                                 <template #label>

@@ -98,7 +98,6 @@ import {
     VExpandTransition,
     VAlert,
     VTextField,
-    VDivider,
 } from 'vuetify/components';
 
 import { PassphraseOption } from '@/types/createAccessGrant';

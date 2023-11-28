@@ -14,6 +14,7 @@
             clearable
             density="comfortable"
             rounded="lg"
+            :maxlength="MAX_SEARCH_VALUE_LENGTH"
             class="mx-2 mt-2"
         />
 
@@ -87,6 +88,7 @@ import { useNotify } from '@/utils/hooks';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { SortDirection, tableSizeOptions } from '@/types/common';
+import { MAX_SEARCH_VALUE_LENGTH } from '@poc/types/common';
 
 import DeleteAccessDialog from '@poc/components/dialogs/DeleteAccessDialog.vue';
 import IconTrash from '@poc/components/icons/IconTrash.vue';

@@ -10,7 +10,7 @@
         <v-card ref="innerContent" rounded="xlg">
             <v-card-item class="pa-5 pl-7">
                 <template #prepend>
-                    <img class="d-block" src="@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg">
+                    <img class="d-block" src="@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg" alt="icon">
                 </template>
 
                 <v-card-title class="font-weight-bold">

@@ -73,7 +73,6 @@ import { VAppBar, VAppBarTitle, VBtn, VBtnToggle, VIcon, VImg, VMenu, VTooltip }
 
 const theme = useTheme();
 const activeTheme = ref(0);
-const drawer = ref(true);
 const menu = ref(false);
 
 function toggleTheme(newTheme: string): void {

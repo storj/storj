@@ -28,6 +28,7 @@
                     clearable
                     density="comfortable"
                     rounded="lg"
+                    :maxlength="MAX_SEARCH_VALUE_LENGTH"
                     class="mx-2 mt-2"
                 />
             </v-col>
@@ -153,6 +154,7 @@ import { Project } from '@/types/projects';
 import { SortDirection, tableSizeOptions } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { MAX_SEARCH_VALUE_LENGTH } from '@poc/types/common';
 
 import IconTrash from '@poc/components/icons/IconTrash.vue';
 import IconCopy from '@poc/components/icons/IconCopy.vue';

@@ -42,5 +42,4 @@ const projectsStore = useProjectsStore();
 const isAddMemberDialogShown = ref<boolean>(false);
 
 const selectedProjectID = computed((): string => projectsStore.state.selectedProject.id);
-
 </script>

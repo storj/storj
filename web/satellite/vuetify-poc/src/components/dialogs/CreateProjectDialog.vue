@@ -108,6 +108,7 @@
                                 type="number"
                                 :rules="projectLimitRules"
                                 :model-value="inputText"
+                                maxlength="4"
                                 @update:model-value="updateInputText"
                             />
                         </v-col>

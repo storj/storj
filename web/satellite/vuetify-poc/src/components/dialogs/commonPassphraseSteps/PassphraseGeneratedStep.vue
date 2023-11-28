@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { generateMnemonic } from 'bip39-english';
-import { VForm, VRow, VCol, VCheckbox, VDivider } from 'vuetify/components';
+import { VForm, VRow, VCol, VCheckbox } from 'vuetify/components';
 
 import { RequiredRule, DialogStepComponent } from '@poc/types/common';
 

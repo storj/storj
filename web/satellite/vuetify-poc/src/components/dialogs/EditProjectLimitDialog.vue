@@ -40,6 +40,7 @@
                             :rules="rules"
                             :hide-details="false"
                             :model-value="inputText"
+                            maxlength="50"
                             @update:model-value="updateInputText"
                         >
                             <template #append-inner>

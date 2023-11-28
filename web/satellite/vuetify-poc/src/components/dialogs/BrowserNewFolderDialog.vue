@@ -44,9 +44,7 @@
 
             <v-form v-model="formValid" class="px-7 pt-9 pb-4">
                 <v-row>
-                    <v-col
-                        cols="12"
-                    >
+                    <v-col cols="12">
                         <v-text-field
                             v-model="folder"
                             variant="outlined"
@@ -54,6 +52,7 @@
                             label="Folder Name"
                             placeholder="Enter a folder name"
                             :hide-details="false"
+                            maxlength="50"
                             required
                             autofocus
                         />

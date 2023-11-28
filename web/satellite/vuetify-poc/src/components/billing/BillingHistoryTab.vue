@@ -62,7 +62,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { VBtn, VBtnGroup, VCard, VChip, VCol, VRow, VSelect } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { VDataTable } from 'vuetify/labs/components';
