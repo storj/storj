@@ -695,7 +695,13 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 	prefix := "satellite-admin" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
-	return satellite.NewAdmin(log, identity, db, metabaseDB, versionInfo, &config, nil)
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	return satellite.NewAdmin(log, identity, db, metabaseDB, liveAccounting, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {

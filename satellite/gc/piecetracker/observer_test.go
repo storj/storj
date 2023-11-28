@@ -35,9 +35,9 @@ func TestObserverPieceTracker(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// ensure that the piece counts are empty
-		pieceCounts, err := planet.Satellites[0].Overlay.DB.AllPieceCounts(ctx)
+		pieceCounts, err := planet.Satellites[0].Overlay.DB.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(pieceCounts))
+		require.Equal(t, 4, len(pieceCounts))
 
 		// Setup: create 50KiB of data for the uplink to upload
 		testdata := testrand.Bytes(50 * memory.KiB)
@@ -51,7 +51,7 @@ func TestObserverPieceTracker(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that the piece counts are correct
-		pieceCounts, err = planet.Satellites[0].Overlay.DB.AllPieceCounts(ctx)
+		pieceCounts, err = planet.Satellites[0].Overlay.DB.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
 		require.True(t, len(pieceCounts) > 0)
 
@@ -71,7 +71,7 @@ func TestObserverPieceTracker(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that the piece counts are correct
-		pieceCounts, err = planet.Satellites[0].Overlay.DB.AllPieceCounts(ctx)
+		pieceCounts, err = planet.Satellites[0].Overlay.DB.ActiveNodesPieceCounts(ctx)
 		require.NoError(t, err)
 		require.True(t, len(pieceCounts) > 0)
 

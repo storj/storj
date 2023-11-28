@@ -32,8 +32,19 @@ func main() {
 		GoName:         "GetPlacements",
 		TypeScriptName: "getPlacements",
 		Response:       []backoffice.PlacementInfo{},
-		NoCookieAuth:   true,
-		NoAPIAuth:      true,
+	})
+
+	group = api.Group("UserManagement", "users")
+
+	group.Get("/{email}", &apigen.Endpoint{
+		Name:           "Get user",
+		Description:    "Gets user by email address",
+		GoName:         "GetUserByEmail",
+		TypeScriptName: "getUserByEmail",
+		PathParams: []apigen.Param{
+			apigen.NewParam("email", ""),
+		},
+		Response: backoffice.User{},
 	})
 
 	modroot := findModuleRootDir()

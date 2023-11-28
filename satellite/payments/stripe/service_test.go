@@ -450,7 +450,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		satellite.API.Payments.StripeService.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
-		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -532,7 +532,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			require.Nil(t, projectRecord)
 		}
 
-		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
 		require.NoError(t, err)
 
 		for i := 0; i < len(projects); i++ {
@@ -703,7 +703,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		satellite.API.Payments.StripeService.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
-		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -773,7 +773,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 			},
 		}
 
-		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage)
+		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
 		require.Len(t, items, len(usage)*3)
 
 		for i, tt := range []struct {
@@ -1318,7 +1318,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 						99)
 				}
 
-				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
+				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start, false))
 
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
@@ -1477,7 +1477,7 @@ func TestProjectUsagePrice(t *testing.T) {
 					pb.PieceAction_GET, memory.TB.Int64(), 0, period)
 				require.NoError(t, err)
 
-				err = sat.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+				err = sat.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
 				require.NoError(t, err)
 
 				err = sat.API.Payments.StripeService.InvoiceApplyProjectRecords(ctx, period)

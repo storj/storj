@@ -27,7 +27,7 @@ type Version struct {
 
 // Metadata is metadata associated to a document.
 type Metadata struct {
-	Owner string      `json:"owner"`
+	Owner string      `json:"owner,omitempty"`
 	Tags  [][2]string `json:"tags"`
 }
 

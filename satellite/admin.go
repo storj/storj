@@ -20,7 +20,9 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -66,6 +68,7 @@ type Admin struct {
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
+		Service  *backoffice.Service
 	}
 
 	Buckets struct {
@@ -79,11 +82,23 @@ type Admin struct {
 	FreezeAccounts struct {
 		Service *console.AccountFreezeService
 	}
+
+	LiveAccounting struct {
+		Cache accounting.Cache
+	}
+
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
+	}
+
+	Accounting struct {
+		Service *accounting.Service
+	}
 }
 
 // NewAdmin creates a new satellite admin peer.
 func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB,
-	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
+	liveAccounting accounting.Cache, versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
 	peer := &Admin{
 		Log:        log,
 		Identity:   full,
@@ -208,7 +223,31 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 	}
 
-	{ // setup admin endpoint
+	{ // setup live accounting
+		peer.LiveAccounting.Cache = liveAccounting
+	}
+
+	{ // setup project limits
+		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
+			config.Console.Config.UsageLimits.Storage.Free,
+			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
+			config.ProjectLimit,
+		)
+	}
+
+	{ // setup accounting project usage
+		peer.Accounting.Service = accounting.NewService(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			peer.ProjectLimits.Cache,
+			*metabaseDB,
+			config.LiveAccounting.BandwidthCacheTTL,
+			config.LiveAccounting.AsOfSystemInterval,
+		)
+	}
+
+	{ // setup admin
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
 		if err != nil {
@@ -219,6 +258,14 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		if err != nil {
 			return nil, err
 		}
+
+		peer.Admin.Service = backoffice.NewService(
+			log.Named("back-office:service"),
+			peer.DB.Console(),
+			peer.DB.ProjectAccounting(),
+			peer.Accounting.Service,
+			placement,
+		)
 
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
@@ -232,7 +279,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
-			placement,
+			peer.Admin.Service,
 			config.Console,
 			adminConfig,
 		)

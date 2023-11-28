@@ -18,6 +18,9 @@ import (
 // ErrAccountFreeze is the class for errors that occur during operation of the account freeze service.
 var ErrAccountFreeze = errs.Class("account freeze service")
 
+// ErrNoFreezeStatus is the error for when a user doesn't have a particular freeze status.
+var ErrNoFreezeStatus = errs.New("this freeze event does not exist for this user")
+
 // AccountFreezeEvents exposes methods to manage the account freeze events table in database.
 //
 // architecture: Database
@@ -264,7 +267,7 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, BillingFreeze)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errs.New("user is not frozen due to nonpayment of invoices")
+			return ErrNoFreezeStatus
 		}
 
 		if event.Limits == nil {
@@ -358,7 +361,7 @@ func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uui
 
 		_, err = tx.AccountFreezeEvents().Get(ctx, userID, BillingWarning)
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrAccountFreeze.New("user is not warned")
+			return ErrAccountFreeze.Wrap(errs.Combine(err, ErrNoFreezeStatus))
 		}
 
 		err = ErrAccountFreeze.Wrap(tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning))
@@ -497,7 +500,7 @@ func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, ViolationFreeze)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errs.New("user is not violation frozen")
+			return ErrNoFreezeStatus
 		}
 
 		if event.Limits == nil {
@@ -647,7 +650,7 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, LegalFreeze)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errs.New("user is not legal-frozen")
+			return ErrNoFreezeStatus
 		}
 
 		if event.Limits == nil {

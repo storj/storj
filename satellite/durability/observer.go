@@ -75,12 +75,12 @@ type ReportConfig struct {
 type Report struct {
 	healthStat         map[string]*HealthStat
 	busFactor          HealthStat
-	classifiers        []NodeClassifier
+	classifier         NodeClassifier
 	aliasMap           *metabase.NodeAliasMap
 	nodes              map[storj.NodeID]*nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
-	reporter           func(n time.Time, name string, stat *HealthStat)
+	reporter           func(n time.Time, class string, value string, stat *HealthStat)
 	reportThreshold    int
 	busFactorThreshold int
 	asOfSystemInterval time.Duration
@@ -90,17 +90,19 @@ type Report struct {
 	className map[classID]string
 
 	// contains the available classes for each node alias.
-	classified [][]classID
+	classified []classID
 
 	maxPieceCount int
+	class         string
 }
 
 // NewDurability creates the new instance.
-func NewDurability(db overlay.DB, metabaseDB *metabase.DB, classifiers []NodeClassifier, maxPieceCount int, reportThreshold int, busFactorThreshold int, asOfSystemInterval time.Duration) *Report {
+func NewDurability(db overlay.DB, metabaseDB *metabase.DB, class string, classifier NodeClassifier, maxPieceCount int, reportThreshold int, busFactorThreshold int, asOfSystemInterval time.Duration) *Report {
 	return &Report{
+		class:              class,
 		db:                 db,
 		metabaseDB:         metabaseDB,
-		classifiers:        classifiers,
+		classifier:         classifier,
 		reportThreshold:    reportThreshold,
 		busFactorThreshold: busFactorThreshold,
 		asOfSystemInterval: asOfSystemInterval,
@@ -126,40 +128,44 @@ func (c *Report) Start(ctx context.Context, startTime time.Time) error {
 		return errs.Wrap(err)
 	}
 	c.aliasMap = aliasMap
+	c.resetStat()
 	c.classifyNodeAliases()
 	return nil
 }
 
-func (c *Report) classifyNodeAliases() {
-	c.classID = make(map[string]classID, len(c.classifiers))
-	c.className = make(map[classID]string, len(c.classifiers))
+func (c *Report) resetStat() {
+	c.healthStat = make(map[string]*HealthStat)
+	c.busFactor = HealthStat{}
+}
 
-	c.classified = make([][]classID, c.aliasMap.Max()+1)
+func (c *Report) classifyNodeAliases() {
+	c.classID = make(map[string]classID)
+	c.className = make(map[classID]string)
+
+	c.classID["unclassified"] = 1
+	c.className[0] = "unclassified"
+
+	c.classified = make([]classID, c.aliasMap.Max()+1)
 	for _, node := range c.nodes {
 		alias, ok := c.aliasMap.Alias(node.ID)
 		if !ok {
 			continue
 		}
 
-		classes := make([]classID, len(c.classifiers))
-		for i, group := range c.classifiers {
-			class := group(node)
-			id, ok := c.classID[class]
-			if !ok {
-				id = classID(len(c.classID))
-				c.className[id] = class
-				c.classID[class] = id
-			}
-			classes[i] = id
+		class := c.classifier(node)
+		id, ok := c.classID[class]
+		if !ok {
+			id = classID(len(c.classID))
+			c.className[id] = class
+			c.classID[class] = id
 		}
-		c.classified[alias] = classes
+		c.classified[alias] = id
 	}
 }
 
 // Fork implements rangedloop.Observer.
 func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 	d := &ObserverFork{
-		classifiers:            c.classifiers,
 		aliasMap:               c.aliasMap,
 		nodes:                  c.nodes,
 		classifierCache:        make([][]string, c.aliasMap.Max()+1),
@@ -200,14 +206,19 @@ func (c *Report) Join(ctx context.Context, partial rangedloop.Partial) (err erro
 func (c *Report) Finish(ctx context.Context) error {
 	reportTime := time.Now()
 	for name, stat := range c.healthStat {
-		c.reporter(reportTime, name, stat)
+		c.reporter(reportTime, c.class, name, stat)
 	}
 	return nil
 }
 
 // TestChangeReporter modifies the reporter for unit tests.
-func (c *Report) TestChangeReporter(r func(n time.Time, name string, stat *HealthStat)) {
+func (c *Report) TestChangeReporter(r func(n time.Time, class string, name string, stat *HealthStat)) {
 	c.reporter = r
+}
+
+// GetClass return with the class instance name (like last_net or country).
+func (c *Report) GetClass() string {
+	return c.class
 }
 
 // classID is a fork level short identifier for each class.
@@ -219,7 +230,6 @@ type ObserverFork struct {
 
 	healthStat      []HealthStat
 	busFactor       HealthStat
-	classifiers     []NodeClassifier
 	aliasMap        *metabase.NodeAliasMap
 	nodes           map[storj.NodeID]*nodeselection.SelectedNode
 	classifierCache [][]string
@@ -228,7 +238,7 @@ type ObserverFork struct {
 	reportThreshold    int
 	busFactorThreshold int
 
-	classified [][]classID
+	classified []classID
 }
 
 // Process implements rangedloop.Partial.
@@ -248,16 +258,15 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 				continue
 			}
 
-			classes := c.classified[piece.Alias]
+			class := c.classified[piece.Alias]
 
 			// unavailable/offline nodes were not classified
-			if len(classes) > 0 {
+			if class > 0 {
 				healthyPieceCount++
 			}
 
-			for _, class := range classes {
-				controlledByClass[class]++
-			}
+			controlledByClass[class]++
+
 		}
 
 		busFactorGroups := c.busFactorCache
@@ -301,9 +310,10 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 	return nil
 }
 
-func reportToEventkit(n time.Time, name string, stat *HealthStat) {
+func reportToEventkit(n time.Time, class string, name string, stat *HealthStat) {
 	ek.Event("durability",
-		eventkit.String("name", name),
+		eventkit.String("class", class),
+		eventkit.String("value", name),
 		eventkit.String("exemplar", stat.Exemplar),
 		eventkit.Timestamp("report_time", n),
 		eventkit.Int64("min", int64(stat.Min())),

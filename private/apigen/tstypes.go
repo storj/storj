@@ -130,24 +130,19 @@ func (types *Types) GenerateTypescriptDefinitions() string {
 
 			for i := 0; i < t.Type.NumField(); i++ {
 				field := t.Type.Field(i)
-				attributes := strings.Fields(field.Tag.Get("json"))
-				if len(attributes) == 0 || attributes[0] == "" {
-					pathParts := strings.Split(t.Type.PkgPath(), "/")
-					pkg := pathParts[len(pathParts)-1]
-					panic(fmt.Sprintf("(%s.%s).%s missing json declaration", pkg, name, field.Name))
-				}
-
-				jsonField := attributes[0]
-				if jsonField == "-" {
+				jsonInfo := parseJSONTag(t.Type, field)
+				if jsonInfo.Skip {
 					continue
 				}
 
-				isOptional := ""
-				if isNillableType(field.Type) {
+				var isOptional, isNullable string
+				if jsonInfo.OmitEmpty {
 					isOptional = "?"
+				} else if isNillableType(field.Type) {
+					isNullable = " | null"
 				}
 
-				pf("\t%s%s: %s;", jsonField, isOptional, TypescriptTypeName(field.Type))
+				pf("\t%s%s: %s%s;", jsonInfo.FieldName, isOptional, TypescriptTypeName(field.Type), isNullable)
 			}
 		}()
 	}

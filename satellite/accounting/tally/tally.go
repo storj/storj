@@ -335,10 +335,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 			}
 
 			for _, tally := range tallies {
-				bucket := observer.ensureBucket(metabase.ObjectLocation{
-					ProjectID:  tally.ProjectID,
-					BucketName: tally.BucketName,
-				})
+				bucket := observer.ensureBucket(tally.BucketLocation)
 				bucket.TotalSegments = tally.TotalSegments
 				bucket.TotalBytes = tally.TotalBytes
 				bucket.MetadataSize = tally.MetadataSize
@@ -361,13 +358,12 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocation) *accounting.BucketTally {
-	bucketLocation := location.Bucket()
-	bucket, exists := observer.Bucket[bucketLocation]
+func (observer *BucketTallyCollector) ensureBucket(location metabase.BucketLocation) *accounting.BucketTally {
+	bucket, exists := observer.Bucket[location]
 	if !exists {
 		bucket = &accounting.BucketTally{}
-		bucket.BucketLocation = bucketLocation
-		observer.Bucket[bucketLocation] = bucket
+		bucket.BucketLocation = location
+		observer.Bucket[location] = bucket
 	}
 
 	return bucket

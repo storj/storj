@@ -6,10 +6,12 @@ package apigen
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/zeebo/errs"
 
@@ -48,8 +50,6 @@ type Endpoint struct {
 	// It must start with a lowercase letter and can only contains letters, digits, _, and $.
 	// It cannot be empty.
 	TypeScriptName string
-	NoCookieAuth   bool
-	NoAPIAuth      bool
 	// Request is the type that defines the format of the request body.
 	Request interface{}
 	// Response is the type that defines the format of the response body.
@@ -63,16 +63,12 @@ type Endpoint struct {
 	// It must be of the same type than Response.
 	// If a mock generator is called it must not be nil unless Response is nil.
 	ResponseMock interface{}
-}
-
-// CookieAuth returns endpoint's cookie auth status.
-func (e *Endpoint) CookieAuth() bool {
-	return !e.NoCookieAuth
-}
-
-// APIAuth returns endpoint's API auth status.
-func (e *Endpoint) APIAuth() bool {
-	return !e.NoAPIAuth
+	// Settings is the data to pass to the middleware handlers to adapt the generated
+	// code to this endpoints.
+	//
+	// Not all the middlware handlers need extra data. Some of them use this data to disable it in
+	// some endpoints.
+	Settings map[any]any
 }
 
 // Validate validates the endpoint fields values are correct according to the documented constraints.
@@ -156,8 +152,8 @@ func (e *Endpoint) Validate() error {
 	return nil
 }
 
-// fullEndpoint represents endpoint with path and method.
-type fullEndpoint struct {
+// FullEndpoint represents endpoint with path and method.
+type FullEndpoint struct {
 	Endpoint
 	Path   string
 	Method string
@@ -185,8 +181,12 @@ type EndpointGroup struct {
 	// TypeScript generator uses it for composing the URL base path (lowercase).
 	//
 	// Document generator uses as it is.
-	Prefix    string
-	endpoints []*fullEndpoint
+	Prefix string
+	// Middleware is a list of additional processing of requests that apply to all the endpoints of this group.
+	Middleware []Middleware
+	// endpoints is the list of endpoints added to this group through the "HTTP method" methods (e.g.
+	// Get, Patch, etc.).
+	endpoints []*FullEndpoint
 }
 
 // Get adds new GET endpoint to endpoints group.
@@ -234,7 +234,7 @@ func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 		panic(err)
 	}
 
-	ep := &fullEndpoint{*endpoint, path, method}
+	ep := &FullEndpoint{*endpoint, path, method}
 	for _, e := range eg.endpoints {
 		if e.Path == path && e.Method == method {
 			panic(fmt.Sprintf("there is already an endpoint defined with path %q and method %q", path, method))
@@ -293,4 +293,148 @@ func NewParam(name string, instance interface{}) Param {
 		Name: name,
 		Type: reflect.TypeOf(instance),
 	}
+}
+
+// Middleware allows to generate custom code that's executed at the beginning of the handler.
+//
+// The implementation must declare their dependencies through unexported struct fields which doesn't
+// begin with underscore (_), except fields whose name is just underscore (the blank identifier).
+// The API generator will add the import those dependencies and allow to pass them through the
+// constructor parameters of the group handler implementation, except the fields named with the
+// blank identifier that should be only used to import packages that the generated code needs.
+//
+// The limitation of using fields with the blank identifier as its names is that those packages
+// must at least to export a type, hence, it isn't possible to import packages that only export
+// constants or variables.
+//
+// Middleware implementation with the same struct field name and type will be handled as one
+// parameter, so the dependency will be shared between them. If they have the same struct field
+// name, but a different type, the API generator will panic.
+// NOTE types are compared as [package].[type name], hence, package name collision are not handled
+// and it will produce code that doesn't compile.
+type Middleware interface {
+	// Generate generates the code that the API generator adds to a handler endpoint before calling
+	// the service.
+	//
+	// All the dependencies defined as struct fields of the implementation of this interface are
+	// available as fields of the struct handler. The generated code is executed inside of the methods
+	// of the struct handler, hence it has access to all its fields. The handler instance is available
+	// through the variable name h. For example:
+	//
+	// type middlewareImpl struct {
+	// 	 log  *zap.Logger // Import path: "go.uber.org/zap"
+	//   auth api.Auth   // Import path: "storj.io/storj/private/api"
+	// }
+	//
+	// The generated code can access to log and auth through h.log and h.auth.
+	//
+	// Each handler method where the code is executed has access to the following variables names:
+	// ctx of type context.Context, w of type http.ResponseWriter, and r of type *http.Request.
+	// Make sure to not declare variable with those names in the generated code unless that's wrapped
+	// in a scope.
+	Generate(api *API, group *EndpointGroup, ep *FullEndpoint) string
+}
+
+func middlewareImports(m any) []string {
+	imports := []string{}
+	middlewareWalkFields(m, func(f reflect.StructField) {
+		if p := f.Type.PkgPath(); p != "" {
+			imports = append(imports, p)
+		}
+	})
+
+	return imports
+}
+
+// middlewareFields returns the list of fields of a middleware implementation. It panics if m isn't
+// a struct type, it has embedded fields, or it has unexported fields.
+func middlewareFields(m any) []middlewareField {
+	fields := []middlewareField{}
+	middlewareWalkFields(m, func(f reflect.StructField) {
+		if f.Name == "_" {
+			return
+		}
+
+		psymbol := ""
+		t := f.Type
+		if t.Kind() == reflect.Pointer {
+			psymbol = "*"
+			t = f.Type.Elem()
+		}
+
+		typeref := t.Name()
+		if p := t.PkgPath(); p != "" {
+			typeref = fmt.Sprintf("%s%s.%s", psymbol, filepath.Base(p), typeref)
+		}
+		fields = append(fields, middlewareField{Name: f.Name, Type: typeref})
+	})
+
+	return fields
+}
+
+func middlewareWalkFields(m any, walk func(f reflect.StructField)) {
+	t := reflect.TypeOf(m)
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("middleware %q isn't a struct type", t.Name()))
+	}
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.FieldByIndex([]int{i})
+		if f.Anonymous {
+			panic(fmt.Sprintf("middleware %q has a embedded field %q", t.Name(), f.Name))
+		}
+
+		if f.Name != "_" {
+			// Disallow fields that begin with underscore.
+			if !unicode.IsLetter([]rune(f.Name)[0]) {
+				panic(
+					fmt.Sprintf(
+						"middleware %q has a field name beginning with no letter %q. Change it to begin with lower case letter",
+						t.Name(),
+						f.Name,
+					),
+				)
+			}
+
+			if unicode.IsUpper([]rune(f.Name)[0]) {
+				panic(
+					fmt.Sprintf(
+						"middleware %q has a field name beginning with upper case %q. Change it to begin with lower case",
+						t.Name(),
+						f.Name,
+					),
+				)
+			}
+		}
+
+		walk(f)
+	}
+}
+
+// middlewareField has the name of the field and type for adding to handler structs that the
+// API generator generates during the generation phase.
+type middlewareField struct {
+	// Name is the name of the field. It must fulfill Go identifiers specification
+	// https://go.dev/ref/spec#Identifiers
+	Name string
+	// Type is the type's name of the field.
+	Type string
+}
+
+// LoadSetting returns from endpoint.Settings the value assigned to key or
+// returns defaultValue if the key doesn't exist.
+//
+// It panics if key doesn't have a value of the type T.
+func LoadSetting[T any](key any, endpoint *FullEndpoint, defaultValue T) T {
+	v, ok := endpoint.Settings[key]
+	if !ok {
+		return defaultValue
+	}
+
+	vt, vtok := v.(T)
+	if !vtok {
+		panic(fmt.Sprintf("expected %T got %T", vt, v))
+	}
+
+	return vt
 }

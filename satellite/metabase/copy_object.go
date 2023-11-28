@@ -122,7 +122,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 	var precommit precommitConstraintResult
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		sourceObject, err := getObjectExactVersion(ctx, tx, opts)
+		sourceObject, err := getObjectNonPendingExactVersion(ctx, tx, opts)
 		if err != nil {
 			if ErrObjectNotFound.Has(err) {
 				return ErrObjectNotFound.New("source object not found")
@@ -130,8 +130,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return err
 		}
 		if sourceObject.StreamID != opts.StreamID {
-			// TODO(versioning): should we report it as "not found" instead?
 			return ErrObjectNotFound.New("object was changed during copy")
+		}
+		if sourceObject.Status.IsDeleteMarker() {
+			return ErrMethodNotAllowed.New("copying delete marker is not allowed")
 		}
 
 		if opts.VerifyLimits != nil {
@@ -241,7 +243,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			DisallowDelete: opts.NewDisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
@@ -335,15 +337,16 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	return newObject, nil
 }
 
-// getObjectExactVersion returns object information for exact version.
-func getObjectExactVersion(ctx context.Context, tx tagsql.Tx, opts FinishCopyObject) (_ Object, err error) {
+// getObjectNonPendingExactVersion returns object information for exact version.
+//
+// Note: this returns both committed objects and delete markers.
+func getObjectNonPendingExactVersion(ctx context.Context, tx tagsql.Tx, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
 
-	// TODO(ver): should we allow copying delete markers?
 	object := Object{}
 	err = tx.QueryRowContext(ctx, `
 		SELECT
@@ -356,7 +359,7 @@ func getObjectExactVersion(ctx context.Context, tx tagsql.Tx, opts FinishCopyObj
 		FROM objects
 		WHERE
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
-			status IN `+statusesCommitted+` AND
+			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(

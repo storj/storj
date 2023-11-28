@@ -723,7 +723,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			obj := metabasetest.RandObjectStream()
 			obj.Version = 12000
-			_ = metabasetest.CreateObject(ctx, t, db, obj, 0)
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
 			obj.Version = 13000
 			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, obj, 0)
 
@@ -754,13 +754,6 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			movedObject := deletionResult.Markers[0]
-			movedObject.ObjectStream.ProjectID = obj.ProjectID
-			movedObject.ObjectStream.BucketName = obj.BucketName
-			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
-			movedObject.ObjectStream.Version = 13001
-			movedObject.Status = metabase.CommittedUnversioned
-
 			// move of delete marker should fail
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
@@ -770,12 +763,15 @@ func TestFinishMoveObject(t *testing.T) {
 
 					NewVersioned: false,
 				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+				ErrText:  "moving delete marker is not allowed",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
+					metabase.RawObject(unversionedObject),
 					metabase.RawObject(versionedObject),
-					metabase.RawObject(movedObject),
+					metabase.RawObject(deletionResult.Markers[0]),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -816,13 +812,6 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			movedObject := deletionResult.Markers[0]
-			movedObject.ObjectStream.ProjectID = obj.ProjectID
-			movedObject.ObjectStream.BucketName = obj.BucketName
-			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
-			movedObject.ObjectStream.Version = 13001
-			movedObject.Status = metabase.CommittedVersioned
-
 			// copy of delete marker should fail
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
@@ -832,11 +821,13 @@ func TestFinishMoveObject(t *testing.T) {
 
 					NewVersioned: true,
 				},
+				ErrClass: &metabase.ErrMethodNotAllowed,
+				ErrText:  "moving delete marker is not allowed",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					metabase.RawObject(movedObject),
+					metabase.RawObject(deletionResult.Markers[0]),
 					metabase.RawObject(sourceObject),
 					metabase.RawObject(unversionedObject),
 					metabase.RawObject(versionedObject),

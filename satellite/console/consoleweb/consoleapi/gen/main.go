@@ -6,11 +6,16 @@ package main
 //go:generate go run ./
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/uuid"
+	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
@@ -29,6 +34,7 @@ func main() {
 
 	{
 		g := a.Group("ProjectManagement", "projects")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
 
 		g.Post("/create", &apigen.Endpoint{
 			Name:           "Create new Project",
@@ -117,6 +123,7 @@ func main() {
 
 	{
 		g := a.Group("APIKeyManagement", "apikeys")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
 
 		g.Post("/create", &apigen.Endpoint{
 			Name:           "Create new macaroon API key",
@@ -140,6 +147,7 @@ func main() {
 
 	{
 		g := a.Group("UserManagement", "users")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
 
 		g.Get("/", &apigen.Endpoint{
 			Name:           "Get User",
@@ -181,3 +189,45 @@ func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+
+// AuthMiddleware customize endpoints to authenticate requests by API Key or Cookie.
+type AuthMiddleware struct {
+	//lint:ignore U1000 this field is used by the API generator to expose in the handler.
+	log *zap.Logger
+	//lint:ignore U1000 this field is used by the API generator to expose in the handler.
+	auth api.Auth
+	_    http.ResponseWriter // Import the http package to use its HTTP status constants
+}
+
+// Generate satisfies the apigen.Middleware.
+func (a AuthMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+	noapikey := apigen.LoadSetting(NoAPIKey, ep, false)
+	nocookie := apigen.LoadSetting(NoCookie, ep, false)
+
+	if noapikey && nocookie {
+		return ""
+	}
+
+	return fmt.Sprintf(`ctx, err = h.auth.IsAuthenticated(ctx, r, %t, %t)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}`, !nocookie, !noapikey)
+}
+
+var _ apigen.Middleware = AuthMiddleware{}
+
+type (
+	tagNoAPIKey struct{}
+	tagNoCookie struct{}
+)
+
+var (
+	// NoAPIKey is the key for endpoint settings to indicate that it doesn't use API Key
+	// authentication mechanism.
+	NoAPIKey tagNoAPIKey
+	// NoCookie is the key for endpoint settings to indicate that it doesn't use cookie authentication
+	// mechanism.
+	NoCookie tagNoCookie
+)

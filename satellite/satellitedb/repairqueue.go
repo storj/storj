@@ -30,6 +30,47 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
+// Stat returns stat of the current queue state.
+func (r *repairQueue) Stat(ctx context.Context) ([]queue.Stat, error) {
+	query := `
+        select placement,
+            count(1),
+            max(inserted_at)  as max_inserted_at,
+            min(inserted_at)  as min_inserted_at,
+            max(attempted_at) as max_attempted_at,
+            min(attempted_at) as min_attempted_at,
+            max(segment_health) as max_health,
+            min(segment_health) as min_health
+        from repair_queue
+        group by placement, attempted_at is null`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var res []queue.Stat
+	for rows.Next() {
+		var stat queue.Stat
+		err = rows.Scan(
+			&stat.Placement,
+			&stat.Count,
+			&stat.MaxInsertedAt,
+			&stat.MinInsertedAt,
+			&stat.MaxAttemptedAt,
+			&stat.MinAttemptedAt,
+			&stat.MaxSegmentHealth,
+			&stat.MinSegmentHealth,
+		)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, stat)
+	}
+	return res, rows.Err()
+}
+
 func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist

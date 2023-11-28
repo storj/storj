@@ -21,6 +21,8 @@ import (
 
 	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/collect"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -28,6 +30,7 @@ import (
 
 	"storj.io/common/experiment"
 	"storj.io/common/rpc/rpctracing"
+	"storj.io/common/sync2/mpscqueue"
 	"storj.io/common/tracing"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
@@ -68,8 +71,9 @@ type external struct {
 	}
 
 	debug struct {
-		pprofFile string
-		traceFile string
+		pprofFile       string
+		traceFile       string
+		monkitTraceFile string
 	}
 
 	events struct {
@@ -124,7 +128,7 @@ func (ex *external) Setup(f clingy.Flags) {
 	).(string)
 
 	ex.tracing.tags = f.Flag(
-		"trace-tags", "coma separated k=v pairs to be added to distributed traces", map[string]string{},
+		"trace-tags", "comma separated k=v pairs to be added to distributed traces", map[string]string{},
 		clingy.Advanced,
 		clingy.Transform(func(val string) (map[string]string, error) {
 			res := map[string]string{}
@@ -148,6 +152,11 @@ func (ex *external) Setup(f clingy.Flags) {
 
 	ex.debug.traceFile = f.Flag(
 		"debug-trace", "File to collect Golang trace data", "",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.monkitTraceFile = f.Flag(
+		"debug-monkit-trace", "File to collect Monkit trace data. Understands file extensions .json and .svg", "",
 		clingy.Advanced,
 	).(string)
 
@@ -371,8 +380,60 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		eventkit.DefaultRegistry.Scope("init").Event("init")
 	}
 
-	defer mon.Task()(&ctx)(&err)
-	return cmd.Execute(ctx)
+	var workErr error
+	work := func(ctx context.Context) {
+		defer mon.Task()(&ctx)(&err)
+		workErr = cmd.Execute(ctx)
+	}
+
+	var formatter func(io.Writer, []*collect.FinishedSpan) error
+	switch {
+	default:
+		work(ctx)
+		return workErr
+	case strings.HasSuffix(strings.ToLower(ex.debug.monkitTraceFile), ".svg"):
+		formatter = present.SpansToSVG
+	case strings.HasSuffix(strings.ToLower(ex.debug.monkitTraceFile), ".json"):
+		formatter = present.SpansToJSON
+	}
+
+	spans := mpscqueue.New[collect.FinishedSpan]()
+	collector := func(s *monkit.Span, err error, panicked bool, finish time.Time) {
+		spans.Enqueue(collect.FinishedSpan{
+			Span:     s,
+			Err:      err,
+			Panicked: panicked,
+			Finish:   finish,
+		})
+	}
+
+	defer collect.ObserveAllTraces(monkit.Default, spanCollectorFunc(collector))()
+	work(ctx)
+
+	fh, err := os.Create(ex.debug.monkitTraceFile)
+	if err != nil {
+		return errs.Combine(workErr, err)
+	}
+
+	var spanSlice []*collect.FinishedSpan
+	for {
+		next, ok := spans.Dequeue()
+		if !ok {
+			break
+		}
+		spanSlice = append(spanSlice, &next)
+	}
+
+	err = formatter(fh, spanSlice)
+	return errs.Combine(workErr, err, fh.Close())
+}
+
+type spanCollectorFunc func(*monkit.Span, error, bool, time.Time)
+
+func (f spanCollectorFunc) Start(*monkit.Span) {}
+
+func (f spanCollectorFunc) Finish(s *monkit.Span, err error, panicked bool, finish time.Time) {
+	f(s, err, panicked, finish)
 }
 
 func tracked(ctx context.Context, cb func(context.Context)) (done func()) {

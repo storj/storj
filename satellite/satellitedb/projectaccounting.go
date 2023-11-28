@@ -303,7 +303,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				FROM project_usage
 				ORDER BY project_id, bucket_name, interval_day, interval_start DESC) pu
 			` + db.db.impl.AsOfSystemInterval(crdbInterval) + `
-			GROUP BY project_id, bucket_name, interval_day
+			GROUP BY project_id, interval_day
 		`)
 		batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
 
@@ -331,9 +331,6 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			return err
 		}
 
-		var current time.Time
-		var index int
-
 		for storageRows.Next() {
 			var day time.Time
 			var amount int64
@@ -343,23 +340,6 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				storageRows.Close()
 				return err
 			}
-
-			if len(storage) == 0 {
-				current = day
-				storage = append(storage, accounting.ProjectUsageByDay{
-					Date:  day.UTC(),
-					Value: amount,
-				})
-				continue
-			}
-
-			if current == day {
-				storage[index].Value += amount
-				continue
-			}
-
-			current = day
-			index++
 
 			storage = append(storage, accounting.ProjectUsageByDay{
 				Date:  day.UTC(),

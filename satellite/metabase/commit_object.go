@@ -62,7 +62,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			DisallowDelete: opts.DisallowDelete,
 		}, tx)
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		segmentsInDatabase, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)

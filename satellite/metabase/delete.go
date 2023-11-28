@@ -231,13 +231,11 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 		objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
 	}
 
-	// TODO(ver): should this insert delete markers?
-
 	// Sorting the object keys just in case.
-	// TODO: Check if this is really necessary for the SQL query.
 	sort.Slice(objectKeys, func(i, j int) bool {
 		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
 	})
+
 	err = withRows(db.db.QueryContext(ctx, `
 		WITH deleted_objects AS (
 			DELETE FROM objects
@@ -338,7 +336,6 @@ func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows)
 type DeleteObjectLastCommitted struct {
 	ObjectLocation
 
-	// TODO(ver): maybe replace these with an enumeration?
 	Versioned bool
 	Suspended bool
 }
@@ -367,14 +364,13 @@ func (db *DB) DeleteObjectLastCommitted(
 			return DeleteObjectResult{}, Error.Wrap(err)
 		}
 
-		var precommit precommitConstraintResult
+		var precommit precommitConstraintWithNonPendingResult
 		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			precommit, err = db.precommitDeleteUnversioned(ctx, opts.ObjectLocation, tx)
+			precommit, err = db.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation, tx)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			// TODO(ver): currently it allows adding delete markers when pending objects are present.
-			if precommit.HighestVersion == 0 {
+			if precommit.HighestVersion == 0 || precommit.HighestNonPendingVersion == 0 {
 				// an object didn't exist in the first place
 				return ErrObjectNotFound.New("unable to delete object")
 			}

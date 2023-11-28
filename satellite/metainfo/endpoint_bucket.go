@@ -86,6 +86,71 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 	}, nil
 }
 
+// GetBucketVersioning responds with the versioning state of the bucket and any error encountered.
+func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBucketVersioningRequest) (resp *pb.GetBucketVersioningResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	versioning, err := endpoint.buckets.GetBucketVersioningState(ctx, req.GetName(), keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get versioning state for the bucket")
+	}
+
+	return &pb.GetBucketVersioningResponse{
+		Versioning: int32(versioning),
+	}, nil
+}
+
+// SetBucketVersioning attempts to enable or disable versioning for a bucket and responds with any error encountered.
+func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBucketVersioningRequest) (resp *pb.SetBucketVersioningResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionWrite,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed for this project")
+	}
+	if req.Versioning {
+		err = endpoint.buckets.EnableBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
+	} else {
+		err = endpoint.buckets.SuspendBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
+	}
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to enable versioning for the bucket")
+	}
+
+	return &pb.SetBucketVersioningResponse{}, nil
+}
+
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

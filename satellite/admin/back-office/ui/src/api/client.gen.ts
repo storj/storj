@@ -2,10 +2,34 @@
 // DO NOT EDIT.
 
 import { HttpClient } from '@/utils/httpClient';
+import { Time, UUID } from '@/types/common';
 
 export class PlacementInfo {
     id: number;
     location: string;
+}
+
+export class ProjectUsageLimits {
+    id: UUID;
+    name: string;
+    storageLimit: number;
+    storageUsed: number | null;
+    bandwidthLimit: number;
+    bandwidthUsed: number;
+    segmentLimit: number;
+    segmentUsed: number | null;
+}
+
+export class User {
+    id: UUID;
+    fullName: string;
+    email: string;
+    paidTier: boolean;
+    createdAt: Time;
+    status: string;
+    userAgent: string;
+    defaultPlacement: number;
+    projectUsageLimits: ProjectUsageLimits[] | null;
 }
 
 class APIError extends Error {
@@ -26,6 +50,21 @@ export class PlacementManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as PlacementInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class UserManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/users';
+
+    public async getUserByEmail(email: string): Promise<User> {
+        const fullPath = `${this.ROOT_PATH}/${email}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as User);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

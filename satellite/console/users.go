@@ -113,6 +113,8 @@ type CreateUser struct {
 	CaptchaResponse  string `json:"captchaResponse"`
 	IP               string `json:"ip"`
 	SignupPromoCode  string `json:"signupPromoCode"`
+	ActivationCode   string `json:"-"`
+	SignupId         string `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -172,6 +174,24 @@ const (
 	LegalHold UserStatus = 4
 )
 
+// String returns a string representation of the user status.
+func (s UserStatus) String() string {
+	switch s {
+	case Inactive:
+		return "Inactive"
+	case Active:
+		return "Active"
+	case Deleted:
+		return "Deleted"
+	case PendingDeletion:
+		return "Pending Deletion"
+	case LegalHold:
+		return "Legal Hold"
+	default:
+		return ""
+	}
+}
+
 // User is a database object that describes User entity.
 type User struct {
 	ID uuid.UUID `json:"id"`
@@ -215,6 +235,9 @@ type User struct {
 	SignupCaptcha          *float64  `json:"-"`
 
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+
+	ActivationCode string `json:"-"`
+	SignupId       string `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -282,6 +305,9 @@ type UpdateUserRequest struct {
 	LoginLockoutExpiration **time.Time
 
 	DefaultPlacement storj.PlacementConstraint
+
+	ActivationCode *string
+	SignupId       *string
 }
 
 // UserSettings contains configurations for a user.

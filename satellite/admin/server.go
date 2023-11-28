@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -106,7 +105,7 @@ func NewServer(
 	freezeAccounts *console.AccountFreezeService,
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
-	placement *overlay.PlacementDefinitions,
+	backOfficeService *backoffice.Service,
 	console consoleweb.Config,
 	config Config,
 ) *Server {
@@ -177,13 +176,21 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-warning", server.billingUnWarnUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationFreezeUser).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/violation-freeze", server.violationUnfreezeUser).Methods("DELETE")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/legal-freeze", server.legalFreezeUser).Methods("PUT")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/legal-freeze", server.legalUnfreezeUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/pending-deletion", server.usersPendingDeletion).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
 	// NewServer adds the backoffice.PahtPrefix for the static assets, but not for the API because the
 	// generator already add the PathPrefix to router when the API handlers are hooked.
-	_ = backoffice.NewServer(log.Named("back-office"), nil, placement, root, config.BackOffice)
+	_ = backoffice.NewServer(
+		log.Named("back-office"),
+		nil,
+		backOfficeService,
+		root,
+		config.BackOffice,
+	)
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.

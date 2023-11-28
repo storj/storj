@@ -7,10 +7,15 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 
+	"storj.io/storj/private/api"
 	"storj.io/storj/private/apigen"
 	"storj.io/storj/private/apigen/example/myapi"
 )
@@ -23,6 +28,9 @@ func main() {
 	}
 
 	g := a.Group("Documents", "docs")
+	g.Middleware = append(g.Middleware,
+		authMiddleware{},
+	)
 
 	now := time.Date(2001, 02, 03, 04, 05, 06, 07, time.UTC)
 
@@ -40,6 +48,10 @@ func main() {
 				Tags:  [][2]string{{"category", "general"}},
 			},
 		}},
+		Settings: map[any]any{
+			NoAPIKey: true,
+			NoCookie: true,
+		},
 	})
 
 	g.Get("/{path}", &apigen.Endpoint{
@@ -141,3 +153,43 @@ func main() {
 	a.MustWriteTSMock("client-api-mock.gen.ts")
 	a.MustWriteDocs("apidocs.gen.md")
 }
+
+// authMiddleware customize endpoints to authenticate requests by API Key or Cookie.
+type authMiddleware struct {
+	log  *zap.Logger
+	auth api.Auth
+	_    http.ResponseWriter // Import the http package to use its HTTP status constants
+}
+
+// Generate satisfies the apigen.Middleware.
+func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+	noapikey := apigen.LoadSetting(NoAPIKey, ep, false)
+	nocookie := apigen.LoadSetting(NoCookie, ep, false)
+
+	if noapikey && nocookie {
+		return ""
+	}
+
+	return fmt.Sprintf(`ctx, err = h.auth.IsAuthenticated(ctx, r, %t, %t)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}`, !nocookie, !noapikey)
+}
+
+var _ apigen.Middleware = authMiddleware{}
+
+type (
+	tagNoAPIKey struct{}
+	tagNoCookie struct{}
+)
+
+var (
+	// NoAPIKey is the key for endpoint settings to indicate that it doesn't use API Key
+	// authentication mechanism.
+	NoAPIKey tagNoAPIKey
+	// NoCookie is the key for endpoint settings to indicate that it doesn't use cookie authentication
+	// mechanism.
+	NoCookie tagNoCookie
+)

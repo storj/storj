@@ -392,10 +392,9 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	// TODO(ver): initially we returned 'object not found' error if delete marker is returned but
-	// S3 HeadObject request in such case requires 'Method Not Allowed' error so libuplink needs
-	// to know that delete marker was retured. We can remove this comment when we will know that
-	// there is no better aproach.
+	if mbObject.Status.IsDeleteMarker() {
+		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, "method not allowed")
+	}
 
 	{
 		tags := []eventkit.Tag{
@@ -533,6 +532,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	if object.Status.IsDeleteMarker() {
+		return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, "method not allowed")
 	}
 
 	// get the range segments
@@ -899,7 +902,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
@@ -914,9 +917,16 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 	metabase.ListLimit.Ensure(&limit)
 
-	// TODO(ver): this is only temporary logic for testing, will be cleanup later
+	// TODO(ver): this is only temporary logic for testing, may require cleanup later
+	// Current logic is:
+	// * VersioningUnsupported || Unversioned - use metabase.IterateObjectsAllVersionsWithStatus
+	// * VersioningEnabled || VersioningSuspended
+	//    * IncludeAllVersions == true - use metabase.IterateObjectsAllVersionsWithStatus
+	//    * IncludeAllVersions == false - use metabase.ListObjects
+	// For now we want to use metabase.ListObjects only for versioned and suspended buckets because
+	// we need to verify performance of this method before we will use it globally
 	useListObjects := false
-	if endpoint.config.UseBucketLevelObjectVersioningByProject(keyInfo.ProjectID) && endpoint.config.TestEnableBucketVersioning {
+	if bucket.Versioning == buckets.VersioningEnabled || bucket.Versioning == buckets.VersioningSuspended {
 		useListObjects = !req.IncludeAllVersions
 	}
 
@@ -981,7 +991,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 
 		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement)
 			if err != nil {
 				return nil, endpoint.convertMetabaseErr(err)
 			}
@@ -1006,7 +1016,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 				entry := metabase.ObjectEntry{}
 				for len(resp.Items) < limit && it.Next(ctx, &entry) {
-					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement)
 					if err != nil {
 						return err
 					}

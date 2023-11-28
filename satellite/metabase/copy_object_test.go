@@ -1381,8 +1381,8 @@ func TestFinishCopyObject(t *testing.T) {
 
 					NewVersioned: false,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				ErrText:  "source object not found",
+				ErrClass: &metabase.ErrMethodNotAllowed,
+				ErrText:  "copying delete marker is not allowed",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1440,8 +1440,8 @@ func TestFinishCopyObject(t *testing.T) {
 
 					NewVersioned: true,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				ErrText:  "source object not found",
+				ErrClass: &metabase.ErrMethodNotAllowed,
+				ErrText:  "copying delete marker is not allowed",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{

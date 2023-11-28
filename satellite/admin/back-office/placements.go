@@ -18,7 +18,7 @@ type PlacementInfo struct {
 }
 
 // GetPlacements returns IDs and locations of placement rules.
-func (s *Server) GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError) {
+func (s *Service) GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 

@@ -35,14 +35,19 @@ func (api *API) generateDocumentation() string {
 	wf := func(format string, args ...any) { _, _ = fmt.Fprintf(&doc, format, args...) }
 
 	wf("# API Docs\n\n")
-	wf("**Description:**%s\n\n", api.Description)
-	wf("**Version:** `%s`\n\n", api.Version)
+	if api.Description != "" {
+		wf("**Description:** %s\n\n", api.Description)
+	}
+
+	if api.Version != "" {
+		wf("**Version:** `%s`\n\n", api.Version)
+	}
 
 	wf("<h2 id='list-of-endpoints'>List of Endpoints</h2>\n\n")
 	getEndpointLink := func(group, endpoint string) string {
 		fullName := group + "-" + endpoint
 		fullName = strings.ReplaceAll(fullName, " ", "-")
-		var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9-]+`)
 		fullName = nonAlphanumericRegex.ReplaceAllString(fullName, "")
 		return strings.ToLower(fullName)
 	}
@@ -56,7 +61,11 @@ func (api *API) generateDocumentation() string {
 
 	for _, group := range api.EndpointGroups {
 		for _, endpoint := range group.endpoints {
-			wf("<h3 id='%s'>%s (<a href='#list-of-endpoints'>go to full list</a>)</h3>\n\n", getEndpointLink(group.Name, endpoint.Name), endpoint.Name)
+			wf(
+				"<h3 id='%s'>%s (<a href='#list-of-endpoints'>go to full list</a>)</h3>\n\n",
+				getEndpointLink(group.Name, endpoint.Name),
+				endpoint.Name,
+			)
 			wf("%s\n\n", endpoint.Description)
 			wf("`%s %s/%s%s`\n\n", endpoint.Method, api.endpointBasePath(), group.Prefix, endpoint.Path)
 
@@ -156,9 +165,9 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 		var fields []string
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
-			jsonTag := field.Tag.Get("json")
-			if jsonTag != "" && jsonTag != "-" {
-				fields = append(fields, prefix+"\t"+jsonTag+": "+getTypeNameRecursively(field.Type, level+1))
+			jsonInfo := parseJSONTag(t, field)
+			if !jsonInfo.Skip {
+				fields = append(fields, prefix+"\t"+jsonInfo.FieldName+": "+getTypeNameRecursively(field.Type, level+1))
 			}
 		}
 		return fmt.Sprintf("%s{\n%s\n%s}\n", prefix, strings.Join(fields, "\n"), prefix)

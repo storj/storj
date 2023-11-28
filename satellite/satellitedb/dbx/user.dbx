@@ -79,6 +79,11 @@ model user (
 
     // placement to be used for every new project as default for the buckets.
     field default_placement int (nullable, updatable)
+
+    // activation_code is a code sent to a user's email on signup for account activation.
+    field activation_code     text      ( updatable, nullable )
+    // signup_id is a the request ID associated to a sign up session, used to also verify activation_code.
+    field signup_id     text      ( updatable, nullable )
 )
 
 create user ( )

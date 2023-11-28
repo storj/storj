@@ -709,7 +709,7 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		planet.Satellites[0].API.Payments.StripeService.SetNow(func() time.Time {
 			return oneMonthAhead
 		})
-		err = planet.Satellites[0].API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, now)
+		err = planet.Satellites[0].API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, now, false)
 		require.NoError(t, err)
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)

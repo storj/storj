@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -18,6 +19,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -26,6 +28,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink"
 )
 
@@ -50,16 +53,21 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 		defer ctx.Check(project.Close)
 
 		type testCase struct {
-			Bucket        string
-			ZipBatchSize  int
-			ExpectedPacks int
+			Bucket            string
+			ZipBatchSize      int
+			ExpectedPacks     int
+			DisqualifiedNodes []storj.NodeID
 		}
 
 		testCases := []testCase{
-			{"bloomfilters-bucket-1", 1, 7},
-			{"bloomfilters-bucket-2", 2, 4},
-			{"bloomfilters-bucket-7", 7, 1},
-			{"bloomfilters-bucket-100", 100, 1},
+			{"bloomfilters-bucket-1", 1, 7, []storj.NodeID{}},
+			{"bloomfilters-bucket-2", 2, 4, []storj.NodeID{}},
+			{"bloomfilters-bucket-2-dq-nodes", 2, 3, []storj.NodeID{
+				planet.StorageNodes[0].ID(),
+				planet.StorageNodes[3].ID(),
+			}},
+			{"bloomfilters-bucket-7", 7, 1, []storj.NodeID{}},
+			{"bloomfilters-bucket-100", 100, 1, []storj.NodeID{}},
 		}
 
 		for _, tc := range testCases {
@@ -77,6 +85,24 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 				bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),
 				bloomfilter.NewSyncObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB),
 			}
+
+			expectedNodeIds := []string{}
+			for _, node := range planet.StorageNodes {
+				_, err := planet.Satellites[0].DB.Testing().RawDB().ExecContext(ctx, "UPDATE nodes SET disqualified = null WHERE id = $1", node.ID())
+				require.NoError(t, err)
+
+				expectedNodeIds = append(expectedNodeIds, node.ID().String())
+			}
+
+			for _, nodeID := range tc.DisqualifiedNodes {
+				require.NoError(t, planet.Satellites[0].Overlay.Service.DisqualifyNode(ctx, nodeID, overlay.DisqualificationReasonAuditFailure))
+
+				if index := slices.Index(expectedNodeIds, nodeID.String()); index != -1 {
+					expectedNodeIds = slices.Delete(expectedNodeIds, index, index+1)
+				}
+			}
+
+			sort.Strings(expectedNodeIds)
 
 			for _, observer := range observers {
 				name := fmt.Sprintf("%s-%T", tc.Bucket, observer)
@@ -134,6 +160,10 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 							require.Equal(t, file.Name, pbRetainInfo.StorageNodeId.String())
 
 							nodeIds = append(nodeIds, pbRetainInfo.StorageNodeId.String())
+
+							nodeID, err := storj.NodeIDFromBytes(pbRetainInfo.StorageNodeId.Bytes())
+							require.NoError(t, err)
+							require.NotContains(t, tc.DisqualifiedNodes, nodeID)
 						}
 
 						count++
@@ -149,11 +179,6 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 					sort.Strings(packNames)
 					require.Equal(t, expectedPackNames, packNames)
 
-					expectedNodeIds := []string{}
-					for _, node := range planet.StorageNodes {
-						expectedNodeIds = append(expectedNodeIds, node.ID().String())
-					}
-					sort.Strings(expectedNodeIds)
 					sort.Strings(nodeIds)
 					require.Equal(t, expectedNodeIds, nodeIds)
 				})
