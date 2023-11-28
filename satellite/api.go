@@ -661,7 +661,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
 				peer.Log.Named("gracefulexit:endpoint"),
 				signing.SignerFromFullIdentity(peer.Identity),
-				peer.DB.GracefulExit(),
 				peer.Overlay.DB,
 				peer.Overlay.Service,
 				peer.Reputation.Service,

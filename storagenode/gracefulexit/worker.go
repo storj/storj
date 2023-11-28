@@ -15,16 +15,13 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/piecetransfer"
 )
 
 // Worker is responsible for completing the graceful exit for a given satellite.
 type Worker struct {
 	log *zap.Logger
 
-	service         *Service
-	transferService piecetransfer.Service
+	service *Service
 
 	dialer              rpc.Dialer
 	satelliteURL        storj.NodeURL
@@ -32,11 +29,10 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
+func NewWorker(log *zap.Logger, service *Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
 	return &Worker{
 		log:                 log.Named(satelliteURL.String()),
 		service:             service,
-		transferService:     transferService,
 		dialer:              dialer,
 		satelliteURL:        satelliteURL,
 		concurrentTransfers: config.NumConcurrentTransfers,
@@ -50,9 +46,6 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 
 	worker.log.Debug("started")
 	defer worker.log.Debug("finished")
-
-	limiter := sync2.NewLimiter(worker.concurrentTransfers)
-	defer limiter.Wait()
 
 	conn, err := worker.dialer.DialNodeURL(ctx, worker.satelliteURL)
 	if err != nil {
@@ -95,29 +88,10 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			return nil
 
 		case *pb.SatelliteMessage_TransferPiece:
-			transferPieceMsg := msg.TransferPiece
-			limiter.Go(ctx, func() {
-				resp := worker.transferService.TransferPiece(ctx, worker.satelliteURL.ID, transferPieceMsg)
-				err := c.Send(resp)
-				if err != nil {
-					worker.log.Error("failed to send notification about piece transfer.",
-						zap.Stringer("Satellite ID", worker.satelliteURL.ID),
-						zap.Error(errs.Wrap(err)))
-				}
-			})
+			return errs.New("satellite has requested piece transfer, but piece-transfer-based graceful exit is no longer supported")
 
 		case *pb.SatelliteMessage_DeletePiece:
-			deletePieceMsg := msg.DeletePiece
-			limiter.Go(ctx, func() {
-				pieceID := deletePieceMsg.OriginalPieceId
-				err := worker.service.DeletePiece(ctx, worker.satelliteURL.ID, pieceID)
-				if err != nil {
-					worker.log.Error("failed to delete piece.",
-						zap.Stringer("Satellite ID", worker.satelliteURL.ID),
-						zap.Stringer("Piece ID", pieceID),
-						zap.Error(errs.Wrap(err)))
-				}
-			})
+			return errs.New("satellite has requested piece deletion, but piece-transfer-based graceful exit is no longer supported")
 
 		case *pb.SatelliteMessage_ExitFailed:
 			worker.log.Error("graceful exit failed.",
@@ -143,8 +117,6 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 			if err != nil {
 				return errs.Wrap(err)
 			}
-
-			limiter.Wait()
 
 			return errs.Wrap(worker.service.DeleteSatelliteData(ctx, worker.satelliteURL.ID))
 		default:
