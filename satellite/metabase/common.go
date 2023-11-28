@@ -280,7 +280,7 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 		return obj.ObjectKey < b.ObjectKey
 	}
 	if obj.Version != b.Version {
-		return obj.Version < b.Version
+		return obj.Version > b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
@@ -367,8 +367,10 @@ const DefaultVersion = Version(1)
 const PendingVersion = Version(0)
 
 // MaxVersion represents maximum version.
-// Version in DB is represented as INT4.
-const MaxVersion = Version(math.MaxInt32)
+// Version in DB is represented as INT8.
+//
+// It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
+const MaxVersion = Version(math.MaxInt64 - 64)
 
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.

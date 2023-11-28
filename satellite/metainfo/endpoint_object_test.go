@@ -2974,17 +2974,18 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 
 			for i, version := range expectedVersions {
 				response := listObjectVersions(version, 0)
-				require.Len(t, response.Items, len(expectedVersions)-i-1)
+				require.Len(t, response.Items, i)
 
 				versions := [][]byte{}
-				for _, item := range response.Items {
+				for i := len(response.Items) - 1; i >= 0; i-- {
+					item := response.Items[i]
 					versions = append(versions, item.ObjectVersion)
 				}
 
-				require.Equal(t, expectedVersions[i+1:], versions)
+				require.Equal(t, expectedVersions[:i], versions)
 			}
 
-			response := listObjectVersions(expectedVersions[0], 2)
+			response := listObjectVersions(expectedVersions[4], 2)
 			require.NoError(t, err)
 			require.Len(t, response.Items, 2)
 			require.True(t, response.More)

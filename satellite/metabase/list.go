@@ -41,6 +41,19 @@ func (entry ObjectEntry) StreamVersionID() StreamVersionID {
 	return newStreamVersionID(entry.Version, entry.StreamID)
 }
 
+// Less implements sorting on object entries.
+func (entry ObjectEntry) Less(other ObjectEntry) bool {
+	return ObjectStream{
+		ObjectKey: entry.ObjectKey,
+		Version:   entry.Version,
+		StreamID:  entry.StreamID,
+	}.Less(ObjectStream{
+		ObjectKey: other.ObjectKey,
+		Version:   other.Version,
+		StreamID:  other.StreamID,
+	})
+}
+
 // ObjectsIterator iterates over a sequence of ObjectEntry items.
 type ObjectsIterator interface {
 	Next(ctx context.Context, item *ObjectEntry) bool

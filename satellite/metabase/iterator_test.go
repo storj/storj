@@ -314,7 +314,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
 				Result: []metabase.ObjectEntry{
 					objects["b/1"],
@@ -398,7 +398,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
-					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
+					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("b/",
 					objects["b/2"],
@@ -463,7 +463,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
+					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry("b/"),
@@ -481,7 +481,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
+					Cursor: metabase.IterateCursor{Key: "b", Version: metabase.MaxVersion},
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry("b/"),
@@ -535,7 +535,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
-					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
+					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("b/",
 					objects["b/2"],
@@ -566,7 +566,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
-					Cursor: metabase.IterateCursor{Key: "c/"},
+					Cursor: metabase.IterateCursor{Key: "c/", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("c/",
 					objects["c/"],
@@ -1004,8 +1004,8 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					objectEntryFromRaw(metabase.RawObject(objA0)),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
 					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 				},
 			}.Check(ctx, t, db)
 
@@ -1056,8 +1056,8 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					objectEntryFromRaw(metabase.RawObject(objA0)),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
 					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 				},
 			}.Check(ctx, t, db)
 
@@ -1197,10 +1197,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					objectEntryFromRaw(metabase.RawObject(objA0)),
 					objectEntryFromRaw(metabase.RawObject(objA1)),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
+					objectEntryFromRaw(metabase.RawObject(objA0)),
 					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 				}}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1268,11 +1268,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					objectEntryFromRaw(metabase.RawObject(objA0)),
-					objectEntryFromRaw(metabase.RawObject(objA1)),
 					objectEntryFromRaw(metabase.RawObject(deletionResult.Markers[0])),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
+					objectEntryFromRaw(metabase.RawObject(objA1)),
+					objectEntryFromRaw(metabase.RawObject(objA0)),
 					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 				}}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1405,14 +1405,14 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					objectEntryFromRaw(metabase.RawObject(objA0)),
-					objectEntryFromRaw(metabase.RawObject(deletionResultA0.Markers[0])),
-					objectEntryFromRaw(metabase.RawObject(objA1)),
 					objectEntryFromRaw(metabase.RawObject(deletionResultA1.Markers[0])),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
-					objectEntryFromRaw(metabase.RawObject(deletionResultB0.Markers[0])),
-					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(objA1)),
+					objectEntryFromRaw(metabase.RawObject(deletionResultA0.Markers[0])),
+					objectEntryFromRaw(metabase.RawObject(objA0)),
 					objectEntryFromRaw(metabase.RawObject(deletionResultB1.Markers[0])),
+					objectEntryFromRaw(metabase.RawObject(objB1)),
+					objectEntryFromRaw(metabase.RawObject(deletionResultB0.Markers[0])),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 				}}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1496,11 +1496,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					objectEntryFromRaw(metabase.RawObject(objA0)),
-					objectEntryFromRaw(metabase.RawObject(objB0)),
 					objectEntryFromRaw(metabase.RawObject(objB1)),
-					objectEntryFromRaw(metabase.RawObject(objC0)),
-					objectEntryFromRaw(metabase.RawObject(deletionResultC0.Markers[0])),
+					objectEntryFromRaw(metabase.RawObject(objB0)),
 					objectEntryFromRaw(metabase.RawObject(objC1)),
+					objectEntryFromRaw(metabase.RawObject(deletionResultC0.Markers[0])),
+					objectEntryFromRaw(metabase.RawObject(objC0)),
 				},
 			}.Check(ctx, t, db)
 
@@ -1563,7 +1563,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: last(objects["a"]).Version + 1},
+					Cursor: metabase.IterateCursor{Key: "a", Version: last(objects["a"]).Version - 1},
 				},
 				Result: concat(
 					objects["b/1"],
@@ -1586,7 +1586,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
+					Cursor: metabase.IterateCursor{Key: "b", Version: metabase.MaxVersion},
 				},
 				Result: concat(
 					objects["b/1"],
@@ -1651,7 +1651,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
-					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
+					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("b/",
 					concat(
@@ -1718,7 +1718,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "a", Version: last(objects["a"]).Version + 1},
+					Cursor: metabase.IterateCursor{Key: "a", Version: last(objects["a"]).Version - 1},
 				},
 				Result: concat(
 					[]metabase.ObjectEntry{prefixEntry("b/")},
@@ -1736,7 +1736,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 
-					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
+					Cursor: metabase.IterateCursor{Key: "b", Version: metabase.MaxVersion},
 				},
 				Result: concat(
 					[]metabase.ObjectEntry{prefixEntry("b/")},
@@ -1794,7 +1794,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
-					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
+					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("b/",
 					concat(
@@ -1827,7 +1827,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
-					Cursor: metabase.IterateCursor{Key: "c/"},
+					Cursor: metabase.IterateCursor{Key: "c/", Version: metabase.MaxVersion},
 				},
 				Result: withoutPrefix("c/",
 					concat(
@@ -1908,6 +1908,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ZombieDeletionDeadline: &zombieDeadline,
 			}
 			expected = append(expected, objectEntryFromRaw(pendingObject2))
+
+			sort.Slice(expected, func(i, k int) bool {
+				return expected[i].Less(expected[k])
+			})
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
@@ -2123,7 +2127,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					Prefix:     metabase.ObjectKey("2017/05/"),
 					Cursor: metabase.IterateCursor{
 						Key:     metabase.ObjectKey("2017/05/08/"),
-						Version: 1,
+						Version: metabase.MaxVersion,
 					},
 					Pending:               false,
 					IncludeCustomMetadata: true,
@@ -2144,7 +2148,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					Prefix:     metabase.ObjectKey("2017/05/"),
 					Cursor: metabase.IterateCursor{
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
-						Version: 1,
+						Version: metabase.MaxVersion,
 					},
 					Pending:               false,
 					IncludeCustomMetadata: true,

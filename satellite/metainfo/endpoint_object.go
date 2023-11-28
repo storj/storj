@@ -917,19 +917,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 	metabase.ListLimit.Ensure(&limit)
 
-	// TODO(ver): this is only temporary logic for testing, may require cleanup later
-	// Current logic is:
-	// * VersioningUnsupported || Unversioned - use metabase.IterateObjectsAllVersionsWithStatus
-	// * VersioningEnabled || VersioningSuspended
-	//    * IncludeAllVersions == true - use metabase.IterateObjectsAllVersionsWithStatus
-	//    * IncludeAllVersions == false - use metabase.ListObjects
-	// For now we want to use metabase.ListObjects only for versioned and suspended buckets because
-	// we need to verify performance of this method before we will use it globally
-	useListObjects := false
-	if bucket.Versioning == buckets.VersioningEnabled || bucket.Versioning == buckets.VersioningSuspended {
-		useListObjects = !req.IncludeAllVersions
-	}
-
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
@@ -978,7 +965,23 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	resp = &pb.ObjectListResponse{}
-	if endpoint.config.TestListingQuery || useListObjects {
+
+	// Currently for old and new uplinks both we iterate only the latest version.
+	//
+	// Old clients always have IncludeAllVersions = False.
+	// We need to only list the latest version for old clients because
+	// they do not have the necessary cursor logic to iterate over versions.
+	//
+	// New clients specify what they need.
+
+	listAllVersions := req.IncludeAllVersions
+
+	// For pending objects, we always need to list the versions.
+	if status == metabase.Pending {
+		listAllVersions = true
+	}
+
+	if !listAllVersions {
 		result, err := endpoint.metabase.ListObjects(ctx,
 			metabase.ListObjects{
 				ProjectID:  keyInfo.ProjectID,
