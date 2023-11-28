@@ -4,10 +4,12 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"os"
 
+	"storj.io/common/identity"
 	"storj.io/common/storj"
 )
 
@@ -44,6 +46,17 @@ func main() {
 		id, err := storj.NodeIDFromBytes(idBytes)
 		if err == nil {
 			output(id)
+			return
+		}
+	}
+
+	if chain, err := os.ReadFile(os.Args[1]); err == nil {
+		if id, err := identity.PeerIdentityFromPEM(chain); err == nil {
+			output(id.ID)
+			return
+		}
+		if id, err := identity.DecodePeerIdentity(context.Background(), chain); err == nil {
+			output(id.ID)
 			return
 		}
 	}
