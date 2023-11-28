@@ -10,12 +10,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/durability"
 )
 
@@ -25,12 +23,7 @@ func TestDurabilityIntegration(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.Min = 3
-				config.Metainfo.RS.Repair = 5
-				config.Metainfo.RS.Success = 5
-				config.Metainfo.RS.Total = 6
-			},
+			Satellite: testplanet.ReconfigureRS(3, 5, 6, 6),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
@@ -72,11 +65,11 @@ func TestDurabilityIntegration(t *testing.T) {
 
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 		_, err := rangedLoopService.RunOnce(ctx)
+		require.NoError(t, err)
 
 		require.Len(t, result, 15)
 		// one or two pieces are controlled out of the 5-6 --> 3 or 4 pieces are available without HU nodes
-		require.True(t, result["HU"].Min() > 2)
-		require.True(t, result["HU"].Min() < 5)
-		require.NoError(t, err)
+		require.Equal(t, result["HU"].Min(), 4)
+
 	})
 }
