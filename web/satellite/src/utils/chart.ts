@@ -26,6 +26,9 @@ export class ChartUtils {
         // Create new array of objects with date and corresponding data value with length of date range difference.
         const chartData: DataStamp[] = new Array(datesArr.length);
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         // Fill new array.
         for (let i = 0; i < datesArr.length; i++) {
             // Find in fetched data a day-data value that corresponds to current iterable date.
@@ -36,8 +39,10 @@ export class ChartUtils {
                 continue;
             }
 
-            // If not found then fill new array with day and zero data value.
-            chartData[i] = DataStamp.emptyWithDate(datesArr[i]);
+            // If not found and day has passed then fill new array with day and zero data value.
+            if (datesArr[i].getTime() < today.getTime()) {
+                chartData[i] = DataStamp.emptyWithDate(datesArr[i]);
+            }
         }
 
         return chartData;
