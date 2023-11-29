@@ -389,14 +389,24 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 	memberPage.Members = []Member{}
 	memberPage.Invitations = []Invitation{}
 
+	// getMemberInfo returns only member information that is necessary in the UI
+	getMemberInfo := func(u *console.User) *console.User {
+		return &console.User{
+			ID:        u.ID,
+			FullName:  u.FullName,
+			ShortName: u.ShortName,
+			Email:     u.Email,
+		}
+	}
 	for _, m := range membersAndInvitations.ProjectMembers {
 		user, err := p.service.GetUser(ctx, m.MemberID)
 		if err != nil {
 			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
+		u := getMemberInfo(user)
 		member := Member{
-			User:     user,
+			User:     u,
 			JoinedAt: m.CreatedAt,
 		}
 		memberPage.Members = append(memberPage.Members, member)
