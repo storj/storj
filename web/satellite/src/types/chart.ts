@@ -42,6 +42,14 @@ class Styling {
 }
 
 /**
+ * TooltipId defines tooltip IDs.
+ */
+export enum TooltipId {
+    Storage = 'storage-tooltip',
+    Bandwidth = 'allocated-bandwidth-tooltip',
+}
+
+/**
  * Tooltip provides custom tooltip rendering
  */
 export class Tooltip {

@@ -23,6 +23,8 @@ import {
     Plugin,
 } from 'chart.js';
 
+import { TooltipId } from '@/types/chart';
+
 ChartJS.register(LineElement, PointElement, VTooltip, Filler, LineController, CategoryScale, LinearScale);
 
 const props = defineProps<{
@@ -157,6 +159,18 @@ onMounted(() => {
 
 onUnmounted(() => {
     chart.value?.destroy();
+
+    // custom tooltip element doesn't get cleaned up if the user navigates to a new page using the keyboard.
+    // There is probably a better way to do this
+    const storageTooltip = document.getElementById(TooltipId.Storage);
+    if (storageTooltip) {
+        document.body.removeChild(storageTooltip);
+    }
+
+    const egressTooltip = document.getElementById(TooltipId.Bandwidth);
+    if (egressTooltip) {
+        document.body.removeChild(egressTooltip);
+    }
 });
 
 watch(() => props.chartData, () => {

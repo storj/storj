@@ -16,7 +16,7 @@
 import { computed, ref, watch } from 'vue';
 import { ChartType, TooltipModel, ChartData } from 'chart.js';
 
-import { Tooltip, TooltipParams, ChartTooltipData } from '@/types/chart';
+import { Tooltip, TooltipParams, TooltipId, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 
@@ -68,7 +68,7 @@ const chartData = computed((): ChartData => {
  * Used as constructor of custom tooltip.
  */
 function tooltip(tooltipModel: TooltipModel<ChartType>): void {
-    const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', 'storage-tooltip',
+    const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', TooltipId.Storage,
         tooltipMarkUp(tooltipModel), 76, 81);
 
     Tooltip.custom(tooltipParams);
