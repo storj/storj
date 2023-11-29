@@ -435,6 +435,11 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
+    if (!configStore.state.config.newSignupFlowEnabled) {
+        location.replace(RouteConfig.Register.path);
+        return;
+    }
+
     if (route.query.partner) {
         partner.value = route.query.partner.toString();
     }

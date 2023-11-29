@@ -759,6 +759,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
+		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

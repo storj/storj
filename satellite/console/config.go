@@ -29,6 +29,7 @@ type Config struct {
 	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
+	NewSignupFlowEnabled            bool                      `help:"indicates whether the v2 app signup flow is enabled" default:"false"`
 	UsageLimits                     UsageLimitsConfig
 	Captcha                         CaptchaConfig
 	Session                         SessionConfig

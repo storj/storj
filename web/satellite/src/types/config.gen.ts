@@ -53,6 +53,7 @@ export class FrontendConfig {
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
+    newSignupFlowEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
