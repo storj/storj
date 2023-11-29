@@ -67,7 +67,7 @@ func TestDurabilityIntegration(t *testing.T) {
 		_, err := rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
-		require.Len(t, result, 15)
+		require.Len(t, result, 19)
 		// one or two pieces are controlled out of the 5-6 --> 3 or 4 pieces are available without HU nodes
 		require.Equal(t, result["HU"].Min(), 4)
 

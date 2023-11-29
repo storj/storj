@@ -208,6 +208,7 @@ func (c *Report) Finish(ctx context.Context) error {
 	for name, stat := range c.healthStat {
 		c.reporter(reportTime, c.class, name, stat)
 	}
+	c.reporter(reportTime, "bus_factor", c.class, &c.busFactor)
 	return nil
 }
 
