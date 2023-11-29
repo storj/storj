@@ -369,6 +369,43 @@ func TestDisableMFA(t *testing.T) {
 	})
 }
 
+func TestDisableBotRestriction(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+
+		// Error on try set active status for a user with non-PendingBotVerification status.
+		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/activate-account/disable-bot-restriction", user.Email)
+		expectedBody := fmt.Sprintf("{\"error\":\"user with email \\\"%s\\\" must have PendingBotVerification status to disable bot restriction\",\"detail\":\"\"}", user.Email)
+		body := assertReq(ctx, t, link, http.MethodPatch, "", http.StatusBadRequest, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
+		require.NotZero(t, len(body))
+
+		// Set user status to not active.
+		botStatus := console.PendingBotVerification
+		err = planet.Satellites[0].DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &botStatus})
+		require.NoError(t, err)
+
+		// Set user status back to active.
+		body = assertReq(ctx, t, link, http.MethodPatch, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		// Ensure status is updated.
+		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, updatedUser.Status)
+	})
+}
+
 func TestBillingFreezeUnfreezeUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

@@ -1055,6 +1055,42 @@ func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Re
 	server.setGeofenceForUser(w, r, placement)
 }
 
+func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user.Status != console.PendingBotVerification {
+		sendJSONError(w, fmt.Sprintf("user with email %q must have PendingBotVerification status to disable bot restriction", userEmail),
+			"", http.StatusBadRequest)
+		return
+	}
+
+	activeStatus := console.Active
+	if err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &activeStatus}); err != nil {
+		sendJSONError(w, "unable to set user status to active",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
 	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
 }

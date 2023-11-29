@@ -453,6 +453,17 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
+				name: 'activate account/disable bot restriction',
+				desc: 'disables account bot restriction by activating it. Must be used only for accounts with PendingBotVerification status.',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch(
+						'PATCH',
+						`users/${email}/activate-account/disable-bot-restriction`
+					) as Promise<null>;
+				}
+			},
+			{
 				name: 'disable MFA',
 				desc: "Disable user's mulifactor authentication",
 				params: [['email', new InputText('email', true)]],

@@ -29,6 +29,7 @@ Requires setting `Authorization` header for requests.
             * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
+            * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
@@ -234,6 +235,10 @@ Example request:
 #### DELETE /api/users/{user-email}/geofence
 
 Removes the account level geofence for the user.
+
+#### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
+
+Disables account bot restriction by activating it. Used only for accounts with PendingBotVerification status.
 
 ### OAuth Client Management
 
