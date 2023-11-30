@@ -420,37 +420,24 @@ func (db *DB) DeleteObjectLastCommitted(
 		}
 
 		row := db.db.QueryRowContext(ctx, `
-			WITH check_existing_object AS (
-				SELECT status
-				FROM objects
-				WHERE
-					(project_id, bucket_name, object_key) = ($1, $2, $3) AND
-					status <> `+statusPending+`
-				ORDER BY project_id, bucket_name, object_key, stream_id, version DESC, created_at DESC
-				LIMIT 1
-			),
-			added_object AS (
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status,
-					zombie_deletion_deadline
-				)
-				SELECT
-					$1, $2, $3,
-						coalesce((
-							SELECT version + 1
-							FROM objects
-							WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-							ORDER BY version DESC
-							LIMIT 1
-						), 1),
-					$4,
-					`+statusDeleteMarkerVersioned+`,
-					NULL
-				WHERE EXISTS (SELECT 1 FROM check_existing_object)
-				RETURNING *
+			INSERT INTO objects (
+				project_id, bucket_name, object_key, version, stream_id,
+				status,
+				zombie_deletion_deadline
 			)
-			SELECT version, created_at FROM added_object
+			SELECT
+				$1, $2, $3,
+					coalesce((
+						SELECT version + 1
+						FROM objects
+						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+						ORDER BY version DESC
+						LIMIT 1
+					), 1),
+				$4,
+				`+statusDeleteMarkerVersioned+`,
+				NULL
+			RETURNING version, created_at
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, deleterMarkerStreamID)
 
 		var deleted Object

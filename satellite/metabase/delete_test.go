@@ -452,18 +452,34 @@ func TestDeleteObjectVersioning(t *testing.T) {
 		obj := metabasetest.RandObjectStream()
 		location := obj.Location()
 
-		t.Run("Delete non existing object version", func(t *testing.T) {
+		t.Run("delete non existing object version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.DeleteObjectLastCommitted{
+			now := time.Now()
+			marker := obj
+			marker.Version = 1
+
+			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Versioned:      true,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				Result:   metabase.DeleteObjectResult{},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
 			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(result.Markers[0]),
+				},
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("Delete partial object", func(t *testing.T) {
@@ -476,26 +492,59 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.DeleteObjectLastCommitted{
+			now := time.Now()
+			marker := obj
+			marker.Version = pending.Version + 1
+
+			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Versioned:      true,
 				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				Result:   metabase.DeleteObjectResult{},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(pending),
+					metabase.RawObject(result.Markers[0]),
+				},
+			}.Check(ctx, t, db)
+
+			marker2 := marker
+			marker2.Version = marker.Version + 1
+			result2 := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: marker2,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
 			}.Check(ctx, t, db)
 
 			// Not quite sure whether this is the appropriate behavior,
 			// but let's leave the pending object in place and not insert a deletion marker.
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{{
-					ObjectStream: obj,
-					CreatedAt:    pending.CreatedAt,
-					Status:       metabase.Pending,
-					Encryption:   pending.Encryption,
-
-					ZombieDeletionDeadline: pending.ZombieDeletionDeadline,
-				}},
+				Objects: []metabase.RawObject{
+					metabase.RawObject(pending),
+					metabase.RawObject(result.Markers[0]),
+					metabase.RawObject(result2.Markers[0]),
+				},
 			}.Check(ctx, t, db)
 		})
 
