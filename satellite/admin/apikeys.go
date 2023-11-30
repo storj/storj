@@ -265,8 +265,8 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	apikeyName, ok := vars["name"]
-	if !ok {
+	apikeyName := r.URL.Query().Get("name")
+	if apikeyName == "" {
 		sendJSONError(w, "apikey name missing",
 			"", http.StatusBadRequest)
 		return

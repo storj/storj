@@ -37,7 +37,7 @@ func assertGet(ctx context.Context, t *testing.T, link string, expected string, 
 // assertReq asserts the request and it's OK it returns the response body.
 func assertReq(
 	ctx *testcontext.Context, t *testing.T, link string, method string, body string,
-	expectedStatus int, expectedBody string, authToken string,
+	expectedStatus int, expectedBody string, authToken string, queryParams ...[2]string,
 ) []byte {
 	t.Helper()
 
@@ -54,6 +54,13 @@ func assertReq(
 
 	req.Header.Set("Authorization", authToken)
 	req.Header.Set("Content-Type", "application/json")
+
+	query := req.URL.Query()
+	for _, q := range queryParams {
+		query.Add(q[0], q[1])
+	}
+
+	req.URL.RawQuery = query.Encode()
 
 	res, err := http.DefaultClient.Do(req) //nolint:bodyclose
 	require.NoError(t, err)

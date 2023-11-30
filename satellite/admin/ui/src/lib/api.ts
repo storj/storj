@@ -238,10 +238,10 @@ export class Admin {
 					['API Key name', new InputText('text', true)]
 				],
 				func: async (projectId: string, apiKeyName: string): Promise<null> => {
-					return this.fetch(
-						'DELETE',
-						`projects/${projectId}/apikeys/${apiKeyName}`
-					) as Promise<null>;
+					const query = this.urlQueryFromObject({
+						name: apiKeyName
+					});
+					return this.fetch('DELETE', `projects/${projectId}/apikeys`, query) as Promise<null>;
 				}
 			},
 			{

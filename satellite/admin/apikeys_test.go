@@ -38,12 +38,19 @@ func TestApiKeyAdd(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		keys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		keys, err := planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
 		body := strings.NewReader(`{"name":"Default"}`)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys", projectID.String()), body)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys", projectID.String()),
+			body,
+		)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -66,7 +73,9 @@ func TestApiKeyAdd(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, apikey)
 
-		keys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		keys, err = planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 2)
 
@@ -90,7 +99,9 @@ func TestApiKeyDelete(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		keys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		keys, err := planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
@@ -100,12 +111,23 @@ func TestApiKeyDelete(t *testing.T) {
 		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Len(t, body, 0)
 
-		keys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		keys, err = planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
 
 		// Delete a deleted key returns Not Found.
-		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		body = assertReq(
+			ctx,
+			t,
+			link,
+			http.MethodDelete,
+			"",
+			http.StatusNotFound,
+			"",
+			planet.Satellites[0].Config.Console.AuthToken,
+		)
 		require.Contains(t, string(body), "does not exist")
 	})
 }
@@ -124,20 +146,63 @@ func TestApiKeyDelete_ByName(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		keys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		keys, err := planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
-		link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys/%s", projectID.String(), keys.APIKeys[0].Name)
-		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		apiKeyName := keys.APIKeys[0].Name
+
+		link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys", projectID.String())
+		body := assertReq(
+			ctx,
+			t,
+			link,
+			http.MethodDelete,
+			"",
+			http.StatusOK,
+			"",
+			planet.Satellites[0].Config.Console.AuthToken,
+			[2]string{"name", apiKeyName},
+		)
 		require.Len(t, body, 0)
 
-		keys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+		// Deleting a key which contains slashes and not exist returns 404. Gorilla Mux returns 405 if
+		// they key would be passed as path parameter regardless if it exists or not, so this tests that
+		// deleting a key whose name contains slashes works as expected and it isn't interpreted as a
+		// path separator.
+		body = assertReq(
+			ctx,
+			t,
+			link,
+			http.MethodDelete,
+			"",
+			http.StatusNotFound,
+			"",
+			planet.Satellites[0].Config.Console.AuthToken,
+			[2]string{"name", "this/is/my_key"},
+		)
+		require.Contains(t, string(body), "does not exist")
+
+		keys, err = planet.Satellites[0].DB.Console().
+			APIKeys().
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
 
 		// Delete a deleted key returns Not Found.
-		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		body = assertReq(
+			ctx,
+			t,
+			link,
+			http.MethodDelete,
+			"",
+			http.StatusNotFound,
+			"",
+			planet.Satellites[0].Config.Console.AuthToken,
+			[2]string{"name", apiKeyName},
+		)
 		require.Contains(t, string(body), "does not exist")
 	})
 }

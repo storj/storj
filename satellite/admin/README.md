@@ -41,7 +41,7 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
             * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
             * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
-            * [DELETE /api/projects/{project}/apikeys/{name}](#delete-apiprojectsprojectapikeysname)
+            * [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
             * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
             * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
             * [Update limits](#update-limits)
@@ -368,7 +368,7 @@ A successful response body:
 }
 ```
 
-#### DELETE /api/projects/{project}/apikeys/{name}
+#### DELETE /api/projects/{project}/apikeys?name={value}
 
 Deletes the given apikey by its name.
 
