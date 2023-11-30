@@ -179,11 +179,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     });
 
     const uploadingLength = computed(() => {
-        if (config.state.config.newUploadModalEnabled) {
-            return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
-        }
-
-        return state.uploading.length;
+        return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
     });
 
     function setCursor(cursor: ObjectBrowserCursor): void {
@@ -536,34 +532,32 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Body: body,
         };
 
-        if (config.state.config.newUploadModalEnabled) {
-            if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
-                notifyError(`${key} is already uploading`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
-                return;
-            }
+        if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
+            notifyError(`${key} is already uploading`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
+            return;
+        }
 
-            appStore.setUploadingModal(true);
+        appStore.setUploadingModal(true);
 
-            const index = state.uploading.findIndex(file => file.Key === key);
-            if (index !== -1) {
-                state.uploading.splice(index, 1);
-            }
+        const index = state.uploading.findIndex(file => file.Key === key);
+        if (index !== -1) {
+            state.uploading.splice(index, 1);
+        }
 
-            // If file size exceeds 30 GB, abort the upload attempt
-            if (body.size > (30 * 1024 * 1024 * 1024)) {
-                state.uploading.push({
-                    ...params,
-                    progress: 0,
-                    Size: 0,
-                    LastModified: new Date(),
-                    Body: body,
-                    status: UploadingStatus.Failed,
-                    failedMessage: FailedUploadMessage.TooBig,
-                    type: 'file',
-                });
+        // If file size exceeds 30 GB, abort the upload attempt
+        if (body.size > (30 * 1024 * 1024 * 1024)) {
+            state.uploading.push({
+                ...params,
+                progress: 0,
+                Size: 0,
+                LastModified: new Date(),
+                Body: body,
+                status: UploadingStatus.Failed,
+                failedMessage: FailedUploadMessage.TooBig,
+                type: 'file',
+            });
 
-                return;
-            }
+            return;
         }
 
         // If file size exceeds 5 GB, show warning notification
@@ -642,25 +636,19 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     appStore.updateActiveModal(MODALS.objectDetails);
                 }
             }
-
-            if (!config.state.config.newUploadModalEnabled) {
-                state.uploading = state.uploading.filter(file => file.Key !== key);
-            }
         });
     }
 
     function handleUploadError(item: UploadingBrowserObject, error: Error): void {
         if (error.name === 'AbortError' && item.status === UploadingStatus.Cancelled) return;
 
-        if (config.state.config.newUploadModalEnabled) {
-            item.status = UploadingStatus.Failed;
-            item.failedMessage = FailedUploadMessage.Failed;
+        item.status = UploadingStatus.Failed;
+        item.failedMessage = FailedUploadMessage.Failed;
 
-            // If file size exceeds 1 GB, show warning notification.
-            if (item.Size > (1024 * 1024 * 1024)) {
-                const appStore = useAppStore();
-                appStore.setLargeUploadWarningNotification(true);
-            }
+        // If file size exceeds 1 GB, show warning notification.
+        if (item.Size > (1024 * 1024 * 1024)) {
+            const appStore = useAppStore();
+            appStore.setLargeUploadWarningNotification(true);
         }
 
         const { notifyError } = useNotificationsStore();
@@ -701,9 +689,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Key: path + file.Key,
         }));
 
-        if (config.state.config.newUploadModalEnabled) {
-            state.uploading = state.uploading.filter(f => f.Key !== file.Key);
-        }
+        state.uploading = state.uploading.filter(f => f.Key !== file.Key);
 
         if (!isFolder) {
             if (config.state.config.objectBrowserPaginationEnabled) {

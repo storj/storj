@@ -13,7 +13,7 @@ export class FrontendConfig {
     satelliteName: string;
     satelliteNodeURL: string;
     stripePublicKey: string;
-    partneredSatellites?: PartneredSatellite[];
+    partneredSatellites: PartneredSatellite[] | null;
     defaultProjectLimit: number;
     generalRequestURL: string;
     projectLimitsIncreaseRequestURL: string;
@@ -42,7 +42,6 @@ export class FrontendConfig {
     passwordMaximumLength: number;
     abTestingEnabled: boolean;
     pricingPackagesEnabled: boolean;
-    newUploadModalEnabled: boolean;
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;

@@ -152,7 +152,7 @@ const billingEnabled = computed<boolean>(() => configStore.state.config.billingF
  * Indicates whether objects upload modal should be shown.
  */
 const isObjectsUploadModal = computed((): boolean => {
-    return configStore.state.config.newUploadModalEnabled && appStore.state.isUploadingModal;
+    return appStore.state.isUploadingModal;
 });
 
 /**

@@ -334,9 +334,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
-# whether to show new upload modal
-# console.new-upload-modal-enabled: false
-
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
 

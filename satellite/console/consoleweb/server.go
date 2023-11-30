@@ -105,7 +105,6 @@ type Config struct {
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
-	NewUploadModalEnabled           bool       `help:"whether to show new upload modal" default:"false"`
 	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"true"`
 	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
 	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
@@ -749,7 +748,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
 		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
-		NewUploadModalEnabled:           server.config.NewUploadModalEnabled,
 		GalleryViewEnabled:              server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
 		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,

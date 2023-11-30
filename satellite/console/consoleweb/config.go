@@ -45,7 +45,6 @@ type FrontendConfig struct {
 	PasswordMaximumLength           int                   `json:"passwordMaximumLength"`
 	ABTestingEnabled                bool                  `json:"abTestingEnabled"`
 	PricingPackagesEnabled          bool                  `json:"pricingPackagesEnabled"`
-	NewUploadModalEnabled           bool                  `json:"newUploadModalEnabled"`
 	GalleryViewEnabled              bool                  `json:"galleryViewEnabled"`
 	NeededTransactionConfirmations  int                   `json:"neededTransactionConfirmations"`
 	ObjectBrowserPaginationEnabled  bool                  `json:"objectBrowserPaginationEnabled"`
