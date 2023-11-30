@@ -108,6 +108,7 @@ export class User {
         public haveSalesContact: boolean = false,
         public mfaRecoveryCodeCount: number = 0,
         public _createdAt: string | null = null,
+        public pendingVerification: boolean = false,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) { }

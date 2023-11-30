@@ -625,6 +625,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		MFAEnabled            bool      `json:"isMFAEnabled"`
 		MFARecoveryCodeCount  int       `json:"mfaRecoveryCodeCount"`
 		CreatedAt             time.Time `json:"createdAt"`
+		PendingVerification   bool      `json:"pendingVerification"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -653,6 +654,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt
+	user.PendingVerification = consoleUser.Status == console.PendingBotVerification
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

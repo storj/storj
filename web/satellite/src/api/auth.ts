@@ -262,6 +262,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.haveSalesContact,
                 userResponse.mfaRecoveryCodeCount,
                 userResponse.createdAt,
+                userResponse.pendingVerification,
             );
         }
 

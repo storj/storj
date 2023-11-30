@@ -3,6 +3,17 @@
 
 <template>
     <div class="all-dashboard-banners">
+        <v-banner
+            v-if="isPendingVerification && parentRef"
+            class="all-dashboard-banners__pending"
+            title="There was a problem setting up your account."
+            message="Please submit a support ticket."
+            severity="critical"
+            link-text="Submit"
+            :dashboard-ref="parentRef"
+            @link-click="submitSupportTicket"
+        />
+
         <UpgradeNotification
             v-if="isPaidTierBannerShown"
             class="all-dashboard-banners__upgrade"
@@ -75,6 +86,13 @@ const props = defineProps<{
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 /**
+ * Indicates if account is in pending verification state.
+ */
+const isPendingVerification = computed((): boolean => {
+    return usersStore.state.user.pendingVerification;
+});
+
+/**
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
@@ -112,6 +130,13 @@ function togglePMModal(): void {
 }
 
 /**
+ * Opens submit support ticket form.
+ */
+function submitSupportTicket(): void {
+    window.open(configStore.state.config.generalRequestURL, '_blank', 'noreferrer');
+}
+
+/**
  * Redirects to Billing Page.
  */
 async function redirectToBillingPage(): Promise<void> {
@@ -130,6 +155,7 @@ async function redirectToBillingOverview(): Promise<void> {
 .all-dashboard-banners {
     margin-bottom: 20px;
 
+    &__pending,
     &__upgrade,
     &__freeze,
     &__warning,
