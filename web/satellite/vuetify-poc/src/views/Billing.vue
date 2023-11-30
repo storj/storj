@@ -35,9 +35,6 @@
                 <v-tab>
                     Billing History
                 </v-tab>
-                <v-tab>
-                    Billing Information
-                </v-tab>
             </v-tabs>
         </v-card>
 
@@ -192,20 +189,6 @@
 
             <v-window-item>
                 <billing-history-tab />
-            </v-window-item>
-
-            <v-window-item>
-                <v-row>
-                    <v-col cols="12" sm="4">
-                        <v-card title="Billing Information" subtitle="Add info for your invoices." variant="flat" :border="true" rounded="xlg">
-                            <v-card-text>
-                                <p>You can add personal or company info, billing email, and VAT.</p>
-                                <v-divider class="my-4" />
-                                <v-btn color="primary" size="small" prepend-icon="mdi-plus">Add Billing Information</v-btn>
-                            </v-card-text>
-                        </v-card>
-                    </v-col>
-                </v-row>
             </v-window-item>
         </v-window>
     </v-container>
