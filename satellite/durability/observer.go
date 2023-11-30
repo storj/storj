@@ -86,7 +86,6 @@ type Report struct {
 	asOfSystemInterval time.Duration
 
 	// map between classes (like "country:hu" and integer IDs)
-	classID   map[string]classID
 	className map[classID]string
 
 	// contains the available classes for each node alias.
@@ -139,10 +138,10 @@ func (c *Report) resetStat() {
 }
 
 func (c *Report) classifyNodeAliases() {
-	c.classID = make(map[string]classID)
+	classes := make(map[string]classID)
 	c.className = make(map[classID]string)
 
-	c.classID["unclassified"] = 1
+	classes["unclassified"] = 0
 	c.className[0] = "unclassified"
 
 	c.classified = make([]classID, c.aliasMap.Max()+1)
@@ -153,11 +152,11 @@ func (c *Report) classifyNodeAliases() {
 		}
 
 		class := c.classifier(node)
-		id, ok := c.classID[class]
+		id, ok := classes[class]
 		if !ok {
-			id = classID(len(c.classID))
+			id = classID(len(classes))
 			c.className[id] = class
-			c.classID[class] = id
+			classes[class] = id
 		}
 		c.classified[alias] = id
 	}
@@ -170,8 +169,8 @@ func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 		nodes:                  c.nodes,
 		classifierCache:        make([][]string, c.aliasMap.Max()+1),
 		reportThreshold:        c.reportThreshold,
-		healthStat:             make([]HealthStat, len(c.classID)),
-		controlledByClassCache: make([]int32, len(c.classID)),
+		healthStat:             make([]HealthStat, len(c.className)),
+		controlledByClassCache: make([]int32, len(c.className)),
 		busFactorCache:         make([]int32, 0, c.maxPieceCount),
 		classified:             c.classified,
 	}
@@ -262,10 +261,11 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			class := c.classified[piece.Alias]
 
 			// unavailable/offline nodes were not classified
-			if class > 0 {
-				healthyPieceCount++
+			if class == 0 {
+				continue
 			}
 
+			healthyPieceCount++
 			controlledByClass[class]++
 
 		}
