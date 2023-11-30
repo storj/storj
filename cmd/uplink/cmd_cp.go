@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/VividCortex/ewma"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 	"github.com/zeebo/clingy"
@@ -594,9 +593,6 @@ func (c *cmdCp) parallelCopy(
 func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.Bar {
 	const counterFmt = " % .2f / % .2f"
 	const percentageFmt = "%.2f "
-	const speedFmt = "% .2f"
-
-	movingAverage := ewma.NewMovingAverage()
 
 	prepends := []decor.Decorator{decor.Name(name + " ")}
 	if total > 1 {
@@ -606,7 +602,6 @@ func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.
 
 	appends := []decor.Decorator{
 		decor.NewPercentage(percentageFmt),
-		decor.MovingAverageSpeed(decor.SizeB1024(1024), speedFmt, movingAverage),
 	}
 
 	return progress.AddBar(0,

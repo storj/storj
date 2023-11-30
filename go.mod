@@ -3,7 +3,6 @@ module storj.io/storj
 go 1.19
 
 require (
-	github.com/VividCortex/ewma v1.2.0
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
 	github.com/blang/semver v3.5.1+incompatible
@@ -73,6 +72,7 @@ require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/profiler v0.3.1 // indirect
+	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/apache/thrift v0.12.0 // indirect
