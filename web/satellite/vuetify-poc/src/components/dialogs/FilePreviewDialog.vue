@@ -54,6 +54,18 @@
                         >
                             More
                         </v-tooltip>
+                        <v-menu activator="parent">
+                            <v-list class="pa-1">
+                                <v-list-item density="comfortable" link rounded="lg" base-color="error" @click="onDeleteFileClick">
+                                    <template #prepend>
+                                        <icon-trash bold />
+                                    </template>
+                                    <v-list-item-title class="pl-2 ml-2 text-body-2 font-weight-medium">
+                                        Delete
+                                    </v-list-item-title>
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
                     </v-btn>
                     <v-btn icon size="small" color="white" @click="model = false">
                         <img src="@poc/assets/icon-close.svg" width="18" alt="Close">
@@ -111,6 +123,12 @@
 
     <share-dialog v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile" />
     <geographic-distribution-dialog v-model="isGeographicDistributionDialogShown" />
+    <delete-file-dialog
+        v-if="fileToDelete"
+        v-model="isDeleteFileDialogShown"
+        :file="fileToDelete"
+        @file-deleted="onDeleteComplete"
+    />
 </template>
 
 <script setup lang="ts">
@@ -122,6 +140,10 @@ import {
     VCarouselItem,
     VDialog,
     VIcon,
+    VList,
+    VListItem,
+    VListItemTitle,
+    VMenu,
     VToolbar,
     VToolbarTitle,
     VTooltip,
@@ -137,6 +159,8 @@ import IconDistribution from '@poc/components/icons/IconDistribution.vue';
 import FilePreviewItem from '@poc/components/dialogs/filePreviewComponents/FilePreviewItem.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
 import GeographicDistributionDialog from '@poc/components/dialogs/GeographicDistributionDialog.vue';
+import IconTrash from '@poc/components/icons/IconTrash.vue';
+import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
@@ -146,6 +170,8 @@ const carousel = ref<VCarousel | null>(null);
 const isDownloading = ref<boolean>(false);
 const isShareDialogShown = ref<boolean>(false);
 const isGeographicDistributionDialogShown = ref<boolean>(false);
+const fileToDelete = ref<BrowserObject | null>(null);
+const isDeleteFileDialogShown = ref<boolean>(false);
 
 const folderType = 'folder';
 
@@ -278,6 +304,22 @@ function setNewObjectPath(objectKey: string): void {
 async function focusOnCarousel(): Promise<void> {
     await nextTick();
     carousel.value?.$el.focus();
+}
+
+/**
+ * Handles delete button click event for files.
+ */
+function onDeleteFileClick(): void {
+    fileToDelete.value = currentFile.value;
+    isDeleteFileDialogShown.value = true;
+}
+
+/**
+ * Closes the preview on file delete.
+ */
+function onDeleteComplete(): void {
+    fileToDelete.value = null;
+    model.value = false;
 }
 
 /**

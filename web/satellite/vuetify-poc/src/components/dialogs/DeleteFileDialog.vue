@@ -92,6 +92,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     'update:modelValue': [value: boolean],
     'contentRemoved': [],
+    'fileDeleted': [],
 }>();
 
 const model = computed<boolean>({
@@ -131,6 +132,7 @@ async function onDeleteClick(): Promise<void> {
             return;
         }
 
+        emit('fileDeleted');
         notify.success(`${fileType.value.charAt(0).toUpperCase() + fileType.value.slice(1)} deleted.`);
         model.value = false;
     });
