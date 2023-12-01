@@ -35,7 +35,7 @@ type User struct {
 // StorageUsed, BandwidthUsed, and SegmentUsed are nil if there was
 // an error connecting to the Redis live accounting cache.
 type ProjectUsageLimits struct {
-	ID             uuid.UUID `json:"id"`
+	ID             uuid.UUID `json:"id"` // This is the public ID
 	Name           string    `json:"name"`
 	StorageLimit   int64     `json:"storageLimit"`
 	StorageUsed    *int64    `json:"storageUsed"`
@@ -87,7 +87,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, api.
 	usageLimits := make([]ProjectUsageLimits, 0, len(projects))
 	for _, project := range projects {
 		usage := ProjectUsageLimits{
-			ID:   project.ID,
+			ID:   project.PublicID,
 			Name: project.Name,
 		}
 

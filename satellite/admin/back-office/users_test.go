@@ -100,10 +100,10 @@ func TestGetUser(t *testing.T) {
 				BandwidthLimit: &bandwidthLimit,
 				SegmentLimit:   &segmentLimit,
 			}
-			projects = append(projects, proj)
 
-			_, err := consoleDB.Projects().Insert(ctx, proj)
+			proj, err := consoleDB.Projects().Insert(ctx, proj)
 			require.NoError(t, err)
+			projects = append(projects, proj)
 
 			_, err = consoleDB.ProjectMembers().Insert(ctx, user.ID, proj.ID)
 			require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestGetUser(t *testing.T) {
 		for i, info := range user.ProjectUsageLimits {
 			proj := projects[i]
 			name := proj.Name
-			require.Equal(t, proj.ID, info.ID, name)
+			require.Equal(t, proj.PublicID, info.ID, name)
 			require.Equal(t, name, info.Name, name)
 			require.EqualValues(t, *proj.StorageLimit, info.StorageLimit, name)
 			require.EqualValues(t, *proj.BandwidthLimit, info.BandwidthLimit, name)
