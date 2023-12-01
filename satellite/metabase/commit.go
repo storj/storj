@@ -224,6 +224,8 @@ type BeginSegment struct {
 	RootPieceID storj.PieceID
 
 	Pieces Pieces
+
+	ObjectExistsChecked bool
 }
 
 // BeginSegment verifies, whether a new segment upload can be started.
@@ -242,24 +244,27 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		return ErrInvalidRequest.New("RootPieceID missing")
 	}
 
-	// NOTE: this isn't strictly necessary, since we can also fail this in CommitSegment.
-	//       however, we should prevent creating segements for non-partial objects.
+	if !opts.ObjectExistsChecked {
+		// NOTE: Find a way to safely remove this. This isn't strictly necessary,
+		// since we can also fail this in CommitSegment.
+		// We should prevent creating segements for non-partial objects.
 
-	// Verify that object exists and is partial.
-	var exists bool
-	err = db.db.QueryRowContext(ctx, `
+		// Verify that object exists and is partial.
+		var exists bool
+		err = db.db.QueryRowContext(ctx, `
 		SELECT EXISTS (
 			SELECT 1
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 				status = `+statusPending+`
 		)`,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
-	if err != nil {
-		return Error.New("unable to query object status: %w", err)
-	}
-	if !exists {
-		return ErrPendingObjectMissing.New("")
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
+		if err != nil {
+			return Error.New("unable to query object status: %w", err)
+		}
+		if !exists {
+			return ErrPendingObjectMissing.New("")
+		}
 	}
 
 	mon.Meter("segment_begin").Mark(1)

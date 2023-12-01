@@ -226,11 +226,13 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		case *pb.BatchRequestItem_SegmentBegin:
 			singleRequest.SegmentBegin.Header = req.Header
 
+			justCreatedObject := false
 			if singleRequest.SegmentBegin.StreamId.IsZero() && !lastStreamID.IsZero() {
 				singleRequest.SegmentBegin.StreamId = lastStreamID
+				justCreatedObject = true
 			}
 
-			response, err := endpoint.BeginSegment(ctx, singleRequest.SegmentBegin)
+			response, err := endpoint.beginSegment(ctx, singleRequest.SegmentBegin, justCreatedObject)
 			if err != nil {
 				return resp, err
 			}
