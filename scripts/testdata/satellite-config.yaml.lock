@@ -265,6 +265,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # bad captcha score threshold which is used to prevent bot user activity
 # console.captcha.score-cutoff-threshold: 0.8
 
+# additional values for Content Security Policy connect-src, space separated
+# console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
+
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
@@ -319,6 +322,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
 
+# additional values for Content Security Policy img-src, space separated
+# console.img-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
@@ -336,6 +342,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
+
+# additional values for Content Security Policy media-src, space separated
+# console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
