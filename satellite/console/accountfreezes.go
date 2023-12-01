@@ -556,6 +556,11 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 			return errs.New("User is already frozen due to ToS violation")
 		}
 
+		var limits *AccountFreezeEventLimits
+		if freezes.BillingFreeze != nil {
+			limits = freezes.BillingFreeze.Limits
+		}
+
 		userLimits := UsageLimits{
 			Storage:   user.ProjectStorageLimit,
 			Bandwidth: user.ProjectBandwidthLimit,
@@ -564,13 +569,16 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 
 		legalFreeze := freezes.LegalFreeze
 		if legalFreeze == nil {
+			if limits == nil {
+				limits = &AccountFreezeEventLimits{
+					User:     userLimits,
+					Projects: make(map[uuid.UUID]UsageLimits),
+				}
+			}
 			legalFreeze = &AccountFreezeEvent{
 				UserID: userID,
 				Type:   LegalFreeze,
-				Limits: &AccountFreezeEventLimits{
-					User:     userLimits,
-					Projects: make(map[uuid.UUID]UsageLimits),
-				},
+				Limits: limits,
 			}
 		}
 
@@ -595,9 +603,15 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 				projLimits.Segment = *p.SegmentLimit
 			}
 			// If project limits have been zeroed already, we should not override what is in the freeze table.
-			if projLimits != (UsageLimits{}) {
-				legalFreeze.Limits.Projects[p.ID] = projLimits
+			if projLimits == (UsageLimits{}) {
+				if freezes.BillingFreeze == nil {
+					continue
+				}
+				// if limits were zeroed in a billing freeze, we should use those
+				projLimits = freezes.BillingFreeze.Limits.Projects[p.ID]
 			}
+			projLimits.RateLimit = p.RateLimit
+			legalFreeze.Limits.Projects[p.ID] = projLimits
 		}
 
 		_, err = tx.AccountFreezeEvents().Upsert(ctx, legalFreeze)
@@ -614,6 +628,13 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 			err := tx.Projects().UpdateUsageLimits(ctx, proj.ID, UsageLimits{})
 			if err != nil {
 				return err
+			}
+
+			// zero project's rate limit to prevent lists/deletes
+			zeroLimit := 0
+			err = tx.Projects().UpdateRateLimit(ctx, proj.ID, &zeroLimit)
+			if err != nil {
+				return ErrAccountFreeze.Wrap(err)
 			}
 		}
 
@@ -661,6 +682,12 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 			err = tx.Projects().UpdateUsageLimits(ctx, id, limits)
 			if err != nil {
 				return err
+			}
+
+			// remove rate limit
+			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
+			if err != nil {
+				return ErrAccountFreeze.Wrap(err)
 			}
 		}
 

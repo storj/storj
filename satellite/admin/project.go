@@ -248,7 +248,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.Console().Projects().UpdateRateLimit(ctx, project.ID, *arguments.Rate)
+		err = server.db.Console().Projects().UpdateRateLimit(ctx, project.ID, arguments.Rate)
 		if err != nil {
 			sendJSONError(w, "failed to update rate",
 				err.Error(), http.StatusInternalServerError)

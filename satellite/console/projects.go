@@ -43,7 +43,7 @@ type Projects interface {
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
-	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// UpdateBurstLimit is a method for updating projects burst limit.
 	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) error

@@ -442,7 +442,7 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 		require.Len(t, projects, 1)
 
 		zeroRateLimit := 0
-		err = satellite.DB.Console().Projects().UpdateRateLimit(ctx, projects[0].ID, zeroRateLimit)
+		err = satellite.DB.Console().Projects().UpdateRateLimit(ctx, projects[0].ID, &zeroRateLimit)
 		require.NoError(t, err)
 
 		var group errs2.Group

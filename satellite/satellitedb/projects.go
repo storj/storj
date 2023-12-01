@@ -265,17 +265,22 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 }
 
 // UpdateRateLimit is a method for updating projects rate limit.
-func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if newLimit < 0 {
+	if newLimit != nil && *newLimit < 0 {
 		return Error.New("limit can't be set to negative value")
+	}
+
+	rateLimit := dbx.Project_RateLimit_Null()
+	if newLimit != nil {
+		rateLimit = dbx.Project_RateLimit(*newLimit)
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
-			RateLimit: dbx.Project_RateLimit(newLimit),
+			RateLimit: rateLimit,
 		})
 
 	return err

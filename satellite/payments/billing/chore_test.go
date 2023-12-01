@@ -76,7 +76,7 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanSource,
 				[]billing.Transaction{mike1, joe1, joe2},
@@ -88,7 +88,7 @@ func TestChore(t *testing.T) {
 		}
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade),
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db, usageLimitsConfig, userBalanceForUpgrade, freezeService),
 		}
 
 		chore := billing.NewChore(zaptest.NewLogger(t), paymentTypes, db, time.Hour, false, bonusRate, choreObservers)
@@ -118,6 +118,8 @@ func TestChore(t *testing.T) {
 			sat := planet.Satellites[0]
 			db := sat.DB
 
+			freezeService := console.NewAccountFreezeService(db.Console(), sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
+
 			runTest(ctx, t, db.Console(), db.Billing(), 0,
 				[]billing.Transaction{mike2, mike1},
 				[]billing.Transaction{joe1, joe2},
@@ -127,6 +129,7 @@ func TestChore(t *testing.T) {
 				currency.AmountFromBaseUnits(30000000, currency.USDollarsMicro),
 				sat.Config.Console.UsageLimits,
 				sat.Config.Console.UserBalanceForUpgrade,
+				freezeService,
 			)
 		})
 	})
@@ -138,6 +141,8 @@ func TestChore(t *testing.T) {
 			sat := planet.Satellites[0]
 			db := sat.DB
 
+			freezeService := console.NewAccountFreezeService(db.Console(), sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
+
 			runTest(ctx, t, db.Console(), db.Billing(), 10,
 				[]billing.Transaction{mike2, mike2Bonus, mike1, mike1Bonus},
 				[]billing.Transaction{joe1, joe1Bonus, joe2},
@@ -147,6 +152,7 @@ func TestChore(t *testing.T) {
 				currency.AmountFromBaseUnits(30000000, currency.USDollarsMicro),
 				sat.Config.Console.UsageLimits,
 				sat.Config.Console.UserBalanceForUpgrade,
+				freezeService,
 			)
 		})
 	})
@@ -161,9 +167,23 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 		usageLimitsConfig := sat.Config.Console.UsageLimits
 		ts := makeTimestamp()
 
+		freezeService := console.NewAccountFreezeService(db.Console(), sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
+
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "choreobserver@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		user2, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "choreobserver2@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		user3, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "choreobserver3@mail.test",
 		}, 1)
 		require.NoError(t, err)
 
@@ -171,18 +191,23 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 		require.NoError(t, err)
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+			UpgradeUser: console.NewUpgradeUserObserver(db.Console(), db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService),
 		}
 
 		amount1 := int64(200) // $2
 		amount2 := int64(800) // $8
 		transaction1 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1, ts, `{"fake": "transaction1"}`)
 		transaction2 := makeFakeTransaction(user.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount2, ts.Add(time.Second*2), `{"fake": "transaction2"}`)
+		transaction3 := makeFakeTransaction(user2.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1+amount2, ts, `{"fake": "transaction3"}`)
+		transaction4 := makeFakeTransaction(user3.ID, billing.StorjScanSource, billing.TransactionTypeCredit, amount1+amount2, ts.Add(time.Second*2), `{"fake": "transaction4"}`)
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanSource,
 				[]billing.Transaction{transaction1},
 				[]billing.Transaction{},
 				[]billing.Transaction{transaction2},
+				[]billing.Transaction{},
+				[]billing.Transaction{transaction3},
+				[]billing.Transaction{transaction4},
 				[]billing.Transaction{},
 			),
 		}
@@ -241,6 +266,39 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 				require.Equal(t, usageLimitsConfig.Segment.Paid, *p.SegmentLimit)
 			}
 		})
+
+		t.Run("no upgrade for legal/violation freeze", func(t *testing.T) {
+			require.NoError(t, freezeService.LegalFreezeUser(ctx, user2.ID))
+			require.NoError(t, freezeService.ViolationFreezeUser(ctx, user3.ID))
+
+			chore.TransactionCycle.TriggerWait()
+			chore.TransactionCycle.Pause()
+
+			expected := currency.AmountFromBaseUnits((amount1+amount2)*int64(10000), currency.USDollarsMicro)
+
+			chore.TransactionCycle.TriggerWait()
+			chore.TransactionCycle.Pause()
+
+			balance, err := db.Billing().GetBalance(ctx, user2.ID)
+			require.NoError(t, err)
+			require.True(t, expected.Equal(balance))
+
+			chore.TransactionCycle.TriggerWait()
+
+			balance, err = db.Billing().GetBalance(ctx, user3.ID)
+			require.NoError(t, err)
+			require.True(t, expected.Equal(balance))
+
+			// users should not be upgraded though they have enough balance
+			// since they are in legal/violation freeze.
+			user, err = db.Console().Users().Get(ctx, user2.ID)
+			require.NoError(t, err)
+			require.False(t, user.PaidTier)
+
+			user, err = db.Console().Users().Get(ctx, user3.ID)
+			require.NoError(t, err)
+			require.False(t, user.PaidTier)
+		})
 	})
 }
 
@@ -275,7 +333,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		freezeService := console.NewAccountFreezeService(consoleDB, sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade),
+			UpgradeUser: console.NewUpgradeUserObserver(consoleDB, db.Billing(), sat.Config.Console.UsageLimits, sat.Config.Console.UserBalanceForUpgrade, freezeService),
 			PayInvoices: console.NewInvoiceTokenPaymentObserver(consoleDB, sat.Core.Payments.Accounts.Invoices(), freezeService),
 		}
 

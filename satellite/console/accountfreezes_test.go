@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/uplink"
 )
 
 func getUserLimits(u *console.User) console.UsageLimits {
@@ -31,6 +32,7 @@ func getProjectLimits(p *console.Project) console.UsageLimits {
 		Storage:   p.StorageLimit.Int64(),
 		Bandwidth: p.BandwidthLimit.Int64(),
 		Segment:   *p.SegmentLimit,
+		RateLimit: p.RateLimit,
 	}
 }
 
@@ -261,18 +263,26 @@ func TestAccountLegalFreeze(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		projLimits := randUsageLimits()
+		rateLimit := 20000
+		projLimits.RateLimit = &rateLimit
 		proj, err := sat.AddProject(ctx, user.ID, "")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+		require.NoError(t, projectsDB.UpdateRateLimit(ctx, proj.ID, projLimits.RateLimit))
 
-		checkLimits := func(testT *testing.T) {
+		checkLimits := func(t *testing.T) {
 			user, err = usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Zero(t, getUserLimits(user))
 
 			proj, err = projectsDB.Get(ctx, proj.ID)
 			require.NoError(t, err)
-			require.Zero(t, getProjectLimits(proj))
+			usageLimits := getProjectLimits(proj)
+			require.Zero(t, usageLimits.Segment)
+			require.Zero(t, usageLimits.Storage)
+			require.Zero(t, usageLimits.Bandwidth)
+			zeroLimit := 0
+			require.Equal(t, &zeroLimit, usageLimits.RateLimit)
 		}
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -322,6 +332,16 @@ func TestAccountLegalFreeze(t *testing.T) {
 		require.Nil(t, freezes.LegalFreeze.DaysTillEscalation)
 
 		checkLimits(t)
+
+		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, userLimits, getUserLimits(user))
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, projLimits, getProjectLimits(proj))
 	})
 }
 
@@ -490,6 +510,9 @@ func TestFreezeEffects(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
+				// disable limit caching
+				config.ProjectLimit.CacheCapacity = 0
+				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -520,67 +543,86 @@ func TestFreezeEffects(t *testing.T) {
 		shouldNotUploadAndDownload := func(testT *testing.T) {
 			// Should not be able to upload because account is frozen.
 			err = uplink1.Upload(ctx, sat, bucketName, path, expectedData)
-			require.Error(t, err)
+			require.Error(testT, err)
 
 			// Should not be able to download because account is frozen.
 			_, err = uplink1.Download(ctx, sat, bucketName, path)
-			require.Error(t, err)
+			require.Error(testT, err)
 
 			// Should not be able to create bucket because account is frozen.
 			err = uplink1.CreateBucket(ctx, sat, "anotherBucket")
-			require.Error(t, err)
+			require.Error(testT, err)
 		}
 
 		shouldListAndDelete := func(testT *testing.T) {
 			// Should be able to list even if frozen.
-			objects, err := uplink1.ListObjects(ctx, sat, bucketName)
-			require.NoError(t, err)
-			require.Len(t, objects, 1)
+			_, err := uplink1.ListObjects(ctx, sat, bucketName)
+			require.NoError(testT, err)
 
 			// Should be able to delete even if frozen.
 			err = uplink1.DeleteObject(ctx, sat, bucketName, path)
-			require.NoError(t, err)
+			require.NoError(testT, err)
+		}
+
+		shouldNotListAndDelete := func(testT *testing.T) {
+			// Should not be able to list.
+			_, err := uplink1.ListObjects(ctx, sat, bucketName)
+			require.Error(testT, err)
+			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
+
+			// Should not be able to delete.
+			err = uplink1.DeleteObject(ctx, sat, bucketName, path)
+			require.Error(testT, err)
+			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
 		}
 
 		t.Run("BillingFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
+			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.BillingWarnUser(ctx, user1.ID))
 
-			// Should be able to download because account is not frozen.
+			// Should be able to download and list because account is not frozen.
 			shouldUploadAndDownload(t)
+			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.BillingFreezeUser(ctx, user1.ID))
 
 			shouldNotUploadAndDownload(t)
-
 			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.BillingUnfreezeUser(ctx, user1.ID))
+
+			shouldUploadAndDownload(t)
 		})
 
 		t.Run("ViolationFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
+			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.ViolationFreezeUser(ctx, user1.ID))
 
 			shouldNotUploadAndDownload(t)
-
 			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.ViolationUnfreezeUser(ctx, user1.ID))
+
+			shouldUploadAndDownload(t)
 		})
 
 		t.Run("LegalFreeze effect on project owner", func(t *testing.T) {
 			shouldUploadAndDownload(t)
+			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.LegalFreezeUser(ctx, user1.ID))
 
 			shouldNotUploadAndDownload(t)
-
-			shouldListAndDelete(t)
+			shouldNotListAndDelete(t)
 
 			require.NoError(t, freezeService.LegalUnfreezeUser(ctx, user1.ID))
+
+			shouldListAndDelete(t)
+			shouldUploadAndDownload(t)
 		})
 	})
 }
