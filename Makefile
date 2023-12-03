@@ -285,7 +285,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image ## Build multinode, satellite and versioncontrol Docker images
+images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
@@ -309,6 +309,13 @@ uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build up
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/uplink/Dockerfile .
+
+# THIS IS NOT THE PRODUCTION STORAGENODE!!! Only for testing.
+# See https://github.com/storj/storagenode-docker for the prod image.
+.PHONY: storagenode-image
+storagenode-image: storagenode_linux_amd64 identity_linux_amd64
+	${DOCKER_BUILD} --pull=true -t img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/storagenode/Dockerfile.dev .
 
 .PHONY: satellite-image
 satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
@@ -439,6 +446,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
+	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
@@ -475,6 +483,7 @@ clean-images:
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
