@@ -2903,5 +2903,41 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			checkListing(2, false)
 			checkListing(3, true)
 		})
+
+		t.Run("check UploadID for versioned bucket", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			response, err := satelliteSys.API.Metainfo.Endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			})
+			require.NoError(t, err)
+
+			listResponse, err := satelliteSys.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey},
+				Bucket: []byte(bucketName),
+				Status: pb.Object_UPLOADING,
+			})
+			require.NoError(t, err)
+			require.Len(t, listResponse.Items, 1)
+			// StreamId is encoded into UploadID on libuplink side
+			// require.Equal(t, response.StreamId.Bytes(), listResponse.Items[0].StreamId.Bytes())
+
+			lposResponse, err := satelliteSys.API.Metainfo.Endpoint.ListPendingObjectStreams(ctx, &pb.ListPendingObjectStreamsRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: response.EncryptedObjectKey,
+			})
+			require.NoError(t, err)
+			require.Len(t, lposResponse.Items, 1)
+			require.Equal(t, response.StreamId.Bytes(), lposResponse.Items[0].StreamId.Bytes())
+		})
 	})
 }
