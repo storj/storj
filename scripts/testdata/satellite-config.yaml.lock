@@ -566,7 +566,7 @@ contact.external-address: ""
 # garbage-collection-bf.use-sync-observer: true
 
 # how many bloom filters will be packed in a single zip
-# garbage-collection-bf.zip-batch-size: 500
+# garbage-collection-bf.zip-batch-size: 40
 
 # Access to download the bloom filters. Needs read and write permission.
 # garbage-collection.access-grant: ""

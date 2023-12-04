@@ -17,6 +17,6 @@ type Config struct {
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
 	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:"" testDefault:"gc-queue"` // TODO do we need full location?
-	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"500" testDefault:"2"`
+	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"40" testDefault:"2"`
 	ExpireIn     time.Duration `help:"how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted" default:"336h"`
 }
