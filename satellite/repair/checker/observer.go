@@ -45,7 +45,7 @@ type Observer struct {
 	excludedCountryCodes map[location.CountryCode]struct{}
 	doDeclumping         bool
 	doPlacementCheck     bool
-	placementRules       overlay.PlacementRules
+	placementRules       nodeselection.PlacementRules
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -56,7 +56,7 @@ type Observer struct {
 }
 
 // NewObserver creates new checker observer instance.
-func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placementRules overlay.PlacementRules, config Config) *Observer {
+func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placementRules nodeselection.PlacementRules, config Config) *Observer {
 	excludedCountryCodes := make(map[location.CountryCode]struct{})
 	for _, countryCode := range config.RepairExcludedCountryCodes {
 		if cc := location.ToCountryCode(countryCode); cc != location.None {
@@ -267,7 +267,7 @@ type observerFork struct {
 	excludedCountryCodes map[location.CountryCode]struct{}
 	doDeclumping         bool
 	doPlacementCheck     bool
-	placementRules       overlay.PlacementRules
+	placementRules       nodeselection.PlacementRules
 
 	getObserverStats func(storj.RedundancyScheme) *observerRSStats
 }

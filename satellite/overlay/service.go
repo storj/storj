@@ -303,14 +303,14 @@ type Service struct {
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
-	placementRules         PlacementRules
+	placementRules         nodeselection.PlacementRules
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules PlacementRules, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules nodeselection.PlacementRules, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)

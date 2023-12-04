@@ -172,7 +172,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					tag := fmt.Sprintf(`tag("%s","selected","true")`, satelliteIdentity.ID())
-					config.Placement = overlay.ConfigurablePlacementRule{
+					config.Placement = nodeselection.ConfigurablePlacementRule{
 						PlacementRules: fmt.Sprintf("0:exclude(%s);10:%s", tag, tag),
 					}
 				},
@@ -464,7 +464,7 @@ func piecesOnNodeByIndex(ctx context.Context, planet *testplanet.Planet, pieces 
 
 }
 
-func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules overlay.PlacementRules) (bool, error) {
+func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
 	filter := rules(placement)
 	for _, piece := range pieces {
 
@@ -518,7 +518,7 @@ func updateNodeStatus(ctx context.Context, satellite *testplanet.Satellite, node
 // is configured to include only that placement constraint.
 func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 
-	placement := overlay.ConfigurablePlacementRule{}
+	placement := nodeselection.ConfigurablePlacementRule{}
 	err := placement.Set(`1:country("PL");2:country("PL")`)
 	require.NoError(t, err)
 

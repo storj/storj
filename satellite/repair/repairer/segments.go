@@ -22,6 +22,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
@@ -104,7 +105,7 @@ type SegmentRepairer struct {
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
-	placementRules                   overlay.PlacementRules
+	placementRules                   nodeselection.PlacementRules
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -119,7 +120,7 @@ func NewSegmentRepairer(
 	overlay *overlay.Service,
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
-	placementRules overlay.PlacementRules,
+	placementRules nodeselection.PlacementRules,
 	repairOverrides checker.RepairOverrides,
 	config Config,
 ) *SegmentRepairer {

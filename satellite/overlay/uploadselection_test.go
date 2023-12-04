@@ -65,7 +65,7 @@ func TestRefresh(t *testing.T) {
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.NewPlacementDefinitions().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -162,7 +162,7 @@ func TestRefreshConcurrent(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestRefreshConcurrent(t *testing.T) {
 		lowStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 	)
 	require.NoError(t, err)
 	ctx.Go(func() error { return cache.Run(cacheCtx) })
@@ -214,7 +214,7 @@ func TestSelectNodes(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
-		placementRules := overlay.NewPlacementDefinitions()
+		placementRules := nodeselection.NewPlacementDefinitions()
 		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
 		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
 
@@ -389,7 +389,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -436,7 +436,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		lowStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -528,7 +528,7 @@ func TestGetNodesDistinct(t *testing.T) {
 			highStaleness,
 			config,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.NewPlacementDefinitions().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -569,7 +569,7 @@ func TestGetNodesDistinct(t *testing.T) {
 			highStaleness,
 			config,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.NewPlacementDefinitions().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -594,7 +594,7 @@ func TestGetNodesError(t *testing.T) {
 		highStaleness,
 		nodeSelectionConfig,
 		nodeselection.NodeFilters{},
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 	)
 	require.NoError(t, err)
 
@@ -623,7 +623,7 @@ func TestNewNodeFraction(t *testing.T) {
 			lowStaleness,
 			nodeSelectionConfig,
 			nodeselection.NodeFilters{},
-			overlay.NewPlacementDefinitions().CreateFilters,
+			nodeselection.NewPlacementDefinitions().CreateFilters,
 		)
 		require.NoError(t, err)
 
@@ -674,7 +674,7 @@ func BenchmarkGetNodes(b *testing.B) {
 	defer cancel()
 	log, err := zap.NewDevelopment()
 	require.NoError(b, err)
-	placement := overlay.NewPlacementDefinitions()
+	placement := nodeselection.NewPlacementDefinitions()
 	placement.AddLegacyStaticRules()
 	defaultFilter := nodeselection.NodeFilters{}
 

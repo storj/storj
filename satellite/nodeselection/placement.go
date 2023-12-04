@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package nodeselection
 
 import (
 	"bytes"
@@ -15,18 +15,17 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
-	"storj.io/storj/satellite/nodeselection"
 )
 
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")
 
 // PlacementRules can crate filter based on the placement identifier.
-type PlacementRules func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter)
+type PlacementRules func(constraint storj.PlacementConstraint) (filter NodeFilter)
 
 // PlacementDefinitions can include the placement definitions for each known identifier.
 type PlacementDefinitions struct {
-	placements map[storj.PlacementConstraint]nodeselection.NodeFilter
+	placements map[storj.PlacementConstraint]NodeFilter
 }
 
 // ConfigurablePlacementRule is a string configuration includes all placement rules in the form of id1:def1,id2:def2...
@@ -74,22 +73,22 @@ var _ pflag.Value = &ConfigurablePlacementRule{}
 // NewPlacementDefinitions creates a fully initialized NewPlacementDefinitions.
 func NewPlacementDefinitions() *PlacementDefinitions {
 	return &PlacementDefinitions{
-		placements: map[storj.PlacementConstraint]nodeselection.NodeFilter{
-			storj.DefaultPlacement: nodeselection.AnyFilter{}},
+		placements: map[storj.PlacementConstraint]NodeFilter{
+			storj.DefaultPlacement: AnyFilter{}},
 	}
 }
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d *PlacementDefinitions) AddLegacyStaticRules() {
-	d.placements[storj.EEA] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(nodeselection.EeaCountriesWithoutEu...).With(nodeselection.EuCountries...))}
-	d.placements[storj.EU] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(nodeselection.EuCountries...))}
-	d.placements[storj.US] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.UnitedStates))}
-	d.placements[storj.DE] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewSet(location.Germany))}
-	d.placements[storj.NR] = nodeselection.NodeFilters{nodeselection.NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))}
+	d.placements[storj.EEA] = NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))}
+	d.placements[storj.EU] = NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))}
+	d.placements[storj.US] = NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))}
+	d.placements[storj.DE] = NodeFilters{NewCountryFilter(location.NewSet(location.Germany))}
+	d.placements[storj.NR] = NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))}
 }
 
 // AddPlacementRule registers a new placement.
-func (d *PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter nodeselection.NodeFilter) {
+func (d *PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
 	d.placements[id] = filter
 }
 
@@ -98,41 +97,41 @@ type stringNotMatch string
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
 func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error {
 	env := map[any]any{
-		"country": func(countries ...string) (nodeselection.NodeFilter, error) {
-			return nodeselection.NewCountryFilterFromString(countries)
+		"country": func(countries ...string) (NodeFilter, error) {
+			return NewCountryFilterFromString(countries)
 		},
-		"placement": func(ix int64) (nodeselection.NodeFilter, error) {
+		"placement": func(ix int64) (NodeFilter, error) {
 			filter, found := d.placements[storj.PlacementConstraint(ix)]
 			if !found {
 				return nil, ErrPlacement.New("Placement %d is referenced before defined. Please define it first!", ix)
 			}
 			return filter, nil
 		},
-		"all": func(filters ...nodeselection.NodeFilter) (nodeselection.NodeFilters, error) {
-			res := nodeselection.NodeFilters{}
+		"all": func(filters ...NodeFilter) (NodeFilters, error) {
+			res := NodeFilters{}
 			for _, filter := range filters {
 				res = append(res, filter)
 			}
 			return res, nil
 		},
 		mito.OpAnd: func(env map[any]any, a, b any) (any, error) {
-			filter1, ok1 := a.(nodeselection.NodeFilter)
-			filter2, ok2 := b.(nodeselection.NodeFilter)
+			filter1, ok1 := a.(NodeFilter)
+			filter2, ok2 := b.(NodeFilter)
 			if !ok1 || !ok2 {
 				return nil, ErrPlacement.New("&& is supported only between NodeFilter instances")
 			}
-			res := nodeselection.NodeFilters{filter1, filter2}
+			res := NodeFilters{filter1, filter2}
 			return res, nil
 		},
 		mito.OpOr: func(env map[any]any, a, b any) (any, error) {
-			filter1, ok1 := a.(nodeselection.NodeFilter)
-			filter2, ok2 := b.(nodeselection.NodeFilter)
+			filter1, ok1 := a.(NodeFilter)
+			filter2, ok2 := b.(NodeFilter)
 			if !ok1 || !ok2 {
 				return nil, errs.New("OR is supported only between NodeFilter instances")
 			}
-			return nodeselection.OrFilter{filter1, filter2}, nil
+			return OrFilter{filter1, filter2}, nil
 		},
-		"tag": func(nodeIDstr string, key string, value any) (nodeselection.NodeFilters, error) {
+		"tag": func(nodeIDstr string, key string, value any) (NodeFilters, error) {
 			nodeID, err := storj.NodeIDFromString(nodeIDstr)
 			if err != nil {
 				return nil, err
@@ -153,25 +152,25 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 			default:
 				return nil, ErrPlacement.New("3rd argument of tag() should be string or []byte")
 			}
-			res := nodeselection.NodeFilters{
-				nodeselection.NewTagFilter(nodeID, key, rawValue, match),
+			res := NodeFilters{
+				NewTagFilter(nodeID, key, rawValue, match),
 			}
 			return res, nil
 		},
-		"annotated": func(filter nodeselection.NodeFilter, kv ...nodeselection.Annotation) (nodeselection.AnnotatedNodeFilter, error) {
-			return nodeselection.AnnotatedNodeFilter{
+		"annotated": func(filter NodeFilter, kv ...Annotation) (AnnotatedNodeFilter, error) {
+			return AnnotatedNodeFilter{
 				Filter:      filter,
 				Annotations: kv,
 			}, nil
 		},
-		"annotation": func(key string, value string) (nodeselection.Annotation, error) {
-			return nodeselection.Annotation{
+		"annotation": func(key string, value string) (Annotation, error) {
+			return Annotation{
 				Key:   key,
 				Value: value,
 			}, nil
 		},
-		"exclude": func(filter nodeselection.NodeFilter) (nodeselection.NodeFilter, error) {
-			return nodeselection.NewExcludeFilter(filter), nil
+		"exclude": func(filter NodeFilter) (NodeFilter, error) {
+			return NewExcludeFilter(filter), nil
 		},
 		"empty": func() string {
 			return ""
@@ -198,18 +197,18 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		if err != nil {
 			return ErrPlacement.Wrap(err)
 		}
-		d.placements[storj.PlacementConstraint(id)] = val.(nodeselection.NodeFilter)
+		d.placements[storj.PlacementConstraint(id)] = val.(NodeFilter)
 	}
 	return nil
 }
 
 // CreateFilters implements PlacementCondition.
-func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
+func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter) {
 	if filters, found := d.placements[constraint]; found {
 		return filters
 	}
-	return nodeselection.NodeFilters{
-		nodeselection.ExcludeAllFilter{},
+	return NodeFilters{
+		ExcludeAllFilter{},
 	}
 }
 

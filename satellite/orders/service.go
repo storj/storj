@@ -57,7 +57,7 @@ type Service struct {
 	satellite      signing.Signer
 	overlay        Overlay
 	orders         DB
-	placementRules overlay.PlacementRules
+	placementRules nodeselection.PlacementRules
 
 	encryptionKeys EncryptionKeys
 
@@ -70,7 +70,7 @@ type Service struct {
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay Overlay,
-	orders DB, placementRules overlay.PlacementRules, config Config,
+	orders DB, placementRules nodeselection.PlacementRules, config Config,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")

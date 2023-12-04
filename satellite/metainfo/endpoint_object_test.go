@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/uplink"
@@ -2654,7 +2654,7 @@ func TestNodeTagPlacement(t *testing.T) {
 
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 
-	placementRules := overlay.ConfigurablePlacementRule{}
+	placementRules := nodeselection.ConfigurablePlacementRule{}
 	tag := fmt.Sprintf(`tag("%s", "certified","true")`, satelliteIdentity.ID())
 	err := placementRules.Set(fmt.Sprintf(`0:exclude(%s);16:%s`, tag, tag))
 	require.NoError(t, err)

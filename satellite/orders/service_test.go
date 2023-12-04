@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 )
 
 func TestGetOrderLimits(t *testing.T) {
@@ -57,7 +56,7 @@ func TestGetOrderLimits(t *testing.T) {
 		Return(nodes, nil).AnyTimes()
 
 	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(),
-		overlay.NewPlacementDefinitions().CreateFilters,
+		nodeselection.NewPlacementDefinitions().CreateFilters,
 		orders.Config{
 			EncryptionKeys: orders.EncryptionKeys{
 				Default: orders.EncryptionKey{

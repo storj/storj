@@ -37,11 +37,11 @@ type DownloadSelectionCache struct {
 	config DownloadSelectionCacheConfig
 
 	cache          sync2.ReadCacheOf[*DownloadSelectionCacheState]
-	placementRules PlacementRules
+	placementRules nodeselection.PlacementRules
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
-func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, placementRules PlacementRules, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
+func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, placementRules nodeselection.PlacementRules, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
 	cache := &DownloadSelectionCache{
 		log:            log,
 		db:             db,

@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 )
 
@@ -47,7 +46,7 @@ func TestObserverForkProcess(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	placementRules := overlay.ConfigurablePlacementRule{}
+	placementRules := nodeselection.ConfigurablePlacementRule{}
 	parsed, err := placementRules.Parse()
 	require.NoError(t, err)
 	createDefaultObserver := func() *Observer {
@@ -146,7 +145,7 @@ func TestObserverForkProcess(t *testing.T) {
 		o := createDefaultObserver()
 		o.doDeclumping = true
 
-		placements := overlay.ConfigurablePlacementRule{}
+		placements := nodeselection.ConfigurablePlacementRule{}
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
 		parsed, err := placements.Parse()
 		require.NoError(t, err)

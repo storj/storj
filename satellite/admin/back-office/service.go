@@ -8,7 +8,7 @@ import (
 
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 // Service provides functionality for administrating satellites.
@@ -17,7 +17,7 @@ type Service struct {
 	consoleDB    console.DB
 	accountingDB accounting.ProjectAccounting
 	accounting   *accounting.Service
-	placement    *overlay.PlacementDefinitions
+	placement    *nodeselection.PlacementDefinitions
 }
 
 // NewService creates a new satellite administration service.
@@ -26,7 +26,7 @@ func NewService(
 	consoleDB console.DB,
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
-	placement *overlay.PlacementDefinitions,
+	placement *nodeselection.PlacementDefinitions,
 ) *Service {
 	return &Service{
 		log:          log,

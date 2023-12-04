@@ -14,7 +14,6 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
 )
 
 func TestClassifySegmentPieces(t *testing.T) {
@@ -37,7 +36,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		})
 
-		c := &overlay.ConfigurablePlacementRule{}
+		c := &nodeselection.ConfigurablePlacementRule{}
 		require.NoError(t, c.Set(""))
 		parsed, err := c.Parse()
 		require.NoError(t, err)
@@ -63,7 +62,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		})
 
-		c, err := overlay.ConfigurablePlacementRule{
+		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
 		}.Parse()
 		require.NoError(t, err)
@@ -86,7 +85,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 			node.CountryCode = location.Germany
 		})
 
-		c, err := overlay.ConfigurablePlacementRule{
+		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: `10:country("GB")`,
 		}.Parse()
 		require.NoError(t, err)
@@ -111,7 +110,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 			node.LastNet = fmt.Sprintf("127.0.%d.0", ix/2)
 		})
 
-		c := overlay.NewPlacementDefinitions()
+		c := nodeselection.NewPlacementDefinitions()
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
@@ -135,7 +134,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 			node.CountryCode = location.UnitedKingdom
 		})
 
-		c, err := overlay.ConfigurablePlacementRule{
+		c, err := nodeselection.ConfigurablePlacementRule{
 			PlacementRules: fmt.Sprintf(`10:annotated(country("GB"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF),
 		}.Parse()
 		require.NoError(t, err)
