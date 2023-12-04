@@ -275,12 +275,6 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
-	// TODO(clement): remove this once we have a migration to remove the `type` column from the nodes table
-	nodes, ok := finalSchema.FindTable("nodes")
-	if ok {
-		nodes.RemoveColumn("type")
-	}
-
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }
