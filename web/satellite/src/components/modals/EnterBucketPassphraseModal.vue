@@ -90,8 +90,6 @@ const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
 
-const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-
 const enterError = ref<string>('');
 const passphrase = ref<string>('');
 const isLoading = ref<boolean>(false);
@@ -126,7 +124,7 @@ const bucketObjectCount = computed((): number => {
         (bucket: Bucket) => bucket.name === bucketName.value,
     );
 
-    return data?.objectCount || 0;
+    return data?.objectCount ?? 0;
 });
 
 /**
@@ -162,7 +160,7 @@ async function onContinue(): Promise<void> {
         bucketsStore.setPassphrase(passphrase.value);
         await bucketsStore.setS3Client(selectedProjectID.value);
         const count: number = await bucketsStore.getObjectsCount(bucketName.value);
-        if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
+        if (count === 0 && bucketObjectCount.value > 0) {
             isWarningState.value = true;
             isLoading.value = false;
             return;
