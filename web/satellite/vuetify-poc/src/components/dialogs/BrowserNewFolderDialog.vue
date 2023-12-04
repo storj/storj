@@ -42,7 +42,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="px-7 pt-9 pb-4">
+            <v-form v-model="formValid" class="px-7 pt-9 pb-4" @submit.prevent="createFolder">
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
@@ -155,6 +155,8 @@ const files = computed((): BrowserObject[] => {
 });
 
 function createFolder(): void {
+    if (!formValid.value) return;
+
     withLoading(async () => {
         try {
             await obStore.createFolder(folder.value.trim());
