@@ -57,7 +57,7 @@
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = 3">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -72,7 +72,7 @@
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus">
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus" @click="tab = 1">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
