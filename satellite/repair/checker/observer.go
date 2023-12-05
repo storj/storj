@@ -411,7 +411,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	stats.segmentStats.segmentAge.Observe(int64(segmentAge.Seconds()))
 
 	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairOverrides)
-	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate)
+	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate, piecesCheck.ForcingRepair.Count())
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)
 
