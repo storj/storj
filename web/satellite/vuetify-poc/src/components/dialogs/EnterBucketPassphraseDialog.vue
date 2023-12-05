@@ -125,12 +125,12 @@ const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 
 const props = defineProps<{
-  modelValue: boolean,
+    modelValue: boolean,
 }>();
 
 const emit = defineEmits<{
-  (event: 'update:modelValue', value: boolean): void,
-  (event: 'passphraseEntered'): void,
+    (event: 'update:modelValue', value: boolean): void,
+    (event: 'passphraseEntered'): void,
 }>();
 
 const model = computed<boolean>({

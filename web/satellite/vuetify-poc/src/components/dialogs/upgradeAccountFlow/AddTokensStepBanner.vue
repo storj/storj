@@ -47,10 +47,10 @@ import { useConfigStore } from '@/store/modules/configStore';
 const configStore = useConfigStore();
 
 const props = defineProps<{
-  isDefault: boolean
-  isPending: boolean
-  isSuccess: boolean
-  pendingPayments: PaymentWithConfirmations[]
+    isDefault: boolean
+    isPending: boolean
+    isSuccess: boolean
+    pendingPayments: PaymentWithConfirmations[]
 }>();
 
 /**

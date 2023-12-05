@@ -24,6 +24,6 @@ import {
 import UsageAndChargesItemComponent from '@poc/components/billing/UsageAndChargesItemComponent.vue';
 
 const props = defineProps<{
-  projectIds: string[],
+    projectIds: string[],
 }>();
 </script>

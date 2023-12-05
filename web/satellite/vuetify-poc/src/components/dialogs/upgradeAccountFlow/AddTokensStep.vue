@@ -111,7 +111,7 @@ const intervalID = ref<NodeJS.Timer>();
 const viewState = ref<ViewState>(ViewState.Default);
 
 const emit = defineEmits<{
-  back: [];
+    back: [];
 }>();
 
 /**

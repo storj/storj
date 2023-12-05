@@ -41,7 +41,7 @@ import VTable from '@/components/common/VTable.vue';
 const projectsStore = useProjectsStore();
 
 const props = withDefaults(defineProps<{
-  invites?: ProjectInvitation[],
+    invites?: ProjectInvitation[],
 }>(), {
     invites: () => [],
 });

@@ -123,11 +123,11 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
-  modelValue: boolean,
+    modelValue: boolean,
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
+    'update:modelValue': [value: boolean];
 }>();
 
 const model = computed<boolean>({

@@ -36,7 +36,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  (e: 'pmCreated', pmID: string): void
+    (e: 'pmCreated', pmID: string): void
 }>();
 
 /**
