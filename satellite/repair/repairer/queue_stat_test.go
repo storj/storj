@@ -41,11 +41,12 @@ func TestStatChore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		chore := repairer.NewQueueStat(zaptest.NewLogger(t), []storj.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
+		registry := monkit.NewRegistry()
+		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
 
 		collectMonkitStat := func() map[string]float64 {
 			monkitValues := map[string]float64{}
-			monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			registry.Stats(func(key monkit.SeriesKey, field string, val float64) {
 				if key.Measurement != "repair_queue" {
 					return
 				}
