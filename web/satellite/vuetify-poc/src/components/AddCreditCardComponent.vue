@@ -58,7 +58,7 @@ import StripeCardElement from '@/components/account/billing/paymentMethods/Strip
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 interface StripeForm {
-  onSubmit(): Promise<void>;
+    onSubmit(): Promise<void>;
 }
 
 const configStore = useConfigStore();

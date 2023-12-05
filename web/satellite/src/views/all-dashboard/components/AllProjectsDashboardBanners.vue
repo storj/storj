@@ -77,7 +77,7 @@ const configStore = useConfigStore();
 const isLowBalance = useLowTokenBalance();
 
 const props = defineProps<{
-  parentRef: HTMLElement;
+    parentRef: HTMLElement;
 }>();
 
 /**

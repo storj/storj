@@ -79,19 +79,19 @@ import { computed, ref } from 'vue';
 import { RequiredRule } from '@poc/types/common';
 
 const props = defineProps<{
-  modelValue: boolean;
-  loading: boolean;
-  error: boolean;
-  recovery: string;
-  otp: string;
+    modelValue: boolean;
+    loading: boolean;
+    error: boolean;
+    recovery: string;
+    otp: string;
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  'update:error': [value: boolean];
-  'update:recovery': [value: string];
-  'update:otp': [value: string];
-  verify: [];
+    'update:modelValue': [value: boolean];
+    'update:error': [value: boolean];
+    'update:recovery': [value: string];
+    'update:otp': [value: string];
+    verify: [];
 }>();
 
 const formValid = ref(false);

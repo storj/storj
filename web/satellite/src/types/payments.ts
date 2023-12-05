@@ -628,8 +628,8 @@ export enum CouponDuration {
  */
 export class Wallet {
     public constructor(
-      public address: string = '',
-      public balance: TokenAmount = new TokenAmount(),
+        public address: string = '',
+        public balance: TokenAmount = new TokenAmount(),
     ) { }
 }
 

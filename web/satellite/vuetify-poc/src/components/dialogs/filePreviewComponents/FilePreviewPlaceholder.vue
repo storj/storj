@@ -23,7 +23,7 @@ import prettyBytes from 'pretty-bytes';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 
 const props = defineProps<{
-  file: BrowserObject,
+    file: BrowserObject,
 }>();
 
 const emits = defineEmits<{

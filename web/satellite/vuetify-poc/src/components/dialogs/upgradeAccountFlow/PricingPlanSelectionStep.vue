@@ -38,7 +38,7 @@ const notify = useNotify();
 const { smAndDown } = useDisplay();
 
 const emit = defineEmits<{
-  select: [PricingPlanInfo];
+    select: [PricingPlanInfo];
 }>();
 
 const isLoading = ref<boolean>(true);

@@ -38,13 +38,13 @@ import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 const appStore = useAppStore();
 
 const props = defineProps<{
-  selected: number | null;
-  itemCount?: number;
-  simplePagination?: boolean;
+    selected: number | null;
+    itemCount?: number;
+    simplePagination?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'change', size: number): void
+    (e: 'change', size: number): void
 }>();
 
 const options = computed((): {label:string, value:number}[] => {
