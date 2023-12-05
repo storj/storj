@@ -219,14 +219,14 @@ import { useNotify } from '@/utils/hooks';
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
 
 type ViewConfig = {
-  title: string;
-  partnerUrl: string;
-  partnerLogoTopUrl: string;
-  partnerLogoBottomUrl: string;
-  description: string;
-  customHtmlDescription: string;
-  signupButtonLabel: string;
-  tooltip: string;
+    title: string;
+    partnerUrl: string;
+    partnerLogoTopUrl: string;
+    partnerLogoBottomUrl: string;
+    description: string;
+    customHtmlDescription: string;
+    signupButtonLabel: string;
+    tooltip: string;
 }
 
 const auth = new AuthHttpApi();

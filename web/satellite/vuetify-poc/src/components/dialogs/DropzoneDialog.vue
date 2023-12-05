@@ -36,13 +36,13 @@ import { VAlert, VContainer, VDialog } from 'vuetify/components';
 import { computed } from 'vue';
 
 const props = defineProps<{
-  modelValue: boolean,
-  bucket: string,
+    modelValue: boolean,
+    bucket: string,
 }>();
 
 const emit = defineEmits<{
-  (event: 'update:modelValue', value: boolean): void,
-  (event: 'fileDrop', value: Event): void,
+    (event: 'update:modelValue', value: boolean): void,
+    (event: 'fileDrop', value: Event): void,
 }>();
 
 const model = computed<boolean>({

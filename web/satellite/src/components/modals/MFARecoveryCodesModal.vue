@@ -76,7 +76,7 @@ import VModal from '@/components/common/VModal.vue';
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 
 interface ClearInput {
-  clearInput(): void;
+    clearInput(): void;
 }
 
 const usersStore = useUsersStore();

@@ -72,8 +72,8 @@ const isLoading = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
 
 const props = defineProps<{
-  file: BrowserObject,
-  active: boolean, // whether this item is visible
+    file: BrowserObject,
+    active: boolean, // whether this item is visible
 }>();
 
 const emit = defineEmits<{

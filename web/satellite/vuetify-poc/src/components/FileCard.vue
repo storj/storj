@@ -68,15 +68,15 @@ import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 
 type BrowserObjectTypeInfo = {
-  title: string;
-  icon: string;
+    title: string;
+    icon: string;
 };
 
 type BrowserObjectWrapper = {
-  browserObject: BrowserObject;
-  typeInfo: BrowserObjectTypeInfo;
-  lowerName: string;
-  ext: string;
+    browserObject: BrowserObject;
+    typeInfo: BrowserObjectTypeInfo;
+    lowerName: string;
+    ext: string;
 };
 
 const analyticsStore = useAnalyticsStore();
@@ -92,9 +92,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  previewClick: [BrowserObject];
-  deleteFileClick: [BrowserObject];
-  shareClick: [BrowserObject];
+    previewClick: [BrowserObject];
+    deleteFileClick: [BrowserObject];
+    shareClick: [BrowserObject];
 }>();
 
 /**

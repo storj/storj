@@ -29,6 +29,7 @@ module.exports = {
         'no-tabs': 'warn',
         'indent': ['warn', 4],
         'vue/html-indent': ['warn', 4],
+        '@typescript-eslint/indent': ['warn', 4, {"SwitchCase": 0}],
 
         '@typescript-eslint/no-unused-vars': 'off',
         '@typescript-eslint/no-empty-function': 'off',

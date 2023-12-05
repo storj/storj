@@ -85,8 +85,8 @@ const router = useRouter();
 const route = useRoute();
 
 const emit = defineEmits<{
-  success: [];
-  back: [];
+    success: [];
+    back: [];
 }>();
 
 const loading = ref<boolean>(false);

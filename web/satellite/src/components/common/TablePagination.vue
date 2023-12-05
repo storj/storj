@@ -98,8 +98,8 @@ import PaginationRightIcon from '@/../static/images/common/tablePaginationArrowR
 
 // Represents each type of item in the pagination component.
 interface PaginationControlItem {
-  index?: number;
-  type: 'page' | 'prev' | 'next' | 'next_3' | 'prev_3';
+    index?: number;
+    type: 'page' | 'prev' | 'next' | 'next_3' | 'prev_3';
 }
 
 const { withLoading } = useLoading();

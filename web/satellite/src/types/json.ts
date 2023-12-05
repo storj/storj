@@ -14,7 +14,7 @@ export type JSONObject = string | number | boolean | null | JSONObject[] | {
  */
 export type JSONRepresentable<T> =
     T extends undefined ? never :
-    T extends JSONObject ? T :
-    Pick<T, {
-        [P in keyof T]: T[P] extends JSONObject ? P : never;
-    }[keyof T]>;
+        T extends JSONObject ? T :
+            Pick<T, {
+                [P in keyof T]: T[P] extends JSONObject ? P : never;
+            }[keyof T]>;

@@ -36,7 +36,7 @@ export type BrowserObject = {
     type?: 'file' | 'folder';
     progress?: number;
     upload?: {
-      abort: () => void;
+        abort: () => void;
     };
     path?: string;
 };
@@ -105,7 +105,7 @@ export class FilesState {
 }
 
 type InitializedFilesState = FilesState & {
-  s3: S3Client;
+    s3: S3Client;
 };
 
 function assertIsInitialized(

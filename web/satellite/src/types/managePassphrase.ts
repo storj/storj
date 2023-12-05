@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 export enum ManageProjectPassphraseStep {
-  ManageOptions = 'ManageOptions',
-  Create = 'Create',
-  Switch = 'Switch',
-  Clear = 'Clear',
+    ManageOptions = 'ManageOptions',
+    Create = 'Create',
+    Switch = 'Switch',
+    Clear = 'Clear',
 }

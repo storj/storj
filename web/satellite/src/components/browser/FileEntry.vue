@@ -149,8 +149,8 @@ const notify = useNotify();
 const router = useRouter();
 
 const props = defineProps<{
-  path: string,
-  file: BrowserObject,
+    path: string,
+    file: BrowserObject,
 }>();
 
 const emit = defineEmits(['onUpdate']);
