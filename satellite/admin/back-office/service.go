@@ -17,7 +17,7 @@ type Service struct {
 	consoleDB    console.DB
 	accountingDB accounting.ProjectAccounting
 	accounting   *accounting.Service
-	placement    *nodeselection.PlacementDefinitions
+	placement    nodeselection.PlacementDefinitions
 }
 
 // NewService creates a new satellite administration service.
@@ -26,7 +26,7 @@ func NewService(
 	consoleDB console.DB,
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
-	placement *nodeselection.PlacementDefinitions,
+	placement nodeselection.PlacementDefinitions,
 ) *Service {
 	return &Service{
 		log:          log,

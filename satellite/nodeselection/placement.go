@@ -17,6 +17,39 @@ import (
 	"storj.io/common/storj/location"
 )
 
+// Placement defined all the custom behavior metadata of a specific placement group.
+type Placement struct {
+	// the unique ID of the placement
+	ID storj.PlacementConstraint
+	// binding condition for filtering out nodes
+	NodeFilter NodeFilter
+}
+
+// Match implements NodeFilter.
+func (p Placement) Match(node *SelectedNode) bool {
+	return p.NodeFilter.Match(node)
+}
+
+// GetAnnotation implements NodeFilterWithAnnotation.
+func (p Placement) GetAnnotation(name string) string {
+	switch filter := p.NodeFilter.(type) {
+	case NodeFilterWithAnnotation:
+		return filter.GetAnnotation(name)
+	default:
+		return ""
+	}
+}
+
+var _ NodeFilter = Placement{}
+
+var _ NodeFilterWithAnnotation = Placement{}
+
+// NodeSelectorInit initializes a stateful NodeSelector when node cache is refreshed.
+type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
+
+// NodeSelector pick random nodes based on a specific algorithm.
+type NodeSelector func(n int, alreadySelected []storj.NodeID) ([]*SelectedNode, error)
+
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")
 
@@ -24,9 +57,7 @@ var ErrPlacement = errs.Class("placement")
 type PlacementRules func(constraint storj.PlacementConstraint) (filter NodeFilter)
 
 // PlacementDefinitions can include the placement definitions for each known identifier.
-type PlacementDefinitions struct {
-	placements map[storj.PlacementConstraint]NodeFilter
-}
+type PlacementDefinitions map[storj.PlacementConstraint]Placement
 
 // ConfigurablePlacementRule is a string configuration includes all placement rules in the form of id1:def1,id2:def2...
 type ConfigurablePlacementRule struct {
@@ -50,7 +81,7 @@ func (c *ConfigurablePlacementRule) Type() string {
 }
 
 // Parse creates the PlacementDefinitions from the string rules.
-func (c ConfigurablePlacementRule) Parse() (*PlacementDefinitions, error) {
+func (c ConfigurablePlacementRule) Parse() (PlacementDefinitions, error) {
 	rules := c.PlacementRules
 	if _, err := os.Stat(rules); err == nil {
 		ruleBytes, err := os.ReadFile(rules)
@@ -71,41 +102,54 @@ func (c ConfigurablePlacementRule) Parse() (*PlacementDefinitions, error) {
 var _ pflag.Value = &ConfigurablePlacementRule{}
 
 // NewPlacementDefinitions creates a fully initialized NewPlacementDefinitions.
-func NewPlacementDefinitions() *PlacementDefinitions {
-	return &PlacementDefinitions{
-		placements: map[storj.PlacementConstraint]NodeFilter{
-			storj.DefaultPlacement: AnyFilter{}},
+func NewPlacementDefinitions() PlacementDefinitions {
+	return map[storj.PlacementConstraint]Placement{
+		storj.DefaultPlacement: {
+			NodeFilter: AnyFilter{},
+		},
 	}
 }
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
-func (d *PlacementDefinitions) AddLegacyStaticRules() {
-	d.placements[storj.EEA] = NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))}
-	d.placements[storj.EU] = NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))}
-	d.placements[storj.US] = NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))}
-	d.placements[storj.DE] = NodeFilters{NewCountryFilter(location.NewSet(location.Germany))}
-	d.placements[storj.NR] = NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))}
+func (d PlacementDefinitions) AddLegacyStaticRules() {
+	d[storj.EEA] = Placement{
+		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))},
+	}
+	d[storj.EU] = Placement{
+		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))},
+	}
+	d[storj.US] = Placement{
+		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))},
+	}
+	d[storj.DE] = Placement{
+		NodeFilter: NodeFilters{NewCountryFilter(location.NewSet(location.Germany))},
+	}
+	d[storj.NR] = Placement{
+		NodeFilter: NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))},
+	}
 }
 
 // AddPlacementRule registers a new placement.
-func (d *PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
-	d.placements[id] = filter
+func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, filter NodeFilter) {
+	d[id] = Placement{
+		NodeFilter: filter,
+	}
 }
 
 type stringNotMatch string
 
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
-func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error {
+func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 	env := map[any]any{
 		"country": func(countries ...string) (NodeFilter, error) {
 			return NewCountryFilterFromString(countries)
 		},
 		"placement": func(ix int64) (NodeFilter, error) {
-			filter, found := d.placements[storj.PlacementConstraint(ix)]
+			filter, found := d[storj.PlacementConstraint(ix)]
 			if !found {
 				return nil, ErrPlacement.New("Placement %d is referenced before defined. Please define it first!", ix)
 			}
-			return filter, nil
+			return filter.NodeFilter, nil
 		},
 		"all": func(filters ...NodeFilter) (NodeFilters, error) {
 			res := NodeFilters{}
@@ -179,6 +223,7 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 			return stringNotMatch("")
 		},
 	}
+
 	for _, definition := range strings.Split(definitions, ";") {
 		definition = strings.TrimSpace(definition)
 		if definition == "" {
@@ -197,15 +242,18 @@ func (d *PlacementDefinitions) AddPlacementFromString(definitions string) error 
 		if err != nil {
 			return ErrPlacement.Wrap(err)
 		}
-		d.placements[storj.PlacementConstraint(id)] = val.(NodeFilter)
+		placement := Placement{
+			NodeFilter: val.(NodeFilter),
+		}
+		d[storj.PlacementConstraint(id)] = placement
 	}
 	return nil
 }
 
 // CreateFilters implements PlacementCondition.
-func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter) {
-	if filters, found := d.placements[constraint]; found {
-		return filters
+func (d PlacementDefinitions) CreateFilters(constraint storj.PlacementConstraint) (filter NodeFilter) {
+	if filters, found := d[constraint]; found {
+		return filters.NodeFilter
 	}
 	return NodeFilters{
 		ExcludeAllFilter{},
@@ -213,8 +261,8 @@ func (d *PlacementDefinitions) CreateFilters(constraint storj.PlacementConstrain
 }
 
 // SupportedPlacements returns all the IDs, which have associated placement rules.
-func (d *PlacementDefinitions) SupportedPlacements() (res []storj.PlacementConstraint) {
-	for id := range d.placements {
+func (d PlacementDefinitions) SupportedPlacements() (res []storj.PlacementConstraint) {
+	for id := range d {
 		res = append(res, id)
 	}
 	return res

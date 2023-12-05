@@ -637,7 +637,7 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 			db.reputable = append(db.reputable, &node)
 		}
 	}
-	service, _ := overlay.NewService(log, db, nil, nodeselection.NewPlacementDefinitions().CreateFilters, "", "", config)
+	service, _ := overlay.NewService(log, db, nil, nodeselection.NewPlacementDefinitions(), "", "", config)
 	serviceCtx, cancel := context.WithCancel(ctx)
 	ctx.Go(func() error {
 		return service.Run(serviceCtx)
