@@ -2,52 +2,52 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card variant="outlined" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
-            <v-img
-                v-if="objectPreviewUrl && previewType === PreviewType.Image"
-                :src="objectPreviewUrl"
-                alt="preview"
-                height="200px"
-                cover
-                @click="emit('previewClick', item.browserObject)"
-            />
-            <div
-                v-else
-                class="d-flex flex-column justify-center align-center file-icon-container"
-                @click="emit('previewClick', item.browserObject)"
-            >
-                <img
-                    :src="item.typeInfo.icon"
-                    :alt="item.typeInfo.title + 'icon'"
-                    :aria-roledescription="item.typeInfo.title + 'icon'"
-                    height="100"
+            <a role="button" class="h-100" @click="emit('previewClick', item.browserObject)">
+                <v-img
+                    v-if="objectPreviewUrl && previewType === PreviewType.Image"
+                    :src="objectPreviewUrl"
+                    class="bg-light card-preview-img h-100"
+                    alt="preview"
+                    :aspect-ratio="1/1"
+                    cover
+                />
+                <div
+                    v-else
+                    class="d-flex h-100 bg-light flex-column justify-center align-center file-icon-container card-preview-icon"
+                    :aspect-ratio="1/1"
                 >
-            </div>
+                    <img
+                        :src="item.typeInfo.icon"
+                        :alt="item.typeInfo.title + 'icon'"
+                        :aria-roledescription="item.typeInfo.title + 'icon'"
+                        height="52"
+                    >
+                </div>
+            </a>
 
-            <v-card-item>
+            <browser-row-actions
+                class="pl-3 pt-3"
+                :file="item.browserObject"
+                align="left"
+                @preview-click="emit('previewClick', item.browserObject)"
+                @delete-file-click="emit('deleteFileClick', item.browserObject)"
+                @share-click="emit('shareClick', item.browserObject)"
+            />
+            <v-card-item class="pt-0">
                 <v-card-title>
-                    <a class="link" @click="emit('previewClick', item.browserObject)">
+                    <small :title="item.browserObject.Key">
                         {{ item.browserObject.Key }}
-                    </a>
+                    </small>
                 </v-card-title>
-                <v-card-subtitle>
+                <!-- <v-card-subtitle class="text-caption">
                     {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedSize(item.browserObject) }}
-                </v-card-subtitle>
-                <v-card-subtitle>
+                </v-card-subtitle> -->
+                <v-card-subtitle class="text-caption">
                     {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedDate(item.browserObject) }}
                 </v-card-subtitle>
             </v-card-item>
-            <v-card-text class="flex-grow-0">
-                <v-divider class="mt-1 mb-4" />
-                <browser-row-actions
-                    :file="item.browserObject"
-                    align="left"
-                    @preview-click="emit('previewClick', item.browserObject)"
-                    @delete-file-click="emit('deleteFileClick', item.browserObject)"
-                    @share-click="emit('shareClick', item.browserObject)"
-                />
-            </v-card-text>
         </div>
     </v-card>
 </template>
@@ -158,9 +158,3 @@ function getFormattedDate(file: BrowserObject): string {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 </script>
-
-<style scoped lang="scss">
-.file-icon-container {
-    height: 200px;
-}
-</style>

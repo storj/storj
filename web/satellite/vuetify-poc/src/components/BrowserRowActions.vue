@@ -5,25 +5,40 @@
     <div class="text-no-wrap" :class="alignClass">
         <v-btn
             v-if="file.type !== 'folder'"
-            variant="outlined"
+            variant="text"
             color="default"
             size="small"
             class="mr-1 text-caption"
             density="comfortable"
+            title="Download"
             icon
             :loading="isDownloading"
             @click="onDownloadClick"
         >
             <icon-download />
-            <v-tooltip activator="parent" location="start">Download</v-tooltip>
+            <!-- <v-tooltip activator="parent" location="start">Download</v-tooltip> -->
         </v-btn>
 
         <v-btn
-            variant="outlined"
+            variant="text"
             color="default"
             size="small"
             class="mr-1 text-caption"
             density="comfortable"
+            title="Share"
+            icon
+            @click="emit('shareClick')"
+        >
+            <icon-share bold />
+        </v-btn>
+
+        <v-btn
+            variant="text"
+            color="default"
+            size="small"
+            class="mr-1 text-caption"
+            density="comfortable"
+            title="More Actions"
             icon
         >
             <v-icon icon="mdi-dots-horizontal" />

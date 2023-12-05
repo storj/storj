@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title" variant="flat" :border="true" rounded="xlg">
+    <v-card :title="title" variant="outlined" :border="true" rounded="xlg">
         <template #title>
             <v-card-title class="d-flex align-center">
-                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" />
+                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" bold />
                 {{ title }}
             </v-card-title>
         </template>
@@ -20,7 +20,7 @@
                 </v-col>
                 <v-col>
                     <h4 class="text-right">{{ available }}</h4>
-                    <p class="text-cursor-pointer text-right text-medium-emphasis" @click="emit('ctaClick')"><small>{{ cta }}</small></p>
+                    <p class="text-right text-medium-emphasis"><a class="link" role="button" @click="emit('ctaClick')"><small>{{ cta }}</small></a></p>
                 </v-col>
             </v-row>
         </v-card-item>

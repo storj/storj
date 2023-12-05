@@ -21,8 +21,8 @@
                         </v-col>
                     </v-row>
                 </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                    <v-table density="comfortable">
+                <v-expansion-panel-text class="pt-4 pb-2">
+                    <v-table density="comfortable" class="border rounded-lg">
                         <thead>
                             <tr>
                                 <th class="text-left">
@@ -40,30 +40,53 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr
-                                v-for="[partner, charge] in partnerCharges"
-                                :key="partner"
-                            >
+                            <tr v-for="[partner, charge] in partnerCharges" :key="partner">
                                 <td>
                                     <p>Storage <span class="d-none d-md-inline">({{ getStoragePrice(partner) }} per Gigabyte-Month)</span></p>
-                                    <p>Download <span class="d-none d-md-inline">({{ getEgressPrice(partner) }} per GB)</span></p>
-                                    <p>Segments <span class="d-none d-md-inline">({{ getSegmentPrice(partner) }} per Segment-Month)</span></p>
                                 </td>
-                                <td class="d-none d-md-table-cell"><p v-for="i in 3" :key="i">{{ getPeriod(charge) }}</p></td>
+                                <td class="d-none d-md-table-cell">
+                                    <p>{{ getPeriod(charge) }}</p>
+                                </td>
                                 <td class="d-none d-sm-table-cell">
                                     <p>{{ getStorageFormatted(charge) }} Gigabyte-month</p>
-                                    <p>{{ getEgressAmountAndDimension(charge) }}</p>
-                                    <p>{{ getSegmentCountFormatted(charge) }} Segment-month</p>
                                 </td>
                                 <td class="text-right">
                                     <p>{{ centsToDollars(charge.storagePrice) }}</p>
+                                </td>
+                            </tr>
+
+                            <tr v-for="[partner, charge] in partnerCharges" :key="partner">
+                                <td>
+                                    <p>Download <span class="d-none d-md-inline">({{ getEgressPrice(partner) }} per GB)</span></p>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <p>{{ getPeriod(charge) }}</p>
+                                </td>
+                                <td class="d-none d-sm-table-cell">
+                                    <p>{{ getEgressAmountAndDimension(charge) }}</p>
+                                </td>
+                                <td class="text-right">
                                     <p>{{ centsToDollars(charge.egressPrice) }}</p>
+                                </td>
+                            </tr>
+
+                            <tr v-for="[partner, charge] in partnerCharges" :key="partner">
+                                <td>
+                                    <p>Segments <span class="d-none d-md-inline">({{ getSegmentPrice(partner) }} per Segment-Month)</span></p>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <p>{{ getPeriod(charge) }}</p>
+                                </td>
+                                <td class="d-none d-sm-table-cell">
+                                    <p>{{ getSegmentCountFormatted(charge) }} Segment-month</p>
+                                </td>
+                                <td class="text-right">
                                     <p>{{ centsToDollars(charge.segmentPrice) }}</p>
                                 </td>
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4 ml-4" variant="outlined" color="default" size="small" @click="downloadReport">
+                    <v-btn class="mt-4" variant="outlined" color="default" size="small" @click="downloadReport">
                         Download Report
                     </v-btn>
                 </v-expansion-panel-text>

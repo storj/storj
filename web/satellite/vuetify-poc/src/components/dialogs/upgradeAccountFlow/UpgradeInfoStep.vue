@@ -41,13 +41,14 @@
                 </InfoBullet>
                 <InfoBullet is-pro title="Segments" :info="segmentInfo">
                     <template #moreInfo>
+                        Read more about segment fees in the
                         <a
                             class="link"
-                            href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment"
+                            href="https://docs.storj.io/dcs/pricing#per-segment-fee"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            Learn more about segments
+                            documentation
                         </a>
                     </template>
                 </InfoBullet>

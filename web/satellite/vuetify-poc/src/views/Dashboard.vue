@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container class="pb-10">
         <low-token-balance-banner
             v-if="isLowBalance && billingEnabled"
             cta-label="Go to billing"
@@ -95,7 +95,7 @@
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pb-4" variant="flat" :border="true" rounded="xlg">
+                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center">
                             <IconCloud class="mr-2" width="16" height="16" />
@@ -113,7 +113,7 @@
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card class="pb-4" variant="flat" :border="true" rounded="xlg">
+                <v-card class="pb-4" variant="outlined" :border="true" rounded="xlg">
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
                             <v-row class="ma-0 align-center">
@@ -121,15 +121,13 @@
                                 Download
                             </v-row>
                             <v-row class="ma-0 align-center justify-end">
-                                <v-badge dot inline color="#929fb1" />
-                                <v-card-text class="pa-0 mx-2 flex-0-0">Download</v-card-text>
                                 <v-tooltip width="250" location="bottom">
                                     <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="20" icon="mdi-information-outline" />
+                                        <v-icon v-bind="props" size="16" icon="mdi-information-outline" />
                                     </template>
                                     <template #default>
                                         <p>
-                                            The most recent data points may change as traffic moves from "allocated" to "settled".
+                                            The most recent data may change as download moves from "allocated" to "settled".
                                             <a
                                                 class="link"
                                                 href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
@@ -195,10 +193,12 @@
             </v-col>
         </v-row>
 
-        <v-col class="pa-0 mt-6" cols="12">
-            <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
-            <buckets-data-table />
-        </v-col>
+        <v-row>
+            <v-col>
+                <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
+                <buckets-data-table />
+            </v-col>
+        </v-row>
     </v-container>
 
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />

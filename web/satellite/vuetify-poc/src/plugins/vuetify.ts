@@ -66,6 +66,7 @@ export default createVuetify({
         },
         VCheckbox: {
             color: 'primary',
+            class: 'ml-n1',
         },
         VAlert: {
             rounded: 'xlg',
@@ -73,8 +74,8 @@ export default createVuetify({
         VChip: {
             rounded: 'lg',
         },
-        // VTable: {
-        //     elevation: 0,
-        // },
+        VRadio: {
+            color: 'primary',
+        },
     },
 });
