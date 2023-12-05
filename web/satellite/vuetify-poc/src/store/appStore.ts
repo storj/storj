@@ -7,6 +7,7 @@ import { reactive } from 'vue';
 class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
+    public isAccountSetupDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
     public isNavigating = false;
 }
@@ -20,6 +21,10 @@ export const useAppStore = defineStore('vuetifyApp', () => {
 
     function toggleUpgradeFlow(isShown?: boolean): void {
         state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
+    }
+
+    function toggleAccountSetup(isShown?: boolean): void {
+        state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
     }
 
     function setPathBeforeAccountPage(path: string) {
@@ -40,6 +45,7 @@ export const useAppStore = defineStore('vuetifyApp', () => {
         state,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
+        toggleAccountSetup,
         setPathBeforeAccountPage,
         setIsNavigating,
         clear,

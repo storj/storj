@@ -227,6 +227,8 @@ export class FreezeStatus {
 export enum AccountSetupStep {
     Choice,
     Personal,
+    PricingPlanSelection,
+    PricingPlan,
     Business,
     Success,
 }

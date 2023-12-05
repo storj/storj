@@ -30,7 +30,7 @@
 
             <v-divider />
 
-            <v-card-item class="px-8 py-4">
+            <v-card-item class="py-4">
                 <v-window v-model="step">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
@@ -68,7 +68,7 @@
                         <PricingPlanSelectionStep @select="onSelectPricingPlan" />
                     </v-window-item>
 
-                    <v-window-item v-if="plan" :value="UpgradeAccountStep.PricingPlan">
+                    <v-window-item :value="UpgradeAccountStep.PricingPlan">
                         <PricingPlanStep :plan="plan" @close="model = false" @back="setStep(UpgradeAccountStep.PricingPlanSelection)" />
                     </v-window-item>
                 </v-window>
@@ -120,7 +120,7 @@ const payments: PaymentsHttpApi = new PaymentsHttpApi();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
 const loading = ref<boolean>(false);
-const plan = ref<PricingPlanInfo | null>(null);
+const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
 
 const props = withDefaults(defineProps<{
@@ -225,7 +225,6 @@ async function setSecondStep() {
 watch(content, (value) => {
     if (!value) {
         setStep(UpgradeAccountStep.Info);
-        plan.value = null;
     }
 });
 </script>

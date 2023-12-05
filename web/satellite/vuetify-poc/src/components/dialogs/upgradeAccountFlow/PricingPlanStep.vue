@@ -53,7 +53,7 @@
                 :loading="isLoading"
                 @click="onActivateClick"
             >
-                <template #prepend>
+                <template v-if="plan.type !== 'free'" #prepend>
                     <v-icon icon="mdi-lock" />
                 </template>
 
@@ -143,13 +143,16 @@ const isSuccess = ref<boolean>(false);
 
 const stripeCardInput = ref<StripeForm | null>(null);
 
-const props = defineProps<{
-    plan: PricingPlanInfo;
-}>();
+const props = withDefaults(defineProps<{
+    plan?: PricingPlanInfo;
+}>(), {
+    plan: () => new PricingPlanInfo(),
+});
 
 const emit = defineEmits<{
     back: [];
     close: [];
+    success: []; // emit this for parents that have custom success steps.
 }>();
 
 /**
@@ -174,6 +177,7 @@ async function onActivateClick() {
     isLoading.value = true;
 
     if (isFree.value) {
+        emit('success');
         isSuccess.value = true;
         return;
     }
@@ -194,13 +198,14 @@ async function onActivateClick() {
  */
 async function onCardAdded(res: string): Promise<void> {
     if (!props.plan) return;
-
+    isLoading.value = true;
     try {
         if (props.plan.type === PricingPlanType.PARTNER) {
             await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
         } else {
             paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
         }
+        emit('success');
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
