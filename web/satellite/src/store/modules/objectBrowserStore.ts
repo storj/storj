@@ -408,17 +408,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function getObjectCount(): Promise<void> {
         assertIsInitialized(state);
 
-        const paginator = paginateListObjectsV2({ client: state.s3, pageSize: MAX_KEY_COUNT }, {
+        const response = await state.s3.send(new ListObjectsV2Command({
             Bucket: state.bucket,
-            MaxKeys: MAX_KEY_COUNT,
-        });
+            MaxKeys: 1, // We need to know if there is at least 1 decryptable object.
+        }));
 
-        let keyCount = 0;
-        for await (const response of paginator) {
-            keyCount += response.KeyCount ?? 0;
-        }
-
-        state.objectsCount = keyCount;
+        state.objectsCount = (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
     async function upload({ e }: { e: DragEvent | Event }): Promise<void> {
