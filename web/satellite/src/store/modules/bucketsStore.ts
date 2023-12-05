@@ -240,35 +240,12 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function getObjectsCount(name: string): Promise<number> {
-        const maxKeys = 1000; // Default max keys count.
-        const abortController = new AbortController();
-
-        const request = state.s3Client.send(new ListObjectsV2Command({
+        const response = await state.s3Client.send(new ListObjectsV2Command({
             Bucket: name,
-            MaxKeys: maxKeys,
-        }), { abortSignal: abortController.signal });
+            MaxKeys: 1, // We need to know if there is at least 1 decryptable object.
+        }));
 
-        const timeout = setTimeout(() => {
-            abortController.abort();
-        }, 10000); // abort request in 10 seconds.
-
-        let response: ListObjectsV2CommandOutput;
-        try {
-            response = await request;
-            clearTimeout(timeout);
-        } catch (error) {
-            clearTimeout(timeout);
-
-            if (abortController.signal.aborted) {
-                return 0;
-            }
-
-            throw error;
-        }
-
-        if (!response || response.KeyCount === undefined) return 0;
-
-        return response.IsTruncated ? maxKeys : response.KeyCount;
+        return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
     function setBucketToDelete(bucket: string): void {

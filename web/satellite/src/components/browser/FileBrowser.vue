@@ -188,7 +188,6 @@ import TooManyObjectsBanner from '@/components/browser/TooManyObjectsBanner.vue'
 import UpEntry from '@/components/browser/UpEntry.vue';
 import Dropzone from '@/components/browser/Dropzone.vue';
 
-import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
@@ -261,13 +260,6 @@ const path = computed((): string => {
 });
 
 /**
- * Return files that are currently being uploaded from the store.
- */
-const filesUploading = computed((): BrowserObject[] => {
-    return obStore.state.uploading;
-});
-
-/**
  * Return file browser path from store.
  */
 const currentPath = computed((): string => {
@@ -277,45 +269,21 @@ const currentPath = computed((): string => {
 /**
  * Returns bucket objects count from store.
  */
-const objectsCount = computed((): number => {
+const bucketObjectsCount = computed((): number => {
     const name: string = obStore.state.bucket;
     const data: Bucket | undefined = bucketsStore.state.page.buckets.find(bucket => bucket.name === name);
 
-    return data?.objectCount || 0;
+    return data?.objectCount ?? 0;
 });
 
 /**
  * Indicates if locked files entry is displayed.
  */
 const lockedFilesEntryDisplayed = computed((): boolean => {
-    return (objectsCount.value - obStore.state.objectsCount) > 0 &&
-        objectsCount.value <= NUMBER_OF_DISPLAYED_OBJECTS &&
+    return bucketObjectsCount.value > 0 &&
+        obStore.state.objectsCount === 0 &&
         !isLoading.value &&
         !currentPath.value;
-});
-
-/**
- * Return up to five files currently being uploaded for display purposes.
- */
-const formattedFilesUploading = computed((): BrowserObject[] => {
-    if (filesUploading.value.length > 5) {
-        return filesUploading.value.slice(0, 5);
-    }
-
-    return filesUploading.value;
-});
-
-/**
- * Return the text of how many files in total are being uploaded to be displayed to give users more context.
- */
-const formattedFilesWaitingToBeUploaded = computed((): string => {
-    let file = 'file';
-
-    if (filesUploading.value.length > 1) {
-        file = 'files';
-    }
-
-    return `${filesUploading.value.length} ${file}`;
 });
 
 const bucketName = computed((): string => {
@@ -483,13 +451,6 @@ async function upload(e: Event): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
-}
-
-/**
- * Cancel the upload of the current file that's passed in as an argument.
- */
-function cancelUpload(fileName: string): void {
-    obStore.cancelUpload(fileName);
 }
 
 /**
