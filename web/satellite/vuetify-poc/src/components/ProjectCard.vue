@@ -140,7 +140,7 @@ function openProject(): void {
 function onSettingsClick(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
-    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
+    router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
 }
 
 /**

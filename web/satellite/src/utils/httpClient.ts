@@ -101,7 +101,12 @@ export class HttpClient {
             }
 
             setTimeout(() => {
-                window.location.href = window.location.origin + '/login';
+                const origin = window.location.origin;
+                if (document.querySelector('.v-overlay-container')) {
+                    window.location.href = origin + '/' + import.meta.env.VITE_VUETIFY_PREFIX + '/login';
+                    return;
+                }
+                window.location.href = origin + '/login';
             }, 2000);
         }
     }
