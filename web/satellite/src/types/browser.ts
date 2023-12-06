@@ -101,11 +101,11 @@ export enum PreviewType {
 }
 
 export const EXTENSION_PREVIEW_TYPES = new Map<string[], PreviewType>([
-    [['txt'], PreviewType.Text],
+    [['txt', 'md', 'json', 'xml'], PreviewType.Text],
     [['csv'], PreviewType.CSV],
-    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'], PreviewType.Image],
-    [['m4v', 'mp4', 'webm', 'mov', 'mkv'], PreviewType.Video],
-    [['m4a', 'mp3', 'wav', 'ogg'], PreviewType.Audio],
+    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif', 'webp'], PreviewType.Image],
+    [['m4v', 'mp4', 'webm', 'mov', 'mkv', 'ogv'], PreviewType.Video],
+    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac'], PreviewType.Audio],
     [['pdf'], PreviewType.PDF],
 ]);
 
@@ -125,9 +125,9 @@ export type BrowserObjectWrapper = {
 };
 
 export const EXTENSION_INFOS: Map<string[], BrowserObjectTypeInfo> = new Map([
-    [['jpg', 'jpeg', 'png', 'gif', 'svg'], { title: 'Image', icon: imageIcon }],
-    [['mp4', 'mkv', 'mov'], { title: 'Video', icon: videoIcon }],
-    [['mp3', 'aac', 'wav', 'm4a'], { title: 'Audio', icon: audioIcon }],
+    [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif', 'webp'], { title: 'Image', icon: imageIcon }],
+    [['m4v', 'mp4', 'webm', 'mov', 'mkv', 'ogv', 'avi'], { title: 'Video', icon: videoIcon }],
+    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac', 'aiff'], { title: 'Audio', icon: audioIcon }],
     [['txt', 'docx', 'doc', 'pages'], { title: 'Text', icon: textIcon }],
     [['pdf'], { title: 'PDF', icon: pdfIcon }],
     [['zip'], { title: 'ZIP', icon: zipIcon }],
