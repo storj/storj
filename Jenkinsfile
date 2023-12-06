@@ -70,7 +70,7 @@ node('node') {
             '''
 
           // fetch the remote main branch
-          // TODO: re-enable sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
+          sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
           sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB -e STORJ_SKIP_FIX_LAST_NETS --link redis-$BUILD_NUMBER:redis --link cockroach-$BUILD_NUMBER:cockroach storjlabs/golang:1.21.3'
         }
         catch(err){
@@ -83,13 +83,76 @@ node('node') {
           sh 'docker rm redis-$BUILD_NUMBER || true'
         }
     }
+
+    stage('Build Binaries') {
+      lastStage = env.STAGE_NAME
+      sh 'make binaries'
+
+      stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Build Windows Installer') {
+      lastStage = env.STAGE_NAME
+      node('windows') {
+        checkout scm
+
+        unstash "storagenode-binaries"
+
+        bat 'installer\\windows\\buildrelease.bat'
+
+        stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
+
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
+
+    stage('Sign Windows Installer') {
+      lastStage = env.STAGE_NAME
+      unstash "storagenode-installer"
+
+      sh 'make sign-windows-installer'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Build Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make images'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Push Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make push-images'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Upload') {
+      lastStage = env.STAGE_NAME
+      sh 'make binaries-upload'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+    stage('Draft Release') {
+      withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
+        lastStage = env.STAGE_NAME
+        sh 'make draft-release'
+
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
+
   }
   catch (err) {
     echo "Caught errors! ${err}"
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    //slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     throw err
 
