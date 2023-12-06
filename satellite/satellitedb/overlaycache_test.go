@@ -404,7 +404,10 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 					},
 				})
 				require.NoError(t, err)
+				_, err = cache.TestVetNode(ctx, id)
+				require.NoError(t, err)
 			}
+
 		}
 
 		checkNodes := func(selectedNodes []*nodeselection.SelectedNode) {
@@ -429,8 +432,10 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 					require.Len(t, selectedNode.Tags, 1)
 					require.Equal(t, "even", selectedNode.Tags[0].Name)
 					require.Equal(t, []byte{1}, selectedNode.Tags[0].Value)
+					require.True(t, selectedNode.Vetted)
 				} else {
 					require.Len(t, selectedNode.Tags, 0)
+					require.False(t, selectedNode.Vetted)
 				}
 			}
 		}
@@ -463,6 +468,7 @@ type nodeDisposition struct {
 	offlineSuspended bool
 	exiting          bool
 	exited           bool
+	vetted           bool
 }
 
 func TestOverlayCache_GetNodes(t *testing.T) {
@@ -576,6 +582,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.True(t, selection[0].Vetted)
 	})
 }
 
@@ -636,6 +643,7 @@ func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
+		require.True(t, selection[0].Vetted)
 	})
 }
 
@@ -654,6 +662,7 @@ func nodeDispositionToSelectedNode(disp nodeDisposition, onlineWindow time.Durat
 		Exiting:     disp.exiting,
 		Suspended:   disp.auditSuspended || disp.offlineSuspended,
 		Online:      disp.offlineInterval <= onlineWindow,
+		Vetted:      disp.vetted,
 	}
 }
 
@@ -671,6 +680,7 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 		exited:           exited,
 		email:            "test@storj.io",
 		wallet:           "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0",
+		vetted:           true,
 	}
 
 	checkInInfo := overlay.NodeCheckInInfo{
@@ -723,6 +733,11 @@ func addNode(ctx context.Context, t *testing.T, cache overlay.DB, address, lastI
 			ExitFinishedAt:      now,
 			ExitSuccess:         true,
 		})
+		require.NoError(t, err)
+	}
+
+	if disp.vetted {
+		_, err = cache.TestVetNode(ctx, disp.id)
 		require.NoError(t, err)
 	}
 
