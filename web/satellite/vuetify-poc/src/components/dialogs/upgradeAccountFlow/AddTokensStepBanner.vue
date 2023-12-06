@@ -16,8 +16,11 @@
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Send only STORJ Tokens to this deposit address.</span>
-                <span>Sending anything else may result in the loss of your deposit.</span>
+                <span class="font-weight-bold d-block">Send only STORJ tokens via Layer 1 transaction to this address.</span>
+                <span>
+                    Sending anything else than STORJ token will result in the loss of your deposit.
+                    Please note that zkSync transactions are not yet supported.
+                </span>
             </p>
 
             <div v-if="isPending">

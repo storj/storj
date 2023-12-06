@@ -4,9 +4,10 @@
 <template>
     <div class="banner" :class="{success: isSuccess}">
         <template v-if="isDefault">
-            <h2 class="banner__title">Send only STORJ Tokens to this deposit address.</h2>
+            <h2 class="banner__title">Send only STORJ tokens via Layer 1 transaction to this address.</h2>
             <p class="banner__message">
-                Sending anything else may result in the loss of your deposit.
+                Sending anything else than STORJ token will result in the loss of your deposit.
+                Please note that zkSync transactions are not yet supported.
             </p>
         </template>
         <template v-if="isPending">
