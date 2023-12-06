@@ -185,11 +185,9 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount     int
-	ExcludedIDs        []storj.NodeID
-	MinimumVersion     string        // semver or empty
-	AsOfSystemInterval time.Duration // only used for CRDB queries
-	Placement          storj.PlacementConstraint
+	RequestedCount int
+	ExcludedIDs    []storj.NodeID
+	Placement      storj.PlacementConstraint
 }
 
 // NodeCriteria are the requirements for selecting nodes.
@@ -429,9 +427,6 @@ func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req
 // FindStorageNodesForUpload searches the for nodes in the cache that meet the provided requirements for upload.
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
-		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
-	}
 
 	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
 	if err != nil {
@@ -445,9 +440,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 		}
 
 		service.log.Warn("Not enough nodes are available from Node Cache",
-			zap.String("minVersion", req.MinimumVersion),
 			zap.Strings("excludedIDs", excludedIDs),
-			zap.Duration("asOfSystemInterval", req.AsOfSystemInterval),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
 			zap.Uint16("placement", uint16(req.Placement)))
