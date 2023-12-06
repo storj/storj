@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="isLoading" class="w-100 h-100 d-flex align-center justify-center mt-n16">
+    <div v-if="isLoading" class="w-100 h-100 d-flex align-center justify-center">
         <v-progress-circular indeterminate />
     </div>
     <v-container v-else-if="!isError" class="w-100 max-h-100 overflow-auto">

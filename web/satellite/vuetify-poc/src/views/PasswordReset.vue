@@ -14,11 +14,9 @@
                                 label="Satellite"
                                 :items="items"
                                 item-title="satellite"
-                                :hint="`Recommended for ${select.hint}.`"
-                                persistent-hint
                                 return-object
                                 chips
-                                class="mt-3 mb-5"
+                                class="mt-3 mb-2"
                             />
                             <v-text-field
                                 label="Email address"

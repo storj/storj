@@ -10,19 +10,22 @@
                     color="default"
                     icon="mdi-check-circle-outline"
                     size="small"
-                    class="mr-3 text-disabled"
+                    class="text-disabled pl-2 mr-n3"
                 />
                 <v-icon
                     v-else
                     color="primary"
                     icon="mdi-check-circle-outline"
                     size="small"
-                    class="mr-3 opacity-100"
+                    class="opacity-100 pl-2 mr-n3"
                 />
             </template>
             <v-list-item-title>
                 {{ title }}
-                <v-tooltip v-if="$slots.moreInfo" max-width="200px" location="top" activator="parent">
+                <v-tooltip v-if="$slots.moreInfo" max-width="200px" location="top" activator="props">
+                    <template #activator="{ props }">
+                        <v-icon v-bind="props" size="16" icon="mdi-information-outline" />
+                    </template>
                     <slot name="moreInfo" />
                 </v-tooltip>
             </v-list-item-title>
