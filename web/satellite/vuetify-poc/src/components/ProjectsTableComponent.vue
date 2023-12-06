@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" class="rounded-xlg">
+    <v-card variant="outlined" :border="true" class="rounded-xlg">
         <v-text-field
             v-model="search"
             label="Search"
@@ -21,6 +21,8 @@
             :sort-by="sortBy"
             :headers="headers"
             :items="items"
+            items-per-page="10"
+            items-per-page-text="Projects per page"
             :search="search"
             no-data-text="No results found"
             item-key="path"
@@ -28,7 +30,7 @@
             <template #item.name="{ item }">
                 <v-btn
                     v-if="item.raw.role !== ProjectRole.Invited"
-                    class="rounded-lg pl-1 pr-4 justify-start font-weight-bold"
+                    class="rounded-lg pl-1 pr-4 ml-n1 justify-start font-weight-bold"
                     variant="text"
                     height="40"
                     color="default"
@@ -38,7 +40,7 @@
                     <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     {{ item.raw.name }}
                 </v-btn>
-                <div v-else class="pl-1 pr-4 d-flex align-center justify-start font-weight-bold">
+                <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
                     <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     <span class="text-no-wrap">{{ item.raw.name }}</span>
                 </div>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card variant="outlined" :border="true" rounded="xlg">
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">

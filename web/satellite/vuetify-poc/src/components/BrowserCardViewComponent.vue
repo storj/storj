@@ -13,7 +13,7 @@
                 flat
                 hide-details
                 clearable
-                density="comfortable"
+                density="compact"
                 rounded="lg"
             />
         </v-col>
@@ -21,12 +21,13 @@
             <v-menu>
                 <template #activator="{ props: sortProps }">
                     <v-btn
-                        variant="tonal"
-                        color="primary"
+                        variant="outlined"
+                        color="default"
+                        prepend-icon="mdi-sort"
                         append-icon="mdi-chevron-down"
                         v-bind="sortProps"
                     >
-                        Sort by {{ sortKey }}
+                        <span class="text-body-2">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                     </v-btn>
                 </template>
                 <v-list>
@@ -45,15 +46,17 @@
                 v-model="sortOrder"
                 density="comfortable"
                 variant="outlined"
-                color="primary"
-                rounded="lg"
+                color="default"
+                rounded="xl"
+                class="pa-1"
+                border
                 mandatory
             >
-                <v-btn value="asc">
-                    <v-icon>mdi-arrow-up</v-icon>
+                <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
+                    <v-icon>mdi-sort-ascending</v-icon>
                 </v-btn>
-                <v-btn value="desc">
-                    <v-icon>mdi-arrow-down</v-icon>
+                <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
+                    <v-icon>mdi-sort-descending</v-icon>
                 </v-btn>
             </v-btn-toggle>
         </v-col>
@@ -89,13 +92,14 @@
             <div class="d-flex align-center py-5">
                 <v-menu>
                     <template #activator="{ props: limitProps }">
+                        <span class="text-subtitle-2 mr-2">Items per page:</span>
                         <v-btn
-                            variant="tonal"
-                            color="primary"
+                            variant="outlined"
+                            color="default"
                             append-icon="mdi-chevron-down"
                             v-bind="limitProps"
                         >
-                            {{ cursor.limit }} files per page
+                            {{ cursor.limit }}
                         </v-btn>
                     </template>
                     <v-list>
@@ -110,13 +114,14 @@
 
                 <v-spacer />
 
-                <span class="mr-4">
+                <span class="mr-4 text-medium-emphasis">
                     Page {{ cursor.page }} of {{ lastPage }}
                 </span>
                 <v-btn
                     icon
                     size="small"
-                    variant="tonal"
+                    variant="outlined"
+                    color="default"
                     :disabled="cursor.page === 1"
                     @click="() => onPageChange(cursor.page - 1)"
                 >
@@ -125,7 +130,8 @@
                 <v-btn
                     icon
                     size="small"
-                    variant="tonal"
+                    variant="outlined"
+                    color="default"
                     class="ml-2"
                     :disabled="cursor.page === lastPage"
                     @click="() => onPageChange(cursor.page + 1)"
