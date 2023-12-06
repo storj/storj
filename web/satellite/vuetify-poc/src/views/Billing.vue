@@ -174,7 +174,7 @@
             <v-window-item>
                 <v-row>
                     <v-col cols="12" md="4" sm="6">
-                        <StorjTokenCardComponent @historyClicked="goToTransactionsTab" />
+                        <StorjTokenCardComponent @historyClicked="tab = 2" />
                     </v-col>
 
                     <v-col v-for="(card, i) in creditCards" :key="i" cols="12" md="4" sm="6">
@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, ref, watch } from 'vue';
 import {
     VContainer,
     VCard,
@@ -217,6 +217,7 @@ import {
     VBtn,
     VProgressCircular,
 } from 'vuetify/components';
+import { useRoute, useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
@@ -230,6 +231,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { Download } from '@/utils/download';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { Project } from '@/types/projects';
+import { RouteName } from '@poc/router';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import CreditCardComponent from '@poc/components/CreditCardComponent.vue';
@@ -241,13 +243,21 @@ import TokenTransactionsTableComponent from '@poc/components/TokenTransactionsTa
 import ApplyCouponCodeDialog from '@poc/components/dialogs/ApplyCouponCodeDialog.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 
-const tab = ref(0);
+enum TABS {
+    overview,
+    'payment-methods',
+    transactions,
+    'billing-history',
+}
+
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const router = useRouter();
+const route = useRoute();
 const isLowBalance = useLowTokenBalance();
 
 const isRollupLoading = ref(true);
@@ -288,6 +298,20 @@ const formattedTokenBalance = computed((): string => {
  */
 const coupon = computed((): Coupon | null => {
     return billingStore.state.coupon;
+});
+
+/**
+ * Returns the last billing tab the user was on,
+ * to be used as the current.
+ */
+const tab = computed({
+    get: () => {
+        const tabStr = route.query['tab'] as keyof typeof TABS;
+        return TABS[tabStr] ?? 0;
+    },
+    set: (value: number) => {
+        router.push({ query: { tab: TABS[value] ?? TABS.overview } });
+    },
 });
 
 /**
@@ -332,9 +356,19 @@ function downloadReport(): void {
     notify.success('Usage report download started successfully.');
 }
 
-function goToTransactionsTab() {
-    tab.value = 2;
-}
+/**
+ * set the tab on route change
+ */
+watch(route, () => {
+    const tabStr = route.query['tab'];
+    tab.value = TABS[tabStr as keyof typeof TABS] ?? 0;
+}, { immediate: true });
+
+onBeforeMount(() => {
+    if (!configStore.state.config.billingFeaturesEnabled) {
+        router.replace({ name: RouteName.AccountSettings });
+    }
+});
 
 onMounted(async () => {
     withLoading(async () => {

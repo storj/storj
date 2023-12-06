@@ -148,12 +148,6 @@ export const router = createRouter({
 router.beforeEach((to, _, next) => {
     useAppStore().setIsNavigating(true);
 
-    const configStore = useConfigStore();
-    if (!configStore.state.config.billingFeaturesEnabled && to.name === RouteName.Billing) {
-        next({ name: RouteName.AccountSettings });
-        return;
-    }
-
     next();
 });
 
