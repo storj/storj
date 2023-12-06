@@ -4,9 +4,9 @@
   "scripts": {
     "build": "GOOS=js GOARCH=wasm go build -o main.wasm storj.io/storj/satellite/console/wasm",
     "pretest": "npm run build",
-    "test": "jest || true"
+    "test": "jest"
   },
   "devDependencies": {
-    "jest": "^23.5.0"
+    "jest": "^29.7.0"
   }
 }

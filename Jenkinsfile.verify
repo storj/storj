@@ -98,6 +98,11 @@ pipeline {
                         sh './web/satellite/build-if-changed.sh'
                     }
                 }
+                stage('wasm') {
+                    steps {
+                        sh './scripts/test-wasm.sh'
+                    }
+                }
                 stage('web/storagenode') {
                     steps {
                         sh './web/storagenode/build-if-changed.sh'
