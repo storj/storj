@@ -55,7 +55,7 @@ node('node') {
           env.STORJ_SIM_POSTGRES='cockroach://root@cockroach:26257/master?sslmode=disable'
           env.STORJ_SIM_REDIS='redis:6379'
           env.STORJ_MIGRATION_DB='cockroach://root@cockroach:26257/master?sslmode=disable'
-          env.export STORJ_SKIP_FIX_LAST_NETS=true
+          env.STORJ_SKIP_FIX_LAST_NETS=true
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
@@ -89,7 +89,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+    //slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     throw err
 
