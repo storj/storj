@@ -83,7 +83,7 @@ node('node') {
           sh 'docker rm redis-$BUILD_NUMBER || true'
         }
     }
-
+/*
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
       sh 'make binaries'
@@ -145,6 +145,7 @@ node('node') {
         echo "Current build result: ${currentBuild.result}"
       }
     }
+*/
 
   }
   catch (err) {
