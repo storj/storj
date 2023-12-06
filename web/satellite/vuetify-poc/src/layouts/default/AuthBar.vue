@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { useTheme } from 'vuetify';
-import { ref, watch } from 'vue';
+import { onBeforeMount, ref, watch } from 'vue';
 import { VAppBar, VAppBarTitle, VBtn, VBtnToggle, VIcon, VImg, VMenu, VTooltip } from 'vuetify/components';
 
 const theme = useTheme();
@@ -82,6 +82,11 @@ function toggleTheme(newTheme: string): void {
     theme.global.name.value = newTheme;
     localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
 }
+
+onBeforeMount(() => {
+    // Check for stored theme in localStorage. If none, default to 'light'
+    toggleTheme(localStorage.getItem('theme') || 'light');
+});
 
 watch(() => theme.global.current.value.dark, (newVal: boolean) => {
     activeTheme.value = newVal ? 1 : 0;
