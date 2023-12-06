@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card variant="outlined" :border="true" rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
@@ -25,6 +25,7 @@
             :search="search"
             :loading="areBucketsFetching"
             :items-length="page.totalCount"
+            items-per-page-text="Buckets per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No buckets found"
             hover
@@ -34,7 +35,7 @@
         >
             <template #item.name="{ item }">
                 <v-btn
-                    class="rounded-lg w-100 px-1 justify-start"
+                    class="rounded-lg w-100 px-1 ml-n1 justify-start"
                     variant="text"
                     height="40"
                     color="default"
@@ -91,7 +92,7 @@
                                 <icon-bucket size="18" />
                             </template>
                             <v-list-item-title class="ml-3">
-                                View Bucket Details
+                                Bucket Details
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.raw.name)">

@@ -40,46 +40,26 @@
             <v-divider />
 
             <v-card-item class="pl-7">
-                <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-bookmark-circle.svg" alt="bookmark">
-                </template>
-
                 <h4>Name</h4>
                 <p>{{ bucket.name }}</p>
             </v-card-item>
 
             <v-card-item class="pl-7">
-                <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-file-circle.svg" alt="file">
-                </template>
-
-                <h4>Objects</h4>
+                <h4>Files</h4>
                 <p>{{ bucket.objectCount.toLocaleString() }}</p>
             </v-card-item>
 
             <v-card-item class="pl-7">
-                <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-globe-circle.svg" alt="globe">
-                </template>
-
                 <h4>Segments</h4>
                 <p>{{ bucket.segmentCount.toLocaleString() }}</p>
             </v-card-item>
 
             <v-card-item class="pl-7">
-                <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-calendar-circle.svg" alt="calendar">
-                </template>
-
                 <h4>Date Created</h4>
                 <p>{{ bucket.since.toUTCString() }}</p>
             </v-card-item>
 
             <v-card-item class="mb-4 pl-7">
-                <template #prepend>
-                    <img class="d-block" src="@poc/assets/icon-clock-circle.svg" alt="clock">
-                </template>
-
                 <h4>Last Updated</h4>
                 <p>{{ bucket.before.toUTCString() }}</p>
             </v-card-item>

@@ -102,7 +102,7 @@
                                         Cards
                                     </v-btn>
                                 </template>
-                                Using cards will preview images, which will add up to your Download.
+                                Card view shows image previews using download bandwidth.
                             </v-tooltip>
                             <v-btn
                                 size="small"

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card variant="outlined" :border="true" rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
@@ -39,7 +39,7 @@
                 <v-data-table-row v-bind="rowProps">
                     <template #item.name="{ item }: ItemSlotProps">
                         <v-btn
-                            class="rounded-lg w-100 px-1 justify-start font-weight-bold"
+                            class="rounded-lg w-100 px-1 ml-n1 justify-start font-weight-bold"
                             variant="text"
                             height="40"
                             color="default"

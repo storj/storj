@@ -15,7 +15,7 @@
                 color="rgba(0, 0, 0, 0.3)"
                 theme="dark"
             >
-                <v-toolbar-title>
+                <v-toolbar-title class="text-subtitle-2">
                     {{ fileName }}
                 </v-toolbar-title>
                 <template #append>
