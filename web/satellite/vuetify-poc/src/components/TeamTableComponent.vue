@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
+    <v-card variant="outlined" :border="true" rounded="xlg">
         <v-row align="center" class="ma-0">
             <v-col v-if="selectedMembers.length" class="pa-0" cols="auto">
                 <v-btn
@@ -41,6 +41,7 @@
             :items="projectMembers"
             :loading="isLoading"
             :items-length="page.totalCount"
+            items-per-page-text="Accounts per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No results found"
             item-value="email"
@@ -74,7 +75,7 @@
                 >
                     <v-icon icon="mdi-dots-horizontal" />
                     <v-menu activator="parent">
-                        <v-list class="py-2">
+                        <v-list class="pa-1">
                             <v-list-item
                                 density="comfortable"
                                 link

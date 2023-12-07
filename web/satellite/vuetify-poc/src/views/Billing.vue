@@ -15,7 +15,7 @@
             </v-col>
         </v-row>
 
-        <v-card variant="flat" :border="true" color="default" class="mt-2 mb-6 rounded">
+        <v-card variant="outlined" :border="true" color="default" class="mt-2 mb-6 rounded">
             <v-tabs
                 v-model="tab"
                 color="default"
@@ -53,11 +53,11 @@
                                 <div v-if="isLoading" class="pb-2 text-center">
                                     <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
                                 </div>
-                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip v-else rounded color="green" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = 3">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -68,11 +68,11 @@
                                 <div v-if="isLoading" class="pb-2 text-center">
                                     <v-progress-circular class="ma-0" color="primary" size="30" indeterminate />
                                 </div>
-                                <v-chip v-else rounded color="green" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip v-else rounded color="green" variant="tonal" class="font-weight-bold mb-2">
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus">
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus" @click="tab = 1">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -85,6 +85,7 @@
                             class="d-flex align-center justify-center"
                             height="200"
                             rounded="xlg"
+                            variant="flat"
                         >
                             <v-progress-circular color="primary" size="48" indeterminate />
                         </v-card>
@@ -94,11 +95,12 @@
                             height="100%"
                             :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
                             rounded="xlg"
+                            variant="flat"
                         >
                             <v-card-text>
                                 <v-chip
                                     :color="isCouponActive ? 'green' : 'error'"
-                                    variant="outlined"
+                                    variant="flat"
                                     class="font-weight-bold mb-2"
                                     rounded
                                 >
@@ -109,7 +111,7 @@
 
                                 <v-btn
                                     v-if="couponCodeBillingUIEnabled"
-                                    variant="outlined"
+                                    variant="flat"
                                     color="default"
                                     size="small"
                                     class="mr-2"
@@ -128,7 +130,7 @@
                             rounded="xlg"
                         >
                             <v-card-text>
-                                <v-chip rounded color="green" variant="outlined" class="font-weight-bold mb-2">
+                                <v-chip rounded color="green" variant="flat" class="font-weight-bold mb-2">
                                     No Coupon
                                 </v-chip>
 
@@ -151,7 +153,7 @@
 
                 <v-row>
                     <v-col>
-                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border>
+                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border variant="flat">
                             <v-card-text>
                                 <v-btn variant="outlined" color="default" size="small" @click="downloadReport">
                                     Download Report

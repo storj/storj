@@ -118,9 +118,9 @@
 
                     <v-list-item class="py-2 rounded-lg">
                         <template #prepend>
-                            <icon-region size="18" />
+                            <icon-satellite size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">Region</v-list-item-title>
+                        <v-list-item-title class="text-body-2 ml-3">Satellite</v-list-item-title>
                         <v-list-item-subtitle class="ml-3">
                             {{ satelliteName }}
                         </v-list-item-subtitle>
@@ -201,7 +201,7 @@ import IconCard from '@poc/components/icons/IconCard.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
 import IconSettings from '@poc/components/icons/IconSettings.vue';
 import IconLogout from '@poc/components/icons/IconLogout.vue';
-import IconRegion from '@poc/components/icons/IconRegion.vue';
+import IconSatellite from '@poc/components/icons/IconSatellite.vue';
 
 const activeTheme = ref<number>(0);
 const theme = useTheme();

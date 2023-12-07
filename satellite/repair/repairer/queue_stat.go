@@ -27,6 +27,7 @@ type QueueStatConfig struct {
 type QueueStat struct {
 	db         queue.RepairQueue
 	log        *zap.Logger
+	mon        *monkit.Scope
 	Loop       *sync2.Cycle
 	mu         sync.Mutex
 	stats      map[string]queue.Stat
@@ -37,21 +38,22 @@ type QueueStat struct {
 var _ monkit.StatSource = &QueueStat{}
 
 // NewQueueStat creates a chore to stat repair queue statistics.
-func NewQueueStat(log *zap.Logger, placements []storj.PlacementConstraint, db queue.RepairQueue, checkInterval time.Duration) *QueueStat {
+func NewQueueStat(log *zap.Logger, registry *monkit.Registry, placements []storj.PlacementConstraint, db queue.RepairQueue, checkInterval time.Duration) *QueueStat {
 
 	chore := &QueueStat{
 		db:         db,
 		log:        log,
+		mon:        registry.Package(),
 		Loop:       sync2.NewCycle(checkInterval),
 		placements: placements,
 	}
-	mon.Chain(chore)
+	chore.mon.Chain(chore)
 	return chore
 }
 
 // Run logs the current version information.
 func (c *QueueStat) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer c.mon.Task()(&ctx)(&err)
 	return c.Loop.Run(ctx, func(ctx context.Context) error {
 		c.RunOnce(ctx)
 		return nil

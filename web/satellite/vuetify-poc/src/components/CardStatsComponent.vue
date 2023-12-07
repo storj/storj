@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :subtitle="subtitle" variant="flat" :border="true" rounded="xlg" :to="to">
+    <v-card :subtitle="subtitle" variant="outlined" :border="true" rounded="xlg" :to="to">
         <template #title>
             <v-card-title class="d-flex align-center">
                 <component :is="iconComponent" v-if="icon" v-bind="iconProps" class="mr-2" width="16" height="16" />
@@ -10,7 +10,7 @@
             </v-card-title>
         </template>
         <v-card-text>
-            <v-chip rounded color="default" variant="outlined" class="font-weight-bold">{{ data }}</v-chip>
+            <v-chip rounded color="default" variant="tonal" class="font-weight-bold">{{ data }}</v-chip>
         </v-card-text>
     </v-card>
 </template>
