@@ -2587,6 +2587,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN type;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update default versioning for projects to match default versioning values for buckets DB",
+				Version:     254,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ALTER COLUMN default_versioning SET DEFAULT 1;`,
+					`UPDATE projects SET default_versioning = 1 WHERE default_versioning = 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

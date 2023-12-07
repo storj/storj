@@ -241,7 +241,7 @@ CREATE TABLE projects (
 	salt bytea,
 	created_at timestamp with time zone NOT NULL,
 	default_placement integer,
-	default_versioning integer NOT NULL DEFAULT 0,
+	default_versioning integer NOT NULL DEFAULT 1,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE project_bandwidth_daily_rollups (

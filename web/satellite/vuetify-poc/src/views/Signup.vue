@@ -3,8 +3,8 @@
 
 <template>
     <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
-    <v-container v-else class="fill-height">
-        <v-row align="top" justify="center">
+    <v-container v-else class="fill-height flex-row justify-center align-center">
+        <v-row align="top" justify="center" class="v-col-12">
             <v-col cols="12" sm="10" md="7" lg="5">
                 <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7">
                     <v-card-item>
@@ -178,7 +178,7 @@
                 </v-card>
             </v-col>
         </v-row>
-        <v-row justify="center">
+        <v-row justify="center" class="v-col-12">
             <v-col>
                 <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link" to="/login">Login</router-link></p>
             </v-col>

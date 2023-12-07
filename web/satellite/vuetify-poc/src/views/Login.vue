@@ -95,6 +95,7 @@
                                 color="primary"
                                 size="large"
                                 block
+                                :loading="isLoading"
                                 @click="onLoginClick"
                             >
                                 Continue
