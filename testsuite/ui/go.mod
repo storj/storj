@@ -240,5 +240,5 @@ require (
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c // indirect
 	storj.io/picobuf v0.0.2-0.20230906122608-c4ba17033c6c // indirect
-	storj.io/uplink v1.12.3-0.20231130143633-4a092fa01b98 // indirect
+	storj.io/uplink v1.12.3-0.20231205090325-b1a25d92efca // indirect
 )
