@@ -40,13 +40,12 @@
             <div class="pa-7 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
                 <v-row>
                     <v-col cols="12">
-                        <v-alert type="info">
-                            Sharing a {{ shareText.toLowerCase() }} will create a publicly shareable URL.
-                            Anyone with this link will be able to access your shared {{ shareText.toLowerCase() }}.
+                        <v-alert type="info" variant="tonal">
+                            Public link sharing. Allows anyone with the link to view your shared {{ shareText.toLowerCase() }}.
                         </v-alert>
                     </v-col>
                     <v-col cols="12">
-                        <p class="text-subtitle-2 font-weight-bold mb-4">Share via</p>
+                        <p class="text-subtitle-2 font-weight-bold mb-3">Share via</p>
                         <v-chip-group class="ma-n2">
                             <v-chip
                                 v-for="opt in ShareOptions"
@@ -67,8 +66,8 @@
                     </v-col>
 
                     <v-col cols="12">
-                        <p class="text-subtitle-2 font-weight-bold mb-2">Copy link</p>
-                        <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-body-2">
+                        <p class="text-subtitle-2 font-weight-bold mb-2">Shared link</p>
+                        <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
                             <template #append-inner>
                                 <input-copy-button :value="link" />
                             </template>
@@ -83,7 +82,7 @@
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
-                            Cancel
+                            Close
                         </v-btn>
                     </v-col>
                     <v-col>

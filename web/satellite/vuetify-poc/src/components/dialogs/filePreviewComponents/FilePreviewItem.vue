@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center mt-n16">
+    <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center">
         <v-progress-circular indeterminate />
     </v-container>
     <text-file-preview v-else-if="previewType === PreviewType.Text" :src="objectPreviewUrl">

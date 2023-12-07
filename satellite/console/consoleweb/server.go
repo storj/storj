@@ -77,7 +77,6 @@ type Config struct {
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
 	ContactInfoURL                  string     `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string     `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
 	LetUsKnowURL                    string     `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string     `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string     `help:"used to display at web satellite console" default:"Storj"`
@@ -95,7 +94,6 @@ type Config struct {
 	CouponCodeBillingUIEnabled      bool       `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
 	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
-	CSPEnabled                      bool       `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
@@ -118,9 +116,15 @@ type Config struct {
 
 	BodySizeLimit memory.Size `help:"The maximum body size allowed to be received by the API" default:"100.00 KB"`
 
+	// CSP configs
+	CSPEnabled       bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	FrameAncestors   string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	ImgSrcSuffix     string `help:"additional values for Content Security Policy img-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
+	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
+	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
+
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
-
 	ABTesting abtesting.Config
 
 	console.Config
@@ -568,16 +572,42 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
+		connectSrc := fmt.Sprintf("connect-src 'self' %s %s", server.config.ConnectSrcSuffix, server.config.GatewayCredentialsRequestURL)
+		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com"
+		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
+		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self'"
+		frameSrc := "frame-src 'self' *.stripe.com"
+
+		appendValues := func(str string, vals ...string) string {
+			for _, v := range vals {
+				str = fmt.Sprintf("%s %s", str, v)
+			}
+			return str
+		}
+
+		if server.config.Captcha.Login.Hcaptcha.Enabled || server.config.Captcha.Registration.Hcaptcha.Enabled {
+			hcap := "https://hcaptcha.com *.hcaptcha.com"
+			connectSrc = appendValues(connectSrc, hcap)
+			scriptSrc = appendValues(scriptSrc, hcap)
+			styleSrc = appendValues(styleSrc, hcap)
+			frameSrc = appendValues(frameSrc, hcap)
+		}
+		if server.config.Captcha.Login.Recaptcha.Enabled || server.config.Captcha.Registration.Recaptcha.Enabled {
+			recap := "https://www.google.com/recaptcha/"
+			recapSubdomain := "https://recaptcha.google.com/recaptcha/"
+			gstatic := "https://www.gstatic.com/recaptcha/"
+			scriptSrc = appendValues(scriptSrc, recap, gstatic)
+			frameSrc = appendValues(frameSrc, recap, recapSubdomain)
+		}
 		cspValues := []string{
 			"default-src 'self'",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"connect-src 'self' *.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
+			connectSrc,
+			scriptSrc,
+			styleSrc,
+			frameSrc,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io",
-			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self' https://hcaptcha.com *.hcaptcha.com",
-			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io",
+			"img-src 'self' data: blob: " + server.config.ImgSrcSuffix,
+			"media-src 'self' blob: " + server.config.MediaSrcSuffix,
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))

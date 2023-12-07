@@ -594,7 +594,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		if config.RepairQueueCheck.Interval.Seconds() > 0 {
-			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, placement.SupportedPlacements(), db.RepairQueue(), config.RepairQueueCheck.Interval)
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), db.RepairQueue(), config.RepairQueueCheck.Interval)
 
 			peer.Services.Add(lifecycle.Item{
 				Name: "queue-stat",

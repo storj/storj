@@ -5,8 +5,8 @@
     <v-container class="fill-height">
         <v-row align="top" justify="center">
             <v-col cols="12" sm="9" md="7" lg="5">
-                <v-card v-if="!isMFARequired" title="Log into your account" rounded="xlg" class="pa-2 pa-sm-7">
-                    <v-card-item>
+                <v-card v-if="!isMFARequired" title="Login to your Storj account" rounded="xlg" class="pa-2 pa-sm-7">
+                    <v-card-text>
                         <v-alert
                             v-if="captchaError"
                             variant="tonal"
@@ -14,6 +14,7 @@
                             text="HCaptcha is required"
                             rounded="lg"
                             density="comfortable"
+                            class="mt-2 mb-3"
                             border
                         />
                         <v-alert
@@ -24,6 +25,7 @@
                             :text="isActivatedError ? 'This account has already been verified.' : 'Account verified.'"
                             rounded="lg"
                             density="comfortable"
+                            class="mt-2 mb-3"
                             border
                         />
                         <v-alert
@@ -34,6 +36,7 @@
                             text="The invite link you used has expired or is invalid."
                             rounded="lg"
                             density="comfortable"
+                            class="mt-2 mb-3"
                             border
                         />
                         <v-alert
@@ -46,10 +49,9 @@
                             further instructions."
                             rounded="lg"
                             density="comfortable"
+                            class="mt-2 mb-3"
                             border
                         />
-                    </v-card-item>
-                    <v-card-text>
                         <v-form v-model="formValid" class="pt-4" @submit.prevent>
                             <v-select
                                 v-model="satellite"
