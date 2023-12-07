@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -183,19 +184,19 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
 		if inactive, err := service.isUserInactive(ctx, customer.UserID); err != nil {
-			return 0, err
+			return 0, Error.New("unable to determine if user is inactive: %w", err)
 		} else if inactive {
 			continue
 		}
 
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("unable to get own projects: %w", err)
 		}
 
 		records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("unable to create project records: %w", err)
 		}
 
 		// We generate 3 invoice items for each user project which means,
@@ -209,7 +210,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 	err := service.db.ProjectRecords().Create(ctx, regularRecords, start, end)
 	if err != nil {
-		return 0, err
+		return 0, Error.New("failed to create regular project records: %w", err)
 	}
 
 	recordsCount := len(regularRecords)
@@ -217,7 +218,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	if shouldAggregate {
 		err = service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("failed to create aggregated project records: %w", err)
 		}
 
 		recordsCount += len(recordsToAggregate)
@@ -1611,7 +1612,10 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 func (service *Service) isUserInactive(ctx context.Context, userID uuid.UUID) (bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
-		return false, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
+		return false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 	return user.Status != console.Active, nil
 }
