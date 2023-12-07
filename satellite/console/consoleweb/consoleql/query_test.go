@@ -100,6 +100,7 @@ func TestGraphqlQuery(t *testing.T) {
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
 			nil,
+			nil,
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,

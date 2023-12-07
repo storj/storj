@@ -40,6 +40,8 @@ type Config struct {
 type CaptchaConfig struct {
 	FlagBotsEnabled      bool               `help:"indicates if flagging bot accounts is enabled" default:"false" json:"-"`
 	ScoreCutoffThreshold float64            `help:"bad captcha score threshold which is used to prevent bot user activity" default:"0.8" json:"-"`
+	MinFlagBotDelay      int                `help:"min number of days before flagging a bot account" default:"1" json:"-"`
+	MaxFlagBotDelay      int                `help:"max number of days before flagging a bot account" default:"7" json:"-"`
 	Login                MultiCaptchaConfig `json:"login"`
 	Registration         MultiCaptchaConfig `json:"registration"`
 }

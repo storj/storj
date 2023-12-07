@@ -567,6 +567,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.Analytics.Service,
 				config.AccountFreeze,
+				config.Console.Captcha.FlagBotsEnabled,
 			)
 
 			peer.Services.Add(lifecycle.Item{

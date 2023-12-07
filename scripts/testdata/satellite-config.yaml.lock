@@ -244,6 +244,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # captcha site key
 # console.captcha.login.recaptcha.site-key: ""
 
+# max number of days before flagging a bot account
+# console.captcha.max-flag-bot-delay: 7
+
+# min number of days before flagging a bot account
+# console.captcha.min-flag-bot-delay: 1
+
 # whether or not captcha is enabled
 # console.captcha.registration.hcaptcha.enabled: false
 

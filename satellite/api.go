@@ -575,6 +575,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
 		}
 
+		accountFreezeService := console.NewAccountFreezeService(
+			db.Console(),
+			peer.Analytics.Service,
+			consoleConfig.AccountFreeze,
+		)
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -588,6 +594,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
+			accountFreezeService,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
@@ -596,12 +603,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
-		accountFreezeService := console.NewAccountFreezeService(
-			db.Console(),
-			peer.Analytics.Service,
-			consoleConfig.AccountFreeze,
-		)
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
