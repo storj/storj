@@ -419,7 +419,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.session.duration: 168h0m0s
 
 # inactivity timer delay in seconds
-# console.session.inactivity-timer-duration: 600
+# console.session.inactivity-timer-duration: 86400
 
 # indicates if session can be timed out due inactivity
 # console.session.inactivity-timer-enabled: true

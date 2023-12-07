@@ -1597,6 +1597,7 @@ func TestSessionExpiration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Session.InactivityTimerEnabled = false
 				config.Console.Session.Duration = time.Hour
 			},
 		},
