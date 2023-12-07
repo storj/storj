@@ -1625,6 +1625,9 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			// TODO(ver): for production we need to avoid somehow additional GetBucket call
 			bucket, err := endpoint.buckets.GetBucket(ctx, []byte(bucket), projectID)
 			if err != nil {
+				if buckets.ErrBucketNotFound.Has(err) {
+					return nil, nil
+				}
 				endpoint.log.Error("unable to check bucket", zap.Error(err))
 				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket versioning state")
 			}
