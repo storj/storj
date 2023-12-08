@@ -70,7 +70,7 @@
     />
 
     <v-btn
-        v-if="viewState !== ViewState.Success"
+        v-if="viewState !== ViewState.Success && !isRoot"
         class="mt-3"
         block
         variant="outlined"
@@ -110,8 +110,14 @@ const canvas = ref<HTMLCanvasElement>();
 const intervalID = ref<NodeJS.Timer>();
 const viewState = ref<ViewState>(ViewState.Default);
 
+const props = defineProps<{
+    // whether this step is the first step in a flow
+    isRoot?: boolean;
+}>();
+
 const emit = defineEmits<{
     back: [];
+    success: [];
 }>();
 
 /**
@@ -167,8 +173,20 @@ watch(() => pendingPayments.value, async () => {
     }
     clearInterval(intervalID.value);
     billingStore.clearPendingPayments();
+
+    if (usersStore.state.user.paidTier) {
+        // in case this step was entered in to directly from
+        // the billing/payment method tab when the user is
+        // already in paid tier.
+        return;
+    }
+
     // fetch User to update their Paid Tier status.
     await usersStore.getUser();
+
+    // arbitrary delay to allow for user to read success banner.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    emit('success');
 }, { deep: true });
 
 /**

@@ -5,8 +5,8 @@
     <v-container>
         <low-token-balance-banner
             v-if="isLowBalance"
-            :cta-label="tab !== 1 ? 'Deposit' : ''"
-            @click="tab = 1"
+            :cta-label="tab !== TABS['payment-methods'] ? 'Deposit' : ''"
+            @click="onAddTokensClicked"
         />
 
         <v-row>
@@ -57,7 +57,7 @@
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = 3">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = TABS['billing-history']">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -72,7 +72,7 @@
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus" @click="tab = 1">
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -174,7 +174,7 @@
             <v-window-item>
                 <v-row>
                     <v-col cols="12" md="4" sm="6">
-                        <StorjTokenCardComponent @historyClicked="tab = 2" />
+                        <StorjTokenCardComponent ref="tokenCardComponent" @historyClicked="tab = TABS.transactions" />
                     </v-col>
 
                     <v-col v-for="(card, i) in creditCards" :key="i" cols="12" md="4" sm="6">
@@ -250,6 +250,10 @@ enum TABS {
     'billing-history',
 }
 
+interface IStorjTokenCardComponent {
+    onAddTokens(): Promise<void>;
+}
+
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
@@ -262,6 +266,8 @@ const isLowBalance = useLowTokenBalance();
 
 const isRollupLoading = ref(true);
 const isAddCouponDialogShown = ref<boolean>(false);
+
+const tokenCardComponent = ref<IStorjTokenCardComponent>();
 
 const creditCards = computed((): CreditCard[] => {
     return billingStore.state.creditCards;
@@ -310,7 +316,7 @@ const tab = computed({
         return TABS[tabStr] ?? 0;
     },
     set: (value: number) => {
-        router.push({ query: { tab: TABS[value] ?? TABS.overview } });
+        router.push({ query: { tab: TABS[value] ?? TABS[tab.value] } });
     },
 });
 
@@ -356,13 +362,10 @@ function downloadReport(): void {
     notify.success('Usage report download started successfully.');
 }
 
-/**
- * set the tab on route change
- */
-watch(route, () => {
-    const tabStr = route.query['tab'];
-    tab.value = TABS[tabStr as keyof typeof TABS] ?? 0;
-}, { immediate: true });
+function onAddTokensClicked(): void {
+    tab.value = TABS['payment-methods'];
+    tokenCardComponent.value?.onAddTokens();
+}
 
 onBeforeMount(() => {
     if (!configStore.state.config.billingFeaturesEnabled) {

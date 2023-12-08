@@ -6,7 +6,7 @@
         v-model="model"
         scrollable
         min-width="460px"
-        :max-width="step === UpgradeAccountStep.Info || step === UpgradeAccountStep.PricingPlanSelection ? '720px' : '460px'"
+        :max-width="maxWidth"
         transition="fade-transition"
         :persistent="loading"
         :scrim="scrim"
@@ -57,6 +57,7 @@
                     <v-window-item :value="UpgradeAccountStep.AddTokens">
                         <AddTokensStep
                             @back="() => setStep(UpgradeAccountStep.Options)"
+                            @success="() => setStep(UpgradeAccountStep.Success)"
                         />
                     </v-window-item>
 
@@ -151,6 +152,17 @@ const stepTitles = computed(() => {
     };
 });
 
+const maxWidth = computed(() => {
+    switch (step.value) {
+    case UpgradeAccountStep.Info:
+    case UpgradeAccountStep.PricingPlanSelection:
+    case UpgradeAccountStep.AddTokens:
+        return '720px';
+    default:
+        return '460px';
+    }
+});
+
 /**
  * Claims wallet and sets add token step.
  */
@@ -225,6 +237,7 @@ async function setSecondStep() {
 watch(content, (value) => {
     if (!value) {
         setStep(UpgradeAccountStep.Info);
+        return;
     }
 });
 </script>
