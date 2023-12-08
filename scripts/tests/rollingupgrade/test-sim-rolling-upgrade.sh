@@ -288,7 +288,10 @@ echo -e "\nRunning stage 2."
 fix_last_nets() {
     $(version_dir ${stage2_sat_version})/bin/satellite --config-dir "${test_dir}/local-network/satellite/0" fix-last-nets
 }
-fix_last_nets
+if [ ${STORJ_SKIP_FIX_LAST_NETS:-false} == false ]; then
+    fix_last_nets
+fi
+
 
 # Starting old satellite api in the background
 has_marketing_server=$(echo $stage1_sat_version | awk 'BEGIN{FS="[v.]"} ($2 == 1 && $3 <= 22) || $2 == 0 {print $0}')
