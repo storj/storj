@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { VList, VListItem, VListItemTitle, VListItemSubtitle, VIcon, VTooltip } from 'vuetify/components';
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     isPro?: boolean;
     title: string;
     info: string;

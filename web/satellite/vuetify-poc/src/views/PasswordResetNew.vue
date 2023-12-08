@@ -32,18 +32,30 @@
                                 label="New Password"
                                 placeholder="Enter a new password"
                                 :type="showPassword ? 'text' : 'password'"
-                                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                                @click:append-inner="showPassword = !showPassword"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
 
                             <v-text-field
                                 v-model="password"
                                 label="Confirm Password"
                                 placeholder="Enter the new password again"
                                 :type="showPassword ? 'text' : 'password'"
-                                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                                @click:append-inner="showPassword = !showPassword"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
 
                             <v-btn color="primary" size="large" block router-link to="/password-reset-new-confirmation">
                                 Save New Password
@@ -60,6 +72,8 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
+
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 const valid = ref(false);
 const checked = ref(false);
