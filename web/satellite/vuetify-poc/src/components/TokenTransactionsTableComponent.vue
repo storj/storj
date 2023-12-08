@@ -29,29 +29,29 @@
         >
             <template #item.timestamp="{ item }">
                 <p class="font-weight-bold">
-                    {{ item.raw.timestamp.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) }}
+                    {{ item.timestamp.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) }}
                 </p>
                 <p>
-                    {{ item.raw.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}
+                    {{ item.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}
                 </p>
             </template>
             <template #item.type="{ item }">
                 <p class="font-weight-bold">
-                    {{ item.raw.type }}
+                    {{ item.type }}
                 </p>
             </template>
             <template #item.amount="{ item }">
                 <p class="font-weight-bold text-green">
-                    {{ item.raw.amount }}
+                    {{ item.amount }}
                 </p>
             </template>
             <template #item.status="{ item }">
-                <v-chip :color="getColor(item.raw.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
-                    {{ item.raw.status }}
+                <v-chip :color="getColor(item.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                    {{ item.status }}
                 </v-chip>
             </template>
             <template #item.link="{ item }">
-                <a :href="item.raw.link" target="_blank" rel="noopener noreferrer">View</a>
+                <a :href="item.link" target="_blank" rel="noopener noreferrer">View</a>
             </template>
         </v-data-table>
     </v-card>
@@ -59,8 +59,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { VCard, VChip, VTextField } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import {
+    VCard,
+    VChip,
+    VTextField,
+    VDataTable,
+} from 'vuetify/components';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';

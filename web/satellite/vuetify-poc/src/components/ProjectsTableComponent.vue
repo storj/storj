@@ -29,61 +29,61 @@
         >
             <template #item.name="{ item }">
                 <v-btn
-                    v-if="item.raw.role !== ProjectRole.Invited"
+                    v-if="item.role !== ProjectRole.Invited"
                     class="rounded-lg pl-1 pr-4 ml-n1 justify-start font-weight-bold"
                     variant="text"
                     height="40"
                     color="default"
                     block
-                    @click="openProject(item.raw)"
+                    @click="openProject(item)"
                 >
                     <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                    {{ item.raw.name }}
+                    {{ item.name }}
                 </v-btn>
                 <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
                     <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                    <span class="text-no-wrap">{{ item.raw.name }}</span>
+                    <span class="text-no-wrap">{{ item.name }}</span>
                 </div>
             </template>
 
             <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.raw.role]" rounded="xl" size="small" class="font-weight-bold">
-                    {{ item.raw.role }}
+                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" rounded="xl" size="small" class="font-weight-bold">
+                    {{ item.role }}
                 </v-chip>
             </template>
 
             <template #item.createdAt="{ item }">
-                {{ getFormattedDate(item.raw.createdAt) }}
+                {{ getFormattedDate(item.createdAt) }}
             </template>
 
             <template #item.actions="{ item }">
                 <div class="w-100 d-flex align-center justify-space-between">
                     <v-btn
-                        v-if="item.raw.role === ProjectRole.Invited"
+                        v-if="item.role === ProjectRole.Invited"
                         color="primary"
                         size="small"
-                        :disabled="decliningIds.has(item.raw.id)"
-                        @click="emit('joinClick', item.raw)"
+                        :disabled="decliningIds.has(item.id)"
+                        @click="emit('joinClick', item)"
                     >
                         Join Project
                     </v-btn>
-                    <v-btn v-else color="primary" size="small" @click="openProject(item.raw)">Open Project</v-btn>
+                    <v-btn v-else color="primary" size="small" @click="openProject(item)">Open Project</v-btn>
 
                     <v-btn
-                        v-if="item.raw.role === ProjectRole.Owner || item.raw.role === ProjectRole.Invited"
+                        v-if="item.role === ProjectRole.Owner || item.role === ProjectRole.Invited"
                         class="ml-2"
                         icon
                         color="default"
                         variant="outlined"
                         size="small"
                         density="comfortable"
-                        :loading="decliningIds.has(item.raw.id)"
+                        :loading="decliningIds.has(item.id)"
                     >
                         <v-icon icon="mdi-dots-horizontal" size="18" />
                         <v-menu activator="parent" location="bottom" transition="scale-transition">
                             <v-list class="pa-1">
-                                <template v-if="item.raw.role === ProjectRole.Owner">
-                                    <v-list-item link @click="() => onSettingsClick(item.raw)">
+                                <template v-if="item.role === ProjectRole.Owner">
+                                    <v-list-item link @click="() => onSettingsClick(item)">
                                         <template #prepend>
                                             <icon-settings />
                                         </template>
@@ -101,7 +101,7 @@
                                         </v-list-item-title>
                                     </v-list-item>
                                 </template>
-                                <v-list-item v-else link @click="declineInvitation(item.raw)">
+                                <v-list-item v-else link @click="declineInvitation(item)">
                                     <template #prepend>
                                         <icon-trash />
                                     </template>
@@ -132,8 +132,8 @@ import {
     VIcon,
     VListItemTitle,
     VDivider,
+    VDataTable,
 } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
 
 import { ProjectItemModel, PROJECT_ROLE_COLORS } from '@poc/types/projects';
 import { ProjectInvitationResponse } from '@/types/projects';

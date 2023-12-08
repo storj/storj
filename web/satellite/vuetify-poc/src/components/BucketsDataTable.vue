@@ -39,39 +39,39 @@
                     variant="text"
                     height="40"
                     color="default"
-                    @click="openBucket(item.raw.name)"
+                    @click="openBucket(item.name)"
                 >
                     <template #default>
                         <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
-                            <p class="font-weight-bold text-lowercase white-space">{{ item.raw.name }}</p>
+                            <p class="font-weight-bold text-lowercase white-space">{{ item.name }}</p>
                         </div>
                     </template>
                 </v-btn>
             </template>
             <template #item.storage="{ item }">
                 <span>
-                    {{ item.raw.storage.toFixed(2) + 'GB' }}
+                    {{ item.storage.toFixed(2) + 'GB' }}
                 </span>
             </template>
             <template #item.egress="{ item }">
                 <span>
-                    {{ item.raw.egress.toFixed(2) + 'GB' }}
+                    {{ item.egress.toFixed(2) + 'GB' }}
                 </span>
             </template>
             <template #item.objectCount="{ item }">
                 <span>
-                    {{ item.raw.objectCount.toLocaleString() }}
+                    {{ item.objectCount.toLocaleString() }}
                 </span>
             </template>
             <template #item.segmentCount="{ item }">
                 <span>
-                    {{ item.raw.segmentCount.toLocaleString() }}
+                    {{ item.segmentCount.toLocaleString() }}
                 </span>
             </template>
             <template #item.since="{ item }">
                 <span>
-                    {{ item.raw.since.toLocaleString() }}
+                    {{ item.since.toLocaleString() }}
                 </span>
             </template>
             <template #item.actions="{ item }">
@@ -87,7 +87,7 @@
                         />
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.raw.name)">
+                        <v-list-item rounded-lg link @click="() => showBucketDetailsModal(item.name)">
                             <template #prepend>
                                 <icon-bucket size="18" />
                             </template>
@@ -95,7 +95,7 @@
                                 Bucket Details
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.raw.name)">
+                        <v-list-item rounded-lg link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-share size="18" />
                             </template>
@@ -104,7 +104,7 @@
                             </v-list-item-title>
                         </v-list-item>
                         <v-divider class="my-1" />
-                        <v-list-item rounded-lg class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.raw.name)">
+                        <v-list-item rounded-lg class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
                             <template #prepend>
                                 <icon-trash />
                             </template>
@@ -126,8 +126,17 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn, VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
-import { VDataTableServer } from 'vuetify/labs/components';
+import {
+    VCard,
+    VTextField,
+    VBtn,
+    VMenu,
+    VList,
+    VListItem,
+    VListItemTitle,
+    VDivider,
+    VDataTableServer,
+} from 'vuetify/components';
 
 import { BucketPage, BucketCursor, Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

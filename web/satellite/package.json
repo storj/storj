@@ -36,7 +36,7 @@
     "vue": "3.3.2",
     "vue-datepicker-next": "1.0.3",
     "vue-router": "4.2.0",
-    "vuetify": "3.3.17"
+    "vuetify": "3.4.6"
   },
   "devDependencies": {
     "@types/filesystem": "0.0.32",

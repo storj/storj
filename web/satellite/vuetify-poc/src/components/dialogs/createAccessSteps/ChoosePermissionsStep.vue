@@ -208,8 +208,8 @@ import {
     VListItem,
     VCheckboxBtn,
     VOverlay,
+    VDatePicker,
 } from 'vuetify/components';
-import { VDatePicker } from 'vuetify/labs/components';
 
 import { Permission } from '@/types/createAccessGrant';
 import { AccessGrantEndDate } from '@poc/types/createAccessGrant';

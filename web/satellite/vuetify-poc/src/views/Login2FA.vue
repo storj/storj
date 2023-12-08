@@ -72,9 +72,15 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText, VForm, VTextField } from 'vuetify/components';
-import { VOtpInput } from 'vuetify/labs/components';
 import { computed, ref } from 'vue';
+import {
+    VBtn,
+    VCard,
+    VCardText,
+    VForm,
+    VTextField,
+    VOtpInput,
+} from 'vuetify/components';
 
 import { RequiredRule } from '@poc/types/common';
 

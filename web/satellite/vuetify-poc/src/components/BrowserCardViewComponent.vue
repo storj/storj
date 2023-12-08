@@ -161,8 +161,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VBtn, VBtnToggle, VCol, VIcon, VList, VListItem, VMenu, VRow, VSpacer, VTextField } from 'vuetify/components';
-import { VDataIterator } from 'vuetify/labs/components';
+import {
+    VBtn,
+    VBtnToggle,
+    VCol,
+    VIcon,
+    VList,
+    VListItem,
+    VMenu,
+    VRow,
+    VSpacer,
+    VTextField,
+    VDataIterator,
+} from 'vuetify/components';
 
 import {
     BrowserObject,

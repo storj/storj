@@ -13,21 +13,21 @@
         >
             <template #item.amount="{ item }">
                 <span>
-                    {{ centsToDollars(item.raw.amount) }}
+                    {{ centsToDollars(item.amount) }}
                 </span>
             </template>
             <template #item.formattedStart="{ item }">
                 <span class="font-weight-bold">
-                    {{ item.raw.formattedStart }}
+                    {{ item.formattedStart }}
                 </span>
             </template>
             <template #item.formattedStatus="{ item }">
-                <v-chip :color="getColor(item.raw.formattedStatus)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
-                    {{ item.raw.formattedStatus }}
+                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                    {{ item.formattedStatus }}
                 </v-chip>
             </template>
             <template #item.link="{ item }">
-                <v-btn v-if="item.raw.link" variant="flat" size="small" :href="item.raw.link">
+                <v-btn v-if="item.link" variant="flat" size="small" :href="item.link">
                     Download
                 </v-btn>
             </template>
@@ -62,9 +62,17 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VBtnGroup, VCard, VChip, VCol, VRow, VSelect } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { VDataTable } from 'vuetify/labs/components';
+import {
+    VBtn,
+    VBtnGroup,
+    VCard,
+    VChip,
+    VCol,
+    VRow,
+    VSelect,
+    VDataTable,
+} from 'vuetify/components';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';

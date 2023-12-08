@@ -44,11 +44,11 @@
                             height="40"
                             color="default"
                             block
-                            @click="onFileClick(item.raw.browserObject)"
+                            @click="onFileClick(item.browserObject)"
                         >
-                            <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
+                            <img :src="item.typeInfo.icon" :alt="item.typeInfo.title + 'icon'" class="mr-3">
                             <v-tooltip
-                                v-if="firstFile && item.raw.browserObject.Key === firstFile.Key"
+                                v-if="firstFile && item.browserObject.Key === firstFile.Key"
                                 :model-value="isFileGuideShown"
                                 persistent
                                 no-click-animation
@@ -59,32 +59,32 @@
                             >
                                 Click on the file name to preview.
                                 <template #activator="{ props: activatorProps }">
-                                    <span v-bind="activatorProps">{{ item.raw.browserObject.Key }}</span>
+                                    <span v-bind="activatorProps">{{ item.browserObject.Key }}</span>
                                 </template>
                             </v-tooltip>
-                            <template v-else>{{ item.raw.browserObject.Key }}</template>
+                            <template v-else>{{ item.browserObject.Key }}</template>
                         </v-btn>
                     </template>
 
                     <template #item.type="{ item }: ItemSlotProps">
-                        {{ item.raw.typeInfo.title }}
+                        {{ item.typeInfo.title }}
                     </template>
 
                     <template #item.size="{ item }: ItemSlotProps">
-                        {{ getFormattedSize(item.raw.browserObject) }}
+                        {{ getFormattedSize(item.browserObject) }}
                     </template>
 
                     <template #item.date="{ item }: ItemSlotProps">
-                        {{ getFormattedDate(item.raw.browserObject) }}
+                        {{ getFormattedDate(item.browserObject) }}
                     </template>
 
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
-                            :file="item.raw.browserObject"
+                            :file="item.browserObject"
                             align="right"
-                            @preview-click="onFileClick(item.raw.browserObject)"
-                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                            @share-click="onShareClick(item.raw.browserObject)"
+                            @preview-click="onFileClick(item.browserObject)"
+                            @delete-file-click="onDeleteFileClick(item.browserObject)"
+                            @share-click="onShareClick(item.browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -112,8 +112,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn, VTooltip } from 'vuetify/components';
-import { VDataTableServer, VDataTableRow } from 'vuetify/labs/components';
+import {
+    VCard,
+    VTextField,
+    VBtn,
+    VTooltip,
+    VDataTableServer,
+    VDataTableRow,
+} from 'vuetify/components';
 
 import {
     BrowserObject,
@@ -150,7 +156,7 @@ type TableOptions = {
     }[];
 };
 
-type ItemSlotProps = { item: { raw: BrowserObjectWrapper } };
+type ItemSlotProps = { item: BrowserObjectWrapper };
 
 const props = defineProps<{
     forceEmpty?: boolean;

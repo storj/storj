@@ -55,17 +55,17 @@
         >
             <template #item.name="{ item }">
                 <span class="font-weight-bold">
-                    {{ item.raw.name }}
+                    {{ item.name }}
                 </span>
             </template>
             <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.raw.role]" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
-                    {{ item.raw.role }}
+                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                    {{ item.role }}
                 </v-chip>
             </template>
             <template #item.actions="{ item }">
                 <v-btn
-                    v-if="item.raw.role !== ProjectRole.Owner"
+                    v-if="item.role !== ProjectRole.Owner"
                     variant="outlined"
                     color="default"
                     size="small"
@@ -80,21 +80,21 @@
                                 density="comfortable"
                                 link
                                 rounded="lg"
-                                @click="() => onResendOrCopyClick(item.raw.expired, item.raw.email)"
+                                @click="() => onResendOrCopyClick(item.expired, item.email)"
                             >
                                 <template #prepend>
-                                    <icon-upload v-if="item.raw.expired" :size="18" />
+                                    <icon-upload v-if="item.expired" :size="18" />
                                     <icon-copy v-else />
                                 </template>
                                 <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
-                                    {{ item.raw.expired ? 'Resend invite' : 'Copy invite link' }}
+                                    {{ item.expired ? 'Resend invite' : 'Copy invite link' }}
                                 </v-list-item-title>
                             </v-list-item>
                             <v-list-item
                                 class="text-error"
                                 density="comfortable"
                                 link rounded="lg"
-                                @click="() => onSingleDelete(item.raw.email)"
+                                @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
                                     <icon-trash bold />
@@ -131,8 +131,8 @@ import {
     VListItem,
     VBtn,
     VListItemTitle,
+    VDataTableServer,
 } from 'vuetify/components';
-import { VDataTableServer } from 'vuetify/labs/components';
 import { useRouter } from 'vue-router';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';

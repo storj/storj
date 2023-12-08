@@ -82,10 +82,17 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardText, VCol, VContainer, VRow } from 'vuetify/components';
-import { VOtpInput } from 'vuetify/labs/components';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import {
+    VBtn,
+    VCard,
+    VCardText,
+    VCol,
+    VContainer,
+    VRow,
+    VOtpInput,
+} from 'vuetify/components';
 
 import { useNotify } from '@/utils/hooks';
 import { AuthHttpApi } from '@/api/auth';
