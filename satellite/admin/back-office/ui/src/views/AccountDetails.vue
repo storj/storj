@@ -210,21 +210,6 @@ const userAccount = computed<UserAccount>(() => appStore.state.userAccount as Us
  */
 const createdAt = computed<Date>(() => new Date(userAccount.value.createdAt));
 
-/**
- * Returns the string representation of the user's default placement.
- */
-const placementText = computed<string>(() => {
-    for (const placement of appStore.state.placements) {
-        if (placement.id === userAccount.value.defaultPlacement) {
-            if (placement.location) {
-                return placement.location;
-            }
-            break;
-        }
-    }
-    return `Unknown (${userAccount.value.defaultPlacement})`;
-});
-
 type Usage = {
     storage: number | null;
     download: number;
@@ -258,17 +243,24 @@ const totalUsage = computed<Usage>(() => {
     return total;
 });
 
+const placementText = computed<string>(() => {
+    return appStore.getPlacementText(userAccount.value.defaultPlacement);
+});
+
 /**
  * Returns whether an error occurred retrieving usage data from the Redis live accounting cache.
  */
 const usageCacheError = computed<boolean>(() => {
     return !!userAccount.value.projects?.some(project =>
         project.storageUsed === null ||
-        project.bandwidthUsed === null ||
         project.segmentUsed === null,
     );
 });
 
 onBeforeMount(() => !userAccount.value && router.push('/accounts'));
-onUnmounted(appStore.clearUser);
+onUnmounted(() => {
+    if (appStore.state.selectedProject === null) {
+        appStore.clearUser;
+    }
+});
 </script>

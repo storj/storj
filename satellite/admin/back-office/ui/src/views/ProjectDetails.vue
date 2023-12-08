@@ -19,7 +19,7 @@
                             />
                         </svg>
                     </template>
-                    itacker@gmail.com
+                    {{ project.owner.email }}
                 </v-chip>
 
                 <img src="@/assets/icon-right.svg" alt="Project" width="10" class="mr-2">
@@ -33,7 +33,7 @@
                             />
                         </svg>
                     </template>
-                    56F82SR21Q284
+                    {{ project.id }}
                     <v-tooltip activator="parent" location="top">
                         This project ID
                     </v-tooltip>
@@ -51,15 +51,28 @@
             </v-col>
         </v-row>
 
+        <v-row v-if="usageCacheError">
+            <v-col>
+                <v-alert variant="tonal" color="error" rounded="lg" density="comfortable" border>
+                    <div class="d-flex align-center">
+                        <v-icon icon="mdi-alert-circle" color="error" class="mr-3" />
+                        An error occurred when retrieving project usage data.
+                        Please retry after a few minutes and report the issue if it persists.
+                    </div>
+                </v-alert>
+            </v-col>
+        </v-row>
+
         <v-row>
             <v-col cols="12" md="4">
-                <v-card title="Project" subtitle="My First Project" variant="flat" :border="true" rounded="xlg">
+                <v-card title="Project" :subtitle="project.name" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
-                            Pro
+                            {{ userAccount.paidTier ? 'Pro' : 'Free' }}
+                            <!-- TODO: We don't have this information we have to decide what we show here (e.g. Show the date when a credit card was added, etc.) ->
                             <v-tooltip activator="parent" location="top">
                                 Pro account since: 2 May 2022
-                            </v-tooltip>
+                            </v-tooltip> -->
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default" class="mr-2">
@@ -73,7 +86,7 @@
             <v-col cols="12" md="4">
                 <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" class="mr-2">Company</v-chip>
+                        <v-chip color="default" variant="tonal" class="mr-2">{{ project.userAgent }}</v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
                             Set Value Attribution
@@ -87,7 +100,7 @@
                 <v-card title="Placement" subtitle="Region" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip variant="tonal" class="mr-2">
-                            Global
+                            {{ placementText }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -103,44 +116,39 @@
             <ProjectLimitsDialog />
 
             <v-col cols="12" sm="6" lg="4">
+                <!-- TODO: get bucket count -->
                 <UsageProgressComponent
-                    title="Buckets" :progress="5" used="5" percentage="5%" available="95" limit="100"
-                    color="success" link
+                    title="Buckets" :only-limit="true" :limit="project.maxBuckets || 0" color="success" link
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
-                    title="Storage" :progress="14" used="141 TB" percentage="14%" available="859 TB"
-                    limit="1,000 TB" color="success" link
+                    title="Storage" :is-bytes="true" :used="project.storageUsed || 0" :limit="project.storageLimit || 0" color="success" link
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
-                    title="Download" :progress="59" used="590 TB" percentage="59%" available="310 TB"
-                    limit="1,000 TB" color="success" link
+                    title="Download" :is-bytes="true" :used="project.bandwidthUsed" :limit="project.bandwidthLimit || 0" color="success" link
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
-                    title="Segments" :progress="32" used="32,000" percentage="32%" available="68,000"
-                    limit="100,000" color="success" link
+                    title="Segments" :used="project.segmentUsed || 0" :limit="project.segmentLimit || 0" color="success" link
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
-                    title="Rate" :progress="20" used="2,000" percentage="20%" available="8,000" limit="10,000"
-                    color="success" link
+                    title="Rate" :only-limit="true" :limit="project.rateLimit || 0" color="success" link
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
-                    title="Burst" :progress="50" used="25,000" percentage="50%" available="25,000"
-                    limit="50,000" color="success" link
+                    title="Burst" :only-limit="true" :limit="project.burstLimit || 0" color="success" link
                 />
             </v-col>
         </v-row>
@@ -169,7 +177,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
+    VAlert,
     VContainer,
     VRow,
     VCol,
@@ -182,6 +192,9 @@ import {
     VDivider,
 } from 'vuetify/components';
 
+import { Project, UserAccount } from '@/api/client.gen';
+import { useAppStore } from '@/store/app';
+
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
 import BucketsTableComponent from '@/components/BucketsTableComponent.vue';
@@ -192,4 +205,20 @@ import ProjectGeofenceDialog from '@/components/ProjectGeofenceDialog.vue';
 import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
+
+const appStore = useAppStore();
+
+const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
+const project = computed<Project>(() => appStore.state.selectedProject as Project);
+
+const placementText = computed<string>(() => {
+    return appStore.getPlacementText(project.value.defaultPlacement);
+});
+
+/**
+ * Returns whether an error occurred retrieving usage data from the Redis live accounting cache.
+ */
+const usageCacheError = computed<boolean>(() => {
+    return project.value.storageUsed === null || project.value.segmentUsed === null;
+});
 </script>
