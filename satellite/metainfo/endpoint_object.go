@@ -959,6 +959,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursorVersion = metabase.MaxVersion
 	}
 
+	if len(req.VersionCursor) != 0 {
+		version, err := metabase.VersionFromBytes(req.VersionCursor)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+		cursorVersion = version
+	}
+
 	includeCustomMetadata := true
 	includeSystemMetadata := true
 	if req.UseObjectIncludes {

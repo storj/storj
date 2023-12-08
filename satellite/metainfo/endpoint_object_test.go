@@ -2939,5 +2939,58 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			require.Len(t, lposResponse.Items, 1)
 			require.Equal(t, response.StreamId.Bytes(), lposResponse.Items[0].StreamId.Bytes())
 		})
+
+		t.Run("listing objects, all versions, version cursor handling", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			expectedVersions := [][]byte{}
+			for i := 0; i < 5; i++ {
+				object, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100), nil)
+				require.NoError(t, err)
+				expectedVersions = append(expectedVersions, object.Version)
+			}
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, objects)
+
+			listObjectVersions := func(version []byte, limit int) *pb.ListObjectsResponse {
+				response, err := satelliteSys.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+					Header: &pb.RequestHeader{ApiKey: apiKey},
+					Bucket: []byte(bucketName),
+					// all objects have the same key but different versions
+					EncryptedCursor:    []byte(objects[0].ObjectKey),
+					VersionCursor:      version,
+					IncludeAllVersions: true,
+					Limit:              int32(limit),
+				})
+				require.NoError(t, err)
+				return response
+			}
+
+			for i, version := range expectedVersions {
+				response := listObjectVersions(version, 0)
+				require.Len(t, response.Items, len(expectedVersions)-i-1)
+
+				versions := [][]byte{}
+				for _, item := range response.Items {
+					versions = append(versions, item.ObjectVersion)
+				}
+
+				require.Equal(t, expectedVersions[i+1:], versions)
+			}
+
+			response := listObjectVersions(expectedVersions[0], 2)
+			require.NoError(t, err)
+			require.Len(t, response.Items, 2)
+			require.True(t, response.More)
+
+			response = listObjectVersions(expectedVersions[2], 2)
+			require.Len(t, response.Items, 2)
+			require.False(t, response.More)
+		})
 	})
 }
