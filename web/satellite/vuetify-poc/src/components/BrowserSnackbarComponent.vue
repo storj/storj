@@ -3,6 +3,7 @@
 
 <template>
     <v-snackbar
+        v-model="isObjectsUploadModal"
         vertical
         :timeout="4000"
         color="default"
@@ -21,6 +22,9 @@
                     >
                         <v-expansion-panel-title color="">
                             <span>{{ statusLabel }}</span>
+                            <template v-if="isClosable" #actions>
+                                <v-icon icon="mdi-close" @click="v1AppStore.setUploadingModal(false)" />
+                            </template>
                         </v-expansion-panel-title>
                         <v-progress-linear
                             v-if="!isClosable"
@@ -56,7 +60,7 @@
                                     v-for="item in uploading"
                                     :key="item.Key"
                                     :item="item"
-                                    @click="item.status === UploadingStatus.Finished && emit('fileClick', item)"
+                                    @click="item.status === UploadingStatus.Finished && onFileClick(item)"
                                 />
                             </div>
                         </v-expand-transition>
@@ -65,6 +69,8 @@
             </v-col>
         </v-row>
     </v-snackbar>
+
+    <file-preview-dialog v-model="previewDialog" />
 </template>
 
 <script setup lang="ts">
@@ -83,24 +89,37 @@ import {
     VDivider,
     VExpandTransition,
 } from 'vuetify/components';
+import { useRouter } from 'vue-router';
 
 import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Duration } from '@/utils/time';
 import { useNotify } from '@/utils/hooks';
+import { useAppStore as useV1AppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import UploadItem from '@poc/components/UploadItem.vue';
+import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 
+const v1AppStore = useV1AppStore();
 const obStore = useObjectBrowserStore();
+const bucketsStore = useBucketsStore();
+const projectsStore = useProjectsStore();
+
+const router = useRouter();
+
 const remainingTimeString = ref<string>('');
 const interval = ref<NodeJS.Timer>();
 const notify = useNotify();
 const startDate = ref<number>(Date.now());
 const isExpanded = ref<boolean>(false);
+const previewDialog = ref<boolean>(false);
 
-const emit = defineEmits<{
-    'fileClick': [file: BrowserObject],
-}>();
+/**
+ * Indicates whether objects upload modal should be shown.
+ */
+const isObjectsUploadModal = computed<boolean>(() => v1AppStore.state.isUploadingModal);
 
 /**
  * Returns header's status label.
@@ -153,6 +172,16 @@ const uploading = computed((): UploadingBrowserObject[] => {
 });
 
 /**
+ * Returns the current path within the selected bucket.
+ */
+const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
+
+/**
+ * Returns the name of the selected bucket.
+ */
+const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
+
+/**
  * Calculates remaining seconds.
  */
 function calculateRemainingTime(): void {
@@ -172,6 +201,26 @@ function calculateRemainingTime(): void {
     }
 
     remainingTimeString.value = new Duration(remainingNanoseconds).remainingFormatted;
+}
+
+/**
+ * Handles file click.
+ */
+function onFileClick(file: BrowserObject): void {
+    if (!file.type) return;
+
+    if (file.type === 'folder') {
+        const uriParts = [file.Key];
+        if (filePath.value) {
+            uriParts.unshift(...filePath.value.split('/'));
+        }
+        const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+        router.push(`/projects/${projectsStore.state.selectedProject.urlId}/buckets/${bucketName.value}/${pathAndKey}`);
+        return;
+    }
+
+    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+    previewDialog.value = true;
 }
 
 /**

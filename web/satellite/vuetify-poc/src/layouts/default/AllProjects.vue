@@ -8,6 +8,7 @@
             <default-view />
 
             <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
+            <browser-snackbar-component />
         </session-wrapper>
     </v-app>
 </template>
@@ -26,6 +27,7 @@ import { useNotify } from '@/utils/hooks';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
+import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

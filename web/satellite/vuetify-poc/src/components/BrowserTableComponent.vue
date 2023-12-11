@@ -106,7 +106,6 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
-    <browser-snackbar-component v-model="isObjectsUploadModal" @file-click="onFileClick" />
 </template>
 
 <script setup lang="ts">
@@ -143,7 +142,6 @@ import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
-import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -222,11 +220,6 @@ const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
  * Returns table cursor from store.
  */
 const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
-
-/**
- * Indicates whether objects upload modal should be shown.
- */
-const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingModal);
 
 /**
  * Returns every file under the current path.

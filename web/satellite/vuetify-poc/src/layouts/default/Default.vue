@@ -12,6 +12,7 @@
             <default-view />
 
             <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
+            <browser-snackbar-component />
         </session-wrapper>
     </v-app>
 </template>
@@ -40,6 +41,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 
 import SessionWrapper from '@poc/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
+import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 
 const router = useRouter();
 const route = useRoute();
