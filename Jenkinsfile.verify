@@ -39,8 +39,10 @@ pipeline {
         }
         stage('Gerrit status') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                    sh './scripts/gerrit-status.sh verify start 0'
+                withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                        sh './scripts/gerrit-status.sh verify start 0'
+                    }
                 }
             }
         }
@@ -214,18 +216,24 @@ pipeline {
     }
     post {
         success {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh verify success +1'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh verify success +1'
+                }
             }
         }
         failure {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh verify failure -1'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh verify failure -1'
+                }
             }
         }
         aborted {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh verify failure -1'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh verify failure -1'
+                }
             }
         }
     }

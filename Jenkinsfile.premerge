@@ -38,8 +38,10 @@ pipeline {
         }
         stage('Gerrit status') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                    sh './scripts/gerrit-status.sh pre-merge start +1'
+                withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                        sh './scripts/gerrit-status.sh pre-merge start +1'
+                    }
                 }
             }
         }
@@ -303,18 +305,24 @@ pipeline {
     }
     post {
         success {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh pre-merge success +2'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh pre-merge success +2'
+                }
             }
         }
         failure {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh pre-merge failure -2'
+                }
             }
         }
         aborted {
-            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            withEnv(['GERRIT_BUILD=' + params.GERRIT_BUILD]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh pre-merge failure -2'
+                }
             }
         }
     }

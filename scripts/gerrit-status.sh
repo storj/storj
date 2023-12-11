@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
+if [ $GERRIT_BUILD != "true" ]; then
+    echo "Skipping gerrit notification"
+    exit 0
+fi
 ACTION=$2
 
 SSH_COMMAND="ssh -i $SSH_KEY $SSH_USER@review.dev.storj.io -o StrictHostKeyChecking=no -p 29418"
