@@ -82,7 +82,6 @@ func TestSegmentRepairPlacement(t *testing.T) {
 			// as segment is still above repair threshold
 			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1},
 			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1, piecesOutOfPlacementOffline: 1},
-			{piecesOutOfPlacement: 1, piecesAfterRepair: piecesCount - 1, piecesOutOfPlacementOffline: 1},
 		} {
 
 			t.Run(fmt.Sprintf("oop_%d_ar_%d_off_%d", tc.piecesOutOfPlacement, tc.piecesAfterRepair, tc.piecesOutOfPlacementOffline), func(t *testing.T) {
