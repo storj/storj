@@ -4,6 +4,8 @@
 package nodeselection
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -58,4 +60,53 @@ func (node *SelectedNode) Clone() *SelectedNode {
 	newNode.Address = pb.CopyNodeAddress(node.Address)
 	newNode.Tags = slices.Clone(node.Tags)
 	return &newNode
+}
+
+// NodeAttribute returns a string (like last_net or tag value) for each SelectedNode.
+type NodeAttribute func(SelectedNode) string
+
+// LastNetAttribute is used for subnet based declumping/selection.
+var LastNetAttribute = mustCreateNodeAttribute("last_net")
+
+func mustCreateNodeAttribute(attr string) NodeAttribute {
+	nodeAttr, err := CreateNodeAttribute(attr)
+	if err != nil {
+		panic(err)
+	}
+	return nodeAttr
+}
+
+// CreateNodeAttribute creates the NodeAttribute selected based on a string definition.
+func CreateNodeAttribute(attr string) (NodeAttribute, error) {
+	if strings.HasPrefix(attr, "tag:") {
+		parts := strings.Split(strings.TrimPrefix(attr, "tag:"), "/")
+		return func(node SelectedNode) string {
+			for _, tag := range node.Tags {
+				if tag.Name == parts[1] && tag.Signer.String() == parts[0] {
+					return string(tag.Value)
+				}
+			}
+			return ""
+		}, nil
+	}
+	switch attr {
+	case "last_net":
+		return func(node SelectedNode) string {
+			return node.LastNet
+		}, nil
+	case "wallet":
+		return func(node SelectedNode) string {
+			return node.Wallet
+		}, nil
+	case "email":
+		return func(node SelectedNode) string {
+			return node.Email
+		}, nil
+	case "country":
+		return func(node SelectedNode) string {
+			return node.CountryCode.String()
+		}, nil
+	default:
+		return nil, errors.New("Unsupported node attribute: " + attr)
+	}
 }
