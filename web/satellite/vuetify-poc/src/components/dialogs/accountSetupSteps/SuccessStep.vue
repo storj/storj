@@ -42,10 +42,15 @@ const userStore = useUsersStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
+const emit = defineEmits<{
+    continue: [];
+}>();
+
 function finishSetup() {
     withLoading(async () => {
         try {
             await userStore.getUser();
+            emit('continue');
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
         }

@@ -21,7 +21,7 @@ type Config struct {
 	LoginAttemptsWithoutPenalty     int                       `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty              float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
 	ProjectInvitationExpiration     time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
-	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"false"`
+	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	FreeTierInvitesEnabled          bool                      `help:"indicates whether free tier users can send project invitations" default:"false"`
 	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
@@ -60,7 +60,7 @@ type SingleCaptchaConfig struct {
 // SessionConfig contains configurations for session management.
 type SessionConfig struct {
 	InactivityTimerEnabled       bool          `help:"indicates if session can be timed out due inactivity" default:"true"`
-	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"600"`
+	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"86400"` // 86400s=24h
 	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }

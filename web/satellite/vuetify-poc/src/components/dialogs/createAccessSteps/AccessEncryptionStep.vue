@@ -22,14 +22,19 @@
                             class="mt-6"
                             variant="outlined"
                             label="Encryption Passphrase"
-                            :append-inner-icon="isPassphraseVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                             :type="isPassphraseVisible ? 'text' : 'password'"
                             :rules="passphraseRules"
                             :hide-details="false"
                             autofocus
-                            @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
-                        />
-                        <!-- <v-divider class="my-4" /> -->
+                        >
+                            <template #append-inner>
+                                <password-input-eye-icons
+                                    :is-visible="isPassphraseVisible"
+                                    type="passphrase"
+                                    @toggleVisibility="isPassphraseVisible = !isPassphraseVisible"
+                                />
+                            </template>
+                        </v-text-field>
                     </template>
                     <v-radio v-else :value="PassphraseOption.UseExistingPassphrase" density="compact" class="pb-4">
                         <template #label>
@@ -105,6 +110,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { ValidationRule, DialogStepComponent } from '@poc/types/common';
 
 import InfoTooltip from '@poc/components/dialogs/createAccessSteps/InfoTooltip.vue';
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 const emit = defineEmits<{
     'selectOption': [option: PassphraseOption];

@@ -48,6 +48,7 @@ type SelectedNode struct {
 	Exiting     bool
 	Suspended   bool
 	Online      bool
+	Vetted      bool
 	Tags        NodeTags
 }
 

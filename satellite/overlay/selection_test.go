@@ -558,8 +558,7 @@ func TestDistinctIPs(t *testing.T) {
 
 			response, err := service.FindStorageNodesForUpload(ctx,
 				overlay.FindStorageNodesRequest{
-					RequestedCount:     tt.requestCount,
-					AsOfSystemInterval: -time.Microsecond,
+					RequestedCount: tt.requestCount,
 				})
 			if tt.shouldFailWith != nil {
 				assert.Error(t, err)

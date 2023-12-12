@@ -87,9 +87,15 @@
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="passwordRules"
                                 required
-                                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                                @click:append-inner="showPassword = !showPassword"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
 
                             <v-btn
                                 color="primary"
@@ -151,6 +157,7 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 
 import Login2FA from '@poc/views/Login2FA.vue';
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 

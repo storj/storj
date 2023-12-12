@@ -155,14 +155,24 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
-    <browser-snackbar-component v-model="isObjectsUploadModal" @file-click="onFileClick" />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VBtn, VBtnToggle, VCol, VIcon, VList, VListItem, VMenu, VRow, VSpacer, VTextField } from 'vuetify/components';
-import { VDataIterator } from 'vuetify/labs/components';
+import {
+    VBtn,
+    VBtnToggle,
+    VCol,
+    VIcon,
+    VList,
+    VListItem,
+    VMenu,
+    VRow,
+    VSpacer,
+    VTextField,
+    VDataIterator,
+} from 'vuetify/components';
 
 import {
     BrowserObject,
@@ -176,8 +186,6 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { LocalData } from '@/utils/localData';
-import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { tableSizeOptions } from '@/types/common';
@@ -185,7 +193,6 @@ import { tableSizeOptions } from '@/types/common';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
-import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 import FileCard from '@poc/components/FileCard.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
@@ -203,7 +210,6 @@ const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
-const appStore = useAppStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -241,11 +247,6 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
  * Returns the current path within the selected bucket.
  */
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
-
-/**
- * Indicates whether objects upload modal should be shown.
- */
-const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingModal);
 
 /**
  * Returns total object count from store.
@@ -414,7 +415,6 @@ function onFileClick(file: BrowserObject): void {
 
     obStore.setObjectPathForModal(file.path + file.Key);
     previewDialog.value = true;
-    LocalData.setFileGuideHidden();
 }
 
 /**

@@ -44,11 +44,11 @@
                             height="40"
                             color="default"
                             block
-                            @click="onFileClick(item.raw.browserObject)"
+                            @click="onFileClick(item.browserObject)"
                         >
-                            <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
+                            <img :src="item.typeInfo.icon" :alt="item.typeInfo.title + 'icon'" class="mr-3">
                             <v-tooltip
-                                v-if="firstFile && item.raw.browserObject.Key === firstFile.Key"
+                                v-if="firstFile && item.browserObject.Key === firstFile.Key"
                                 :model-value="isFileGuideShown"
                                 persistent
                                 no-click-animation
@@ -59,32 +59,32 @@
                             >
                                 Click on the file name to preview.
                                 <template #activator="{ props: activatorProps }">
-                                    <span v-bind="activatorProps">{{ item.raw.browserObject.Key }}</span>
+                                    <span v-bind="activatorProps">{{ item.browserObject.Key }}</span>
                                 </template>
                             </v-tooltip>
-                            <template v-else>{{ item.raw.browserObject.Key }}</template>
+                            <template v-else>{{ item.browserObject.Key }}</template>
                         </v-btn>
                     </template>
 
                     <template #item.type="{ item }: ItemSlotProps">
-                        {{ item.raw.typeInfo.title }}
+                        {{ item.typeInfo.title }}
                     </template>
 
                     <template #item.size="{ item }: ItemSlotProps">
-                        {{ getFormattedSize(item.raw.browserObject) }}
+                        {{ getFormattedSize(item.browserObject) }}
                     </template>
 
                     <template #item.date="{ item }: ItemSlotProps">
-                        {{ getFormattedDate(item.raw.browserObject) }}
+                        {{ getFormattedDate(item.browserObject) }}
                     </template>
 
                     <template #item.actions="{ item }: ItemSlotProps">
                         <browser-row-actions
-                            :file="item.raw.browserObject"
+                            :file="item.browserObject"
                             align="right"
-                            @preview-click="onFileClick(item.raw.browserObject)"
-                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                            @share-click="onShareClick(item.raw.browserObject)"
+                            @preview-click="onFileClick(item.browserObject)"
+                            @delete-file-click="onDeleteFileClick(item.browserObject)"
+                            @share-click="onShareClick(item.browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -106,14 +106,19 @@
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
     />
-    <browser-snackbar-component v-model="isObjectsUploadModal" @file-click="onFileClick" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn, VTooltip } from 'vuetify/components';
-import { VDataTableServer, VDataTableRow } from 'vuetify/labs/components';
+import {
+    VCard,
+    VTextField,
+    VBtn,
+    VTooltip,
+    VDataTableServer,
+    VDataTableRow,
+} from 'vuetify/components';
 
 import {
     BrowserObject,
@@ -137,7 +142,6 @@ import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@poc/components/dialogs/ShareDialog.vue';
-import BrowserSnackbarComponent from '@poc/components/BrowserSnackbarComponent.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -150,7 +154,7 @@ type TableOptions = {
     }[];
 };
 
-type ItemSlotProps = { item: { raw: BrowserObjectWrapper } };
+type ItemSlotProps = { item: BrowserObjectWrapper };
 
 const props = defineProps<{
     forceEmpty?: boolean;
@@ -216,11 +220,6 @@ const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
  * Returns table cursor from store.
  */
 const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
-
-/**
- * Indicates whether objects upload modal should be shown.
- */
-const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingModal);
 
 /**
  * Returns every file under the current path.

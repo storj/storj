@@ -45,14 +45,20 @@
                                 v-model="passphrase"
                                 :base-color="isWarningState ? 'warning' : ''"
                                 label="Encryption Passphrase"
-                                :append-inner-icon="isPassphraseVisible ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
                                 :type="isPassphraseVisible ? 'text' : 'password'"
                                 variant="outlined"
                                 :hide-details="false"
                                 :rules="[ RequiredRule ]"
                                 autofocus
-                                @click:append-inner="isPassphraseVisible = !isPassphraseVisible"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="isPassphraseVisible"
+                                        type="passphrase"
+                                        @toggleVisibility="isPassphraseVisible = !isPassphraseVisible"
+                                    />
+                                </template>
+                            </v-text-field>
                         </v-col>
                     </v-row>
                 </v-form>
@@ -110,6 +116,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();

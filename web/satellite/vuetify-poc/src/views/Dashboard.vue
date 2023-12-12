@@ -93,6 +93,12 @@
             </v-col>
         </v-row>
 
+        <v-row class="justify-end mx-0">
+            <v-btn prepend-icon="$calendar" @click="isDatePicker = true">
+                {{ dateRangeLabel }}
+            </v-btn>
+        </v-row>
+
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" md="6">
                 <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true" rounded="xlg">
@@ -204,21 +210,30 @@
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
     <create-bucket-dialog v-model="isCreateBucketDialogShown" />
     <manage-passphrase-dialog v-model="isSetPassphraseDialogShown" is-create />
+    <v-overlay v-model="isDatePicker" class="align-center justify-center">
+        <v-date-picker
+            v-model="datePickerModel"
+            multiple
+            show-adjacent-months
+            hide-header
+            :disabled="isLoading"
+        />
+    </v-overlay>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
     VCardTitle,
-    VCardText,
     VCol,
     VContainer,
     VRow,
-    VBadge,
     VIcon,
     VTooltip,
+    VDatePicker,
+    VOverlay,
 } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
@@ -242,6 +257,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { RouteName } from '@poc/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
+import { useLoading } from '@/composables/useLoading';
 
 import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
@@ -270,6 +286,7 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
+const { isLoading, withLoading } = useLoading();
 
 const bucketWasCreated = !!LocalData.getBucketWasCreatedStatus();
 
@@ -279,6 +296,21 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogShown = ref<boolean>(false);
 const isSetPassphraseDialogShown = ref<boolean>(false);
+const isDatePicker = ref<boolean>(false);
+const datePickerModel = ref<Date[]>([]);
+
+/**
+ * Returns formatted date range string.
+ */
+const dateRangeLabel = computed((): string => {
+    if (chartsSinceDate.value.getTime() === chartsBeforeDate.value.getTime()) {
+        return chartsSinceDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+    }
+
+    const sinceFormattedString = chartsSinceDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+    const beforeFormattedString = chartsBeforeDate.value.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+    return `${sinceFormattedString} - ${beforeFormattedString}`;
+});
 
 /**
  * Indicates if billing coupon card should be shown.
@@ -622,5 +654,32 @@ onMounted(async (): Promise<void> => {
  */
 onBeforeUnmount((): void => {
     window.removeEventListener('resize', recalculateChartWidth);
+});
+
+watch(isDatePicker, () => {
+    datePickerModel.value = [];
+});
+
+watch(datePickerModel, async () => {
+    if (datePickerModel.value.length !== 2) return;
+
+    await withLoading(async () => {
+        let [startDate, endDate] = datePickerModel.value;
+        if (startDate.getTime() > endDate.getTime()) {
+            [startDate, endDate] = [endDate, startDate];
+        }
+
+        const since = new Date(startDate);
+        const before = new Date(endDate);
+        before.setHours(23, 59, 59, 999);
+
+        try {
+            await projectsStore.getDailyProjectData({ since, before });
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+        }
+    });
+
+    isDatePicker.value = false;
 });
 </script>

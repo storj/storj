@@ -34,12 +34,12 @@
         >
             <template #item.name="{ item }">
                 <span class="font-weight-bold">
-                    {{ item.raw.name }}
+                    {{ item.name }}
                 </span>
             </template>
             <template #item.createdAt="{ item }">
                 <span>
-                    {{ item.raw.createdAt.toLocaleString() }}
+                    {{ item.createdAt.toLocaleString() }}
                 </span>
             </template>
             <template #item.actions="{ item }">
@@ -54,7 +54,7 @@
                     <v-icon icon="mdi-dots-horizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
-                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.raw.name)">
+                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.name)">
                                 <template #prepend>
                                     <icon-trash bold />
                                 </template>
@@ -78,8 +78,17 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import { VBtn, VIcon, VMenu, VList, VListItem, VListItemTitle, VCard, VTextField } from 'vuetify/components';
-import { VDataTableServer } from 'vuetify/labs/components';
+import {
+    VBtn,
+    VIcon,
+    VMenu,
+    VList,
+    VListItem,
+    VListItemTitle,
+    VCard,
+    VTextField,
+    VDataTableServer,
+} from 'vuetify/components';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';

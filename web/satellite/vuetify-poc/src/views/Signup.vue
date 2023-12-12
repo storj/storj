@@ -73,9 +73,15 @@
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="passwordRules"
-                                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                                @click:append-inner="showPassword = !showPassword"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
 
                             <v-text-field
                                 v-model="repPassword"
@@ -85,9 +91,15 @@
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="repeatPasswordRules"
-                                :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-                                @click:append-inner="showPassword = !showPassword"
-                            />
+                            >
+                                <template #append-inner>
+                                    <password-input-eye-icons
+                                        :is-visible="showPassword"
+                                        type="password"
+                                        @toggleVisibility="showPassword = !showPassword"
+                                    />
+                                </template>
+                            </v-text-field>
 
                             <v-alert
                                 v-if="isBetaSatellite"
@@ -217,6 +229,7 @@ import { RouteConfig } from '@/types/router';
 import { useNotify } from '@/utils/hooks';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
+import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
 
 type ViewConfig = {
     title: string;

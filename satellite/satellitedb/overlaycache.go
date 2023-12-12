@@ -121,7 +121,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		// By similar logic, all nodes selected here are "online" in terms of the specified selectionCfg
 		// (specifically, OnlineWindow).
 		node.Online = true
-
+		node.Vetted = vettedAt != nil
 		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
 			continue
@@ -159,7 +159,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 
 	query := `
 		SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code,
-               exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended
+               exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended, vetted_at is not null as vetted
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
@@ -183,9 +183,9 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort, email, wallet sql.NullString
 		var noise noiseScanner
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &noise.Proto,
+		var err = rows.Scan(&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &noise.Proto,
 			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode,
-			&node.Exiting, &node.Suspended)
+			&node.Exiting, &node.Suspended, &node.Vetted)
 		if err != nil {
 			return nil, err
 		}
@@ -416,7 +416,8 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			n.disqualified IS NOT NULL AS disqualified,
 			n.exit_initiated_at IS NOT NULL AS exiting,
 			n.exit_finished_at IS NOT NULL AS exited,
-            node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer
+            node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer,
+            n.vetted_at IS NOT NULL AS vetted
 		FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ordinal)
 			LEFT OUTER JOIN nodes n ON input.node_id = n.id
             LEFT JOIN node_tags on node_tags.node_id = n.id
@@ -471,7 +472,8 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 			false AS disqualified,
 			exit_initiated_at IS NOT NULL AS exiting,
-			false AS exited
+			false AS exited, 
+			vetted_at IS NOT NULL AS vetted
 		FROM nodes
 			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		WHERE disqualified IS NULL
@@ -530,9 +532,9 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	node.Address = &pb.NodeAddress{}
 	var nodeID nullNodeID
 	var address, email, wallet, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited sql.NullBool
+	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
 	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
-		&online, &suspended, &disqualified, &exiting, &exited)
+		&online, &suspended, &disqualified, &exiting, &exited, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
 	}
@@ -561,6 +563,7 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	node.Online = online.Bool
 	node.Suspended = suspended.Bool
 	node.Exiting = exiting.Bool
+	node.Vetted = vetted.Bool
 	return node, nil
 }
 
@@ -569,7 +572,7 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	node.Address = &pb.NodeAddress{}
 	var nodeID nullNodeID
 	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited sql.NullBool
+	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
 
 	var tag nodeselection.NodeTag
 	var name []byte
@@ -577,7 +580,7 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	signer := nullNodeID{}
 
 	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode,
-		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer)
+		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
 	}
@@ -603,6 +606,7 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	node.Online = online.Bool
 	node.Suspended = suspended.Bool
 	node.Exiting = exiting.Bool
+	node.Vetted = vetted.Bool
 
 	if len(name) > 0 {
 		tag.Name = string(name)

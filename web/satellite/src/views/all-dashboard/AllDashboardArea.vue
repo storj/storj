@@ -183,7 +183,7 @@ onMounted(async () => {
 
     if (shouldShowPricingPlan.value) {
         appStore.setHasShownPricingPlan(true);
-        // if the user is not legible for a pricing plan, they'll automatically be
+        // if the user is not eligible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.
         analyticsStore.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);

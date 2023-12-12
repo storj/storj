@@ -120,7 +120,7 @@ function freeUsageValue(value: number): string {
 onBeforeMount(async () => {
     try {
         const partner = usersStore.state.user.partner;
-        const config = (await import('@poc/components/dialogs/upgradeAccountFlow/upgradeConfig.json')).default;
+        const config = (await import('@/components/modals/upgradeAccountFlow/upgradeConfig.json')).default;
         if (partner && config[partner]) {
             if (config[partner].storagePrice) {
                 storagePrice.value = config[partner].storagePrice;

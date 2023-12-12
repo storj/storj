@@ -2,35 +2,37 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="border-sm rounded-lg pa-8">
-        <v-row class="ma-0" justify="center" align="center">
-            <v-col cols="auto">
-                <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="success">
-                    <v-btn v-if="isPartner" density="comfortable" color="success" variant="outlined" icon>
-                        <v-icon icon="mdi-cloud-outline" />
-                    </v-btn>
-                </v-badge>
+    <v-card variant="outlined" rounded="xlg" class="h-100">
+        <div class="h-100 d-flex flex-column justify-space-between pa-8">
+            <div>
+                <div class="d-flex justify-center align-center ma-0">
+                    <div>
+                        <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="success">
+                            <v-btn v-if="isPartner" density="comfortable" color="success" variant="outlined" icon>
+                                <v-icon icon="mdi-cloud-outline" />
+                            </v-btn>
+                        </v-badge>
 
-                <v-btn v-else density="comfortable" color="grey-lighten-1" variant="outlined" icon>
-                    <v-icon v-if="isPro" icon="mdi-star-outline" />
-                    <v-icon v-else icon="mdi-earth" />
-                </v-btn>
-            </v-col>
-        </v-row>
+                        <v-btn v-else density="comfortable" color="grey-lighten-1" variant="outlined" icon>
+                            <v-icon v-if="isPro" icon="mdi-star-outline" />
+                            <v-icon v-else icon="mdi-earth" />
+                        </v-btn>
+                    </div>
+                </div>
 
-        <div class="py-4 text-center">
-            <p class="font-weight-bold">{{ plan.title }}</p>
-            <p>{{ plan.containerSubtitle }}</p>
-        </div>
+                <div class="py-4 text-center">
+                    <p class="font-weight-bold">{{ plan.title }}</p>
+                    <p>{{ plan.containerSubtitle }}</p>
+                </div>
 
-        <div class="py-4 text-center">
-            <p class="mb-3">{{ plan.containerDescription }}</p>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <p v-if="plan.containerFooterHTML" v-html="plan.containerFooterHTML" />
-        </div>
+                <div class="py-4 text-center">
+                    <p class="mb-3">{{ plan.containerDescription }}</p>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <p v-if="plan.containerFooterHTML" v-html="plan.containerFooterHTML" />
+                </div>
+            </div>
 
-        <v-row class="py-4" justify="center">
-            <v-col class="pa-0" cols="auto">
+            <div class="d-flex justify-center py-4">
                 <v-btn
                     :variant="isFree ? 'outlined' : 'flat'"
                     :color="isPartner ? 'success' : isFree ? 'grey-lighten-1' : 'primary'"
@@ -42,14 +44,14 @@
 
                     {{ plan.activationButtonText || ('Activate ' + plan.title) }}
                 </v-btn>
-            </v-col>
-        </v-row>
-    </div>
+            </div>
+        </div>
+    </v-card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VBadge, VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { VBadge, VBtn, VCard, VIcon } from 'vuetify/components';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 
