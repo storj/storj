@@ -20,39 +20,39 @@ type PiecesCheckResult struct {
 
 	// Missing is a set of Piece Numbers which are to be considered as lost and irretrievable.
 	// (They reside on offline/disqualified/unknown nodes.)
-	Missing IntSet
+	Missing metabase.IntSet
 	// Retrievable contains all Piece Numbers that are retrievable; that is, all piece numbers
 	// from the segment that are NOT in Missing.
-	Retrievable IntSet
+	Retrievable metabase.IntSet
 
 	// Suspended is a set of Piece Numbers which reside on nodes which are suspended.
-	Suspended IntSet
+	Suspended metabase.IntSet
 	// Clumped is a set of Piece Numbers which are to be considered unhealthy because of IP
 	// clumping. (If DoDeclumping is disabled, this set will be empty.)
-	Clumped IntSet
+	Clumped metabase.IntSet
 	// Exiting is a set of Piece Numbers which are considered unhealthy because the node on
 	// which they reside has initiated graceful exit.
-	Exiting IntSet
+	Exiting metabase.IntSet
 	// OutOfPlacement is a set of Piece Numbers which are unhealthy because of placement rules.
 	// (If DoPlacementCheck is disabled, this set will be empty.)
-	OutOfPlacement IntSet
+	OutOfPlacement metabase.IntSet
 	// InExcludedCountry is a set of Piece Numbers which are unhealthy because they are in
 	// Excluded countries.
-	InExcludedCountry IntSet
+	InExcludedCountry metabase.IntSet
 
 	// ForcingRepair is the set of pieces which force a repair operation for this segment (that
 	// includes, currently, only pieces in OutOfPlacement).
-	ForcingRepair IntSet
+	ForcingRepair metabase.IntSet
 	// Unhealthy contains all Piece Numbers which are in Missing OR Suspended OR Clumped OR
 	// Exiting OR OutOfPlacement OR InExcludedCountry.
-	Unhealthy IntSet
+	Unhealthy metabase.IntSet
 	// UnhealthyRetrievable is the set of pieces that are "unhealthy-but-retrievable". That is,
 	// pieces that are in Unhealthy AND Retrievable.
-	UnhealthyRetrievable IntSet
+	UnhealthyRetrievable metabase.IntSet
 	// Healthy contains all Piece Numbers from the segment which are not in Unhealthy.
 	// (Equivalently: all Piece Numbers from the segment which are NOT in Missing OR
 	// Suspended OR Clumped OR Exiting OR OutOfPlacement OR InExcludedCountry).
-	Healthy IntSet
+	Healthy metabase.IntSet
 }
 
 // ClassifySegmentPieces classifies the pieces of a segment into the categories
@@ -71,11 +71,11 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	maxPieceNum++
 
 	// check excluded countries and remove online nodes from missing pieces
-	result.Missing = NewIntSet(maxPieceNum)
-	result.Suspended = NewIntSet(maxPieceNum)
-	result.Exiting = NewIntSet(maxPieceNum)
-	result.Retrievable = NewIntSet(maxPieceNum)
-	result.InExcludedCountry = NewIntSet(maxPieceNum)
+	result.Missing = metabase.NewIntSet(maxPieceNum)
+	result.Suspended = metabase.NewIntSet(maxPieceNum)
+	result.Exiting = metabase.NewIntSet(maxPieceNum)
+	result.Retrievable = metabase.NewIntSet(maxPieceNum)
+	result.InExcludedCountry = metabase.NewIntSet(maxPieceNum)
 	for index, nodeRecord := range nodes {
 		pieceNum := pieces[index].Number
 
@@ -109,7 +109,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 		// to be considered retrievable but unhealthy.
 
 		lastNets := make(map[string]struct{}, len(pieces))
-		result.Clumped = NewIntSet(maxPieceNum)
+		result.Clumped = metabase.NewIntSet(maxPieceNum)
 
 		collectClumpedPieces := func(onlineness bool) {
 			for index, nodeRecord := range nodes {
@@ -139,7 +139,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	if doPlacementCheck {
 		// mark all pieces that are out of placement.
 
-		result.OutOfPlacement = NewIntSet(maxPieceNum)
+		result.OutOfPlacement = metabase.NewIntSet(maxPieceNum)
 		for index, nodeRecord := range nodes {
 			if nodeRecord.ID.IsZero() {
 				continue
@@ -153,12 +153,12 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	// ForcingRepair = OutOfPlacement only, for now
-	result.ForcingRepair = copyIntSet(NewIntSet(maxPieceNum),
+	result.ForcingRepair = metabase.CopyIntSet(metabase.NewIntSet(maxPieceNum),
 		result.OutOfPlacement,
 	)
 
 	// Unhealthy = Missing OR Suspended OR Clumped OR Exiting OR OutOfPlacement OR InExcludedCountry
-	result.Unhealthy = copyIntSet(NewIntSet(maxPieceNum),
+	result.Unhealthy = metabase.CopyIntSet(metabase.NewIntSet(maxPieceNum),
 		result.Missing,
 		result.Suspended,
 		result.Clumped,
@@ -169,8 +169,8 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 
 	// UnhealthyRetrievable = Unhealthy AND Retrievable
 	// Healthy = NOT Unhealthy
-	result.UnhealthyRetrievable = NewIntSet(maxPieceNum)
-	result.Healthy = NewIntSet(maxPieceNum)
+	result.UnhealthyRetrievable = metabase.NewIntSet(maxPieceNum)
+	result.Healthy = metabase.NewIntSet(maxPieceNum)
 	for _, piece := range pieces {
 		if !result.Unhealthy.Contains(int(piece.Number)) {
 			result.Healthy.Include(int(piece.Number))
@@ -180,60 +180,4 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	return result
-}
-
-func copyIntSet(destination IntSet, sources ...IntSet) IntSet {
-	for element := 0; element < destination.Cap(); element++ {
-		for _, sources := range sources {
-			if sources.Contains(element) {
-				destination.Include(element)
-				break
-			}
-		}
-	}
-	return destination
-}
-
-// IntSet set of pieces.
-type IntSet struct {
-	bits []bool
-	size int
-}
-
-// NewIntSet creates new int set.
-func NewIntSet(n int) IntSet {
-	return IntSet{
-		bits: make([]bool, n),
-	}
-}
-
-// Contains returns true if set includes int value.
-func (i IntSet) Contains(value int) bool {
-	if value >= cap(i.bits) {
-		return false
-	}
-	return i.bits[value]
-}
-
-// Include includes int value into set.
-// Ignores values above set size.
-func (i *IntSet) Include(value int) {
-	i.bits[value] = true
-	i.size++
-}
-
-// Remove removes int value from set.
-func (i *IntSet) Remove(value int) {
-	i.bits[value] = true
-	i.size--
-}
-
-// Size returns size of set.
-func (i IntSet) Size() int {
-	return i.size
-}
-
-// Cap returns set capacity.
-func (i IntSet) Cap() int {
-	return cap(i.bits)
 }
