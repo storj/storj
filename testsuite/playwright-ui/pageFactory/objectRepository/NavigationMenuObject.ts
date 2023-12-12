@@ -2,5 +2,5 @@
 // See LICENSE for copying information.
 
 export class NavigationMenuObject {
-    protected static BUCKETS_XPATH = `Buckets`;
+    protected static BUCKETS_XPATH = `//a/div/p[contains(text(),'Buckets')]`;
 }

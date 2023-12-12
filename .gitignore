@@ -37,9 +37,6 @@ resource.syso
 
 .build
 
-# Test debug output
-*.test.*
-
 # storj-up automatically generates these files and should not be commit
 /docker-compose.yaml
 /.history/
@@ -48,6 +45,10 @@ dist
 # intellij project level runners. Add them explicitly if you would like to share.
 .run
 
+# Node Modules
+node_modules/
+
 # go workspaces
 go.work
 go.work.sum
+
