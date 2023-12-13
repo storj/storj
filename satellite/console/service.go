@@ -276,7 +276,7 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
 	sourceIP, forwardedForIP := getRequestingIP(ctx)
 	fields := append(
-		make([]zap.Field, 0, len(extra)+5),
+		make([]zap.Field, 0, len(extra)+6),
 		zap.String("operation", operation),
 		zap.String("source-ip", sourceIP),
 		zap.String("forwarded-for-ip", forwardedForIP),
@@ -291,7 +291,7 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 		fields = append(fields, zap.String("requestID", requestID))
 	}
 
-	fields = append(fields, fields...)
+	fields = append(fields, extra...)
 	s.auditLogger.Info("console activity", fields...)
 }
 
@@ -3932,7 +3932,7 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 	user, err := s.getUserAndAuditLog(ctx,
 		"invite project member",
 		zap.String("projectID", projectID.String()),
-		zap.String("email", email),
+		zap.String("invitedEmail", email),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)

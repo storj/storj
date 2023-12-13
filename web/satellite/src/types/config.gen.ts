@@ -45,7 +45,6 @@ export class FrontendConfig {
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     objectBrowserPaginationEnabled: boolean;
-    objectBrowserCardViewEnabled: boolean;
     billingFeaturesEnabled: boolean;
     stripePaymentElementEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
