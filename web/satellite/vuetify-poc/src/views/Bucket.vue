@@ -76,48 +76,46 @@
                     New Folder
                 </v-btn>
 
-                <template v-if="isCardViewEnabled">
-                    <v-spacer v-if="smAndUp" />
+                <v-spacer v-if="smAndUp" />
 
-                    <v-col class="pa-0" :class="{ 'pt-2': !smAndUp }" cols="auto">
-                        <v-btn-toggle
-                            mandatory
-                            border
-                            inset
-                            density="comfortable"
-                            class="pa-1"
+                <v-col class="pa-0" :class="{ 'pt-2': !smAndUp }" cols="auto">
+                    <v-btn-toggle
+                        mandatory
+                        border
+                        inset
+                        density="comfortable"
+                        class="pa-1"
+                    >
+                        <v-tooltip location="top">
+                            <template #activator="{ props }">
+                                <v-btn
+                                    size="small"
+                                    rounded="xl"
+                                    active-class="active"
+                                    :active="isCardView"
+                                    aria-label="Toggle Cards View"
+                                    v-bind="props"
+                                    @click="isCardView = true"
+                                >
+                                    <icon-card-view />
+                                    Cards
+                                </v-btn>
+                            </template>
+                            Card view shows image previews using download bandwidth.
+                        </v-tooltip>
+                        <v-btn
+                            size="small"
+                            rounded="xl"
+                            active-class="active"
+                            :active="!isCardView"
+                            aria-label="Toggle Table View"
+                            @click="isCardView = false"
                         >
-                            <v-tooltip location="top">
-                                <template #activator="{ props }">
-                                    <v-btn
-                                        size="small"
-                                        rounded="xl"
-                                        active-class="active"
-                                        :active="isCardView"
-                                        aria-label="Toggle Cards View"
-                                        v-bind="props"
-                                        @click="isCardView = true"
-                                    >
-                                        <icon-card-view />
-                                        Cards
-                                    </v-btn>
-                                </template>
-                                Card view shows image previews using download bandwidth.
-                            </v-tooltip>
-                            <v-btn
-                                size="small"
-                                rounded="xl"
-                                active-class="active"
-                                :active="!isCardView"
-                                aria-label="Toggle Table View"
-                                @click="isCardView = false"
-                            >
-                                <icon-table-view />
-                                Table
-                            </v-btn>
-                        </v-btn-toggle>
-                    </v-col>
-                </template>
+                            <icon-table-view />
+                            Table
+                        </v-btn>
+                    </v-btn-toggle>
+                </v-col>
             </v-row>
         </v-col>
 
@@ -214,15 +212,10 @@ const projectId = computed<string>(() => projectsStore.state.selectedProject.id)
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 /**
- * Returns total object count from store.
- */
-const isCardViewEnabled = computed<boolean>(() => config.state.config.objectBrowserCardViewEnabled);
-
-/**
  * Returns whether to use the card view.
  */
 const isCardView = computed<boolean>({
-    get: () => isCardViewEnabled.value && appStore.state.isBrowserCardViewEnabled,
+    get: () => appStore.state.isBrowserCardViewEnabled,
     set: value => appStore.toggleBrowserCardViewEnabled(value),
 });
 
