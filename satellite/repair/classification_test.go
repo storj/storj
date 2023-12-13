@@ -44,10 +44,10 @@ func TestClassifySegmentPieces(t *testing.T) {
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
 		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, parsed.CreateFilters(0), piecesToNodeIDs(pieces))
 
-		require.Equal(t, 0, result.Missing.Size())
-		require.Equal(t, 0, result.Clumped.Size())
-		require.Equal(t, 0, result.OutOfPlacement.Size())
-		require.Equal(t, 0, result.UnhealthyRetrievable.Size())
+		require.Equal(t, 0, result.Missing.Count())
+		require.Equal(t, 0, result.Clumped.Count())
+		require.Equal(t, 0, result.OutOfPlacement.Count())
+		require.Equal(t, 0, result.UnhealthyRetrievable.Count())
 	})
 
 	t.Run("out of placement", func(t *testing.T) {
@@ -70,11 +70,11 @@ func TestClassifySegmentPieces(t *testing.T) {
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
 		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10), piecesToNodeIDs(pieces))
 
-		require.Equal(t, 0, result.Missing.Size())
-		require.Equal(t, 0, result.Clumped.Size())
+		require.Equal(t, 0, result.Missing.Count())
+		require.Equal(t, 0, result.Clumped.Count())
 		// 1,2,3 are in Germany instead of GB
-		require.Equal(t, 3, result.OutOfPlacement.Size())
-		require.Equal(t, 3, result.UnhealthyRetrievable.Size())
+		require.Equal(t, 3, result.OutOfPlacement.Count())
+		require.Equal(t, 3, result.UnhealthyRetrievable.Count())
 	})
 
 	t.Run("out of placement and offline", func(t *testing.T) {
@@ -94,11 +94,11 @@ func TestClassifySegmentPieces(t *testing.T) {
 		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c.CreateFilters(10), piecesToNodeIDs(pieces))
 
 		// offline nodes
-		require.Equal(t, 5, result.Missing.Size())
-		require.Equal(t, 0, result.Clumped.Size())
-		require.Equal(t, 10, result.OutOfPlacement.Size())
-		require.Equal(t, 5, result.UnhealthyRetrievable.Size())
-		numHealthy := len(pieces) - result.Missing.Size() - result.UnhealthyRetrievable.Size()
+		require.Equal(t, 5, result.Missing.Count())
+		require.Equal(t, 0, result.Clumped.Count())
+		require.Equal(t, 10, result.OutOfPlacement.Count())
+		require.Equal(t, 5, result.UnhealthyRetrievable.Count())
+		numHealthy := len(pieces) - result.Missing.Count() - result.UnhealthyRetrievable.Count()
 		require.Equal(t, 0, numHealthy)
 
 	})
@@ -117,11 +117,11 @@ func TestClassifySegmentPieces(t *testing.T) {
 		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(0), piecesToNodeIDs(pieces))
 
 		// offline nodes
-		require.Equal(t, 2, result.Missing.Size())
-		require.Equal(t, 3, result.Clumped.Size())
-		require.Equal(t, 0, result.OutOfPlacement.Size())
-		require.Equal(t, 2, result.UnhealthyRetrievable.Size())
-		numHealthy := len(pieces) - result.Missing.Size() - result.UnhealthyRetrievable.Size()
+		require.Equal(t, 2, result.Missing.Count())
+		require.Equal(t, 3, result.Clumped.Count())
+		require.Equal(t, 0, result.OutOfPlacement.Count())
+		require.Equal(t, 2, result.UnhealthyRetrievable.Count())
+		numHealthy := len(pieces) - result.Missing.Count() - result.UnhealthyRetrievable.Count()
 		require.Equal(t, 3, numHealthy)
 
 	})
@@ -144,11 +144,11 @@ func TestClassifySegmentPieces(t *testing.T) {
 		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c.CreateFilters(10), piecesToNodeIDs(pieces))
 
 		// offline nodes
-		require.Equal(t, 2, result.Missing.Size())
-		require.Equal(t, 0, result.Clumped.Size())
-		require.Equal(t, 0, result.OutOfPlacement.Size())
-		require.Equal(t, 0, result.UnhealthyRetrievable.Size())
-		numHealthy := len(pieces) - result.Missing.Size() - result.UnhealthyRetrievable.Size()
+		require.Equal(t, 2, result.Missing.Count())
+		require.Equal(t, 0, result.Clumped.Count())
+		require.Equal(t, 0, result.OutOfPlacement.Count())
+		require.Equal(t, 0, result.UnhealthyRetrievable.Count())
+		numHealthy := len(pieces) - result.Missing.Count() - result.UnhealthyRetrievable.Count()
 		require.Equal(t, 5, numHealthy)
 
 	})
