@@ -378,14 +378,14 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			ObjectLocation: objectLocation,
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
 		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: objectLocation,
-			Version:        v,
+			Version:        sv.Version(),
 		})
 	}
 	if err != nil {
@@ -516,8 +516,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			},
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(req.ObjectVersion)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
@@ -527,7 +527,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
-			Version: v,
+			Version: sv.Version(),
 		})
 	}
 	if err != nil {
@@ -960,11 +960,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	if len(req.VersionCursor) != 0 {
-		version, err := metabase.VersionFromBytes(req.VersionCursor)
+		sv, err := metabase.StreamVersionIDFromBytes(req.VersionCursor)
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
-		cursorVersion = version
+		cursorVersion = sv.Version()
 	}
 
 	includeCustomMetadata := true
@@ -1488,7 +1488,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
 		Version:            int32(object.Version), // TODO incompatible types
-		ObjectVersion:      object.Version.Encode(),
+		ObjectVersion:      object.StreamVersionID().Bytes(),
 		StreamId:           streamID,
 		Status:             pb.Object_Status(object.Status),
 		ExpiresAt:          expires,
@@ -1519,7 +1519,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Version:            int32(entry.Version), // TODO incompatible types
 		Status:             pb.Object_Status(entry.Status),
-		ObjectVersion:      entry.Version.Encode(),
+		ObjectVersion:      entry.StreamVersionID().Bytes(),
 	}
 
 	expiresAt := time.Time{}
@@ -1639,14 +1639,14 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			Suspended:      suspended,
 		})
 	} else {
-		var v metabase.Version
-		v, err = metabase.VersionFromBytes(version)
+		var sv metabase.StreamVersionID
+		sv, err = metabase.StreamVersionIDFromBytes(version)
 		if err != nil {
 			return nil, err
 		}
 		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: req,
-			Version:        v,
+			Version:        sv.Version(),
 		})
 	}
 	if err != nil {

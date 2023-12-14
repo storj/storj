@@ -369,21 +369,43 @@ const PendingVersion = Version(0)
 // Version in DB is represented as INT4.
 const MaxVersion = Version(math.MaxInt32)
 
-// Encode encodes version to bytes.
-// TODO(ver): this is not final approach to version encoding. It's simplified
-// version for internal testing purposes. Will be changed in future.
-func (v Version) Encode() []byte {
-	var bytes [16]byte
-	binary.BigEndian.PutUint64(bytes[:], uint64(v))
-	return bytes[:]
+// StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
+// First 8 bytes represents Version and rest are object StreamID suffix.
+// TODO(ver): we may consider renaming this type to VersionID but to do that
+// we would need to rename metabase.Version into metabase.SequenceNumber/metabase.Sequence to
+// avoid confusion.
+type StreamVersionID uuid.UUID
+
+// Version returns Version encoded into stream version id.
+func (s StreamVersionID) Version() Version {
+	return Version(binary.BigEndian.Uint64(s[:8]))
 }
 
-// VersionFromBytes decodes version from bytes.
-func VersionFromBytes(bytes []byte) (Version, error) {
-	if len(bytes) != 16 {
-		return Version(0), ErrInvalidRequest.New("invalid version")
+// StreamIDSuffix returns StreamID suffix encoded into stream version id.
+func (s StreamVersionID) StreamIDSuffix() []byte {
+	return s[8:]
+}
+
+// Bytes returnes stream version id bytes.
+func (s StreamVersionID) Bytes() []byte {
+	return s[:]
+}
+
+func newStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
+	var sv StreamVersionID
+	binary.BigEndian.PutUint64(sv[:8], uint64(version))
+	copy(sv[8:], streamID[8:])
+	return sv
+}
+
+// StreamVersionIDFromBytes decodes stream version id from bytes.
+func StreamVersionIDFromBytes(bytes []byte) (_ StreamVersionID, err error) {
+	if len(bytes) != len(StreamVersionID{}) {
+		return StreamVersionID{}, ErrInvalidRequest.New("invalid stream version id")
 	}
-	return Version(binary.BigEndian.Uint64(bytes)), nil
+	var sv StreamVersionID
+	copy(sv[:], bytes)
+	return sv, nil
 }
 
 // ObjectStatus defines the status that the object is in.
