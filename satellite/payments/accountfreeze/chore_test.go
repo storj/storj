@@ -536,11 +536,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			botUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test Bot User",
 				Email:    "botuser@mail.test",
-			}, 1)
-			require.NoError(t, err)
-
-			two := 2
-			err = usersDB.Update(ctx, botUser.ID, console.UpdateUserRequest{ProjectLimit: &two})
+			}, 2)
 			require.NoError(t, err)
 
 			_, err = sat.AddProject(ctx, botUser.ID, "test")
@@ -549,6 +545,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			_, err = sat.AddProject(ctx, botUser.ID, "test1")
 			require.NoError(t, err)
 
+			two := 2
 			_, err = accFreezeDB.Upsert(ctx, &console.AccountFreezeEvent{
 				UserID:             botUser.ID,
 				Type:               console.DelayedBotFreeze,
