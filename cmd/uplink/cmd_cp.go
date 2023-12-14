@@ -372,6 +372,9 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 
 	if dest.Remote() && source.Remote() {
+		if !c.expires.IsZero() {
+			return errs.New("expiration time cannot be changed with server-side copy")
+		}
 		return fs.Copy(ctx, source, dest)
 	}
 
