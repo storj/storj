@@ -1,23 +1,23 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// eslint-disable-next-line no-undef
-importScripts('/static/static/wasm/wasm_exec.js');
-
 if (!WebAssembly.instantiate) {
     self.postMessage({ error: new Error('Web assembly is not supported') });
 }
 
 async function setupWithCacheControl(mode) {
-    const go = new self.Go();
-
     const manifestResp = await fetch('/static/static/wasm/wasm-manifest.json', { cache: 'no-store' });
     if (!manifestResp.ok) {
         throw new Error('Failed to fetch wasm manifest.');
     }
     const manifest = await manifestResp.json();
 
-    const response = await fetch(`/static/static/wasm/${manifest.fileName}`, { cache: mode });
+    // eslint-disable-next-line no-undef
+    importScripts(`/static/static/wasm/${manifest.helperFileName}`);
+
+    const go = new self.Go();
+
+    const response = await fetch(`/static/static/wasm/${manifest.moduleFileName}`, { cache: mode });
     if (!response.ok) {
         throw new Error('Failed to fetch wasm module.');
     }
