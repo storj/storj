@@ -1,11 +1,10 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {Block, KnownBlock} from "@slack/web-api";
+import {Block, KnownBlock } from "@slack/types";
 import {SummaryResults} from "playwright-slack-report/dist/src";
 
-export default function generateCustomLayoutSimpleMeta(
-    summaryResults: SummaryResults,
+export default function generateCustomLayoutSimpleMeta(    summaryResults: SummaryResults,
 ): Array<Block | KnownBlock> {
     const meta: { type: string; text: { type: string; text: string; }; }[] = [];
     if (summaryResults.meta) {
@@ -16,7 +15,8 @@ export default function generateCustomLayoutSimpleMeta(
                 text: {
                     type: 'mrkdwn',
                     text: `\n*${key}* :\t${value}`,
-                },
+				 	// text: `*${key}*`,
+				},
             });
         }
     }
@@ -31,6 +31,6 @@ export default function generateCustomLayoutSimpleMeta(
                         : `😭${summaryResults.failed} failure(s) out of ${summaryResults.tests.length} tests`,
             },
         },
-        ...meta,
+       // ...meta,
     ];
 }

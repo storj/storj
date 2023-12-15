@@ -7,6 +7,7 @@ import {DashboardPage} from '@pages/DashboardPage';
 import {NavigationMenu} from '@pages/NavigationMenu';
 import {BucketsPage} from '@pages/BucketsPage';
 import {SignupPage} from "@pages/SignupPage";
+import {AllProjectsPage} from "@pages/AllProjectsPage";
 
 const test = baseTest.extend<{
     loginPage: LoginPage;
@@ -14,6 +15,7 @@ const test = baseTest.extend<{
     navigationMenu: NavigationMenu;
     bucketsPage: BucketsPage;
     signupPage: SignupPage;
+    allProjectsPage: AllProjectsPage;
 
 }>({
     loginPage: async ({page}, use) => {
@@ -30,6 +32,9 @@ const test = baseTest.extend<{
     },
     signupPage: async ({page}, use) => {
         await use(new SignupPage(page));
+    },
+    allProjectsPage: async ({page}, use) => {
+        await use(new AllProjectsPage(page));
     }
 });
 
