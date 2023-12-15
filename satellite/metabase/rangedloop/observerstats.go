@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
+
+	"storj.io/eventkit"
 )
 
 var (
