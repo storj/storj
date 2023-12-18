@@ -196,17 +196,17 @@ const projects = computed<ProjectTableItem[]>(() => {
         };
     }
 
-    const usageLimits = appStore.state.user?.projectUsageLimits;
-    if (!usageLimits || !usageLimits.length) {
+    const projects = appStore.state.userAccount?.projects;
+    if (!projects || !projects.length) {
         return [];
     }
 
-    return usageLimits.map<ProjectTableItem>(usage => ({
-        id: usage.id,
-        name: usage.name,
-        storage: makeUsageStats(usage.storageUsed, usage.storageLimit),
-        download: makeUsageStats(usage.bandwidthUsed, usage.bandwidthLimit),
-        segment: makeUsageStats(usage.segmentUsed, usage.segmentLimit),
+    return projects.map<ProjectTableItem>(project => ({
+        id: project.id,
+        name: project.name,
+        storage: makeUsageStats(project.storageUsed, project.storageLimit),
+        download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
+        segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
     }));
 });
 

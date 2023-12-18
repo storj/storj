@@ -9,18 +9,32 @@ export class PlacementInfo {
     location: string;
 }
 
-export class ProjectUsageLimits {
+export class Project {
     id: UUID;
     name: string;
-    storageLimit: number;
-    storageUsed: number | null;
-    bandwidthLimit: number;
+    description: string;
+    userAgent: string;
+    owner: User;
+    createdAt: Time;
+    defaultPlacement: number;
+    rateLimit: number | null;
+    burstLimit: number | null;
+    maxBuckets: number | null;
+    bandwidthLimit: number | null;
     bandwidthUsed: number;
-    segmentLimit: number;
+    storageLimit: number | null;
+    storageUsed: number | null;
+    segmentLimit: number | null;
     segmentUsed: number | null;
 }
 
 export class User {
+    id: UUID;
+    fullName: string;
+    email: string;
+}
+
+export class UserAccount {
     id: UUID;
     fullName: string;
     email: string;
@@ -29,7 +43,18 @@ export class User {
     status: string;
     userAgent: string;
     defaultPlacement: number;
-    projectUsageLimits: ProjectUsageLimits[] | null;
+    projects: UserProject[] | null;
+}
+
+export class UserProject {
+    id: UUID;
+    name: string;
+    bandwidthLimit: number;
+    bandwidthUsed: number;
+    storageLimit: number;
+    storageUsed: number | null;
+    segmentLimit: number;
+    segmentUsed: number | null;
 }
 
 class APIError extends Error {
@@ -60,11 +85,26 @@ export class UserManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/back-office/api/v1/users';
 
-    public async getUserByEmail(email: string): Promise<User> {
+    public async getUserByEmail(email: string): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${email}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as User);
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class ProjectManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/projects';
+
+    public async getProject(publicID: UUID): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as Project);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

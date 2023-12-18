@@ -18,7 +18,7 @@
                             />
                         </svg>
                     </template>
-                    {{ user.email }}
+                    {{ userAccount.email }}
                 </v-chip>
 
                 <v-chip class="mr-2 mb-2 mb-md-0" variant="text">
@@ -54,10 +54,10 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <v-card title="Account" :subtitle="user.fullName" variant="flat" :border="true" rounded="xlg">
+                <v-card title="Account" :subtitle="userAccount.fullName" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
-                        <v-chip :color="user.paidTier ? 'success' : 'default'" variant="tonal" class="mr-2 font-weight-bold">
-                            {{ user.paidTier ? 'Pro' : 'Free' }}
+                        <v-chip :color="userAccount.paidTier ? 'success' : 'default'" variant="tonal" class="mr-2 font-weight-bold">
+                            {{ userAccount.paidTier ? 'Pro' : 'Free' }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -72,7 +72,7 @@
                 <v-card title="Status" subtitle="Account" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
                         <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
-                            {{ user.status }}
+                            {{ userAccount.status }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -87,8 +87,8 @@
                 <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <v-card-text>
                         <!-- <p class="mb-3">Attribution</p> -->
-                        <v-chip :variant="user.userAgent ? 'tonal' : 'text'" class="mr-2">
-                            {{ user.userAgent || 'None' }}
+                        <v-chip :variant="userAccount.userAgent ? 'tonal' : 'text'" class="mr-2">
+                            {{ userAccount.userAgent || 'None' }}
                         </v-chip>
                         <v-divider class="my-4" />
                         <v-btn variant="outlined" size="small" color="default">
@@ -118,7 +118,7 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <card-stats-component title="Projects" subtitle="Total" :data="user.projectUsageLimits?.length.toString() || '0'" />
+                <card-stats-component title="Projects" subtitle="Total" :data="userAccount.projects?.length.toString() || '0'" />
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
@@ -182,7 +182,7 @@ import {
 } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
-import { User } from '@/api/client.gen';
+import { UserAccount } from '@/api/client.gen';
 import { sizeToBase10String } from '@/utils/memory';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -201,28 +201,28 @@ const appStore = useAppStore();
 const router = useRouter();
 
 /**
- * Returns user info from store.
+ * Returns user account info from store.
  */
-const user = computed<User>(() => appStore.state.user as User);
+const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
 
 /**
  * Returns the date that the user was created.
  */
-const createdAt = computed<Date>(() => new Date(user.value.createdAt));
+const createdAt = computed<Date>(() => new Date(userAccount.value.createdAt));
 
 /**
  * Returns the string representation of the user's default placement.
  */
 const placementText = computed<string>(() => {
     for (const placement of appStore.state.placements) {
-        if (placement.id === user.value.defaultPlacement) {
+        if (placement.id === userAccount.value.defaultPlacement) {
             if (placement.location) {
                 return placement.location;
             }
             break;
         }
     }
-    return `Unknown (${user.value.defaultPlacement})`;
+    return `Unknown (${userAccount.value.defaultPlacement})`;
 });
 
 type Usage = {
@@ -241,18 +241,18 @@ const totalUsage = computed<Usage>(() => {
         segments: 0,
     };
 
-    if (!user.value.projectUsageLimits?.length) {
+    if (!userAccount.value.projects?.length) {
         return total;
     }
 
-    for (const usageLimit of user.value.projectUsageLimits) {
+    for (const project of userAccount.value.projects) {
         if (total.storage !== null) {
-            total.storage = usageLimit.storageUsed !== null ? total.storage + usageLimit.storageUsed : null;
+            total.storage = project.storageUsed !== null ? total.storage + project.storageUsed : null;
         }
         if (total.segments !== null) {
-            total.segments = usageLimit.segmentUsed !== null ? total.segments + usageLimit.segmentUsed : null;
+            total.segments = project.segmentUsed !== null ? total.segments + project.segmentUsed : null;
         }
-        total.download += usageLimit.bandwidthUsed;
+        total.download += project.bandwidthUsed;
     }
 
     return total;
@@ -262,13 +262,13 @@ const totalUsage = computed<Usage>(() => {
  * Returns whether an error occurred retrieving usage data from the Redis live accounting cache.
  */
 const usageCacheError = computed<boolean>(() => {
-    return !!user.value.projectUsageLimits?.some(usageLimit =>
-        usageLimit.storageUsed === null ||
-        usageLimit.bandwidthUsed === null ||
-        usageLimit.segmentUsed === null,
+    return !!userAccount.value.projects?.some(project =>
+        project.storageUsed === null ||
+        project.bandwidthUsed === null ||
+        project.segmentUsed === null,
     );
 });
 
-onBeforeMount(() => !user.value && router.push('/accounts'));
+onBeforeMount(() => !userAccount.value && router.push('/accounts'));
 onUnmounted(appStore.clearUser);
 </script>

@@ -13,18 +13,24 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 )
 
 var ErrPlacementsAPI = errs.Class("admin placements api")
 var ErrUsersAPI = errs.Class("admin users api")
+var ErrProjectsAPI = errs.Class("admin projects api")
 
 type PlacementManagementService interface {
 	GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError)
 }
 
 type UserManagementService interface {
-	GetUserByEmail(ctx context.Context, email string) (*User, api.HTTPError)
+	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
+}
+
+type ProjectManagementService interface {
+	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 }
 
 // PlacementManagementHandler is an api handler that implements all PlacementManagement API endpoints functionality.
@@ -39,6 +45,14 @@ type UserManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service UserManagementService
+	auth    *Authorizer
+}
+
+// ProjectManagementHandler is an api handler that implements all ProjectManagement API endpoints functionality.
+type ProjectManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service ProjectManagementService
 	auth    *Authorizer
 }
 
@@ -65,6 +79,20 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 
 	usersRouter := router.PathPrefix("/back-office/api/v1/users").Subrouter()
 	usersRouter.HandleFunc("/{email}", handler.handleGetUserByEmail).Methods("GET")
+
+	return handler
+}
+
+func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectManagementService, router *mux.Router, auth *Authorizer) *ProjectManagementHandler {
+	handler := &ProjectManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
+	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
 
 	return handler
 }
@@ -114,5 +142,40 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserByEmail response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 8192) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetProject(ctx, publicID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }

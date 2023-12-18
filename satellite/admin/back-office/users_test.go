@@ -29,7 +29,7 @@ func TestGetUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.LiveAccounting.AsOfSystemInterval = 0
 			},
 		},
@@ -56,26 +56,32 @@ func TestGetUser(t *testing.T) {
 		require.NoError(t, err)
 
 		consoleUser.PaidTier = true
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{PaidTier: &consoleUser.PaidTier}))
+		require.NoError(
+			t,
+			sat.DB.Console().Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{PaidTier: &consoleUser.PaidTier}),
+		)
 
 		_, apiErr = service.GetUserByEmail(ctx, consoleUser.Email)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
 		consoleUser.Status = console.Active
-		require.NoError(t, consoleDB.Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{Status: &consoleUser.Status}))
+		require.NoError(
+			t,
+			consoleDB.Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{Status: &consoleUser.Status}),
+		)
 
 		user, apiErr := service.GetUserByEmail(ctx, consoleUser.Email)
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, user)
-		require.Equal(t, consoleUser.ID, user.ID)
-		require.Equal(t, consoleUser.FullName, user.FullName)
-		require.Equal(t, consoleUser.Email, user.Email)
+		require.Equal(t, consoleUser.ID, user.User.ID)
+		require.Equal(t, consoleUser.FullName, user.User.FullName)
+		require.Equal(t, consoleUser.Email, user.User.Email)
 		require.Equal(t, consoleUser.PaidTier, user.PaidTier)
 		require.Equal(t, consoleUser.Status.String(), user.Status)
 		require.Equal(t, string(consoleUser.UserAgent), user.UserAgent)
 		require.Equal(t, consoleUser.DefaultPlacement, user.DefaultPlacement)
-		require.Empty(t, user.ProjectUsageLimits)
+		require.Empty(t, user.Projects)
 
 		type expectedTotal struct {
 			storage   int64
@@ -105,7 +111,7 @@ func TestGetUser(t *testing.T) {
 			require.NoError(t, err)
 			projects = append(projects, proj)
 
-			_, err = consoleDB.ProjectMembers().Insert(ctx, user.ID, proj.ID)
+			_, err = consoleDB.ProjectMembers().Insert(ctx, user.User.ID, proj.ID)
 			require.NoError(t, err)
 
 			bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
@@ -132,7 +138,8 @@ func TestGetUser(t *testing.T) {
 			}
 
 			testBandwidth := int64(2000 * projNum)
-			err = sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, proj.ID, []byte(bucket.Name), pb.PieceAction_GET, testBandwidth, time.Now())
+			err = sat.DB.Orders().
+				UpdateBucketBandwidthAllocation(ctx, proj.ID, []byte(bucket.Name), pb.PieceAction_GET, testBandwidth, time.Now())
 			require.NoError(t, err)
 			total.bandwidth += testBandwidth
 
@@ -144,13 +151,13 @@ func TestGetUser(t *testing.T) {
 		user, apiErr = service.GetUserByEmail(ctx, consoleUser.Email)
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, user)
-		require.Len(t, user.ProjectUsageLimits, len(projects))
+		require.Len(t, user.Projects, len(projects))
 
-		sort.Slice(user.ProjectUsageLimits, func(i, j int) bool {
-			return user.ProjectUsageLimits[i].Name < user.ProjectUsageLimits[j].Name
+		sort.Slice(user.Projects, func(i, j int) bool {
+			return user.Projects[i].Name < user.Projects[j].Name
 		})
 
-		for i, info := range user.ProjectUsageLimits {
+		for i, info := range user.Projects {
 			proj := projects[i]
 			name := proj.Name
 			require.Equal(t, proj.PublicID, info.ID, name)

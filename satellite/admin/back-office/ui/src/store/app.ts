@@ -4,11 +4,11 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { PlacementInfo, PlacementManagementHttpApiV1, User, UserManagementHttpApiV1 } from '@/api/client.gen';
+import { PlacementInfo, PlacementManagementHttpApiV1, UserAccount, UserManagementHttpApiV1 } from '@/api/client.gen';
 
 class AppState {
     public placements: PlacementInfo[];
-    public user: User | null = null;
+    public userAccount: UserAccount | null = null;
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -18,11 +18,11 @@ export const useAppStore = defineStore('app', () => {
     const placementApi = new PlacementManagementHttpApiV1();
 
     async function getUserByEmail(email: string): Promise<void> {
-        state.user = await userApi.getUserByEmail(email);
+        state.userAccount = await userApi.getUserByEmail(email);
     }
 
     function clearUser(): void {
-        state.user = null;
+        state.userAccount = null;
     }
 
     async function getPlacements(): Promise<void> {
