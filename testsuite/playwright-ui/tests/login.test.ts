@@ -4,15 +4,14 @@
 import test from '@lib/BaseTest';
 
 test.describe('Login Test', () => {
-    test('Goto URL', async ({loginPage}, testInfo) => {
+    test('Goto URL', async ({ loginPage }, testInfo) => {
         console.log(`Running ${testInfo.title}`);
-        
+
         await loginPage.navigateToURL();
     });
-    test('Login', async ({loginPage}, testInfo) => {
+    test('Login', async ({ loginPage }, testInfo) => {
         console.log(`Running ${testInfo.title}`);
-        
+
         await loginPage.loginToApplication();
     });
-
 });
