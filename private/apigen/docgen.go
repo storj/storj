@@ -162,14 +162,12 @@ func getTypeNameRecursively(t reflect.Type, level int) string {
 			return toReturn
 		}
 
-		var fields []string
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			jsonInfo := parseJSONTag(t, field)
-			if !jsonInfo.Skip {
-				fields = append(fields, prefix+"\t"+jsonInfo.FieldName+": "+getTypeNameRecursively(field.Type, level+1))
-			}
+		cfields := GetClassFieldsFromStruct(t)
+		fields := make([]string, 0, len(cfields))
+		for _, f := range cfields {
+			fields = append(fields, prefix+"\t"+f.Name+": "+getTypeNameRecursively(f.Type, level+1))
 		}
+
 		return fmt.Sprintf("%s{\n%s\n%s}\n", prefix, strings.Join(fields, "\n"), prefix)
 	default:
 		typeName, elaboration := getDocType(t)

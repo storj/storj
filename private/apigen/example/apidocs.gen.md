@@ -12,7 +12,7 @@
   * [Update Content](#documents-update-content)
 * Users
   * [Get Users](#users-get-users)
-  * [Create User](#users-create-user)
+  * [Create Users](#users-create-users)
 
 <h3 id='documents-get-documents'>Get Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -196,15 +196,17 @@ Get the list of registered users
 		name: string
 		surname: string
 		email: string
+		company: string
+		position: string
 	}
 
 ]
 
 ```
 
-<h3 id='users-create-user'>Create User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='users-create-users'>Create Users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Create a user
+Create users
 
 `POST /api/v0/users/`
 
@@ -216,6 +218,8 @@ Create a user
 		name: string
 		surname: string
 		email: string
+		company: string
+		position: string
 	}
 
 ]

@@ -26,6 +26,8 @@ export class User {
     name: string;
     surname: string;
     email: string;
+    company: string;
+    position: string;
 }
 
 export class Version {

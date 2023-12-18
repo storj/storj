@@ -41,4 +41,11 @@ type User struct {
 	Name    string `json:"name"`
 	Surname string `json:"surname"`
 	Email   string `json:"email"`
+	Professional
+}
+
+// Professional contains the company and the position where a person works.
+type Professional struct {
+	Company  string `json:"company"`
+	Position string `json:"position"`
 }

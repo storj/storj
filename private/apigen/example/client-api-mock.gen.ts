@@ -24,6 +24,8 @@ export class User {
     name: string;
     surname: string;
     email: string;
+    company: string;
+    position: string;
 }
 
 export class Version {
@@ -124,7 +126,7 @@ export class UsersHttpApiV0 {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test"},{"name":"Test1","surname":"Testing","email":"test1@example.test"},{"name":"Test2","surname":"Testing","email":"test2@example.test"}]') as User[];
+        return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test","company":"Test 1","position":"Tester"},{"name":"Test1","surname":"Testing","email":"test1@example.test","company":"Test 2","position":"Accountant"},{"name":"Test2","surname":"Testing","email":"test2@example.test","company":"Test 3","position":"Slacker"}]') as User[];
     }
 
     public async create(request: User[]): Promise<void> {
