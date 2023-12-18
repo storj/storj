@@ -539,6 +539,11 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 			if err != nil {
 				return ErrAccountFreeze.Wrap(err)
 			}
+			// remove burst limit
+			err = tx.Projects().UpdateBurstLimit(ctx, id, limits.BurstLimit)
+			if err != nil {
+				return ErrAccountFreeze.Wrap(err)
+			}
 		}
 
 		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
@@ -821,6 +826,7 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 
 		if data.zeroProjectRateLimit {
 			projLimits.RateLimit = p.RateLimit
+			projLimits.BurstLimit = p.BurstLimit
 		}
 
 		data.newFreezeEvent.Limits.Projects[p.ID] = projLimits
@@ -846,6 +852,11 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 			// zero project's rate limit to prevent lists/deletes
 			zeroLimit := 0
 			err = tx.Projects().UpdateRateLimit(ctx, proj.ID, &zeroLimit)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Projects().UpdateBurstLimit(ctx, proj.ID, &zeroLimit)
 			if err != nil {
 				return err
 			}

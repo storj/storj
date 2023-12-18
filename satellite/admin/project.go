@@ -263,7 +263,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, *arguments.Burst)
+		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, arguments.Burst)
 		if err != nil {
 			sendJSONError(w, "failed to update burst",
 				err.Error(), http.StatusInternalServerError)

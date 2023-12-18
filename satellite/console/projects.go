@@ -46,7 +46,7 @@ type Projects interface {
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// UpdateBurstLimit is a method for updating projects burst limit.
-	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
 
 	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)

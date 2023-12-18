@@ -200,8 +200,9 @@ func TestProjectLimitCache(t *testing.T) {
 
 			// rate and burst limit
 			rateLimit := expectedRateLimit
+			burstLimit := expectedBurstLimit
 			require.NoError(t, projects.UpdateRateLimit(ctx, secondTestProject.ID, &rateLimit))
-			require.NoError(t, projects.UpdateBurstLimit(ctx, secondTestProject.ID, expectedBurstLimit))
+			require.NoError(t, projects.UpdateBurstLimit(ctx, secondTestProject.ID, &burstLimit))
 
 			limits, err := projectLimitCache.GetLimits(ctx, secondTestProject.ID)
 			require.NoError(t, err)

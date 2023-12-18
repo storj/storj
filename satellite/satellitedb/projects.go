@@ -292,17 +292,22 @@ func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, new
 }
 
 // UpdateBurstLimit is a method for updating projects burst limit.
-func (projects *projects) UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+func (projects *projects) UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit *int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if newLimit < 0 {
+	if newLimit != nil && *newLimit < 0 {
 		return Error.New("limit can't be set to negative value")
+	}
+
+	burstLimit := dbx.Project_BurstLimit_Null()
+	if newLimit != nil {
+		burstLimit = dbx.Project_BurstLimit(*newLimit)
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
-			BurstLimit: dbx.Project_BurstLimit(newLimit),
+			BurstLimit: burstLimit,
 		})
 
 	return err

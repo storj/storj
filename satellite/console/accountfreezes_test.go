@@ -31,10 +31,11 @@ func getUserLimits(u *console.User) console.UsageLimits {
 
 func getProjectLimits(p *console.Project) console.UsageLimits {
 	return console.UsageLimits{
-		Storage:   p.StorageLimit.Int64(),
-		Bandwidth: p.BandwidthLimit.Int64(),
-		Segment:   *p.SegmentLimit,
-		RateLimit: p.RateLimit,
+		Storage:    p.StorageLimit.Int64(),
+		Bandwidth:  p.BandwidthLimit.Int64(),
+		Segment:    *p.SegmentLimit,
+		RateLimit:  p.RateLimit,
+		BurstLimit: p.BurstLimit,
 	}
 }
 
@@ -267,10 +268,12 @@ func TestAccountLegalFreeze(t *testing.T) {
 		projLimits := randUsageLimits()
 		rateLimit := 20000
 		projLimits.RateLimit = &rateLimit
+		projLimits.BurstLimit = &rateLimit
 		proj, err := sat.AddProject(ctx, user.ID, "")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
 		require.NoError(t, projectsDB.UpdateRateLimit(ctx, proj.ID, projLimits.RateLimit))
+		require.NoError(t, projectsDB.UpdateBurstLimit(ctx, proj.ID, projLimits.BurstLimit))
 
 		checkLimits := func(t *testing.T) {
 			user, err = usersDB.Get(ctx, user.ID)
@@ -285,6 +288,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 			require.Zero(t, usageLimits.Bandwidth)
 			zeroLimit := 0
 			require.Equal(t, &zeroLimit, usageLimits.RateLimit)
+			require.Equal(t, &zeroLimit, usageLimits.BurstLimit)
 		}
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -681,6 +685,8 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 			require.Zero(t, *p.BandwidthLimit)
 			require.Zero(t, *p.StorageLimit)
 			require.Zero(t, *p.SegmentLimit)
+			require.Zero(t, *p.RateLimit)
+			require.Zero(t, *p.BurstLimit)
 		}
 
 		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
