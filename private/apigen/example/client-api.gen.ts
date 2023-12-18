@@ -30,6 +30,12 @@ export class User {
     position: string;
 }
 
+export class UserAge {
+    day: number;
+    month: number;
+    year: number;
+}
+
 export class Version {
     date: Time;
     number: number;
@@ -121,6 +127,16 @@ export class UsersHttpApiV0 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getAge(): Promise<UserAge> {
+        const fullPath = `${this.ROOT_PATH}/age`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserAge);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

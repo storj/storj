@@ -13,6 +13,7 @@
 * Users
   * [Get Users](#users-get-users)
   * [Create Users](#users-create-users)
+  * [Get User's age](#users-get-users-age)
 
 <h3 id='documents-get-documents'>Get Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -223,6 +224,23 @@ Create users
 	}
 
 ]
+
+```
+
+<h3 id='users-get-users-age'>Get User's age (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Get the user's age
+
+`GET /api/v0/users/age`
+
+**Response body:**
+
+```typescript
+{
+	day: number
+	month: number
+	year: number
+}
 
 ```
 

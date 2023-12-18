@@ -159,6 +159,15 @@ func main() {
 		Request:        []myapi.User{},
 	})
 
+	g.Get("/age", &apigen.Endpoint{
+		Name:           "Get User's age",
+		Description:    "Get the user's age",
+		GoName:         "GetAge",
+		TypeScriptName: "getAge",
+		Response:       myapi.UserAge[int16]{},
+		ResponseMock:   myapi.UserAge[int16]{Day: 1, Month: 1, Year: 2000},
+	})
+
 	a.MustWriteGo("api.gen.go")
 	a.MustWriteTS("client-api.gen.ts")
 	a.MustWriteTSMock("client-api-mock.gen.ts")

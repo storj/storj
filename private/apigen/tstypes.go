@@ -76,7 +76,7 @@ func (types *Types) All() map[reflect.Type]string {
 				panic(fmt.Sprintf("BUG: found an anonymous 'struct'. Found type=%q", t))
 			}
 
-			all[t] = t.Name()
+			all[t] = typeNameWithoutGenerics(t.Name())
 
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
@@ -211,7 +211,7 @@ func TypescriptTypeName(t reflect.Type) string {
 		if t.Name() == "" {
 			panic(fmt.Sprintf(`anonymous struct aren't accepted because their type doesn't have a name. Type="%+v"`, t))
 		}
-		return capitalize(t.Name())
+		return capitalize(typeNameWithoutGenerics(t.Name()))
 	default:
 		panic(fmt.Sprintf(`unhandled type. Type="%+v"`, t))
 	}

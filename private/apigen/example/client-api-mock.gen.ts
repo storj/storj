@@ -28,6 +28,12 @@ export class User {
     position: string;
 }
 
+export class UserAge {
+    day: number;
+    month: number;
+    year: number;
+}
+
 export class Version {
     date: Time;
     number: number;
@@ -135,5 +141,13 @@ export class UsersHttpApiV0 {
         }
 
         return;
+    }
+
+    public async getAge(): Promise<UserAge> {
+        if (this.respStatusCode !== 0) {
+            throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
+        }
+
+        return JSON.parse('{"day":1,"month":1,"year":2000}') as UserAge;
     }
 }

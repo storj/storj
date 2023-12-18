@@ -219,3 +219,7 @@ func parseJSONTag(structType reflect.Type, field reflect.StructField) (_ jsonTag
 
 	return info, true, nil
 }
+
+func typeNameWithoutGenerics(n string) string {
+	return strings.SplitN(n, "[", 2)[0]
+}
