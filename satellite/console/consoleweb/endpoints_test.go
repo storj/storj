@@ -378,66 +378,6 @@ func TestAPIKeys(t *testing.T) {
 		user := test.defaultUser()
 		test.login(user.email, user.password)
 
-		{ // Post_GenerateApiKey
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"name":      user.email,
-					},
-					"query": `
-						mutation ($projectId: String!, $name: String!) {
-							createAPIKey(projectID: $projectId, name: $name) {
-								key
-								keyInfo {
-									id
-									name
-									createdAt
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "createAPIKey")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Get_APIKeyInfoByProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"orderDirection": 1,
-						"projectId":      test.defaultProjectID(),
-						"limit":          6,
-						"search":         ``,
-						"page":           1,
-						"order":          1,
-					},
-					"query": `
-						query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
-							project(id: $projectId) {
-								apiKeys(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {
-									apiKeys {
-										id
-										name
-										createdAt
-										__typename
-									}
-									search
-									limit
-									order
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, "apiKeysPage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
 		{ // Get_ProjectAPIKeys
 			var projects console.APIKeyPage
 			path := "/api-keys/list-paged?projectID=" + test.defaultProjectID() + "&search=''&limit=6&page=1&order=1&orderDirection=1"
@@ -491,24 +431,6 @@ func TestProjects(t *testing.T) {
 		user := test.defaultUser()
 		test.login(user.email, user.password)
 
-		{ // Get_ProjectId
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"query": `
-						{
-							myProjects {
-								name
-								id
-								description
-								createdAt
-								ownerId
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, test.defaultProjectID())
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
 		{ // Get_Salt
 			projectID := test.defaultProjectID()
 			id, err := uuid.FromString(projectID)
@@ -547,45 +469,6 @@ func TestProjects(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			require.NoError(t, json.Unmarshal([]byte(body), &projects))
 			require.NotEmpty(t, projects)
-		}
-
-		{ // Get_ProjectInfo
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"variables": map[string]interface{}{
-						"projectId": test.defaultProjectID(),
-						"before":    "2021-05-12T18:32:30.533Z",
-						"limit":     7,
-						"search":    "",
-						"page":      1,
-					},
-					"query": `
-						query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-							project(id: $projectId) {
-								bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {
-									bucketUsages {
-										bucketName
-										storage
-										egress
-										objectCount
-										segmentCount
-										since
-										before
-										__typename
-									}
-									search
-									limit
-									offset
-									pageCount
-									currentPage
-									totalCount
-									__typename
-								}
-							__typename
-							}
-						}`}))
-			require.Contains(t, body, "bucketUsagePage")
-			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
 		{ // Get_ProjectUsageLimitById

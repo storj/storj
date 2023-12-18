@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,7 +38,6 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
@@ -48,10 +45,8 @@ import (
 )
 
 const (
-	contentType = "Content-Type"
-
-	applicationJSON    = "application/json"
-	applicationGraphql = "application/graphql"
+	contentType     = "Content-Type"
+	applicationJSON = "application/json"
 )
 
 var (
@@ -153,8 +148,6 @@ type Server struct {
 	neededTokenPaymentConfirmations int
 
 	packagePlans paymentsconfig.PackagePlans
-
-	schema graphql.Schema
 
 	errorTemplate *template.Template
 }
@@ -272,8 +265,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
-
-	router.Handle("/api/v0/graphql", server.withCORS(server.withAuth(http.HandlerFunc(server.graphqlHandler))))
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
@@ -434,11 +425,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 // Run starts the server that host webapp and api endpoint.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
 	_, err = server.loadErrorTemplate()
 	if err != nil {
@@ -970,130 +956,6 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, server.config.ExternalAddress+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
-}
-
-// graphqlHandler is graphql endpoint http handler function.
-func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	handleError := func(code int, err error) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Error     string `json:"error"`
-			RequestID string `json:"requestID"`
-		}
-
-		jsonError.Error = err.Error()
-
-		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.RequestID = requestID
-		}
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error graphql error", zap.Error(err))
-		}
-	}
-
-	w.Header().Set(contentType, applicationJSON)
-
-	query, err := getQuery(w, r)
-	if err != nil {
-		handleError(http.StatusBadRequest, err)
-		return
-	}
-
-	rootObject := make(map[string]interface{})
-
-	rootObject["origin"] = server.config.ExternalAddress
-	rootObject[consoleql.ActivationPath] = "activation?token="
-	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery?token="
-	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery?token="
-	rootObject[consoleql.SignInPath] = "login"
-	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
-	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
-	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
-	rootObject[consoleql.SatelliteRegion] = server.config.SatelliteName
-
-	result := graphql.Do(graphql.Params{
-		Schema:         server.schema,
-		Context:        ctx,
-		RequestString:  query.Query,
-		VariableValues: query.Variables,
-		OperationName:  query.OperationName,
-		RootObject:     rootObject,
-	})
-
-	getGqlError := func(err gqlerrors.FormattedError) error {
-		var gerr *gqlerrors.Error
-		if errors.As(err.OriginalError(), &gerr) {
-			return gerr.OriginalError
-		}
-		return nil
-	}
-
-	parseConsoleError := func(err error) (int, error) {
-		switch {
-		case console.ErrUnauthorized.Has(err):
-			return http.StatusUnauthorized, err
-		case console.Error.Has(err):
-			return http.StatusInternalServerError, err
-		}
-
-		return 0, nil
-	}
-
-	handleErrors := func(code int, errors gqlerrors.FormattedErrors) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Errors    []string `json:"errors"`
-			RequestID string   `json:"requestID"`
-		}
-
-		for _, err := range errors {
-			jsonError.Errors = append(jsonError.Errors, err.Message)
-		}
-
-		if requestID := requestid.FromContext(ctx); requestID != "" {
-			jsonError.RequestID = requestID
-		}
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error graphql error", zap.Error(err))
-		}
-	}
-
-	handleGraphqlErrors := func() {
-		for _, err := range result.Errors {
-			gqlErr := getGqlError(err)
-			if gqlErr == nil {
-				continue
-			}
-
-			code, err := parseConsoleError(gqlErr)
-			if err != nil {
-				handleError(code, err)
-				return
-			}
-		}
-
-		handleErrors(http.StatusOK, result.Errors)
-	}
-
-	if result.HasErrors() {
-		handleGraphqlErrors()
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		server.log.Error("error encoding grapql result", zap.Error(err))
-		return
-	}
-
-	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
 // serveError serves a static error page.
