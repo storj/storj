@@ -763,6 +763,7 @@ func (payment Payments) AttemptPayOverdueInvoices(ctx context.Context) (err erro
 
 	err = payment.service.accounts.Invoices().AttemptPayOverdueInvoices(ctx, user.ID)
 	if err != nil {
+		payment.service.log.Warn("error attempting to pay overdue invoices for user", zap.String("user id", user.ID.String()), zap.Error(err))
 		return Error.Wrap(err)
 	}
 
