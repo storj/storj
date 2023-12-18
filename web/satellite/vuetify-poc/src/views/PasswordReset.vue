@@ -8,26 +8,45 @@
                 <v-card title="Did you forgot your password?" class="pa-2 pa-sm-7">
                     <v-card-text>
                         <p>Select your account satellite, enter your email address, and we will send you a password reset link.</p>
-                        <v-form class="pt-4">
+                        <v-form v-model="formValid" class="pt-4" @submit.prevent>
                             <v-select
-                                v-model="select"
+                                v-model="satellite"
                                 label="Satellite"
-                                :items="items"
+                                :items="satellites"
                                 item-title="satellite"
+                                :hint="satellite.hint"
+                                persistent-hint
                                 return-object
                                 chips
                                 class="mt-3 mb-2"
                             />
                             <v-text-field
+                                v-model="email"
                                 label="Email address"
                                 name="email"
                                 type="email"
+                                :rules="emailRules"
                                 autofocus
                                 clearable
                                 required
                                 class="my-2"
                             />
-                            <v-btn color="primary" size="large" block router-link to="/password-reset-confirmation">
+                            <VueHcaptcha
+                                v-if="captchaConfig.hcaptcha.enabled"
+                                ref="captcha"
+                                :sitekey="captchaConfig.hcaptcha.siteKey"
+                                :re-captcha-compat="false"
+                                size="invisible"
+                                @verify="onCaptchaVerified"
+                                @error="onCaptchaError"
+                            />
+                            <v-btn
+                                color="primary"
+                                size="large"
+                                block
+                                :disabled="isLoading || !formValid"
+                                @click="onPasswordReset"
+                            >
                                 Request Password Reset
                             </v-btn>
                         </v-form>
@@ -40,17 +59,122 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import {
+    VBtn,
+    VCard,
+    VCardText,
+    VCol,
+    VContainer,
+    VForm,
+    VRow,
+    VSelect,
+    VTextField,
+} from 'vuetify/components';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
-import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
-import { ref } from 'vue';
+import { useConfigStore } from '@/store/modules/configStore';
+import { EmailRule, RequiredRule, ValidationRule } from '@poc/types/common';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/utils/hooks';
+import { AuthHttpApi } from '@/api/auth';
+import { MultiCaptchaConfig } from '@/types/config.gen';
 
-const valid = ref(false);
-const checked = ref(false);
+const configStore = useConfigStore();
+
+const router = useRouter();
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+
+const auth: AuthHttpApi = new AuthHttpApi();
+const satellitesHints = [
+    { satellite: 'US1', hint: 'Recommended for North and South America' },
+    { satellite: 'EU1', hint: 'Recommended for Europe and Africa' },
+    { satellite: 'AP1', hint: 'Recommended for Asia and Australia' },
+];
+const emailRules: ValidationRule<string>[] = [
+    RequiredRule,
+    EmailRule,
+];
+
+const formValid = ref<boolean>(false);
 const email = ref('');
-const select = ref({ satellite: 'US1', hint: 'North and South America' });
-const items = ref([
-    { satellite: 'US1', hint: 'North and South America' },
-    { satellite: 'EU1', hint: 'Europe and Africa' },
-    { satellite: 'AP1', hint: 'Asia and Australia' },
-]);
+const captcha = ref<VueHcaptcha>();
+const captchaResponseToken = ref<string>('');
+
+/**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig => {
+    return configStore.state.config.captcha.login;
+});
+
+/**
+ * Name of the current satellite.
+ */
+const satellite = computed({
+    get: () => {
+        const satName = configStore.state.config.satelliteName;
+        const item = satellitesHints.find(item => item.satellite === satName);
+        return item ?? { satellite: satName, hint: '' };
+    },
+    set: value => {
+        const sats = configStore.state.config.partneredSatellites ?? [];
+        const satellite = sats.find(sat => sat.name === value.satellite);
+        if (satellite) {
+            window.location.href = satellite.address + '/v2/password-reset';
+        }
+    },
+});
+
+/**
+ * Information about partnered satellites.
+ */
+const satellites = computed(() => {
+    const satellites = configStore.state.config.partneredSatellites ?? [];
+    return satellites.map(satellite => {
+        const item = satellitesHints.find(item => item.satellite === satellite.name);
+        return item ?? { satellite: satellite.name, hint: '' };
+    });
+});
+
+/**
+ * Sends recovery password email.
+ */
+async function onPasswordReset(): Promise<void> {
+    if (captcha.value && !captchaResponseToken.value) {
+        captcha.value.execute();
+        return;
+    }
+
+    await withLoading(async () => {
+        try {
+            await auth.forgotPassword(email.value, captchaResponseToken.value);
+            notify.success('Please look for instructions in your email');
+            router.push('/password-reset-confirmation');
+        } catch (error) {
+            notify.notifyError(error);
+        }
+    });
+
+    captcha.value?.reset();
+    captchaResponseToken.value = '';
+}
+
+/**
+ * Handles captcha verification response.
+ */
+function onCaptchaVerified(response: string): void {
+    captchaResponseToken.value = response;
+    onPasswordReset();
+}
+
+/**
+ * Handles captcha error.
+ */
+function onCaptchaError(): void {
+    captchaResponseToken.value = '';
+    notify.error('The captcha encountered an error. Please try again.', null);
+}
 </script>
