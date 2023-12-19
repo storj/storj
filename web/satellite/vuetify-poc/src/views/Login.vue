@@ -52,7 +52,7 @@
                             class="mt-2 mb-3"
                             border
                         />
-                        <v-form v-model="formValid" class="pt-4" @submit.prevent>
+                        <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
                             <v-select
                                 v-model="satellite"
                                 label="Satellite"
@@ -194,6 +194,7 @@ const pathEmail = ref<string | null>(null);
 const returnURL = ref('/projects');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const form = ref<VForm | null>(null);
 
 const satellitesHints = [
     { satellite: 'US1', hint: 'Recommended for North and South America' },
@@ -267,6 +268,7 @@ function onCaptchaError(): void {
  * Holds on login button click logic.
  */
 async function onLoginClick(): Promise<void> {
+    form.value?.validate();
     if (!formValid.value || isLoading.value) {
         return;
     }

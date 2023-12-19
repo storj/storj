@@ -75,7 +75,6 @@
                         </template>
                     </a>
                 </p>
-                <p class="pt-6 text-center text-body-2">Not a member? <a class="link" @click="reloadPage">Signup</a></p>
             </v-col>
         </v-row>
     </v-container>
