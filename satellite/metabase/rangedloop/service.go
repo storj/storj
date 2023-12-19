@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
 	"storj.io/common/sync2"
+	"storj.io/eventkit"
 )
 
 var (

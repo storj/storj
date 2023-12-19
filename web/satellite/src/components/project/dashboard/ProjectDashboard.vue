@@ -413,7 +413,8 @@ function recalculateChartWidth(): void {
  * Returns dimension for given data values.
  */
 function getDimension(dataStamps: DataStamp[]): Dimensions {
-    const maxValue = Math.max(...dataStamps.map(s => s.value));
+    const filteredData = dataStamps.filter(s => !!s);
+    const maxValue = Math.max(...filteredData.map(s => s.value));
     return new Size(maxValue).label;
 }
 

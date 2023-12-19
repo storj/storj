@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -18,6 +17,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
+	"storj.io/eventkit"
 	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
 )

@@ -12,7 +12,6 @@ import (
 
 	"storj.io/common/rpc"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/piecetransfer"
 )
 
 // Chore checks for satellites that the node is exiting and creates a worker per satellite to complete the process.
@@ -23,8 +22,7 @@ type Chore struct {
 	dialer rpc.Dialer
 	config Config
 
-	service         *Service
-	transferService piecetransfer.Service
+	service *Service
 
 	exitingMap sync.Map
 	Loop       *sync2.Cycle
@@ -32,15 +30,14 @@ type Chore struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
+func NewChore(log *zap.Logger, service *Service, dialer rpc.Dialer, config Config) *Chore {
 	return &Chore{
-		log:             log,
-		dialer:          dialer,
-		service:         service,
-		transferService: transferService,
-		config:          config,
-		Loop:            sync2.NewCycle(config.ChoreInterval),
-		limiter:         sync2.NewLimiter(config.NumWorkers),
+		log:     log,
+		dialer:  dialer,
+		service: service,
+		config:  config,
+		Loop:    sync2.NewCycle(config.ChoreInterval),
+		limiter: sync2.NewLimiter(config.NumWorkers),
 	}
 }
 
@@ -70,7 +67,7 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 		mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
 		satellite := satellite
 
-		worker := NewWorker(chore.log, chore.service, chore.transferService, chore.dialer, satellite.NodeURL, chore.config)
+		worker := NewWorker(chore.log, chore.service, chore.dialer, satellite.NodeURL, chore.config)
 		if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
 			// already running a worker for this satellite
 			chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))

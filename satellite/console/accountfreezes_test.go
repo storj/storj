@@ -626,3 +626,63 @@ func TestFreezeEffects(t *testing.T) {
 		})
 	})
 }
+
+func TestAccountBotFreeze(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		projectsDB := sat.DB.Console().Projects()
+		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
+		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test Bot User",
+			Email:    "botuser@mail.test",
+		}, 2)
+		require.NoError(t, err)
+
+		_, err = sat.AddProject(ctx, user.ID, "test")
+		require.NoError(t, err)
+
+		_, err = sat.AddProject(ctx, user.ID, "test1")
+		require.NoError(t, err)
+
+		_, err = accFreezeDB.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: user.ID,
+			Type:   console.DelayedBotFreeze,
+		})
+		require.NoError(t, err)
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, user.Status)
+		require.NotZero(t, user.ProjectBandwidthLimit)
+		require.NotZero(t, user.ProjectStorageLimit)
+		require.NotZero(t, user.ProjectSegmentLimit)
+
+		require.NoError(t, service.BotFreezeUser(ctx, user.ID))
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.PendingBotVerification, user.Status)
+		require.Zero(t, user.ProjectBandwidthLimit)
+		require.Zero(t, user.ProjectStorageLimit)
+		require.Zero(t, user.ProjectSegmentLimit)
+
+		projects, err := projectsDB.GetOwn(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 2)
+
+		for _, p := range projects {
+			require.Zero(t, *p.BandwidthLimit)
+			require.Zero(t, *p.StorageLimit)
+			require.Zero(t, *p.SegmentLimit)
+		}
+
+		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
+		require.Error(t, err)
+		require.Nil(t, event)
+	})
+}

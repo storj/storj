@@ -98,7 +98,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 	if err != nil {
 		return err
 	}

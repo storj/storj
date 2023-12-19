@@ -15,12 +15,10 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
-	github.com/graphql-go/graphql v0.7.9
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolio/eventkit v0.0.0-20230607152326-4668f79ff72d
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
 	github.com/loov/hrtime v1.0.3
@@ -49,22 +47,23 @@ require (
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.16.0
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/net v0.10.0
 	golang.org/x/oauth2 v0.7.0
-	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.13.0
-	golang.org/x/term v0.11.0
-	golang.org/x/text v0.12.0
+	golang.org/x/sync v0.5.0
+	golang.org/x/sys v0.15.0
+	golang.org/x/term v0.15.0
+	golang.org/x/text v0.14.0
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20231130134106-1fa84867e323
+	storj.io/common v0.0.0-20231213124955-23aba17361c7
 	storj.io/drpc v0.0.33
+	storj.io/eventkit v0.0.0-20231215144225-968576eb7548
 	storj.io/monkit-jaeger v0.0.0-20230707083646-f15e6e8b7e8c
-	storj.io/private v0.0.0-20231127092015-c439a594bc1d
-	storj.io/uplink v1.12.3-0.20231205090325-b1a25d92efca
+	storj.io/private v0.0.0-20231215152845-c5d4aba552e2
+	storj.io/uplink v1.12.3-0.20231215150144-64b6fe256777
 )
 
 require (
@@ -117,7 +116,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
-	github.com/quic-go/quic-go v0.40.0 // indirect
+	github.com/quic-go/quic-go v0.40.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect

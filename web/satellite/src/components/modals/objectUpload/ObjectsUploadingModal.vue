@@ -47,6 +47,8 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import UploadItem from '@/components/modals/objectUpload/UploadItem.vue';
 
@@ -57,7 +59,9 @@ import FailedIcon from '@/../static/images/modals/objectUpload/failed.svg';
 
 const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
+const bucketsStore = useBucketsStore();
 const notify = useNotify();
+const projectsStore = useProjectsStore();
 const config = useConfigStore();
 
 const isExpanded = ref<boolean>(false);
@@ -229,6 +233,20 @@ function startInterval(): void {
 
     interval.value = int;
 }
+
+watch(() => projectsStore.state.selectedProject, (value, oldValue) => {
+    if (value.id === oldValue.id || !appStore.state.isUploadingModal) {
+        return;
+    }
+    closeModal();
+});
+
+watch(() =>  bucketsStore.state.fileComponentBucketName, (value, oldValue) => {
+    if (value === oldValue || !appStore.state.isUploadingModal) {
+        return;
+    }
+    closeModal();
+});
 
 watch(() => objectsInProgress.value.length, () => {
     if (!interval.value) {

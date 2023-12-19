@@ -16,7 +16,7 @@ import {
     PaymentStatus,
     PaymentWithConfirmations,
     ProjectCharges,
-    ProjectUsagePriceModel,
+    ProjectUsagePriceModel, TokenAmount,
     Wallet,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';

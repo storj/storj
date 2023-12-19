@@ -54,7 +54,6 @@ import (
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
-	"storj.io/storj/storagenode/piecetransfer"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -273,10 +272,6 @@ type Peer struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleserver.Server
-	}
-
-	PieceTransfer struct {
-		Service piecetransfer.Service
 	}
 
 	GracefulExit struct {
@@ -762,18 +757,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	{ // setup piecetransfer service
-		peer.PieceTransfer.Service = piecetransfer.NewService(
-			peer.Log.Named("piecetransfer"),
-			peer.Storage2.Store,
-			peer.Storage2.Trust,
-			peer.Dialer,
-			// using GracefulExit config here for historical reasons
-			config.GracefulExit.MinDownloadTimeout,
-			config.GracefulExit.MinBytesPerSecond,
-		)
-	}
-
 	{ // setup graceful exit service
 		peer.GracefulExit.Service = gracefulexit.NewService(
 			peer.Log.Named("gracefulexit:service"),
@@ -798,7 +781,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
 			peer.GracefulExit.Service,
-			peer.PieceTransfer.Service,
 			peer.Dialer,
 			config.GracefulExit,
 		)

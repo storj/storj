@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	mathrand "math/rand"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -186,6 +187,7 @@ type Service struct {
 	analytics                  *analytics.Service
 	tokens                     *consoleauth.Service
 	mailService                *mailservice.Service
+	accountFreezeService       *AccountFreezeService
 
 	satelliteAddress string
 	satelliteName    string
@@ -214,7 +216,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, satelliteAddress string, satelliteName string, maxProjectBuckets int, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -258,6 +260,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		analytics:                  analytics,
 		tokens:                     tokens,
 		mailService:                mailService,
+		accountFreezeService:       accountFreezeService,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -1050,13 +1053,21 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	status := Active
 	if s.config.Captcha.FlagBotsEnabled && user.SignupCaptcha != nil && *user.SignupCaptcha >= s.config.Captcha.ScoreCutoffThreshold {
-		status = PendingBotVerification
+		minDelay := s.config.Captcha.MinFlagBotDelay
+		maxDelay := s.config.Captcha.MaxFlagBotDelay
+		rng := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+		days := rng.Intn(maxDelay-minDelay+1) + minDelay
+
+		err = s.accountFreezeService.DelayedBotFreezeUser(ctx, user.ID, &days)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
+	activeStatus := Active
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		Status: &status,
+		Status: &activeStatus,
 	})
 	if err != nil {
 		return Error.Wrap(err)

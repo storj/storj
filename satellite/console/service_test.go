@@ -17,6 +17,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
@@ -2559,5 +2560,41 @@ func TestProjectInvitations(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, console.ErrBotUser.Has(err))
 		})
+	})
+}
+
+func TestDelayedBotFreeze(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Captcha.FlagBotsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		captchaConfig := sat.Config.Console.Captcha
+		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		user.SignupCaptcha = &captchaConfig.ScoreCutoffThreshold
+
+		err = sat.API.Console.Service.SetAccountActive(ctx, user)
+		require.NoError(t, err)
+
+		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
+		require.NoError(t, err)
+		require.NotNil(t, event)
+		require.GreaterOrEqual(t, *event.DaysTillEscalation, captchaConfig.MinFlagBotDelay)
+		require.LessOrEqual(t, *event.DaysTillEscalation, captchaConfig.MaxFlagBotDelay)
+
+		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
+		require.True(t, errs.Is(err, sql.ErrNoRows))
+		require.Nil(t, event)
 	})
 }

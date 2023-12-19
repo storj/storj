@@ -105,6 +105,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -218,7 +219,10 @@ async function ensureWorker(): Promise<void> {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        notify.error(`Unable to set access grants wizard. ${error.message}`, null);
+        notify.error('Unable to set access grants wizard. You may be able to fix this by doing a hard-refresh or clearing your cache.', null);
+        // We do this in case user goes to DevTools to check if anything is there.
+        // This also might be useful for us since we improve error handling.
+        console.error(error.message);
         return;
     }
 
