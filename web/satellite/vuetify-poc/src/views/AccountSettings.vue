@@ -9,114 +9,92 @@
             </v-col>
         </v-row>
 
-        <v-card
-            variant="flat"
-            :border="true"
-            class="mx-auto mt-2 my-6"
-        >
-            <v-list lines="three">
-                <v-list-subheader class="mb-2">Profile</v-list-subheader>
-
-                <v-divider />
-
-                <v-list-item>
-                    <v-list-item-title>Name</v-list-item-title>
-
-                    <v-list-item-subtitle>
+        <v-row>
+            <v-col cols="12" sm="6">
+                <v-card title="Name" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
                         {{ user.getFullName() }}
-                    </v-list-item-subtitle>
-
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small" @click="isChangeNameDialogShown = true">
-                                Edit Name
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
-
-                <v-divider />
-
-                <v-list-item>
-                    <v-list-item-title>Email</v-list-item-title>
-
-                    <v-list-item-subtitle>
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="isChangeNameDialogShown = true">
+                            Edit Name
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+            <v-col cols="12" sm="6">
+                <v-card title="Email Address" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
                         {{ user.email }}
-                    </v-list-item-subtitle>
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-tooltip
+                                activator="parent"
+                                location="top"
+                            >To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                        </v-tooltip>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" disabled>
+                            Change Email
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
 
-                    <!-- <template v-slot:append>
-                         <v-list-item-action>
-                            <v-btn>Change Email</v-btn>
-                        </v-list-item-action>
-                    </template> -->
-                </v-list-item>
-            </v-list>
-        </v-card>
-        <v-card
-            variant="flat"
-            :border="true"
-            class="mx-auto my-6"
-        >
-            <v-list lines="three">
-                <v-list-subheader class="mb-2">Security</v-list-subheader>
+        <v-row>
+            <v-col>
+                <h3 class="mt-5">Security</h3>
+            </v-col>
+        </v-row>
 
-                <v-divider />
-
-                <v-list-item>
-                    <v-list-item-title>Password</v-list-item-title>
-
-                    <v-list-item-subtitle>
+        <v-row>
+            <v-col cols="12" md="6" lg="4">
+                <v-card title="Password" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
                         **********
-                    </v-list-item-subtitle>
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="isChangePasswordDialogShown = true">
+                            Change Password
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
 
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small" @click="isChangePasswordDialogShown = true">
-                                Change Password
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
+            <v-col cols="12" md="6" lg="4">
+                <v-card title="Two-factor authentication" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Improve security by enabling 2FA.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
+                        <template v-else>
+                            <v-btn class="mr-1" variant="outlined" color="default" size="small" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
+                            <v-btn variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                        </template>
+                    </v-card-text>
+                </v-card>
+            </v-col>
 
-                <v-divider />
+            <v-col cols="12" lg="4">
+                <v-card title="Session Timeout" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Log out after {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="isSetSessionTimeoutDialogShown = true">
+                            Change Timeout
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
 
-                <v-list-item>
-                    <v-list-item-title>Two-factor authentication</v-list-item-title>
-
-                    <v-list-item-subtitle>
-                        Improve account security by enabling 2FA.
-                    </v-list-item-subtitle>
-
-                    <template #append>
-                        <v-list-item-action justify="end" class="flex-column flex-sm-row align-end">
-                            <v-btn v-if="!user.isMFAEnabled" size="small" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
-                            <template v-else>
-                                <v-btn class="mb-1 mb-sm-0 mr-sm-1" variant="outlined" color="default" size="small" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
-                                <v-btn variant="outlined" color="default" size="small" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
-                            </template>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
-
-                <v-divider />
-
-                <v-list-item>
-                    <v-list-item-title>Session Timeout</v-list-item-title>
-
-                    <v-list-item-subtitle>
-                        {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}
-                    </v-list-item-subtitle>
-
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small" @click="isSetSessionTimeoutDialogShown = true">
-                                Set Timeout
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
-            </v-list>
-        </v-card>
     </v-container>
 
     <ChangePasswordDialog

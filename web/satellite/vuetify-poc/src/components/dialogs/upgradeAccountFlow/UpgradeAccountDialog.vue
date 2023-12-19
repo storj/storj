@@ -144,7 +144,7 @@ const stepTitles = computed(() => {
         [UpgradeAccountStep.Info]: 'Upgrade',
         [UpgradeAccountStep.Options]: 'Upgrade to Pro',
         [UpgradeAccountStep.AddCC]: 'Add Credit Card',
-        [UpgradeAccountStep.AddTokens]: 'Add tokens',
+        [UpgradeAccountStep.AddTokens]: 'Add Storj Tokens',
         [UpgradeAccountStep.Success]: 'Success',
         [UpgradeAccountStep.PricingPlanSelection]: 'Upgrade',
         [UpgradeAccountStep.PricingPlan]: plan.value?.title || '',

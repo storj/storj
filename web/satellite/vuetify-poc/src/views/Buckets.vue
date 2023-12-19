@@ -5,7 +5,7 @@
     <v-container>
         <PageTitleComponent title="Buckets" />
         <PageSubtitleComponent
-            subtitle="Buckets are storage containers for your data."
+            subtitle="Buckets are where you upload and organize your data."
             link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
         />
 

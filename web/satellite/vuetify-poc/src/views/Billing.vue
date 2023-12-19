@@ -100,7 +100,7 @@
                             <v-card-text>
                                 <v-chip
                                     :color="isCouponActive ? 'green' : 'error'"
-                                    variant="flat"
+                                    variant="tonal"
                                     class="font-weight-bold mb-2"
                                     rounded
                                 >
@@ -111,7 +111,7 @@
 
                                 <v-btn
                                     v-if="couponCodeBillingUIEnabled"
-                                    variant="flat"
+                                    variant="outlined"
                                     color="default"
                                     size="small"
                                     class="mr-2"

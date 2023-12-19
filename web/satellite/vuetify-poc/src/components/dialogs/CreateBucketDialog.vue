@@ -12,12 +12,22 @@
         <v-card ref="innerContent" rounded="xlg">
             <v-sheet>
                 <v-card-item class="pa-5 pl-7">
+
                     <template #prepend>
-                        <v-card-title class="font-weight-bold">
-                            <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
-                            Create New Bucket
-                        </v-card-title>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <img src="@poc/assets/icon-bucket.svg" alt="Bucket icon">
+                        </v-sheet>
                     </template>
+
+                    <v-card-title class="font-weight-bold">
+                        <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
+                        New Bucket
+                    </v-card-title>
 
                     <template #append>
                         <v-btn

@@ -2,65 +2,68 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row align="center" class="mb-3">
-        <v-col>
-            <v-text-field
-                v-model="search"
-                label="Search"
-                prepend-inner-icon="mdi-magnify"
-                single-line
-                variant="solo-filled"
-                flat
-                hide-details
-                clearable
-                density="compact"
-                rounded="lg"
-            />
-        </v-col>
-        <v-col cols="auto">
-            <v-menu>
-                <template #activator="{ props: sortProps }">
-                    <v-btn
-                        variant="outlined"
-                        color="default"
-                        prepend-icon="mdi-sort"
-                        append-icon="mdi-chevron-down"
-                        v-bind="sortProps"
-                    >
-                        <span class="text-body-2">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
-                    </v-btn>
-                </template>
-                <v-list>
-                    <v-list-item
-                        v-for="(key, index) in sortKeys"
-                        :key="index"
-                        :title="key"
-                        @click="() => sortKey = key.toLowerCase()"
-                    />
-                </v-list>
-            </v-menu>
-        </v-col>
+    <v-card class="pa-2 mb-7">
 
-        <v-col cols="auto">
-            <v-btn-toggle
-                v-model="sortOrder"
-                density="comfortable"
-                variant="outlined"
-                color="default"
-                rounded="xl"
-                class="pa-1"
-                border
-                mandatory
-            >
-                <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
-                    <v-icon>mdi-sort-ascending</v-icon>
-                </v-btn>
-                <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
-                    <v-icon>mdi-sort-descending</v-icon>
-                </v-btn>
-            </v-btn-toggle>
-        </v-col>
-    </v-row>
+        <v-row align="center">
+
+            <v-col>
+                <v-text-field
+                    v-model="search"
+                    label="Search"
+                    prepend-inner-icon="mdi-magnify"
+                    single-line
+                    variant="solo-filled"
+                    flat
+                    hide-details
+                    clearable
+                    density="comfortable"
+                    rounded="lg"
+                />
+            </v-col>
+            <v-col cols="auto">
+                <v-menu>
+                    <template #activator="{ props: sortProps }">
+                        <v-btn
+                            variant="text"
+                            color="default"
+                            prepend-icon="mdi-sort"
+                            append-icon="mdi-chevron-down"
+                            v-bind="sortProps"
+                            class="mr-2"
+                        >
+                            <span class="text-body-2">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
+                        </v-btn>
+                    </template>
+                    <v-list>
+                        <v-list-item
+                            v-for="(key, index) in sortKeys"
+                            :key="index"
+                            :title="key"
+                            @click="() => sortKey = key.toLowerCase()"
+                        />
+                    </v-list>
+                </v-menu>
+                <v-btn-toggle
+                    v-model="sortOrder"
+                    density="comfortable"
+                    variant="outlined"
+                    color="default"
+                    rounded="xl"
+                    class="pa-1"
+                    mandatory
+                >
+                    <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
+                        <v-icon>mdi-sort-ascending</v-icon>
+                    </v-btn>
+                    <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
+                        <v-icon>mdi-sort-descending</v-icon>
+                    </v-btn>
+                </v-btn-toggle>
+            </v-col>
+
+        </v-row>
+    </v-card>
+
 
     <v-data-iterator
         :page="cursor.page"
@@ -71,7 +74,9 @@
         :loading="isFetching"
     >
         <template #no-data>
-            <div class="d-flex justify-center">No results found</div>
+            <div class="d-flex justify-center">
+                <p class="text-body-2">No data found.</p>
+            </div>
         </template>
 
         <template #default="fileProps">
@@ -89,56 +94,59 @@
         </template>
 
         <template #footer>
-            <div class="d-flex align-center py-5">
-                <v-menu>
-                    <template #activator="{ props: limitProps }">
-                        <span class="text-subtitle-2 mr-2">Items per page:</span>
-                        <v-btn
-                            variant="outlined"
-                            color="default"
-                            append-icon="mdi-chevron-down"
-                            v-bind="limitProps"
-                        >
-                            {{ cursor.limit }}
-                        </v-btn>
-                    </template>
-                    <v-list>
-                        <v-list-item
-                            v-for="(number, index) in tableSizeOptions(totalObjectCount, true)"
-                            :key="index"
-                            :title="number.title"
-                            @click="() => onLimitChange(number.value)"
-                        />
-                    </v-list>
-                </v-menu>
+            <v-card class="pa-2 my-6">
 
-                <v-spacer />
+                <div class="d-flex align-center">
+                    <v-menu>
+                        <template #activator="{ props: limitProps }">
+                            <v-btn
+                                variant="text"
+                                color="default"
+                                append-icon="mdi-chevron-down"
+                                v-bind="limitProps"
+                            >
+                                <span class="text-caption text-medium-emphasis mr-2">Items per page:</span>
+                                {{ cursor.limit }}
+                            </v-btn>
+                        </template>
+                        <v-list>
+                            <v-list-item
+                                v-for="(number, index) in tableSizeOptions(totalObjectCount, true)"
+                                :key="index"
+                                :title="number.title"
+                                @click="() => onLimitChange(number.value)"
+                            />
+                        </v-list>
+                    </v-menu>
 
-                <span class="mr-4 text-medium-emphasis">
-                    Page {{ cursor.page }} of {{ lastPage }}
-                </span>
-                <v-btn
-                    icon
-                    size="small"
-                    variant="outlined"
-                    color="default"
-                    :disabled="cursor.page === 1"
-                    @click="() => onPageChange(cursor.page - 1)"
-                >
-                    <v-icon>mdi-chevron-left</v-icon>
-                </v-btn>
-                <v-btn
-                    icon
-                    size="small"
-                    variant="outlined"
-                    color="default"
-                    class="ml-2"
-                    :disabled="cursor.page === lastPage"
-                    @click="() => onPageChange(cursor.page + 1)"
-                >
-                    <v-icon>mdi-chevron-right</v-icon>
-                </v-btn>
-            </div>
+                    <v-spacer />
+
+                    <span class="mr-4 text-caption text-medium-emphasis">
+                        Page {{ cursor.page }} of {{ lastPage }}
+                    </span>
+                    <v-btn
+                        icon
+                        size="small"
+                        variant="text"
+                        color="default"
+                        :disabled="cursor.page === 1"
+                        @click="() => onPageChange(cursor.page - 1)"
+                    >
+                        <v-icon>mdi-chevron-left</v-icon>
+                    </v-btn>
+                    <v-btn
+                        icon
+                        size="small"
+                        variant="text"
+                        color="default"
+                        class="ml-2"
+                        :disabled="cursor.page === lastPage"
+                        @click="() => onPageChange(cursor.page + 1)"
+                    >
+                        <v-icon>mdi-chevron-right</v-icon>
+                    </v-btn>
+                </div>
+            </v-card>
         </template>
     </v-data-iterator>
     <file-preview-dialog v-model="previewDialog" />
