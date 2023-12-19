@@ -4,7 +4,7 @@
 import test from '@lib/BaseTest';
 
 test.describe('Check for branded signup page, and sign up personal/business accounts', () => {
-    test('Verify IX Branding and Signup Personal/Business', async ({signupPage}) => {
+    test('Verify IX Branding and Signup Personal/Business', async ({ signupPage }) => {
         const name = 'John Doe';
         const email = 'test123@test.test';
         const password = 'qazwsx';
@@ -23,5 +23,5 @@ test.describe('Check for branded signup page, and sign up personal/business acco
 
         await signupPage.signupApplicationBusiness(name, email, password, company, position);
         await signupPage.verifySuccessMessage();
-    })
+    });
 });

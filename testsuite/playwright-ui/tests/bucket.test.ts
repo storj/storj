@@ -5,26 +5,25 @@ import test from '@lib/BaseTest';
 
 test.describe('Filebrowser + edge services', () => {
     test.beforeEach(async ({
-                               loginPage,
-                               dashboardPage,
-                               allProjectsPage
-                           }, testInfo) => {
+        loginPage,
+        dashboardPage,
+        allProjectsPage,
+    }, testInfo) => {
         console.log(`Running ${testInfo.title}`);
 
-        const projectName = 'testproject'
+        const projectName = 'testproject';
 
         await loginPage.navigateToURL();
         await loginPage.loginToApplication();
-        await allProjectsPage.clickOnProject(projectName)
+        await allProjectsPage.clickOnProject(projectName);
         await dashboardPage.verifyWelcomeMessage();
     });
 
     // This test check file download, upload using drag and drop function and basic link-sharing features
-
     test('File download and upload', async ({
-                                                navigationMenu,
-                                                bucketsPage
-                                            }) => {
+        navigationMenu,
+        bucketsPage,
+    }) => {
         const bucketName = 'uitest1';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
@@ -54,10 +53,9 @@ test.describe('Filebrowser + edge services', () => {
 
     // This test check folder creation, upload using drag and drop function
     test('Folder creation and folder drag and drop upload', async ({
-                                                                       navigationMenu,
-                                                                       bucketsPage
-                                                                   }) => {
-
+        navigationMenu,
+        bucketsPage,
+    }) => {
         const bucketName = 'testbucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test.txt';
@@ -75,13 +73,12 @@ test.describe('Filebrowser + edge services', () => {
         // DRAG AND DROP FOLDER creation with a file inside it for next instance of test
         await bucketsPage.dragAndDropFolder(folderName, fileName, 'text/csv');
         await bucketsPage.deleteFileByName(folderName);
-
     });
     test('Share bucket and bucket details page', async ({
-                                                            navigationMenu,
-                                                            bucketsPage,
-                                                            page
-                                                        }) => {
+        navigationMenu,
+        bucketsPage,
+        page,
+    }) => {
         const bucketName = 'sharebucket';
         const bucketPassphrase = 'qazwsx';
         const fileName = 'test1.jpeg';
@@ -111,9 +108,9 @@ test.describe('Filebrowser + edge services', () => {
          */
     });
     test('Create and delete bucket', async ({
-                                                navigationMenu,
-                                                bucketsPage
-                                            }) => {
+        navigationMenu,
+        bucketsPage,
+    }) => {
         const bucketName = 'testdelete';
 
         await navigationMenu.clickOnBuckets();

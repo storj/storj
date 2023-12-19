@@ -1,17 +1,12 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {BucketsPageObjects} from "@objects/BucketsPageObjects";
-import type {Page} from '@playwright/test';
-import {expect} from "@playwright/test";
+import { BucketsPageObjects } from '@objects/BucketsPageObjects';
+import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 
-export class BucketsPage extends BucketsPageObjects {
-    readonly page: Page;
-
-    constructor(page: Page) {
-        super();
-        this.page = page;
-    }
+export class BucketsPage {
+    constructor(readonly page: Page) {}
 
     async openBucketByName(name: string): Promise<void> {
         await this.page.getByText(name).click();
@@ -22,7 +17,7 @@ export class BucketsPage extends BucketsPageObjects {
     }
 
     async enterPassphrase(phrase: string): Promise<void> {
-        await this.page.locator(BucketsPageObjects.ENCRYPTION_PASSPHRASE_XPATH).fill(phrase)
+        await this.page.locator(BucketsPageObjects.ENCRYPTION_PASSPHRASE_XPATH).fill(phrase);
     }
 
     async clickContinueConfirmPassphrase() {
@@ -35,7 +30,7 @@ export class BucketsPage extends BucketsPageObjects {
         await uiTestFile.click();
         await Promise.all([
             this.page.waitForEvent('download'),
-            this.page.locator(BucketsPageObjects.DOWNLOAD_BUTTON_XPATH).click()
+            this.page.locator(BucketsPageObjects.DOWNLOAD_BUTTON_XPATH).click(),
         ]);
         await expect(this.page.getByText('Keep this download link private.If you want to share, use the Share option.')).toBeVisible();
 
@@ -47,13 +42,13 @@ export class BucketsPage extends BucketsPageObjects {
 
     async clickCopyLinkButton(): Promise<void> {
         await this.page.locator(BucketsPageObjects.COPY_LINK_BUTTON_XPATH).click();
-        await this.page.locator('span').filter({hasText: BucketsPageObjects.COPIED_TEXT}).isVisible();
-        await expect(this.page.getByText('Link copied successfully.')).toBeVisible()
+        await this.page.locator('span').filter({ hasText: BucketsPageObjects.COPIED_TEXT }).isVisible();
+        await expect(this.page.getByText('Link copied successfully.')).toBeVisible();
     }
 
     async clickCopyButtonShareBucketModal(): Promise<void> {
-        await this.page.locator('span').filter({hasText: 'Copy link'}).click();
-        await this.page.locator('span').filter({hasText: BucketsPageObjects.COPIED_TEXT}).isVisible();
+        await this.page.locator('span').filter({ hasText: 'Copy link' }).click();
+        await this.page.locator('span').filter({ hasText: BucketsPageObjects.COPIED_TEXT }).isVisible();
     }
 
     async verifyObjectMapIsVisible(): Promise<void> {
@@ -62,7 +57,7 @@ export class BucketsPage extends BucketsPageObjects {
     }
 
     async verifyImagePreviewIsVisible(): Promise<void> {
-        await this.page.getByRole('img', {name: 'preview'}).isVisible()
+        await this.page.getByRole('img', { name: 'preview' }).isVisible();
     }
 
     async closeModal(): Promise<void> {
@@ -70,7 +65,7 @@ export class BucketsPage extends BucketsPageObjects {
     }
 
     async closeFilePreview(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.CLOSE_FILE_PREVIEW_BUTTON_XPATH).click()
+        await this.page.locator(BucketsPageObjects.CLOSE_FILE_PREVIEW_BUTTON_XPATH).click();
     }
 
     async openFileDropdownByName(name: string): Promise<void> {
@@ -95,9 +90,8 @@ export class BucketsPage extends BucketsPageObjects {
 
     async openFileByName(name: string): Promise<void> {
         await this.page.getByText(name).click();
-        await this.page.locator(`//p[contains(text(),'${name}')]`).isVisible()
+        await this.page.locator(`//p[contains(text(),'${name}')]`).isVisible();
     }
-
 
     async openBucketSettings(): Promise<void> {
         await this.page.locator(BucketsPageObjects.BUCKET_SETTINGS_BUTTON_CSS).click();
@@ -111,28 +105,28 @@ export class BucketsPage extends BucketsPageObjects {
         await this.openFileDropdownByName(name);
         await this.clickDeleteFileButton();
         await this.page.locator(BucketsPageObjects.YES_BUTTON_XPATH).click();
-        await this.page.getByText(name).waitFor({state: "hidden"});
+        await this.page.getByText(name).waitFor({ state: 'hidden' });
     }
 
     async dragAndDropFile(name: string, format: string): Promise<void> {
-        await this.page.setInputFiles("input[type='file']", {
+        await this.page.setInputFiles('input[type=\'file\']', {
             name: name,
             mimeType: format,
-            buffer: Buffer.from('Test,T')
+            buffer: Buffer.from('Test,T'),
         });
     }
 
     async dragAndDropFolder(folder: string, filename: string, format: string): Promise<void> {
-        await this.page.setInputFiles("input[type='file']", {
-            name: folder + "/" + filename,
+        await this.page.setInputFiles('input[type=\'file\']', {
+            name: folder + '/' + filename,
             mimeType: format,
-            buffer: Buffer.from('Test,T')
+            buffer: Buffer.from('Test,T'),
         });
         await expect(this.page.getByText(folder)).toBeVisible();
     }
 
     async verifyDetails(name: string): Promise<void> {
-        await this.page.getByRole('cell', {name: name}).isVisible()
+        await this.page.getByRole('cell', { name: name }).isVisible();
     }
 
     async clickShareBucketButton(): Promise<void> {
