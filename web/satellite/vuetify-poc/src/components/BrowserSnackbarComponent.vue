@@ -23,7 +23,7 @@
                         <v-expansion-panel-title color="">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
-                                <v-btn variant="outlined" color="default" size="x-small" icon="mdi-close" title="Close" @click="v1AppStore.setUploadingModal(false)" />
+                                <v-btn variant="outlined" color="default" size="x-small" icon="mdi-close" title="Close" @click="closeDialog" />
                             </template>
                         </v-expansion-panel-title>
                         <v-progress-linear
@@ -267,11 +267,30 @@ function startInterval(): void {
     interval.value = int;
 }
 
+function closeDialog(): void {
+    obStore.clearUploading();
+    v1AppStore.setUploadingModal(false);
+}
+
 watch(() => objectsInProgress.value.length, () => {
     if (!interval.value) {
         startDate.value = Date.now();
         startInterval();
     }
+});
+
+watch(() => projectsStore.state.selectedProject, (value, oldValue) => {
+    if (value.id === oldValue.id || !isObjectsUploadModal.value) {
+        return;
+    }
+    closeDialog();
+});
+
+watch(bucketName, (value, oldValue) => {
+    if (value === oldValue || !isObjectsUploadModal.value) {
+        return;
+    }
+    closeDialog();
 });
 
 onMounted(() => {

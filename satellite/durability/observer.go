@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"

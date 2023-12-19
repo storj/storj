@@ -203,7 +203,8 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
 	createFields.Salt = dbx.Project_Salt(salt[:])
 	createFields.DefaultPlacement = dbx.Project_DefaultPlacement(int(project.DefaultPlacement))
-	createFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
+	// new projects should have default versioning of Unversioned
+	createFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(console.Unversioned))
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),

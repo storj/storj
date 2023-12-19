@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"math"
 	"strconv"
 	"testing"
 
@@ -718,6 +719,41 @@ func TestPiecesUpdate(t *testing.T) {
 			require.Equal(t, got, tt.want, tt.name)
 		})
 	}
+}
+
+func TestStreamVersionID(t *testing.T) {
+	expectedVersion := metabase.Version(1)
+	expectedStreamID := uuid.UUID{2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4}
+
+	object := metabase.Object{
+		ObjectStream: metabase.ObjectStream{
+			Version:  expectedVersion,
+			StreamID: expectedStreamID,
+		},
+	}
+	encodedVersion := object.StreamVersionID().Bytes()
+	require.Equal(t, []byte{0, 0, 0, 0, 0, 0, 0, 1, 4, 4, 4, 4, 4, 4, 4, 4}, encodedVersion)
+
+	streamVersionID, err := metabase.StreamVersionIDFromBytes(encodedVersion)
+	require.NoError(t, err)
+	require.Equal(t, expectedVersion, streamVersionID.Version())
+	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+
+	expectedVersion = metabase.Version(testrand.Int63n(math.MaxInt64))
+	expectedStreamID = testrand.UUID()
+
+	object = metabase.Object{
+		ObjectStream: metabase.ObjectStream{
+			Version:  expectedVersion,
+			StreamID: expectedStreamID,
+		},
+	}
+	encodedVersion = object.StreamVersionID().Bytes()
+
+	streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
+	require.NoError(t, err)
+	require.Equal(t, expectedVersion, streamVersionID.Version())
+	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 }
 
 func BenchmarkSegmentPieceSize(b *testing.B) {

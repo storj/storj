@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
@@ -262,11 +261,6 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 // It does all of its work by way of the ReverifyQueue.
 func (dbc *satelliteDBCollection) Containment() audit.Containment {
 	return &containment{reverifyQueue: dbc.ReverifyQueue()}
-}
-
-// GracefulExit returns database for graceful exit.
-func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
-	return &gracefulexitDB{db: dbc.getByName("gracefulexit")}
 }
 
 // StripeCoinPayments returns database for stripecoinpayments.

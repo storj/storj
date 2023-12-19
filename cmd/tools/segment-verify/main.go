@@ -207,7 +207,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	// setup dependencies for verification
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), nodeselection.NewPlacementDefinitions().CreateFilters, "", "", satelliteCfg.Overlay)
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), nodeselection.NewPlacementDefinitions(), "", "", satelliteCfg.Overlay)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -30,6 +30,11 @@ func (obj *Object) IsMigrated() bool {
 	return obj.TotalPlainSize <= 0
 }
 
+// StreamVersionID returns byte representation of object stream version id.
+func (obj *Object) StreamVersionID() StreamVersionID {
+	return newStreamVersionID(obj.Version, obj.StreamID)
+}
+
 // Segment segment metadata.
 // TODO define separated struct.
 type Segment RawSegment

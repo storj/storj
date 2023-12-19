@@ -26,8 +26,9 @@ func TestAccountFreezeEvents(t *testing.T) {
 		}
 
 		days := 60
+		userID := testrand.UUID()
 		event := &console.AccountFreezeEvent{
-			UserID:             testrand.UUID(),
+			UserID:             userID,
 			Type:               console.BillingFreeze,
 			DaysTillEscalation: &days,
 			Limits: &console.AccountFreezeEventLimits{
@@ -89,6 +90,34 @@ func TestAccountFreezeEvents(t *testing.T) {
 			require.NoError(t, eventsDB.DeleteAllByUserID(ctx, event.UserID))
 			_, err := eventsDB.Get(ctx, event.UserID, event.Type)
 			require.ErrorIs(t, err, sql.ErrNoRows)
+		})
+
+		t.Run("GetAll must return bot freeze events", func(t *testing.T) {
+			botEvent := &console.AccountFreezeEvent{
+				UserID:             userID,
+				Type:               console.DelayedBotFreeze,
+				DaysTillEscalation: &days,
+			}
+
+			dbEvent, err := eventsDB.Upsert(ctx, botEvent)
+			require.NoError(t, err)
+			require.NotNil(t, dbEvent)
+
+			botEvent.Type = console.BotFreeze
+
+			dbEvent, err = eventsDB.Upsert(ctx, botEvent)
+			require.NoError(t, err)
+			require.NotNil(t, dbEvent)
+
+			events, err := eventsDB.GetAll(ctx, userID)
+			require.NoError(t, err)
+			require.NotNil(t, events)
+			require.Nil(t, events.BillingFreeze)
+			require.Nil(t, events.BillingWarning)
+			require.Nil(t, events.ViolationFreeze)
+			require.Nil(t, events.LegalFreeze)
+			require.NotNil(t, events.DelayedBotFreeze)
+			require.NotNil(t, events.BotFreeze)
 		})
 	})
 }

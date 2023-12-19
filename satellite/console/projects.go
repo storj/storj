@@ -146,8 +146,8 @@ type ProjectInfo struct {
 type DefaultVersioning int
 
 const (
-	// Unsupported - versioning for created buckets is not supported.
-	Unsupported DefaultVersioning = 0
+	// VersioningUnsupported - versioning for created buckets is not supported.
+	VersioningUnsupported DefaultVersioning = 0
 	// Unversioned - versioning for created buckets is supported but not enabled.
 	Unversioned DefaultVersioning = 1
 	// VersioningEnabled - versioning for created buckets is supported and enabled.

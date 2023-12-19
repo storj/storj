@@ -136,17 +136,16 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.Equal(t, item.EncryptedObjectKey, response.Object.EncryptedObjectKey)
 
 				// get with WRONG version, should return error
-				version, err := metabase.VersionFromBytes(response.Object.ObjectVersion)
-				require.NoError(t, err)
-				version++
-				nonExistingVersion := version.Encode()
+				object := metabase.Object{}
+				object.Version = metabase.Version(response.Object.Version) + 1
+				copy(object.StreamID[:], response.Object.StreamId[:])
 				_, err = satellite.Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header: &pb.RequestHeader{
 						ApiKey: apiKey.SerializeRaw(),
 					},
 					Bucket:             []byte(expectedBucketName),
 					EncryptedObjectKey: item.EncryptedObjectKey,
-					ObjectVersion:      nonExistingVersion,
+					ObjectVersion:      object.StreamVersionID().Bytes(),
 				})
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
@@ -734,27 +733,28 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+			require.EqualValues(t, committedObject.StreamVersionID().Bytes(), downloadObjectResponse.Object.ObjectVersion)
 
 			// download using explicit version
 			downloadObjectResponse, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
-				ObjectVersion:      committedObject.Version.Encode(),
+				ObjectVersion:      committedObject.StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-			require.EqualValues(t, committedObject.Version.Encode(), downloadObjectResponse.Object.ObjectVersion)
+			require.EqualValues(t, committedObject.StreamVersionID().Bytes(), downloadObjectResponse.Object.ObjectVersion)
 
 			// download using NON EXISTING version
-			nonExistingVersion := committedObject.Version + 1
+			nonExistingObject := committedObject
+			nonExistingObject.Version++
 			_, err = satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte("testbucket"),
 				EncryptedObjectKey: []byte(committedObject.ObjectKey),
-				ObjectVersion:      nonExistingVersion.Encode(),
+				ObjectVersion:      nonExistingObject.StreamVersionID().Bytes(),
 			})
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
@@ -774,14 +774,15 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 			// first try to delete not existing version
-			nonExistingVersion := objects[0].Version + 1
+			nonExistingObject := objects[0]
+			nonExistingObject.Version++
 			response, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
-				ObjectVersion:      nonExistingVersion.Encode(),
+				ObjectVersion:      nonExistingObject.StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.Nil(t, response.Object)
@@ -793,7 +794,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objects[0].ObjectKey),
-				ObjectVersion:      objects[0].Version.Encode(),
+				ObjectVersion:      objects[0].StreamVersionID().Bytes(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, response.Object)
@@ -1265,7 +1266,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 			require.NoError(t, err)
 			require.Len(t, allObjects, 1)
-			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].Version.Encode())
+			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].StreamVersionID().Bytes())
 		})
 
 		t.Run("get object IP", func(t *testing.T) {

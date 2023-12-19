@@ -121,8 +121,6 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
-	// GracefulExit returns database for graceful exit
-	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.

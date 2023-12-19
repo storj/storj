@@ -308,7 +308,7 @@ type Service struct {
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules nodeselection.PlacementRules, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -338,13 +338,13 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules
 
 	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
 		config.NodeSelectionCache.Staleness, config.Node,
-		defaultSelection, placementRules,
+		defaultSelection, placements.CreateFilters,
 	)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	downloadSelectionCache, err := NewDownloadSelectionCache(log, db,
-		placementRules,
+		placements.CreateFilters,
 		DownloadSelectionCacheConfig{
 			Staleness:      config.NodeSelectionCache.Staleness,
 			OnlineWindow:   config.Node.OnlineWindow,
@@ -368,7 +368,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placementRules
 		DownloadSelectionCache: downloadSelectionCache,
 		LastNetFunc:            MaskOffLastNet,
 
-		placementRules: placementRules,
+		placementRules: placements.CreateFilters,
 	}, nil
 }
 

@@ -75,24 +75,6 @@ func (c *Service) ListPendingExits(ctx context.Context) (_ []ExitingSatellite, e
 	return exitingSatellites, nil
 }
 
-// DeletePiece deletes one piece stored for a satellite, and updates
-// the deleted byte count for the corresponding graceful exit operation.
-func (c *Service) DeletePiece(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	piece, err := c.store.Reader(ctx, satelliteID, pieceID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	err = c.store.Delete(ctx, satelliteID, pieceID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	// update graceful exit progress
-	size := piece.Size()
-	return c.satelliteDB.UpdateGracefulExit(ctx, satelliteID, size)
-}
-
 // DeleteSatelliteData deletes all pieces and blobs stored for a satellite.
 //
 // Note: this should only ever be called after exit has finished.

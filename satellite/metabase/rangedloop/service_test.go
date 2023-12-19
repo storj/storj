@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gc/bloomfilter"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -411,12 +410,6 @@ func TestAllInOne(t *testing.T) {
 			audit.NewObserver(log.Named("audit"),
 				satellite.DB.VerifyQueue(),
 				satellite.Config.Audit,
-			),
-			gracefulexit.NewObserver(log.Named("gracefulexit:observer"),
-				satellite.DB.GracefulExit(),
-				satellite.DB.OverlayCache(),
-				satellite.Metabase.DB,
-				satellite.Config.GracefulExit,
 			),
 			bloomfilter.NewObserver(log.Named("gc-bf"),
 				bfConfig,

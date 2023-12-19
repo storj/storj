@@ -36,6 +36,11 @@ type ObjectEntry struct {
 	Encryption storj.EncryptionParameters
 }
 
+// StreamVersionID returns byte representation of object stream version id.
+func (entry ObjectEntry) StreamVersionID() StreamVersionID {
+	return newStreamVersionID(entry.Version, entry.StreamID)
+}
+
 // ObjectsIterator iterates over a sequence of ObjectEntry items.
 type ObjectsIterator interface {
 	Next(ctx context.Context, item *ObjectEntry) bool

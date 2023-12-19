@@ -370,6 +370,19 @@ func TestCpRemoteToRemote(t *testing.T) {
 			ultest.File{Loc: "sj://b1/mid-slash//file", Contents: "data8"},
 		)
 	})
+
+	t.Run("Expires", func(t *testing.T) {
+		state.Fail(t, "cp", "--expires", "+4h", "sj://b1/ends-slash", "sj://b1/ends-slash-copy").RequireFiles(t,
+			ultest.File{Loc: "sj://b1/dot-dot/../../../../../foo", Contents: "data1"},
+			ultest.File{Loc: "sj://b1/dot-dot/../../foo", Contents: "data2"},
+			ultest.File{Loc: "sj://b1/dot-dot/../foo", Contents: "data3"},
+			ultest.File{Loc: "sj://b1//starts-slash", Contents: "data4"},
+			ultest.File{Loc: "sj://b1/ends-slash", Contents: "data5"},
+			ultest.File{Loc: "sj://b1/ends-slash/", Contents: "data6"},
+			ultest.File{Loc: "sj://b1/ends-slash//", Contents: "data7"},
+			ultest.File{Loc: "sj://b1/mid-slash//file", Contents: "data8"},
+		)
+	})
 }
 
 func TestCpLocalToLocal(t *testing.T) {

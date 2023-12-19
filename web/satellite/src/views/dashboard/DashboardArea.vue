@@ -390,7 +390,10 @@ onMounted(async () => {
         agStore.stopWorker();
         await agStore.startWorker();
     } catch (error) {
-        notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        notify.error('Unable to set access grants wizard. You may be able to fix this by doing a hard-refresh or clearing your cache.', AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        // We do this in case user goes to DevTools to check if anything is there.
+        // This also might be useful for us since we improve error handling.
+        console.error(error.message);
     }
 
     if (billingEnabled.value) {

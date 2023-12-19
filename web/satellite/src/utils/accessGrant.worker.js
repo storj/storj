@@ -1,20 +1,27 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// eslint-disable-next-line no-undef
-importScripts('/static/static/wasm/wasm_exec.js');
-
 if (!WebAssembly.instantiate) {
-    self.postMessage(new Error('web assembly is not supported'));
+    self.postMessage({ error: new Error('Web assembly is not supported') });
 }
 
 async function setupWithCacheControl(mode) {
-    const go = new self.Go();
-
-    const manifestResp = await fetch('/static/static/wasm/wasm-manifest.json', { cache: 'no-cache' });
+    const manifestResp = await fetch('/static/static/wasm/wasm-manifest.json', { cache: 'no-store' });
+    if (!manifestResp.ok) {
+        throw new Error('Failed to fetch wasm manifest.');
+    }
     const manifest = await manifestResp.json();
 
-    const response = await fetch(`/static/static/wasm/${manifest.fileName}`, { cache: mode });
+    // eslint-disable-next-line no-undef
+    importScripts(`/static/static/wasm/${manifest.helperFileName}`);
+
+    const go = new self.Go();
+
+    const response = await fetch(`/static/static/wasm/${manifest.moduleFileName}`, { cache: mode });
+    if (!response.ok) {
+        throw new Error('Failed to fetch wasm module.');
+    }
+
     const buffer = await response.arrayBuffer();
     const module = await WebAssembly.compile(buffer);
     const instance = await WebAssembly.instantiate(module, go.importObject);
@@ -36,7 +43,7 @@ self.onmessage = async function (event) {
             try {
                 await setupWithCacheControl('reload');
             } catch (e) {
-                self.postMessage(new Error(e.message));
+                self.postMessage({ error: new Error(e.message) });
             }
         }
 
@@ -96,6 +103,6 @@ self.onmessage = async function (event) {
         }
         break;
     default:
-        self.postMessage(new Error('provided message event type is not supported'));
+        self.postMessage({ error: new Error('provided message event type is not supported') });
     }
 };

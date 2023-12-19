@@ -141,7 +141,14 @@ onBeforeMount(async () => {
 
     await selectProject(route.params.id as string);
 
-    if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
+    try {
+        if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
+    } catch (error) {
+        notify.error('Unable to set access grants wizard. You may be able to fix this by doing a hard-refresh or clearing your cache.', AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        // We do this in case user goes to DevTools to check if anything is there.
+        // This also might be useful for us since we improve error handling.
+        console.error(error.message);
+    }
 
     isLoading.value = false;
 });

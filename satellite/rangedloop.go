@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/gc/piecetracker"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
@@ -58,10 +57,6 @@ type RangedLoop struct {
 
 	Repair struct {
 		Observer *checker.Observer
-	}
-
-	GracefulExit struct {
-		Observer rangedloop.Observer
 	}
 
 	Accounting struct {
@@ -118,18 +113,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		peer.Metrics.Observer = metrics.NewObserver()
 	}
 
-	{ // setup gracefulexit
-		if config.GracefulExit.Enabled && !config.GracefulExit.TimeBased {
-			peer.GracefulExit.Observer = gracefulexit.NewObserver(
-				peer.Log.Named("gracefulexit:observer"),
-				peer.DB.GracefulExit(),
-				peer.DB.OverlayCache(),
-				metabaseDB,
-				config.GracefulExit,
-			)
-		}
-	}
-
 	{ // setup node tally observer
 		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
@@ -172,7 +155,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			return nil, err
 		}
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), placement.CreateFilters, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -214,10 +197,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.Tally.UseRangedLoop {
 			observers = append(observers, peer.Accounting.NodeTallyObserver)
-		}
-
-		if peer.GracefulExit.Observer != nil && config.GracefulExit.UseRangedLoop {
-			observers = append(observers, peer.GracefulExit.Observer)
 		}
 
 		if config.Repairer.UseRangedLoop {

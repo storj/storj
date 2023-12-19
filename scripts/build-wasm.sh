@@ -6,26 +6,35 @@ set -o pipefail
 # Ensure the directory exists
 mkdir -p release/$TAG/wasm/
 
-# Copy wasm javascript to match the go version
+# Copy wasm helper file
 cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" release/$TAG/wasm/
 
-# Compress wasm javascript using brotli
-brotli -k release/$TAG/wasm/wasm_exec.js
+# Take a hash of a wasm helper file
+helper_hash=$(sha256sum release/$TAG/wasm/wasm_exec.js | awk '{print $1}')
 
-# Build wasm code
+# Define new helper file name
+helper_filename="wasm_exec.${helper_hash:0:8}.js"
+
+# Rename helper file to include the hash
+mv release/$TAG/wasm/wasm_exec.js release/$TAG/wasm/$helper_filename
+
+# Compress wasm helper file using brotli
+brotli -k release/$TAG/wasm/$helper_filename
+
+# Build wasm module
 GOOS=js GOARCH=wasm go build -o release/$TAG/wasm/access.wasm storj.io/storj/satellite/console/wasm
 
-# Take a hash of generated wasm code
-hash=$(sha256sum release/$TAG/wasm/access.wasm | awk '{print $1}')
+# Take a hash of generated wasm module
+module_hash=$(sha256sum release/$TAG/wasm/access.wasm | awk '{print $1}')
 
-# Define new file name
-filename="access.${hash:0:8}.wasm"
+# Define new module file name
+module_filename="access.${module_hash:0:8}.wasm"
 
-# Rename the file to include the hash
-mv release/$TAG/wasm/access.wasm release/$TAG/wasm/$filename
+# Rename module file to include the hash
+mv release/$TAG/wasm/access.wasm release/$TAG/wasm/$module_filename
 
-# Compress wasm code using brotli
-brotli -k release/$TAG/wasm/$filename
+# Compress wasm module using brotli
+brotli -k release/$TAG/wasm/$module_filename
 
-# Generate the manifest which would contain our new file name
-echo "{\"fileName\": \"$filename\"}" > release/$TAG/wasm/wasm-manifest.json
+# Generate the manifest which would contain new helper and module file names
+echo "{\"helperFileName\": \"$helper_filename\", \"moduleFileName\": \"$module_filename\"}" > release/$TAG/wasm/wasm-manifest.json
