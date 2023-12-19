@@ -9,7 +9,13 @@ export class LoginPage {
     constructor(readonly page: Page) {}
 
     async navigateToURL(): Promise<void> {
-        await this.page.goto(testConfig.host+testConfig.port);
+        await this.page.goto(`${testConfig.host}${testConfig.port}/login`);
+    }
+
+    async loginByCreds(email: string, password: string): Promise<void> {
+        await this.page.locator(LoginPageObjects.EMAIL_EDITBOX_ID).fill(email);
+        await this.page.locator(LoginPageObjects.PASSWORD_EDITBOX_ID).fill(password);
+        await this.page.locator('span').filter({ hasText: 'Sign In' }).click();
     }
 
     async loginToApplication(): Promise<void> {

@@ -3,7 +3,7 @@
 
 import * as os from 'os';
 // import generateCustomLayoutSimpleMeta from './slackReporter';
-import { PlaywrightTestConfig, ReporterDescription } from '@playwright/test';
+import { defineConfig, ReporterDescription } from '@playwright/test';
 
 // require('dotenv').config();
 
@@ -42,7 +42,7 @@ const addReporter = (): ReporterDescription[] => {
 const isPipeline = !!process.env.CI;
 const threshold = 0.95;
 
-const config: PlaywrightTestConfig = {
+export default defineConfig({
     expect: {
         timeout: 4000, // Maximum time expect() should wait for the condition to be met.
         toMatchSnapshot: { threshold }, // Only require the screenshots to be the same within a certain threshold.
@@ -111,6 +111,4 @@ const config: PlaywrightTestConfig = {
         },
     },
     workers: process.env.CI ? 1 : undefined,
-};
-
-export default config;
+});

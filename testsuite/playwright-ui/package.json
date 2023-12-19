@@ -9,9 +9,10 @@
     "browser-debug": "DEBUG=pw:browser* npx playwright test",
     "lint": "eslint . --ext .ts --fix",
     "posttest": "npm run allure:generate && npm run allure:local",
+    "prerun-dev": "chmod +x ./scripts/prerun-dev.sh && ./scripts/prerun-dev.sh",
     "test": "npx playwright test ./tests/",
-    "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/login.test.ts --trace on",
-    "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
+    "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/bucket.test.ts --trace on",
+    "test-dev": "npm run prerun-dev && npx playwright test ./tests/ --headed --project=chromium-hd --trace on"
   },
   "license": "ISC",
   "dependencies": {
@@ -21,10 +22,12 @@
     "@slack/web-api": "6.8.0",
     "@typescript-eslint/parser": "6.14.0",
     "@typescript-eslint/eslint-plugin": "6.14.0",
+    "@types/uuid": "9.0.7",
     "allure-commandline": "2.23.0",
     "allure-playwright": "2.4.0",
     "eslint": "8.56.0",
     "mocha-multi-reporters": "1.5.1",
-    "playwright-slack-report": "1.0.19"
+    "playwright-slack-report": "1.0.19",
+    "uuid": "9.0.1"
   }
 }

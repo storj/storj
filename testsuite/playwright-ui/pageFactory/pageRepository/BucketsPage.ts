@@ -24,20 +24,18 @@ export class BucketsPage {
         await this.page.locator(BucketsPageObjects.CONTINUE_BUTTON_PASSPHRASE_MODAL_XPATH).click();
     }
 
-    async downloadFileByName(name: string): Promise<void> {
-        const uiTestFile = this.page.getByText(name);
+    async downloadFromPreview(name: string): Promise<void> {
+        const uiTestFile = this.page.getByText(name, { exact: true }).nth(1);
         await expect(uiTestFile).toBeVisible();
-        await uiTestFile.click();
         await Promise.all([
             this.page.waitForEvent('download'),
-            this.page.locator(BucketsPageObjects.DOWNLOAD_BUTTON_XPATH).click(),
+            this.page.locator(BucketsPageObjects.OBJECT_PREVIEW_BUTTON_XPATH).nth(2).click(),
         ]);
         await expect(this.page.getByText('Keep this download link private.If you want to share, use the Share option.')).toBeVisible();
-
     }
 
     async clickShareButton(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.SHARE_BUTTON_XPATH).click();
+        await this.page.locator(BucketsPageObjects.OBJECT_PREVIEW_BUTTON_XPATH).nth(3).click();
     }
 
     async clickCopyLinkButton(): Promise<void> {
@@ -52,7 +50,7 @@ export class BucketsPage {
     }
 
     async verifyObjectMapIsVisible(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.OBJECT_MAP_TEXT_XPATH).isVisible();
+        await this.page.locator(BucketsPageObjects.OBJECT_PREVIEW_BUTTON_XPATH).nth(1).click();
         await this.page.locator(BucketsPageObjects.OBJECT_MAP_IMAGE_XPATH).isVisible();
     }
 
@@ -60,12 +58,8 @@ export class BucketsPage {
         await this.page.getByRole('img', { name: 'preview' }).isVisible();
     }
 
-    async closeModal(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.CLOSE_MODAL_BUTTON_XPATH).click();
-    }
-
     async closeFilePreview(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.CLOSE_FILE_PREVIEW_BUTTON_XPATH).click();
+        await this.page.locator(BucketsPageObjects.OBJECT_PREVIEW_BUTTON_XPATH).nth(4).click();
     }
 
     async openFileDropdownByName(name: string): Promise<void> {
@@ -86,11 +80,6 @@ export class BucketsPage {
         await this.clickNewFolderButton();
         await this.page.locator(BucketsPageObjects.NEW_FOLDER_NAME_FIELD_XPATH).fill(name);
         await this.page.getByText(BucketsPageObjects.CREATE_FOLDER_BUTTON_TEXT).click();
-    }
-
-    async openFileByName(name: string): Promise<void> {
-        await this.page.getByText(name).click();
-        await this.page.locator(`//p[contains(text(),'${name}')]`).isVisible();
     }
 
     async openBucketSettings(): Promise<void> {
@@ -134,7 +123,7 @@ export class BucketsPage {
     }
 
     async clickNewBucketButton(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.NEW_BUCKET_BUTTON_XPATH).click();
+        await this.page.locator(BucketsPageObjects.NEW_BUCKET_BUTTON_XPATH).nth(0).click();
     }
 
     async enterNewBucketName(name: string): Promise<void> {
@@ -143,18 +132,6 @@ export class BucketsPage {
 
     async clickContinueCreateBucket(): Promise<void> {
         await this.page.locator(BucketsPageObjects.CONTINUE_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
-    }
-
-    async clickEnterPassphraseRadioButton(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.ENTER_PASSPHRASE_RADIO_BUTTON_XPATH).click();
-    }
-
-    async enterNewBucketPassphrase(passphrase: string): Promise<void> {
-        await this.page.locator(BucketsPageObjects.PASSPHRASE_INPUT_NEW_BUCKET_XPATH).fill(passphrase);
-    }
-
-    async clickConfirmCheckmark(): Promise<void> {
-        await this.page.locator(BucketsPageObjects.CHECKMARK_ENTER_PASSPHRASE_XPATH).click();
     }
 
     async openBucketDropdownByName(name: string): Promise<void> {

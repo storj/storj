@@ -15,13 +15,13 @@ test.describe('Check for branded signup page, and sign up personal/business acco
         await signupPage.verifyIXBrandedHeader();
         await signupPage.verifyIXBrandedSubHeader();
 
-        await signupPage.signupApplicationPersonal(name, email, password);
+        await signupPage.signupApplicationPersonal(name, email, password, true);
         await signupPage.verifySuccessMessage();
 
         await signupPage.navigateToPartnerSignup();
         await signupPage.verifyIXBrandedHeader();
 
-        await signupPage.signupApplicationBusiness(name, email, password, company, position);
+        await signupPage.signupApplicationBusiness(name, email, password, company, position, true);
         await signupPage.verifySuccessMessage();
     });
 });

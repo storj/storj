@@ -12,6 +12,7 @@ test.describe('Login Test', () => {
     test('Login', async ({ loginPage }, testInfo) => {
         console.log(`Running ${testInfo.title}`);
 
+        await loginPage.navigateToURL();
         await loginPage.loginToApplication();
     });
 });

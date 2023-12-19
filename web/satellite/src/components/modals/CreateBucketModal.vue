@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/types/router';
@@ -311,9 +311,11 @@ function isBucketNameValid(name: string): boolean {
     }
 }
 
-onMounted(async (): Promise<void> => {
+onBeforeMount(() => {
     setWorker();
+});
 
+onMounted(async (): Promise<void> => {
     try {
         await bucketsStore.getAllBucketsNames(projectsStore.state.selectedProject.id);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
