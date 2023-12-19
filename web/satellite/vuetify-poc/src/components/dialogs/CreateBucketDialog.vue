@@ -12,7 +12,6 @@
         <v-card ref="innerContent" rounded="xlg">
             <v-sheet>
                 <v-card-item class="pa-5 pl-7">
-
                     <template #prepend>
                         <v-sheet
                             class="border-sm d-flex justify-center align-center"

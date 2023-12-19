@@ -3,7 +3,6 @@
 
 <template>
     <v-container>
-
         <v-row>
             <v-col>
                 <PageTitleComponent title="Project Settings" />
@@ -15,7 +14,7 @@
             <v-col cols="12" sm="6">
                 <v-card title="Project Name" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                     {{ project.name }}
+                        {{ project.name }}
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
@@ -28,7 +27,7 @@
             <v-col cols="12" sm="6">
                 <v-card title="Project Description" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                     {{ project.description }}
+                        {{ project.description }}
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
@@ -50,7 +49,7 @@
             <v-col cols="12">
                 <v-card title="Free Account" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                        {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br/>
+                        {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
                         Need more? Upgrade to Pro.
                     </v-card-subtitle>
                     <v-card-text>
@@ -67,7 +66,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <v-card title="Storage Limit" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                        Storage Limit: {{ storageLimitFormatted }} <br/>
+                        Storage Limit: {{ storageLimitFormatted }} <br>
                         Available Storage: {{ paidStorageLimitFormatted }}
                     </v-card-subtitle>
                     <v-card-text>
@@ -82,7 +81,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <v-card title="Download Limit" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                        Download Limit: {{ bandwidthLimitFormatted }} per month<br/>
+                        Download Limit: {{ bandwidthLimitFormatted }} per month<br>
                         Available Download: {{ paidBandwidthLimitFormatted }} per month
                     </v-card-subtitle>
                     <v-card-text>
@@ -97,7 +96,7 @@
             <v-col cols="12" lg="4">
                 <v-card title="Account Limits" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
-                        Storage limit: {{ paidStorageLimitFormatted }} <br /> 
+                        Storage limit: {{ paidStorageLimitFormatted }} <br>
                         Download limit: {{ paidBandwidthLimitFormatted }} per month
                     </v-card-subtitle>
                     <v-card-text>
@@ -117,7 +116,6 @@
                 </v-card>
             </v-col>
         </v-row>
-
     </v-container>
 
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />

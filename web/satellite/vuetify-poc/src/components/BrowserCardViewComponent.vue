@@ -3,9 +3,7 @@
 
 <template>
     <v-card class="pa-2 mb-7">
-
         <v-row align="center">
-
             <v-col>
                 <v-text-field
                     v-model="search"
@@ -60,10 +58,8 @@
                     </v-btn>
                 </v-btn-toggle>
             </v-col>
-
         </v-row>
     </v-card>
-
 
     <v-data-iterator
         :page="cursor.page"
@@ -95,7 +91,6 @@
 
         <template #footer>
             <v-card class="pa-2 my-6">
-
                 <div class="d-flex align-center">
                     <v-menu>
                         <template #activator="{ props: limitProps }">

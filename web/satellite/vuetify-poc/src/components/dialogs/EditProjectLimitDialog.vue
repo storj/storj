@@ -116,8 +116,8 @@
                                 color="primary"
                                 track-color="default"
                                 :model-value="input"
-                                @update:model-value="updateInput"
                                 hide-details
+                                @update:model-value="updateInput"
                             />
                         </v-card>
                     </v-col>

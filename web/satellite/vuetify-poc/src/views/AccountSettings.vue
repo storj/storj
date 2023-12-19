@@ -30,9 +30,10 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-tooltip
-                                activator="parent"
-                                location="top"
-                            >To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                            activator="parent"
+                            location="top"
+                        >
+                            To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
                         </v-tooltip>
                         <v-divider class="mb-4" />
                         <v-btn variant="outlined" color="default" size="small" disabled>
@@ -94,7 +95,6 @@
                 </v-card>
             </v-col>
         </v-row>
-
     </v-container>
 
     <ChangePasswordDialog

@@ -25,7 +25,7 @@
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
                 <v-btn v-bind="props" density="compact" variant="plain" color="grey" icon>
-                    <v-icon icon="mdi-information-outline" size="16"/>
+                    <v-icon icon="mdi-information-outline" size="16" />
                 </v-btn>
             </template>
             <p>
