@@ -187,6 +187,7 @@ function openProject(item: ProjectItemModel): void {
     projectsStore.selectProject(item.id);
     router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
 /**

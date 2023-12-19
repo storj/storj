@@ -45,7 +45,7 @@
 
                 <v-divider />
 
-                <v-list-item v-if="!isPaidTier && billingEnabled">
+                <v-list-item v-if="!isPaidTier && billingEnabled" @click="toggleUpgradeFlow">
                     <v-list-item-title>Free Account</v-list-item-title>
                     <v-list-item-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth.
@@ -145,6 +145,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { decimalShift } from '@/utils/strings';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useAppStore } from '@poc/store/appStore';
 
 import EditProjectDetailsDialog from '@poc/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
@@ -154,6 +155,7 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
+const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
@@ -221,6 +223,10 @@ const paidBandwidthLimitFormatted = computed<string>(() => {
 const projectLimitsIncreaseRequestURL = computed((): string => {
     return configStore.state.config.projectLimitsIncreaseRequestURL;
 });
+
+function toggleUpgradeFlow(): void {
+    appStore.toggleUpgradeFlow(true);
+}
 
 /**
  * Returns formatted limit value.

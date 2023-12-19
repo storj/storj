@@ -179,6 +179,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@poc/store/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UpgradeAccountDialog from '@poc/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
@@ -195,6 +196,7 @@ const model = computed<boolean>({
     set: value => emit('update:modelValue', value),
 });
 
+const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
@@ -252,6 +254,8 @@ async function onPrimaryClick(): Promise<void> {
             model.value = false;
             router.push(`/projects/${project.urlId}/dashboard`);
             notify.success('Project created.');
+
+            analyticsStore.pageVisit('/projects/dashboard');
         });
     } else if (usersStore.state.user.paidTier) {
         if (!isLimitIncreaseRequestEnabled.value) {

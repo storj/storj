@@ -128,7 +128,7 @@
 
                     <v-divider class="my-2" />
 
-                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link to="/account/billing" @click="closeSideNav">
+                    <v-list-item v-if="billingEnabled" link class="my-1 rounded-lg" router-link to="/account/billing" @click="() => registerLinkClick('/account/billing')">
                         <template #prepend>
                             <icon-card size="18" />
                         </template>
@@ -137,7 +137,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="closeSideNav">
+                    <v-list-item link class="my-1 rounded-lg" router-link to="/account/settings" @click="() => registerLinkClick('/account/settings')">
                         <template #prepend>
                             <icon-settings size="18" />
                         </template>
@@ -268,6 +268,14 @@ activeTheme.value = theme.global.current.value.dark ? 1 : 0;
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
+}
+
+/**
+ * Conditionally closes the navigation drawer and tracks page visit.
+ */
+function registerLinkClick(page: string): void {
+    closeSideNav();
+    analyticsStore.pageVisit(page);
 }
 
 function toggleUpgradeFlow(): void {

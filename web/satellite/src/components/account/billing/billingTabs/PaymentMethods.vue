@@ -409,6 +409,9 @@ async function addCard(res: string): Promise<void> {
         const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
         await action(res);
         closeAddPayment();
+
+        analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
+
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
@@ -436,7 +439,6 @@ async function onConfirmAddStripe(): Promise<void> {
     isLoading.value = true;
     await stripeCardInput.value.onSubmit();
     isLoading.value = false;
-    analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
 }
 
 function addPaymentMethodHandler(): void {

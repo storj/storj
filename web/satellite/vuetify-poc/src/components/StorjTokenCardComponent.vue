@@ -37,12 +37,14 @@ import { computed, onMounted, ref } from 'vue';
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@poc/store/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AddTokensDialog from '@poc/components/dialogs/AddTokensDialog.vue';
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
@@ -132,6 +134,8 @@ function claimWalletClick(): void {
  * Conditionally claim a wallet before that.
  */
 function onAddTokens(): void {
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+
     withLoading(async () => {
         if (!wallet.value.address) {
             // not possible from this component

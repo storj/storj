@@ -254,7 +254,7 @@ async function download(): Promise<void> {
         );
     } catch (error) {
         error.message = `Error downloading file. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
+        notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
     }
     isDownloading.value = false;
 }

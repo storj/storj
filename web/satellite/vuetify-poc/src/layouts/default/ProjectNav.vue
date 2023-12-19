@@ -83,7 +83,7 @@
                     </template>
 
                     <!-- Project Settings -->
-                    <v-list-item :to="`/projects/${selectedProject.urlId}/settings`">
+                    <v-list-item router-link :to="`/projects/${selectedProject.urlId}/settings`" @click="() => registerLinkClick('/projects/settings')">
                         <template #prepend>
                             <IconSettings />
                         </template>
@@ -147,25 +147,25 @@
             </v-list-item>
             -->
 
-            <navigation-item title="Overview" :to="`/projects/${selectedProject.urlId}/dashboard`">
+            <navigation-item title="Overview" :to="`/projects/${selectedProject.urlId}/dashboard`" @click="() => registerDashboardLinkClick('/projects/dashboard')">
                 <template #prepend>
                     <IconDashboard />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Buckets" :to="`/projects/${selectedProject.urlId}/buckets`">
+            <navigation-item title="Buckets" :to="`/projects/${selectedProject.urlId}/buckets`" @click="() => registerLinkClick('/projects/buckets')">
                 <template #prepend>
                     <IconBucket />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Access" :to="`/projects/${selectedProject.urlId}/access`">
+            <navigation-item title="Access" :to="`/projects/${selectedProject.urlId}/access`" @click="() => registerLinkClick('/projects/access')">
                 <template #prepend>
                     <IconAccess size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item title="Team" :to="`/projects/${selectedProject.urlId}/team`">
+            <navigation-item title="Team" :to="`/projects/${selectedProject.urlId}/team`" @click="() => registerLinkClick('/projects/team')">
                 <template #prepend>
                     <IconTeam size="18" />
                 </template>
@@ -192,6 +192,7 @@
                         href="https://docs.storj.io/"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="() => trackViewDocsEvent('https://docs.storj.io/')"
                     >
                         <template #prepend>
                             <!-- <img src="@poc/assets/icon-docs.svg" alt="Docs"> -->
@@ -210,6 +211,7 @@
                         href="https://forum.storj.io/"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="() => trackViewForumEvent('https://forum.storj.io/')"
                     >
                         <template #prepend>
                             <IconForum />
@@ -227,6 +229,7 @@
                         href="https://supportdcs.storj.io/hc/en-us"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
                     >
                         <template #prepend>
                             <IconSupport />
@@ -357,6 +360,38 @@ function registerLinkClick(page: string): void {
  */
 function trackPageVisitEvent(page: string): void {
     analyticsStore.pageVisit(page);
+}
+
+function registerDashboardLinkClick(page: string): void {
+    registerLinkClick(page);
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+}
+
+/**
+ * Sends "View Docs" event to segment and opens link.
+ */
+function trackViewDocsEvent(link: string): void {
+    registerLinkClick(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(link);
+}
+
+/**
+ * Sends "View Forum" event to segment and opens link.
+ */
+function trackViewForumEvent(link: string): void {
+    registerLinkClick(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
+    window.open(link);
+}
+
+/**
+ * Sends "View Support" event to segment and opens link.
+ */
+function trackViewSupportEvent(link: string): void {
+    registerLinkClick(link);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
+    window.open(link);
 }
 
 /**

@@ -15,6 +15,7 @@
                 clearable
                 density="compact"
                 rounded="lg"
+                @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
             />
         </v-col>
         <v-col cols="auto">
@@ -183,12 +184,13 @@ import {
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { tableSizeOptions } from '@/types/common';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@poc/components/dialogs/DeleteFileDialog.vue';
@@ -206,6 +208,7 @@ const emit = defineEmits<{
     newFolderClick: [];
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();

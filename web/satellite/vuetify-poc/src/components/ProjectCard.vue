@@ -132,6 +132,7 @@ function openProject(): void {
     projectsStore.selectProject(props.item.id);
     router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
 /**
@@ -141,6 +142,7 @@ function onSettingsClick(): void {
     if (!props.item) return;
     projectsStore.selectProject(props.item.id);
     router.push(`/projects/${projectsStore.state.selectedProject.urlId}/settings`);
+    analyticsStore.pageVisit('/projects/settings');
 }
 
 /**
