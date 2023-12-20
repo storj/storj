@@ -171,7 +171,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
 
-	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
+	if err = endpoint.checkRate(ctx, keyInfo); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
 	}
@@ -205,26 +205,22 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
 }
 
-func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
+func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
-	limiter, err := endpoint.limiterCache.Get(ctx, projectID.String(), func() (*rate.Limiter, error) {
+	limiter, err := endpoint.limiterCache.Get(ctx, apiKeyInfo.ProjectID.String(), func() (*rate.Limiter, error) {
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
-		limits, err := endpoint.projectLimits.GetLimits(ctx, projectID)
-		if err != nil {
-			return nil, err
-		}
-		if limits.RateLimit != nil {
-			rateLimit = rate.Limit(*limits.RateLimit)
-			burstLimit = *limits.RateLimit
+		if apiKeyInfo.ProjectRateLimit != nil {
+			rateLimit = rate.Limit(*apiKeyInfo.ProjectRateLimit)
+			burstLimit = *apiKeyInfo.ProjectRateLimit
 		}
 		// use the explicitly set burst value if it's defined
-		if limits.BurstLimit != nil {
-			burstLimit = *limits.BurstLimit
+		if apiKeyInfo.ProjectBurstLimit != nil {
+			burstLimit = *apiKeyInfo.ProjectBurstLimit
 		}
 
 		return rate.NewLimiter(rateLimit, burstLimit), nil
@@ -235,7 +231,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 
 	if !limiter.Allow() {
 		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("Project ID", projectID),
+			zap.Stringer("Project ID", apiKeyInfo.ProjectID),
 			zap.Float64("rate limit", float64(limiter.Limit())),
 			zap.Float64("burst limit", float64(limiter.Burst())))
 

@@ -243,7 +243,7 @@ read one (
     where api_key.id = ?
 )
 read one (
-    select api_key project.public_id
+    select api_key project.public_id project.rate_limit project.burst_limit 
     join project.id = api_key.project_id
     where api_key.head = ?
 )
