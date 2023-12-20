@@ -5,7 +5,7 @@
     <v-dialog
         v-model="model"
         width="auto"
-        min-width="400px"
+        min-width="320px"
         max-width="450px"
         transition="fade-transition"
     >
@@ -45,7 +45,7 @@
             <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="onCreate">
                 <v-row>
                     <v-col>
-                        <p>Buckets are used to store and organize your files.</p>
+                        <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
                         <v-text-field
                             v-model="bucketName"
                             variant="outlined"
