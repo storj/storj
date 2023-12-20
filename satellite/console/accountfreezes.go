@@ -638,6 +638,58 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 	return ErrAccountFreeze.Wrap(err)
 }
 
+// BotUnfreezeUser reverses the bot freeze placed on the user specified by the given ID.
+func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		event, err := tx.AccountFreezeEvents().Get(ctx, userID, BotFreeze)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+			return err
+		}
+
+		if event.Limits == nil {
+			return errs.New("freeze event limits are nil")
+		}
+
+		for id, limits := range event.Limits.Projects {
+			err = tx.Projects().UpdateUsageLimits(ctx, id, limits)
+			if err != nil {
+				return err
+			}
+
+			// remove rate limit
+			err = tx.Projects().UpdateRateLimit(ctx, id, limits.RateLimit)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BotFreeze)
+		if err != nil {
+			return err
+		}
+
+		activeStatus := Active
+		err = tx.Users().Update(ctx, userID, UpdateUserRequest{Status: &activeStatus})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
 // GetAll returns all events for a user.
 func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)

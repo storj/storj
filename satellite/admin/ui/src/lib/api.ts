@@ -454,7 +454,7 @@ Blank fields will not be updated.`,
 			},
 			{
 				name: 'activate account/disable bot restriction',
-				desc: 'disables account bot restriction by activating it. Must be used only for accounts with PendingBotVerification status.',
+				desc: 'Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.',
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch(

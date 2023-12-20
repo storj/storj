@@ -1083,11 +1083,13 @@ func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	activeStatus := console.Active
-	if err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &activeStatus}); err != nil {
-		sendJSONError(w, "unable to set user status to active",
-			err.Error(), http.StatusInternalServerError)
-		return
+	err = server.freezeAccounts.BotUnfreezeUser(ctx, user.ID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errs.Is(err, console.ErrNoFreezeStatus) {
+			status = http.StatusConflict
+		}
+		sendJSONError(w, "failed to unfreeze bot user", err.Error(), status)
 	}
 }
 

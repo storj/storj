@@ -1,18 +1,12 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {DashboardPageObjects} from "@objects/DashboardPageObjects";
-import type {Page} from '@playwright/test';
-import {expect} from '@playwright/test';
+import { DashboardPageObjects } from '@objects/DashboardPageObjects';
+import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 
-export class DashboardPage extends DashboardPageObjects {
-    readonly page: Page;
-
-    constructor(page: Page) {
-        super();
-        this.page = page;
-
-    }
+export class DashboardPage {
+    constructor(readonly page: Page) {}
 
     async verifyWelcomeMessage(): Promise<void> {
         await expect(this.page.locator(DashboardPageObjects.WELCOME_TEXT_LOCATOR)).toBeVisible();
@@ -38,5 +32,4 @@ export class DashboardPage extends DashboardPageObjects {
         await this.enterPassphrase(passphrase);
         await this.clickContinuePassphraseButton();
     }
-
 }

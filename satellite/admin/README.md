@@ -238,7 +238,7 @@ Removes the account level geofence for the user.
 
 #### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
 
-Disables account bot restriction by activating it. Used only for accounts with PendingBotVerification status.
+Disables account bot restrictions by activating the account and restoring its limit values. This is used only for accounts with the PendingBotVerification status.
 
 ### OAuth Client Management
 

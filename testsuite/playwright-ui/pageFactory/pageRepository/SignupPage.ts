@@ -1,25 +1,20 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {SignupPageObjects} from "@objects/SignupPageObjects";
-import type {Page} from '@playwright/test';
-import {expect} from "@playwright/test";
-import {testConfig} from "../../testConfig";
+import { SignupPageObjects } from '@objects/SignupPageObjects';
+import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { testConfig } from '../../testConfig';
 
-export class SignupPage extends SignupPageObjects {
-    readonly page: Page;
-
-    constructor(page: Page) {
-        super();
-        this.page = page;
-    }
+export class SignupPage {
+    constructor(readonly page: Page) {}
 
     async navigateToPartnerSignup(): Promise<void> {
         await this.page.goto(testConfig.host + testConfig.port + '/signup?partner=ix-storj-1');
     }
 
     async clickOnBusinessButton(): Promise<void> {
-        await this.page.locator(SignupPageObjects.IX_BRANDED_BUSINESS_BUTTON_XPATH).click()
+        await this.page.locator(SignupPageObjects.IX_BRANDED_BUSINESS_BUTTON_XPATH).click();
     }
 
     async signupApplicationPersonal(name: string, email: string, password: string): Promise<void> {
@@ -35,7 +30,7 @@ export class SignupPage extends SignupPageObjects {
         const checkmarks = await this.page.$$(SignupPageObjects.TOS_CHECKMARK_BUTTON_XPATH);
 
         for (const checkmark of checkmarks) {
-            await checkmark.click({timeout: 8000});
+            await checkmark.click({ timeout: 8000 });
         }
     }
 
@@ -54,7 +49,6 @@ export class SignupPage extends SignupPageObjects {
         await this.page.locator(SignupPageObjects.GOTO_LOGIN_PAGE_BUTTON_XPATH).click();
     }
 
-
     async verifyIXBrandedHeader(): Promise<void> {
         await expect(this.page.locator(SignupPageObjects.IX_BRANDED_HEADER_TEXT_XPATH)).toBeVisible();
     }
@@ -62,6 +56,4 @@ export class SignupPage extends SignupPageObjects {
     async verifyIXBrandedSubHeader(): Promise<void> {
         await expect(this.page.locator(SignupPageObjects.IX_BRANDED_SUBHEADER_TEXT_XPATH)).toBeVisible();
     }
-
-
 }
