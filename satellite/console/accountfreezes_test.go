@@ -4,10 +4,12 @@
 package console_test
 
 import (
+	"database/sql"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
@@ -627,7 +629,7 @@ func TestFreezeEffects(t *testing.T) {
 	})
 }
 
-func TestAccountBotFreeze(t *testing.T) {
+func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -683,6 +685,35 @@ func TestAccountBotFreeze(t *testing.T) {
 
 		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
 		require.Error(t, err)
+		require.True(t, errs.Is(err, sql.ErrNoRows))
+		require.Nil(t, event)
+
+		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
+		require.NoError(t, err)
+		require.NotNil(t, event)
+
+		require.NoError(t, service.BotUnfreezeUser(ctx, user.ID))
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Active, user.Status)
+		require.NotZero(t, user.ProjectBandwidthLimit)
+		require.NotZero(t, user.ProjectStorageLimit)
+		require.NotZero(t, user.ProjectSegmentLimit)
+
+		projects, err = sat.DB.Console().Projects().GetOwn(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 2)
+
+		for _, p := range projects {
+			require.NotZero(t, *p.BandwidthLimit)
+			require.NotZero(t, *p.StorageLimit)
+			require.NotZero(t, *p.SegmentLimit)
+		}
+
+		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
+		require.Error(t, err)
+		require.True(t, errs.Is(err, sql.ErrNoRows))
 		require.Nil(t, event)
 	})
 }

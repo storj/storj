@@ -23,7 +23,7 @@
                     </v-card-item>
 
                     <v-card-text>
-                        <v-form v-model="formValid" class="pt-4">
+                        <v-form ref="form" v-model="formValid" class="pt-4">
                             <v-select
                                 v-model="satellite"
                                 label="Satellite"
@@ -273,6 +273,7 @@ const queryEmail = queryRef('email');
 const inviterEmail = queryRef('inviter_email');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const form = ref<VForm | null>(null);
 const viewConfig = ref<ViewConfig | null>(null);
 
 const satellitesHints = [
@@ -390,6 +391,7 @@ function onCaptchaError(): void {
  * Holds on login button click logic.
  */
 async function onSignupClick(): Promise<void> {
+    form.value?.validate();
     if (!formValid.value || isLoading.value) {
         return;
     }
@@ -407,7 +409,6 @@ async function onSignupClick(): Promise<void> {
  * Creates user.
  */
 async function signup(): Promise<void> {
-
     const finalEmail = isInvited.value ? queryEmail.value : email.value;
     try {
         signupID.value = await auth.register({
