@@ -74,7 +74,7 @@
         <v-row v-else-if="isTableView">
             <!-- Table view -->
             <v-col>
-                <ProjectsTableComponent :items="items" @join-click="onJoinClicked" />
+                <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
             </v-col>
         </v-row>
 

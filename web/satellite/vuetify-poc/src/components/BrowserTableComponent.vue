@@ -26,7 +26,7 @@
             :items="tableFiles"
             :search="search"
             :item-value="(item: BrowserObjectWrapper) => item.browserObject.Key"
-            no-data-text="No data found"
+            :no-data-text="search ? 'No data found' : 'Drag and drop files to upload'"
             :page="cursor.page"
             hover
             must-sort

@@ -72,7 +72,7 @@
     >
         <template #no-data>
             <div class="d-flex justify-center">
-                <p class="text-body-2">No data found.</p>
+                <p class="text-body-2">{{ search ? 'No data found.' : 'Drag and drop files to upload' }}</p>
             </div>
         </template>
 

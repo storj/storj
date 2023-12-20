@@ -92,7 +92,7 @@
                                         </v-list-item-title>
                                     </v-list-item>
                                     <v-divider class="my-1" />
-                                    <v-list-item link>
+                                    <v-list-item link @click="emit('inviteClick', item)">
                                         <template #prepend>
                                             <icon-team size="18" />
                                         </template>
@@ -154,6 +154,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (event: 'joinClick', item: ProjectItemModel): void;
+    (event: 'inviteClick', item: ProjectItemModel): void;
 }>();
 
 const search = ref<string>('');
