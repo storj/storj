@@ -216,7 +216,7 @@
                     color="default"
                     @click="isCreateBucketDialogOpen = true"
                 >
-                    <IconBucket />
+                    <IconCirclePlus class="mr-2" />
                     New Bucket
                 </v-btn>
             </v-col>
@@ -298,8 +298,7 @@ import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
 import LimitWarningBanners from '@poc/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
 import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
-import IconUpload from '@poc/components/icons/IconUpload.vue';
-import IconBucket from '@poc/components/icons/IconBucket.vue';
+import IconCirclePlus from '@poc/components/icons/IconCirclePlus.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
