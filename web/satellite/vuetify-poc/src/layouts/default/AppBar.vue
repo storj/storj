@@ -9,7 +9,7 @@
             v-if="showNavDrawerButton"
             variant="text"
             color="default"
-            class="ml-3 mr-2"
+            class="ml-2 ml-sm-3 mr-0 mr-sm-2"
             size="small"
             density="comfortable"
             @click.stop="appStore.toggleNavigationDrawer()"
@@ -78,7 +78,7 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        class="ml-3 font-weight-medium"
+                        class="ml-2 ml-sm-3 font-weight-medium"
                     >
                         <template #append>
                             <img src="@poc/assets/icon-dropdown.svg" alt="Account Dropdown">
