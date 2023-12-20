@@ -134,15 +134,26 @@ func main() {
 		TypeScriptName: "get",
 		Response:       []myapi.User{},
 		ResponseMock: []myapi.User{
-			{Name: "Storj", Surname: "Labs", Email: "storj@storj.test"},
-			{Name: "Test1", Surname: "Testing", Email: "test1@example.test"},
-			{Name: "Test2", Surname: "Testing", Email: "test2@example.test"},
+			{
+				Name:         "Storj",
+				Surname:      "Labs",
+				Email:        "storj@storj.test",
+				Professional: myapi.Professional{Company: "Test 1", Position: "Tester"},
+			},
+			{
+				Name: "Test1", Surname: "Testing", Email: "test1@example.test",
+				Professional: myapi.Professional{Company: "Test 2", Position: "Accountant"},
+			},
+			{
+				Name: "Test2", Surname: "Testing", Email: "test2@example.test",
+				Professional: myapi.Professional{Company: "Test 3", Position: "Slacker"},
+			},
 		},
 	})
 
 	g.Post("/", &apigen.Endpoint{
-		Name:           "Create User",
-		Description:    "Create a user",
+		Name:           "Create Users",
+		Description:    "Create users",
 		GoName:         "Create",
 		TypeScriptName: "create",
 		Request:        []myapi.User{},

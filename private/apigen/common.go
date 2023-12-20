@@ -188,10 +188,12 @@ type jsonTagInfo struct {
 	Skip      bool
 }
 
-func parseJSONTag(structType reflect.Type, field reflect.StructField) jsonTagInfo {
+// parseJSONTag returns the JSON tag information and true if the field has it, otherwise false.
+// It returns an error if the JSON tag is malformed.
+func parseJSONTag(structType reflect.Type, field reflect.StructField) (_ jsonTagInfo, has bool, _ error) {
 	tag, ok := field.Tag.Lookup("json")
 	if !ok {
-		panic(fmt.Sprintf("(%s).%s missing json tag", structType.String(), field.Name))
+		return jsonTagInfo{}, false, nil
 	}
 
 	options := strings.Split(tag, ",")
@@ -201,10 +203,10 @@ func parseJSONTag(structType reflect.Type, field reflect.StructField) jsonTagInf
 
 	fieldName := options[0]
 	if fieldName == "" {
-		panic(fmt.Sprintf("(%s).%s missing json field name", structType.String(), field.Name))
+		return jsonTagInfo{}, false, fmt.Errorf("(%s).%s missing json field name", structType.String(), field.Name)
 	}
 	if fieldName == "-" && len(options) == 1 {
-		return jsonTagInfo{Skip: true}
+		return jsonTagInfo{Skip: true}, true, nil
 	}
 
 	info := jsonTagInfo{FieldName: fieldName}
@@ -215,5 +217,5 @@ func parseJSONTag(structType reflect.Type, field reflect.StructField) jsonTagInf
 		}
 	}
 
-	return info
+	return info, true, nil
 }
