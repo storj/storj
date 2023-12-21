@@ -265,6 +265,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
 			placement,
+			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.Metainfo.RateLimiter.Rate,
 		)
 
 		adminConfig := config.Admin

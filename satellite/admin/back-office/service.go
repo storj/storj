@@ -11,6 +11,12 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
+// Defaults contains default values for limits which are not stored in the DB.
+type Defaults struct {
+	MaxBuckets int
+	RateLimit  int
+}
+
 // Service provides functionality for administrating satellites.
 type Service struct {
 	log          *zap.Logger
@@ -18,6 +24,7 @@ type Service struct {
 	accountingDB accounting.ProjectAccounting
 	accounting   *accounting.Service
 	placement    nodeselection.PlacementDefinitions
+	defaults     Defaults
 }
 
 // NewService creates a new satellite administration service.
@@ -27,6 +34,8 @@ func NewService(
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
 	placement nodeselection.PlacementDefinitions,
+	defaultMaxBuckets int,
+	defaultRateLimit float64,
 ) *Service {
 	return &Service{
 		log:          log,
@@ -34,5 +43,9 @@ func NewService(
 		accountingDB: accountingDB,
 		accounting:   accounting,
 		placement:    placement,
+		defaults: Defaults{
+			MaxBuckets: defaultMaxBuckets,
+			RateLimit:  int(defaultRateLimit),
+		},
 	}
 }
