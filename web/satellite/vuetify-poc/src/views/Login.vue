@@ -66,6 +66,7 @@
                             />
 
                             <v-text-field
+                                id="Email Address"
                                 v-model="email"
                                 class="mb-2"
                                 label="Email address"
@@ -79,6 +80,7 @@
                             />
 
                             <v-text-field
+                                id="Password"
                                 v-model="password"
                                 class="mb-2"
                                 label="Password"

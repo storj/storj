@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { SignupPageObjects } from '@objects/SignupPageObjects';
+import { SignupPageObjects, SignupPageObjectsV2 } from '@objects/SignupPageObjects';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { testConfig } from '../../testConfig';
@@ -60,5 +60,37 @@ export class SignupPage {
 
     async verifyIXBrandedSubHeader(): Promise<void> {
         await expect(this.page.locator(SignupPageObjects.IX_BRANDED_SUBHEADER_TEXT_XPATH)).toBeVisible();
+    }
+}
+
+export class SignupPageV2 {
+    constructor(readonly page: Page) {}
+
+    async navigateToLogin(): Promise<void> {
+        await this.page.locator(SignupPageObjectsV2.GOTO_LOGIN_PAGE_BUTTON_XPATH).click();
+    }
+
+    async navigateToSignup(): Promise<void> {
+        await this.page.goto(`${testConfig.host}${testConfig.port}/v2/signup`);
+    }
+
+    async signupFirstStep(email: string, password: string): Promise<void> {
+        await this.page.locator(SignupPageObjectsV2.INPUT_EMAIL_XPATH).fill(email);
+        await this.page.locator(SignupPageObjectsV2.INPUT_PASSWORD_XPATH).fill(password);
+        await this.page.locator(SignupPageObjectsV2.INPUT_RETYPE_PASSWORD_XPATH).fill(password);
+        await this.page.locator(SignupPageObjectsV2.TOS_CHECKMARK_XPATH).click();
+        await this.page.locator(SignupPageObjectsV2.CREATE_ACCOUNT_BUTTON_XPATH).click();
+    }
+
+    async verifySuccessMessage(): Promise<void> {
+        await expect(this.page.locator(SignupPageObjectsV2.SIGNUP_SUCCESS_MESSAGE_XPATH)).toBeVisible();
+    }
+
+    async verifyHeader(): Promise<void> {
+        await expect(this.page.locator(SignupPageObjectsV2.HEADER_TEXT_XPATH)).toBeVisible();
+    }
+
+    async verifySubheader(): Promise<void> {
+        await expect(this.page.locator(SignupPageObjectsV2.SUBHEADER_TEXT_XPATH)).toBeVisible();
     }
 }

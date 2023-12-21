@@ -17,7 +17,9 @@ export class Common {
     }
 
     async waitLoading(): Promise<void> {
-        const loader = this.page.locator(CommonObjects.LOADER_XPATH);
-        await expect(loader).toBeHidden();
+        const loaders = await this.page.locator(CommonObjects.LOADER_XPATH).all();
+        for (const l of loaders) {
+            await expect(l).toBeHidden();
+        }
     }
 }

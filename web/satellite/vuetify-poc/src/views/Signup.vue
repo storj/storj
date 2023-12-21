@@ -38,6 +38,7 @@
 
                             <v-text-field
                                 v-if="isInvited"
+                                id="Email Address"
                                 :model-value="queryEmail"
                                 class="mb-2"
                                 label="Email address"
@@ -52,6 +53,7 @@
 
                             <v-text-field
                                 v-else
+                                id="Email Address"
                                 v-model="email"
                                 class="mb-2"
                                 label="Email address"
@@ -66,6 +68,7 @@
                             />
 
                             <v-text-field
+                                id="Password"
                                 v-model="password"
                                 class="mb-2"
                                 label="Password"
@@ -84,10 +87,11 @@
                             </v-text-field>
 
                             <v-text-field
+                                id="Retype Password"
                                 ref="repPasswordField"
                                 v-model="repPassword"
                                 class="mb-2"
-                                label="Password"
+                                label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
@@ -112,7 +116,14 @@
                                 border
                             >
                                 <template #title>
-                                    <v-checkbox v-model="acceptedBetaTerms" :rules="[RequiredRule]" density="compact" hide-details="auto" required>
+                                    <v-checkbox
+                                        id="Beta terms checkbox"
+                                        v-model="acceptedBetaTerms"
+                                        :rules="[RequiredRule]"
+                                        density="compact"
+                                        hide-details="auto"
+                                        required
+                                    >
                                         <template #label>
                                             This is a BETA satellite
                                         </template>
@@ -127,7 +138,14 @@
                                 </template>
                             </v-alert>
 
-                            <v-checkbox v-model="acceptedTerms" :rules="[RequiredRule]" density="compact" hide-details="auto" required>
+                            <v-checkbox
+                                id="Terms checkbox"
+                                v-model="acceptedTerms"
+                                :rules="[RequiredRule]"
+                                density="compact"
+                                hide-details="auto"
+                                required
+                            >
                                 <template #label>
                                     <p class="text-body-2">
                                         I agree to the
@@ -138,7 +156,7 @@
                                 </template>
                             </v-checkbox>
 
-                            <v-checkbox density="compact">
+                            <v-checkbox id="Newsletter checkbox" density="compact">
                                 <template #label>
                                     <p class="text-body-2">I want to receive the Storj newsletter by email.</p>
                                 </template>
@@ -447,7 +465,7 @@ async function signup(): Promise<void> {
             const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
+            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = `${window.location.origin}/v2/${nonBraveSuccessPath}`;
         } else {
             confirmCode.value = true;
         }
@@ -464,7 +482,7 @@ async function signup(): Promise<void> {
  * Detect if user uses Brave browser
  */
 async function detectBraveBrowser(): Promise<boolean> {
-    return (navigator['brave'] && await navigator['brave'].isBrave() || false);
+    return (navigator['brave'] && await navigator['brave'].isBrave()) || false;
 }
 
 onBeforeMount(async () => {
