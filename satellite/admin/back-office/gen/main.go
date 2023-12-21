@@ -71,6 +71,20 @@ func main() {
 		},
 	})
 
+	group.Put("/limits/{publicID}", &apigen.Endpoint{
+		Name:           "Update project limits",
+		Description:    "Updates project limits by ID",
+		GoName:         "UpdateProjectLimits",
+		TypeScriptName: "updateProjectLimits",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Request: backoffice.ProjectLimitsUpdate{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectSetLimits},
+		},
+	})
+
 	modroot := findModuleRootDir()
 	api.MustWriteGo(filepath.Join(modroot, "satellite", "admin", "back-office", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join(modroot, "satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))

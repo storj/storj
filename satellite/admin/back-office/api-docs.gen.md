@@ -10,6 +10,7 @@
   * [Get user](#usermanagement-get-user)
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
+  * [Update project limits](#projectmanagement-update-project-limits)
 
 <h3 id='placementmanagement-get-placements'>Get placements (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -109,6 +110,32 @@ Gets project by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+}
+
+```
+
+<h3 id='projectmanagement-update-project-limits'>Update project limits (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates project limits by ID
+
+`PUT /back-office/api/v1/projects/limits/{publicID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	maxBuckets: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	rateLimit: number
+	burstLimit: number
 }
 
 ```

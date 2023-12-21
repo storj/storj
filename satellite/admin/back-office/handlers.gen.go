@@ -31,6 +31,7 @@ type UserManagementService interface {
 
 type ProjectManagementService interface {
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
+	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdate) api.HTTPError
 }
 
 // PlacementManagementHandler is an api handler that implements all PlacementManagement API endpoints functionality.
@@ -93,6 +94,7 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 
 	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
+	projectsRouter.HandleFunc("/limits/{publicID}", handler.handleUpdateProjectLimits).Methods("PUT")
 
 	return handler
 }
@@ -177,5 +179,40 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := ProjectLimitsUpdate{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 16384) {
+		return
+	}
+
+	httpErr := h.service.UpdateProjectLimits(ctx, publicID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
