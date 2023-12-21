@@ -5,7 +5,7 @@
     <v-dialog
         v-model="model"
         width="auto"
-        min-width="400px"
+        min-width="320px"
         max-width="450px"
         transition="fade-transition"
     >
@@ -13,11 +13,20 @@
             <v-sheet>
                 <v-card-item class="pa-5 pl-7">
                     <template #prepend>
-                        <v-card-title class="font-weight-bold">
-                            <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
-                            Create New Bucket
-                        </v-card-title>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <img src="@poc/assets/icon-bucket.svg" alt="Bucket icon">
+                        </v-sheet>
                     </template>
+
+                    <v-card-title class="font-weight-bold">
+                        <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
+                        New Bucket
+                    </v-card-title>
 
                     <template #append>
                         <v-btn
@@ -36,7 +45,7 @@
             <v-form v-model="formValid" class="pa-7 pb-3" @submit.prevent="onCreate">
                 <v-row>
                     <v-col>
-                        <p>Buckets are used to store and organize your files.</p>
+                        <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
                         <v-text-field
                             v-model="bucketName"
                             variant="outlined"

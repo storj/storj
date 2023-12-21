@@ -30,6 +30,7 @@
                         label="Use Case (optional)"
                         placeholder="Select your use case"
                         variant="outlined"
+                        class="mt-2"
                     />
                 </v-form>
             </v-col>

@@ -116,7 +116,7 @@ const accessNameToDelete = ref<string>('');
 
 const headers = [
     {
-        title: 'Name',
+        title: 'Access Name',
         align: 'start',
         key: 'name',
     },

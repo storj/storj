@@ -208,15 +208,15 @@ const isTableSortable = computed<boolean>(() => {
 const headers = computed<DataTableHeader[]>(() => {
     const hdrs: DataTableHeader[] = [
         {
-            title: 'Name',
+            title: 'Bucket',
             align: 'start',
             key: 'name',
             sortable: isTableSortable.value,
         },
-        { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
-        { title: 'Download', key: 'egress', sortable: isTableSortable.value },
         { title: 'Files', key: 'objectCount', sortable: isTableSortable.value },
         { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
+        { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
+        { title: 'Download', key: 'egress', sortable: isTableSortable.value },
         { title: 'Date Created', key: 'since', sortable: isTableSortable.value },
         { title: '', key: 'actions', width: '0', sortable: false },
     ];

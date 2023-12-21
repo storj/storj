@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="pb-10">
+    <v-container class="pb-15">
         <low-token-balance-banner
             v-if="isLowBalance && billingEnabled"
             cta-label="Go to billing"
@@ -38,10 +38,15 @@
                     link="https://docs.storj.io/dcs/pricing#per-segment-fee"
                 />
             </v-col>
-            <v-col v-if="!isPaidTier && billingEnabled" cols="auto">
-                <v-btn @click="appStore.toggleUpgradeFlow(true)">
+            <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
+                <v-btn v-if="!isPaidTier && billingEnabled" variant="outlined" color="default" @click="appStore.toggleUpgradeFlow(true)">
+                    <IconUpgrade size="16" class="mr-2" />
                     Upgrade
                 </v-btn>
+                <!-- <v-btn v-else variant="outlined" color="default" to="buckets" >
+                    <IconUpload class="mr-2"/>
+                    Upload
+                </v-btn> -->
             </v-col>
         </v-row>
 
@@ -66,7 +71,7 @@
             </v-col>
         </v-row>
 
-        <v-row class="d-flex align-center justify-center">
+        <v-row class="d-flex align-center justify-center mb-5">
             <v-col cols="12" md="6">
                 <UsageProgressComponent
                     icon="cloud"
@@ -75,7 +80,7 @@
                     :used="`${usedLimitFormatted(limits.storageUsed)} Used`"
                     :limit="`Limit: ${usedLimitFormatted(limits.storageLimit)}`"
                     :available="`${usedLimitFormatted(availableStorage)} Available`"
-                    cta="Need more?"
+                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Edit Limit'"
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
             </v-col>
@@ -87,80 +92,10 @@
                     :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
                     :limit="`Limit: ${usedLimitFormatted(limits.bandwidthLimit)} per month`"
                     :available="`${usedLimitFormatted(availableEgress)} Available`"
-                    cta="Need more?"
+                    :cta="!isPaidTier && billingEnabled ? 'Need more?' : 'Edit Limit'"
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
-        </v-row>
-
-        <v-row class="justify-end mx-0">
-            <v-btn prepend-icon="$calendar" @click="isDatePicker = true">
-                {{ dateRangeLabel }}
-            </v-btn>
-        </v-row>
-
-        <v-row class="d-flex align-center justify-center mt-2">
-            <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true" rounded="xlg">
-                    <template #title>
-                        <v-card-title class="d-flex align-center">
-                            <IconCloud class="mr-2" width="16" height="16" />
-                            Storage
-                        </v-card-title>
-                    </template>
-                    <h5 class="pl-4">{{ getDimension(storageUsage) }}</h5>
-                    <StorageChart
-                        :width="chartWidth"
-                        :height="160"
-                        :data="storageUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
-                </v-card>
-            </v-col>
-            <v-col cols="12" md="6">
-                <v-card class="pb-4" variant="outlined" :border="true" rounded="xlg">
-                    <template #title>
-                        <v-card-title class="d-flex align-center justify-space-between">
-                            <v-row class="ma-0 align-center">
-                                <IconArrowDown class="mr-2" width="16" height="16" />
-                                Download
-                            </v-row>
-                            <v-row class="ma-0 align-center justify-end">
-                                <v-tooltip width="250" location="bottom">
-                                    <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="16" icon="mdi-information-outline" />
-                                    </template>
-                                    <template #default>
-                                        <p>
-                                            The most recent data may change as download moves from "allocated" to "settled".
-                                            <a
-                                                class="link"
-                                                href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Learn more
-                                            </a>
-                                        </p>
-                                    </template>
-                                </v-tooltip>
-                            </v-row>
-                        </v-card-title>
-                    </template>
-                    <h5 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h5>
-                    <BandwidthChart
-                        :width="chartWidth"
-                        :height="160"
-                        :data="allocatedBandwidthUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
-                </v-card>
-            </v-col>
-        </v-row>
-
-        <v-row class="d-flex align-center justify-center">
             <v-col cols="12" md="6">
                 <UsageProgressComponent
                     icon="globe"
@@ -199,9 +134,96 @@
             </v-col>
         </v-row>
 
+        <v-row align="center" justify="space-between">
+            <v-col cols="12" md="auto">
+                <v-card-title class="font-weight-bold pl-0">Daily Usage</v-card-title>
+                <v-card-subtitle class="pl-0">Select date range to view daily usage statistics.</v-card-subtitle>
+            </v-col>
+            <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
+                <v-btn prepend-icon="$calendar" variant="outlined" color="default" @click="isDatePicker = true">
+                    {{ dateRangeLabel }}
+                </v-btn>
+            </v-col>
+        </v-row>
+
+        <v-row class="d-flex align-center justify-center mt-2 mb-5">
+            <v-col cols="12" md="6">
+                <v-card ref="chartContainer" class="pb-4" variant="outlined" :border="true" rounded="xlg">
+                    <template #title>
+                        <v-card-title class="d-flex align-center">
+                            <IconCloud class="mr-2" width="16" height="16" />
+                            Storage
+                        </v-card-title>
+                    </template>
+                    <h5 class="pl-4">{{ getDimension(storageUsage) }}</h5>
+                    <StorageChart
+                        :width="chartWidth"
+                        :height="160"
+                        :data="storageUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
+                    />
+                </v-card>
+            </v-col>
+            <v-col cols="12" md="6">
+                <v-card class="pb-4" variant="outlined" :border="true" rounded="xlg">
+                    <template #title>
+                        <v-card-title class="d-flex align-center justify-space-between">
+                            <v-row class="ma-0 align-center">
+                                <IconArrowDown class="mr-2" width="16" height="16" />
+                                Download
+                                <v-tooltip width="250" location="bottom">
+                                    <template #activator="{ props }">
+                                        <v-icon v-bind="props" size="16" icon="mdi-information-outline text-medium-emphasis" class="ml-2" />
+                                    </template>
+                                    <template #default>
+                                        <p>
+                                            The most recent data may change as download moves from "allocated" to "settled".
+                                            <a
+                                                class="link"
+                                                href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                Learn more
+                                            </a>
+                                        </p>
+                                    </template>
+                                </v-tooltip>
+                            </v-row>
+                        </v-card-title>
+                    </template>
+                    <h5 class="pl-4">{{ getDimension(allocatedBandwidthUsage) }}</h5>
+                    <BandwidthChart
+                        :width="chartWidth"
+                        :height="160"
+                        :data="allocatedBandwidthUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
+                    />
+                </v-card>
+            </v-col>
+        </v-row>
+
+        <v-row align="center" justify="space-between">
+            <v-col cols="12" md="auto">
+                <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
+                <v-card-subtitle class="pl-0">Buckets are where you upload and organize your data.</v-card-subtitle>
+            </v-col>
+            <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
+                <v-btn
+                    variant="outlined"
+                    color="default"
+                    @click="isCreateBucketDialogOpen = true"
+                >
+                    <IconCirclePlus class="mr-2" />
+                    New Bucket
+                </v-btn>
+            </v-col>
+        </v-row>
+
         <v-row>
             <v-col>
-                <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
                 <buckets-data-table />
             </v-col>
         </v-row>
@@ -210,12 +232,14 @@
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
     <create-bucket-dialog v-model="isCreateBucketDialogShown" />
     <manage-passphrase-dialog v-model="isSetPassphraseDialogShown" is-create />
+    <CreateBucketDialog v-model="isCreateBucketDialogOpen" />
+
     <v-overlay v-model="isDatePicker" class="align-center justify-center">
         <v-date-picker
             v-model="datePickerModel"
             multiple
             show-adjacent-months
-            hide-header
+            header="Daily Usage"
             :disabled="isLoading"
         />
     </v-overlay>
@@ -273,6 +297,8 @@ import IconCloud from '@poc/components/icons/IconCloud.vue';
 import IconArrowDown from '@poc/components/icons/IconArrowDown.vue';
 import LimitWarningBanners from '@poc/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@poc/components/LowTokenBalanceBanner.vue';
+import IconUpgrade from '@poc/components/icons/IconUpgrade.vue';
+import IconCirclePlus from '@poc/components/icons/IconCirclePlus.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -296,6 +322,7 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogShown = ref<boolean>(false);
 const isSetPassphraseDialogShown = ref<boolean>(false);
+const isCreateBucketDialogOpen = ref<boolean>(false);
 const isDatePicker = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
 
@@ -618,7 +645,7 @@ onMounted(async (): Promise<void> => {
 
     const now = new Date();
     const past = new Date();
-    past.setDate(past.getDate() - 30);
+    past.setDate(past.getDate() - 7);
 
     let promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: past, before: now }),

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="pb-4">
+    <p class="text-body-2 mb-4">
         Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
         Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
         If your account is not automatically upgraded, please fill out this
@@ -14,7 +14,7 @@
         >limit increase request form</a>.
     </p>
 
-    <v-row class="pb-4 ma-0" justify="center">
+    <v-row class="ma-0 border rounded-lg" justify="center">
         <v-col cols="auto">
             <canvas ref="canvas" />
         </v-col>
@@ -25,11 +25,11 @@
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
                 <v-btn v-bind="props" density="compact" variant="plain" color="grey" icon>
-                    <v-icon icon="mdi-information-outline" />
+                    <v-icon icon="mdi-information-outline" size="16" />
                 </v-btn>
             </template>
             <p>
-                This is a Storj deposit address generated just for you.
+                This is a Storj token deposit address generated just for you.
                 <a
                     style="color: var(--c-white);"
                     href=""
@@ -43,8 +43,8 @@
     </p>
 
     <v-row justify="space-between" align="center" class="ma-0 mb-4 border-sm rounded-lg">
-        <v-col class="pa-0 pl-3">
-            <p>{{ wallet.address }}</p>
+        <v-col class="pb-0">
+            <p class="text-caption">{{ wallet.address }}</p>
         </v-col>
 
         <v-col class="pa-2 pr-3" cols="auto">
@@ -60,8 +60,6 @@
         </v-col>
     </v-row>
 
-    <v-divider />
-
     <AddTokensStepBanner
         :is-default="viewState === ViewState.Default"
         :is-pending="viewState === ViewState.Pending"
@@ -71,10 +69,10 @@
 
     <v-btn
         v-if="viewState !== ViewState.Success && !isRoot"
-        class="mt-3"
+        class="my-4"
         block
         variant="outlined"
-        color="grey-lighten-1"
+        color="default"
         @click="emit('back')"
     >
         Back

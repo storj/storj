@@ -31,11 +31,11 @@
             <v-form v-model="formValid" class="pa-7" @submit.prevent>
                 <v-row>
                     <v-col cols="6">
-                        <p class="text-subtitle-2 mb-1">Set {{ limitType }} Limit</p>
+                        <p class="text-subtitle-2 mb-2">Set {{ limitType }} Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
                             variant="outlined"
-                            density="compact"
+                            density="comfortable"
                             type="number"
                             :rules="rules"
                             :hide-details="false"
@@ -49,7 +49,7 @@
                                         <v-btn
                                             class="h-100 text-medium-emphasis"
                                             variant="text"
-                                            density="compact"
+                                            density="comfortable"
                                             color="default"
                                             :append-icon="isActive ? 'mdi-menu-up' : 'mdi-menu-down'"
                                             v-bind="slotProps"
@@ -68,11 +68,11 @@
                         </v-text-field>
                     </v-col>
                     <v-col cols="6">
-                        <p class="text-subtitle-2 mb-1">Available {{ limitType }}</p>
+                        <p class="text-subtitle-2 mb-2">Available {{ limitType }}</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
                             variant="solo-filled"
-                            density="compact"
+                            density="comfortable"
                             flat
                             readonly
                             :model-value="availableUsageFormatted"
@@ -83,7 +83,7 @@
                                         <v-btn
                                             class="h-100 text-medium-emphasis"
                                             variant="text"
-                                            density="compact"
+                                            density="comfortable"
                                             color="default"
                                             :append-icon="isActive ? 'mdi-menu-up' : 'mdi-menu-down'"
                                             v-bind="slotProps"
@@ -103,7 +103,7 @@
                     </v-col>
 
                     <v-col cols="12">
-                        <v-card class="pa-3">
+                        <v-card class="pa-3 mt-n4" variant="flat">
                             <div class="d-flex mx-2 text-subtitle-2 font-weight-bold text-medium-emphasis">
                                 0 {{ activeMeasurement }}
                                 <v-spacer />
@@ -113,8 +113,10 @@
                                 min="0"
                                 :max="availableUsage"
                                 :step="Memory[activeMeasurement]"
-                                color="success"
+                                color="primary"
+                                track-color="default"
                                 :model-value="input"
+                                hide-details
                                 @update:model-value="updateInput"
                             />
                         </v-card>

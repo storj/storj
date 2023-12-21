@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-tooltip v-if="isVisible" :text="`Hide ${type}`" location="top">
+    <v-tooltip v-if="isVisible" :text="`Hide ${type}`" location="top" theme="dark">
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"
@@ -11,7 +11,7 @@
             />
         </template>
     </v-tooltip>
-    <v-tooltip v-else :text="`Show ${type}`" location="top">
+    <v-tooltip v-else :text="`Show ${type}`" location="top" theme="dark">
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"

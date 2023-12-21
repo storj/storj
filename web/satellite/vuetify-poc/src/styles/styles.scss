@@ -139,14 +139,16 @@ body {
 // Card Light Theme
 .v-card.v-theme--light {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  box-shadow: rgba(88, 102, 126, 0.07) 0px 4px 20px;
+  // box-shadow: rgba(88, 102, 126, 0.07) 0px 4px 20px;
+  box-shadow: none;
 }
 
 // Card Dark Theme
 .v-card.v-theme--dark {
   background: --v-theme-surface;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  // box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  box-shadow: none;
 }
 .v-card--variant-flat {
   box-shadow: none !important;
@@ -184,10 +186,6 @@ body {
   border-radius: 8px !important;
 }
 
-// Label opacity
-.v-label {
-    opacity: 1 !important;
-}
 
 // Ensure that the compact checkbox isn't too close to its label
 .v-selection-control--density-compact .v-label {
@@ -395,10 +393,6 @@ table {
   cursor: unset;
 }
 
-.break-word {
-  word-break: break-word;
-}
-
 // Vuetify has a bug where any element with the attribute "disabled" forces the default cursor
 // even if the value of this attribute is "false".
 // This causes text in window items to appear to be unselectable.
@@ -464,4 +458,9 @@ table {
 }
 .v-theme--dark .card-preview-icon:hover img {
   background-color: rgb(var(--v-theme-on-background));
+}
+
+// Fix label position on fields
+.v-field--variant-outlined .v-field__outline .v-field__outline__start {
+  flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
 }

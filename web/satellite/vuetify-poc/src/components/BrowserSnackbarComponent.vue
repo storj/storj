@@ -23,7 +23,7 @@
                         <v-expansion-panel-title color="">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
-                                <v-icon icon="mdi-close" @click="closeDialog" />
+                                <v-btn variant="outlined" color="default" size="x-small" icon="mdi-close" title="Close" @click="closeDialog" />
                             </template>
                         </v-expansion-panel-title>
                         <v-progress-linear
@@ -33,7 +33,6 @@
                             :model-value="progress"
                             height="6"
                             color="success"
-                            class="mt-1"
                         />
                         <v-expansion-panel-text v-if="!isClosable && objectsInProgress.length > 1">
                             <v-row justify="space-between" class="pt-2">

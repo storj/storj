@@ -3,119 +3,120 @@
 
 <template>
     <v-container>
-        <h1 class="text-h5 font-weight-bold mb-2">Project Settings</h1>
+        <v-row>
+            <v-col>
+                <PageTitleComponent title="Project Settings" />
+                <PageSubtitleComponent subtitle="Edit project information and set custom project limits." link="https://docs.storj.io/learn/concepts/limits" />
+            </v-col>
+        </v-row>
 
-        <v-card class="my-6">
-            <v-list lines="three">
-                <v-list-subheader class="mb-2">Details</v-list-subheader>
+        <v-row>
+            <v-col cols="12" sm="6">
+                <v-card title="Project Name" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        {{ project.name }}
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="showEditNameDialog">
+                            Edit Name
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+            <v-col cols="12" sm="6">
+                <v-card title="Project Description" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        {{ project.description }}
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="showEditDescriptionDialog">
+                            Edit Description
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
 
-                <v-divider />
+        <v-row>
+            <v-col>
+                <h3 class="mt-5">Limits</h3>
+            </v-col>
+        </v-row>
 
-                <v-list-item>
-                    <v-list-item-title>Project Name</v-list-item-title>
-                    <v-list-item-subtitle>{{ project.name }}</v-list-item-subtitle>
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small" @click="showEditNameDialog">
-                                Edit Project Name
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
+        <v-row v-if="!isPaidTier && billingEnabled">
+            <v-col cols="12">
+                <v-card title="Free Account" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
+                        Need more? Upgrade to Pro.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="flat" color="primary" size="small" @click="toggleUpgradeFlow">>
+                            Upgrade to Pro
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
 
-                <v-divider />
+        <v-row v-else>
+            <v-col cols="12" sm="6" lg="4">
+                <v-card title="Storage Limit" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Storage Limit: {{ storageLimitFormatted }} <br>
+                        Available Storage: {{ paidStorageLimitFormatted }}
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="showStorageLimitDialog">
+                            Edit Storage Limit
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
 
-                <v-list-item>
-                    <v-list-item-title>Description</v-list-item-title>
-                    <v-list-item-subtitle>{{ project.description }}</v-list-item-subtitle>
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="outlined" color="default" size="small" @click="showEditDescriptionDialog">
-                                Edit Description
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
-            </v-list>
-        </v-card>
+            <v-col cols="12" sm="6" lg="4">
+                <v-card title="Download Limit" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Download Limit: {{ bandwidthLimitFormatted }} per month<br>
+                        Available Download: {{ paidBandwidthLimitFormatted }} per month
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn variant="outlined" color="default" size="small" @click="showBandwidthLimitDialog">
+                            Edit Download Limit
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
 
-        <v-card class="my-6">
-            <v-list lines="three">
-                <v-list-subheader class="mb-2">Limits</v-list-subheader>
+            <v-col cols="12" lg="4">
+                <v-card title="Account Limits" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-subtitle>
+                        Storage limit: {{ paidStorageLimitFormatted }} <br>
+                        Download limit: {{ paidBandwidthLimitFormatted }} per month
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-divider class="mb-4" />
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            size="small"
+                            :href="projectLimitsIncreaseRequestURL"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Request Limits Increase
+                            <v-icon end icon="mdi-open-in-new" />
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
 
-                <v-divider />
-
-                <v-list-item v-if="!isPaidTier && billingEnabled" @click="toggleUpgradeFlow">
-                    <v-list-item-title>Free Account</v-list-item-title>
-                    <v-list-item-subtitle>
-                        {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth.
-                        Need more? Upgrade now.
-                    </v-list-item-subtitle>
-                    <template #append>
-                        <v-list-item-action>
-                            <v-btn variant="flat" color="primary" size="small">
-                                Upgrade to Pro
-                            </v-btn>
-                        </v-list-item-action>
-                    </template>
-                </v-list-item>
-
-                <template v-else>
-                    <v-list-item>
-                        <v-list-item-title>Storage</v-list-item-title>
-                        <v-list-item-subtitle>
-                            {{ storageLimitFormatted }} of {{ paidStorageLimitFormatted }} available storage.
-                        </v-list-item-subtitle>
-                        <template #append>
-                            <v-list-item-action>
-                                <v-btn variant="outlined" color="default" size="small" @click="showStorageLimitDialog">
-                                    Edit Storage Limit
-                                </v-btn>
-                            </v-list-item-action>
-                        </template>
-                    </v-list-item>
-
-                    <v-divider />
-
-                    <v-list-item>
-                        <v-list-item-title>Download</v-list-item-title>
-                        <v-list-item-subtitle>
-                            {{ bandwidthLimitFormatted }} of {{ paidBandwidthLimitFormatted }} available to download.
-                        </v-list-item-subtitle>
-                        <template #append>
-                            <v-list-item-action>
-                                <v-btn variant="outlined" color="default" size="small" @click="showBandwidthLimitDialog">
-                                    Edit Download Limit
-                                </v-btn>
-                            </v-list-item-action>
-                        </template>
-                    </v-list-item>
-
-                    <v-divider />
-
-                    <v-list-item>
-                        <v-list-item-title>Account</v-list-item-title>
-                        <v-list-item-subtitle>
-                            {{ paidStorageLimitFormatted }} of storage and {{ paidBandwidthLimitFormatted }} to download per month.
-                        </v-list-item-subtitle>
-                        <template #append>
-                            <v-list-item-action>
-                                <v-btn
-                                    variant="outlined"
-                                    color="default"
-                                    size="small"
-                                    :href="projectLimitsIncreaseRequestURL"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Request Increase
-                                </v-btn>
-                            </v-list-item-action>
-                        </template>
-                    </v-list-item>
-                </template>
-            </v-list>
-        </v-card>
     </v-container>
 
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
@@ -127,13 +128,8 @@ import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
-    VList,
-    VListSubheader,
+    VCardSubtitle,
     VDivider,
-    VListItem,
-    VListItemTitle,
-    VListItemSubtitle,
-    VListItemAction,
     VBtn,
 } from 'vuetify/components';
 
@@ -149,6 +145,8 @@ import { useAppStore } from '@poc/store/appStore';
 
 import EditProjectDetailsDialog from '@poc/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@poc/components/dialogs/EditProjectLimitDialog.vue';
+import PageTitleComponent from '@poc/components/PageTitleComponent.vue';
+import PageSubtitleComponent from '@poc/components/PageSubtitleComponent.vue';
 
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
