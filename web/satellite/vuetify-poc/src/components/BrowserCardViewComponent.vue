@@ -107,7 +107,7 @@
                         </template>
                         <v-list>
                             <v-list-item
-                                v-for="(number, index) in tableSizeOptions(totalObjectCount, true)"
+                                v-for="(number, index) in pageSizes"
                                 :key="index"
                                 :title="number.title"
                                 @click="() => onLimitChange(number.value)"
@@ -162,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -202,7 +202,6 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useLinksharing } from '@/composables/useLinksharing';
-import { tableSizeOptions } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -241,10 +240,18 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+let previewQueue: BrowserObjectWrapper[] = [];
+let processingPreview = false;
 
 const sortKey = ref<string>('name');
 const sortOrder = ref<string>('asc');
 const sortKeys = ['Name', 'Type', 'Size', 'Date'];
+const pageSizes = [
+    { title: '12', value: 12 },
+    { title: '24', value: 24 },
+    { title: '36', value: 36 },
+    { title: '144', value: 144 },
+];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 /**
@@ -524,20 +531,60 @@ function findCachedURL(file: BrowserObject): string | undefined {
  * images on card items.
  */
 async function processFilePath(file: BrowserObjectWrapper) {
-    if (file.browserObject.type === 'folder') return;
-    if (file.typeInfo.title !== 'Image') return;
     const url = findCachedURL(file.browserObject);
     if (!url) {
         await fetchPreviewUrl(file.browserObject);
     }
 }
 
+/**
+ * Adds image files to preview queue.
+ */
+function addToPreviewQueue(file: BrowserObjectWrapper) {
+    if (file.browserObject.type === 'folder') return;
+    if (file.typeInfo.title !== 'Image') return;
+    previewQueue.push(file);
+    if (!processingPreview) {
+        processPreviewQueue();
+    }
+}
+
+/**
+ * Processes preview queue to get preview urls for each
+ * image file in the queue sequentially.
+ */
+async function processPreviewQueue() {
+    if (previewQueue.length > 0) {
+        processingPreview = true;
+        const files = [...previewQueue];
+        const file = files.shift();
+        previewQueue = files;
+        if (file) {
+            await processFilePath(file);
+            processPreviewQueue();
+        }
+    } else {
+        processingPreview = false;
+    }
+}
+
 watch(filePath, fetchFiles, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 
-watch(allFiles, async (files: BrowserObjectWrapper[]) => {
-    for (const file of files) {
-        await processFilePath(file);
+watch(allFiles, async (value, oldValue) => {
+    // find new files for which we haven't fetched preview url yet.
+    const newFiles = value.filter(file => {
+        return !oldValue.some(oldFile => {
+            return oldFile.browserObject.Key === file.browserObject.Key
+                && oldFile.browserObject.path === file.browserObject.path;
+        });
+    });
+    for (const file of newFiles) {
+        addToPreviewQueue(file);
     }
+});
+
+onBeforeMount(() => {
+    obStore.setCursor({ page: 1, limit: pageSizes[0].value });
 });
 </script>

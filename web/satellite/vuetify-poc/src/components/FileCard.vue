@@ -5,14 +5,19 @@
     <v-card variant="outlined" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
             <a role="button" class="h-100" @click="emit('previewClick', item.browserObject)">
-                <v-img
-                    v-if="objectPreviewUrl && previewType === PreviewType.Image"
-                    :src="objectPreviewUrl"
-                    class="bg-light card-preview-img h-100"
-                    alt="preview"
-                    :aspect-ratio="1/1"
-                    cover
-                />
+                <template v-if="previewType === PreviewType.Image">
+                    <v-img
+                        :src="objectPreviewUrl"
+                        class="bg-light card-preview-img h-100"
+                        alt="preview"
+                        :aspect-ratio="1/1"
+                        cover
+                    >
+                        <template #placeholder>
+                            <v-progress-linear indeterminate />
+                        </template>
+                    </v-img>
+                </template>
                 <div
                     v-else
                     class="d-flex h-100 bg-light flex-column justify-center align-center file-icon-container card-preview-icon"
@@ -54,7 +59,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { VCard, VCardItem, VCardSubtitle, VCardText, VCardTitle, VDivider, VImg } from 'vuetify/components';
+import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
 import { computed } from 'vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -102,7 +107,8 @@ const emit = defineEmits<{
  */
 const objectPreviewUrl = computed((): string => {
     const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url || '';
+    const url = cache?.url;
+    if (!url) return '';
     return `${url}?view=1`;
 });
 
