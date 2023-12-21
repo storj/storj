@@ -15,6 +15,7 @@
             density="comfortable"
             rounded="lg"
             class="mx-2 mt-2"
+            @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
         />
 
         <v-data-table-server
@@ -130,13 +131,14 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { Size } from '@/utils/bytesSize';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { tableSizeOptions } from '@/types/common';
 import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BrowserRowActions from '@poc/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@poc/components/dialogs/FilePreviewDialog.vue';
@@ -161,6 +163,7 @@ const props = defineProps<{
     loading?: boolean;
 }>();
 
+const analyticsStore = useAnalyticsStore();
 const config = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();

@@ -56,8 +56,8 @@ Check out these three tutorials:
 
 This repository is currently licensed with the [AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license.
 
-For code released under the AGPLv3, we request that contributors sign our
-[Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
+For code released under the AGPLv3, we request that contributors sign our updated
+[Contributor License Agreement (CLA) v2](https://forms.gle/5qfiYnT4HYi95R7JA) so that we can relicense the
 code under Apache v2, or other licenses in the future.
 
 # Support

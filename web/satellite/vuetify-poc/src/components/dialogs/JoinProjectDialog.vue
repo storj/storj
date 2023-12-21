@@ -112,6 +112,7 @@ function openProject(): void {
     notify.success('Invite accepted!');
     router.push(`/projects/${projectsStore.state.selectedProject.urlId}/dashboard`);
     analyticsStore.pageVisit('/projects/dashboard');
+    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
 /**

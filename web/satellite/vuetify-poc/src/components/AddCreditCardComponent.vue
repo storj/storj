@@ -51,8 +51,9 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import StripeCardElement from '@/components/account/billing/paymentMethods/StripeCardElement.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
@@ -61,6 +62,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -107,6 +109,8 @@ async function addCardToDB(res: string): Promise<void> {
         notify.success('Card successfully added');
         isCardInputShown.value = false;
         isLoading.value = false;
+
+        analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
 
         // We fetch User one more time to update their Paid Tier status.
         usersStore.getUser().catch();
