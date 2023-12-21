@@ -131,27 +131,6 @@ lint:
 		storjlabs/ci:slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
-.PHONY: .lint/testsuite/ui
-.lint/testsuite/ui:
-	go run ./scripts/lint.go \
-		-work-dir testsuite/ui \
-		-parallel 4 \
-		-imports \
-		-atomic-align \
-		-errs \
-		-staticcheck \
-		-golangci \
-		$(LINT_TARGET)
-
-.PHONY: lint/testsuite/ui
-lint/testsuite/ui:
-	docker run --rm -it \
-		-v ${GOPATH}/pkg:/go/pkg \
-		-v ${PWD}:/storj \
-		-w /storj \
-		storjlabs/ci \
-		make .lint/testsuite/ui LINT_TARGET="$(LINT_TARGET)"
-
 ##@ Test
 
 TEST_TARGET ?= "./..."
@@ -519,9 +498,6 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
-	cd testsuite/ui;\
-		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
-		go mod tidy;
 	cd testsuite/storjscan;\
 		go get storj.io/common@main storj.io/private@main storj.io/uplink@main;\
 		go mod tidy;

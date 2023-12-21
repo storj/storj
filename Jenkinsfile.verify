@@ -141,9 +141,6 @@ pipeline {
 
                 sh './scripts/check-package-lock.sh'
 
-                dir("testsuite/ui") {
-                    sh 'go vet ./...'
-                }
                 dir("testsuite/storjscan") {
                     sh 'go vet ./...'
                 }
