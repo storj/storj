@@ -235,7 +235,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 
 	if !limiter.Allow() {
 		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("projectID", projectID),
+			zap.Stringer("Project ID", projectID),
 			zap.Float64("rate limit", float64(limiter.Limit())),
 			zap.Float64("burst limit", float64(limiter.Burst())))
 
