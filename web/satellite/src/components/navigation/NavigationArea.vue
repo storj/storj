@@ -292,8 +292,7 @@ onBeforeUnmount(() => {
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow: hidden auto;
             width: 100%;
             height: 100%;
 

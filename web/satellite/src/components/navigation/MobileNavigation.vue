@@ -575,8 +575,7 @@ async function onLogout(): Promise<void> {
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
-        overflow-x: hidden;
-        overflow-y: auto;
+        overflow: hidden auto;
         width: 100%;
         height: 100%;
 
@@ -604,8 +603,7 @@ async function onLogout(): Promise<void> {
             align-items: center;
             width: 100%;
             z-index: 9999;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden auto;
             background: white;
             height: calc(var(--vh, 100vh) - 4rem);
 

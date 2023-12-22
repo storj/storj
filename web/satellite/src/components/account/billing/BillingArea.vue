@@ -213,8 +213,7 @@ onMounted(async () => {
             max-width: 750px;
             height: 40px;
             display: flex;
-            align-content: center;
-            justify-content: space-between;
+            place-content: center space-between;
             padding-top: 25px;
             overflow-y: auto;
 
