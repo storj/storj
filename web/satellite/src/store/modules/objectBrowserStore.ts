@@ -684,7 +684,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Key: path + file.Key,
         }));
 
-        state.uploading = state.uploading.filter(f => f.Key !== file.Key);
+        state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
 
         if (!isFolder) {
             if (config.state.config.objectBrowserPaginationEnabled) {
