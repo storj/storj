@@ -104,6 +104,7 @@ const icon = computed((): string => {
  * Returns header's status label.
  */
 const statusLabel = computed((): string => {
+    if (!uploading.value.length) return 'No items to upload';
     let inProgress = 0, finished = 0, failed = 0, cancelled = 0;
     uploading.value.forEach(u => {
         switch (u.status) {
@@ -212,8 +213,9 @@ function toggleExpanded(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    obStore.clearUploading();
+    isExpanded.value = false;
     appStore.setUploadingModal(false);
+    obStore.clearUploading();
 }
 
 /**
@@ -252,6 +254,19 @@ watch(() => objectsInProgress.value.length, () => {
     if (!interval.value) {
         startDate.value = Date.now();
         startInterval();
+    }
+});
+
+/**
+ * Close the modal if nothing is uploading.
+ */
+watch(uploading, (value, oldValue) => {
+    if (value.length === oldValue.length) {
+        return;
+    }
+
+    if (!value.length) {
+        closeModal();
     }
 });
 

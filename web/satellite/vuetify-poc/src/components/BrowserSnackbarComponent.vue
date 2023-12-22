@@ -126,6 +126,7 @@ const isObjectsUploadModal = computed<boolean>(() => v1AppStore.state.isUploadin
  * Returns header's status label.
  */
 const statusLabel = computed((): string => {
+    if (!uploading.value.length) return 'No items to upload';
     let inProgress = 0, finished = 0, failed = 0, cancelled = 0;
     uploading.value.forEach(u => {
         switch (u.status) {
@@ -270,8 +271,9 @@ function startInterval(): void {
 }
 
 function closeDialog(): void {
-    obStore.clearUploading();
+    isExpanded.value = false;
     v1AppStore.setUploadingModal(false);
+    obStore.clearUploading();
 }
 
 watch(() => objectsInProgress.value.length, () => {
@@ -293,6 +295,19 @@ watch(bucketName, (value, oldValue) => {
         return;
     }
     closeDialog();
+});
+
+/**
+ * Close the snackbar if nothing is uploading.
+ */
+watch(uploading, (value, oldValue) => {
+    if (value.length === oldValue.length) {
+        return;
+    }
+
+    if (!value.length) {
+        closeDialog();
+    }
 });
 
 onMounted(() => {
