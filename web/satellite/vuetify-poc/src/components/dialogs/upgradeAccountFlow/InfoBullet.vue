@@ -8,14 +8,14 @@
                 <v-icon
                     v-if="!isPro"
                     color="default"
-                    icon="mdi-check-circle-outline"
+                    :icon="mdiCheckCircleOutline"
                     size="small"
                     class="text-disabled pl-2 mr-n3"
                 />
                 <v-icon
                     v-else
                     color="primary"
-                    icon="mdi-check-circle-outline"
+                    :icon="mdiCheckCircleOutline"
                     size="small"
                     class="opacity-100 pl-2 mr-n3"
                 />
@@ -24,7 +24,7 @@
                 {{ title }}
                 <v-tooltip v-if="$slots.moreInfo" max-width="200px" location="top" activator="props">
                     <template #activator="{ props }">
-                        <v-icon v-bind="props" size="16" icon="mdi-information-outline" />
+                        <v-icon v-bind="props" size="16" :icon="mdiInformationOutline" />
                     </template>
                     <slot name="moreInfo" />
                 </v-tooltip>
@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { VList, VListItem, VListItemTitle, VListItemSubtitle, VIcon, VTooltip } from 'vuetify/components';
+import { mdiCheckCircleOutline, mdiInformationOutline } from '@mdi/js';
 
 withDefaults(defineProps<{
     isPro?: boolean;

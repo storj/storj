@@ -6,7 +6,7 @@
         <template #activator="{ props: activatorProps }">
             <v-btn
                 v-bind="activatorProps"
-                :icon="justCopied ? 'mdi-check' : 'mdi-content-copy'"
+                :icon="justCopied ? mdiCheck : mdiContentCopy"
                 variant="text"
                 density="compact"
                 :color="justCopied ? 'success' : 'default'"
@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VTooltip, VBtn } from 'vuetify/components';
+import { mdiCheck, mdiContentCopy } from '@mdi/js';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -29,8 +30,8 @@ const props = defineProps<{
     tooltipDisabled?: boolean;
 }>();
 
-const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
-const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
+const copiedTimeout = ref<number>();
+const justCopied = computed<boolean>(() => copiedTimeout.value !== undefined);
 
 const isTooltip = (() => {
     const internal = ref<boolean>(false);
@@ -51,7 +52,7 @@ function onCopy(): void {
 
     if (copiedTimeout.value) clearTimeout(copiedTimeout.value);
     copiedTimeout.value = setTimeout(() => {
-        copiedTimeout.value = null;
+        copiedTimeout.value = undefined;
     }, 750);
 }
 </script>

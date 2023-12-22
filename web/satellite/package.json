@@ -20,7 +20,7 @@
     "@aws-sdk/client-s3": "3.379.1",
     "@aws-sdk/lib-storage": "3.379.1",
     "@aws-sdk/s3-request-presigner": "3.379.1",
-    "@fontsource-variable/inter": "^5.0.8",
+    "@fontsource-variable/inter": "5.0.16",
     "@hcaptcha/vue3-hcaptcha": "1.2.1",
     "@mdi/font": "7.0.96",
     "@smithy/signature-v4": "2.0.1",
@@ -39,6 +39,7 @@
     "vuetify": "3.4.6"
   },
   "devDependencies": {
+    "@mdi/js": "7.3.67",
     "@types/filesystem": "0.0.32",
     "@types/node": "20.10.0",
     "@types/papaparse": "5.3.10",

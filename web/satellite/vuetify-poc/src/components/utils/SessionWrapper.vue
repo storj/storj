@@ -12,7 +12,7 @@
         min-width="0"
         location="top"
     >
-        <v-icon icon="mdi-clock" />
+        <v-icon :icon="mdiClock" />
         Remaining session time:
         <span class="font-weight-bold">{{ sessionTimeout.debugTimerText.value }}</span>
     </v-snackbar>
@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { VSnackbar, VIcon } from 'vuetify/lib/components/index.mjs';
+import { mdiClock } from '@mdi/js';
 
 import { useSessionTimeout } from '@/composables/useSessionTimeout';
 

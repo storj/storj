@@ -54,7 +54,8 @@
                     </v-card-subtitle>
                     <v-card-text>
                         <v-divider class="mb-4" />
-                        <v-btn variant="flat" color="primary" size="small" @click="toggleUpgradeFlow">>
+                        <v-btn variant="flat" color="primary" size="small" @click="toggleUpgradeFlow">
+                            >
                             Upgrade to Pro
                         </v-btn>
                     </v-card-text>
@@ -110,13 +111,12 @@
                             rel="noopener noreferrer"
                         >
                             Request Limits Increase
-                            <v-icon end icon="mdi-open-in-new" />
+                            <v-icon end :icon="mdiOpenInNew" />
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
         </v-row>
-
     </v-container>
 
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
@@ -128,10 +128,15 @@ import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
+    VCardText,
     VCardSubtitle,
     VDivider,
     VBtn,
+    VCol,
+    VRow,
+    VIcon,
 } from 'vuetify/components';
+import { mdiOpenInNew } from '@mdi/js';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

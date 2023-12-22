@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            prepend-inner-icon="mdi-magnify"
+            :prepend-inner-icon="mdiMagnify"
             single-line
             variant="solo-filled"
             flat
@@ -78,7 +78,7 @@
                 <v-menu location="bottom end" transition="scale-transition">
                     <template #activator="{ props: activatorProps }">
                         <v-btn
-                            icon="mdi-dots-horizontal"
+                            :icon="mdiDotsHorizontal"
                             color="default"
                             variant="outlined"
                             size="small"
@@ -137,6 +137,7 @@ import {
     VDivider,
     VDataTableServer,
 } from 'vuetify/components';
+import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
 import { BucketPage, BucketCursor, Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

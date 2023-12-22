@@ -7,7 +7,7 @@
             <v-col v-if="selectedMembers.length" class="pa-0" cols="auto">
                 <v-btn
                     class="text-caption ml-2 mt-2"
-                    prepend-icon="mdi-trash-can-outline"
+                    :prepend-icon="mdiTrashCanOutline"
                     variant="outlined"
                     size="large"
                     color="default"
@@ -20,7 +20,7 @@
                 <v-text-field
                     v-model="search"
                     label="Search"
-                    prepend-inner-icon="mdi-magnify"
+                    :prepend-inner-icon="mdiMagnify"
                     single-line
                     variant="solo-filled"
                     flat
@@ -73,7 +73,7 @@
                     density="comfortable"
                     icon
                 >
-                    <v-icon icon="mdi-dots-horizontal" />
+                    <v-icon :icon="mdiDotsHorizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
                             <v-list-item
@@ -134,6 +134,7 @@ import {
     VDataTableServer,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { mdiDotsHorizontal, mdiMagnify, mdiTrashCanOutline } from '@mdi/js';
 
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

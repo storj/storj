@@ -99,25 +99,25 @@
 
         <v-row>
             <v-col cols="auto">
-                <v-btn icon="mdi-vuetify" size="small" />
+                <v-btn :icon="mdiVuetify" size="small" />
             </v-col>
 
             <v-col cols="auto">
-                <v-btn prepend-icon="mdi-vuetify" variant="tonal">
+                <v-btn :prepend-icon="mdiVuetify" variant="tonal">
                     Prepend
                 </v-btn>
             </v-col>
 
             <v-col cols="auto">
-                <v-btn append-icon="mdi-vuetify" variant="outlined" color="secondary">
+                <v-btn :append-icon="mdiVuetify" variant="outlined" color="secondary">
                     Append Outlined Secondary
                 </v-btn>
             </v-col>
 
             <v-col cols="auto">
                 <v-btn
-                    prepend-icon="mdi-vuetify"
-                    append-icon="mdi-vuetify"
+                    :prepend-icon="mdiVuetify"
+                    :append-icon="mdiVuetify"
                 >
                     Prepend & Append
                 </v-btn>
@@ -240,7 +240,7 @@
                         >
                             <template #default="{ toggle }">
                                 <v-btn
-                                    :icon="`mdi-numeric-${n}`"
+                                    :label="n"
                                     :active="model != null && model + 1 >= n"
                                     border
                                     height="40"
@@ -262,6 +262,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { VContainer, VRow, VCol, VBtn, VCard, VItemGroup, VItem } from 'vuetify/components';
+import { mdiVuetify } from '@mdi/js';
 
 const loading = ref<boolean>(false);
 const model = ref<number | null>(null);

@@ -41,7 +41,7 @@
             title="More Actions"
             icon
         >
-            <v-icon icon="mdi-dots-horizontal" />
+            <v-icon :icon="mdiDotsHorizontal" />
             <v-menu activator="parent">
                 <v-list class="pa-1">
                     <template v-if="file.type !== 'folder'">
@@ -111,8 +111,8 @@ import {
     VFadeTransition,
     VIcon,
     VBtn,
-    VTooltip,
 } from 'vuetify/components';
+import { mdiDotsHorizontal } from '@mdi/js';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/utils/hooks';

@@ -17,7 +17,7 @@
                 @click="emit('addCard')"
             >
                 <template #prepend>
-                    <v-icon icon="mdi-credit-card" />
+                    <v-icon :icon="mdiCreditCard" />
                 </template>
                 Add Credit Card
             </v-btn>
@@ -30,7 +30,7 @@
                 @click="emit('addTokens')"
             >
                 <template #prepend>
-                    <v-icon icon="mdi-plus-circle" />
+                    <v-icon :icon="mdiPlusCircle" />
                 </template>
                 Add STORJ Tokens
             </v-btn>
@@ -40,6 +40,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
+import { mdiCreditCard, mdiPlusCircle } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';

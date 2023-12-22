@@ -49,7 +49,7 @@
                                 <v-btn
                                     v-bind="darkProps"
                                     rounded="xl"
-                                    icon="mdi-weather-sunny"
+                                    :icon="mdiWeatherSunny"
                                     size="small"
                                     class="px-4"
                                     aria-label="Toggle Light Theme"
@@ -63,7 +63,7 @@
                                 <v-btn
                                     v-bind="lightProps"
                                     rounded="xl"
-                                    icon="mdi-weather-night"
+                                    :icon="mdiWeatherNight"
                                     size="small"
                                     class="px-4"
                                     aria-label="Toggle Dark Theme"
@@ -163,6 +163,7 @@
 import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
+import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js';
 import {
     VAppBar,
     VAppBarNavIcon,
@@ -243,11 +244,11 @@ const satelliteName = computed<string>(() => {
     return configStore.state.config.satelliteName;
 });
 
-/*
+/**
  * Returns user's paid tier status from store.
  */
 const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
+    return usersStore.state.user.paidTier ?? false;
 });
 
 function toggleTheme(newTheme: string): void {

@@ -127,16 +127,13 @@ import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
-    VList,
-    VListSubheader,
+    VCardText,
+    VCardSubtitle,
     VDivider,
-    VListItem,
-    VListItemTitle,
-    VListItemSubtitle,
-    VListItemAction,
     VBtn,
     VRow,
     VCol,
+    VTooltip,
 } from 'vuetify/components';
 
 import { User, UserSettings } from '@/types/users';

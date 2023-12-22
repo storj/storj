@@ -15,7 +15,7 @@
                 <v-btn
                     class="mt-7"
                     size="large"
-                    append-icon="mdi-chevron-right"
+                    :append-icon="mdiChevronRight"
                     :loading="isLoading"
                     @click="finishSetup()"
                 >
@@ -27,8 +27,8 @@
 </template>
 
 <script setup lang="ts">
-
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
+import { mdiChevronRight } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';

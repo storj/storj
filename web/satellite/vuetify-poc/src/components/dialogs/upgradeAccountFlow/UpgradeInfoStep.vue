@@ -26,7 +26,7 @@
                 class="mb-1"
                 block
                 :loading="loading"
-                append-icon="mdi-arrow-right"
+                :append-icon="mdiArrowRight"
                 @click="emit('upgrade')"
             >
                 Upgrade
@@ -63,6 +63,7 @@
 import { computed, onBeforeMount, ref } from 'vue';
 import { VBtn, VCol, VRow, VCard } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import { mdiArrowRight } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';

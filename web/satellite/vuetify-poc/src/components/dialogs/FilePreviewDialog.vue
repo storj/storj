@@ -96,7 +96,7 @@
                         icon
                         @click="onPrevious"
                     >
-                        <v-icon icon="mdi-chevron-left" size="x-large" />
+                        <v-icon :icon="mdiChevronLeft" size="x-large" />
                     </v-btn>
                 </template>
                 <template #next>
@@ -107,7 +107,7 @@
                         icon
                         @click="onNext"
                     >
-                        <v-icon icon="mdi-chevron-right" size="x-large" />
+                        <v-icon :icon="mdiChevronRight" size="x-large" />
                     </v-btn>
                 </template>
 
@@ -148,6 +148,7 @@ import {
     VToolbarTitle,
     VTooltip,
 } from 'vuetify/components';
+import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

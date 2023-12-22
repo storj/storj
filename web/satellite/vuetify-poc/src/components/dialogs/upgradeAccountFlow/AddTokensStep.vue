@@ -25,7 +25,7 @@
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
                 <v-btn v-bind="props" density="compact" variant="plain" color="grey" icon>
-                    <v-icon icon="mdi-information-outline" size="16" />
+                    <v-icon :icon="mdiInformationOutline" size="16" />
                 </v-btn>
             </template>
             <p>
@@ -53,7 +53,7 @@
                 @click="onCopyAddressClick"
             >
                 <template #prepend>
-                    <v-icon icon="mdi-content-copy" />
+                    <v-icon :icon="mdiContentCopy" />
                 </template>
                 Copy
             </v-btn>
@@ -83,6 +83,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow, VDivider } from 'vuetify/components';
+import { mdiContentCopy, mdiInformationOutline } from '@mdi/js';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -108,7 +109,7 @@ const canvas = ref<HTMLCanvasElement>();
 const intervalID = ref<NodeJS.Timer>();
 const viewState = ref<ViewState>(ViewState.Default);
 
-const props = defineProps<{
+defineProps<{
     // whether this step is the first step in a flow
     isRoot?: boolean;
 }>();

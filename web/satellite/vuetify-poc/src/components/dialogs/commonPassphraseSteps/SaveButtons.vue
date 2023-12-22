@@ -7,7 +7,7 @@
             variant="outlined"
             block
             :color="justCopied ? 'success' : 'default'"
-            :prepend-icon="justCopied ? 'mdi-check' : 'mdi-content-copy'"
+            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
             @click="onCopy"
         >
             {{ justCopied ? 'Copied' : (items.length > 1 ? 'Copy All' : 'Copy') }}
@@ -18,7 +18,7 @@
             variant="outlined"
             block
             :color="justDownloaded ? 'success' : 'default'"
-            :prepend-icon="justDownloaded ? 'mdi-check' : 'mdi-tray-arrow-down'"
+            :prepend-icon="justDownloaded ? mdiCheck : mdiTrayArrowDown"
             @click="onDownload"
         >
             {{ justDownloaded ? 'Downloaded' : (items.length > 1 ? 'Download All' : 'Download') }}
@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VCol, VBtn } from 'vuetify/components';
+import { mdiCheck, mdiContentCopy, mdiTrayArrowDown } from '@mdi/js';
 
 import { SaveButtonsItem } from '@poc/types/common';
 import { Download } from '@/utils/download';

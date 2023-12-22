@@ -10,7 +10,7 @@
         @click="emit('continue')"
     >
         <template #append>
-            <v-icon icon="mdi-arrow-right" />
+            <v-icon :icon="mdiArrowRight" />
         </template>
         Continue
     </v-btn>
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import { VBtn, VIcon } from 'vuetify/components';
+import { mdiArrowRight } from '@mdi/js';
 
 const emit = defineEmits<{
     continue: [];

@@ -50,8 +50,8 @@
                         </v-col>
                         <v-col cols="auto">
                             <v-btn-group density="compact">
-                                <v-btn :disabled="!historyPage.hasPrevious" icon="mdi-chevron-left" @click="previousClicked" />
-                                <v-btn :disabled="!historyPage.hasNext" icon="mdi-chevron-right" @click="nextClicked" />
+                                <v-btn :disabled="!historyPage.hasPrevious" :icon="mdiChevronLeft" @click="previousClicked" />
+                                <v-btn :disabled="!historyPage.hasNext" :icon="mdiChevronRight" @click="nextClicked" />
                             </v-btn-group>
                         </v-col>
                     </v-row>
@@ -73,6 +73,7 @@ import {
     VSelect,
     VDataTable,
 } from 'vuetify/components';
+import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';

@@ -9,13 +9,13 @@
                     <div>
                         <v-badge v-if="isPartner" label="Best Value" rounded="lg" content="Best Value" color="success">
                             <v-btn v-if="isPartner" density="comfortable" color="success" variant="outlined" icon>
-                                <v-icon icon="mdi-cloud-outline" />
+                                <v-icon :icon="mdiCloudOutline" />
                             </v-btn>
                         </v-badge>
 
                         <v-btn v-else density="comfortable" color="grey-lighten-1" variant="outlined" icon>
-                            <v-icon v-if="isPro" icon="mdi-star-outline" />
-                            <v-icon v-else icon="mdi-earth" />
+                            <v-icon v-if="isPro" :icon="mdiStarOutline" />
+                            <v-icon v-else :icon="mdiEarth" />
                         </v-btn>
                     </div>
                 </div>
@@ -39,7 +39,7 @@
                     @click="onActivateClick"
                 >
                     <template #append>
-                        <v-icon icon="mdi-arrow-right" />
+                        <v-icon :icon="mdiArrowRight" />
                     </template>
 
                     {{ plan.activationButtonText || ('Activate ' + plan.title) }}
@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VBadge, VBtn, VCard, VIcon } from 'vuetify/components';
+import { mdiArrowRight, mdiCloudOutline, mdiEarth, mdiStarOutline } from '@mdi/js';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 

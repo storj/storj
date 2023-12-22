@@ -8,7 +8,7 @@
                 <v-text-field
                     v-model="search"
                     label="Search"
-                    prepend-inner-icon="mdi-magnify"
+                    :prepend-inner-icon="mdiMagnify"
                     single-line
                     variant="solo-filled"
                     flat
@@ -25,8 +25,8 @@
                         <v-btn
                             variant="text"
                             color="default"
-                            prepend-icon="mdi-sort"
-                            append-icon="mdi-chevron-down"
+                            :prepend-icon="mdiSort"
+                            :append-icon="mdiChevronDown"
                             v-bind="sortProps"
                             class="mr-2"
                         >
@@ -52,10 +52,10 @@
                     mandatory
                 >
                     <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
-                        <v-icon>mdi-sort-ascending</v-icon>
+                        <v-icon :icon="mdiSortAscending" />
                     </v-btn>
                     <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
-                        <v-icon>mdi-sort-descending</v-icon>
+                        <v-icon :icon="mdiSortDescending" />
                     </v-btn>
                 </v-btn-toggle>
             </v-col>
@@ -98,7 +98,7 @@
                             <v-btn
                                 variant="text"
                                 color="default"
-                                append-icon="mdi-chevron-down"
+                                :append-icon="mdiChevronDown"
                                 v-bind="limitProps"
                             >
                                 <span class="text-caption text-medium-emphasis mr-2">Items per page:</span>
@@ -128,7 +128,7 @@
                         :disabled="cursor.page === 1"
                         @click="() => onPageChange(cursor.page - 1)"
                     >
-                        <v-icon>mdi-chevron-left</v-icon>
+                        <v-icon :icon="mdiChevronLeft" />
                     </v-btn>
                     <v-btn
                         icon
@@ -139,7 +139,7 @@
                         :disabled="cursor.page === lastPage"
                         @click="() => onPageChange(cursor.page + 1)"
                     >
-                        <v-icon>mdi-chevron-right</v-icon>
+                        <v-icon :icon="mdiChevronRight" />
                     </v-btn>
                 </div>
             </v-card>
@@ -168,6 +168,7 @@ import {
     VBtn,
     VBtnToggle,
     VCol,
+    VCard,
     VIcon,
     VList,
     VListItem,
@@ -177,6 +178,15 @@ import {
     VTextField,
     VDataIterator,
 } from 'vuetify/components';
+import {
+    mdiChevronDown,
+    mdiChevronLeft,
+    mdiChevronRight,
+    mdiMagnify,
+    mdiSort,
+    mdiSortAscending,
+    mdiSortDescending,
+} from '@mdi/js';
 
 import {
     BrowserObject,

@@ -100,7 +100,7 @@
                 <v-btn
                     size="large"
                     variant="tonal"
-                    prepend-icon="mdi-chevron-left"
+                    :prepend-icon="mdiChevronLeft"
                     color="default"
                     :disabled="isLoading"
                     block
@@ -112,7 +112,7 @@
             <v-col cols="12" sm="5" md="4" lg="3">
                 <v-btn
                     size="large"
-                    append-icon="mdi-chevron-right"
+                    :append-icon="mdiChevronRight"
                     :loading="isLoading"
                     :disabled="!formValid"
                     block
@@ -126,9 +126,9 @@
 </template>
 
 <script setup lang="ts">
-
 import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
+import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { AccountSetupStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';

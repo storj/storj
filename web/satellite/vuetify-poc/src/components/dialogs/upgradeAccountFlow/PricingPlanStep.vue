@@ -9,7 +9,7 @@
             </v-col>
             <v-col class="px-0" cols="auto">
                 <v-btn density="compact" color="success" variant="tonal" icon>
-                    <v-icon icon="mdi-check-outline" />
+                    <v-icon :icon="mdiCheckOutline" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -54,7 +54,7 @@
                 @click="onActivateClick"
             >
                 <template v-if="plan.type !== 'free'" #prepend>
-                    <v-icon icon="mdi-lock" />
+                    <v-icon :icon="mdiLock" />
                 </template>
 
                 {{ plan.activationButtonText || ('Activate ' + plan.title) }}
@@ -78,7 +78,7 @@
         <v-row class="ma-0" justify="center" align="center">
             <v-col cols="auto">
                 <v-btn density="comfortable" color="success" variant="tonal" icon>
-                    <v-icon icon="mdi-check-outline" />
+                    <v-icon :icon="mdiCheckOutline" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -89,7 +89,7 @@
 
         <v-row align="center" justify="space-between" class="ma-0 mb-4 pa-2 border-sm rounded-lg">
             <v-col cols="auto">
-                <v-icon color="success" icon="mdi-check-outline" />
+                <v-icon color="success" :icon="mdiCheckOutline" />
             </v-col>
             <v-col cols="auto">
                 <span class="text-body-1 font-weight-bold">
@@ -117,6 +117,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCol, VIcon, VRow } from 'vuetify/components';
 import { useTheme } from 'vuetify';
+import { mdiCheckOutline, mdiLock } from '@mdi/js';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';

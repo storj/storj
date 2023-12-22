@@ -45,7 +45,7 @@
                 </template>
                 <v-btn v-else color="primary" size="small" class="mr-2" @click="openProject">Open Project</v-btn>
                 <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" density="comfortable" icon>
-                    <v-icon icon="mdi-dots-horizontal" />
+                    <v-icon :icon="mdiDotsHorizontal" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
@@ -94,6 +94,7 @@ import {
     VCardSubtitle,
     VCardText,
 } from 'vuetify/components';
+import { mdiDotsHorizontal } from '@mdi/js';
 
 import { ProjectItemModel, PROJECT_ROLE_COLORS } from '@poc/types/projects';
 import { ProjectInvitationResponse } from '@/types/projects';

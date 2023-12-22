@@ -89,7 +89,7 @@
                         <v-btn
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
-                            :prepend-icon="justCopied ? 'mdi-check' : 'mdi-content-copy'"
+                            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
                             :disabled="isLoading"
                             block
                             @click="onCopy"
@@ -121,6 +121,7 @@ import {
     VAlert,
     VChipGroup,
 } from 'vuetify/components';
+import { mdiCheck, mdiContentCopy } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

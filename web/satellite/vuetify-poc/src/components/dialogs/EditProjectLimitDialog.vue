@@ -51,7 +51,7 @@
                                             variant="text"
                                             density="comfortable"
                                             color="default"
-                                            :append-icon="isActive ? 'mdi-menu-up' : 'mdi-menu-down'"
+                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
                                             v-bind="slotProps"
                                             @mousedown.stop
                                             @click.stop
@@ -85,7 +85,7 @@
                                             variant="text"
                                             density="comfortable"
                                             color="default"
-                                            :append-icon="isActive ? 'mdi-menu-up' : 'mdi-menu-down'"
+                                            :append-icon="isActive ? mdiMenuUp : mdiMenuDown"
                                             v-bind="slotProps"
                                             @mousedown.stop
                                             @click.stop
@@ -164,6 +164,7 @@ import {
     VList,
     VListItem,
 } from 'vuetify/components';
+import { mdiMenuDown, mdiMenuUp } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

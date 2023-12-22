@@ -1,26 +1,25 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * plugins/vuetify.ts
- *
- * Framework documentation: https://vuetifyjs.com`
- */
-
 import 'vuetify/styles';
-import '@mdi/font/css/materialdesignicons.css';
 import '@fontsource-variable/inter';
 import { createVuetify } from 'vuetify';
 import { md3 } from 'vuetify/blueprints';
+import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
 
 import '@poc/styles/styles.scss';
 import { THEME_OPTIONS } from '@poc/plugins/theme';
 
-// https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
-    // Use blueprint for Material Design 3
     blueprint: md3,
     theme: THEME_OPTIONS,
+    icons: {
+        defaultSet: 'mdi',
+        aliases,
+        sets: {
+            mdi,
+        },
+    },
     defaults: {
         global: {
             // ripple: false,

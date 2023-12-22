@@ -60,7 +60,7 @@
                                 variant="text"
                                 size="small"
                                 color="default"
-                                prepend-icon="mdi-plus"
+                                :prepend-icon="mdiPlus"
                                 @click="isDescriptionShown = true"
                             >
                                 Add Description (Optional)
@@ -134,7 +134,7 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="isProjectLimitReached && billingEnabled ? 'mdi-arrow-right' : undefined"
+                            :append-icon="isProjectLimitReached && billingEnabled ? mdiArrowRight : undefined"
                             @click="onPrimaryClick"
                         >
                             {{ buttonTitle }}
@@ -169,6 +169,7 @@ import {
     VTextField,
     VOverlay,
 } from 'vuetify/components';
+import { mdiArrowRight, mdiPlus } from '@mdi/js';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
 import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';

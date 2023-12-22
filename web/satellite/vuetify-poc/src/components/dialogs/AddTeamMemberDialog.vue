@@ -85,7 +85,7 @@
                             variant="flat"
                             block
                             :loading="isLoading"
-                            :append-icon="needsUpgrade ? 'mdi-arrow-right' : undefined"
+                            :append-icon="needsUpgrade ? mdiArrowRight : undefined"
                             @click="onPrimaryClick"
                         >
                             {{ needsUpgrade ? 'Continue' : 'Send Invite' }}
@@ -120,6 +120,7 @@ import {
     VCardActions,
     VOverlay,
 } from 'vuetify/components';
+import { mdiArrowRight } from '@mdi/js';
 
 import { RequiredRule, ValidationRule } from '@poc/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

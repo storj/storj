@@ -26,7 +26,7 @@
                         class="bg-background"
                         variant="outlined"
                         color="default"
-                        prepend-icon="mdi-lock-outline"
+                        :prepend-icon="mdiLockOutline"
                         @click="isBlurred = false"
                     >
                         Show {{ label }}
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { VTextarea, VFadeTransition, VBtn } from 'vuetify/components';
+import { mdiLockOutline } from '@mdi/js';
 
 import InputCopyButton from '@poc/components/InputCopyButton.vue';
 

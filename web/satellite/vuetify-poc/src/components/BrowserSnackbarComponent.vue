@@ -23,7 +23,7 @@
                         <v-expansion-panel-title color="">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
-                                <v-btn variant="outlined" color="default" size="x-small" icon="mdi-close" title="Close" @click="closeDialog" />
+                                <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
                             </template>
                         </v-expansion-panel-title>
                         <v-progress-linear
@@ -44,7 +44,7 @@
                                         <template #activator="{ props: activatorProps }">
                                             <v-icon
                                                 v-bind="activatorProps"
-                                                icon="mdi-close-circle"
+                                                :icon="mdiCloseCircle"
                                                 @click="cancelAll"
                                             />
                                         </template>
@@ -87,8 +87,10 @@ import {
     VIcon,
     VDivider,
     VExpandTransition,
+    VBtn,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { mdiClose, mdiCloseCircle } from '@mdi/js';
 
 import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

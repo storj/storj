@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive, readonly } from 'vue';
+import { computed, DeepReadonly, reactive, readonly } from 'vue';
 
 import {
     DisableMFARequest,
@@ -19,7 +19,7 @@ export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
 
 export class UsersState {
     public user: User = new User();
-    public settings: Readonly<UserSettings> = DEFAULT_USER_SETTINGS;
+    public settings: DeepReadonly<UserSettings> = DEFAULT_USER_SETTINGS;
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }

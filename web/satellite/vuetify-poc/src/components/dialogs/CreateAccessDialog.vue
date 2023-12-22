@@ -144,7 +144,7 @@
                             variant="outlined"
                             color="default"
                             block
-                            :prepend-icon="stepInfos[step].prev.value ? 'mdi-chevron-left' : 'mdi-book-open-outline'"
+                            :prepend-icon="stepInfos[step].prev.value ? mdiChevronLeft : mdiBookOpenOutline"
                             :disabled="isCreating || isFetching"
                             @click="prevStep"
                         >
@@ -156,7 +156,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            :append-icon="stepInfos[step].next.value ? 'mdi-chevron-right' : undefined"
+                            :append-icon="stepInfos[step].next.value ? mdiChevronRight : undefined"
                             :loading="isCreating"
                             :disabled="isFetching"
                             @click="nextStep"
@@ -186,6 +186,7 @@ import {
     VCardActions,
     VProgressLinear,
 } from 'vuetify/components';
+import { mdiBookOpenOutline, mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';

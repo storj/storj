@@ -72,7 +72,7 @@
                                     {{ formattedTokenBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" prepend-icon="mdi-plus" @click="onAddTokensClicked">
+                                <v-btn variant="outlined" color="default" size="small" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -115,7 +115,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    prepend-icon="mdi-plus"
+                                    :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Add Coupon
@@ -141,7 +141,7 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    prepend-icon="mdi-plus"
+                                    :prepend-icon="mdiPlus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Apply New Coupon
@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeMount, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -218,6 +218,7 @@ import {
     VProgressCircular,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
+import { mdiPlus } from '@mdi/js';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';

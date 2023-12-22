@@ -14,7 +14,7 @@
                 <p class="text-h5 font-weight-bold">Set an encryption passphrase<br>to start uploading files.</p>
             </v-col>
             <v-col cols="12">
-                <v-btn append-icon="mdi-chevron-right" @click="isSetPassphraseDialogShown = true">
+                <v-btn :append-icon="mdiChevronRight" @click="isSetPassphraseDialogShown = true">
                     Set Encryption Passphrase
                 </v-btn>
             </v-col>
@@ -24,7 +24,7 @@
                 <p class="text-h5 font-weight-bold">Create a bucket to start<br>uploading data in your project.</p>
             </v-col>
             <v-col cols="12">
-                <v-btn append-icon="mdi-chevron-right" @click="isCreateBucketDialogShown = true">
+                <v-btn :append-icon="mdiChevronRight" @click="isCreateBucketDialogShown = true">
                     Create a Bucket
                 </v-btn>
             </v-col>
@@ -174,7 +174,7 @@
                                 Download
                                 <v-tooltip width="250" location="bottom">
                                     <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="16" icon="mdi-information-outline text-medium-emphasis" class="ml-2" />
+                                        <v-icon v-bind="props" size="16" :icon="mdiInformationOutline" class="ml-2 text-medium-emphasis" />
                                     </template>
                                     <template #default>
                                         <p>
@@ -251,6 +251,7 @@ import {
     VBtn,
     VCard,
     VCardTitle,
+    VCardSubtitle,
     VCol,
     VContainer,
     VRow,
@@ -261,6 +262,7 @@ import {
 } from 'vuetify/components';
 import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
+import { mdiChevronRight, mdiInformationOutline } from '@mdi/js';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            prepend-inner-icon="mdi-magnify"
+            :prepend-inner-icon="mdiMagnify"
             single-line
             variant="solo-filled"
             flat
@@ -51,7 +51,7 @@
                     density="comfortable"
                     icon
                 >
-                    <v-icon icon="mdi-dots-horizontal" />
+                    <v-icon :icon="mdiDotsHorizontal" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
                             <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.name)">
@@ -89,6 +89,7 @@ import {
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
+import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';

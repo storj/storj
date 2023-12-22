@@ -6,7 +6,7 @@
         <v-text-field
             v-model="search"
             label="Search"
-            prepend-inner-icon="mdi-magnify"
+            :prepend-inner-icon="mdiMagnify"
             single-line
             variant="solo-filled"
             flat
@@ -65,6 +65,7 @@ import {
     VTextField,
     VDataTable,
 } from 'vuetify/components';
+import { mdiMagnify } from '@mdi/js';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';

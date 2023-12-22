@@ -42,7 +42,7 @@
                     @click="onSaveCardClick"
                 >
                     <template #prepend>
-                        <v-icon icon="mdi-lock" />
+                        <v-icon :icon="mdiLock" />
                     </template>
                     Save card
                 </v-btn>
@@ -57,6 +57,7 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VBtn, VIcon, VCol, VRow } from 'vuetify/components';
 import { useTheme } from 'vuetify';
+import { mdiLock } from '@mdi/js';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/types/router';

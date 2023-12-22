@@ -6,7 +6,7 @@
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"
-                icon="mdi-eye-outline"
+                :icon="mdiEyeOutline"
                 @click="() => emit('toggleVisibility')"
             />
         </template>
@@ -15,7 +15,7 @@
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"
-                icon="mdi-eye-off-outline"
+                :icon="mdiEyeOffOutline"
                 @click="() => emit('toggleVisibility')"
             />
         </template>
@@ -23,6 +23,7 @@
 </template>
 <script setup lang="ts">
 import { VIcon, VTooltip } from 'vuetify/components';
+import { mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
 
 defineProps<{
     isVisible: boolean

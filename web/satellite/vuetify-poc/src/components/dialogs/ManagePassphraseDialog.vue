@@ -96,7 +96,7 @@
                         <v-btn
                             variant="outlined"
                             color="default"
-                            prepend-icon="mdi-chevron-left"
+                            :prepend-icon="mdiChevronLeft"
                             block
                             @click="onBackClick"
                         >
@@ -113,7 +113,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            append-icon="mdi-chevron-right"
+                            :append-icon="mdiChevronRight"
                             @click="onNextClick"
                         >
                             Continue
@@ -140,6 +140,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
+import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 
 import { ManageProjectPassphraseStep, PassphraseOption } from '@poc/types/managePassphrase';
 import { useProjectsStore } from '@/store/modules/projectsStore';
