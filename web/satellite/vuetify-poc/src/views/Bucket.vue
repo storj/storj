@@ -68,17 +68,17 @@
                 <v-btn
                     variant="outlined"
                     color="default"
-                    class="mx-4"
+                    class="mx-2 mx-sm-4"
                     :disabled="!isInitialized"
                     @click="isNewFolderDialogOpen = true"
                 >
-                    <icon-folder />
+                    <icon-folder class="mr-2"/>
                     New Folder
                 </v-btn>
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col class="pa-0" :class="{ 'pt-2': !smAndUp }" cols="auto">
+                <v-col class="pa-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -98,7 +98,7 @@
                                     @click="isCardView = true"
                                 >
                                     <icon-card-view />
-                                    Cards
+                                    <span class="hidden-xs">Cards</span>
                                 </v-btn>
                             </template>
                             Card view shows image previews using download bandwidth.
@@ -112,7 +112,7 @@
                             @click="isCardView = false"
                         >
                             <icon-table-view />
-                            Table
+                            <span class="hidden-xs">Table</span>
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>

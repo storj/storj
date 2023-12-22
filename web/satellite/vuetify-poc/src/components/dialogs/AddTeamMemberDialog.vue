@@ -48,7 +48,6 @@
                             <v-alert
                                 variant="tonal"
                                 color="info"
-                                title="Important Information"
                                 text="All team members should use the same passphrase to access the same data."
                                 rounded="lg"
                                 density="comfortable"

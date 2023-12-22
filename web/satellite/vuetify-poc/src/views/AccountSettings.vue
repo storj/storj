@@ -10,34 +10,58 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" sm="6">
+            <v-col cols="12" lg="4">
                 <v-card title="Name" variant="outlined" :border="true" rounded="xlg">
-                    <v-card-subtitle>
-                        {{ user.getFullName() }}
-                    </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                            {{ user.getFullName() }}
+                        </v-chip>
+                        <v-divider class="my-4" />
                         <v-btn variant="outlined" color="default" size="small" @click="isChangeNameDialogShown = true">
                             Edit Name
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col cols="12" sm="6">
+            <v-col cols="12" lg="4">
                 <v-card title="Email Address" variant="outlined" :border="true" rounded="xlg">
-                    <v-card-subtitle>
-                        {{ user.email }}
-                    </v-card-subtitle>
                     <v-card-text>
+                        <v-chip rounded color="default" variant="tonal" size="small" class="font-weight-bold">
+                            {{ user.email }}
+                        </v-chip>
+                        <v-divider class="my-4" />
+                        <div>
                         <v-tooltip
                             activator="parent"
                             location="top"
                         >
                             To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
                         </v-tooltip>
-                        <v-divider class="mb-4" />
                         <v-btn variant="outlined" color="default" size="small" disabled>
                             Change Email
+                        </v-btn>
+                        </div>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+            <v-col cols="12" lg="4">
+                <v-card title="Account Type" variant="outlined" :border="true" rounded="xlg">
+                    <v-card-text>
+                        <v-chip
+                            class="font-weight-bold"
+                            :color="isPaidTier ? 'success' : 'info'"
+                            variant="tonal"
+                            size="small"
+                            rounded
+                        >
+                            {{ isPaidTier ? 'Pro Account' : 'Free Account' }}
+                        </v-chip>
+                        <v-divider class="my-4" />
+                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" to="billing">
+                            View Billing
+                        </v-btn>
+                        <v-btn v-else variant="outlined" color="default" size="small" @click="appStore.toggleUpgradeFlow(true)">
+                            Upgrade
                         </v-btn>
                     </v-card-text>
                 </v-card>
@@ -51,7 +75,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" md="6" lg="4">
+            <v-col cols="12" lg="4">
                 <v-card title="Password" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
                         **********
@@ -65,7 +89,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" md="6" lg="4">
+            <v-col cols="12" lg="4">
                 <v-card title="Two-factor authentication" variant="outlined" :border="true" rounded="xlg">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.
@@ -137,6 +161,7 @@ import {
 } from 'vuetify/components';
 
 import { User, UserSettings } from '@/types/users';
+import { useAppStore } from '@poc/store/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
@@ -150,6 +175,7 @@ import DisableMFADialog from '@poc/components/dialogs/DisableMFADialog.vue';
 import MFACodesDialog from '@poc/components/dialogs/MFACodesDialog.vue';
 import SetSessionTimeoutDialog from '@poc/components/dialogs/SetSessionTimeoutDialog.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 
@@ -172,6 +198,13 @@ const user = computed((): User => {
  */
 const userSettings = computed((): UserSettings => {
     return usersStore.state.settings as UserSettings;
+});
+
+/**
+ * Returns user's paid tier status from store.
+ */
+ const isPaidTier = computed<boolean>(() => {
+    return usersStore.state.user.paidTier ?? false;
 });
 
 async function toggleEnableMFADialog() {

@@ -5,7 +5,7 @@
     <v-dialog
         v-model="model"
         scrollable
-        min-width="460px"
+        min-width="320px"
         :max-width="maxWidth"
         transition="fade-transition"
         :persistent="loading"

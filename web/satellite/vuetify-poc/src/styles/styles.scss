@@ -21,7 +21,7 @@ body {
 .v-theme--light {
   --v-border-color: 0, 0, 0;
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-border-opacity: 0.07 !important;
+  --v-border-opacity: 0.09 !important;
   // --v-theme-on-background: var(--v-theme-blue6) !important;
   --v-theme-on-background: var(--v-theme-blue7) !important;
   --v-theme-on-surface: var(--v-theme-blue7) !important;
@@ -30,7 +30,7 @@ body {
 // Dark Theme
 .v-theme--dark {
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-border-opacity: 0.07 !important;
+  --v-border-opacity: 0.09 !important;
   --v-theme-on-surface-variant: 70,70,70 !important;
 }
 
@@ -232,18 +232,12 @@ table {
 // Table Footer
 .v-data-table-footer {
   font-size: 14px;
-}
-.v-data-table-footer {
+  justify-content: space-between !important;
+  padding: 12px 18px !important;
   border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .v-data-table-footer .v-field__input {
   font-size: 14px;
-}
-
-// Table Pagination
-.v-data-table-footer {
-  justify-content: space-between !important;
-  padding: 12px 18px !important;
 }
 .v-data-table-footer .v-field__outline__start, .v-data-table-footer .v-field__outline__end {
   border-color: rgba(var(--v-theme-on-background),0.1) !important;
@@ -384,13 +378,6 @@ table {
 
 .break-word {
   word-break: break-word;
-}
-
-// Vuetify has a bug where any element with the attribute "disabled" forces the default cursor
-// even if the value of this attribute is "false".
-// This causes text in window items to appear to be unselectable.
-[disabled=false] {
-  cursor: unset;
 }
 
 // Vuetify has a bug where any element with the attribute "disabled" forces the default cursor

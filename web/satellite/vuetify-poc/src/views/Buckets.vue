@@ -3,7 +3,7 @@
 
 <template>
     <v-container>
-        <PageTitleComponent title="Buckets" />
+        <PageTitleComponent title="Browse Buckets" />
         <PageSubtitleComponent
             subtitle="Buckets are where you upload and organize your data."
             link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"

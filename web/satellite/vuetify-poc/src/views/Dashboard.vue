@@ -32,9 +32,9 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <PageTitleComponent title="Project Overview" />
+                <PageTitleComponent title="Project Dashboard" />
                 <PageSubtitleComponent
-                    :subtitle="`Your ${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
+                    :subtitle="`${limits.objectCount.toLocaleString()} files are stored in ${limits.segmentCount.toLocaleString()} segments around the world.`"
                     link="https://docs.storj.io/dcs/pricing#per-segment-fee"
                 />
             </v-col>
@@ -51,22 +51,22 @@
         </v-row>
 
         <v-row class="d-flex align-center mt-2">
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent icon="file" title="Files" subtitle="Project files" :data="limits.objectCount.toLocaleString()" to="buckets" />
+            <v-col cols="6" md="4" lg="2">
+                <CardStatsComponent icon="file" title="Files" subtitle="Total files stored" :data="limits.objectCount.toLocaleString()" to="buckets" />
             </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
+            <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="globe" title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" to="buckets" />
             </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Project buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
+            <v-col cols="6" md="4" lg="2">
+                <CardStatsComponent icon="bucket" title="Buckets" subtitle="Storage buckets" :data="bucketsCount.toLocaleString()" to="buckets" />
             </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent icon="access" title="Access" subtitle="Project accesses" :data="accessGrantsCount.toLocaleString()" to="access" />
+            <v-col cols="6" md="4" lg="2">
+                <CardStatsComponent icon="access" title="Access" subtitle="Project keys" :data="accessGrantsCount.toLocaleString()" to="access" />
             </v-col>
-            <v-col cols="12" sm="6" md="4" lg="2">
+            <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent icon="team" title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" to="team" />
             </v-col>
-            <v-col v-if="billingEnabled" cols="12" sm="6" md="4" lg="2">
+            <v-col v-if="billingEnabled" cols="6" md="4" lg="2">
                 <CardStatsComponent icon="card" title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" to="/account/billing" />
             </v-col>
         </v-row>
@@ -207,7 +207,7 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Buckets</v-card-title>
+                <v-card-title class="font-weight-bold pl-0">Storage Buckets</v-card-title>
                 <v-card-subtitle class="pl-0">Buckets are where you upload and organize your data.</v-card-subtitle>
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
