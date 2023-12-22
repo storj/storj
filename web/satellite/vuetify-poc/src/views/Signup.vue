@@ -84,6 +84,7 @@
                             </v-text-field>
 
                             <v-text-field
+                                ref="repPasswordField"
                                 v-model="repPassword"
                                 class="mb-2"
                                 label="Password"
@@ -215,7 +216,7 @@ import {
     VSelect,
     VTextField,
 } from 'vuetify/components';
-import { computed, ComputedRef, onBeforeMount, ref } from 'vue';
+import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -274,6 +275,7 @@ const inviterEmail = queryRef('inviter_email');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
+const repPasswordField = ref<VTextField | null>(null);
 const viewConfig = ref<ViewConfig | null>(null);
 
 const satellitesHints = [
@@ -284,6 +286,9 @@ const satellitesHints = [
 
 const passwordRules: ValidationRule<string>[] = [
     RequiredRule,
+    (value) => value.length < passMinLength.value || value.length > passMaxLength.value
+        ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
+        : true,
 ];
 
 const emailRules: ValidationRule<string>[] = [
@@ -300,6 +305,20 @@ const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
         return true;
     },
 ]);
+
+/**
+ * Returns the maximum password length from the store.
+ */
+const passMaxLength = computed((): number => {
+    return configStore.state.config.passwordMaximumLength;
+});
+
+/**
+ * Returns the minimum password length from the store.
+ */
+const passMinLength = computed((): number => {
+    return configStore.state.config.passwordMinimumLength;
+});
 
 /**
  * Name of the current satellite.
@@ -467,6 +486,12 @@ onBeforeMount(async () => {
         viewConfig.value = partner.value && config[partner.value] ? config[partner.value] : config['default'];
     } catch (e) {
         notify.error('No configuration file for registration page.');
+    }
+});
+
+watch(password, () => {
+    if (repPassword.value) {
+        repPasswordField.value?.validate();
     }
 });
 </script>
