@@ -167,9 +167,11 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		Email        string                    `json:"email"`
 		ProjectLimit int                       `json:"projectLimit"`
 		Placement    storj.PlacementConstraint `json:"placement"`
+		PaidTier     bool                      `json:"paidTier"`
 	}
 	type Project struct {
 		ID          uuid.UUID `json:"id"`
+		PublicID    uuid.UUID `json:"publicId"`
 		Name        string    `json:"name"`
 		Description string    `json:"description"`
 		OwnerID     uuid.UUID `json:"ownerId"`
@@ -186,10 +188,12 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		ProjectLimit: user.ProjectLimit,
 		Placement:    user.DefaultPlacement,
+		PaidTier:     user.PaidTier,
 	}
 	for _, p := range projects {
 		output.Projects = append(output.Projects, Project{
 			ID:          p.ID,
+			PublicID:    p.PublicID,
 			Name:        p.Name,
 			Description: p.Description,
 			OwnerID:     p.OwnerID,

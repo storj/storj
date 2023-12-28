@@ -41,18 +41,42 @@ func TestUserGet(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 		project := planet.Uplinks[0].Projects[0]
 
+		user, err := sat.DB.Console().Users().Get(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
 		projLimit, err := sat.DB.Console().Users().GetProjectLimit(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
 		link := "http://" + address.String() + "/api/users/" + project.Owner.Email
 		expectedBody := `{` +
-			fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d,"placement":%d},`, project.Owner.ID, project.Owner.Email, projLimit, storj.DefaultPlacement) +
-			fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]}`, project.ID, project.Owner.ID)
+			fmt.Sprintf(
+				`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d,"placement":%d,"paidTier":%t},`,
+				project.Owner.ID,
+				project.Owner.Email,
+				projLimit,
+				storj.DefaultPlacement,
+				user.PaidTier,
+			) +
+			fmt.Sprintf(
+				`"projects":[{"id":"%s","publicId":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]}`,
+				project.ID,
+				project.PublicID,
+				project.Owner.ID,
+			)
 
 		assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
 
 		link = "http://" + address.String() + "/api/users/" + "user-not-exist@not-exist.test"
-		body := assertReq(ctx, t, link, http.MethodGet, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		body := assertReq(
+			ctx,
+			t,
+			link,
+			http.MethodGet,
+			"",
+			http.StatusNotFound,
+			"",
+			planet.Satellites[0].Config.Console.AuthToken,
+		)
 		require.Contains(t, string(body), "does not exist")
 	})
 }

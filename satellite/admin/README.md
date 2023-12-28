@@ -159,6 +159,7 @@ A successful response body:
     "projects":[
         {
             "id": "abcabcab-1234-abcd-abcd-abecdefedcab",
+            "publicId": "9551ffef-935c-4d62-9a3b-00d36c411182",
             "name": "Project",
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
