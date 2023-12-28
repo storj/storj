@@ -56,9 +56,12 @@ Requires setting `Authorization` header for requests.
             * [Geofencing](#geofencing)
                 * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
                 * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
-        * [APIKey Management](#apikey-management)
-            * [GET /api/apikeys/{apikey}](#get-apiapikeysapikey)
-            * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
+        * [Project API Keys Management](#project-api-keys-management)
+            * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
+            * [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
+        * [REST API Keys Management](#rest-api-keys-management)
+            * [POST /api/restkeys/{user-email}](#post-apirestkeysuser-email)
+            * [PUT /api/restkeys/{api-key}/revoke](#put-apirestkeysapi-keyrevoke)
 
 <!-- tocstop -->
 
@@ -462,11 +465,11 @@ values for the `region` parameter are:
 
 Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
 
-### APIKey Management
+### Project API Keys Management
 
-#### GET /api/apikeys/{apikey}
+#### GET /api/apikeys/{api-key}
 
-Gets information on the given apikey.
+Gets information on the given API key.
 
 A successful response body:
 
@@ -490,6 +493,27 @@ A successful response body:
 }
 ```
 
-#### DELETE /api/apikeys/{apikey}
+#### DELETE /api/apikeys/{api-key}
 
-Deletes the given apikey.
+Deletes the given API key.
+
+### REST API Keys Management
+
+#### POST /api/restkeys/{user-email}
+
+Create a REST API key for the user's account associated to the indicated e-mail.
+
+An example of a required request body:
+
+```json
+{
+    "expiration": "30d20h"
+}
+```
+
+If `expiration` is empty, the default expiration is applied. Otherwise, the expiration parameter
+must have some non-negative value according to https://pkg.go.dev/time#ParseDuration.
+
+#### PUT /api/restkeys/{api-key}/revoke
+
+Revoke the indicated REST API key.

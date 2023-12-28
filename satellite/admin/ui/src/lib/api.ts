@@ -561,7 +561,7 @@ Blank fields will not be updated.`,
 		rest_api_keys: [
 			{
 				name: 'create',
-				desc: 'Create a REST key',
+				desc: 'Create a REST key. The expiration format must be accepted by https://pkg.go.dev/time#ParseDuration (e.g 20d4h20s) and if it is blank the default applies',
 				params: [
 					["user's email", new InputText('text', true)],
 					['expiration', new InputText('text', false)]
