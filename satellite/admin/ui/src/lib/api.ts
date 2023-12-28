@@ -520,8 +520,8 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'unwarn user',
-				desc: "Remove a user's warning status",
+				name: 'remove billing warning',
+				desc: "Remove the billing warning status from a user's account",
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/billing-warning`) as Promise<null>;
