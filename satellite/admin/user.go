@@ -625,7 +625,6 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 				err.Error(), http.StatusInternalServerError)
 		}
 	}
-
 }
 
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
@@ -938,7 +937,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure user has no own projects any longer
-	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "unable to list projects",
 			err.Error(), http.StatusInternalServerError)
