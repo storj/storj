@@ -70,7 +70,7 @@ func TestDurability(t *testing.T) {
 
 	c.aliasMap = metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {
-		c.nodes[node.ID] = node
+		c.nodes = append(c.nodes, *node)
 	}
 
 	c.classifyNodeAliases()
@@ -136,9 +136,8 @@ func TestDurabilityUnknownNode(t *testing.T) {
 
 	c.aliasMap = metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {
-		c.nodes[node.ID] = node
+		c.nodes = append(c.nodes, *node)
 	}
-
 	c.classifyNodeAliases()
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)
