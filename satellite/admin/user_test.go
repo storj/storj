@@ -762,8 +762,18 @@ func TestUserDelete(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			members, err := dbconsole.ProjectMembers().
+				GetPagedWithInvitationsByProjectID(ctx, sharedProject.ID, console.ProjectMembersCursor{Limit: 2, Page: 1})
+			require.NoError(t, err)
+			require.EqualValues(t, 0, members.TotalCount)
+
 			_, err = dbconsole.ProjectMembers().Insert(ctx, user.ID, sharedProject.ID)
 			require.NoError(t, err)
+
+			members, err = dbconsole.ProjectMembers().
+				GetPagedWithInvitationsByProjectID(ctx, sharedProject.ID, console.ProjectMembersCursor{Limit: 2, Page: 1})
+			require.NoError(t, err)
+			require.EqualValues(t, 1, members.TotalCount)
 
 			err = planet.Satellites[0].DB.Console().Projects().Delete(ctx, planet.Uplinks[0].Projects[0].ID)
 			require.NoError(t, err)
@@ -781,6 +791,11 @@ func TestUserDelete(t *testing.T) {
 				planet.Satellites[0].Config.Console.AuthToken,
 			)
 			require.Len(t, body, 0)
+
+			members, err = dbconsole.ProjectMembers().
+				GetPagedWithInvitationsByProjectID(ctx, sharedProject.ID, console.ProjectMembersCursor{Limit: 2, Page: 1})
+			require.NoError(t, err)
+			require.EqualValues(t, 0, members.TotalCount)
 		})
 	})
 }
