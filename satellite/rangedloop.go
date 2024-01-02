@@ -140,9 +140,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			"net": func(node *nodeselection.SelectedNode) string {
 				return node.LastNet
 			},
-			"country": func(node *nodeselection.SelectedNode) string {
-				return node.CountryCode.String()
-			},
 		}
 		for class, f := range classes {
 			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
