@@ -8,7 +8,7 @@
 set -ueo pipefail
 
 # This script assumes that storj-sim and uplink has already been set up and initial files have been
-# uploaded via scripts/test-versions.sh
+# uploaded via /uplink-versions/steps.sh
 main_cfg_dir=$1
 existing_bucket_name_suffixes=$2
 update_access_script_path=$3
@@ -18,7 +18,7 @@ test_files_dir="${main_cfg_dir}/testfiles"
 stage1_dst_dir="${main_cfg_dir}/stage1"
 stage2_dst_dir="${main_cfg_dir}/stage2"
 
-echo "Begin test-rolling-upgrade.sh, storj-sim config directory:" ${main_cfg_dir}
+echo "Begin rolling-upgrade/step-1.sh, storj-sim config directory:" ${main_cfg_dir}
 
 echo "which storj-sim: $(which storj-sim)"
 echo "Shasum for storj-sim:"
@@ -132,4 +132,4 @@ for suffix in ${existing_bucket_name_suffixes}; do
     rm -rf ${download_dst_dir}
 done
 
-echo "Done with test-rolling-upgrade.sh"
+echo "Done with rolling-upgrade/step-1.sh"

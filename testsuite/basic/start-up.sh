@@ -72,16 +72,16 @@ export GATEWAY_0_ACCESS=$UPLINK_ACCESS
 export SATELLITE_0_DIR=$TMP
 
 # run tests
-PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/test-uplink.sh
-PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/test-uplink-share.sh
+PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/step-uplink.sh
+PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/step-uplink-share.sh
 # todo: this doesn't really test anything. we should probably make a separate test for it
 if [ "$DB" == "cockroach" ]
 then
-  PATH="$TMP_BIN":"$PATH" STORJ_DATABASE=cockroach://root@localhost:26257/master?sslmode=disable "$SCRIPTDIR"/test-billing.sh
+  PATH="$TMP_BIN":"$PATH" STORJ_DATABASE=cockroach://root@localhost:26257/master?sslmode=disable "$SCRIPTDIR"/step-billing.sh
 else
-  PATH="$TMP_BIN":"$PATH" STORJ_DATABASE=postgres://postgres@localhost:6543/master?sslmode=disable "$SCRIPTDIR"/test-billing.sh
+  PATH="$TMP_BIN":"$PATH" STORJ_DATABASE=postgres://postgres@localhost:6543/master?sslmode=disable "$SCRIPTDIR"/step-billing.sh
 fi
-PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/test-uplink-rs-upload.sh
+PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/step-uplink-rs-upload.sh
 
 # change RS values and try download
 storj-up env set satellite-api STORJ_METAINFO_RS_ERASURE_SHARE_SIZE=256
@@ -91,4 +91,4 @@ storj-up env set satellite-api STORJ_METAINFO_RS_SUCCESS=6
 storj-up env set satellite-api STORJ_METAINFO_RS_TOTAL=8
 docker compose up -d
 docker compose exec -T storagenode1 storj-up util wait-for-satellite satellite-api:7777
-PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/test-uplink-rs-download.sh
+PATH="$TMP_BIN":"$PATH" "$SCRIPTDIR"/step-uplink-rs-download.sh

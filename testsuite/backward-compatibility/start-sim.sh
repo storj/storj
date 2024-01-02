@@ -31,7 +31,7 @@ test() {
     DIR=$1
     shift
 
-    PATH="$DIR"/bin:"$PATH" storj-sim -x --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/test-backwards.sh "$@"
+    PATH="$DIR"/bin:"$PATH" storj-sim -x --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/steps.sh "$@"
 }
 
 test_release() {

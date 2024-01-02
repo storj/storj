@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -ueo pipefail
-source $(dirname $0)/utils.sh
+source $(dirname $0)/../scripts/utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 IDENTS_DIR=$TMPDIR/identities

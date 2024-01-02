@@ -55,7 +55,7 @@ wait_for_all_background_jobs_to_finish(){
     done
 }
 
-echo "Begin test-versions.sh, storj-sim config directory:" ${main_cfg_dir}
+echo "Begin uplink-versions/steps.sh, storj-sim config directory:" ${main_cfg_dir}
 
 echo "which storj-sim: $(which storj-sim)"
 echo "Shasum for storj-sim:"
@@ -205,4 +205,4 @@ if [[ "$command" == "cleanup" ]]; then
     done
 fi
 
-echo "Done with test-versions.sh"
+echo "Done with uplink-versions/steps.sh"

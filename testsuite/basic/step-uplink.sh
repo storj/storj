@@ -2,7 +2,7 @@
 set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $SCRIPTDIR/../../utils.sh
+source $SCRIPTDIR/../../scripts/utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 

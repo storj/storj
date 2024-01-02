@@ -199,23 +199,23 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/integration/test-sim.sh
+	@./testsuite/basic/start-sim.sh
 
 .PHONY: test-sim-redis-unavailability
 test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/redis/test-sim-redis-up-and-down.sh
+	@./testsuite/redis/start-sim.sh
 
 
 .PHONY: test-certificates
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-certificates.sh
+	@./testsuite/test-certificates.sh
 
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
-	@./scripts/tests/backwardcompatibility/test-sim-backwards.sh
+	@./testsuite/backward-compatibility/start-sim.sh
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
@@ -227,7 +227,7 @@ check-monitoring: ## Check for locked monkit calls that have changed
 .PHONY: test-wasm-size
 test-wasm-size: ## Test that the built .wasm code has not increased in size
 	@echo "Running ${@}"
-	@./scripts/test-wasm-size.sh
+	@./testsuite/wasm/check-size.sh
 
 ##@ Build
 

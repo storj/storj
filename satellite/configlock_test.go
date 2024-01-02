@@ -40,7 +40,7 @@ func TestConfigLock(t *testing.T) {
 	normalizeConfig(t, filepath.Join(tempDir, "config.yaml"), cleanedupConfig, tempDir)
 
 	// either compare or save the lock file
-	lockPath := filepath.Join("..", "scripts", "testdata", "satellite-config.yaml.lock")
+	lockPath := "satellite-config.yaml.lock"
 	if *createLock { // update satellite-config.yaml.lock
 		// copy using ReadFile/WriteFile, since os.Rename() won't work across drives
 		input, err := os.ReadFile(cleanedupConfig)

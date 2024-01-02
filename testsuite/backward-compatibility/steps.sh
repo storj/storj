@@ -2,7 +2,7 @@
 set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $SCRIPTDIR/../../utils.sh
+source $SCRIPTDIR/../../scripts/utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 
@@ -32,7 +32,7 @@ DOWNLOAD_FILES_DIR="$STORJ_NETWORK_DIR/download/$BUCKET"
 
 if [[ ! -v UPLINK_ACCESS ]]; then
   # override configured access with access where address is node ID + satellite addess
-  STORJ_ACCESS=$(go run "$SCRIPTDIR"/../../update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
+  STORJ_ACCESS=$(go run "$SCRIPTDIR"/../../testsuite/update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
   UPLINK_ACCESS="$STORJ_ACCESS"
 
   export STORJ_ACCESS

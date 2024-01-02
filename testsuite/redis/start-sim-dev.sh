@@ -6,4 +6,4 @@ export STORJ_REDIS_PORT=7379
 # shellcheck source=/postgres-dev.sh
 source "${SCRIPTDIR}/../postgres-dev.sh"
 
-"${SCRIPTDIR}/test-sim-redis-up-and-down.sh"
+"${SCRIPTDIR}/start-sim.sh"

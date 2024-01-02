@@ -6,4 +6,4 @@ source $SCRIPTDIR/../postgres-dev.sh
 
 export STORJ_MIGRATION_DB="${STORJ_SIM_POSTGRES}&options=--search_path=satellite/0/meta"
 
-$SCRIPTDIR/test-sim-backwards.sh
+$SCRIPTDIR/start-sim.sh

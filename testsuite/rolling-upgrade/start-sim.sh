@@ -6,18 +6,18 @@
 #  * Set up a storj-sim network on the latest point release (all storagenodes and satellite on latest point release).
 #  * If the current commit is a release tag use the previous release instead. Exclude -rc release tags.
 #  * Check out the latest point release of the uplink.
-#  * (test-versions.sh upload) - Upload an inline, remote, and multisegment file to the network with the selected uplink.
+#  * (uplink-versions/steps.sh upload) - Upload an inline, remote, and multisegment file to the network with the selected uplink.
 # Stage 2:
 #  * Upgrade the satellite to current commit. Run an "old" satellite api server on the latest point release (port 30000).
 #  * Keep half of the storagenodes on the latest point release. Upgrade the other half to main.
 #  * Point half of the storagenodes to the old satellite api (port 30000). Keep the other half on the new satellite api (port 10000).
 #  * Check out the main version of the uplink.
-#  * (test-rolling-upgrade.sh) - Download the inline, remote, and multisegment file from the network using the main uplink and the new satellite api.
-#  * (test-rolling-upgrade.sh) - Download the inline, remote, and multisegment file from the network using the main uplink and the old satellite api.
-#  * (test-rolling-upgrade-final-upload.sh) - Upload an inline, remote, and multisegment file to the network using the main uplink and the new satellite api.
-#  * (test-rolling-upgrade-final-upload.sh) - Upload an inline, remote, and multisegment file to the network using the main uplink and the old satellite api.
-#  * (test-rolling-upgrade-final-upload.sh) - Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and new satellite api.
-#  * (test-rolling-upgrade-final-upload.sh) - Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and old satellite api.
+#  * (step-1.sh) - Download the inline, remote, and multisegment file from the network using the main uplink and the new satellite api.
+#  * (step-1.sh) - Download the inline, remote, and multisegment file from the network using the main uplink and the old satellite api.
+#  * (step-2.sh) - Upload an inline, remote, and multisegment file to the network using the main uplink and the new satellite api.
+#  * (step-2.sh) - Upload an inline, remote, and multisegment file to the network using the main uplink and the old satellite api.
+#  * (step-2.sh) - Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and new satellite api.
+#  * (step-2.sh) - Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and old satellite api.
 
 set -ueo pipefail
 set +x
@@ -263,15 +263,15 @@ done
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
-test_versions_path="$( dirname "${scriptdir}" )/testversions/test-versions.sh"
+test_versions_path="$( dirname "${scriptdir}" )/uplink-versions/steps.sh"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "1"
-update_access_script_path="$(version_dir $current_commit)/scripts/update-access.go"
+update_access_script_path="$(version_dir $current_commit)/testsuite/update-access.go"
 
 # Uploading files to the network using the latest release version
 echo "Stage 1 uplink version: ${stage1_uplink_version}"
 src_ul_version_dir=$(version_dir ${stage1_uplink_version})
 ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-# use test-versions.sh instead of test-rolling-upgrade.sh for upload step, since the setup for the two tests should be identical
+# use uplink-versions/steps.sh instead of ./step-1.sh for upload step, since the setup for the two tests should be identical
 PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "upload" "${stage1_uplink_version}" "$update_access_script_path"
 
 echo -e "\nSetting up stage 2 in ${test_dir}"
@@ -318,11 +318,11 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
+    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/step-1.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
     if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
-        PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade-final-upload.sh" "${test_dir}/local-network"
+        PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/step-2.sh" "${test_dir}/local-network"
     fi
 done
 

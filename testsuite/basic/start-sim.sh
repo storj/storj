@@ -11,8 +11,8 @@ cleanup(){
 }
 trap cleanup EXIT
 
-echo "Running test-sim"
-make -C "$SCRIPTDIR"/../../.. install-sim
+echo "Running basic/start-sim"
+make -C "$SCRIPTDIR"/../.. install-sim
 
 echo "Overriding default max segment size to 6MiB"
 GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
@@ -37,14 +37,14 @@ else
 fi
 
 # run tests
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-share.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-billing.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-share.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-billing.sh
 
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-rs-upload.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-upload.sh
 # change RS values and try download 
 sed -i 's@# metainfo.rs: 4/6/8/10-256 B@metainfo.rs: 2/3/6/8-256 B@g' $(storj-sim network env SATELLITE_0_DIR)/config.yaml
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-rs-download.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-download.sh
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
@@ -53,5 +53,5 @@ storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 # aws-cli doesn't support gateway with ipv6 address, so change it to use localhost
 #find "$STORJ_NETWORK_DIR"/gateway -type f -name config.yaml -exec sed -i 's/server.address: "\[::1\]/server.address: "127.0.0.1/' '{}' +
 # run aws-cli tests using ipv6
-#storj-sim -x --host "::1" network test bash "$SCRIPTDIR"/test-sim-aws.sh
+#storj-sim -x --host "::1" network test bash "$SCRIPTDIR"/step-sim-aws.sh
 #storj-sim -x network destroy

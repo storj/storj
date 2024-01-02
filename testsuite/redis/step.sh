@@ -3,11 +3,11 @@ set -Eeo pipefail
 set +x
 
 # constants
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-source $SCRIPT_DIR/../../utils.sh
+SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source $SCRIPTDIR/../../scripts/utils.sh
 
 
-readonly SCRIPT_DIR
+readonly SCRIPTDIR
 BUCKET="bucket-123"
 readonly BUCKET
 UPLINK_DEBUG_ADDR=""
@@ -124,5 +124,5 @@ uplink_test() {
 uplink_test
 
 # Run the test with Redis container not running
-"${SCRIPT_DIR}/redis-server.sh" stop
+"${SCRIPTDIR}/redis-server.sh" stop
 uplink_test

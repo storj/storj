@@ -2,7 +2,7 @@
 # Copyright (C) 2022 Storj Labs, Inc.
 # See LICENSE for copying information.
 set -x
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 mkdir -p .build
 rm -rf .build/wasm || true

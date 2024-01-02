@@ -84,10 +84,10 @@ eval $(storj-up credentials -e)
 
 #### release tests ####
 # upload using everything release
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b release-network-release-uplink upload
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b release-network-release-uplink upload
 
 # check that it worked with everything release
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b release-network-release-uplink download
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b release-network-release-uplink download
 
 #### build branch binaries ####
 BRANCH_BIN="$STORJ_NETWORK_DIR/bin/branch"
@@ -120,19 +120,19 @@ sleep 60
 
 #### Branch tests ####
 # check that branch uplink + branch network can read fully release data
-PATH="$BRANCH_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b release-network-release-uplink download
+PATH="$BRANCH_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b release-network-release-uplink download
 
 # check that branch uplink + branch network can upload
-PATH="$BRANCH_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b branch-network-branch-uplink upload
+PATH="$BRANCH_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b branch-network-branch-uplink upload
 
 # check that release uplink + branch network can read fully release data
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b release-network-release-uplink download
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b release-network-release-uplink download
 
 # check that release uplink + branch network can read fully branch data
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b branch-network-branch-uplink download
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b branch-network-branch-uplink download
 
 # check that release uplink + branch network can upload
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b branch-network-release-uplink upload
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b branch-network-release-uplink upload
 
 # check that release uplink + branch network can read mixed data
-PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/test-backwards.sh" -b branch-network-release-uplink download
+PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b branch-network-release-uplink download

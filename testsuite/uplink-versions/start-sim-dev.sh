@@ -24,9 +24,6 @@ until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to a
 done
 
 docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj
-
-export STORJ_MIGRATION_DB="${STORJ_SIM_POSTGRES}&options=--search_path=satellite/0/meta"
-
 # fetch the remote main branch
 git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main
-$SCRIPTDIR/test-sim-rolling-upgrade.sh
+$SCRIPTDIR/start-sim.sh
