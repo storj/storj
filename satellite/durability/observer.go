@@ -165,9 +165,6 @@ func (c *Report) classifyNodeAliases() {
 // Fork implements rangedloop.Observer.
 func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 	d := &ObserverFork{
-		aliasMap:               c.aliasMap,
-		nodes:                  c.nodes,
-		classifierCache:        make([][]string, c.aliasMap.Max()+1),
 		reportThreshold:        c.reportThreshold,
 		healthStat:             make([]HealthStat, len(c.className)),
 		controlledByClassCache: make([]int32, len(c.className)),
@@ -228,12 +225,9 @@ type classID int32
 type ObserverFork struct {
 	controlledByClassCache []int32
 
-	healthStat      []HealthStat
-	busFactor       HealthStat
-	aliasMap        *metabase.NodeAliasMap
-	nodes           map[storj.NodeID]*nodeselection.SelectedNode
-	classifierCache [][]string
-	busFactorCache  []int32
+	healthStat     []HealthStat
+	busFactor      HealthStat
+	busFactorCache []int32
 
 	reportThreshold    int
 	busFactorThreshold int

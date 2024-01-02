@@ -233,7 +233,6 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 
 	nodeMap := make(map[storj.NodeID]*nodeselection.SelectedNode)
 	var aliasToNode []*nodeselection.SelectedNode
-	var nodeAliases []metabase.NodeAliasEntry
 	{
 		// generating nodes and node aliases.
 		for i := 0; i < nodeNo; i++ {
@@ -246,14 +245,9 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 			}
 			nodeMap[node.ID] = node
 			aliasToNode = append(aliasToNode, node)
-			nodeAliases = append(nodeAliases, metabase.NodeAliasEntry{
-				ID:    node.ID,
-				Alias: metabase.NodeAlias(i),
-			})
 
 		}
 	}
-	aliases := metabase.NewNodeAliasMap(nodeAliases)
 
 	var segments []rangedloop.Segment
 	{
@@ -288,11 +282,7 @@ func BenchmarkDurabilityProcess(b *testing.B) {
 		}
 	}
 
-	d := ObserverFork{
-		aliasMap:        aliases,
-		nodes:           nodeMap,
-		classifierCache: make([][]string, aliases.Max()),
-	}
+	d := ObserverFork{}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
