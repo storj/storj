@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/forgetsatellite"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -214,6 +215,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			NumConcurrentTransfers: 1,
 			MinBytesPerSecond:      128 * memory.B,
 			MinDownloadTimeout:     2 * time.Minute,
+		},
+		ForgetSatellite: forgetsatellite.Config{
+			ChoreInterval: defaultInterval,
+			NumWorkers:    3,
 		},
 	}
 

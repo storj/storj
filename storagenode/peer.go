@@ -135,6 +135,8 @@ type Config struct {
 	Bandwidth bandwidth.Config
 
 	GracefulExit gracefulexit.Config
+
+	ForgetSatellite forgetsatellite.Config
 }
 
 // DatabaseConfig returns the storagenodedb.Config that should be used with this Config.
@@ -284,6 +286,8 @@ type Peer struct {
 
 	ForgetSatellite struct {
 		Endpoint *forgetsatellite.Endpoint
+		Chore    *forgetsatellite.Chore
+		Cleaner  *forgetsatellite.Cleaner
 	}
 
 	Notifications struct {
@@ -818,6 +822,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err := internalpb.DRPCRegisterNodeForgetSatellite(peer.Server.PrivateDRPC(), peer.ForgetSatellite.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.ForgetSatellite.Cleaner = forgetsatellite.NewCleaner(
+			peer.Log.Named("forgetsatellite:cleaner"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Storage2.BlobsCache,
+			peer.DB.Satellites(),
+			peer.DB.Reputation(),
+			peer.DB.V0PieceInfo(),
+		)
+
+		peer.ForgetSatellite.Chore = forgetsatellite.NewChore(
+			peer.Log.Named("forgetsatellite:chore"),
+			peer.ForgetSatellite.Cleaner,
+			config.ForgetSatellite,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "forgetsatellite:chore",
+			Run:   peer.ForgetSatellite.Chore.Run,
+			Close: peer.ForgetSatellite.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Forget Satellite", peer.ForgetSatellite.Chore.Loop))
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)

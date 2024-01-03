@@ -350,6 +350,27 @@ func (blobs *BlobsUsageCache) RestoreTrash(ctx context.Context, namespace []byte
 	return keysRestored, err
 }
 
+// DeleteNamespace deletes all blobs for a satellite and updates the cache.
+func (blobs *BlobsUsageCache) DeleteNamespace(ctx context.Context, namespace []byte) error {
+	satelliteID, err := storj.NodeIDFromBytes(namespace)
+	if err != nil {
+		return err
+	}
+
+	piecesTotal, piecesContentSize, err := blobs.SpaceUsedBySatellite(ctx, satelliteID)
+	if err != nil {
+		return err
+	}
+
+	err = blobs.Blobs.DeleteNamespace(ctx, satelliteID.Bytes())
+	if err != nil {
+		return err
+	}
+
+	blobs.Update(ctx, satelliteID, -piecesTotal, -piecesContentSize, 0)
+	return nil
+}
+
 func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()

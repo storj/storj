@@ -18,9 +18,12 @@ func TestEndpoint_InitForgetSatellite(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 3, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		storagenode := planet.StorageNodes[0]
+
+		// pause the chore
+		storagenode.ForgetSatellite.Chore.Loop.Pause()
 
 		t.Run("new request", func(t *testing.T) {
-			storagenode := planet.StorageNodes[0]
 			cleanupSatellite := planet.Satellites[0]
 
 			// mark satellite as untrusted
@@ -43,7 +46,6 @@ func TestEndpoint_InitForgetSatellite(t *testing.T) {
 		})
 
 		t.Run("satellite is not untrusted", func(t *testing.T) {
-			storagenode := planet.StorageNodes[0]
 			cleanupSatellite := planet.Satellites[1]
 
 			req := &internalpb.InitForgetSatelliteRequest{
@@ -61,7 +63,6 @@ func TestEndpoint_InitForgetSatellite(t *testing.T) {
 		})
 
 		t.Run("satellite is not untrusted but force cleanup", func(t *testing.T) {
-			storagenode := planet.StorageNodes[0]
 			cleanupSatellite := planet.Satellites[2]
 
 			req := &internalpb.InitForgetSatelliteRequest{
@@ -111,6 +112,9 @@ func TestEndpoint_ForgetSatelliteStatus(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		cleanupSatellite := planet.Satellites[0]
 
+		// pause the chore
+		storagenode.ForgetSatellite.Chore.Loop.Pause()
+
 		// mark satellite as untrusted
 		err := storagenode.DB.Satellites().UpdateSatelliteStatus(ctx, cleanupSatellite.ID(), satellites.Untrusted)
 		require.NoError(t, err)
@@ -129,6 +133,17 @@ func TestEndpoint_ForgetSatelliteStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, true, status.InProgress)
+		require.Equal(t, cleanupSatellite.ID(), status.SatelliteId)
+
+		// trigger the chore
+		storagenode.ForgetSatellite.Chore.Loop.TriggerWait()
+		// check that the cleanup was successful
+		status, err = storagenode.ForgetSatellite.Endpoint.ForgetSatelliteStatus(ctx, &internalpb.ForgetSatelliteStatusRequest{
+			SatelliteId: cleanupSatellite.ID(),
+		})
+		require.NoError(t, err)
+		require.Equal(t, false, status.InProgress)
+		require.Equal(t, true, status.Successful)
 		require.Equal(t, cleanupSatellite.ID(), status.SatelliteId)
 	})
 }
