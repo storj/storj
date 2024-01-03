@@ -859,13 +859,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
 
-# the fraction of new nodes allowed per request
+# the fraction of new nodes allowed per request (DEPRECATED: use placement definition instead)
 # overlay.node.new-node-fraction: 0.05
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
 
-# list of country codes to exclude from node selection for uploads
+# list of country codes to exclude from node selection for uploads (DEPRECATED: use placement definition instead)
 # overlay.node.upload-excluded-country-codes: []
 
 # list of country codes to exclude nodes from target repair selection
