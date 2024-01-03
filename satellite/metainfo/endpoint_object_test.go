@@ -150,8 +150,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 			}
 
-			// TODO(ver): add tests with delete marker
-
 			items, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 				Bucket: []byte(expectedBucketName),
 				Limit:  3,
@@ -2993,6 +2991,46 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			response = listObjectVersions(expectedVersions[2], 2)
 			require.Len(t, response.Items, 2)
 			require.False(t, response.More)
+		})
+
+		t.Run("get objects with delete marker", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
+
+			// upload first version of the item
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// upload second version of the item
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "objectA", testrand.Bytes(100))
+			require.NoError(t, err)
+
+			// delete the second version (latest). Should create a delete marker.
+			deleteResponse, err := planet.Satellites[0].Metainfo.Endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey,
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("objectA"),
+				ObjectVersion:      nil,
+			})
+			require.NoError(t, err)
+			require.NotEmpty(t, deleteResponse)
+			require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, deleteResponse.Object.Status)
+
+			// get the delete marker (latest), should return error
+			_, err = planet.Satellites[0].Metainfo.Endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey,
+				},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("objectA"),
+				ObjectVersion:      nil,
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
 	})
 }
