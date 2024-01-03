@@ -28,6 +28,12 @@ const (
 	ExitFailed Status = 4
 	// Untrusted reflects a satellite that is not trusted.
 	Untrusted Status = 5
+	// CleanupInProgress reflects a satellite that is being cleaned up.
+	CleanupInProgress Status = 6
+	// CleanupFailed reflects a satellite that failed to be cleaned up.
+	CleanupFailed Status = 7
+	// CleanupSucceeded reflects a satellite that was successfully cleaned up.
+	CleanupSucceeded Status = 8
 )
 
 // ExitProgress contains the status of a graceful exit.

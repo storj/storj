@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/forgetsatellite"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
@@ -279,6 +280,10 @@ type Peer struct {
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
+	}
+
+	ForgetSatellite struct {
+		Endpoint *forgetsatellite.Endpoint
 	}
 
 	Notifications struct {
@@ -802,6 +807,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
+	}
+
+	{ // setup forget-satellite
+		peer.ForgetSatellite.Endpoint = forgetsatellite.NewEndpoint(
+			peer.Log.Named("forgetsatellite:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+		)
+		if err := internalpb.DRPCRegisterNodeForgetSatellite(peer.Server.PrivateDRPC(), peer.ForgetSatellite.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)
