@@ -56,25 +56,64 @@ func TestServer(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer serverCancel()
 
-	require.Empty(t, sync2.Concurrently(
-		func() error {
-			err = instance.Run(serverCtx)
-			return errs2.IgnoreCanceled(err)
-		},
-		func() (err error) {
-			defer serverCancel()
+	t.Run("short request", func(t *testing.T) {
+		require.Empty(t, sync2.Concurrently(
+			func() error {
+				err = instance.Run(serverCtx)
+				return errs2.IgnoreCanceled(err)
+			},
+			func() (err error) {
+				defer serverCancel()
 
-			dialer := net.Dialer{}
-			conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			defer func() { err = errs.Combine(err, conn.Close()) }()
+				dialer := net.Dialer{}
+				conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				defer func() { err = errs.Combine(err, conn.Close()) }()
 
-			_, err = conn.Write([]byte{1})
-			return errs.Wrap(err)
-		},
-	))
+				// prefix is too short, but err is ignored on server side
+				_, err = conn.Write([]byte("A"))
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				return nil
+			},
+		))
+	})
+
+	t.Run("request to default mux", func(t *testing.T) {
+		errors := sync2.Concurrently(
+			func() error {
+				err = instance.Run(serverCtx)
+				return errs2.IgnoreCanceled(err)
+			},
+			func() (err error) {
+				defer serverCancel()
+
+				dialer := net.Dialer{}
+				conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				defer func() { err = errs.Combine(err, conn.Close()) }()
+
+				_, err = conn.Write([]byte("longer than DRPC prefix"))
+				if err != nil {
+					return errs.Wrap(err)
+				}
+
+				buff := make([]byte, 10)
+				_, err = conn.Read(buff)
+				if err != nil {
+					return errs.Wrap(err)
+				}
+				return nil
+			},
+		)
+		require.Len(t, errors, 2)
+		require.ErrorContains(t, errors[1], "connection refused")
+	})
 }
 
 func TestHybridConnector_Basic(t *testing.T) {
