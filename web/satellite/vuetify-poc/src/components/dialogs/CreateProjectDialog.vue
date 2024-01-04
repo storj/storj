@@ -45,6 +45,7 @@
                         </v-col>
                         <v-col cols="12">
                             <v-text-field
+                                id="Project Name"
                                 v-model="name"
                                 variant="outlined"
                                 :rules="nameRules"

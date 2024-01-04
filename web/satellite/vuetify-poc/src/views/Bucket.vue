@@ -48,6 +48,7 @@
                 </v-menu>
 
                 <input
+                    id="File Input"
                     ref="fileInput"
                     type="file"
                     aria-roledescription="file-upload"
@@ -56,6 +57,7 @@
                     @change="upload"
                 >
                 <input
+                    id="Folder Input"
                     ref="folderInput"
                     type="file"
                     aria-roledescription="folder-upload"

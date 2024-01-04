@@ -46,6 +46,7 @@
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
+                            id="Folder Name"
                             v-model="folder"
                             variant="outlined"
                             :rules="folderRules"

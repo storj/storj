@@ -47,6 +47,7 @@
                     <v-col>
                         <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
                         <v-text-field
+                            id="Bucket Name"
                             v-model="bucketName"
                             variant="outlined"
                             :rules="bucketNameRules"

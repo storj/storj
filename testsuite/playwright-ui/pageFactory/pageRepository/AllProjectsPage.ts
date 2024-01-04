@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { AllProjectsPageObjects } from '@objects/AllProjectsPageObjects';
+import { AllProjectsPageObjects, AllProjectsPageObjectsV2 } from '@objects/AllProjectsPageObjects';
 import type { Page } from '@playwright/test';
 
 export class AllProjectsPage {
@@ -19,5 +19,15 @@ export class AllProjectsPage {
         const listItem = this.page.locator(AllProjectsPageObjects.PROJECT_ITEM_XPATH, { hasText: name });
         const button = listItem.getByText(AllProjectsPageObjects.OPEN_PROJECT_BUTTON_TEXT);
         await button.click();
+    }
+}
+
+export class AllProjectsPageV2 {
+    constructor(readonly page: Page) {}
+
+    async createProject(name: string): Promise<void> {
+        await this.page.locator(AllProjectsPageObjectsV2.CREATE_PROJECT_BUTTON_XPATH).click();
+        await this.page.locator(AllProjectsPageObjectsV2.NEW_PROJECT_NAME_FIELD_XPATH).fill(name);
+        await this.page.locator(AllProjectsPageObjectsV2.CONFIRM_CREATE_PROJECT_BUTTON_XPATH).click();
     }
 }

@@ -65,4 +65,8 @@ export class LoginPageV2 {
         const label = this.page.locator(LoginPageObjectsV2.SETUP_SUCCESS_LABEL_XPATH);
         await expect(label).toBeVisible();
     }
+
+    async finishSetup(): Promise<void> {
+        await this.page.locator(LoginPageObjectsV2.CONTINUE_BUTTON_XPATH).nth(1).click();
+    }
 }

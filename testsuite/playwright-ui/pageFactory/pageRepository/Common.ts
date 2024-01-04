@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { expect, Page } from '@playwright/test';
-import { CommonObjects } from '@objects/CommonObjects';
+import { CommonObjects, CommonObjectsV2 } from '@objects/CommonObjects';
 import { testConfig } from '../../testConfig';
 
 export class Common {
@@ -21,5 +21,13 @@ export class Common {
         for (const l of loaders) {
             await expect(l).toBeHidden();
         }
+    }
+}
+
+export class CommonV2 {
+    constructor(readonly page: Page) {}
+
+    async closeModal(): Promise<void> {
+        await this.page.locator(CommonObjectsV2.CLOSE_MODAL_BUTTON_XPATH).click();
     }
 }
