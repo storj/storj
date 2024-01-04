@@ -4,7 +4,7 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { PlacementInfo, PlacementManagementHttpApiV1, Project, ProjectManagementHttpApiV1, UserAccount, UserManagementHttpApiV1 } from '@/api/client.gen';
+import { PlacementInfo, PlacementManagementHttpApiV1, Project, ProjectLimitsUpdate, ProjectManagementHttpApiV1, UserAccount, UserManagementHttpApiV1 } from '@/api/client.gen';
 
 class AppState {
     public placements: PlacementInfo[];
@@ -47,6 +47,26 @@ export const useAppStore = defineStore('app', () => {
         state.selectedProject = await projectApi.getProject(id);
     }
 
+    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdate): Promise<void> {
+        await projectApi.updateProjectLimits(limits, id);
+        if (state.selectedProject && state.selectedProject.id === id) {
+            state.selectedProject.maxBuckets = limits.maxBuckets;
+            state.selectedProject.storageLimit = limits.storageLimit;
+            state.selectedProject.bandwidthLimit = limits.bandwidthLimit;
+            state.selectedProject.segmentLimit = limits.segmentLimit;
+            state.selectedProject.rateLimit = limits.rateLimit;
+            state.selectedProject.burstLimit = limits.burstLimit;
+        }
+        if (state.userAccount && state.userAccount.projects) {
+            const updatedData = {
+                storageLimit: limits.storageLimit,
+                bandwidthLimit: limits.bandwidthLimit,
+                segmentLimit: limits.segmentLimit,
+            };
+            state.userAccount.projects.map((item) => (item.id === id ? { ...item, updatedData } : item));
+        }
+    }
+
     return {
         state,
         getUserByEmail,
@@ -54,5 +74,6 @@ export const useAppStore = defineStore('app', () => {
         getPlacements,
         getPlacementText,
         selectProject,
+        updateProjectLimits,
     };
 });
