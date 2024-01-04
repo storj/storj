@@ -17,9 +17,14 @@ import (
 	"storj.io/storj/private/api"
 )
 
+var ErrSettingsAPI = errs.Class("admin settings api")
 var ErrPlacementsAPI = errs.Class("admin placements api")
 var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
+
+type SettingsService interface {
+	GetSettings(ctx context.Context) (*Settings, api.HTTPError)
+}
 
 type PlacementManagementService interface {
 	GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError)
@@ -32,6 +37,13 @@ type UserManagementService interface {
 type ProjectManagementService interface {
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdate) api.HTTPError
+}
+
+// SettingsHandler is an api handler that implements all Settings API endpoints functionality.
+type SettingsHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service SettingsService
 }
 
 // PlacementManagementHandler is an api handler that implements all PlacementManagement API endpoints functionality.
@@ -55,6 +67,19 @@ type ProjectManagementHandler struct {
 	mon     *monkit.Scope
 	service ProjectManagementService
 	auth    *Authorizer
+}
+
+func NewSettings(log *zap.Logger, mon *monkit.Scope, service SettingsService, router *mux.Router) *SettingsHandler {
+	handler := &SettingsHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+	}
+
+	settingsRouter := router.PathPrefix("/back-office/api/v1/settings").Subrouter()
+	settingsRouter.HandleFunc("/", handler.handleGetSettings).Methods("GET")
+
+	return handler
 }
 
 func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router) *PlacementManagementHandler {
@@ -97,6 +122,25 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	projectsRouter.HandleFunc("/limits/{publicID}", handler.handleUpdateProjectLimits).Methods("PUT")
 
 	return handler
+}
+
+func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	retVal, httpErr := h.service.GetSettings(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetSettings response", zap.Error(ErrSettingsAPI.Wrap(err)))
+	}
 }
 
 func (h *PlacementManagementHandler) handleGetPlacements(w http.ResponseWriter, r *http.Request) {

@@ -27,7 +27,17 @@ func main() {
 		BasePath:    path.Join(backoffice.PathPrefix, "/api"),
 	}
 
-	group := api.Group("PlacementManagement", "placements")
+	group := api.Group("Settings", "settings")
+
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Get settings",
+		Description:    "Gets the settings of the service and relevant Storj services settings",
+		GoName:         "GetSettings",
+		TypeScriptName: "get",
+		Response:       backoffice.Settings{},
+	})
+
+	group = api.Group("PlacementManagement", "placements")
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Get placements",

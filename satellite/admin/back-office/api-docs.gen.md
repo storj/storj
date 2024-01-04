@@ -4,6 +4,8 @@
 
 <h2 id='list-of-endpoints'>List of Endpoints</h2>
 
+* Settings
+  * [Get settings](#settings-get-settings)
 * PlacementManagement
   * [Get placements](#placementmanagement-get-placements)
 * UserManagement
@@ -11,6 +13,73 @@
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
   * [Update project limits](#projectmanagement-update-project-limits)
+
+<h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets the settings of the service and relevant Storj services settings
+
+`GET /back-office/api/v1/settings/`
+
+**Response body:**
+
+```typescript
+{
+	admin: 	{
+		features: 		{
+			account: 			{
+				create: boolean
+				delete: boolean
+				history: boolean
+				list: boolean
+				projects: boolean
+				suspend: boolean
+				unsuspend: boolean
+				resetMFA: boolean
+				updateInfo: boolean
+				updateLimits: boolean
+				updatePlacement: boolean
+				updateStatus: boolean
+				updateValueAttribution: boolean
+				view: boolean
+			}
+
+			project: 			{
+				create: boolean
+				delete: boolean
+				history: boolean
+				list: boolean
+				updateInfo: boolean
+				updateLimits: boolean
+				updatePlacement: boolean
+				updateValueAttribution: boolean
+				view: boolean
+				memberList: boolean
+				memberAdd: boolean
+				memberRemove: boolean
+			}
+
+			bucket: 			{
+				create: boolean
+				delete: boolean
+				history: boolean
+				list: boolean
+				updateInfo: boolean
+				updatePlacement: boolean
+				updateValueAttribution: boolean
+				view: boolean
+			}
+
+			dashboard: boolean
+			operator: boolean
+			signOut: boolean
+			switchSatellite: boolean
+		}
+
+	}
+
+}
+
+```
 
 <h3 id='placementmanagement-get-placements'>Get placements (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
