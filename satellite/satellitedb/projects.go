@@ -326,6 +326,25 @@ func (projects *projects) UpdateBucketLimit(ctx context.Context, id uuid.UUID, n
 	return err
 }
 
+// UpdateAllLimits is a method for updating max buckets, storage, bandwidth, segment, rate, and burst limits.
+func (projects *projects) UpdateAllLimits(ctx context.Context, id uuid.UUID, storage, bandwidth, segment *int64, buckets, rate, burst *int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			MaxBuckets:     dbx.Project_MaxBuckets_Raw(buckets),
+			UsageLimit:     dbx.Project_UsageLimit_Raw(storage),
+			BandwidthLimit: dbx.Project_BandwidthLimit_Raw(bandwidth),
+			SegmentLimit:   dbx.Project_SegmentLimit_Raw(segment),
+			RateLimit:      dbx.Project_RateLimit_Raw(rate),
+			BurstLimit:     dbx.Project_BurstLimit_Raw(burst),
+		},
+	)
+
+	return err
+}
+
 // UpdateUserAgent is a method for updating projects user agent.
 func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
