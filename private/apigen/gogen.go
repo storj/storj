@@ -138,7 +138,7 @@ func (a *API) generateGo() ([]byte, error) {
 				paramStr += ", "
 			}
 			if e.Request != nil {
-				paramStr += "request " + reflect.TypeOf(e.Request).String() + ", "
+				paramStr += "request " + a.handleTypesPackage(reflect.TypeOf(e.Request)) + ", "
 			}
 
 			i("context", "storj.io/storj/private/api")
