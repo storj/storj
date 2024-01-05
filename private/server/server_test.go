@@ -56,64 +56,93 @@ func TestServer(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer serverCancel()
 
-	t.Run("short request", func(t *testing.T) {
-		require.Empty(t, sync2.Concurrently(
-			func() error {
-				err = instance.Run(serverCtx)
-				return errs2.IgnoreCanceled(err)
-			},
-			func() (err error) {
-				defer serverCancel()
+	require.Empty(t, sync2.Concurrently(
+		func() error {
+			err = instance.Run(serverCtx)
+			return errs2.IgnoreCanceled(err)
+		},
+		func() (err error) {
+			defer serverCancel()
 
-				dialer := net.Dialer{}
-				conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
-				if err != nil {
-					return errs.Wrap(err)
-				}
-				defer func() { err = errs.Combine(err, conn.Close()) }()
+			dialer := net.Dialer{}
+			conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			defer func() { err = errs.Combine(err, conn.Close()) }()
 
-				// prefix is too short, but err is ignored on server side
-				_, err = conn.Write([]byte("A"))
-				if err != nil {
-					return errs.Wrap(err)
-				}
-				return nil
-			},
-		))
+			// prefix is too short, but err is ignored on server side
+			_, err = conn.Write([]byte("A"))
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			return nil
+		},
+	))
+}
+
+func TestDefaultRoute(t *testing.T) {
+	ctx := testcontext.New(t)
+	log := zaptest.NewLogger(t)
+	identity := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
+
+	host := "127.0.0.1"
+	if hostlist := os.Getenv("STORJ_TEST_HOST"); hostlist != "" {
+		host, _, _ = strings.Cut(hostlist, ";")
+	}
+
+	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
+		PeerIDVersions: "latest",
+	}, nil)
+	require.NoError(t, err)
+
+	instance, err := server.New(log.Named("server"), tlsOptions, server.Config{
+		Address:          host + ":0",
+		PrivateAddress:   host + ":0",
+		TCPFastOpen:      true,
+		TCPFastOpenQueue: 256,
 	})
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, instance.Close())
+	}()
 
-	t.Run("request to default mux", func(t *testing.T) {
-		errors := sync2.Concurrently(
-			func() error {
-				err = instance.Run(serverCtx)
-				return errs2.IgnoreCanceled(err)
-			},
-			func() (err error) {
-				defer serverCancel()
+	serverCtx, serverCancel := context.WithCancel(ctx)
+	defer serverCancel()
 
-				dialer := net.Dialer{}
-				conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
-				if err != nil {
-					return errs.Wrap(err)
-				}
-				defer func() { err = errs.Combine(err, conn.Close()) }()
+	errors := sync2.Concurrently(
+		func() error {
+			err = instance.Run(serverCtx)
+			return errs2.IgnoreCanceled(err)
+		},
+		func() (err error) {
+			defer serverCancel()
 
-				_, err = conn.Write([]byte("longer than DRPC prefix"))
-				if err != nil {
-					return errs.Wrap(err)
-				}
+			dialer := net.Dialer{}
+			conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			defer func() { err = errs.Combine(err, conn.Close()) }()
 
-				buff := make([]byte, 10)
-				_, err = conn.Read(buff)
-				if err != nil {
-					return errs.Wrap(err)
-				}
-				return nil
-			},
-		)
-		require.Len(t, errors, 2)
-		require.ErrorContains(t, errors[1], "connection refused")
-	})
+			_, err = conn.Write([]byte("longer than DRPC prefix"))
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			buff := make([]byte, 10)
+			_, err = conn.Read(buff)
+			if err != nil {
+				return errs.New("read is failed: %v", err)
+			}
+			return nil
+		},
+	)
+	require.Len(t, errors, 1)
+	// the exact wrapped error is different on each OS, but the read should be failed (due to a connection close).
+	// linux: connection reset by pear
+	// windows: An existing connection was forcibly closed by the remote host
+	require.ErrorContains(t, errors[0], "read is failed")
 }
 
 func TestHybridConnector_Basic(t *testing.T) {
