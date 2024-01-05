@@ -252,7 +252,7 @@ const isAllBucketsSelected = ref<boolean>(false);
 
 const endDate = ref<AccessGrantEndDate | null>(null);
 const isDatePicker = ref<boolean>(false);
-const datePickerModel = ref<Date[]>([]);
+const datePickerModel = ref<Date>();
 
 watch(permissions, value => emit('permissionsChanged', value.slice()), { deep: true });
 watch(buckets, value => {
@@ -321,9 +321,9 @@ function getNowOffset(days = 0, months = 0, years = 0): Date {
  * Stores the access grant end date from the date picker.
  */
 function onDatePickerSubmit(): void {
-    if (!datePickerModel.value.length) return;
+    if (!datePickerModel.value) return;
 
-    const date = datePickerModel.value[0];
+    const date = datePickerModel.value;
     endDate.value = {
         title: `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`,
         date: new Date(date.getFullYear(), date.getMonth(), date.getDate(), 11, 59, 59),
