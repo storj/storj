@@ -154,7 +154,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function createDefaultProject(userID: string): Promise<void> {
-        const UNTITLED_PROJECT_NAME = 'My First Project';
+        const UNTITLED_PROJECT_NAME = 'My Storj Project';
         const UNTITLED_PROJECT_DESCRIPTION = '___';
 
         const project = new ProjectFields(

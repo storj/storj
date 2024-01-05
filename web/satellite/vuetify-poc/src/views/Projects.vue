@@ -67,11 +67,7 @@
             </template>
         </v-row>
 
-        <v-row v-if="isLoading" class="justify-center">
-            <v-progress-circular indeterminate color="primary" size="48" />
-        </v-row>
-
-        <v-row v-else-if="isTableView">
+        <v-row v-if="isTableView">
             <!-- Table view -->
             <v-col>
                 <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
@@ -109,7 +105,6 @@ import {
     VBtn,
     VSpacer,
     VBtnToggle,
-    VProgressCircular,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
@@ -146,7 +141,6 @@ const billingStore = useBillingStore();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 
-const isLoading = ref<boolean>(true);
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
@@ -229,13 +223,7 @@ function onInviteClicked(item: ProjectItemModel): void {
     isAddMemberDialogShown.value = true;
 }
 
-onMounted(async (): Promise<void> => {
-    await usersStore.getUser().catch(_ => {});
-    await projectsStore.getProjects().catch(_ => {});
-    await projectsStore.getUserInvitations().catch(_ => {});
-
-    isLoading.value = false;
-
+onMounted(() => {
     if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
         Promise.all([
             billingStore.getBalance(),

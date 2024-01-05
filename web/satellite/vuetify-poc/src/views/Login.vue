@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VBtn, VCard, VCardItem, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
+import { VAlert, VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
@@ -160,8 +160,6 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 
 import Login2FA from '@poc/views/Login2FA.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
-
-import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 const auth = new AuthHttpApi();
 
@@ -289,7 +287,6 @@ async function onLoginClick(): Promise<void> {
  * Then changes location to project dashboard page.
  */
 async function login(): Promise<void> {
-
     try {
         const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
