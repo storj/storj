@@ -138,7 +138,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		timeout := service.Config.VerifyDirReadableTimeout
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
+			startTime := time.Now()
 			err := service.store.VerifyStorageDirWithTimeout(ctx, service.contact.Local().ID, timeout)
+			duration := time.Since(startTime)
 			if err != nil {
 				if errs2.IsCanceled(err) {
 					return nil
@@ -156,13 +158,17 @@ func (service *Service) Run(ctx context.Context) (err error) {
 				}
 				return Error.New("error verifying location and/or readability of storage directory: %v", err)
 			}
+			service.log.Info("readability check done", zap.Duration("Duration", duration))
+			mon.DurationVal("readability_check").Observe(duration)
 			return nil
 		})
 	})
 	group.Go(func() error {
 		timeout := service.Config.VerifyDirWritableTimeout
 		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
+			startTime := time.Now()
 			err := service.store.CheckWritabilityWithTimeout(ctx, timeout)
+			duration := time.Since(startTime)
 			if err != nil {
 				if errs2.IsCanceled(err) {
 					return nil
@@ -180,6 +186,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 				}
 				return Error.New("error verifying writability of storage directory: %v", err)
 			}
+			service.log.Info("writability check done", zap.Duration("Duration", duration))
+			mon.DurationVal("writability_check").Observe(duration)
 			return nil
 		})
 	})
