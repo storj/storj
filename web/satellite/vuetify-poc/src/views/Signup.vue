@@ -6,7 +6,7 @@
     <v-container v-else class="fill-height flex-row justify-center align-center">
         <v-row align="top" justify="center" class="v-col-12">
             <v-col cols="12" sm="10" md="7" lg="5">
-                <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7">
+                <v-card title="Create your free account" subtitle="Get 25GB storage and 25GB download per month" class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-item>
                         <v-alert
                             v-if="isInvited"
@@ -67,24 +67,31 @@
                                 required
                             />
 
-                            <v-text-field
-                                id="Password"
-                                v-model="password"
-                                class="mb-2"
-                                label="Password"
-                                placeholder="Enter a password"
-                                color="secondary"
-                                :type="showPassword ? 'text' : 'password'"
-                                :rules="passwordRules"
-                            >
-                                <template #append-inner>
-                                    <password-input-eye-icons
-                                        :is-visible="showPassword"
-                                        type="password"
-                                        @toggleVisibility="showPassword = !showPassword"
-                                    />
-                                </template>
-                            </v-text-field>
+                            <div class="pos-relative">
+                                <v-text-field
+                                    id="Password"
+                                    v-model="password"
+                                    class="mb-2"
+                                    label="Password"
+                                    placeholder="Enter a password"
+                                    color="secondary"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    :rules="passwordRules"
+                                    @update:focused="showPasswordStrength = !showPasswordStrength"
+                                >
+                                    <template #append-inner>
+                                        <password-input-eye-icons
+                                            :is-visible="showPassword"
+                                            type="password"
+                                            @toggleVisibility="showPassword = !showPassword"
+                                        />
+                                    </template>
+                                </v-text-field>
+                                <password-strength
+                                    v-if="showPasswordStrength"
+                                    :password="password"
+                                />
+                            </div>
 
                             <v-text-field
                                 id="Retype Password"
@@ -187,7 +194,7 @@
                 />
             </v-col>
             <v-col v-if="viewConfig" cols="12" sm="10" md="7" lg="5">
-                <v-card variant="flat" class="pa-2 pa-sm-7 h-100">
+                <v-card variant="flat" class="pa-2 pa-sm-7 h-100 no-position">
                     <v-card-item>
                         <v-card-title class="text-wrap">
                             {{ viewConfig.title }}
@@ -249,6 +256,7 @@ import { useNotify } from '@/utils/hooks';
 
 import SignupConfirmation from '@poc/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@poc/components/PasswordInputEyeIcons.vue';
+import PasswordStrength from '@poc/components/PasswordStrength.vue';
 
 type ViewConfig = {
     title: string;
@@ -277,6 +285,7 @@ const acceptedTerms = ref(false);
 const showPassword = ref(false);
 const captchaError = ref(false);
 const confirmCode = ref(false);
+const showPasswordStrength = ref(false);
 
 const signupID = ref('');
 const partner = ref('');
