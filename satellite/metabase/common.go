@@ -6,6 +6,7 @@ package metabase
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -465,6 +466,28 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// String returns textual representation of status.
+func (status ObjectStatus) String() string {
+	switch status {
+	case Pending:
+		return "Pending"
+	case ObjectStatus(2):
+		return "Deleted" // Deprecated
+	case CommittedUnversioned:
+		return "CommittedUnversioned"
+	case CommittedVersioned:
+		return "CommittedVersioned"
+	case DeleteMarkerVersioned:
+		return "DeleteMarkerVersioned"
+	case DeleteMarkerUnversioned:
+		return "DeleteMarkerUnversioned"
+	case Prefix:
+		return "Prefix"
+	default:
+		return fmt.Sprintf("ObjectStatus(%d)", int(status))
+	}
 }
 
 // Pieces defines information for pieces.
