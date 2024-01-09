@@ -21,6 +21,8 @@ import {
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
+import { Duration, Time } from '@/utils/time';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', true, 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
@@ -53,8 +55,16 @@ export const useProjectsStore = defineStore('projects', () => {
         const now = new Date();
         const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
         const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
+        const since = Time.toUnixTimestamp(startUTC);
+        const before = Time.toUnixTimestamp(endUTC);
 
-        return api.getTotalUsageReportLink(startUTC, endUTC, projectID);
+        const allowedDuration = new Duration(useConfigStore().state.config.allowedUsageReportDateRange);
+        const duration = before - since; // milliseconds
+        if (duration > allowedDuration.fullMilliseconds) {
+            throw new Error(`Date range must be less than ${allowedDuration.shortString}`);
+        }
+
+        return api.getTotalUsageReportLink(since, before, projectID);
     }
 
     async function getProjects(): Promise<Project[]> {

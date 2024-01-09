@@ -193,6 +193,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # server address of the http api gateway and frontend app
 # console.address: :10100
 
+# allowed usage report request date range
+# console.allowed-usage-report-date-range: 9360h0m0s
+
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
 

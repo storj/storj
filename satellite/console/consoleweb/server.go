@@ -71,38 +71,39 @@ type Config struct {
 	AuthTokenSecret  string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
-	ContactInfoURL                  string     `help:"url link to contacts page" default:"https://forum.storj.io"`
-	LetUsKnowURL                    string     `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string     `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string     `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string     `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string     `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
-	AccountActivationRedirectURL    string     `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
-	GeneralRequestURL               string     `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string     `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string     `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
-	IsBetaSatellite                 bool       `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string     `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string     `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string     `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool       `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
-	CouponCodeSignupUIEnabled       bool       `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool       `help:"indicates if file browser flow is disabled" default:"false"`
-	LinksharingURL                  string     `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
-	PublicLinksharingURL            string     `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
-	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	LimitsAreaEnabled               bool       `help:"indicates whether limit card section of the UI is enabled" default:"true"`
-	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
-	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
-	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
-	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
-	GalleryViewEnabled              bool       `help:"whether to show new gallery view" default:"true"`
-	UseVuetifyProject               bool       `help:"whether to use vuetify POC project" default:"false"`
-	VuetifyHost                     string     `help:"the subdomain the vuetify POC project should be hosted on" default:""`
-	ObjectBrowserPaginationEnabled  bool       `help:"whether to use object browser pagination" default:"false"`
-	LimitIncreaseRequestEnabled     bool       `help:"whether to allow request limit increases directly from the UI" default:"false"`
+	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
+	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string        `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string        `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	AccountActivationRedirectURL    string        `help:"url link for account activation redirect" default:""`
+	PartneredSatellites             Satellites    `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL               string        `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
+	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string        `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string        `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
+	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
+	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
+	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
+	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"false"`
+	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
+	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
+	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
+	UseVuetifyProject               bool          `help:"whether to use vuetify POC project" default:"false"`
+	VuetifyHost                     string        `help:"the subdomain the vuetify POC project should be hosted on" default:""`
+	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
+	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
+	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -287,11 +288,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 
-	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
+	usageLimitsController := consoleapi.NewUsageLimits(logger, service, server.config.AllowedUsageReportDateRange)
 	projectsRouter.Handle("/{id}/usage-limits", http.HandlerFunc(usageLimitsController.ProjectUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-limits", http.HandlerFunc(usageLimitsController.TotalUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/daily-usage", http.HandlerFunc(usageLimitsController.DailyUsage)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/usage-report", http.HandlerFunc(usageLimitsController.UsageReport)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -774,6 +775,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
 		NewSignupFlowEnabled:            server.config.NewSignupFlowEnabled,
+		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

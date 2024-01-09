@@ -5,6 +5,7 @@ package consoleweb
 
 import (
 	"encoding/json"
+	"time"
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/console"
@@ -56,6 +57,7 @@ type FrontendConfig struct {
 	LimitIncreaseRequestEnabled     bool                  `json:"limitIncreaseRequestEnabled"`
 	SignupActivationCodeEnabled     bool                  `json:"signupActivationCodeEnabled"`
 	NewSignupFlowEnabled            bool                  `json:"newSignupFlowEnabled"`
+	AllowedUsageReportDateRange     time.Duration         `json:"allowedUsageReportDateRange"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -118,6 +118,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { Download } from '@/utils/download';
 import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 /**
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
@@ -169,9 +170,13 @@ const projectCharges = computed((): ProjectCharges => {
  * Handles download usage report click logic.
  */
 function downloadReport(): void {
-    const link = projectsStore.getUsageReportLink(props.projectId);
-    Download.fileByLink(link);
-    notify.success('Usage report download started successfully.');
+    try {
+        const link = projectsStore.getUsageReportLink(props.projectId);
+        Download.fileByLink(link);
+        notify.success('Usage report download started successfully.');
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
+    }
 }
 
 /**
