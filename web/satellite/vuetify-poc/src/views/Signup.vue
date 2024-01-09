@@ -183,7 +183,7 @@
                 </v-card>
 
                 <VueHcaptcha
-                    v-if="captchaConfig.hcaptcha.enabled"
+                    v-if="captchaConfig?.hcaptcha.enabled"
                     ref="hcaptcha"
                     :sitekey="captchaConfig.hcaptcha.siteKey"
                     :re-captcha-compat="false"
@@ -352,7 +352,7 @@ const passMinLength = computed((): number => {
  */
 const satellite = computed({
     get: () => {
-        const satName = configStore.state.config.satelliteName;
+        const satName = configStore.state.config.satelliteName ?? '';
         const item = satellitesHints.find(item => item.satellite === satName);
         return item ?? { satellite: satName, hint: '' };
     },
@@ -401,8 +401,8 @@ const isInvited = computed((): boolean => {
 /**
  * This component's captcha configuration.
  */
-const captchaConfig = computed((): MultiCaptchaConfig => {
-    return configStore.state.config.captcha.registration;
+const captchaConfig = computed((): MultiCaptchaConfig | undefined => {
+    return configStore.state.config.captcha?.registration;
 });
 
 /**
@@ -496,11 +496,6 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
-    if (!configStore.state.config.newSignupFlowEnabled) {
-        location.replace(RouteConfig.Register.path);
-        return;
-    }
-
     if (route.query.partner) {
         partner.value = route.query.partner.toString();
     }
@@ -520,6 +515,16 @@ onBeforeMount(async () => {
 watch(password, () => {
     if (repPassword.value) {
         repPasswordField.value?.validate();
+    }
+});
+
+watch(() => configStore.state.config, (value, oldValue) => {
+    if (value === oldValue) {
+        return;
+    }
+    if (!value.newSignupFlowEnabled) {
+        location.replace(RouteConfig.Register.path);
+        return;
     }
 });
 </script>
